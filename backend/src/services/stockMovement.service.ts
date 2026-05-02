@@ -1088,8 +1088,10 @@ class StockMovementService {
     }
 
     // 2. Greige Stock with transactions
+    // Exclude sourceType='MANUAL' - those are already shown via stock_movements (Stock IN form routing)
     const greigeStocks = await prisma.greige_stock.findMany({
       where: {
+        sourceType: { not: 'MANUAL' }, // Skip entries created via Stock IN routing - they're in stock_movements
         ...(filters.supplierId && { supplierId: filters.supplierId }),
         ...(filters.invoiceNumber && {
           invoiceNumber: { contains: filters.invoiceNumber, mode: 'insensitive' as const },
@@ -1138,8 +1140,17 @@ class StockMovementService {
     }
 
     // 3. Fabric Procurement (purchases)
+    // Exclude procurements linked to MANUAL greige_stock - those are already shown via stock_movements
+    const manualGreigeStockProcIds = await prisma.greige_stock.findMany({
+      where: { sourceType: 'MANUAL', procurementId: { not: null } },
+      select: { procurementId: true },
+    });
+    const excludeProcIds = new Set(manualGreigeStockProcIds.map((g) => g.procurementId));
+
     const procurements = await prisma.fabric_procurement.findMany({
       where: {
+        id: { notIn: [...excludeProcIds].filter(Boolean) as string[] }, // Exclude MANUAL-linked
+        isStockPurchase: { not: true }, // Exclude internal stock records - shown via stock_movements
         ...(filters.supplierId && { supplierId: filters.supplierId }),
         ...(filters.invoiceNumber && {
           invoiceNumber: { contains: filters.invoiceNumber, mode: 'insensitive' as const },

@@ -27,6 +27,8 @@ export interface CreateTrimStockDTO {
   qualityGrade?: string;
   receivedDate?: Date;
   sourceType?: 'GRN' | 'MANUAL' | 'ADJUSTMENT' | 'IMPORT';
+  skipMaterialSync?: boolean; // Skip ensureMaterialRecord/syncStockLevelQuantity when called from stock routing
+  tx?: any; // Transaction client - use this instead of global prisma when provided
 }
 
 export interface TrimStockItem {
@@ -82,7 +84,7 @@ const TRIM_CONFIG: Record<
     masterIdField: 'elasticId',
     masterCodeField: 'elasticCode',
     masterNameField: 'elasticName',
-    defaultUnit: 'meters',
+    defaultUnit: 'METER',
   },
   LABEL: {
     table: 'label_stock',
@@ -123,6 +125,9 @@ class TrimStockService {
    * Create a trim stock entry
    */
   async createTrimStock(data: CreateTrimStockDTO, userId: string) {
+    // Use transaction client if provided, otherwise use global prisma
+    const client = data.tx || prisma;
+
     const config = TRIM_CONFIG[data.trimType];
     if (!config) {
       throw new Error(`Unknown trim type: ${data.trimType}`);
@@ -130,7 +135,7 @@ class TrimStockService {
 
     try {
       // Validate master exists
-      const master = await (prisma as any)[config.masterTable].findUnique({
+      const master = await (client as any)[config.masterTable].findUnique({
         where: { id: data.masterId },
       });
       if (!master) {
@@ -162,14 +167,22 @@ class TrimStockService {
         createdById: userId,
       };
 
-      const stock = await (prisma as any)[config.table].create({
+      const stock = await (client as any)[config.table].create({
         data: stockData,
       });
 
       // Ensure materials record exists + sync stock_levels
-      const materialId = await ensureMaterialRecord(data.masterId, data.trimType);
-      const unitForStockLevel = stockData.unit.toUpperCase() === 'PIECES' ? 'PIECE' : stockData.unit.toUpperCase();
-      await syncStockLevelQuantity(materialId, data.quantity, data.warehouseId, unitForStockLevel);
+      // Skip when called from stock routing (parent already handles this)
+      if (!data.skipMaterialSync) {
+        const materialId = await ensureMaterialRecord(data.masterId, data.trimType);
+        const unitMap: Record<string, string> = {
+          METERS: 'METER',
+          PIECES: 'PIECE',
+        };
+        const upperUnit = stockData.unit.toUpperCase();
+        const unitForStockLevel = unitMap[upperUnit] || upperUnit;
+        await syncStockLevelQuantity(materialId, data.quantity, data.warehouseId, unitForStockLevel);
+      }
 
       logInfo(
         `Created ${data.trimType.toLowerCase()}_stock for ${master[config.masterCodeField]}: ${data.quantity} ${stockData.unit}`
@@ -221,10 +234,18 @@ class TrimStockService {
         where.warehouseLocation = filters.warehouseLocation;
       }
 
+      // Map snake_case relation keys to camelCase Prisma relation names
+      const RELATION_NAME_MAP: Record<string, string> = {
+        machine_part: 'machinePart',
+        other_material: 'otherMaterial',
+      };
+      const relationKey = config.masterTable.replace('_master', '');
+      const actualRelation = RELATION_NAME_MAP[relationKey] || relationKey;
+
       const stocks = await (prisma as any)[config.table].findMany({
         where,
         include: {
-          [config.masterTable.replace('_master', '')]: {
+          [actualRelation]: {
             select: {
               id: true,
               [config.masterCodeField]: true,
@@ -236,7 +257,7 @@ class TrimStockService {
       });
 
       return stocks.map((s: any) => {
-        const master = s[config.masterTable.replace('_master', '')] || {};
+        const master = s[actualRelation] || {};
         return {
           id: s.id,
           trimType,

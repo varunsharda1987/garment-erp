@@ -216,8 +216,8 @@ export async function calculateLaceOptions(req: Request, res: Response) {
     throw new ValidationError('Missing required fields: laceId, quantityPerGarment');
   }
 
-  // wastagePercent is required - no hardcoded default
-  if (!wastagePercent) {
+  // wastagePercent is required - no hardcoded default (0 is valid, meaning no wastage)
+  if (wastagePercent === undefined || wastagePercent === null) {
     return res.status(400).json({ success: false, message: 'wastagePercent is required' });
   }
 

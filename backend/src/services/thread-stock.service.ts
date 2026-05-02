@@ -21,6 +21,8 @@ export interface CreateThreadStockDTO {
   qualityGrade?: string;
   receivedDate?: Date;
   sourceType?: 'GRN' | 'MANUAL' | 'ADJUSTMENT' | 'IMPORT';
+  skipMaterialSync?: boolean; // Skip ensureMaterialRecord/syncStockLevelQuantity when called from stock routing
+  tx?: any; // Transaction client - use this instead of global prisma when provided
 }
 
 export interface ThreadStockItem {
@@ -56,9 +58,12 @@ class ThreadStockService {
    * Create thread stock entry directly
    */
   async createThreadStock(data: CreateThreadStockDTO, userId: string) {
+    // Use transaction client if provided, otherwise use global prisma
+    const client = data.tx || prisma;
+
     try {
       // Validate thread exists
-      const thread = await prisma.thread_master.findUnique({
+      const thread = await client.thread_master.findUnique({
         where: { id: data.threadId },
         include: { colorMaster: { select: { colorName: true } } },
       });
@@ -76,7 +81,7 @@ class ThreadStockService {
 
       // Create thread stock record
       const cost = data.purchaseCost ?? 0;
-      const threadStock = await prisma.thread_stock.create({
+      const threadStock = await client.thread_stock.create({
         data: {
           threadId: data.threadId,
           quantityAvailable: new Prisma.Decimal(data.quantity),
@@ -118,7 +123,7 @@ class ThreadStockService {
       });
 
       // Create transaction record
-      await prisma.thread_stock_transaction.create({
+      await client.thread_stock_transaction.create({
         data: {
           stockId: threadStock.id,
           transactionType: 'RECEIPT',
@@ -131,8 +136,11 @@ class ThreadStockService {
       });
 
       // Ensure materials record exists + sync stock_levels
-      await ensureMaterialRecord(data.threadId, 'THREAD');
-      await syncStockLevelQuantity(data.threadId, metersAvailable, data.warehouseId); // Sync in meters
+      // Skip when called from stock routing (parent already handles this)
+      if (!data.skipMaterialSync) {
+        const materialId = await ensureMaterialRecord(data.threadId, 'THREAD');
+        await syncStockLevelQuantity(materialId, metersAvailable, data.warehouseId, 'METER');
+      }
 
       logInfo(`Created thread stock for ${thread.threadCode}: ${data.quantity} ${unit} (${metersAvailable}m)`);
 

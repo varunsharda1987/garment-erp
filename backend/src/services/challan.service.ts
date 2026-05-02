@@ -298,7 +298,7 @@ export async function issueChallan(id: string, userId?: string) {
             where: { fabricId: fabricStock.fabricId },
             select: { id: true },
           });
-          if (fabMaterial) await syncStockLevelQuantity(fabMaterial.id, -qty, undefined, tx);
+          if (fabMaterial) await syncStockLevelQuantity(fabMaterial.id, -qty, undefined, 'METER', tx);
         }
 
         // 3. Lace stock deduction
@@ -336,7 +336,7 @@ export async function issueChallan(id: string, userId?: string) {
           });
 
           // Sync stock_levels
-          if (laceStock.laceId) await syncStockLevelQuantity(laceStock.laceId, -qty, undefined, tx);
+          if (laceStock.laceId) await syncStockLevelQuantity(laceStock.laceId, -qty, undefined, 'METER', tx);
         }
 
         // 4. Thread stock deduction
@@ -389,7 +389,7 @@ export async function issueChallan(id: string, userId?: string) {
           });
 
           // Sync stock_levels
-          if (threadStock.threadId) await syncStockLevelQuantity(threadStock.threadId, -qty, undefined, tx);
+          if (threadStock.threadId) await syncStockLevelQuantity(threadStock.threadId, -qty, undefined, 'METER', tx);
         }
 
         // 5. General material (trims/accessories) — deduct via stock_movements + stock_levels
@@ -639,7 +639,7 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
               where: { fabricId: fabricStock.fabricId },
               select: { id: true },
             });
-            if (fabMat) await syncStockLevelQuantity(fabMat.id, receivedQty, undefined, tx);
+            if (fabMat) await syncStockLevelQuantity(fabMat.id, receivedQty, undefined, 'METER', tx);
           }
         }
 
@@ -672,7 +672,7 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
           });
 
           // Sync stock_levels
-          if (laceStock?.laceId) await syncStockLevelQuantity(laceStock.laceId, receivedQty, undefined, tx);
+          if (laceStock?.laceId) await syncStockLevelQuantity(laceStock.laceId, receivedQty, undefined, 'METER', tx);
         }
 
         // General material credit (trims/accessories) via stock_movements

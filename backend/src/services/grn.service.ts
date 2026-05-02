@@ -669,7 +669,7 @@ class GRNService {
 
             // Sync to stock_levels for unified inventory view
             await ensureMaterialRecord(jobWorkOrder.finishedFabricId, 'FABRIC');
-            await syncStockLevelQuantity(jobWorkOrder.finishedFabricId, goodQty, undefined, tx);
+            await syncStockLevelQuantity(jobWorkOrder.finishedFabricId, goodQty, undefined, 'METER', tx);
           }
 
           // Defect fabric_stock at 50% cost
@@ -702,7 +702,7 @@ class GRNService {
 
             // Sync defect fabric to stock_levels
             await ensureMaterialRecord(jobWorkOrder.finishedFabricId, 'FABRIC');
-            await syncStockLevelQuantity(jobWorkOrder.finishedFabricId, defectMetersNum, undefined, tx);
+            await syncStockLevelQuantity(jobWorkOrder.finishedFabricId, defectMetersNum, undefined, 'METER', tx);
           }
 
           // Consume from processor's greige_stock (created when outward challan was issued)

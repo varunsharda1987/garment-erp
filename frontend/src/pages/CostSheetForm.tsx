@@ -175,7 +175,26 @@ const CostSheetForm = () => {
           setEmbroideryDetails(costSheet.embroideryDetails);
         }
         if (costSheet.accessoriesDetails && costSheet.accessoriesDetails.length > 0) {
-          setAccessoriesDetails(costSheet.accessoriesDetails);
+          // Auto-detect materialType for accessories missing it (legacy data fix)
+          const enrichedAccessories = costSheet.accessoriesDetails.map((acc: AccessoryDetail) => {
+            if (acc.materialType) return acc;
+            // Detect type based on name patterns
+            const name = (acc.accessoryName || '').toLowerCase();
+            let detectedType: string | undefined;
+            if (name.includes('label') || name.includes('tag') || name.includes('sticker')) {
+              detectedType = 'LABEL';
+            } else if (
+              name.includes('bag') ||
+              name.includes('box') ||
+              name.includes('hanger') ||
+              name.includes('tissue') ||
+              name.includes('polybag')
+            ) {
+              detectedType = 'PACKAGING';
+            }
+            return { ...acc, materialType: detectedType };
+          });
+          setAccessoriesDetails(enrichedAccessories);
         }
         setValueLossPercent(costSheet.valueLossPercent || 2);
         setMarkupPercent(costSheet.markupPercent || 15);

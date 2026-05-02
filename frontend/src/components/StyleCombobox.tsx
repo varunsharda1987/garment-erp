@@ -60,6 +60,41 @@ export function StyleCombobox({ value, onChange, disabled, placeholder, status =
     loadStyles('');
   }, [loadStyles]);
 
+  // Fetch preselected style if value is provided but not in options
+  useEffect(() => {
+    if (!value) return;
+    // Check if value is already in options
+    const existsInOptions = options.some((opt) => opt.value === value);
+    if (existsInOptions) return;
+    // Check if already in map (already fetched)
+    if (stylesMap.has(value)) return;
+
+    // Fetch the specific style by ID
+    const fetchPreselectedStyle = async () => {
+      try {
+        const style = await styleService.getStyleById(value);
+        if (style) {
+          // Add to map
+          setStylesMap((prev) => new Map(prev).set(style.id, style));
+          // Add to options
+          const newOption: ComboboxOption = {
+            value: style.id,
+            label: `${style.styleCode} - ${style.styleName} (${style.customerName || 'No customer'})`,
+            searchText: `${style.styleCode} ${style.styleName} ${style.customerName || ''}`,
+          };
+          setOptions((prev) => {
+            // Avoid duplicates
+            if (prev.some((opt) => opt.value === style.id)) return prev;
+            return [newOption, ...prev];
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch preselected style:', error);
+      }
+    };
+    fetchPreselectedStyle();
+  }, [value, options, stylesMap]);
+
   const handleSelect = (styleId: string) => {
     const style = stylesMap.get(styleId);
     onChange(styleId, style);

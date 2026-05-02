@@ -140,7 +140,7 @@ class EmbroideryStockService {
       });
 
       // 5b. Sync stock_levels for the fabric deduction
-      await syncStockLevelQuantity(sourceStock.fabricId, -data.quantitySent, undefined, tx);
+      await syncStockLevelQuantity(sourceStock.fabricId, -data.quantitySent, undefined, 'METER', tx);
 
       // 6. Create send-out record
       const sendOut = await tx.embroidery_send_out.create({
@@ -301,7 +301,7 @@ class EmbroideryStockService {
 
       // 4b. Ensure materials record exists and sync stock_levels for the embroidered fabric
       await ensureMaterialRecord(sourceStock.fabricId, 'FABRIC');
-      await syncStockLevelQuantity(sourceStock.fabricId, data.quantityReceived, undefined, tx);
+      await syncStockLevelQuantity(sourceStock.fabricId, data.quantityReceived, undefined, 'METER', tx);
 
       // 5. Update send-out record
       const totalReceived = data.quantityReceived + (data.quantityDamaged || 0);
@@ -514,7 +514,7 @@ class EmbroideryStockService {
 
       // Sync stock_levels for the fabric return
       if (sendOut.sourceFabricStock?.fabricId) {
-        await syncStockLevelQuantity(sendOut.sourceFabricStock.fabricId, quantitySent, undefined, tx);
+        await syncStockLevelQuantity(sendOut.sourceFabricStock.fabricId, quantitySent, undefined, 'METER', tx);
       }
 
       // Update send-out status

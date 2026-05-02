@@ -79,11 +79,14 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
 
-  // URL params for auto-population (e.g., from Stock Entry page)
+  // URL params for auto-population (e.g., from Stock Entry page or Style Form)
   const preselectedStyleId = searchParams.get('styleId');
   const preselectedSource = searchParams.get('source') as FabricSource | null;
   const preselectedComponentId = searchParams.get('componentId');
   const preselectedFinishType = searchParams.get('finishType');
+  // New params from Style Form "Create New Fabric" link
+  const preselectedStyleCode = searchParams.get('styleCode');
+  const preselectedComponentName = searchParams.get('componentName');
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -92,10 +95,11 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
 
   // New state for fabric source and styles
-  const [fabricSource, setFabricSource] = useState<FabricSource>('stock');
+  // Initialize from URL params if coming from Style Form
+  const [fabricSource, setFabricSource] = useState<FabricSource>(preselectedSource || 'stock');
   const [styles, setStyles] = useState<Style[]>([]);
-  const [selectedStyleId, setSelectedStyleId] = useState<string>('');
-  const [selectedStyleCode, setSelectedStyleCode] = useState<string>('');
+  const [selectedStyleId, setSelectedStyleId] = useState<string>(preselectedStyleId || '');
+  const [selectedStyleCode, setSelectedStyleCode] = useState<string>(preselectedStyleCode || '');
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
 
   // Component and pattern parts state (for style_linked)
@@ -122,6 +126,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const [quickCreateGreigeOpen, setQuickCreateGreigeOpen] = useState(false);
   const [autoCreateGreigeConfirmOpen, setAutoCreateGreigeConfirmOpen] = useState(false);
 
+  // Initialize formData with pre-filled values from URL params (Style Form link)
+  // fabricName is left empty - auto-generated from greige, finish, color, width
   const [formData, setFormData] = useState<FabricMasterFormData>({
     fabricCode: '',
     fabricName: '',
@@ -132,7 +138,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     composition: '',
     colorName: '',
     colorCode: '',
-    finishType: 'DYED',
+    finishType: preselectedFinishType || 'DYED',
     printDesign: '',
     actualWidth: 0,
     cutableWidth: 0,
@@ -140,7 +146,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     actualGSM: undefined,
     valueAddition: '',
     valueAdditionCost: undefined,
-    styleReference: '',
+    styleReference: preselectedStyleCode || '',
     description: '',
     notes: '',
     imageUrl: '',
@@ -354,6 +360,8 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }
   }, [mode, preselectedSource, fabricSource, preselectedFinishType, formData.finishType]);
 
+  // Note: styleCode and finishType are initialized directly in state from URL params
+
   // Auto-select style from URL params (after source is set to style_linked)
   useEffect(() => {
     if (mode === 'edit') return;
@@ -364,7 +372,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, fabricSource, preselectedStyleId, selectedStyleId]);
 
-  // Auto-select component from URL params (after style components load)
+  // Auto-select component from URL params by ID (after style components load)
   useEffect(() => {
     if (mode === 'edit') return;
     if (!preselectedComponentId) return;
@@ -379,6 +387,24 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, preselectedComponentId, selectedComponentIds, selectedStyle?.components]);
+
+  // Auto-select component from URL params by NAME (from Style Form link)
+  useEffect(() => {
+    if (mode === 'edit') return;
+    if (!preselectedComponentName) return;
+    if (selectedComponentIds.length > 0) return;
+    if (!selectedStyle?.components?.length) return;
+
+    // Find component by name (componentMaster.name or componentName)
+    const matchingComponent = selectedStyle.components.find(
+      (c) => c.componentMaster?.name === preselectedComponentName || c.componentName === preselectedComponentName
+    );
+    if (matchingComponent) {
+      setSelectedComponentIds([matchingComponent.id]);
+      loadComponentDetails(matchingComponent.id, preselectedStyleId || undefined);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, preselectedComponentName, selectedComponentIds, selectedStyle?.components]);
 
   const loadFabric = async () => {
     try {

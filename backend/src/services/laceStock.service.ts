@@ -36,6 +36,8 @@ export interface CreateLaceStockInput {
   qualityGrade?: string;
   stockType?: StockEntryType;
   createdById: string;
+  skipMaterialSync?: boolean; // Skip ensureMaterialRecord/syncStockLevelQuantity when called from stock routing
+  tx?: any; // Transaction client - use this instead of global prisma when provided
 }
 
 export interface AllocateStockInput {
@@ -95,8 +97,11 @@ export interface LaceStockFilters {
  * Create a new lace stock entry
  */
 export async function createLaceStock(input: CreateLaceStockInput) {
+  // Use transaction client if provided, otherwise use global prisma
+  const client = input.tx || prisma;
+
   // Validate lace exists
-  const lace = await prisma.lace_master.findUnique({
+  const lace = await client.lace_master.findUnique({
     where: { id: input.laceId },
     select: { id: true, laceCode: true, laceName: true, isGreige: true },
   });
@@ -105,7 +110,7 @@ export async function createLaceStock(input: CreateLaceStockInput) {
     throw new Error('Lace not found');
   }
 
-  const stock = await prisma.lace_stock.create({
+  const stock = await client.lace_stock.create({
     data: {
       laceId: input.laceId,
       lotNumber: input.lotNumber,
@@ -142,7 +147,7 @@ export async function createLaceStock(input: CreateLaceStockInput) {
   });
 
   // Create initial stock transaction
-  await prisma.lace_stock_transaction.create({
+  await client.lace_stock_transaction.create({
     data: {
       stockId: stock.id,
       transactionType: 'STOCK_IN',
@@ -156,8 +161,11 @@ export async function createLaceStock(input: CreateLaceStockInput) {
   });
 
   // Ensure materials record exists + sync stock_levels
-  await ensureMaterialRecord(input.laceId, 'LACE');
-  await syncStockLevelQuantity(input.laceId, Number(input.quantityAvailable), input.warehouseId);
+  // Skip when called from stock routing (parent already handles this)
+  if (!input.skipMaterialSync) {
+    await ensureMaterialRecord(input.laceId, 'LACE');
+    await syncStockLevelQuantity(input.laceId, Number(input.quantityAvailable), input.warehouseId);
+  }
 
   return stock;
 }

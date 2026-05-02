@@ -128,7 +128,7 @@ export const materialQuerySchema = z.object({
 // ============================================================================
 
 export const materialIdParamSchema = z.object({
-  id: z.string().regex(/^\d+$/, 'Invalid material ID format'),
+  id: z.string().min(1, 'Material ID is required'),
 });
 
 export const materialTypeParamSchema = z.object({

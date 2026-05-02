@@ -14,6 +14,52 @@ interface LaceSupplierInput {
 }
 
 /**
+ * Generates lace name following the consistent naming convention:
+ * - GREIGE:    {laceCode} | {laceType} | {composition} | {width}" | GREIGE
+ * - READY:     {laceCode} | {laceType} | {composition} | {width}" | {color}
+ * - PROCESSED: {laceCode} | {laceType} | {composition} | {width}" | {color} | {sourceGreigeCode} → {styleCode}
+ */
+function generateLaceName(lace: {
+  laceCode: string;
+  laceType?: string | null;
+  composition?: string | null;
+  width?: number | null;
+  color?: string | null;
+  isGreige: boolean;
+  sourceGreigeLaceCode?: string | null;
+  processedForStyleCode?: string | null;
+}): string {
+  const parts: string[] = [lace.laceCode];
+
+  // Add laceType (use 'Lace' as fallback)
+  parts.push(lace.laceType || 'Lace');
+
+  // Add composition if present
+  if (lace.composition) {
+    parts.push(lace.composition);
+  }
+
+  // Add width if present
+  if (lace.width) {
+    parts.push(`${lace.width}"`);
+  }
+
+  // Type-specific suffix
+  if (lace.isGreige) {
+    parts.push('GREIGE');
+  } else if (lace.sourceGreigeLaceCode) {
+    // Processed lace
+    parts.push(lace.color || 'Unspecified');
+    parts.push(`${lace.sourceGreigeLaceCode} → ${lace.processedForStyleCode || '?'}`);
+  } else {
+    // Ready lace
+    parts.push(lace.color || 'Unspecified');
+  }
+
+  return parts.join(' | ');
+}
+
+/**
  * Create a single lace item
  * Auto-generates laceCode and creates corresponding material entry
  * Optionally associates with styles via styleCodes array
@@ -44,17 +90,29 @@ export const createLace = async (req: Request, res: Response) => {
   // Auto-generate lace code
   const laceCode = await generateCode('LACE', 'lace_master', 'laceCode');
 
-  // Auto-generate laceName if not provided
+  // For processed lace, get source greige lace code for naming
+  let sourceGreigeLaceCode: string | null = null;
+  if (sourceGreigeLaceId) {
+    const sourceGreige = await prisma.lace_master.findUnique({
+      where: { id: sourceGreigeLaceId },
+      select: { laceCode: true },
+    });
+    sourceGreigeLaceCode = sourceGreige?.laceCode || null;
+  }
+
+  // Auto-generate laceName using consistent naming convention
   let finalLaceName = laceName;
   if (!finalLaceName || finalLaceName.trim() === '') {
-    const parts = [];
-    if (buyerCode) parts.push(`[${buyerCode}]`);
-    if (color) parts.push(color);
-    if (design) parts.push(design);
-    if (composition) parts.push(composition);
-    parts.push('Lace');
-    if (width) parts.push(`${width}"`);
-    finalLaceName = parts.join(' ').trim() || `Lace ${laceCode}`;
+    finalLaceName = generateLaceName({
+      laceCode,
+      laceType: laceType || null,
+      composition: composition || null,
+      width: width ? parseFloat(width) : null,
+      color: isGreige ? null : color || null,
+      isGreige: Boolean(isGreige),
+      sourceGreigeLaceCode,
+      processedForStyleCode: null, // Not set at creation time
+    });
   }
 
   // Get Lace category ID
@@ -303,6 +361,42 @@ export const getAllLace = async (req: Request, res: Response) => {
           laceCode: true,
           laceName: true,
           color: true,
+          processedForStyleCode: true,
+        },
+      },
+      // Include processedForStyle for processed laces
+      processedForStyle: {
+        select: {
+          id: true,
+          styleCode: true,
+          styleName: true,
+        },
+      },
+      // Cost sheet associations - for greige lace (styles planning to process it)
+      greigeCostingItems: {
+        where: { sourcingStrategy: 'GREIGE_PROCESSED' },
+        select: {
+          sourcingStrategy: true,
+          costing: {
+            select: {
+              styles: {
+                select: { styleCode: true, styleName: true },
+              },
+            },
+          },
+        },
+      },
+      // Cost sheet associations - for finished lace (styles using it)
+      costingItems: {
+        select: {
+          sourcingStrategy: true,
+          costing: {
+            select: {
+              styles: {
+                select: { styleCode: true, styleName: true },
+              },
+            },
+          },
         },
       },
     },
@@ -313,16 +407,35 @@ export const getAllLace = async (req: Request, res: Response) => {
 
   // Transform to match expected format
   // Note: lace_suppliers is kept and will be transformed to 'suppliers' by the serializer middleware
-  const transformedItems = laceItems.map((item: any) => ({
-    ...item,
-    materialId: item.materials[0]?.id || null,
-    materialCode: item.materials[0]?.code || null,
-    styleCodes: item.lace_style_associations.map((sa: any) => sa.style.styleCode),
-    styleNames: item.lace_style_associations.map((sa: any) => sa.style.styleName),
-    materials: undefined,
-    lace_style_associations: undefined,
-    // Keep lace_suppliers - serializer will rename to 'suppliers'
-  }));
+  const transformedItems = laceItems.map((item: any) => {
+    // Extract cost sheet style associations
+    // For greige lace: styles that plan to process it (via greigeCostingItems)
+    // For finished lace: styles that use it (via costingItems)
+    const costingStyleCodes = item.isGreige
+      ? [...new Set(item.greigeCostingItems?.map((ci: any) => ci.costing?.styles?.styleCode).filter(Boolean) || [])]
+      : [...new Set(item.costingItems?.map((ci: any) => ci.costing?.styles?.styleCode).filter(Boolean) || [])];
+
+    const costingStyleNames = item.isGreige
+      ? [...new Set(item.greigeCostingItems?.map((ci: any) => ci.costing?.styles?.styleName).filter(Boolean) || [])]
+      : [...new Set(item.costingItems?.map((ci: any) => ci.costing?.styles?.styleName).filter(Boolean) || [])];
+
+    return {
+      ...item,
+      materialId: item.materials[0]?.id || null,
+      materialCode: item.materials[0]?.code || null,
+      styleCodes: item.lace_style_associations.map((sa: any) => sa.style.styleCode),
+      styleNames: item.lace_style_associations.map((sa: any) => sa.style.styleName),
+      // Cost sheet style associations (more authoritative)
+      costingStyleCodes,
+      costingStyleNames,
+      // Clean up internal relations
+      materials: undefined,
+      lace_style_associations: undefined,
+      greigeCostingItems: undefined,
+      costingItems: undefined,
+      // Keep lace_suppliers - serializer will rename to 'suppliers'
+    };
+  });
 
   res.json({
     data: transformedItems,
@@ -527,24 +640,44 @@ export const updateLace = async (req: Request, res: Response) => {
   }
 
   // Determine final values for name generation (use new values if provided, otherwise use existing)
-  const finalBuyerCode = buyerCode !== undefined ? buyerCode : existing.buyerCode;
   const finalColor = color !== undefined ? color : existing.color;
-  const finalDesign = design !== undefined ? design : existing.design;
   const finalComposition = composition !== undefined ? composition : existing.composition;
-  const finalWidth = width !== undefined ? (width ? parseFloat(width) : null) : existing.width;
+  const finalLaceType = laceType !== undefined ? laceType : existing.laceType;
+  const finalWidth =
+    width !== undefined
+      ? width
+        ? parseFloat(width)
+        : null
+      : existing.width
+        ? parseFloat(String(existing.width))
+        : null;
 
-  // Auto-regenerate laceName if it was originally auto-generated (empty input) or if name is not explicitly provided
+  // Get source greige lace code for naming (if this is a processed lace)
+  let sourceGreigeLaceCode: string | null = null;
+  const effectiveSourceGreigeLaceId =
+    sourceGreigeLaceId !== undefined ? sourceGreigeLaceId : existing.sourceGreigeLaceId;
+  if (effectiveSourceGreigeLaceId) {
+    const sourceGreige = await prisma.lace_master.findUnique({
+      where: { id: effectiveSourceGreigeLaceId },
+      select: { laceCode: true },
+    });
+    sourceGreigeLaceCode = sourceGreige?.laceCode || null;
+  }
+
+  // Auto-regenerate laceName using consistent naming convention
   // If laceName is empty string or not provided, regenerate from attributes
   let finalLaceName = laceName;
   if (!laceName || laceName.trim() === '') {
-    const parts = [];
-    if (finalBuyerCode) parts.push(`[${finalBuyerCode}]`);
-    if (finalColor) parts.push(finalColor);
-    if (finalDesign) parts.push(finalDesign);
-    if (finalComposition) parts.push(finalComposition);
-    parts.push('Lace');
-    if (finalWidth) parts.push(`${finalWidth}"`);
-    finalLaceName = parts.join(' ').trim() || `Lace ${existing.laceCode}`;
+    finalLaceName = generateLaceName({
+      laceCode: existing.laceCode,
+      laceType: finalLaceType || null,
+      composition: finalComposition || null,
+      width: finalWidth,
+      color: existing.isGreige ? null : finalColor || null,
+      isGreige: existing.isGreige,
+      sourceGreigeLaceCode,
+      processedForStyleCode: existing.processedForStyleCode,
+    });
   }
 
   // For greige lace, color should not be updated

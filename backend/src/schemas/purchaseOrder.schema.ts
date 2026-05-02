@@ -56,6 +56,13 @@ export const POCategoryEnum = z.enum([
   'HANDWORK_SERVICE',
   'SMOCKING_SERVICE',
   'TRANSPORTATION_SERVICE',
+  'BUTTON',
+  'ZIPPER',
+  'ELASTIC',
+  'LABEL',
+  'PACKAGING',
+  'MACHINE_PART',
+  'OTHER_MATERIAL',
 ]);
 
 export const DeliveryLocationTypeEnum = z.enum(['WAREHOUSE', 'PROCESSOR']);

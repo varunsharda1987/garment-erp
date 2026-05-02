@@ -2752,11 +2752,6 @@ From ${COMPANY_CONFIG.name}
         doc.text(`${cityState}${wh.pincode ? ' - ' + wh.pincode : ''}`, marginLeft, y, { width: pageWidth - 60 });
         y += 12;
       }
-      if (wh.gstNumber) {
-        doc.text(`GSTIN: ${wh.gstNumber}`, marginLeft, y, { width: pageWidth - 60 });
-        y += 12;
-      }
-
       y += 6;
       doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
       y += 8;

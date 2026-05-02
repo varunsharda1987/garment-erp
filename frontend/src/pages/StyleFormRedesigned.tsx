@@ -148,9 +148,24 @@ interface FabricMasterSelectorProps {
     colorName?: string | null
   ) => void;
   onClear: () => void;
+  // Context for "Create New Fabric" link
+  styleId?: string;
+  styleCode?: string;
+  componentName?: string;
+  finishType?: string;
 }
 
-function FabricMasterSelector({ fabricId, fabricCode, fabricName, onSelect, onClear }: FabricMasterSelectorProps) {
+function FabricMasterSelector({
+  fabricId,
+  fabricCode,
+  fabricName,
+  onSelect,
+  onClear,
+  styleId,
+  styleCode,
+  componentName,
+  finishType,
+}: FabricMasterSelectorProps) {
   const [query, setQuery] = React.useState('');
   const [results, setResults] = React.useState<
     Array<{
@@ -270,6 +285,16 @@ function FabricMasterSelector({ fabricId, fabricCode, fabricName, onSelect, onCl
           </div>
         )}
       </div>
+      {/* Create New Fabric link */}
+      <a
+        href={`/fabric/new?source=style_linked&styleId=${encodeURIComponent(styleId || '')}&styleCode=${encodeURIComponent(styleCode || '')}&componentName=${encodeURIComponent(componentName || '')}&finishType=${encodeURIComponent(finishType || '')}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1"
+      >
+        <Plus className="h-3 w-3" />
+        Create New Fabric
+      </a>
     </div>
   );
 }
@@ -3288,6 +3313,10 @@ export default function StyleFormRedesigned() {
                                             handleUpdateFabric(fabric.id, 'colorMasterId', null);
                                             handleUpdateFabric(fabric.id, 'colorName', null);
                                           }}
+                                          styleId={effectiveId}
+                                          styleCode={styleCode}
+                                          componentName={fabric.componentName}
+                                          finishType={fabric.fabricFinishType}
                                         />
                                       )}
                                     </div>

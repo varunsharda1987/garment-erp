@@ -13,8 +13,9 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { Package } from 'lucide-react';
+import { Package, ImageOff } from 'lucide-react';
 import { ViewStockButton } from '@/components/ViewStockButton';
+import { getUploadUrl } from '@/config/api.config';
 import stockLevelService from '@/services/stockLevel.service';
 
 // Local type definition to avoid import issues
@@ -105,6 +106,24 @@ export default function LaceList() {
 
   // Define columns for DataTable
   const columns: Column<Lace>[] = [
+    // Image column
+    {
+      key: 'image',
+      header: 'Image',
+      render: (lace) =>
+        lace.image ? (
+          <img
+            src={getUploadUrl(lace.image)}
+            alt={lace.laceName}
+            className="w-10 h-10 object-cover rounded border"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-10 h-10 bg-muted rounded flex items-center justify-center">
+            <ImageOff className="h-5 w-5 text-muted-foreground" />
+          </div>
+        ),
+    },
     {
       key: 'laceCode',
       header: 'Code',
@@ -124,6 +143,52 @@ export default function LaceList() {
         </div>
       ),
     },
+    // Processing Status column
+    {
+      key: 'processingStatus',
+      header: 'Type',
+      render: (lace) => {
+        if (lace.isGreige) {
+          const finishedCount = lace.finishedLaces?.length || 0;
+          return (
+            <div className="flex flex-col gap-1">
+              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-xs w-fit">
+                Greige
+              </Badge>
+              {finishedCount > 0 && <span className="text-xs text-muted-foreground">{finishedCount} processed</span>}
+            </div>
+          );
+        }
+        if (lace.sourceGreigeLace) {
+          // Processed lace - show both greige source AND style with clickable link
+          return (
+            <div className="flex flex-col gap-1">
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs w-fit">
+                Processed
+              </Badge>
+              <span className="text-xs text-muted-foreground">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/materials/lace/${lace.sourceGreigeLace?.id}`);
+                  }}
+                  className="text-primary hover:underline font-mono"
+                >
+                  {lace.sourceGreigeLace.laceCode}
+                </button>
+                <span className="mx-1">→</span>
+                <span className="font-mono">{lace.processedForStyleCode || '?'}</span>
+              </span>
+            </div>
+          );
+        }
+        return (
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs w-fit">
+            Ready
+          </Badge>
+        );
+      },
+    },
     {
       key: 'laceType',
       header: 'Lace Type',
@@ -140,6 +205,34 @@ export default function LaceList() {
       key: 'color',
       header: 'Color',
       render: (lace) => <div className="text-sm text-foreground">{lace.color || '-'}</div>,
+    },
+    // Styles column (from cost sheets)
+    {
+      key: 'styles',
+      header: 'Styles',
+      render: (lace) => {
+        // Use cost sheet styles (primary) or fall back to direct associations
+        const codes =
+          lace.costingStyleCodes && lace.costingStyleCodes.length > 0 ? lace.costingStyleCodes : lace.styleCodes || [];
+
+        if (codes.length === 0) {
+          return <span className="text-sm text-muted-foreground">-</span>;
+        }
+        return (
+          <div className="flex flex-wrap gap-1 max-w-[140px]">
+            {codes.slice(0, 2).map((code) => (
+              <Badge key={code} variant="outline" className="text-xs font-mono">
+                {code}
+              </Badge>
+            ))}
+            {codes.length > 2 && (
+              <Badge variant="secondary" className="text-xs">
+                +{codes.length - 2}
+              </Badge>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'suppliers',

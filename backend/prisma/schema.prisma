@@ -2447,6 +2447,7 @@ model styles {
   laceOriginalStyleAllocs     lace_stock_allocation[]      @relation("lace_allocation_original_style")
   laceLabDips                 lace_lab_dip[]               @relation("lace_lab_dip_style")
   laceIssueNotes              lace_issue_note[]            @relation("lace_issue_style")
+  lacesProcessedFor           lace_master[]                @relation("lace_processed_for_style")
   // Design Hub relations
   styleImages                 style_images[]
   styleComments               style_comments[]
@@ -4841,11 +4842,20 @@ model lace_master {
   expectedShrinkagePercent Decimal? @db.Decimal(5, 2) // Shrinkage during dyeing
   costPerMeterGreige       Decimal? @db.Decimal(10, 2) // Greige cost (if isGreige=true)
 
+  // ==========================================
+  // Processed Lace Tracking
+  // When greige lace is processed, the finished lace
+  // records which style it was processed for
+  // ==========================================
+  processedForStyleId   String? // If processed from greige: which style it was processed for
+  processedForStyleCode String? // Denormalized for display (e.g., "STY-001")
+
   // Relations
   createdBy               users?                     @relation(fields: [createdById], references: [id])
   suppliers               suppliers?                 @relation(fields: [supplierId], references: [id])
   sourceGreigeLace        lace_master?               @relation("lace_greige_to_finished", fields: [sourceGreigeLaceId], references: [id])
   finishedLaces           lace_master[]              @relation("lace_greige_to_finished")
+  processedForStyle       styles?                    @relation("lace_processed_for_style", fields: [processedForStyleId], references: [id])
   lace_style_associations lace_style_associations[]
   lace_suppliers          lace_suppliers[]
   materials               materials[]
@@ -4862,6 +4872,7 @@ model lace_master {
   @@index([supplierId])
   @@index([isGreige])
   @@index([sourceGreigeLaceId])
+  @@index([processedForStyleId])
 }
 
 model button_master {

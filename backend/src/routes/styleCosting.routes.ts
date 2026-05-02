@@ -30,7 +30,7 @@ import {
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
-import { idParamSchema, styleIdParamSchema } from '../schemas/common.schema';
+import { idParamSchema, styleIdParamSchema, costSheetIdAsIdParamSchema } from '../schemas/common.schema';
 import {
   costingIdParamSchema,
   costingAndItemIdParamSchema,
@@ -112,7 +112,7 @@ router.get(
  * @desc    Get cost sheet by ID
  * @access  Private
  */
-router.get('/:id', authenticateToken, validateParams(idParamSchema), asyncHandler(getCostSheetById));
+router.get('/:id', authenticateToken, validateParams(costSheetIdAsIdParamSchema), asyncHandler(getCostSheetById));
 
 /**
  * @route   GET /api/style-costing/style/:styleId
@@ -142,7 +142,7 @@ router.put(
   '/:id',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  validateParams(idParamSchema),
+  validateParams(costSheetIdAsIdParamSchema),
   validateBody(updateCostSheetSchema),
   asyncHandler(updateCostSheet)
 );
@@ -156,7 +156,7 @@ router.patch(
   '/:id/approve',
   authenticateToken,
   authorize(UserRole.ADMIN), // Admin only for cost sheet approval
-  validateParams(idParamSchema),
+  validateParams(costSheetIdAsIdParamSchema),
   validateBody(approveCostSheetSchema),
   asyncHandler(approveCostSheet)
 );
@@ -170,7 +170,7 @@ router.delete(
   '/:id',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER),
-  validateParams(idParamSchema),
+  validateParams(costSheetIdAsIdParamSchema),
   asyncHandler(deleteCostSheet)
 );
 
@@ -188,7 +188,7 @@ router.post(
   '/:id/create-version',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  validateParams(idParamSchema),
+  validateParams(costSheetIdAsIdParamSchema),
   validateBody(createCostSheetVersionSchema),
   asyncHandler(createCostSheetVersion)
 );
@@ -245,7 +245,7 @@ router.patch(
   '/:id/actuals',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  validateParams(idParamSchema),
+  validateParams(costSheetIdAsIdParamSchema),
   validateBody(updateActualsSchema),
   asyncHandler(updateActuals)
 );
@@ -260,7 +260,7 @@ router.post(
   '/variance/:id/approve',
   authenticateToken,
   authorize(UserRole.ADMIN), // Admin only for variance approval
-  validateParams(idParamSchema),
+  validateParams(costSheetIdAsIdParamSchema),
   validateBody(approveVarianceSchema),
   asyncHandler(approveVariance)
 );

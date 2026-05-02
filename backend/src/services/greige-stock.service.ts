@@ -23,6 +23,8 @@ export interface CreateGreigeStockDTO {
   // Fold/Than tracking - for calculating actual meters from nominal
   foldLengthCm?: number; // "L" - fold length in cm (e.g., 97)
   thanCount?: number; // Number of thans in this lot
+  skipMaterialSync?: boolean; // Skip ensureMaterialRecord/syncStockLevelQuantity when called from stock routing
+  tx?: any; // Transaction client - use this instead of global prisma when provided
 }
 
 export interface GreigeStockItem {
@@ -82,9 +84,12 @@ class GreigeStockService {
    * No more proxy fabric_master records!
    */
   async createGreigeStock(data: CreateGreigeStockDTO, userId: string) {
+    // Use transaction client if provided, otherwise use global prisma
+    const client = data.tx || prisma;
+
     try {
       // Validate greige exists
-      const greige = await prisma.greige_master.findUnique({
+      const greige = await client.greige_master.findUnique({
         where: { id: data.greigeId },
       });
       if (!greige) {
@@ -97,7 +102,7 @@ class GreigeStockService {
       // fabric_procurement requires a supplierId - use provided or find a system default
       let procurementSupplierId = userSupplierId;
       if (!procurementSupplierId) {
-        const fallback = await prisma.suppliers.findFirst({
+        const fallback = await client.suppliers.findFirst({
           where: { isActive: true },
           select: { id: true },
         });
@@ -117,7 +122,7 @@ class GreigeStockService {
 
       // Create procurement record for traceability
       // Use ACTUAL quantity for financial calculation
-      const procurement = await prisma.fabric_procurement.create({
+      const procurement = await client.fabric_procurement.create({
         data: {
           id: `PROC-GRG-${Date.now()}-${Math.random().toString(36).substring(7)}`,
           procurementType: 'GREIGE',
@@ -142,7 +147,7 @@ class GreigeStockService {
 
       // Create greige stock record directly (no more proxy fabric_master!)
       // Store ACTUAL quantity as available, NOMINAL as reference
-      const greigeStock = await prisma.greige_stock.create({
+      const greigeStock = await client.greige_stock.create({
         data: {
           greigeId: data.greigeId,
           quantityAvailable: new Prisma.Decimal(actualQty), // ACTUAL (what's really available)
@@ -186,8 +191,11 @@ class GreigeStockService {
       });
 
       // Ensure materials record exists + sync stock_levels with ACTUAL quantity
-      await ensureMaterialRecord(data.greigeId, 'GREIGE');
-      await syncStockLevelQuantity(data.greigeId, actualQty, data.warehouseId);
+      // Skip when called from stock routing (parent already handles this)
+      if (!data.skipMaterialSync) {
+        await ensureMaterialRecord(data.greigeId, 'GREIGE');
+        await syncStockLevelQuantity(data.greigeId, actualQty, data.warehouseId);
+      }
 
       logInfo(
         `Created greige stock for ${greige.greigeCode}: ${actualQty} meters (nominal: ${nominalQty}, L=${data.foldLengthCm || 100})`

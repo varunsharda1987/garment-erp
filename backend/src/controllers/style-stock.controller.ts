@@ -303,12 +303,14 @@ class StyleStockController {
         };
       });
 
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.status(200).json({
         success: true,
         data,
       });
     } catch (error: unknown) {
       logger.error('Get generic greige stock error:', error);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get greige stock',
@@ -406,12 +408,14 @@ class StyleStockController {
       // Use new GreigeStockService with dedicated greige_stock table
       const summary = await GreigeStockService.getGreigeStockSummary();
 
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.status(200).json({
         success: true,
         data: summary,
       });
     } catch (error: unknown) {
       logger.error('Get greige stock summary error:', error);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to get greige stock summary',

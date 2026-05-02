@@ -1,0 +1,1 @@
+-- Placeholder migration (applied directly to DB)

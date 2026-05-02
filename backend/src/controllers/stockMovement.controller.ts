@@ -24,6 +24,8 @@ const ITEM_TYPE_TO_FK: Record<string, string> = {
   ELASTIC: 'elasticId',
   LABEL: 'labelId',
   PACKAGING: 'packagingId',
+  MACHINE_PART: 'machinePartId',
+  OTHER_MATERIAL: 'otherMaterialId',
 };
 
 /**

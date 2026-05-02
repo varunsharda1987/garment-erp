@@ -758,7 +758,18 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
    * These categories are auto-created if they don't exist
    */
   async getOrCreateCategory(
-    type: 'FABRIC' | 'LACE' | 'GREIGE' | 'THREAD' | 'BUTTON' | 'ZIPPER' | 'ELASTIC' | 'LABEL' | 'PACKAGING'
+    type:
+      | 'FABRIC'
+      | 'LACE'
+      | 'GREIGE'
+      | 'THREAD'
+      | 'BUTTON'
+      | 'ZIPPER'
+      | 'ELASTIC'
+      | 'LABEL'
+      | 'PACKAGING'
+      | 'MACHINE_PART'
+      | 'OTHER_MATERIAL'
   ): Promise<string> {
     const categoryMap: Record<string, { id: string; name: string }> = {
       FABRIC: { id: 'CAT-FABRIC', name: 'Fabric' },
@@ -770,6 +781,8 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       ELASTIC: { id: 'CAT-ELASTIC', name: 'Elastic' },
       LABEL: { id: 'CAT-LABEL', name: 'Label' },
       PACKAGING: { id: 'CAT-PACKAGING', name: 'Packaging' },
+      MACHINE_PART: { id: 'CAT-MACHINE-PART', name: 'Machine Part' },
+      OTHER_MATERIAL: { id: 'CAT-OTHER-MATERIAL', name: 'Other Material' },
     };
 
     const { id, name } = categoryMap[type];
@@ -816,7 +829,18 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
    */
   async createFromMaster(
     master: { id: string; code: string; name: string },
-    type: 'FABRIC' | 'LACE' | 'GREIGE' | 'THREAD' | 'BUTTON' | 'ZIPPER' | 'ELASTIC' | 'LABEL' | 'PACKAGING'
+    type:
+      | 'FABRIC'
+      | 'LACE'
+      | 'GREIGE'
+      | 'THREAD'
+      | 'BUTTON'
+      | 'ZIPPER'
+      | 'ELASTIC'
+      | 'LABEL'
+      | 'PACKAGING'
+      | 'MACHINE_PART'
+      | 'OTHER_MATERIAL'
   ): Promise<materials> {
     logDebug(`Creating materials record from ${type} master`, { id: master.id, code: master.code });
 
@@ -844,6 +868,8 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       ZIPPER: 'PIECE',
       LABEL: 'PIECE',
       PACKAGING: 'PIECE',
+      MACHINE_PART: 'PIECE',
+      OTHER_MATERIAL: 'PIECE',
     };
     const unit: Unit = unitMap[type] || 'PIECE';
 
@@ -867,6 +893,8 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
         elasticId: type === 'ELASTIC' ? master.id : null,
         labelId: type === 'LABEL' ? master.id : null,
         packagingId: type === 'PACKAGING' ? master.id : null,
+        machinePartId: type === 'MACHINE_PART' ? master.id : null,
+        otherMaterialId: type === 'OTHER_MATERIAL' ? master.id : null,
       },
     });
 

@@ -10,12 +10,16 @@ import { NotFoundError, ValidationError, ConflictError } from '../errors';
  * @access Private
  */
 export const getAllWarehouses = async (req: Request, res: Response) => {
-  const { warehouseType, isActive, search } = req.query;
+  const { warehouseType, isActive, search } = (req.validatedQuery || req.query) as {
+    warehouseType?: WarehouseType;
+    isActive?: boolean;
+    search?: string;
+  };
 
   const filters = {
-    warehouseType: warehouseType as WarehouseType | undefined,
-    isActive: isActive !== undefined ? isActive === 'true' : undefined,
-    search: search as string | undefined,
+    warehouseType,
+    isActive,
+    search,
   };
 
   const warehouses = await warehouseService.getAllWarehouses(filters);

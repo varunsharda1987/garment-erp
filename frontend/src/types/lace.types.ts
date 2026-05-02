@@ -79,6 +79,24 @@ export interface Lace {
     laceName: string;
   } | null;
 
+  // Processed lace tracking (for lace processed from greige)
+  processedForStyleId?: string | null;
+  processedForStyleCode?: string | null;
+  processedForStyle?: {
+    id: string;
+    styleCode: string;
+    styleName: string;
+  } | null;
+
+  // Finished laces derived from this greige
+  finishedLaces?: {
+    id: string;
+    laceCode: string;
+    laceName: string;
+    color?: string | null;
+    processedForStyleCode?: string | null;
+  }[];
+
   // Relationships (from API response)
   materialCode?: string;
   materialId?: string;
@@ -86,10 +104,14 @@ export interface Lace {
   // Multi-supplier support
   laceSuppliers?: LaceSupplier[];
 
-  // Style associations (many-to-many)
+  // Style associations (many-to-many - direct associations)
   styleCodes?: string[];
   styleNames?: string[];
   styleAssociations?: StyleAssociation[];
+
+  // Cost sheet style associations (more authoritative)
+  costingStyleCodes?: string[];
+  costingStyleNames?: string[];
 }
 
 // ============================================

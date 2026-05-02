@@ -107,8 +107,8 @@ class FabricStockService {
       });
 
       // Ensure materials record exists, then sync stock_levels
-      await ensureMaterialRecord(data.fabricId, 'FABRIC');
-      await syncStockLevelQuantity(data.fabricId, data.quantity);
+      const materialId = await ensureMaterialRecord(data.fabricId, 'FABRIC');
+      await syncStockLevelQuantity(materialId, data.quantity, undefined, 'METER');
 
       return fabricStock;
     } catch (error: unknown) {

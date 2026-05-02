@@ -18,7 +18,6 @@ import greigeStockService from '../greige-stock.service';
 import { createLaceStock } from '../laceStock.service';
 import threadStockService from '../thread-stock.service';
 import trimStockService, { TrimType } from '../trim-stock.service';
-import { ensureMaterialRecord, syncStockLevelQuantity } from './material-sync.helper';
 import { logInfo, logError } from '../../utils/logger';
 
 export interface StockInRoutingData {
@@ -99,6 +98,8 @@ export async function routeToSpecializedStock(
           foldLengthCm: data.foldLengthCm,
           thanCount: data.thanCount,
           qualityGrade: data.qualityGrade,
+          skipMaterialSync: true, // Parent (createStockIn) already handles material/stock_levels sync
+          tx: client, // Pass transaction context so records are part of parent transaction
         },
         data.performedById
       );
@@ -108,6 +109,7 @@ export async function routeToSpecializedStock(
 
     if (material.fabricId) {
       // Create fabric_stock entry directly (no dedicated createFabricStock method exists)
+      // Note: Parent (createStockIn) already handles material/stock_levels sync, so we skip it here
       const cost = data.rate ?? 0;
       const width = Number(material.fabric_master?.actualWidth) || 44;
       const stock = await client.fabric_stock.create({
@@ -130,10 +132,6 @@ export async function routeToSpecializedStock(
         },
       });
 
-      // Sync to stock_levels
-      const materialId = await ensureMaterialRecord(material.fabricId, 'FABRIC');
-      await syncStockLevelQuantity(materialId, data.quantity, data.warehouseId, 'METER', client);
-
       logInfo(`[StockRouting] Routed to fabric_stock: ${stock.id}, qty: ${data.quantity}`);
       return { routed: true, stockType: 'FABRIC', stockId: stock.id };
     }
@@ -150,6 +148,8 @@ export async function routeToSpecializedStock(
         qualityGrade: data.qualityGrade || 'A',
         stockType: 'GENERIC',
         createdById: data.performedById,
+        skipMaterialSync: true, // Parent (createStockIn) already handles material/stock_levels sync
+        tx: client, // Pass transaction context so records are part of parent transaction
       });
       logInfo(`[StockRouting] Routed to lace_stock: ${stock.id}, qty: ${data.quantity}`);
       return { routed: true, stockType: 'LACE', stockId: stock.id };
@@ -165,6 +165,8 @@ export async function routeToSpecializedStock(
           sourceType: 'MANUAL',
           supplierLotNumber: data.lotNumber,
           qualityGrade: data.qualityGrade,
+          skipMaterialSync: true, // Parent (createStockIn) already handles material/stock_levels sync
+          tx: client, // Pass transaction context so records are part of parent transaction
         },
         data.performedById
       );
@@ -197,6 +199,8 @@ export async function routeToSpecializedStock(
             batchNumber: data.batchNumber,
             lotNumber: data.lotNumber,
             qualityGrade: data.qualityGrade,
+            skipMaterialSync: true, // Parent (createStockIn) already handles material/stock_levels sync
+            tx: client, // Pass transaction context so records are part of parent transaction
           },
           data.performedById
         );

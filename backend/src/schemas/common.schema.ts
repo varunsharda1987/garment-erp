@@ -15,6 +15,11 @@ export const idParamSchema = z.object({
   id: z.string().uuid('Invalid ID'),
 });
 
+// Cost sheet ID format: CS-{timestamp}-{randomString} (not UUID)
+export const costSheetIdAsIdParamSchema = z.object({
+  id: z.string().regex(/^CS-\d+-[a-z0-9]+$/i, 'Invalid cost sheet ID format'),
+});
+
 export const batchIdParamSchema = z.object({
   batchId: z.string().uuid('Invalid batch ID'),
 });

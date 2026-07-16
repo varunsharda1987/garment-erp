@@ -34,6 +34,29 @@ function getStagedFiles() {
   }
 }
 
+// --- Stock-sync enforcement (bug-hunt BH-0333/BH-0338) --------------------------------
+// The old check only looked at *stock*.service.ts, so it missed every controller and any
+// service whose name lacks "stock" — which is how the ledger corruption slipped in. Detect
+// stock-table writes by CONTENT instead, across all backend .ts files, and BLOCK new ones.
+// A baseline grandfathers the existing violations so this can enforce without a big-bang fix.
+const STOCK_WRITE_RE =
+  /\b(?:prisma|tx)\.(greige_stock|fabric_stock|lace_stock|thread_stock|button_stock|zipper_stock|elastic_stock|label_stock|packaging_stock|stock_levels)\.(create|update|updateMany|createMany|upsert|delete|deleteMany)\b/;
+// A file that writes a stock table is fine if it also uses one of the sanctioned sync paths.
+const SYNC_MARKERS = ['material-sync.helper', 'stock-routing.helper', 'syncStockLevelQuantity', 'routeToSpecializedStock'];
+
+function writesStockTableWithoutSync(content) {
+  return STOCK_WRITE_RE.test(content) && !SYNC_MARKERS.some(m => content.includes(m));
+}
+
+function loadStockSyncBaseline() {
+  try {
+    const p = path.join(process.cwd(), 'scripts/hooks/stock-sync-baseline.json');
+    return new Set(JSON.parse(fs.readFileSync(p, 'utf8')));
+  } catch {
+    return new Set();
+  }
+}
+
 // Categorize files by type
 function categorizeFiles(files) {
   return {
@@ -41,6 +64,7 @@ function categorizeFiles(files) {
     controllers: files.filter(f => f.endsWith('.controller.ts')),
     types: files.filter(f => f.endsWith('.types.ts')),
     stockServices: files.filter(f => f.includes('stock') && f.endsWith('.service.ts')),
+    backendTs: files.filter(f => f.startsWith('backend/') && f.endsWith('.ts') && !f.endsWith('.test.ts')),
     docs: files.filter(f => f.startsWith('docs/') && f.endsWith('.md')),
     prisma: files.filter(f => f.includes('schema.prisma')),
     typescript: files.filter(f => f.endsWith('.ts') || f.endsWith('.tsx')),
@@ -141,29 +165,38 @@ function checkTypeSync() {
 /**
  * Check: Stock services use material-sync helper
  */
-function checkStockServicePattern(stockFiles) {
-  console.log(`\n${c.cyan}Checking stock service pattern...${c.reset}`);
+function checkStockServicePattern(backendFiles) {
+  console.log(`\n${c.cyan}Checking stock-sync pattern (any stock-table write must keep stock_levels in sync)...${c.reset}`);
 
-  const issues = [];
+  const baseline = loadStockSyncBaseline();
+  const newViolations = [];
+  const grandfathered = [];
 
-  for (const file of stockFiles) {
+  for (const file of backendFiles) {
     const fullPath = path.join(process.cwd(), file);
     if (!fs.existsSync(fullPath)) continue;
 
     const content = fs.readFileSync(fullPath, 'utf8');
-    if (!content.includes('material-sync.helper')) {
-      issues.push(file);
+    if (writesStockTableWithoutSync(content)) {
+      (baseline.has(file) ? grandfathered : newViolations).push(file);
     }
   }
 
-  if (issues.length > 0) {
-    console.log(`${c.yellow}  ⚠ Stock services missing material-sync.helper:${c.reset}`);
-    issues.forEach(file => console.log(`    ${file}`));
-    console.log(`${c.dim}    See CLAUDE.md "Stock Service Pattern" section${c.reset}`);
-    return true; // Warning only
+  if (grandfathered.length > 0) {
+    console.log(`${c.yellow}  ⚠ ${grandfathered.length} known unsynced stock file(s) (grandfathered — fix when you touch them):${c.reset}`);
+    grandfathered.forEach(file => console.log(`${c.dim}    ${file}${c.reset}`));
   }
 
-  console.log(`${c.green}  ✓ Stock services OK${c.reset}`);
+  if (newViolations.length > 0) {
+    console.log(`${c.red}  ✗ Stock-table write with NO sync — call syncStockLevelQuantity / routeToSpecializedStock:${c.reset}`);
+    newViolations.forEach(file => console.log(`${c.red}    ${file}${c.reset}`));
+    console.log(`${c.dim}    See CLAUDE.md "Stock Service Pattern". If this is genuinely intentional, add the file to scripts/hooks/stock-sync-baseline.json.${c.reset}`);
+    return false; // BLOCK new violations
+  }
+
+  if (grandfathered.length === 0) {
+    console.log(`${c.green}  ✓ Stock-sync OK${c.reset}`);
+  }
   return true;
 }
 
@@ -469,10 +502,10 @@ function main() {
     checkTypeSync(); // Warning only
   }
 
-  // Stock service changes → check pattern
-  if (categories.stockServices.length) {
+  // Backend .ts changes → enforce stock-sync (blocks NEW stock-table writes that don't sync)
+  if (categories.backendTs.length) {
     checksRun++;
-    checkStockServicePattern(categories.stockServices);
+    if (!checkStockServicePattern(categories.backendTs)) allPassed = false;
   }
 
   // Any TypeScript changes → check console.log

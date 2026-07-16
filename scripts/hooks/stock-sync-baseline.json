@@ -1,0 +1,13 @@
+[
+  "backend/src/controllers/cad-approval.controller.ts",
+  "backend/src/controllers/cutting.controller.ts",
+  "backend/src/controllers/dyeing.controller.ts",
+  "backend/src/controllers/printing.controller.ts",
+  "backend/src/services/WeightedAverageCostService.ts",
+  "backend/src/services/external-process.service.ts",
+  "backend/src/services/laceIssueNote.service.ts",
+  "backend/src/services/mrp.service.ts",
+  "backend/src/services/order.service.ts",
+  "backend/src/services/processingBatch.service.ts",
+  "backend/src/services/stockLevel.service.ts"
+]

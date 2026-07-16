@@ -384,6 +384,14 @@ class CostSheetPOGenerationService {
           );
         }
         const shrinkage = Number(laceItem.greigeLace.expectedShrinkagePercent);
+        // A shrinkage of 100% (or more) divides by zero/negative below -> Infinity/garbage into
+        // the PO quantity. Fail loud on bad data instead (bug-hunt BH-0366/BH-0364).
+        if (shrinkage >= 100) {
+          throw new Error(
+            `Invalid expected shrinkage ${shrinkage}% for greige lace "${laceItem.greigeLace?.laceName || laceItem.laceId}": ` +
+              `must be below 100% (it divides the greige requirement).`
+          );
+        }
         const greigeRequiredQty = requiredQty / (1 - shrinkage / 100);
 
         // Add greige lace item

@@ -582,6 +582,14 @@ async function calculateGreigeLaceProcessingCost(
       if (rate.shrinkagePercent !== null) {
         shrinkagePercent = rate.shrinkagePercent;
         shrinkageFactor = 1 - shrinkagePercent / 100;
+        // A shrinkage of 100% (or more) makes this factor 0/negative and is used as a divisor
+        // below and in effectiveCostPerMeter — it would produce Infinity/garbage. Fail loud on
+        // bad data instead (bug-hunt BH-0366/BH-0364).
+        if (shrinkageFactor <= 0) {
+          throw new Error(
+            `Invalid shrinkage ${shrinkagePercent}% on the processor rate card: must be below 100% (it is a divisor in costing).`
+          );
+        }
         greigeQuantityNeeded = quantityNeeded / shrinkageFactor;
       }
     }
@@ -611,6 +619,11 @@ async function calculateGreigeLaceProcessingCost(
         if (rate.shrinkagePercent !== null) {
           shrinkagePercent = rate.shrinkagePercent;
           shrinkageFactor = 1 - shrinkagePercent / 100;
+          if (shrinkageFactor <= 0) {
+            throw new Error(
+              `Invalid shrinkage ${shrinkagePercent}% on the processor rate card: must be below 100% (it is a divisor in costing).`
+            );
+          }
           greigeQuantityNeeded = quantityNeeded / shrinkageFactor;
         }
         if (!labDipApproved) {

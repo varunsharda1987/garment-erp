@@ -2,7 +2,14 @@
 import jwt from 'jsonwebtoken';
 import { JWTPayload } from '../types/auth.types';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+// Never fall back to a hard-coded default: a public, well-known signing key lets anyone
+// forge a valid login token for any user. Fail loudly at startup instead (bug-hunt BH-0252).
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error(
+    'JWT_SECRET is not set. Refusing to start with an insecure default signing key — set JWT_SECRET in the environment.'
+  );
+}
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 /**

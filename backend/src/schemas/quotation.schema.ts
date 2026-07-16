@@ -45,14 +45,10 @@ export const createQuotationSchema = z.object({
 
   quotationDate: z
     .string()
-    .datetime('Invalid date format')
     .optional()
     .transform((val) => (val ? new Date(val) : undefined)),
 
-  validUntil: z
-    .string()
-    .datetime('Invalid date format')
-    .transform((val) => new Date(val)),
+  validUntil: z.string().transform((val) => new Date(val)),
 
   remarks: z.string().max(1000, 'Remarks must be less than 1000 characters').trim().optional(),
 
@@ -68,13 +64,11 @@ export const createQuotationSchema = z.object({
 export const updateQuotationSchema = z.object({
   quotationDate: z
     .string()
-    .datetime('Invalid date format')
     .optional()
     .transform((val) => (val ? new Date(val) : undefined)),
 
   validUntil: z
     .string()
-    .datetime('Invalid date format')
     .optional()
     .transform((val) => (val ? new Date(val) : undefined)),
 

@@ -320,7 +320,7 @@ export interface CreateStyleFormData {
   season?: string;
   seasonId?: string | null;
   components: ComponentFormData[];
-  processes: ProcessFormData[];
+  processes?: ProcessFormData[];
 }
 
 // DEPRECATED: CAD Average form data (use FabricWidthCADFormData instead)

@@ -2135,8 +2135,9 @@ export default function StyleFormRedesigned() {
         description,
         numberOfComponents,
         components, // Add the components array
-        // Standard processes are assumed for all styles (Cutting, Stitching, Finishing, Transportation)
-        processes: [] as Array<{ processName: string; processType?: string; isRequired?: boolean }>,
+        // Standard processes are assumed for all styles (Cutting, Stitching, Finishing, Transportation).
+        // Deliberately NOT sent: the form does not manage processes, and sending [] made the backend
+        // delete-and-recreate wipe all existing process rows on every save (bug-hunt BH-0275/BH-0373).
         expectedOrderQuantity: expectedOrderQty,
         // Template fields - Pricing
         costPrice: costPrice || null,

@@ -77,6 +77,8 @@ export const saveMatrixSchema = z
 export const saveLaceMatrixSchema = z
   .object({
     rates: z.array(RateCellSchema).min(1, 'At least one rate is required'),
+    slabs: z.array(SlabDefinitionSchema).optional(),
+    deletedLaceIds: z.array(z.string().uuid()).optional(),
   })
   .passthrough();
 

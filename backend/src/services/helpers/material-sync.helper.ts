@@ -99,14 +99,15 @@ export async function ensureMaterialRecord(masterId: string, masterType: string)
  * @param materialId - The materials.id (= masterId by convention)
  * @param change - Positive for increase, negative for decrease
  * @param warehouseId - Optional warehouse ID to scope the update (if omitted, updates all warehouses - use with caution)
- * @param unit - Optional unit for new stock_levels records (default: PIECE)
+ * @param unit - Unit for new stock_levels records. If omitted, the material's own unit is used
+ *               (NOT a hardcoded 'PIECE', which recorded fabric/greige in pieces — bug-hunt BH-0304)
  * @param tx - Optional Prisma transaction client for atomicity
  */
 export async function syncStockLevelQuantity(
   materialId: string,
   change: number,
   warehouseId?: string,
-  unit: string = 'PIECE',
+  unit?: string,
   tx?: any
 ): Promise<void> {
   if (change === 0) return;
@@ -131,12 +132,22 @@ export async function syncStockLevelQuantity(
 
     // If no record was updated and we're adding stock, create one
     if (updateResult.count === 0 && change > 0 && warehouseId) {
+      // Record the material's REAL unit (fabric/greige in metres, etc.). Only fall back to PIECE
+      // if the master genuinely has no unit — never as a blind default (bug-hunt BH-0304).
+      let resolvedUnit = unit;
+      if (!resolvedUnit) {
+        const material = await client.materials.findUnique({
+          where: { id: materialId },
+          select: { unit: true },
+        });
+        resolvedUnit = material?.unit || 'PIECE';
+      }
       await client.stock_levels.create({
         data: {
           materialId,
           warehouseId,
           quantity: change,
-          unit: unit as any,
+          unit: resolvedUnit as any,
           lastUpdated: new Date(),
         },
       });

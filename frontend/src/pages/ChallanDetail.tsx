@@ -77,7 +77,10 @@ export default function ChallanDetail() {
   }
 
   const canIssue = challan.status === 'DRAFT';
-  const canCancel = !['RECEIVED', 'CANCELLED'].includes(challan.status);
+  // Only DRAFT challans can be cancelled safely: once ISSUED, stock has already been deducted,
+  // and cancelChallan flips the status WITHOUT returning that stock — silently corrupting it
+  // (bug-hunt BH-0214). This is a stopgap; re-enable for ISSUED once cancel reverses the stock.
+  const canCancel = challan.status === 'DRAFT';
 
   return (
     <div className="space-y-4">

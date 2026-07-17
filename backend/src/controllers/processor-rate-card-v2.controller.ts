@@ -413,13 +413,15 @@ export async function saveLaceMatrix(req: Request, res: Response) {
   }
 
   const { processorId } = req.params;
-  const { rates } = req.body;
+  const { rates, deletedLaceIds } = req.body;
 
   if (!Array.isArray(rates)) {
     throw new ValidationError('rates must be an array');
   }
 
-  const result = await processorRateV2Service.saveLaceRateMatrix(processorId, rates, userId);
+  const result = await processorRateV2Service.saveLaceRateMatrix(processorId, rates, userId, {
+    deletedLaceIds: Array.isArray(deletedLaceIds) ? deletedLaceIds : [],
+  });
 
   res.json(
     serialize({

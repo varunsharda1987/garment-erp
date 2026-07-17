@@ -519,6 +519,24 @@ export async function saveProcessorRateMatrix(
     });
   }
 
+  // Batch-load all currently-active greige rate rows for this matrix up front — one query instead
+  // of a findFirst per cell (bug-hunt BH-0312). History-preserving updates below still run per
+  // changed cell, so the supersede chain and audit log are unchanged.
+  const activeRows = await prisma.processor_rate_card.findMany({
+    where: {
+      processorId,
+      processingType,
+      printingType: processingType === 'PRINTING' ? (printingType as PrintingType) : null,
+      laceId: null,
+      greigeId: { not: null },
+      effectiveTo: null,
+    },
+  });
+  const activeByCell = new Map<string, (typeof activeRows)[number]>();
+  for (const row of activeRows) {
+    activeByCell.set(`${row.greigeId}|${row.slabId}`, row);
+  }
+
   // Upsert rate entries
   for (const rate of request.rates) {
     // Resolve the actual slabId from the map
@@ -545,81 +563,48 @@ export async function saveProcessorRateMatrix(
         where: rateDeleteFilter,
       });
     } else {
-      // Upsert rate - handle PRINTING (with printingType) vs DYEING (null printingType) differently
-      // Prisma's compound unique constraint doesn't allow null values in the unique lookup
-      if (processingType === 'PRINTING' && printingType) {
-        // For PRINTING, use findFirst + create/update pattern (compound unique has nullable fields)
-        // Look for currently ACTIVE rate (effectiveTo is null)
-        const existing = await prisma.processor_rate_card.findFirst({
-          where: {
+      // Look up the active row from the batch-loaded map (no per-cell query)
+      const existing = activeByCell.get(`${rate.greigeId}|${actualSlabId}`);
+
+      if (existing) {
+        // Skip unchanged cells entirely — avoids a findUnique + no-op transaction per cell
+        // when the whole matrix is resubmitted for a small edit (bug-hunt BH-0312).
+        if (Math.abs(toNumber(existing.ratePerMeter) - rate.ratePerMeter) < 0.001) {
+          continue;
+        }
+        // Use history-preserving update instead of direct overwrite (supersede + audit log)
+        await updateRateWithHistory(
+          existing.id,
+          rate.ratePerMeter,
+          userId,
+          'RATE_MATRIX_UPDATE',
+          'Updated via rate matrix save'
+        );
+      } else if (processingType === 'PRINTING' && printingType) {
+        await prisma.processor_rate_card.create({
+          data: {
             processorId,
             processingType,
             printingType: printingType as PrintingType,
             greigeId: rate.greigeId,
-            laceId: null, // Greige fabric rate, not lace
             slabId: actualSlabId,
-            effectiveTo: null, // Only active rates
+            ratePerMeter: rate.ratePerMeter,
+            createdById: userId,
           },
         });
-
-        if (existing) {
-          // Use history-preserving update instead of direct overwrite
-          await updateRateWithHistory(
-            existing.id,
-            rate.ratePerMeter,
-            userId,
-            'RATE_MATRIX_UPDATE',
-            'Updated via rate matrix save'
-          );
-        } else {
-          await prisma.processor_rate_card.create({
-            data: {
-              processorId,
-              processingType,
-              printingType: printingType as PrintingType,
-              greigeId: rate.greigeId,
-              slabId: actualSlabId,
-              ratePerMeter: rate.ratePerMeter,
-              createdById: userId,
-            },
-          });
-        }
       } else {
-        // For DYEING (printingType is null), use findFirst + create/update pattern
-        // Look for currently ACTIVE rate (effectiveTo is null)
-        const existing = await prisma.processor_rate_card.findFirst({
-          where: {
-            processorId,
+        // DYEING (printingType is null)
+        await prisma.processor_rate_card.create({
+          data: {
+            processor: { connect: { id: processorId } },
             processingType,
             printingType: null,
-            greigeId: rate.greigeId,
-            slabId: actualSlabId,
-            effectiveTo: null, // Only active rates
+            greige: { connect: { id: rate.greigeId } },
+            slab: { connect: { id: actualSlabId } },
+            ratePerMeter: rate.ratePerMeter,
+            createdBy: { connect: { id: userId } },
           },
         });
-
-        if (existing) {
-          // Use history-preserving update instead of direct overwrite
-          await updateRateWithHistory(
-            existing.id,
-            rate.ratePerMeter,
-            userId,
-            'RATE_MATRIX_UPDATE',
-            'Updated via rate matrix save'
-          );
-        } else {
-          await prisma.processor_rate_card.create({
-            data: {
-              processor: { connect: { id: processorId } },
-              processingType,
-              printingType: null,
-              greige: { connect: { id: rate.greigeId } },
-              slab: { connect: { id: actualSlabId } },
-              ratePerMeter: rate.ratePerMeter,
-              createdBy: { connect: { id: userId } },
-            },
-          });
-        }
       }
     }
   }
@@ -926,7 +911,11 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
       processingType,
       isActive: true,
       minQuantity: { lte: quantityMeters },
-      maxQuantity: { gte: quantityMeters },
+      // Half-open range [min, max): max is EXCLUSIVE, so a boundary quantity (e.g. 500m when the
+      // slabs are 0-500 and 500-1000) matches exactly ONE slab instead of coin-flipping between two
+      // (bug-hunt BH-0329). This matches updateProcessorSlabs' own overlap rule; the `desc` fallback
+      // below still catches quantities at or above the top slab.
+      maxQuantity: { gt: quantityMeters },
     },
   });
 
@@ -1413,10 +1402,51 @@ export async function getLaceProcessorRateMatrix(processorId: string): Promise<L
 export async function saveLaceRateMatrix(
   processorId: string,
   rates: LaceRateEntry[],
-  userId: string
+  userId: string,
+  options: { deletedLaceIds?: string[] } = {}
 ): Promise<{ saved: number; skipped: number }> {
   let saved = 0;
   let skipped = 0;
+
+  // Delete removed lace rows (safe: only the specified lace rates for this processor)
+  if (options.deletedLaceIds && options.deletedLaceIds.length > 0) {
+    await prisma.processor_rate_card.deleteMany({
+      where: {
+        processorId,
+        processingType: 'DYEING',
+        greigeId: null,
+        laceId: { in: options.deletedLaceIds },
+      },
+    });
+  }
+
+  // Resolve the frontend's `temp-N` slab placeholders (N is the slabOrder) against EXISTING DYEING
+  // slabs. We deliberately do NOT create/prune slabs here: DYEING slabs are SHARED with the greige
+  // matrix, and pruning them via updateProcessorSlabs would cascade-delete greige rate rows. New
+  // slabs must be added through the greige matrix; a lace rate on a not-yet-created slab is skipped
+  // rather than written with an invalid slabId (bug-hunt Part 4 / BH-0322).
+  const existingSlabs = await prisma.processor_quantity_slabs.findMany({
+    where: { processorId, processingType: 'DYEING', isActive: true },
+    select: { id: true, slabOrder: true },
+  });
+  const slabIdByOrder = new Map(existingSlabs.map((s) => [s.slabOrder, s.id]));
+
+  // Batch-load active lace rows once (one query instead of a findFirst per cell — BH-0312),
+  // keyed by `${laceId}|${slabId}`. History-preserving updates still run per changed cell.
+  const activeRows = await prisma.processor_rate_card.findMany({
+    where: {
+      processorId,
+      processingType: 'DYEING',
+      printingType: null,
+      greigeId: null,
+      laceId: { not: null },
+      effectiveTo: null,
+    },
+  });
+  const activeByCell = new Map<string, (typeof activeRows)[number]>();
+  for (const row of activeRows) {
+    activeByCell.set(`${row.laceId}|${row.slabId}`, row);
+  }
 
   for (const rate of rates) {
     if (!rate.laceId || !rate.slabId) {
@@ -1424,22 +1454,25 @@ export async function saveLaceRateMatrix(
       continue;
     }
 
-    // Use findFirst + create/update pattern since Prisma compound unique doesn't handle nulls well
-    // Look for currently ACTIVE rate (effectiveTo is null)
-    const existing = await prisma.processor_rate_card.findFirst({
-      where: {
-        processorId,
-        processingType: 'DYEING',
-        printingType: null,
-        greigeId: null,
-        laceId: rate.laceId,
-        slabId: rate.slabId,
-        effectiveTo: null, // Only active rates
-      },
-    });
+    // Resolve a `temp-N` slabId to the real slab id; skip if that slab isn't persisted yet.
+    let actualSlabId = rate.slabId;
+    if (rate.slabId.startsWith('temp-')) {
+      const order = Number.parseInt(rate.slabId.slice(5), 10);
+      const resolved = slabIdByOrder.get(order);
+      if (!resolved) {
+        skipped++;
+        continue;
+      }
+      actualSlabId = resolved;
+    }
 
+    const existing = activeByCell.get(`${rate.laceId}|${actualSlabId}`);
     if (existing) {
-      // Use history-preserving update instead of direct overwrite
+      // Skip unchanged cells (avoids a findUnique + no-op transaction per cell — BH-0312)
+      if (Math.abs(toNumber(existing.ratePerMeter) - rate.ratePerMeter) < 0.001) {
+        skipped++;
+        continue;
+      }
       await updateRateWithHistory(
         existing.id,
         rate.ratePerMeter,
@@ -1455,7 +1488,7 @@ export async function saveLaceRateMatrix(
           printingType: null,
           greigeId: null,
           laceId: rate.laceId,
-          slabId: rate.slabId,
+          slabId: actualSlabId,
           ratePerMeter: rate.ratePerMeter,
           createdById: userId,
         },
@@ -1583,7 +1616,11 @@ export async function lookupLaceRate(query: LaceRateLookupQuery): Promise<LaceRa
       processingType: 'DYEING',
       isActive: true,
       minQuantity: { lte: quantityMeters },
-      maxQuantity: { gte: quantityMeters },
+      // Half-open range [min, max): max is EXCLUSIVE, so a boundary quantity (e.g. 500m when the
+      // slabs are 0-500 and 500-1000) matches exactly ONE slab instead of coin-flipping between two
+      // (bug-hunt BH-0329). This matches updateProcessorSlabs' own overlap rule; the `desc` fallback
+      // below still catches quantities at or above the top slab.
+      maxQuantity: { gt: quantityMeters },
     },
   });
 

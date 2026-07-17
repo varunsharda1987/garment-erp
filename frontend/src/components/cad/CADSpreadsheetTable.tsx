@@ -1053,7 +1053,7 @@ export function CADSpreadsheetTable({
 
       // Link CAD to stock (backend endpoint)
       await cadPlanningService.linkCADToStock(styleId, {
-        cadRowId: selectedRowForStock,
+        cadId: selectedRowForStock,
         fabricStockId: stockId,
       });
 

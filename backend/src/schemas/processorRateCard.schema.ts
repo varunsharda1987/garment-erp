@@ -37,8 +37,12 @@ export const updateSlabsSchema = z
 const RateCellSchema = z.object({
   greigeId: z.string().uuid().optional(),
   laceId: z.string().uuid().optional(),
-  slabId: z.string().uuid(),
-  rate: z.number().nonnegative(),
+  // NOT .uuid(): the frontend sends a `temp-N` placeholder for not-yet-persisted slabs,
+  // which the service resolves via slabIdMap before writing (bug-hunt BH-0322).
+  slabId: z.string(),
+  // The field is `ratePerMeter` everywhere (frontend, controller, service) — it was named
+  // `rate` here, which is why every matrix save 400'd (bug-hunt BH-0322).
+  ratePerMeter: z.number().nonnegative(),
 });
 
 /**
@@ -51,7 +55,17 @@ export const saveMatrixSchema = z
     printingType: z.string().max(50).optional(),
     rates: z.array(RateCellSchema).min(1, 'At least one rate is required'),
     slabs: z.array(SlabDefinitionSchema).optional(),
-    shrinkages: z.record(z.string(), z.number()).optional(),
+    // Frontend sends an ARRAY of { greigeId, shrinkagePercent }, not a record/map.
+    // shrinkagePercent is bounded below 100: `1 - shrinkage/100` is used as a divisor in
+    // shrinkage costing, so 100 would divide by zero and write Infinity (bug-hunt BH-0322/BH-0366).
+    shrinkages: z
+      .array(
+        z.object({
+          greigeId: z.string(),
+          shrinkagePercent: z.number().min(0).lt(100).nullable(),
+        })
+      )
+      .optional(),
     deletedGreigeIds: z.array(z.string().uuid()).optional(),
   })
   .passthrough();
@@ -63,6 +77,8 @@ export const saveMatrixSchema = z
 export const saveLaceMatrixSchema = z
   .object({
     rates: z.array(RateCellSchema).min(1, 'At least one rate is required'),
+    slabs: z.array(SlabDefinitionSchema).optional(),
+    deletedLaceIds: z.array(z.string().uuid()).optional(),
   })
   .passthrough();
 

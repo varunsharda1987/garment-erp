@@ -247,7 +247,9 @@ export const createPlanningVersionSchema = z.object({
  * POST /api/cad-planning/:styleId/copy
  */
 export const copyCADPurposeSchema = z.object({
-  sourcePurpose: CADPurposeEnum,
+  // Optional: the copy handler (copyCADPurpose) derives the source from sourceCadId and never reads
+  // sourcePurpose. Requiring it 400'd every copy because the form doesn't send it (BH-0353).
+  sourcePurpose: CADPurposeEnum.optional(),
   targetPurpose: CADPurposeEnum,
   cadIds: z.array(z.string().uuid()).optional(),
   remarks: z.string().max(500).optional(),
@@ -276,6 +278,10 @@ export const linkCADToStockSchema = z.object({
  */
 export const cadPlanActionSchema = z.object({
   cadSelections: z.record(z.string(), z.string().uuid()).optional(),
+  // The Approve action posts fabric->CAD mappings that approveCADPlan requires; without this field
+  // validateBody stripped them and the service threw "fabricCADMappings array is required" (BH-0353).
+  // Optional because this schema is shared with the Reject action, which sends none.
+  fabricCADMappings: z.array(z.object({ fabricId: z.string().uuid(), fabricCADId: z.string().uuid() })).optional(),
   remarks: z.string().max(500).optional(),
   rejectionReason: z.string().max(500).optional(),
 });

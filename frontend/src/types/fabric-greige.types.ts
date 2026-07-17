@@ -87,15 +87,24 @@ export interface FabricMaster {
   updatedAt: string;
   createdById: string;
   greige?: GreigeMaster;
-  supplier?: {
-    id: string;
-    code: string;
-    name: string;
-    contactPerson?: string;
-    email?: string;
-    phone?: string;
+  // The serializer maps the `suppliers` junction ARRAY -> `supplier` (serializer.ts:256), so at
+  // runtime this is the array of supplier links, NOT a single supplier. It was typed as a single
+  // object, so the edit form read `fabric.suppliers` (undefined) and silently wiped links on save
+  // (bug-hunt BH-0207).
+  supplier?: Array<{
+    supplier: {
+      id: string;
+      code: string;
+      name: string;
+      contactPerson?: string;
+      email?: string;
+      phone?: string;
+      isActive: boolean;
+    };
+    isPreferred: boolean;
     isActive: boolean;
-  };
+    notes?: string;
+  }>;
   suppliers?: Array<{
     supplier: {
       id: string;

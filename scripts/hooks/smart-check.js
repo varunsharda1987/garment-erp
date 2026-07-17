@@ -11,6 +11,9 @@
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { loadBaseline, diff } = require('./ratchet');
+const { checkAlignment } = require('./check-schema-controller-alignment');
+const detectors = require('./drift-detectors');
 
 // Colors for terminal output
 const c = {
@@ -124,25 +127,116 @@ function checkSchemaControllerSync() {
  * Runs the full alignment checker to detect Zod schema vs controller destructuring mismatches.
  * Prevents silent data loss from Zod stripping unknown fields.
  */
+// Shared ratchet runner: grandfather baselined violations, BLOCK new ones. Returns true=pass.
+function runRatchetedCheck(label, violations, baselineName, fixHint) {
+  const baseline = loadBaseline(baselineName);
+  const { fresh, grandfathered } = diff(violations.map(v => v.key), baseline);
+  const freshUniq = [...new Set(fresh)];
+  const grandUniq = [...new Set(grandfathered)];
+
+  if (grandUniq.length) {
+    console.log(`${c.yellow}  ⚠ ${grandUniq.length} known ${label} (grandfathered — fix when you touch them)${c.reset}`);
+  }
+  if (freshUniq.length) {
+    const byKey = new Map(violations.map(v => [v.key, v]));
+    console.log(`${c.red}  ✗ NEW ${label}:${c.reset}`);
+    freshUniq.forEach(k => {
+      const v = byKey.get(k);
+      console.log(`${c.red}    ${v.file}:${v.line} — ${v.detail}${c.reset}`);
+    });
+    console.log(`${c.dim}    ${fixHint}${c.reset}`);
+    return false;
+  }
+  if (!grandUniq.length) console.log(`${c.green}  ✓ ${label} OK${c.reset}`);
+  return true;
+}
+
+/**
+ * Check (A1): Schema-Controller field alignment — BLOCKING + ratchet.
+ * The controller reads a field the Zod schema strips → silent data loss. Runs the full
+ * repo-wide alignment analysis in-process and blocks only NEW mismatches vs the baseline.
+ */
 function checkSchemaControllerAlignment() {
   console.log(`\n${c.cyan}Checking schema-controller field alignment...${c.reset}`);
-
+  let results;
   try {
-    // Run the alignment script in check mode
-    execSync('node scripts/hooks/check-schema-controller-alignment.js --check', {
-      encoding: 'utf-8',
-      stdio: 'pipe',
-    });
-    console.log(`${c.green}  ✓ Schema-controller fields aligned${c.reset}`);
-    return true;
-  } catch (error) {
-    // Script exited with non-zero (critical mismatches found)
-    console.log(`${c.yellow}  ⚠ Schema-controller field mismatches detected${c.reset}`);
-    console.log(`${c.dim}    Run: node scripts/hooks/check-schema-controller-alignment.js --report${c.reset}`);
-    // Return true (warning only) - don't block commits for now since there are legacy mismatches
-    // Once all mismatches are fixed, change this to return false to enforce
-    return true;
+    results = checkAlignment();
+  } catch (e) {
+    console.log(`${c.yellow}  ⚠ alignment check could not run: ${e.message}${c.reset}`);
+    return true; // fail-open on our own analyzer error — never block on a hook bug
   }
+  const violations = [];
+  for (const m of results.misaligned) {
+    for (const f of m.critical) {
+      violations.push({
+        key: `${m.route} :: ${m.schemaName} :: ${f}`,
+        file: m.controllerFile || m.schemaFile || m.route,
+        line: 0,
+        detail: `${m.controllerFn} reads '${f}' but ${m.schemaName} strips it`,
+      });
+    }
+  }
+  return runRatchetedCheck(
+    'schema/controller field mismatch(es)',
+    violations,
+    'schema-alignment-baseline.json',
+    'Add the field to the Zod schema. If intentional, add the key to scripts/hooks/schema-alignment-baseline.json.'
+  );
+}
+
+/** Check (A2): mutating routes must use validateBody — BLOCKING new + ratchet. */
+function checkRouteValidation(routeFiles) {
+  console.log(`\n${c.cyan}Checking routes have body validation...${c.reset}`);
+  return runRatchetedCheck(
+    'mutating route(s) with no validateBody',
+    detectors.perRouteValidation(routeFiles),
+    'route-validation-baseline.json',
+    'Add validateBody(schema) to the route (or mark it `// no-body`). If intentional, add the key to scripts/hooks/route-validation-baseline.json.'
+  );
+}
+
+/** Check (A3): a Zod enum value not in the correspondingly-named Prisma enum — BLOCKING new + ratchet. */
+function checkEnumDrift(schemaFiles) {
+  console.log(`\n${c.cyan}Checking Zod enums vs Prisma enums...${c.reset}`);
+  return runRatchetedCheck(
+    'Zod enum value(s) not in the Prisma enum',
+    detectors.enumDrift(schemaFiles),
+    'enum-drift-baseline.json',
+    'Align the z.enum values with the Prisma enum. If intentional, add the key to scripts/hooks/enum-drift-baseline.json.'
+  );
+}
+
+/** Check (A4): z.string().datetime() in a schema rejects date-picker input — BLOCKING new + ratchet. */
+function checkDatetimeSchema(schemaFiles) {
+  console.log(`\n${c.cyan}Checking schemas for z.string().datetime()...${c.reset}`);
+  return runRatchetedCheck(
+    'z.string().datetime() field(s) (reject YYYY-MM-DD)',
+    detectors.datetimeSchema(schemaFiles),
+    'datetime-schema-baseline.json',
+    'Use z.coerce.date() for date-input fields (or mark `// allow-datetime`). If intentional, add the key to scripts/hooks/datetime-schema-baseline.json.'
+  );
+}
+
+/** Check (B1): raw divide-by-shrinkage → Infinity at 100% — BLOCKING new + ratchet. */
+function checkShrinkageDivide(tsFiles) {
+  console.log(`\n${c.cyan}Checking divide-by-shrinkage is guarded...${c.reset}`);
+  return runRatchetedCheck(
+    'raw divide-by-shrinkage /(1 - x/100)',
+    detectors.shrinkageDivide(tsFiles),
+    'shrinkage-divide-baseline.json',
+    'Route through divideByShrinkage() in backend/src/utils/currency.ts (guards >= 100%). If intentional, add the key to scripts/hooks/shrinkage-divide-baseline.json.'
+  );
+}
+
+/** Check (B2): en-IN currency toLocaleString must set maximumFractionDigits — BLOCKING new + ratchet. */
+function checkCurrencyFormat(tsFiles) {
+  console.log(`\n${c.cyan}Checking en-IN currency formatting...${c.reset}`);
+  return runRatchetedCheck(
+    "en-IN currency format(s) missing maximumFractionDigits",
+    detectors.currencyFormat(tsFiles),
+    'currency-format-baseline.json',
+    'Add maximumFractionDigits: 2 to the toLocaleString options. If intentional, add the key to scripts/hooks/currency-format-baseline.json.'
+  );
 }
 
 /**
@@ -458,10 +552,62 @@ function checkPrismaSafety() {
 // MAIN
 // ============================================================================
 
+// --- CI backstop: run the ratcheted guardrails across the WHOLE repo (ignores git staging).
+// Used by `node scripts/hooks/smart-check.js --all` in CI so `git commit --no-verify` can't slip
+// new drift/money-math violations past the local hook.
+function walkFiles(dir, acc = []) {
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return acc;
+  }
+  for (const e of entries) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) {
+      if (!/node_modules|\.git|dist|build|coverage/.test(p)) walkFiles(p, acc);
+    } else {
+      acc.push(p);
+    }
+  }
+  return acc;
+}
+
+function runAllModeChecks() {
+  const root = detectors.REPO_ROOT;
+  const files = [...walkFiles(path.join(root, 'backend/src')), ...walkFiles(path.join(root, 'frontend/src'))].map(f =>
+    path.relative(root, f).split(path.sep).join('/')
+  );
+  const routeFiles = files.filter(f => f.endsWith('.routes.ts'));
+  const schemaFiles = files.filter(f => f.endsWith('.schema.ts'));
+  const tsFiles = files.filter(f => (f.endsWith('.ts') || f.endsWith('.tsx')) && !f.endsWith('.test.ts'));
+
+  console.log(`\n${c.bright}Running guardrails across the whole repo (CI mode)...${c.reset}`);
+  let ok = true;
+  if (!checkSchemaControllerAlignment()) ok = false;
+  if (!checkRouteValidation(routeFiles)) ok = false;
+  if (!checkEnumDrift(schemaFiles)) ok = false;
+  if (!checkDatetimeSchema(schemaFiles)) ok = false;
+  if (!checkShrinkageDivide(tsFiles)) ok = false;
+  if (!checkCurrencyFormat(tsFiles)) ok = false;
+
+  console.log(`\n${c.bright}${c.blue}═══════════════════════════════════════════════════${c.reset}`);
+  if (ok) {
+    console.log(`${c.green}${c.bright}✓ Guardrails passed (no new drift / money-math violations)${c.reset}\n`);
+  } else {
+    console.log(`${c.red}${c.bright}✗ Guardrails failed — the new violations above are not in the baselines${c.reset}\n`);
+    process.exit(1);
+  }
+}
+
 function main() {
   console.log(`\n${c.bright}${c.blue}═══════════════════════════════════════════════════${c.reset}`);
   console.log(`${c.bright}${c.blue}       SMART CHECK - Auto-Detecting Hook            ${c.reset}`);
   console.log(`${c.bright}${c.blue}═══════════════════════════════════════════════════${c.reset}`);
+
+  if (process.argv.includes('--all')) {
+    return runAllModeChecks();
+  }
 
   const stagedFiles = getStagedFiles();
 
@@ -488,12 +634,31 @@ function main() {
 
   // Run relevant checks based on what changed
 
-  // Schema or Controller changes → check sync
+  // Schema or Controller or Route changes → basic sync + field alignment (BLOCKING + ratchet)
   if (categories.schemas.length || categories.controllers.length || categories.routes.length) {
     checksRun++;
     if (!checkSchemaControllerSync()) allPassed = false;
-    // Also run full field alignment check
-    checkSchemaControllerAlignment(); // Warning only for now
+    if (!checkSchemaControllerAlignment()) allPassed = false;
+  }
+
+  // Route changes → every mutating route must validate its body (BLOCKING new + ratchet)
+  if (categories.routes.length) {
+    checksRun++;
+    if (!checkRouteValidation(categories.routes)) allPassed = false;
+  }
+
+  // Schema changes → enum-vs-Prisma drift + z.string().datetime() (BLOCKING new + ratchet)
+  if (categories.schemas.length) {
+    checksRun++;
+    if (!checkEnumDrift(categories.schemas)) allPassed = false;
+    if (!checkDatetimeSchema(categories.schemas)) allPassed = false;
+  }
+
+  // Any TS/TSX changes → money-math guards: divide-by-shrinkage + en-IN currency (BLOCKING new + ratchet)
+  if (categories.typescript.length) {
+    checksRun++;
+    if (!checkShrinkageDivide(categories.typescript)) allPassed = false;
+    if (!checkCurrencyFormat(categories.typescript)) allPassed = false;
   }
 
   // Type file changes → check type sync

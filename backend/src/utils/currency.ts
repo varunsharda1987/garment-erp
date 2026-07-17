@@ -85,6 +85,26 @@ export function divideCurrency(a: string | number | null | undefined, b: string 
 }
 
 /**
+ * Inflate a quantity by a shrinkage/wastage factor: quantity / (1 - shrinkagePercent/100).
+ *
+ * The bare `/ (1 - s/100)` form divides by ZERO when s = 100 (→ Infinity) and flips sign when
+ * s > 100, silently corrupting fabric/greige costing. This guards the dangerous end (>= 100) —
+ * NOT the harmless s = 0 that some call sites wrongly guarded instead. The pre-commit
+ * "shrinkage-divide" guardrail steers raw divisions here (bug-hunt BH-0364/BH-0366).
+ */
+export function divideByShrinkage(
+  quantity: string | number | null | undefined,
+  shrinkagePercent: string | number | null | undefined
+): Decimal {
+  const pct = toCurrency(shrinkagePercent);
+  if (pct.gte(100) || pct.lt(0)) {
+    throw new Error(`Invalid shrinkage percent ${pct.toString()}: must be >= 0 and < 100`);
+  }
+  const factor = new Decimal(1).minus(pct.dividedBy(100)); // 1 - s/100, always in (0, 1]
+  return toCurrency(quantity).dividedBy(factor);
+}
+
+/**
  * Calculate percentage (value * percentage / 100)
  */
 export function percentOf(

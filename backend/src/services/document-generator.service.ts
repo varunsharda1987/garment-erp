@@ -1215,11 +1215,17 @@ From ${COMPANY_CONFIG.name}
     // Determine if interstate based on placeOfSupply
     const isInterstate = quotation.placeOfSupply && quotation.placeOfSupply.stateCode !== COMPANY_CONFIG.stateCode;
 
-    // GST breakdown (estimated)
+    // GST breakdown (estimated). Derive the printed rate from the ACTUAL tax amount over the taxable
+    // base, not the stale flat header taxRate: quotations recalculate estimated GST from per-item HSN
+    // slabs (e.g. apparel > ₹2,500/pc = 18%), so taxRate/2 printed a rate that contradicted the
+    // amount beside it, and the old fallbacks fabricated 12%/6% that match no real slab (BH-0071).
+    const taxableBase = Number(quotation.totalAmount || 0);
+    const effectiveRate = (amt: number): number =>
+      taxableBase > 0 ? Number(((amt / taxableBase) * 100).toFixed(2)) : 0;
+
     if (isInterstate) {
       const igstAmount = Number(quotation.estimatedIGST || 0);
-      const igstRate = quotation.taxRate ? Number(quotation.taxRate) : igstAmount > 0 ? 12 : 0;
-      doc.text(`IGST @ ${igstRate}% (Est.):`, labelX, y);
+      doc.text(`IGST @ ${effectiveRate(igstAmount)}% (Est.):`, labelX, y);
       doc.text(`₹${igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
         width: 70,
         align: 'right',
@@ -1228,16 +1234,15 @@ From ${COMPANY_CONFIG.name}
     } else {
       const cgstAmount = Number(quotation.estimatedCGST || 0);
       const sgstAmount = Number(quotation.estimatedSGST || 0);
-      const rate = quotation.taxRate ? Number(quotation.taxRate) / 2 : cgstAmount > 0 ? 6 : 0;
 
-      doc.text(`CGST @ ${rate}% (Est.):`, labelX, y);
+      doc.text(`CGST @ ${effectiveRate(cgstAmount)}% (Est.):`, labelX, y);
       doc.text(`₹${cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
         width: 70,
         align: 'right',
       });
       y += 14;
 
-      doc.text(`SGST @ ${rate}% (Est.):`, labelX, y);
+      doc.text(`SGST @ ${effectiveRate(sgstAmount)}% (Est.):`, labelX, y);
       doc.text(`₹${sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
         width: 70,
         align: 'right',

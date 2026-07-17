@@ -911,7 +911,11 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
       processingType,
       isActive: true,
       minQuantity: { lte: quantityMeters },
-      maxQuantity: { gte: quantityMeters },
+      // Half-open range [min, max): max is EXCLUSIVE, so a boundary quantity (e.g. 500m when the
+      // slabs are 0-500 and 500-1000) matches exactly ONE slab instead of coin-flipping between two
+      // (bug-hunt BH-0329). This matches updateProcessorSlabs' own overlap rule; the `desc` fallback
+      // below still catches quantities at or above the top slab.
+      maxQuantity: { gt: quantityMeters },
     },
   });
 
@@ -1612,7 +1616,11 @@ export async function lookupLaceRate(query: LaceRateLookupQuery): Promise<LaceRa
       processingType: 'DYEING',
       isActive: true,
       minQuantity: { lte: quantityMeters },
-      maxQuantity: { gte: quantityMeters },
+      // Half-open range [min, max): max is EXCLUSIVE, so a boundary quantity (e.g. 500m when the
+      // slabs are 0-500 and 500-1000) matches exactly ONE slab instead of coin-flipping between two
+      // (bug-hunt BH-0329). This matches updateProcessorSlabs' own overlap rule; the `desc` fallback
+      // below still catches quantities at or above the top slab.
+      maxQuantity: { gt: quantityMeters },
     },
   });
 

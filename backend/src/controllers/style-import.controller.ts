@@ -278,6 +278,41 @@ class StyleImportController {
   }
 
   /**
+   * Split one CSV line into fields, honoring double-quoted fields that may contain commas and
+   * escaped quotes (""). A naive split(',') corrupted every row with a comma inside a quoted value
+   * — e.g. a style name "Kurta Set, Blue With Piping" shifted every column after it (BH-0262).
+   */
+  private parseCSVLine(line: string): string[] {
+    const fields: string[] = [];
+    let field = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (line[i + 1] === '"') {
+            field += '"'; // escaped quote inside a quoted field
+            i++;
+          } else {
+            inQuotes = false; // closing quote
+          }
+        } else {
+          field += ch;
+        }
+      } else if (ch === '"') {
+        inQuotes = true; // opening quote
+      } else if (ch === ',') {
+        fields.push(field);
+        field = '';
+      } else {
+        field += ch;
+      }
+    }
+    fields.push(field);
+    return fields.map((f) => f.trim());
+  }
+
+  /**
    * Parse CSV file
    */
   private parseCSV(buffer: Buffer): StyleImportCSVRow[] {
@@ -289,7 +324,7 @@ class StyleImportController {
     }
 
     // Parse header
-    const headers = lines[0].split(',').map((h) => h.trim().replace(/"/g, ''));
+    const headers = this.parseCSVLine(lines[0]);
 
     // Parse rows - skip the second row if it contains Required/Optional indicators
     const rows: StyleImportCSVRow[] = [];
@@ -297,7 +332,7 @@ class StyleImportController {
 
     // Check if second row is a Required/Optional indicator row
     if (lines.length > 1) {
-      const secondRowValues = lines[1].split(',').map((v) => v.trim().replace(/"/g, '').toLowerCase());
+      const secondRowValues = this.parseCSVLine(lines[1]).map((v) => v.toLowerCase());
       const isIndicatorRow = secondRowValues.every((val) => val === '' || val === 'required' || val === 'optional');
       if (isIndicatorRow) {
         startIndex = 2; // Skip the indicator row
@@ -305,7 +340,7 @@ class StyleImportController {
     }
 
     for (let i = startIndex; i < lines.length; i++) {
-      const values = lines[i].split(',').map((v) => v.trim().replace(/"/g, ''));
+      const values = this.parseCSVLine(lines[i]);
       const row: Record<string, string | undefined> = {};
 
       headers.forEach((header, index) => {

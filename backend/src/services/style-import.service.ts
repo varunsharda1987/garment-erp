@@ -308,13 +308,15 @@ export class StyleImportService {
       const styleGroups = this.groupRowsByStyle(validRows);
 
       // Step 3: Process each style
-      for (const [styleCode, rows] of Object.entries(styleGroups)) {
+      for (const [, rows] of Object.entries(styleGroups)) {
+        // Declared before the try so the catch block can still reference them on failure.
+        const firstRow = rows[0];
+        const styleCode = firstRow.styleCode;
         try {
-          const firstRow = rows[0];
-
-          // Check if style exists
+          // Check if style exists — scope by customer so a different buyer that reused this styleCode
+          // is not matched and silently overwritten (bug-hunt BH-0261).
           const existingStyle = await prisma.styles.findFirst({
-            where: { styleCode, isActive: true },
+            where: { styleCode, customerName: firstRow.customerName, isActive: true },
           });
 
           if (existingStyle && !options?.overwriteExisting) {
@@ -555,10 +557,15 @@ export class StyleImportService {
   private groupRowsByStyle(rows: StyleImportRow[]): Record<string, StyleImportRow[]> {
     return rows.reduce(
       (groups, row) => {
-        if (!groups[row.styleCode]) {
-          groups[row.styleCode] = [];
+        // Scope the bucket by customer too: different buyers commonly reuse the same styleCode, and
+        // grouping by code alone merged their rows into one style — attaching one buyer's variants
+        // (and its BOM/costing) onto another buyer's style (bug-hunt BH-0261). The composite key is
+        // only a bucket id; styleCode/customer are read from rows[0] downstream.
+        const key = `${row.customerId ?? row.customerName ?? ''}||${row.styleCode}`;
+        if (!groups[key]) {
+          groups[key] = [];
         }
-        groups[row.styleCode].push(row);
+        groups[key].push(row);
         return groups;
       },
       {} as Record<string, StyleImportRow[]>

@@ -538,11 +538,14 @@ export const deletePackaging = async (req: Request, res: Response) => {
     throw new NotFoundError('Packaging', id);
   }
 
-  // Check if used in BOM
+  // Check if used in a BOM. Guard BOTH the order BOM and the STYLE BOM (style_material_bom):
+  // the style BOM holds the live bill-of-materials and its FKs are ON DELETE SET NULL, so an
+  // unchecked delete silently orphans style BOM lines (bug-hunt BH-0286).
   const bomUsage = await prisma.$queryRaw<CountResult[]>`
-    SELECT COUNT(*)::integer as count
-    FROM "order_bom_items" bi
-    WHERE bi."packagingId" = ${id}
+    SELECT (
+      (SELECT COUNT(*) FROM "order_bom_items" WHERE "packagingId" = ${id})
+      + (SELECT COUNT(*) FROM "style_material_bom" WHERE "packagingId" = ${id})
+    )::integer as count
   `;
 
   if (bomUsage[0]?.count > 0) {

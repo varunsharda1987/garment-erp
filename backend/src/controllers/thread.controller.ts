@@ -551,11 +551,14 @@ export const deleteThread = async (req: Request, res: Response) => {
   }
 
   // Check if used in any BOM
-  const bomUsage = await prisma.order_bom_items.count({
-    where: {
-      threadId: id,
-    },
-  });
+  // Also guard the STYLE BOM (style_material_bom) — it holds the live bill-of-materials and its
+  // FKs are ON DELETE SET NULL, so deleting a thread still referenced there silently orphans those
+  // BOM lines. Checking the order BOM alone is not enough (bug-hunt BH-0286).
+  const [orderBomUsage, styleBomUsage] = await Promise.all([
+    prisma.order_bom_items.count({ where: { threadId: id } }),
+    prisma.style_material_bom.count({ where: { threadId: id } }),
+  ]);
+  const bomUsage = orderBomUsage + styleBomUsage;
 
   if (bomUsage > 0) {
     throw new BusinessError(

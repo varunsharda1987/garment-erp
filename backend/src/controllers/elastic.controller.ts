@@ -397,11 +397,14 @@ export const deleteElastic = async (req: Request, res: Response) => {
   }
 
   // Check if used in BOM
-  const bomUsage = await prisma.order_bom_items.count({
-    where: {
-      elasticId: id,
-    },
-  });
+  // Also guard the STYLE BOM (style_material_bom) — it holds the live bill-of-materials and its
+  // FKs are ON DELETE SET NULL, so deleting an elastic still referenced there silently orphans
+  // those BOM lines. Checking the order BOM alone is not enough (bug-hunt BH-0286).
+  const [orderBomUsage, styleBomUsage] = await Promise.all([
+    prisma.order_bom_items.count({ where: { elasticId: id } }),
+    prisma.style_material_bom.count({ where: { elasticId: id } }),
+  ]);
+  const bomUsage = orderBomUsage + styleBomUsage;
 
   if (bomUsage > 0) {
     throw new BusinessError(

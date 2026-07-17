@@ -601,6 +601,7 @@ export default function GreigeAvailableStock() {
                                         <th className="px-3 py-2 text-center">Status</th>
                                         <th className="px-3 py-2 text-left">Supplier</th>
                                         <th className="px-3 py-2 text-left">At Processor</th>
+                                        <th className="px-3 py-2 text-left">Challan #</th>
                                         <th className="px-3 py-2 text-center">Actions</th>
                                       </tr>
                                     </thead>
@@ -652,6 +653,9 @@ export default function GreigeAvailableStock() {
                                           </td>
                                           <td className="px-3 py-2 text-muted-foreground text-xs">
                                             {entry.processor?.name || '-'}
+                                          </td>
+                                          <td className="px-3 py-2 text-muted-foreground text-xs">
+                                            {entry.sourceChallan?.challanNumber || '-'}
                                           </td>
                                           <td className="px-3 py-2 text-center">
                                             <div className="flex gap-1 justify-center">

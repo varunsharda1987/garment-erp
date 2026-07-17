@@ -103,6 +103,27 @@ export async function ensureMaterialRecord(masterId: string, masterType: string)
  *               (NOT a hardcoded 'PIECE', which recorded fabric/greige in pieces — bug-hunt BH-0304)
  * @param tx - Optional Prisma transaction client for atomicity
  */
+// The company's own (raw-material) warehouse — "Kashaya Fabs" (WH-RM-*). Used as the fallback when
+// a stock operation doesn't name a warehouse, so a receipt is never dropped for lack of one
+// (bug-hunt BH-0310). Cached for the process lifetime; falls back to the oldest active warehouse.
+let cachedDefaultWarehouseId: string | null | undefined;
+async function getDefaultWarehouseId(client: any): Promise<string | undefined> {
+  if (cachedDefaultWarehouseId !== undefined) return cachedDefaultWarehouseId || undefined;
+  const wh =
+    (await client.warehouses.findFirst({
+      where: { isActive: true, warehouseCode: { startsWith: 'WH-RM' } },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    })) ||
+    (await client.warehouses.findFirst({
+      where: { isActive: true },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    }));
+  cachedDefaultWarehouseId = wh?.id ?? null;
+  return cachedDefaultWarehouseId || undefined;
+}
+
 export async function syncStockLevelQuantity(
   materialId: string,
   change: number,
@@ -130,41 +151,41 @@ export async function syncStockLevelQuantity(
       },
     });
 
-    // If no record was updated and we're adding stock, create one
-    if (updateResult.count === 0 && change > 0 && warehouseId) {
-      // Record the material's REAL unit (fabric/greige in metres, etc.). Only fall back to PIECE
-      // if the master genuinely has no unit — never as a blind default (bug-hunt BH-0304).
-      let resolvedUnit = unit;
-      if (!resolvedUnit) {
-        const material = await client.materials.findUnique({
-          where: { id: materialId },
-          select: { unit: true },
+    // If no record was updated and we're adding stock, create one. A stock_levels row needs a
+    // warehouse; when the caller doesn't supply one, fall back to the company's default warehouse
+    // (Kashaya Fabs) so a receipt is never dropped (bug-hunt BH-0310).
+    if (updateResult.count === 0 && change > 0) {
+      const createWarehouseId = warehouseId || (await getDefaultWarehouseId(client));
+      if (!createWarehouseId) {
+        logError(
+          `[MaterialSync] No warehouse available to record ${change} of material ${materialId} — ` +
+            `receipt NOT recorded. Create a warehouse (or pass one) so stock can be tracked.`,
+          new Error('no warehouse available for stock_levels create')
+        );
+      } else {
+        // Record the material's REAL unit (fabric/greige in metres, etc.). Only fall back to PIECE
+        // if the master genuinely has no unit — never as a blind default (bug-hunt BH-0304).
+        let resolvedUnit = unit;
+        if (!resolvedUnit) {
+          const material = await client.materials.findUnique({
+            where: { id: materialId },
+            select: { unit: true },
+          });
+          resolvedUnit = material?.unit || 'PIECE';
+        }
+        await client.stock_levels.create({
+          data: {
+            materialId,
+            warehouseId: createWarehouseId,
+            quantity: change,
+            unit: resolvedUnit as any,
+            lastUpdated: new Date(),
+          },
         });
-        resolvedUnit = material?.unit || 'PIECE';
+        logInfo(
+          `[MaterialSync] Created stock_levels for material ${materialId}, warehouse ${createWarehouseId}, qty: ${change}`
+        );
       }
-      await client.stock_levels.create({
-        data: {
-          materialId,
-          warehouseId,
-          quantity: change,
-          unit: resolvedUnit as any,
-          lastUpdated: new Date(),
-        },
-      });
-      logInfo(
-        `[MaterialSync] Created stock_levels for material ${materialId}, warehouse ${warehouseId}, qty: ${change}`
-      );
-    } else if (updateResult.count === 0 && change > 0 && !warehouseId) {
-      // Rule A: a receipt must never silently vanish. A new stock_levels row belongs to a
-      // warehouse, so the caller MUST pass one. Previously this case did nothing at all — the
-      // credit disappeared with no trace (bug-hunt BH-0310). Surface it loudly so it gets fixed
-      // at the caller (which must pass a warehouseId when adding stock).
-      logError(
-        `[MaterialSync] RECEIPT NOT RECORDED (warehouse required): material ${materialId} needs a ` +
-          `new stock_levels row but no warehouseId was passed — ${change} unit(s) were NOT credited. ` +
-          `The caller must pass a warehouseId when adding stock.`,
-        new Error('stock_levels create without warehouseId')
-      );
     }
   } catch (err) {
     logError(

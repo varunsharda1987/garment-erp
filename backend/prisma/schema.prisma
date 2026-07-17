@@ -4095,7 +4095,7 @@ model greige_stock {
   jobWorkOrders job_work_orders[]
   transactions  greige_stock_transaction[]
 
-  @@unique([greigeId, procurementId, greigeWidth, qualityGrade, supplierId, processorId])
+  @@unique([greigeId, procurementId, greigeWidth, qualityGrade, supplierId, processorId, sourceChallanId])
   @@index([greigeId])
   @@index([warehouseId])
   @@index([status])

@@ -817,14 +817,14 @@ class PurchaseOrderService {
     }
 
     const purchaseOrder = await prisma.$transaction(async (tx) => {
-      // 1. Update PO status
+      // 1. Update PO status (use minimal include to avoid relation validation issues)
       const po = await tx.purchase_orders.update({
         where: { id },
         data: {
           status: PurchaseOrderStatus.CANCELLED,
           remarks: reason ? `${existingPO.remarks || ''}\n\nCancellation reason: ${reason}`.trim() : existingPO.remarks,
         },
-        include: this.getFullInclude(),
+        include: this.getMinimalInclude(),
       });
 
       // 2. Revert linked MRP material requirements → PO_REQUIRED
@@ -896,6 +896,46 @@ class PurchaseOrderService {
   // ============================================
   // Helper Methods
   // ============================================
+
+  /**
+   * Get minimal include for status update operations (cancel, acknowledge, etc.)
+   * Uses fewer nested relations to avoid potential Prisma validation issues
+   */
+  private getMinimalInclude() {
+    return {
+      suppliers: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          contactPerson: true,
+          email: true,
+          phone: true,
+        },
+      },
+      purchase_order_items: {
+        include: {
+          materials: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              materialType: true,
+              unit: true,
+            },
+          },
+        },
+      },
+      users_purchase_orders_createdByIdTousers: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
+    };
+  }
 
   /**
    * Get full include for PO queries

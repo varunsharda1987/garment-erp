@@ -283,6 +283,13 @@ class GreigeStockService {
               code: true,
             },
           },
+          sourceChallan: {
+            select: {
+              id: true,
+              challanNumber: true,
+              challanDate: true,
+            },
+          },
         },
         orderBy: { receivedDate: 'desc' },
       });
@@ -315,6 +322,8 @@ class GreigeStockService {
           supplier: stock.supplier,
           processorId: stock.processorId,
           processor: stock.processor,
+          sourceChallanId: stock.sourceChallanId,
+          sourceChallan: stock.sourceChallan,
         };
       });
     } catch (error: unknown) {
@@ -869,6 +878,13 @@ class GreigeStockService {
       },
     });
 
+    // Keep the central ledger in sync — this stock left the processor's warehouse. Without it the
+    // Stock Levels page OVERSTATES greige (GRG-0034 was +17,080m). Guarded by warehouseId so we
+    // decrement the specific warehouse, never all of them (bug-hunt BH-0305).
+    if (stock.warehouseId) {
+      await syncStockLevelQuantity(stock.greigeId, -sentQuantity, stock.warehouseId);
+    }
+
     logInfo(
       `Processor return: ${stock.greige.greigeCode} - Sent ${sentQuantity}m, Received ${receivedQuantity}m, ` +
         `Shrinkage: ${shrinkagePercent.toFixed(2)}%`
@@ -959,6 +975,12 @@ class GreigeStockService {
         performedById: userId,
       },
     });
+
+    // Keep the central ledger in sync — this stock left the processor's warehouse (bug-hunt BH-0305).
+    // Guarded by warehouseId so we decrement the specific warehouse, never all of them.
+    if (stock.warehouseId) {
+      await syncStockLevelQuantity(stock.greigeId, -receivedQuantity, stock.warehouseId);
+    }
 
     logInfo(
       `Processor receipt: ${stock.greige.greigeCode} - Received ${receivedQuantity}m, ` +

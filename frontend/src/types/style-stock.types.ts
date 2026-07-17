@@ -177,6 +177,8 @@ export interface GreigeStockDetail {
   supplier: { id: string; name: string; code: string } | null;
   processorId: string | null;
   processor: { id: string; name: string; code: string } | null;
+  sourceChallanId: string | null;
+  sourceChallan: { id: string; challanNumber: string; challanDate: string } | null;
 }
 
 export interface UpdateGreigeStockData {

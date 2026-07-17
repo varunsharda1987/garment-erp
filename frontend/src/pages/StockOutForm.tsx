@@ -173,6 +173,7 @@ export default function StockOutForm() {
 
   // Form state
   const [challanType, setChallanType] = useState<ChallanType>('OUTWARD');
+  const [challanDate, setChallanDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [warehouseId, setWarehouseId] = useState('');
   const [warehouseName, setWarehouseName] = useState('');
   const [remarks, setRemarks] = useState('');
@@ -568,6 +569,7 @@ export default function StockOutForm() {
 
     const input: CreateChallanInput = {
       challanType,
+      challanDate,
       fromType: 'WAREHOUSE',
       fromName: warehouseName || 'Main Store',
       toType: getDestinationType(),
@@ -647,6 +649,18 @@ export default function StockOutForm() {
                   Internal (Dept to Dept)
                 </Button>
               </div>
+            </div>
+            <div className="space-y-2 mt-4">
+              <Label htmlFor="challanDate">
+                Challan Date <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="challanDate"
+                type="date"
+                value={challanDate}
+                onChange={(e) => setChallanDate(e.target.value)}
+                className="w-48"
+              />
             </div>
           </CardContent>
         </Card>

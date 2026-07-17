@@ -108,7 +108,9 @@ export interface CopyCADRequest {
 }
 
 export interface LinkStockRequest {
-  cadRowId: string;
+  // Must be `cadId`: the backend controller and linkCADToStockSchema both read `cadId`. This was
+  // `cadRowId`, so validateBody rejected every stock link with a 400 (BH-0353).
+  cadId: string;
   fabricStockId: string;
 }
 

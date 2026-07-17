@@ -2158,8 +2158,11 @@ export default function StyleFormRedesigned() {
         accessories: finalAccessories,
         // SKU variants (with auto-generated SKUs for empty ones)
         skuVariants: skuVariantsWithGenerated.filter((v) => v.isActive),
-        // Customer preset if selected
-        customerAccessoriesPresetId: selectedAccessoryPresetId || undefined,
+        // Customer preset: send null (not undefined) when cleared, so the FK is actually nulled.
+        // undefined is dropped by JSON.stringify and Prisma then leaves the old preset FK intact,
+        // resurrecting the removed accessories on the next edit (bug-hunt BH-0143). The backend
+        // service is built for this: it writes `value || null` whenever the key is present.
+        customerAccessoriesPresetId: selectedAccessoryPresetId || null,
         // CAD status starts as PENDING
         cadStatus: 'PENDING' as CADStatus,
         // Status - DRAFT stays DRAFT until explicitly published, ACTIVE stays ACTIVE

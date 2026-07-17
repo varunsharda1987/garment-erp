@@ -588,18 +588,23 @@ function printResults(results) {
   console.log(`  Warnings: ${results.warnings.length}`);
 }
 
-// Run
-try {
-  const results = checkAlignment();
-  printResults(results);
+module.exports = { checkAlignment };
 
-  if (mode === 'check' && results.misaligned.length > 0) {
-    console.log('\n\x1b[31mCRITICAL: Schema-controller mismatches found. Fix before committing.\x1b[0m');
+// Run as a CLI only. smart-check.js require()s this module and calls checkAlignment() directly,
+// so this block (and its process.exit) must not fire on import.
+if (require.main === module) {
+  try {
+    const results = checkAlignment();
+    printResults(results);
+
+    if (mode === 'check' && results.misaligned.length > 0) {
+      console.log('\n\x1b[31mCRITICAL: Schema-controller mismatches found. Fix before committing.\x1b[0m');
+      process.exit(1);
+    }
+
+    process.exit(0);
+  } catch (error) {
+    console.error('Error running alignment check:', error.message);
     process.exit(1);
   }
-
-  process.exit(0);
-} catch (error) {
-  console.error('Error running alignment check:', error.message);
-  process.exit(1);
 }

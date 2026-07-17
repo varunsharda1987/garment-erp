@@ -1,0 +1,6 @@
+[
+  "backend/src/services/costSheetPOGeneration.service.ts :: /(1-shrinkage/100)",
+  "frontend/src/pages/FabricCostingOptionsPage.tsx :: /(1-shrinkage/100)",
+  "frontend/src/pages/FabricCostingPage.tsx :: /(1-shrinkage/100)",
+  "frontend/src/pages/StyleFabricCostingOptionsPage.tsx :: /(1-shrinkage/100)"
+]

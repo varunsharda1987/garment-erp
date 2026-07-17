@@ -85,6 +85,25 @@ import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material
 
 ### Helper location: `backend/src/services/helpers/material-sync.helper.ts`
 
+## CRITICAL: Enforced Guardrails (schema-drift + money-math)
+
+The two biggest bug classes from the audit are now **blocked at commit** by `scripts/hooks/smart-check.js` — the live hook run by `.husky/pre-commit` and `.husky/pre-push`, and again in CI via `node scripts/hooks/smart-check.js --all` (so `git commit --no-verify` is caught at the PR).
+
+Each check is a **baseline ratchet**: existing violations are grandfathered in `scripts/hooks/*-baseline.json`; only **NEW** ones block. The baselines double as the prioritized cleanup list ("fix when you touch the file").
+
+| Check | Blocks | Positive fix |
+|-------|--------|--------------|
+| Schema↔controller alignment | Controller reads a `req.body` field the Zod schema strips (silent data loss) | Add the field to the Zod schema |
+| Route validation | A POST/PUT/PATCH route with no `validateBody`/`validateQuery` | Add `validateBody(schema)` (or mark the route `// no-body`) |
+| Enum drift | A `z.enum` value not in the correspondingly-named Prisma enum (guaranteed 500) | Align the Zod values with the Prisma enum |
+| Datetime schema | `z.string().datetime()` in a schema (rejects `YYYY-MM-DD` from `<input type="date">`) | Use `z.coerce.date()` (or mark `// allow-datetime`) |
+| Divide-by-shrinkage | Raw `/ (1 - x/100)` (→ Infinity at 100%) | Use `divideByShrinkage()` from `backend/src/utils/currency.ts` |
+| Currency format | `toLocaleString('en-IN', {minimumFractionDigits:2})` with no `maximumFractionDigits` (prints `₹563.796`) | Add `maximumFractionDigits: 2` |
+
+**Escape hatch:** if a flagged line is genuinely intentional, copy the exact key the check prints into the matching `scripts/hooks/<check>-baseline.json`. Regenerate all baselines after a large intentional change by running the detectors whole-repo (see `scripts/hooks/drift-detectors.js` + `ratchet.js` `writeBaseline`).
+
+**Money math** should route through the existing (previously-unused) helpers: `backend/src/utils/currency.ts` (decimal.js: guarded divide, `roundToCent`, weighted average) and `backend/src/services/gst.service.ts` (the GST-rate authority) — do not re-derive rates/rounding on raw floats.
+
 ## Critical: API Response Serialization
 
 The backend uses a serializer (`backend/src/utils/serializer.ts`) that automatically converts ALL snake_case keys to camelCase before sending responses to the frontend.

@@ -91,10 +91,29 @@ jobs:
       - name: Check formatting
         run: npx prettier --check "backend/src/**/*.ts" "frontend/src/**/*.{ts,tsx}"
 
+  guardrails:
+    name: Drift & Money-Math Guardrails
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Re-runs the pre-commit guardrails across the whole repo so `git commit --no-verify`
+      # cannot slip new schema-drift / money-math violations past the local hook. Fails the PR
+      # only on violations NOT already in scripts/hooks/*-baseline.json (the grandfathered backlog).
+      - name: Run drift & money-math guardrails
+        run: node scripts/hooks/smart-check.js --all
+
   build:
     name: Build Docker Images
     runs-on: ubuntu-latest
-    needs: [lint-backend, lint-frontend, format-check]
+    needs: [lint-backend, lint-frontend, format-check, guardrails]
 
     steps:
       - name: Checkout code

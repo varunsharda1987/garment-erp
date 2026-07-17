@@ -1,0 +1,6 @@
+[
+  "POST /:costingId/lace-items/calculate-options :: calculateLaceOptionsSchema :: orderQuantity",
+  "POST /:costingId/lace-items/calculate-options :: calculateLaceOptionsSchema :: quantityPerGarment",
+  "POST /:costingId/lace-items/calculate-options :: calculateLaceOptionsSchema :: styleId",
+  "POST /:costingId/lace-items/calculate-options :: calculateLaceOptionsSchema :: wastagePercent"
+]

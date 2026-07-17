@@ -154,6 +154,17 @@ export async function syncStockLevelQuantity(
       logInfo(
         `[MaterialSync] Created stock_levels for material ${materialId}, warehouse ${warehouseId}, qty: ${change}`
       );
+    } else if (updateResult.count === 0 && change > 0 && !warehouseId) {
+      // Rule A: a receipt must never silently vanish. A new stock_levels row belongs to a
+      // warehouse, so the caller MUST pass one. Previously this case did nothing at all — the
+      // credit disappeared with no trace (bug-hunt BH-0310). Surface it loudly so it gets fixed
+      // at the caller (which must pass a warehouseId when adding stock).
+      logError(
+        `[MaterialSync] RECEIPT NOT RECORDED (warehouse required): material ${materialId} needs a ` +
+          `new stock_levels row but no warehouseId was passed — ${change} unit(s) were NOT credited. ` +
+          `The caller must pass a warehouseId when adding stock.`,
+        new Error('stock_levels create without warehouseId')
+      );
     }
   } catch (err) {
     logError(

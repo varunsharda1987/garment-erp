@@ -118,8 +118,13 @@ export function amountToWords(amount: number): string {
   ];
   const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
 
-  amount = Math.round(amount);
-  if (amount === 0) return 'Rupees Zero Only';
+  // Split into rupees and paise WITHOUT rounding the paise away: the printed numeral carries two
+  // decimals and in India the amount-in-words is the legally controlling figure on a tax invoice,
+  // so the two must agree (bug-hunt BH-0070). Round on total paise to avoid float drift (24.98 -> 2498).
+  const totalPaise = Math.round(amount * 100);
+  if (totalPaise === 0) return 'Rupees Zero Only';
+  const rupees = Math.floor(totalPaise / 100);
+  const paise = totalPaise % 100;
 
   const twoDigits = (n: number): string => {
     if (n < 20) return ones[n];
@@ -137,7 +142,7 @@ export function amountToWords(amount: number): string {
   };
 
   const parts: string[] = [];
-  let remaining = amount;
+  let remaining = rupees;
 
   if (remaining >= 10000000) {
     parts.push(`${twoDigits(Math.floor(remaining / 10000000))} Crore`);
@@ -155,5 +160,9 @@ export function amountToWords(amount: number): string {
     parts.push(threeDigits(Math.floor(remaining)));
   }
 
-  return `Rupees ${parts.join(' ')} Only`;
+  const rupeeWords = parts.length > 0 ? parts.join(' ') : 'Zero';
+  if (paise > 0) {
+    return `Rupees ${rupeeWords} and ${twoDigits(paise)} Paise Only`;
+  }
+  return `Rupees ${rupeeWords} Only`;
 }

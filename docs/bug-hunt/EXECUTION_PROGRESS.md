@@ -60,10 +60,20 @@ wrong GST; ASN/DN 500s). F2 ~11 — **our materials uniqueness fix is only 9 of 
 
 ## ⏭️ NEXT (roadmap order — see ARCHITECTURE_ROADMAP.md)
 
-1. **Tier 0 quick wins:** DONE → ✅ invoice GST/items (723a3fff), ✅ ASN + delivery-note 500s (ec229372),
-   ✅ materials type-FK uniqueness now 27/28 (b98e74dc — closed the "9 of 27" gap; labelId excluded for size variants).
-   REMAINING in Tier 0: order-creation breakup alignment (whole-contract F5 — needs the create-form payload),
-   greige-lace option-name/wastage, and stock-table uniqueness (8 tables — natural keys; overlaps T2-1).
+1. **Tier 0 quick wins: DONE.** ✅ invoice GST/items (723a3fff), ✅ ASN + delivery-note 500s (ec229372),
+   ✅ materials type-FK uniqueness now 27/28 (b98e74dc — closed the "9 of 27" gap; labelId excluded for size variants),
+   ✅ order-creation breakup alignment (8fe8f216 — orderItemSchema now carries `breakup`/`totalQuantity`),
+   ✅ greige-lace sourcing enum + wastage (337586cb — `GREIGE_LACE_PROCESSED`→`GREIGE_PROCESSED` so the PO
+   generator's `=== 'GREIGE_PROCESSED'` check fires and greige/dyeing POs generate; added `wastagePercent` the
+   controller reads).
+   **DEFERRED to T2-1 (deliberately, not skipped):** stock-table uniqueness. 5 per-lot tables lack `@@unique`
+   (lace_stock, button_stock, zipper_stock, elastic_stock, packaging_stock); greige/fabric/thread already have
+   composite uniqueness (greige's is the user's in-flight `sourceChallanId` WIP migration). This is NOT a clean
+   quick win: each table needs its own correct natural key, and any existing duplicate lots would make the
+   `CREATE UNIQUE INDEX` migration FAIL → each needs live-data dedup verification first (a per-table repair like
+   materials was). It also edits WIP `schema.prisma` at the exact greige_stock uniqueness the user is changing,
+   and overlaps the T2-1 derived-inventory redesign where per-lot dedup is designed properly. The uniqueness gap
+   that actually corrupted the ledger (the `materials` table) is already closed.
 2. **Tier 1 atomicity:** **GRN approval all-or-nothing (T1-1, highest)**, greige/fabric write paths, dispatch
    decrement, payment recording, receivedQuantity — stop the F4 bleeding.
 3. **Tier 2 redesigns:** make inventory a derived view (T2-1 — the deferred `stock_levels`/`unified_stock_view`

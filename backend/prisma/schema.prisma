@@ -953,15 +953,19 @@ model materials {
   materialType                    MaterialType                        @default(GENERIC)
   hsnCode                         String?
   gstRate                         Decimal?                            @db.Decimal(5, 2)
-  greigeId                        String?
-  fabricId                        String?
-  laceId                          String?
-  buttonId                        String?
-  threadId                        String?
-  zipperId                        String?
-  elasticId                       String?
+  // One materials row per master. @unique on these nullable FKs enforces it at the DB level (in
+  // Postgres NULLs stay distinct, so the many null rows are fine) — this is what prevents the
+  // FAB-RAW phantom / split-ledger class from ever recurring (bug-hunt: materials integrity).
+  // labelId is intentionally NOT unique: labels legitimately have one materials row per size.
+  greigeId                        String?                             @unique
+  fabricId                        String?                             @unique
+  laceId                          String?                             @unique
+  buttonId                        String?                             @unique
+  threadId                        String?                             @unique
+  zipperId                        String?                             @unique
+  elasticId                       String?                             @unique
   labelId                         String?
-  packagingId                     String?
+  packagingId                     String?                             @unique
   sizeVariantId                   String?                             @unique
   machinePartId                   String?
   otherMaterialId                 String?

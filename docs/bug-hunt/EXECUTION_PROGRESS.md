@@ -51,18 +51,22 @@ aggregate the per-lot tables. See the deferred item below.
 
 ---
 
-## ⏭️ NEXT (in priority order)
+## ✅ Phase 3 — system-wide architecture review: DONE → [ARCHITECTURE_ROADMAP.md](ARCHITECTURE_ROADMAP.md)
 
-1. **Phase 3 — system-wide architecture review** *(IN PROGRESS / approved)*: use the material module as the
-   template; find where the same "dual-write aggregate + manual sync + missing uniqueness + contract drift"
-   patterns repeat across orders/procurement, production, costing. Deliverable = prioritized remediation roadmap.
-2. **Deferred redesign — make `stock_levels` derived**: rewrite `unified_stock_view` to `UNION ALL`-aggregate the
-   per-lot tables (thread uses `metersAvailable`); serve on-hand from it; move policy cols (reorder/min/max/
-   valuationRate/stockValue) to a settings table; retire `material-sync.helper` + the stock-sync guardrail + baseline
-   + `reconcile-stock-levels.ts`. Eliminates the whole drift bug-class. Also: stop `fabric-stock.service` minting FAB-RAW.
-3. **Burn down the guardrail baselines** (~243 grandfathered items) in impact order: currency-format (wrong money on
-   docs), schema-alignment, shrinkage, datetime, enum, then route-validation.
-4. **Remaining ARMED bugs** from FINDINGS_INDEX (e.g. GSTR-1 drops overdue invoices BH-0208; shrinkage-cost formula).
+Verdict: the material module's flaws are **system-wide**. F1 (hand-maintained totals that should be derived) is
+the dominant disease — ~23 instances across all 6 areas (stock was just the first). F4 (half-done saves, hidden
+errors — e.g. GRN approval accepts a receipt while stock silently fails) is the engine. F5 ~13 (invoice files
+wrong GST; ASN/DN 500s). F2 ~11 — **our materials uniqueness fix is only 9 of ~27 columns; finish it**. F3 contained (2 spots).
+
+## ⏭️ NEXT (roadmap order — see ARCHITECTURE_ROADMAP.md)
+
+1. **Tier 0 quick wins:** invoice validation (wrong GST — compliance), ASN/DN validation, **finish materials +
+   stock uniqueness rules (QW-1)** (our Phase-2 fix was partial), order/lace fixes.
+2. **Tier 1 atomicity:** **GRN approval all-or-nothing (T1-1, highest)**, greige/fabric write paths, dispatch
+   decrement, payment recording, receivedQuantity — stop the F4 bleeding.
+3. **Tier 2 redesigns:** make inventory a derived view (T2-1 — the deferred `stock_levels`/`unified_stock_view`
+   redesign, now confirmed the top structural change), cost-sheet totals, production completed-qty, invoice paid/balance.
+4. **Cross-cutting:** burn down the guardrail baselines (~243); remaining ARMED bugs (GSTR-1 BH-0208, etc.).
 
 ---
 

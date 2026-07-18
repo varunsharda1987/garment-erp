@@ -30,15 +30,45 @@ export const createInvoiceSchema = z.object({
     .nonnegative('Subtotal must be non-negative')
     .or(z.string().transform((val) => parseFloat(val))),
 
+  // taxAmount/totalAmount are auto-calculated by the service (per-item when `items` are supplied,
+  // otherwise from subtotal + taxRate), so they're optional — don't force client figures the server
+  // overwrites. And `items`/`taxRate`/`placeOfSupplyId` MUST be declared here: they were absent, so
+  // validateBody stripped them and every API invoice got zero line items + header-only (often wrong)
+  // GST (bug-hunt F5 — the per-item GST + invoice_items path was dead via the API).
   taxAmount: z
     .number()
     .nonnegative('Tax amount must be non-negative')
-    .or(z.string().transform((val) => parseFloat(val))),
+    .or(z.string().transform((val) => parseFloat(val)))
+    .optional(),
+
+  taxRate: z.number().nonnegative('Tax rate must be non-negative').optional(),
 
   totalAmount: z
     .number()
     .positive('Total amount must be positive')
-    .or(z.string().transform((val) => parseFloat(val))),
+    .or(z.string().transform((val) => parseFloat(val)))
+    .optional(),
+
+  placeOfSupplyId: z.string().uuid('Invalid place of supply ID format').optional(),
+
+  items: z
+    .array(
+      z.object({
+        styleId: z.string().uuid('Invalid style ID format').optional(),
+        description: z.string().min(1, 'Item description is required'),
+        hsnCode: z.string().optional(),
+        quantity: z
+          .number()
+          .positive('Quantity must be positive')
+          .or(z.string().transform((val) => parseFloat(val))),
+        unitPrice: z
+          .number()
+          .nonnegative('Unit price must be non-negative')
+          .or(z.string().transform((val) => parseFloat(val))),
+        remarks: z.string().optional(),
+      })
+    )
+    .optional(),
 
   remarks: z.string().max(500, 'Remarks must be less than 500 characters').trim().optional(),
 });

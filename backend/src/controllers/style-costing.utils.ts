@@ -237,13 +237,20 @@ export const LaceDetailSchema = z.object({
   laceAverage: z.number().nonnegative('Lace average must be non-negative'),
   laceRate: z.number().nonnegative('Lace rate must be non-negative'),
   laceTotal: z.number().nonnegative('Lace total must be non-negative'),
+  // The controller reads lace.wastagePercent; it was omitted here so validateBody stripped it and
+  // lace wastage was silently lost (bug-hunt F5).
+  wastagePercent: z.number().min(0).max(100).optional(),
   isNotApplicable: z.boolean().optional().default(false),
   // Master FK fields - needed for PO generation
   laceId: z.string().uuid().optional().nullable(),
   greigeLaceId: z.string().uuid().optional().nullable(),
   processorId: z.string().uuid().optional().nullable(),
   rateCardId: z.string().uuid().optional().nullable(),
-  sourcingStrategy: z.enum(['STOCK_REUSE', 'READY_LACE', 'GREIGE_LACE_PROCESSED']).optional(),
+  // Canonical value is GREIGE_PROCESSED — matches the frontend (LaceCostingRow/Section), the
+  // canonical LaceSourcingStrategyEnum, and costSheetPOGeneration's `=== 'GREIGE_PROCESSED'` check.
+  // The old rogue 'GREIGE_LACE_PROCESSED' never matched, so greige-lace never generated its
+  // greige/dyeing POs (bug-hunt F5).
+  sourcingStrategy: z.enum(['STOCK_REUSE', 'READY_LACE', 'GREIGE_PROCESSED']).optional(),
   // Cost breakdown
   greigeCost: z.number().optional(),
   processingCost: z.number().optional(),

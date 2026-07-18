@@ -192,7 +192,7 @@ describe('Material Sync Helper', () => {
 
     it('should work within a transaction', async () => {
       await prisma.$transaction(async (tx) => {
-        await syncStockLevelQuantity(testMaterialId, 25, undefined, tx);
+        await syncStockLevelQuantity(testMaterialId, 25, undefined, undefined, tx);
       });
 
       const stockLevel = await prisma.stock_levels.findFirst({

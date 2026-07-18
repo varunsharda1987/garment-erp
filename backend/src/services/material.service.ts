@@ -769,8 +769,10 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       | 'LABEL'
       | 'PACKAGING'
       | 'MACHINE_PART'
-      | 'OTHER_MATERIAL'
+      | 'OTHER_MATERIAL',
+    tx?: any
   ): Promise<string> {
+    const client = tx || this.prisma;
     const categoryMap: Record<string, { id: string; name: string }> = {
       FABRIC: { id: 'CAT-FABRIC', name: 'Fabric' },
       GREIGE: { id: 'CAT-GREIGE', name: 'Greige (Raw Fabric)' },
@@ -788,7 +790,7 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
     const { id, name } = categoryMap[type];
 
     // Check if category exists (by id OR by name — existing categories may have UUID ids)
-    const existing = await this.prisma.material_categories.findFirst({
+    const existing = await client.material_categories.findFirst({
       where: { OR: [{ id }, { name }] },
     });
 
@@ -798,7 +800,7 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
 
     // Create the category (with race-condition handling)
     try {
-      const category = await this.prisma.material_categories.create({
+      const category = await client.material_categories.create({
         data: {
           id,
           name,
@@ -813,7 +815,7 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       return category.id;
     } catch (err: any) {
       if (err?.code === 'P2002') {
-        const justCreated = await this.prisma.material_categories.findFirst({
+        const justCreated = await client.material_categories.findFirst({
           where: { OR: [{ id }, { name }] },
         });
         if (justCreated) return justCreated.id;
@@ -840,12 +842,14 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       | 'LABEL'
       | 'PACKAGING'
       | 'MACHINE_PART'
-      | 'OTHER_MATERIAL'
+      | 'OTHER_MATERIAL',
+    tx?: any
   ): Promise<materials> {
+    const client = tx || this.prisma;
     logDebug(`Creating materials record from ${type} master`, { id: master.id, code: master.code });
 
     // Check if materials record already exists with this ID
-    const existing = await this.prisma.materials.findUnique({
+    const existing = await client.materials.findUnique({
       where: { id: master.id },
     });
 
@@ -855,7 +859,7 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
     }
 
     // Get or create the category for this type
-    const categoryId = await this.getOrCreateCategory(type);
+    const categoryId = await this.getOrCreateCategory(type, tx);
 
     // Determine unit based on type
     const unitMap: Record<string, Unit> = {
@@ -874,7 +878,7 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
     const unit: Unit = unitMap[type] || 'PIECE';
 
     // Create materials record with SAME ID as master
-    const material = await this.prisma.materials.create({
+    const material = await client.materials.create({
       data: {
         id: master.id, // Same ID as master
         code: master.code, // Same code

@@ -51,19 +51,24 @@ const MASTER_CONFIG: Record<string, { table: string; codeField: string; nameFiel
  * @param masterType - The type of master (GREIGE, FABRIC, LACE, THREAD, etc.)
  * @returns The materialId (same as masterId by convention from createFromMaster)
  */
-export async function ensureMaterialRecord(masterId: string, masterType: string): Promise<string> {
+export async function ensureMaterialRecord(masterId: string, masterType: string, tx?: any): Promise<string> {
   const config = MASTER_CONFIG[masterType];
   if (!config) throw new Error(`Unknown master type: ${masterType}`);
 
+  // When a transaction client is supplied, do every read/write on it — otherwise, called from inside an
+  // interactive $transaction, these would borrow a SECOND pooled connection and can starve the pool /
+  // deadlock, and any create would commit outside the caller's transaction (bug-hunt T1-1).
+  const client = tx || prisma;
+
   // Check if materials record already exists
-  const existing = await prisma.materials.findFirst({
+  const existing = await client.materials.findFirst({
     where: { [config.fkField]: masterId },
     select: { id: true },
   });
   if (existing) return existing.id;
 
   // Fetch master record for code/name
-  const master = await (prisma as any)[config.table].findUnique({
+  const master = await (client as any)[config.table].findUnique({
     where: { id: masterId },
     select: { id: true, [config.codeField]: true, [config.nameField]: true },
   });
@@ -75,14 +80,15 @@ export async function ensureMaterialRecord(masterId: string, masterType: string)
   try {
     const material = await materialService.createFromMaster(
       { id: master.id, code: master[config.codeField], name: master[config.nameField] },
-      masterType as any
+      masterType as any,
+      tx
     );
     logInfo(`[MaterialSync] Created materials record for ${masterType} ${master[config.codeField]} (${masterId})`);
     return material.id;
   } catch (err: any) {
     if (err.code === 'P2002') {
       // Race condition — record was just created by another process
-      const retried = await prisma.materials.findFirst({
+      const retried = await client.materials.findFirst({
         where: { [config.fkField]: masterId },
         select: { id: true },
       });

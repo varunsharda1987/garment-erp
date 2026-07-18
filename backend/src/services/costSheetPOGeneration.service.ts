@@ -163,7 +163,23 @@ class CostSheetPOGenerationService {
       const consumptionPerUnit = Number(fabricItem.effectiveCad);
       const requiredQty = totalOrderQty * consumptionPerUnit;
 
-      if (fabricItem.sourcingStrategy === 'GREIGE_PROCESSED' && fabricItem.greigeId) {
+      if (fabricItem.sourcingStrategy === 'GREIGE_PROCESSED') {
+        // A greige-processed FABRIC must carry a greige_master FK (greigeId) and must NOT be keyed to a
+        // lace master. This enforces the fabric/lace separation at the source — rather than relying on the
+        // fabric and lace loops staying disjoint by convention — and turns a silent no-PO into a loud
+        // error when the greige is missing (bug-hunt F4/F5).
+        if ((fabricItem as any).greigeLaceId) {
+          throw new Error(
+            `Fabric "${fabricItem.fabricName || fabricItem.greige?.greigeName || fabricItem.greigeId}" is keyed to a ` +
+              `greige-lace master (greigeLaceId); greige lace belongs on the lace section, not fabric.`
+          );
+        }
+        if (!fabricItem.greigeId) {
+          throw new Error(
+            `Fabric "${fabricItem.fabricName || 'item'}" is marked greige-processed but no greige is selected. ` +
+              `Select a greige before generating the purchase order.`
+          );
+        }
         // GREIGE_PROCESSED: check greige_stock (not fabric_stock)
         const greigeStockInfo = await this.getStockInfoForGreige(fabricItem.greigeId);
 
@@ -376,6 +392,22 @@ class CostSheetPOGenerationService {
       };
 
       if (laceItem.sourcingStrategy === 'GREIGE_PROCESSED') {
+        // A greige-processed LACE must carry a greige-lace master FK (greigeLaceId) and must NOT be keyed
+        // to a fabric greige master. Enforces the fabric/lace separation at the source, prevents an
+        // empty-materialId PO line, and surfaces the real cause instead of the misleading "shrinkage not
+        // configured" error the missing relation would otherwise trigger below (bug-hunt F4/F5).
+        if ((laceItem as any).greigeId) {
+          throw new Error(
+            `Lace "${laceItem.laceName || laceItem.laceId}" is keyed to a fabric greige master (greigeId); ` +
+              `greige fabric belongs on the fabric section, not lace.`
+          );
+        }
+        if (!laceItem.greigeLaceId) {
+          throw new Error(
+            `Lace "${laceItem.laceName || laceItem.laceId}" is marked greige-processed but no greige lace is selected. ` +
+              `Select a greige lace before generating the purchase order.`
+          );
+        }
         // Calculate greige quantity with shrinkage factor
         if (!laceItem.greigeLace?.expectedShrinkagePercent) {
           throw new Error(
@@ -397,7 +429,7 @@ class CostSheetPOGenerationService {
         // Add greige lace item
         const greigeLaceItem: MaterialRequirement = {
           ...item,
-          materialId: laceItem.greigeLaceId || '',
+          materialId: laceItem.greigeLaceId, // guaranteed present by the guard above
           materialCode: laceItem.greigeLace?.laceCode || '',
           materialName: laceItem.greigeLace?.laceName || '',
           materialType: 'GREIGE_LACE',

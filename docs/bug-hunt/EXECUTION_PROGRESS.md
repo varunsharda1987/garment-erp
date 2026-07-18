@@ -74,8 +74,22 @@ wrong GST; ASN/DN 500s). F2 ~11 — **our materials uniqueness fix is only 9 of 
    materials was). It also edits WIP `schema.prisma` at the exact greige_stock uniqueness the user is changing,
    and overlaps the T2-1 derived-inventory redesign where per-lot dedup is designed properly. The uniqueness gap
    that actually corrupted the ledger (the `materials` table) is already closed.
-2. **Tier 1 atomicity:** **GRN approval all-or-nothing (T1-1, highest)**, greige/fabric write paths, dispatch
-   decrement, payment recording, receivedQuantity — stop the F4 bleeding.
+2. **Tier 1 atomicity:** ✅ **GRN approval all-or-nothing (T1-1) — DONE** (merged 095c4ceb). All 11 specialized
+   *_stock creation paths moved INSIDE the approval `$transaction` (was: committed ACCEPTED, then created
+   stock after-commit on the global client with 13 swallowed catches → accepted-with-no-stock). Every in-tx
+   call threads `tx` (ensureMaterialRecord/createFromMaster/getOrCreateCategory made tx-aware; greige path uses
+   skipMaterialSync + re-syncs on tx with the fold-adjusted qty; findFabricForGreige/validateSourceMismatchOverride/
+   executeSourceMismatchCleanup on tx). Non-critical cascades (processing-PO status, cost-sheet sourcing, MRP
+   received-qty which opens its own nested tx) moved to post-commit best-effort. `{ timeout:30000, maxWait:10000 }`.
+   **Live-proven** on the real DB: injected a stock failure mid-approval → GRN stayed PENDING_QC, 0 stock, 0
+   movements (full rollback); 3-agent adversarial review clean after 2 rounds. STILL TODO in Tier 1: greige/fabric
+   direct write paths, dispatch decrement, payment recording, receivedQuantity — stop the rest of the F4 bleeding.
+
+   ⚠️ **New finding while testing T1-1:** the backend has **pre-existing type errors** (server.ts env typing;
+   stockMovement.service.ts:1252-1253 `unitPrice`/`totalPrice` don't exist on the selected type; laceCosting.controller.ts:31/70
+   `wastagePercent` optional-vs-required) that were HIDDEN because `tsc` OOM-crashed before finishing (false "clean").
+   Run tsc with `NODE_OPTIONS=--max-old-space-size=8192`. These are unrelated to our fixes (their files don't import
+   ours) but they block ts-node type-checked runs of the GRN module graph. Fix separately + raise the CI tsc heap.
 3. **Tier 2 redesigns:** make inventory a derived view (T2-1 — the deferred `stock_levels`/`unified_stock_view`
    redesign, now confirmed the top structural change), cost-sheet totals, production completed-qty, invoice paid/balance.
 4. **Cross-cutting:** burn down the guardrail baselines (~243); remaining ARMED bugs (GSTR-1 BH-0208, etc.).

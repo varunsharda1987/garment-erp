@@ -34,6 +34,10 @@ const deliveryNoteItemSchema = z.object({
   styleId: z.string().uuid('Invalid style ID').optional(),
   variantId: z.string().uuid('Invalid variant ID').optional(),
   skuId: z.string().uuid('Invalid SKU ID').optional(),
+  // The controller writes colorId/sizeId onto delivery_note_items; without them here validateBody
+  // stripped them and the insert failed (bug-hunt F5 — delivery-note creation 500'd).
+  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional(),
+  sizeId: z.string().uuid('Invalid size ID').optional(),
   quantity: z.number().positive('Quantity must be positive'),
   cartonCount: z.number().int().nonnegative().optional(),
   grossWeight: z.number().nonnegative().optional(),
@@ -138,7 +142,9 @@ const asnItemSchema = z.object({
 const asnSkuSchema = z.object({
   colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional(),
   sizeId: z.string().uuid('Invalid size ID').optional(),
-  quantity: z.number().int().nonnegative().optional(),
+  // The controller reads sku.plannedQty (not `quantity`); mismatched name meant it was stripped and
+  // ASN creation threw (bug-hunt F5).
+  plannedQty: z.number().int().nonnegative().optional(),
 });
 
 /**

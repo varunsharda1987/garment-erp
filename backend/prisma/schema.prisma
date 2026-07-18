@@ -967,24 +967,26 @@ model materials {
   labelId                         String?
   packagingId                     String?                             @unique
   sizeVariantId                   String?                             @unique
-  machinePartId                   String?
-  otherMaterialId                 String?
-  hookEyeId                       String?
-  snapButtonId                    String?
-  buckleId                        String?
-  beltId                          String?
-  velcroId                        String?
-  drawstringId                    String?
-  ribbonId                        String?
-  sequinId                        String?
-  beadId                          String?
-  motifId                         String?
-  interliningId                   String?
-  paddingId                       String?
-  otherFastenerId                 String?
-  otherTapeId                     String?
-  otherDecorativeId               String?
-  otherFunctionalId               String?
+  // Extended trim/accessory identity FKs — @unique (nullable, so many nulls are fine): one materials
+  // row per master, closing the Phase-2 gap (was 9 of ~27). labelId above stays open (size variants).
+  machinePartId                   String?                             @unique
+  otherMaterialId                 String?                             @unique
+  hookEyeId                       String?                             @unique
+  snapButtonId                    String?                             @unique
+  buckleId                        String?                             @unique
+  beltId                          String?                             @unique
+  velcroId                        String?                             @unique
+  drawstringId                    String?                             @unique
+  ribbonId                        String?                             @unique
+  sequinId                        String?                             @unique
+  beadId                          String?                             @unique
+  motifId                         String?                             @unique
+  interliningId                   String?                             @unique
+  paddingId                       String?                             @unique
+  otherFastenerId                 String?                             @unique
+  otherTapeId                     String?                             @unique
+  otherDecorativeId               String?                             @unique
+  otherFunctionalId               String?                             @unique
   customer_accessory_preset_items customer_accessories_preset_items[] @relation("PresetMaterials")
   grn_items                       grn_items[]
   inventory_stock                 inventory_stock[]

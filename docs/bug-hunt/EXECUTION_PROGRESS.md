@@ -60,8 +60,10 @@ wrong GST; ASN/DN 500s). F2 ~11 — **our materials uniqueness fix is only 9 of 
 
 ## ⏭️ NEXT (roadmap order — see ARCHITECTURE_ROADMAP.md)
 
-1. **Tier 0 quick wins:** invoice validation (wrong GST — compliance), ASN/DN validation, **finish materials +
-   stock uniqueness rules (QW-1)** (our Phase-2 fix was partial), order/lace fixes.
+1. **Tier 0 quick wins:** DONE → ✅ invoice GST/items (723a3fff), ✅ ASN + delivery-note 500s (ec229372),
+   ✅ materials type-FK uniqueness now 27/28 (b98e74dc — closed the "9 of 27" gap; labelId excluded for size variants).
+   REMAINING in Tier 0: order-creation breakup alignment (whole-contract F5 — needs the create-form payload),
+   greige-lace option-name/wastage, and stock-table uniqueness (8 tables — natural keys; overlaps T2-1).
 2. **Tier 1 atomicity:** **GRN approval all-or-nothing (T1-1, highest)**, greige/fabric write paths, dispatch
    decrement, payment recording, receivedQuantity — stop the F4 bleeding.
 3. **Tier 2 redesigns:** make inventory a derived view (T2-1 — the deferred `stock_levels`/`unified_stock_view`

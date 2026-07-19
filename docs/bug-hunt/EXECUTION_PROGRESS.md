@@ -103,7 +103,21 @@ wrong GST; ASN/DN 500s). F2 ~11 — **our materials uniqueness fix is only 9 of 
      controllers, stockMovement.controller). Prevents stock-deducted-with-no-challan + double-deduct on retry.
      2-lens adversarial review PASS (atomicity + all-callers backward-compat).
 
-   **Ranked REMAINING F4 targets (top-first):** #6 embroidery-stock.receive (ensureMaterialRecord
+   - ✅ **T1-6 direct-stock batch #6-9** — merged 562aa76b. embroidery.receive (ensureMaterialRecord on tx),
+     fabric.createStyleStock (create+sync wrapped in one $transaction), trim.createTrimStock + thread.createThreadStock
+     (body → run(tx); `data.tx ? run(data.tx) : prisma.$transaction(run)` so standalone is atomic and a caller tx
+     is joined; helpers threaded; skipMaterialSync + re-throw preserved). 2-lens review PASS (all callers grepped).
+
+   **Ranked REMAINING F4 targets:** #12 grn approveGRN post-commit MRP updateReceivedQuantity (best-effort by
+   design — needs updateReceivedQuantity to accept tx + fold into approval tx to close over-procurement); #13
+   external-process.createSendOut (outward job-work challan created AFTER the tx in a swallowed try/catch → material
+   shipped with outwardChallanId=null, GST/goods-movement gap). NEW (pre-existing, found during #6-9 review):
+   fabric.createStyleStock opens its OWN $transaction but challan.service.ts:783 calls it from inside a parent tx →
+   nested/independent (give createStyleStock an optional tx like the trim/thread pattern). Plus the pre-existing
+   tsc-hidden type errors (server.ts, stockMovement.service.ts:1255-56, laceCosting.controller.ts) + raise CI tsc heap.
+
+   <!-- superseded ranked list below (kept for provenance) -->
+   Old #6 embroidery-stock.receive (ensureMaterialRecord
    w/o tx — 1-line); #7 fabric-stock.createStyleStock, #8 trim-stock.createTrimStock, #9 thread-stock.createThreadStock
    (specialized create + sync not atomic → silent under-report); #12 grn approveGRN MRP post-commit (best-effort by
    design; over-procurement if it fails); #13 external-process.createSendOut (outward challan after tx, swallowed → GST gap).

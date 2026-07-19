@@ -1814,100 +1814,108 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
     newStatus = MaterialRequirementStatus.PARTIAL_STOCK;
   }
 
-  const updated = await prisma.material_requirements.update({
-    where: { id: data.requirementId },
-    data: {
-      allocatedFromStock: newAllocated,
-      shortfall: newShortfall,
-      status: newStatus,
-    },
-    include: getRequirementIncludes(),
-  });
-
-  // Reserve physical stock on the appropriate stock table (FIFO by receivedDate)
-  const reqWithMaterial = await prisma.material_requirements.findUnique({
-    where: { id: data.requirementId },
-    include: {
-      materials: {
-        select: { id: true, materialType: true, fabricId: true, laceId: true, greigeId: true },
+  // The requirement status update, the FIFO stock reservations, and the reservation audit MUST be atomic —
+  // otherwise a partial failure leaves the requirement reading FULFILLED/PARTIAL while the physical
+  // quantityReserved is missing, so the same stock is re-allocated to another order (double-reserve /
+  // oversell) (bug-hunt T1/F4).
+  const updated = await prisma.$transaction(async (tx) => {
+    const upd = await tx.material_requirements.update({
+      where: { id: data.requirementId },
+      data: {
+        allocatedFromStock: newAllocated,
+        shortfall: newShortfall,
+        status: newStatus,
       },
-    },
-  });
+      include: getRequirementIncludes(),
+    });
 
-  if (reqWithMaterial?.materials) {
-    const matType = reqWithMaterial.materials.materialType;
-    const reserveQty = data.quantity;
-
-    if (matType === 'FABRIC' && reqWithMaterial.materials.fabricId) {
-      const lots = await prisma.fabric_stock.findMany({
-        where: { fabricId: reqWithMaterial.materials.fabricId, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
-        orderBy: { receivedDate: 'asc' },
-      });
-      let remaining = reserveQty;
-      for (const lot of lots) {
-        if (remaining <= 0) break;
-        const toReserve = Math.min(remaining, Number(lot.quantityAvailable));
-        await prisma.fabric_stock.update({
-          where: { id: lot.id },
-          data: { quantityReserved: { increment: toReserve } },
-        });
-        remaining -= toReserve;
-      }
-    } else if (matType === 'GREIGE' && reqWithMaterial.materials.greigeId) {
-      const lots = await prisma.greige_stock.findMany({
-        where: { greigeId: reqWithMaterial.materials.greigeId, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
-        orderBy: { receivedDate: 'asc' },
-      });
-      let remaining = reserveQty;
-      for (const lot of lots) {
-        if (remaining <= 0) break;
-        const toReserve = Math.min(remaining, Number(lot.quantityAvailable));
-        await prisma.greige_stock.update({
-          where: { id: lot.id },
-          data: { quantityReserved: { increment: toReserve } },
-        });
-        remaining -= toReserve;
-      }
-    } else if (matType === 'LACE' && reqWithMaterial.materials.laceId) {
-      const lots = await prisma.lace_stock.findMany({
-        where: { laceId: reqWithMaterial.materials.laceId, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
-        orderBy: { receivedDate: 'asc' },
-      });
-      let remaining = reserveQty;
-      for (const lot of lots) {
-        if (remaining <= 0) break;
-        const toReserve = Math.min(remaining, Number(lot.quantityAvailable));
-        await prisma.lace_stock.update({
-          where: { id: lot.id },
-          data: { quantityReserved: { increment: toReserve } },
-        });
-        remaining -= toReserve;
-      }
-    }
-
-    // Create audit entry in stock_reservations
-    const warehouseId = data.warehouseId;
-    const warehouse = warehouseId
-      ? await prisma.warehouses.findUnique({ where: { id: warehouseId } })
-      : await prisma.warehouses.findFirst({ where: { isActive: true }, orderBy: { createdAt: 'asc' } });
-
-    if (warehouse) {
-      await prisma.stock_reservations.create({
-        data: {
-          materialId: reqWithMaterial.materialId,
-          warehouseId: warehouse.id,
-          reservationType: 'ORDER',
-          referenceType: 'MATERIAL_REQUIREMENT',
-          referenceId: data.requirementId,
-          referenceNumber: reqWithMaterial.requirementNumber,
-          reservedQuantity: reserveQty,
-          unit: reqWithMaterial.unit as any,
-          status: 'ACTIVE',
-          reservedById: userId,
+    // Reserve physical stock on the appropriate stock table (FIFO by receivedDate)
+    const reqWithMaterial = await tx.material_requirements.findUnique({
+      where: { id: data.requirementId },
+      include: {
+        materials: {
+          select: { id: true, materialType: true, fabricId: true, laceId: true, greigeId: true },
         },
-      });
+      },
+    });
+
+    if (reqWithMaterial?.materials) {
+      const matType = reqWithMaterial.materials.materialType;
+      const reserveQty = data.quantity;
+
+      if (matType === 'FABRIC' && reqWithMaterial.materials.fabricId) {
+        const lots = await tx.fabric_stock.findMany({
+          where: { fabricId: reqWithMaterial.materials.fabricId, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
+          orderBy: { receivedDate: 'asc' },
+        });
+        let remaining = reserveQty;
+        for (const lot of lots) {
+          if (remaining <= 0) break;
+          const toReserve = Math.min(remaining, Number(lot.quantityAvailable));
+          await tx.fabric_stock.update({
+            where: { id: lot.id },
+            data: { quantityReserved: { increment: toReserve } },
+          });
+          remaining -= toReserve;
+        }
+      } else if (matType === 'GREIGE' && reqWithMaterial.materials.greigeId) {
+        const lots = await tx.greige_stock.findMany({
+          where: { greigeId: reqWithMaterial.materials.greigeId, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
+          orderBy: { receivedDate: 'asc' },
+        });
+        let remaining = reserveQty;
+        for (const lot of lots) {
+          if (remaining <= 0) break;
+          const toReserve = Math.min(remaining, Number(lot.quantityAvailable));
+          await tx.greige_stock.update({
+            where: { id: lot.id },
+            data: { quantityReserved: { increment: toReserve } },
+          });
+          remaining -= toReserve;
+        }
+      } else if (matType === 'LACE' && reqWithMaterial.materials.laceId) {
+        const lots = await tx.lace_stock.findMany({
+          where: { laceId: reqWithMaterial.materials.laceId, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
+          orderBy: { receivedDate: 'asc' },
+        });
+        let remaining = reserveQty;
+        for (const lot of lots) {
+          if (remaining <= 0) break;
+          const toReserve = Math.min(remaining, Number(lot.quantityAvailable));
+          await tx.lace_stock.update({
+            where: { id: lot.id },
+            data: { quantityReserved: { increment: toReserve } },
+          });
+          remaining -= toReserve;
+        }
+      }
+
+      // Create audit entry in stock_reservations
+      const warehouseId = data.warehouseId;
+      const warehouse = warehouseId
+        ? await tx.warehouses.findUnique({ where: { id: warehouseId } })
+        : await tx.warehouses.findFirst({ where: { isActive: true }, orderBy: { createdAt: 'asc' } });
+
+      if (warehouse) {
+        await tx.stock_reservations.create({
+          data: {
+            materialId: reqWithMaterial.materialId,
+            warehouseId: warehouse.id,
+            reservationType: 'ORDER',
+            referenceType: 'MATERIAL_REQUIREMENT',
+            referenceId: data.requirementId,
+            referenceNumber: reqWithMaterial.requirementNumber,
+            reservedQuantity: reserveQty,
+            unit: reqWithMaterial.unit as any,
+            status: 'ACTIVE',
+            reservedById: userId,
+          },
+        });
+      }
     }
-  }
+
+    return upd;
+  });
 
   return mapToResponse(updated);
 }

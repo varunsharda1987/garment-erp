@@ -438,9 +438,12 @@ class GreigeStockService {
   /**
    * Consume greige stock (after processing)
    */
-  async consumeGreigeStock(stockId: string, quantity: number, userId: string) {
+  async consumeGreigeStock(stockId: string, quantity: number, userId: string, tx?: any) {
     try {
-      const stock = await prisma.greige_stock.findUnique({
+      // When a caller's transaction is supplied, run every write on it so the consumption commits/rolls
+      // back atomically with the caller (e.g. challan issuance); otherwise use the global client.
+      const client = tx || prisma;
+      const stock = await client.greige_stock.findUnique({
         where: { id: stockId },
       });
 
@@ -467,7 +470,7 @@ class GreigeStockService {
         newAvailable = available - fromAvailable;
       }
 
-      const updatedStock = await prisma.greige_stock.update({
+      const updatedStock = await client.greige_stock.update({
         where: { id: stockId },
         data: {
           quantityReserved: new Prisma.Decimal(newReserved),
@@ -484,7 +487,7 @@ class GreigeStockService {
         : stock.weightedAvgCost
           ? Number(stock.weightedAvgCost)
           : null;
-      await prisma.greige_stock_transaction.create({
+      await client.greige_stock_transaction.create({
         data: {
           stockId,
           transactionType: 'CONSUMPTION',
@@ -498,8 +501,8 @@ class GreigeStockService {
         },
       });
 
-      // Sync stock_levels
-      await syncStockLevelQuantity(stock.greigeId, -quantity, stock.warehouseId || undefined);
+      // Sync stock_levels (on the same tx when provided)
+      await syncStockLevelQuantity(stock.greigeId, -quantity, stock.warehouseId || undefined, undefined, tx);
 
       logInfo(`Consumed ${quantity} meters of greige stock ${stockId}`);
 

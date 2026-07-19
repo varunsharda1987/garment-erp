@@ -217,8 +217,9 @@ export async function issueChallan(id: string, userId?: string) {
             include: { greige: true },
           });
 
-          // Consume from source warehouse
-          await greigeStockService.consumeGreigeStock(item.greigeStockId, qty, effectiveUserId);
+          // Consume from source warehouse — pass the outer tx so the consumption rolls back with the
+          // challan if issuance later fails (was on the global client → stock deducted with no challan; F4).
+          await greigeStockService.consumeGreigeStock(item.greigeStockId, qty, effectiveUserId, tx);
 
           // If OUTWARD to a processor, create stock at processor's warehouse
           if (existing.challanType === 'OUTWARD' && existing.toType === 'SUPPLIER' && existing.toId && originalStock) {
@@ -403,18 +404,21 @@ export async function issueChallan(id: string, userId?: string) {
 
           if (warehouse) {
             try {
-              await stockMovementService.createStockOut({
-                movementType: 'STOCK_OUT' as MovementType,
-                materialId: item.materialId,
-                warehouseId: warehouse.id,
-                quantity: new Decimal(qty),
-                unit: (item.unit || 'PIECE') as Unit,
-                referenceType: 'CHALLAN',
-                referenceId: existing.id,
-                referenceNumber: existing.challanNumber,
-                remarks: `Issued via challan ${existing.challanNumber}`,
-                performedById: effectiveUserId,
-              });
+              await stockMovementService.createStockOut(
+                {
+                  movementType: 'STOCK_OUT' as MovementType,
+                  materialId: item.materialId,
+                  warehouseId: warehouse.id,
+                  quantity: new Decimal(qty),
+                  unit: (item.unit || 'PIECE') as Unit,
+                  referenceType: 'CHALLAN',
+                  referenceId: existing.id,
+                  referenceNumber: existing.challanNumber,
+                  remarks: `Issued via challan ${existing.challanNumber}`,
+                  performedById: effectiveUserId,
+                },
+                tx
+              ); // pass the outer tx so the stock-out participates in the challan transaction (F4)
             } catch (err: any) {
               // Stock deduction failure must block challan issuance for ALL types
               // to prevent data inconsistency (challan ISSUED but stock not deducted)

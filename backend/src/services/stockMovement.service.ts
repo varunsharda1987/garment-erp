@@ -380,8 +380,10 @@ class StockMovementService {
   /**
    * Create stock out movement (Material Requisition, Sale, etc.)
    */
-  async createStockOut(data: CreateStockMovementDTO) {
-    return await prisma.$transaction(async (tx) => {
+  async createStockOut(data: CreateStockMovementDTO, outerTx?: any) {
+    // When a caller's transaction is supplied, run on it so the stock-out commits/rolls back with the
+    // caller (e.g. challan issuance) instead of in its own independent transaction (bug-hunt T1/F4).
+    const run = async (tx: any) => {
       // Check stock availability inside transaction for atomicity
       const stockLevel = await tx.stock_levels.findFirst({
         where: { materialId: data.materialId, warehouseId: data.warehouseId },
@@ -460,7 +462,8 @@ class StockMovementService {
       await this.decreaseStockInTx(tx, data.materialId, data.warehouseId, data.quantity);
 
       return movement;
-    });
+    };
+    return outerTx ? run(outerTx) : prisma.$transaction(run);
   }
 
   /**

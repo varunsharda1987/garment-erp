@@ -1219,6 +1219,7 @@ class StockMovementService {
         grn_items: {
           include: {
             materials: { select: { code: true, name: true } },
+            purchase_order_items: { select: { unitPrice: true } },
           },
         },
       },
@@ -1252,8 +1253,10 @@ class StockMovementService {
           quantity: Number(item.receivedQuantity),
           unit: item.unit || 'PCS',
           invoiceNumber: grn.invoiceNumber,
-          rate: item.unitPrice ? Number(item.unitPrice) : null,
-          totalValue: item.totalPrice ? Number(item.totalPrice) : null,
+          rate: item.purchase_order_items?.unitPrice ? Number(item.purchase_order_items.unitPrice) : null,
+          totalValue: item.purchase_order_items?.unitPrice
+            ? Number(item.purchase_order_items.unitPrice) * Number(item.receivedQuantity)
+            : null,
           sourceType: 'GRN',
           sourceId: grn.id,
           sourceNumber: grn.grnNumber,

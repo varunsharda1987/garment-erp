@@ -39,7 +39,7 @@ jobs:
 
       - name: Run TypeScript check
         working-directory: backend
-        run: npx tsc --noEmit
+        run: npm run type-check # runs tsc with a raised heap so it can't OOM-crash into a false "clean"
 
       - name: Run ESLint
         working-directory: backend

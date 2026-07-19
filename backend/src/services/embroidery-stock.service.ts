@@ -299,8 +299,9 @@ class EmbroideryStockService {
         },
       });
 
-      // 4b. Ensure materials record exists and sync stock_levels for the embroidered fabric
-      await ensureMaterialRecord(sourceStock.fabricId, 'FABRIC');
+      // 4b. Ensure materials record exists and sync stock_levels for the embroidered fabric (on this tx,
+      // so the master row isn't created on a 2nd connection / left orphaned if the tx rolls back — F4).
+      await ensureMaterialRecord(sourceStock.fabricId, 'FABRIC', tx);
       await syncStockLevelQuantity(sourceStock.fabricId, data.quantityReceived, undefined, 'METER', tx);
 
       // 5. Update send-out record

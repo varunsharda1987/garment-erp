@@ -639,62 +639,60 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         throw new ValidationError('Payment amount must be greater than 0');
       }
 
-      // Check for duplicate payment (same invoice + same amount within last 24 hours)
+      // The payment insert and the invoice balance/status update MUST be atomic — otherwise the payment
+      // commits while the invoice still reads unpaid (re-paid / wrongly dunned), and the old
+      // read-compute-write on paidAmount silently loses concurrent payments. Wrap both in one transaction
+      // and apply the balance with atomic increment/decrement so concurrent payments can't clobber each
+      // other (bug-hunt T1/F4).
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const recentDuplicate = await this.prisma.payments.findFirst({
-        where: {
-          invoiceId: data.invoiceId,
-          amount: data.amount,
-          createdAt: { gte: oneDayAgo },
-        },
-      });
-      if (recentDuplicate) {
-        throw new BusinessError(
-          `Possible duplicate payment detected. A payment of ₹${data.amount} for this invoice was already recorded at ${recentDuplicate.createdAt.toISOString()}. If this is intentional, please use a different amount or contact admin.`
-        );
-      }
+      return await this.prisma.$transaction(async (tx) => {
+        // Duplicate guard (inside the tx to shrink the race window)
+        const recentDuplicate = await tx.payments.findFirst({
+          where: { invoiceId: data.invoiceId, amount: data.amount, createdAt: { gte: oneDayAgo } },
+        });
+        if (recentDuplicate) {
+          throw new BusinessError(
+            `Possible duplicate payment detected. A payment of ₹${data.amount} for this invoice was already recorded at ${recentDuplicate.createdAt.toISOString()}. If this is intentional, please use a different amount or contact admin.`
+          );
+        }
 
-      // Create payment record
-      const payment = await this.prisma.payments.create({
-        data: {
-          id: randomUUID(),
-          invoiceId: data.invoiceId,
-          paymentDate: data.paymentDate || new Date(),
-          amount: data.amount,
-          paymentMethod: data.paymentMethod,
-          referenceNumber: data.referenceNumber,
-          remarks: data.remarks,
-          receivedById: data.receivedById,
-        },
-        include: {
-          users: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-            },
+        // Create the payment
+        const payment = await tx.payments.create({
+          data: {
+            id: randomUUID(),
+            invoiceId: data.invoiceId,
+            paymentDate: data.paymentDate || new Date(),
+            amount: data.amount,
+            paymentMethod: data.paymentMethod,
+            referenceNumber: data.referenceNumber,
+            remarks: data.remarks,
+            receivedById: data.receivedById,
           },
-        },
+          include: { users: { select: { id: true, firstName: true, lastName: true } } },
+        });
+
+        // Apply to the invoice balance ATOMICALLY (race-safe) and read back the resulting totals
+        const updated = await tx.invoices.update({
+          where: { id: data.invoiceId },
+          data: {
+            paidAmount: { increment: data.amount },
+            balanceAmount: { decrement: data.amount },
+          },
+        });
+
+        // The atomic decrement is the source of truth: if a concurrent payment slipped past the pre-check
+        // and this drove the balance negative, abort — rolling back this payment too.
+        if (parseFloat(updated.balanceAmount.toString()) < -0.005) {
+          throw new ValidationError(`Payment amount (${data.amount}) exceeds the remaining balance for this invoice.`);
+        }
+
+        // Recompute status from the atomic result, not the stale pre-tx snapshot
+        const newStatus = this.calculateInvoiceStatus(updated.totalAmount, updated.paidAmount, updated.dueDate);
+        await tx.invoices.update({ where: { id: data.invoiceId }, data: { status: newStatus } });
+
+        logInfo(`Payment recorded for invoice ${invoice.invoiceNumber}: ${data.amount}`);
+        return payment;
       });
-
-      // Update invoice paid amount and balance
-      const newPaidAmount = parseFloat(invoice.paidAmount.toString()) + data.amount;
-      const newBalanceAmount = parseFloat(invoice.totalAmount.toString()) - newPaidAmount;
-
-      // Update invoice status
-      const newStatus = this.calculateInvoiceStatus(invoice.totalAmount, newPaidAmount, invoice.dueDate);
-
-      await this.model.update({
-        where: { id: data.invoiceId },
-        data: {
-          paidAmount: newPaidAmount,
-          balanceAmount: newBalanceAmount,
-          status: newStatus,
-        },
-      });
-
-      logInfo(`Payment recorded for invoice ${invoice.invoiceNumber}: ${data.amount}`);
-      return payment;
     } catch (error) {
       logError('Error recording payment', { error });
       throw error;

@@ -50,7 +50,7 @@ async function startServer() {
     }
 
     // Start Express server - bind to 0.0.0.0 for LAN access
-    const server = app.listen(PORT, '0.0.0.0', () => {
+    const server = app.listen(Number(PORT), '0.0.0.0', () => {
       logInfo('');
       logInfo('🏭 Kashaya Fabs ERP - Backend Server');
       logInfo('================================');

@@ -25,7 +25,7 @@ export interface LaceCostOptions {
   laceName?: string;
   quantityPerGarment: number; // Meters per garment
   orderQuantity?: number; // Number of garments
-  wastagePercent: number; // Required - no hardcoded defaults
+  wastagePercent?: number; // Required at runtime — calculateLaceCost throws if omitted (see guard below)
   styleId?: string;
   costSheetId?: string;
 }

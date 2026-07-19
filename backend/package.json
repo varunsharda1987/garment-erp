@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "nodemon --exec \"ts-node --transpile-only -r dotenv/config\" src/server.ts",
-    "build": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc",
+    "build": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc",
     "start": "node dist/server.js",
     "postinstall": "prisma generate",
     "test": "jest",
@@ -19,7 +19,7 @@
     "fix-admin": "node fix-admin-credentials.js",
     "lint": "eslint \"src/**/*.{ts,js}\" --max-warnings 0",
     "lint:fix": "eslint \"src/**/*.{ts,js}\" --fix",
-    "type-check": "tsc --noEmit"
+    "type-check": "node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc --noEmit"
   },
   "keywords": [],
   "author": "",

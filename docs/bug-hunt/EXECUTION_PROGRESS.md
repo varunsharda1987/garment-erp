@@ -91,13 +91,22 @@ wrong GST; ASN/DN 500s). F2 ~11 — **our materials uniqueness fix is only 9 of 
      $transaction; acceptDelivery uses conditional updateMany (no double-count); deleteDelivery guards the delete on
      status. 2-lens review PASS. (No live test — 0 processing rows to seed; same proven pattern + typecheck.)
 
-   **Ranked REMAINING F4 targets (top-first):** #3/#4 challan.issueChallan (greige `consumeGreigeStock` + trim
-   `createStockOut` commit outside the challan tx → stock consumed but challan rolled back — **touches WIP
-   greige-stock.service.ts; needs the user's call**); #5 mrp.allocateStock (reservation multi-write → double-reserve/
-   oversell); #6 embroidery-stock.receive (ensureMaterialRecord w/o tx — 1-line); #7 fabric-stock.createStyleStock,
-   #8 trim-stock.createTrimStock, #9 thread-stock.createThreadStock (specialized create + sync not atomic → silent
-   under-report); #12 grn approveGRN MRP post-commit (best-effort by design; over-procurement if it fails); #13
-   external-process.createSendOut (outward challan after tx, swallowed → GST gap).
+   - ✅ **T1-4 mrp.allocateStock** — merged b01cbcda. requirement status update + FIFO lot reservations +
+     stock_reservations audit now one $transaction (all writes on tx). Prevents double-reserve/oversell on partial
+     failure. 1-agent adversarial review PASS. (Review flagged a PRE-EXISTING, out-of-scope over-reserve bug:
+     `toReserve = min(remaining, quantityAvailable)` ignores existing `quantityReserved`, so a lot can be reserved
+     past capacity — fix separately when reworking reservation logic.)
+
+   **Ranked REMAINING F4 targets (top-first):** #3/#4 challan.issueChallan — greige `consumeGreigeStock` (global
+   client, no tx) + trim `stockMovementService.createStockOut` (opens its OWN nested $transaction) both commit
+   outside the challan flow → stock consumed but challan can roll back to DRAFT (decrement with no issued challan,
+   double-deduct on retry). **WIP blocker RESOLVED** — greige-stock.service.ts is now committed/clean, so
+   `consumeGreigeStock` can take an optional `tx` (like `createGreigeStock` already does); createStockOut (in
+   stockMovement.service.ts, not WIP) needs an optional-tx variant so it doesn't open a nested tx. Fix = wrap
+   issueChallan writes in one $transaction + thread tx through both. #6 embroidery-stock.receive (ensureMaterialRecord
+   w/o tx — 1-line); #7 fabric-stock.createStyleStock, #8 trim-stock.createTrimStock, #9 thread-stock.createThreadStock
+   (specialized create + sync not atomic → silent under-report); #12 grn approveGRN MRP post-commit (best-effort by
+   design; over-procurement if it fails); #13 external-process.createSendOut (outward challan after tx, swallowed → GST gap).
 
    ⚠️ **New finding while testing T1-1:** the backend has **pre-existing type errors** (server.ts env typing;
    stockMovement.service.ts:1252-1253 `unitPrice`/`totalPrice` don't exist on the selected type; laceCosting.controller.ts:31/70

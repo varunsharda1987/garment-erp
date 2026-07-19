@@ -97,13 +97,13 @@ wrong GST; ASN/DN 500s). F2 ~11 — **our materials uniqueness fix is only 9 of 
      `toReserve = min(remaining, quantityAvailable)` ignores existing `quantityReserved`, so a lot can be reserved
      past capacity — fix separately when reworking reservation logic.)
 
-   **Ranked REMAINING F4 targets (top-first):** #3/#4 challan.issueChallan — greige `consumeGreigeStock` (global
-   client, no tx) + trim `stockMovementService.createStockOut` (opens its OWN nested $transaction) both commit
-   outside the challan flow → stock consumed but challan can roll back to DRAFT (decrement with no issued challan,
-   double-deduct on retry). **WIP blocker RESOLVED** — greige-stock.service.ts is now committed/clean, so
-   `consumeGreigeStock` can take an optional `tx` (like `createGreigeStock` already does); createStockOut (in
-   stockMovement.service.ts, not WIP) needs an optional-tx variant so it doesn't open a nested tx. Fix = wrap
-   issueChallan writes in one $transaction + thread tx through both. #6 embroidery-stock.receive (ensureMaterialRecord
+   - ✅ **T1-5 challan.issueChallan** — merged 3b8cbfab. issueChallan already ran in a $transaction, but two writes
+     escaped: `consumeGreigeStock` (global client) + `createStockOut` (own nested $transaction). Both now take an
+     optional tx and participate in the challan tx (backward-compatible for their other callers: dyeing/printing
+     controllers, stockMovement.controller). Prevents stock-deducted-with-no-challan + double-deduct on retry.
+     2-lens adversarial review PASS (atomicity + all-callers backward-compat).
+
+   **Ranked REMAINING F4 targets (top-first):** #6 embroidery-stock.receive (ensureMaterialRecord
    w/o tx — 1-line); #7 fabric-stock.createStyleStock, #8 trim-stock.createTrimStock, #9 thread-stock.createThreadStock
    (specialized create + sync not atomic → silent under-report); #12 grn approveGRN MRP post-commit (best-effort by
    design; over-procurement if it fails); #13 external-process.createSendOut (outward challan after tx, swallowed → GST gap).

@@ -108,13 +108,19 @@ wrong GST; ASN/DN 500s). F2 ~11 — **our materials uniqueness fix is only 9 of 
      (body → run(tx); `data.tx ? run(data.tx) : prisma.$transaction(run)` so standalone is atomic and a caller tx
      is joined; helpers threaded; skipMaterialSync + re-throw preserved). 2-lens review PASS (all callers grepped).
 
-   **Ranked REMAINING F4 targets:** #12 grn approveGRN post-commit MRP updateReceivedQuantity (best-effort by
-   design — needs updateReceivedQuantity to accept tx + fold into approval tx to close over-procurement); #13
-   external-process.createSendOut (outward job-work challan created AFTER the tx in a swallowed try/catch → material
-   shipped with outwardChallanId=null, GST/goods-movement gap). NEW (pre-existing, found during #6-9 review):
-   fabric.createStyleStock opens its OWN $transaction but challan.service.ts:783 calls it from inside a parent tx →
-   nested/independent (give createStyleStock an optional tx like the trim/thread pattern). Plus the pre-existing
-   tsc-hidden type errors (server.ts, stockMovement.service.ts:1255-56, laceCosting.controller.ts) + raise CI tsc heap.
+   - ✅ **T1-7 remaining F4** — merged 93952fb4. (a) createStyleStock now takes optional outerTx + joins receiveChallan's
+     tx; (b) #13 external-process send-out OUTWARD challan created INSIDE the send-out tx (createChallan made tx-aware) —
+     no more shipped-without-challan; (c) #12 grn→MRP: updateReceivedQuantity made tx-aware + folded into the approval
+     tx (replaces the T1-1 post-commit collector) — closes over-procurement. 2-lens review PASS (all callers grepped,
+     zero dangling mrpUpdates). TWO intended behavior changes: send-out rolls back if its challan fails; GRN approval
+     rolls back if the MRP update fails.
+
+   ### ✅ Tier 1 F4 atomicity: COMPLETE (T1-1..T1-7 all merged). All critical/high/medium ranked write-paths closed.
+
+   **Known siblings / follow-ups (not blocking):** the INWARD receive challan in external-process.service.ts:~478 is
+   the same post-tx/swallowed pattern as #13 but on the receive side (material back from vendor recorded with no
+   inward challan on failure) — sibling of #13, left intentionally for now. Plus the pre-existing tsc-hidden type
+   errors (server.ts, stockMovement.service.ts:1255-56, laceCosting.controller.ts) + raise CI tsc heap — NEXT.
 
    <!-- superseded ranked list below (kept for provenance) -->
    Old #6 embroidery-stock.receive (ensureMaterialRecord

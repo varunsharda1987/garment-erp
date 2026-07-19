@@ -82,8 +82,22 @@ wrong GST; ASN/DN 500s). F2 ~11 — **our materials uniqueness fix is only 9 of 
    executeSourceMismatchCleanup on tx). Non-critical cascades (processing-PO status, cost-sheet sourcing, MRP
    received-qty which opens its own nested tx) moved to post-commit best-effort. `{ timeout:30000, maxWait:10000 }`.
    **Live-proven** on the real DB: injected a stock failure mid-approval → GRN stayed PENDING_QC, 0 stock, 0
-   movements (full rollback); 3-agent adversarial review clean after 2 rounds. STILL TODO in Tier 1: greige/fabric
-   direct write paths, dispatch decrement, payment recording, receivedQuantity — stop the rest of the F4 bleeding.
+   movements (full rollback); 3-agent adversarial review clean after 2 rounds.
+
+   **Tier 1 F4 discovery (workflow) ranked 20 non-atomic write paths.** Fixed since:
+   - ✅ **T1-2 recordPayment** (invoice.service.ts) — merged b1c87d0f. payment insert + invoice balance/status now
+     one $transaction with atomic increment/decrement (race-safe). Live-proven 10/10; 2-lens adversarial review PASS.
+   - ✅ **T1-3 processingDelivery** create/accept/delete — merged b7922008. Three two-write methods wrapped in
+     $transaction; acceptDelivery uses conditional updateMany (no double-count); deleteDelivery guards the delete on
+     status. 2-lens review PASS. (No live test — 0 processing rows to seed; same proven pattern + typecheck.)
+
+   **Ranked REMAINING F4 targets (top-first):** #3/#4 challan.issueChallan (greige `consumeGreigeStock` + trim
+   `createStockOut` commit outside the challan tx → stock consumed but challan rolled back — **touches WIP
+   greige-stock.service.ts; needs the user's call**); #5 mrp.allocateStock (reservation multi-write → double-reserve/
+   oversell); #6 embroidery-stock.receive (ensureMaterialRecord w/o tx — 1-line); #7 fabric-stock.createStyleStock,
+   #8 trim-stock.createTrimStock, #9 thread-stock.createThreadStock (specialized create + sync not atomic → silent
+   under-report); #12 grn approveGRN MRP post-commit (best-effort by design; over-procurement if it fails); #13
+   external-process.createSendOut (outward challan after tx, swallowed → GST gap).
 
    ⚠️ **New finding while testing T1-1:** the backend has **pre-existing type errors** (server.ts env typing;
    stockMovement.service.ts:1252-1253 `unitPrice`/`totalPrice` don't exist on the selected type; laceCosting.controller.ts:31/70

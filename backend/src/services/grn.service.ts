@@ -564,7 +564,6 @@ class GRNService {
     (grn as any).__postCommit = {
       updateProcessingPOStatus: false,
       sourcingUpdates: [] as Array<{ poId: string; fabricId: string; actualRate: number }>,
-      mrpUpdates: [] as Array<{ poItemId: string; acceptedQty: number }>,
     };
 
     // Update GRN status in transaction with stock movements
@@ -875,11 +874,11 @@ class GRNService {
               }
             }
 
-            // MRP requirement update is non-critical AND opens its own nested prisma.$transaction — collect
-            // it and run it AFTER commit. A nested transaction inside this interactive tx would borrow a
-            // second pooled connection and risk deadlock (bug-hunt T1-1).
+            // MRP received-qty update, now ATOMIC with the approval — updateReceivedQuantity is tx-aware and
+            // no longer opens a nested tx, so running it on `tx` closes the over-procurement gap (a committed
+            // receipt MRP never saw → duplicate PO) without the second-connection/deadlock risk (F4 #12).
             if (item.poItemId) {
-              (grn as any).__postCommit.mrpUpdates.push({ poItemId: item.poItemId, acceptedQty });
+              await mrpService.updateReceivedQuantity(item.poItemId, acceptedQty, tx);
             }
           }
 
@@ -928,7 +927,6 @@ class GRNService {
       | {
           updateProcessingPOStatus?: boolean;
           sourcingUpdates?: Array<{ poId: string; fabricId: string; actualRate: number }>;
-          mrpUpdates?: Array<{ poItemId: string; acceptedQty: number }>;
         }
       | undefined;
 
@@ -954,15 +952,6 @@ class GRNService {
         }
       } catch (costSheetErr) {
         logError('Failed to update cost sheet sourcing strategy', costSheetErr);
-      }
-    }
-
-    // MRP received-quantity updates (moved out of the transaction — each opens its own nested tx).
-    for (const mu of postCommit?.mrpUpdates ?? []) {
-      try {
-        await mrpService.updateReceivedQuantity(mu.poItemId, mu.acceptedQty);
-      } catch (err) {
-        console.warn(`MRP update warning for PO item ${mu.poItemId}:`, err);
       }
     }
 

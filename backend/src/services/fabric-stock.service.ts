@@ -60,7 +60,7 @@ class FabricStockService {
   /**
    * Create style-specific fabric stock entry
    */
-  async createStyleStock(data: CreateStyleStockDTO, userId: string) {
+  async createStyleStock(data: CreateStyleStockDTO, userId: string, outerTx?: any) {
     try {
       // Validate style and fabric exist
       const style = await prisma.styles.findUnique({
@@ -80,7 +80,9 @@ class FabricStockService {
       // The fabric_stock row and its stock_levels sync must be atomic — otherwise a crash after the create
       // leaves fabric_stock populated but stock_levels empty, so the Stock Levels page under-reports the
       // on-hand fabric (bug-hunt T1/F4).
-      const fabricStock = await prisma.$transaction(async (tx) => {
+      // Join a caller's transaction when supplied (e.g. receiveChallan) so this stock write commits/rolls
+      // back with the caller; otherwise open our own (bug-hunt T1/F4).
+      const run = async (tx: any) => {
         const created = await tx.fabric_stock.create({
           data: {
             id: `STOCK-${Date.now()}-${Math.random().toString(36).substring(7)}`,
@@ -113,7 +115,8 @@ class FabricStockService {
         const materialId = await ensureMaterialRecord(data.fabricId, 'FABRIC', tx);
         await syncStockLevelQuantity(materialId, data.quantity, undefined, 'METER', tx);
         return created;
-      });
+      };
+      const fabricStock = outerTx ? await run(outerTx) : await prisma.$transaction(run);
 
       return fabricStock;
     } catch (error: unknown) {

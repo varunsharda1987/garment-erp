@@ -295,52 +295,53 @@ class ExternalProcessService {
         supplier: supplier.name,
       });
 
-      return { sendOut, supplierName: supplier.name };
-    });
-
-    // Create OUTWARD challan outside transaction (non-critical)
-    try {
+      // Create the OUTWARD job-work challan INSIDE the same transaction. Shipping material to a vendor
+      // without a challan is a GST / goods-movement violation, so if the challan can't be created the whole
+      // send-out (including the stock deduction) must roll back — it was previously created after commit in
+      // a swallowed try/catch, leaving material shipped with outwardChallanId=null and no challan (F4 #13).
       const itemType = this.getChallanItemType(data.processType, data.sourceType);
       const processLabel = data.processType.replace('_', ' ').toLowerCase();
 
-      const challan = await createChallan({
-        challanType: ChallanType.OUTWARD,
-        challanDate: data.sendDate,
-        orderId: result.sendOut.orderId || undefined,
-        productionRunId: data.workOrderId,
-        purchaseOrderId: data.purchaseOrderId,
-        fromType: 'WAREHOUSE',
-        fromName: data.processType === 'HANDWORK' ? 'Stitching Floor' : 'Cutting Floor',
-        toType: 'VENDOR',
-        toId: data.supplierId,
-        toName: result.supplierName,
-        unit: data.unit,
-        remarks: `${processLabel} send-out: ${result.sendOut.batchNumber} (${data.quantitySent} ${data.unit})`,
-        issuedById: data.createdById,
-        items: [
-          {
-            itemType,
-            quantity: data.quantitySent,
-            unit: data.unit,
-            description: `Material for ${processLabel} — Batch ${result.sendOut.batchNumber}`,
-            serviceRequirementId: data.serviceRequirementId,
-          },
-        ],
-      });
+      const challan = await createChallan(
+        {
+          challanType: ChallanType.OUTWARD,
+          challanDate: data.sendDate,
+          orderId: sendOut.orderId || undefined,
+          productionRunId: data.workOrderId,
+          purchaseOrderId: data.purchaseOrderId,
+          fromType: 'WAREHOUSE',
+          fromName: data.processType === 'HANDWORK' ? 'Stitching Floor' : 'Cutting Floor',
+          toType: 'VENDOR',
+          toId: data.supplierId,
+          toName: supplier.name,
+          unit: data.unit,
+          remarks: `${processLabel} send-out: ${sendOut.batchNumber} (${data.quantitySent} ${data.unit})`,
+          issuedById: data.createdById,
+          items: [
+            {
+              itemType,
+              quantity: data.quantitySent,
+              unit: data.unit,
+              description: `Material for ${processLabel} — Batch ${sendOut.batchNumber}`,
+              serviceRequirementId: data.serviceRequirementId,
+            },
+          ],
+        },
+        tx
+      );
 
-      // Update send-out with challan reference
-      await prisma.external_process_send_outs.update({
-        where: { id: result.sendOut.id },
+      await tx.external_process_send_outs.update({
+        where: { id: sendOut.id },
         data: { outwardChallanId: challan.id },
       });
 
       logInfo('Created external process outward challan', {
         challanId: challan.id,
-        sendOutId: result.sendOut.id,
+        sendOutId: sendOut.id,
       });
-    } catch (challanErr) {
-      logError('Failed to create external process outward challan (non-critical)', challanErr);
-    }
+
+      return { sendOut, supplierName: supplier.name };
+    });
 
     return result.sendOut;
   }

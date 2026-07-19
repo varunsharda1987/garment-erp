@@ -104,9 +104,11 @@ class ProcessingDeliveryService {
 
     const deliveryNumber = await this.generateDeliveryNumber();
 
-    // The delivery record and the stage quantity update MUST be atomic — otherwise the delivery is
-    // recorded while the stage still shows the material in-process, so availableForDelivery under-counts
-    // and the same stage stock is over-delivered (bug-hunt T1/F4).
+    // The delivery record and the stage quantity update MUST be atomic — otherwise a failure between them
+    // leaves the delivery recorded while the stage still shows the material in-process (or vice versa),
+    // corrupting the stage's received/in-process counts (bug-hunt T1/F4). NOTE: the availableForDelivery
+    // pre-check above is not itself concurrency-safe against two simultaneous deliveries (that would need a
+    // stage-row lock); this transaction guarantees the two writes commit together, not that check.
     const delivery = await prisma.$transaction(async (tx) => {
       const created = await tx.processing_delivery.create({
         data: {
@@ -725,9 +727,14 @@ class ProcessingDeliveryService {
         },
       });
 
-      await tx.processing_delivery.delete({
-        where: { id },
+      // Guard the delete on status too: if the delivery was accepted concurrently (between the pre-check
+      // above and here), deleteMany matches 0 rows → we abort, rolling back the stage restore.
+      const deleted = await tx.processing_delivery.deleteMany({
+        where: { id, qualityStatus: { not: 'ACCEPTED' } },
       });
+      if (deleted.count === 0) {
+        throw new Error('Cannot delete accepted delivery');
+      }
     });
 
     return { success: true, message: 'Delivery deleted successfully' };

@@ -119,8 +119,16 @@ wrong GST; ASN/DN 500s). F2 ~11 — **our materials uniqueness fix is only 9 of 
 
    **Known siblings / follow-ups (not blocking):** the INWARD receive challan in external-process.service.ts:~478 is
    the same post-tx/swallowed pattern as #13 but on the receive side (material back from vendor recorded with no
-   inward challan on failure) — sibling of #13, left intentionally for now. Plus the pre-existing tsc-hidden type
-   errors (server.ts, stockMovement.service.ts:1255-56, laceCosting.controller.ts) + raise CI tsc heap — NEXT.
+   inward challan on failure) — sibling of #13, left intentionally for now.
+
+   ### ✅ Pre-existing tsc-hidden type errors: FIXED (merged 62d3fbf9)
+   The backend `tsc` was OOM-crashing before finishing (default heap) → exited "clean" while 7 real errors hid.
+   Fixed all 7: laceCostingCalculation LaceCostOptions.wastagePercent→optional (runtime already validates);
+   server.ts `app.listen(Number(PORT))`; stockMovement.service.ts movement-report GRN branch read non-existent
+   `item.unitPrice`/`totalPrice` (so rate/totalValue were ALWAYS null) → now includes purchase_order_items,
+   totalValue = unitPrice×receivedQuantity (real bug fix). Raised heap: backend `type-check`/`build` now
+   `--max-old-space-size=8192`; CI test.yml backend TS step runs `npm run type-check` so an OOM can't masquerade
+   as clean again. `tsc --noEmit` now reports **0 errors**.
 
    <!-- superseded ranked list below (kept for provenance) -->
    Old #6 embroidery-stock.receive (ensureMaterialRecord

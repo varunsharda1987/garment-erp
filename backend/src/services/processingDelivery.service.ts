@@ -104,65 +104,72 @@ class ProcessingDeliveryService {
 
     const deliveryNumber = await this.generateDeliveryNumber();
 
-    const delivery = await prisma.processing_delivery.create({
-      data: {
-        deliveryNumber,
-        batchId: data.batchId,
-        stageId: data.stageId,
-        quantityDelivered: data.quantityDelivered,
-        quantityAccepted: data.quantityDelivered, // Initially assume all accepted
-        deliveryDate: data.deliveryDate,
-        receivedAtWarehouse: data.receivedAtWarehouse,
-        nextStageId: data.nextStageId,
-        challanNumber: data.challanNumber,
-        invoiceNumber: data.invoiceNumber,
-        documents: data.documents,
-        receivedById: data.receivedById,
-      },
-      include: {
-        batch: {
-          select: {
-            id: true,
-            batchNumber: true,
-            materialType: true,
-          },
+    // The delivery record and the stage quantity update MUST be atomic — otherwise the delivery is
+    // recorded while the stage still shows the material in-process, so availableForDelivery under-counts
+    // and the same stage stock is over-delivered (bug-hunt T1/F4).
+    const delivery = await prisma.$transaction(async (tx) => {
+      const created = await tx.processing_delivery.create({
+        data: {
+          deliveryNumber,
+          batchId: data.batchId,
+          stageId: data.stageId,
+          quantityDelivered: data.quantityDelivered,
+          quantityAccepted: data.quantityDelivered, // Initially assume all accepted
+          deliveryDate: data.deliveryDate,
+          receivedAtWarehouse: data.receivedAtWarehouse,
+          nextStageId: data.nextStageId,
+          challanNumber: data.challanNumber,
+          invoiceNumber: data.invoiceNumber,
+          documents: data.documents,
+          receivedById: data.receivedById,
         },
-        stage: {
-          select: {
-            id: true,
-            stageNumber: true,
-            processingType: true,
-            processor: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
+        include: {
+          batch: {
+            select: {
+              id: true,
+              batchNumber: true,
+              materialType: true,
+            },
+          },
+          stage: {
+            select: {
+              id: true,
+              stageNumber: true,
+              processingType: true,
+              processor: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                },
               },
             },
           },
-        },
-        receivedBy: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+          receivedBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    // Update stage quantities
-    await prisma.processing_stage.update({
-      where: { id: data.stageId },
-      data: {
-        quantityReceived: {
-          increment: data.quantityDelivered,
+      // Update stage quantities (atomic with the delivery.create above)
+      await tx.processing_stage.update({
+        where: { id: data.stageId },
+        data: {
+          quantityReceived: {
+            increment: data.quantityDelivered,
+          },
+          quantityInProcess: {
+            decrement: data.quantityDelivered,
+          },
         },
-        quantityInProcess: {
-          decrement: data.quantityDelivered,
-        },
-      },
+      });
+
+      return created;
     });
 
     // Auto-update production_tracking if batch is linked to a work order
@@ -535,46 +542,58 @@ class ProcessingDeliveryService {
    * Accept delivery
    */
   async acceptDelivery(id: string) {
-    const delivery = await prisma.processing_delivery.update({
-      where: { id },
-      data: {
-        qualityStatus: 'ACCEPTED',
-        acceptanceDate: new Date(),
-      },
-      include: {
-        batch: {
-          select: {
-            id: true,
-            batchNumber: true,
+    // The acceptance flip and the batch rollup MUST be atomic, and a double-accept must not double-count
+    // the batch totals (bug-hunt T1/F4).
+    return await prisma.$transaction(async (tx) => {
+      // Flip to ACCEPTED only if it isn't already — atomic guard against double-accept.
+      const flipped = await tx.processing_delivery.updateMany({
+        where: { id, qualityStatus: { not: 'ACCEPTED' } },
+        data: { qualityStatus: 'ACCEPTED', acceptanceDate: new Date() },
+      });
+      if (flipped.count === 0) {
+        throw new Error('Delivery not found or already accepted');
+      }
+
+      const delivery = await tx.processing_delivery.findUnique({
+        where: { id },
+        include: {
+          batch: {
+            select: {
+              id: true,
+              batchNumber: true,
+            },
+          },
+          stage: {
+            select: {
+              id: true,
+              stageNumber: true,
+              processingType: true,
+            },
           },
         },
-        stage: {
-          select: {
-            id: true,
-            stageNumber: true,
-            processingType: true,
+      });
+      if (!delivery) {
+        throw new Error('Delivery not found');
+      }
+
+      // Update batch totals — atomic with the acceptance flip above
+      await tx.processing_batch.update({
+        where: { id: delivery.batchId },
+        data: {
+          totalQuantityReceived: {
+            increment: delivery.quantityAccepted,
+          },
+          quantityRejected: {
+            increment: delivery.quantityRejected,
+          },
+          quantityInProcess: {
+            decrement: Number(delivery.quantityDelivered),
           },
         },
-      },
-    });
+      });
 
-    // Update batch total received
-    await prisma.processing_batch.update({
-      where: { id: delivery.batchId },
-      data: {
-        totalQuantityReceived: {
-          increment: delivery.quantityAccepted,
-        },
-        quantityRejected: {
-          increment: delivery.quantityRejected,
-        },
-        quantityInProcess: {
-          decrement: Number(delivery.quantityDelivered),
-        },
-      },
+      return delivery;
     });
-
-    return delivery;
   }
 
   /**
@@ -691,21 +710,24 @@ class ProcessingDeliveryService {
       throw new Error('Cannot delete accepted delivery');
     }
 
-    // Restore stage quantities
-    await prisma.processing_stage.update({
-      where: { id: delivery.stageId },
-      data: {
-        quantityReceived: {
-          decrement: delivery.quantityDelivered,
+    // Restore stage quantities and delete the delivery ATOMICALLY — otherwise a delete failure after the
+    // restore credits the quantity back to the stage while the delivery still exists (double-count; F4).
+    await prisma.$transaction(async (tx) => {
+      await tx.processing_stage.update({
+        where: { id: delivery.stageId },
+        data: {
+          quantityReceived: {
+            decrement: delivery.quantityDelivered,
+          },
+          quantityInProcess: {
+            increment: delivery.quantityDelivered,
+          },
         },
-        quantityInProcess: {
-          increment: delivery.quantityDelivered,
-        },
-      },
-    });
+      });
 
-    await prisma.processing_delivery.delete({
-      where: { id },
+      await tx.processing_delivery.delete({
+        where: { id },
+      });
     });
 
     return { success: true, message: 'Delivery deleted successfully' };

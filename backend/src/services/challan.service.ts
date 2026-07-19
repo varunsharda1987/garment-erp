@@ -119,8 +119,10 @@ async function generateChallanNumber(tx?: Prisma.TransactionClient): Promise<str
 // CRUD OPERATIONS
 // ============================================
 
-export async function createChallan(input: CreateChallanInput) {
-  return prisma.$transaction(async (tx) => {
+export async function createChallan(input: CreateChallanInput, outerTx?: Prisma.TransactionClient) {
+  // Join a caller's transaction when supplied (e.g. external-process send-out) so the challan commits/
+  // rolls back with the caller; otherwise open our own.
+  const run = async (tx: Prisma.TransactionClient) => {
     const challanNumber = await generateChallanNumber(tx);
 
     const totalQuantity = input.items.reduce((sum, item) => sum + item.quantity, 0);
@@ -188,7 +190,8 @@ export async function createChallan(input: CreateChallanInput) {
     });
 
     return challan;
-  });
+  };
+  return outerTx ? run(outerTx) : prisma.$transaction(run);
 }
 
 export async function issueChallan(id: string, userId?: string) {
@@ -790,7 +793,8 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
                   purchaseCost: totalCost,
                   fabricFinishType: 'DYED',
                 },
-                input.receivedById
+                input.receivedById,
+                tx // join the receiveChallan transaction so the fabric stock rolls back with it (F4)
               );
             }
           }

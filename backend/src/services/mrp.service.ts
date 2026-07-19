@@ -2407,9 +2407,17 @@ export async function cancelRequirement(id: string, userId: string): Promise<Mat
  * Update received quantity from GRN
  * Called when a GRN is created/updated to update the requirement status
  */
-export async function updateReceivedQuantity(purchaseOrderItemId: string, receivedQuantity: number): Promise<void> {
+export async function updateReceivedQuantity(
+  purchaseOrderItemId: string,
+  receivedQuantity: number,
+  tx?: any
+): Promise<void> {
+  // Use the caller's transaction when supplied (e.g. GRN approval) so these MRP updates commit/roll back
+  // with the receipt — otherwise MRP can miss a committed receipt and raise a duplicate PO (bug-hunt F4 #12).
+  const client = tx || prisma;
+
   // Find all links to this PO item
-  const links = await prisma.requirement_po_links.findMany({
+  const links = await client.requirement_po_links.findMany({
     where: { purchaseOrderItemId },
     include: { material_requirements: true },
   });
@@ -2418,22 +2426,26 @@ export async function updateReceivedQuantity(purchaseOrderItemId: string, receiv
     const newReceived = Number(link.receivedQuantity) + receivedQuantity;
     const isFullyReceived = newReceived >= Number(link.allocatedQuantity);
 
-    await prisma.$transaction([
-      // Update link received quantity
-      prisma.requirement_po_links.update({
+    // Two updates that must move together; run sequentially on whatever client is in effect.
+    const applyUpdates = async (t: any) => {
+      await t.requirement_po_links.update({
         where: { id: link.id },
         data: { receivedQuantity: newReceived },
-      }),
-      // Update requirement status if fully received
-      ...(isFullyReceived
-        ? [
-            prisma.material_requirements.update({
-              where: { id: link.requirementId },
-              data: { status: MaterialRequirementStatus.RECEIVED },
-            }),
-          ]
-        : []),
-    ]);
+      });
+      if (isFullyReceived) {
+        await t.material_requirements.update({
+          where: { id: link.requirementId },
+          data: { status: MaterialRequirementStatus.RECEIVED },
+        });
+      }
+    };
+
+    // Join the caller's tx if provided (no nested transaction); otherwise wrap this link's updates.
+    if (tx) {
+      await applyUpdates(tx);
+    } else {
+      await prisma.$transaction(applyUpdates);
+    }
   }
 }
 

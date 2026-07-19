@@ -58,12 +58,12 @@ class ThreadStockService {
    * Create thread stock entry directly
    */
   async createThreadStock(data: CreateThreadStockDTO, userId: string) {
-    // Use transaction client if provided, otherwise use global prisma
-    const client = data.tx || prisma;
-
-    try {
+    // The stock row + its ledger transaction + stock_levels sync must be atomic. Join a caller's tx when
+    // supplied; otherwise open our own so a partial failure can't leave stock with no ledger/stock_levels
+    // entry (bug-hunt T1/F4).
+    const run = async (tx: any) => {
       // Validate thread exists
-      const thread = await client.thread_master.findUnique({
+      const thread = await tx.thread_master.findUnique({
         where: { id: data.threadId },
         include: { colorMaster: { select: { colorName: true } } },
       });
@@ -81,7 +81,7 @@ class ThreadStockService {
 
       // Create thread stock record
       const cost = data.purchaseCost ?? 0;
-      const threadStock = await client.thread_stock.create({
+      const threadStock = await tx.thread_stock.create({
         data: {
           threadId: data.threadId,
           quantityAvailable: new Prisma.Decimal(data.quantity),
@@ -123,7 +123,7 @@ class ThreadStockService {
       });
 
       // Create transaction record
-      await client.thread_stock_transaction.create({
+      await tx.thread_stock_transaction.create({
         data: {
           stockId: threadStock.id,
           transactionType: 'RECEIPT',
@@ -138,13 +138,17 @@ class ThreadStockService {
       // Ensure materials record exists + sync stock_levels
       // Skip when called from stock routing (parent already handles this)
       if (!data.skipMaterialSync) {
-        const materialId = await ensureMaterialRecord(data.threadId, 'THREAD');
-        await syncStockLevelQuantity(materialId, metersAvailable, data.warehouseId, 'METER');
+        const materialId = await ensureMaterialRecord(data.threadId, 'THREAD', tx);
+        await syncStockLevelQuantity(materialId, metersAvailable, data.warehouseId, 'METER', tx);
       }
 
       logInfo(`Created thread stock for ${thread.threadCode}: ${data.quantity} ${unit} (${metersAvailable}m)`);
 
       return threadStock;
+    };
+
+    try {
+      return data.tx ? await run(data.tx) : await prisma.$transaction(run);
     } catch (error: unknown) {
       logError('Error creating thread stock:', error);
       throw new Error(`Failed to create thread stock: ${error instanceof Error ? error.message : 'Unknown error'}`);

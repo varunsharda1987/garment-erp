@@ -125,17 +125,16 @@ class TrimStockService {
    * Create a trim stock entry
    */
   async createTrimStock(data: CreateTrimStockDTO, userId: string) {
-    // Use transaction client if provided, otherwise use global prisma
-    const client = data.tx || prisma;
-
     const config = TRIM_CONFIG[data.trimType];
     if (!config) {
       throw new Error(`Unknown trim type: ${data.trimType}`);
     }
 
-    try {
+    // The stock row + its stock_levels sync must be atomic. Join a caller's tx when supplied; otherwise
+    // open our own so a sync failure can't leave stock with no stock_levels entry (bug-hunt T1/F4).
+    const run = async (tx: any) => {
       // Validate master exists
-      const master = await (client as any)[config.masterTable].findUnique({
+      const master = await (tx as any)[config.masterTable].findUnique({
         where: { id: data.masterId },
       });
       if (!master) {
@@ -167,21 +166,21 @@ class TrimStockService {
         createdById: userId,
       };
 
-      const stock = await (client as any)[config.table].create({
+      const stock = await (tx as any)[config.table].create({
         data: stockData,
       });
 
-      // Ensure materials record exists + sync stock_levels
+      // Ensure materials record exists + sync stock_levels (on this tx)
       // Skip when called from stock routing (parent already handles this)
       if (!data.skipMaterialSync) {
-        const materialId = await ensureMaterialRecord(data.masterId, data.trimType);
+        const materialId = await ensureMaterialRecord(data.masterId, data.trimType, tx);
         const unitMap: Record<string, string> = {
           METERS: 'METER',
           PIECES: 'PIECE',
         };
         const upperUnit = stockData.unit.toUpperCase();
         const unitForStockLevel = unitMap[upperUnit] || upperUnit;
-        await syncStockLevelQuantity(materialId, data.quantity, data.warehouseId, unitForStockLevel);
+        await syncStockLevelQuantity(materialId, data.quantity, data.warehouseId, unitForStockLevel, tx);
       }
 
       logInfo(
@@ -194,6 +193,10 @@ class TrimStockService {
         masterCode: master[config.masterCodeField],
         masterName: master[config.masterNameField],
       };
+    };
+
+    try {
+      return data.tx ? await run(data.tx) : await prisma.$transaction(run);
     } catch (error: unknown) {
       logError(`Error creating ${data.trimType.toLowerCase()} stock:`, error);
       throw new Error(

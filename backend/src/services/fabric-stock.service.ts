@@ -77,38 +77,43 @@ class FabricStockService {
         throw new Error(`Fabric with ID ${data.fabricId} not found`);
       }
 
-      // Create fabric stock record directly (no procurement record needed for manual stock entry)
-      const fabricStock = await prisma.fabric_stock.create({
-        data: {
-          id: `STOCK-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-          fabricId: data.fabricId,
-          finishedWidth: new Prisma.Decimal(data.finishedWidth),
-          cutableWidth: new Prisma.Decimal(data.cutableWidth),
-          quantityAvailable: new Prisma.Decimal(data.quantity),
-          quantityReserved: new Prisma.Decimal(0),
-          quantityConsumed: new Prisma.Decimal(0),
-          unit: 'meters',
-          procurementId: null,
-          originStyleId: data.styleId,
-          originOrderId: null,
-          status: 'AVAILABLE',
-          stockType: 'PLANNED_STOCK',
-          patternPartId: data.patternPartId || null,
-          fabricFinishType: data.fabricFinishType || null,
-          weightedAvgCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
-          purchaseCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
-          qualityGrade: data.qualityGrade || 'A',
-          warehouseLocation: data.warehouseLocation || null,
-          rollNumbers: data.rollNumbers || null,
-          receivedDate: data.receivedDate || new Date(),
-          agingDays: 0,
-          createdById: userId,
-        },
-      });
+      // The fabric_stock row and its stock_levels sync must be atomic — otherwise a crash after the create
+      // leaves fabric_stock populated but stock_levels empty, so the Stock Levels page under-reports the
+      // on-hand fabric (bug-hunt T1/F4).
+      const fabricStock = await prisma.$transaction(async (tx) => {
+        const created = await tx.fabric_stock.create({
+          data: {
+            id: `STOCK-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+            fabricId: data.fabricId,
+            finishedWidth: new Prisma.Decimal(data.finishedWidth),
+            cutableWidth: new Prisma.Decimal(data.cutableWidth),
+            quantityAvailable: new Prisma.Decimal(data.quantity),
+            quantityReserved: new Prisma.Decimal(0),
+            quantityConsumed: new Prisma.Decimal(0),
+            unit: 'meters',
+            procurementId: null,
+            originStyleId: data.styleId,
+            originOrderId: null,
+            status: 'AVAILABLE',
+            stockType: 'PLANNED_STOCK',
+            patternPartId: data.patternPartId || null,
+            fabricFinishType: data.fabricFinishType || null,
+            weightedAvgCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
+            purchaseCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
+            qualityGrade: data.qualityGrade || 'A',
+            warehouseLocation: data.warehouseLocation || null,
+            rollNumbers: data.rollNumbers || null,
+            receivedDate: data.receivedDate || new Date(),
+            agingDays: 0,
+            createdById: userId,
+          },
+        });
 
-      // Ensure materials record exists, then sync stock_levels
-      const materialId = await ensureMaterialRecord(data.fabricId, 'FABRIC');
-      await syncStockLevelQuantity(materialId, data.quantity, undefined, 'METER');
+        // Ensure materials record exists, then sync stock_levels — on the same tx
+        const materialId = await ensureMaterialRecord(data.fabricId, 'FABRIC', tx);
+        await syncStockLevelQuantity(materialId, data.quantity, undefined, 'METER', tx);
+        return created;
+      });
 
       return fabricStock;
     } catch (error: unknown) {

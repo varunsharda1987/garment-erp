@@ -2,6 +2,7 @@
 import { Unit, Prisma, MaterialType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import prisma from '../config/database';
+import { getDerivedStockDetailed } from './helpers/derived-stock.helper';
 
 export interface StockLevelFilters {
   warehouseId?: string;
@@ -458,48 +459,11 @@ class StockLevelService {
    * Get materials below reorder level
    */
   async getMaterialsBelowReorderLevel(warehouseId?: string) {
-    const where: Prisma.stock_levelsWhereInput = {
-      reorderLevel: { not: null },
-    };
-
-    if (warehouseId) {
-      where.warehouseId = warehouseId;
-    }
-
-    const stockLevels = await prisma.stock_levels.findMany({
-      where,
-      include: {
-        materials: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            unit: true,
-            reorderLevel: true,
-            material_categories: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
-        warehouses: {
-          select: {
-            id: true,
-            warehouseCode: true,
-            warehouseName: true,
-          },
-        },
-      },
-    });
-
-    // Filter materials where current quantity <= reorder level
-    const belowReorderLevel = stockLevels.filter((level) => {
-      if (!level.reorderLevel) return false;
-      return parseFloat(level.quantity.toString()) <= parseFloat(level.reorderLevel.toString());
-    });
-
-    return belowReorderLevel;
+    // T2-1 Stage B: on-hand quantity + the per-warehouse reorderLevel now come from the DERIVED source
+    // (derived_stock_view + stock_settings) rather than the hand-maintained stock_levels.quantity, so drift
+    // can no longer produce phantom/stale reorder alerts. Same output shape (materials/warehouses nested).
+    const rows = await getDerivedStockDetailed(warehouseId ? { warehouseId } : {});
+    return rows.filter((r) => r.reorderLevel != null && Number(r.quantity) <= Number(r.reorderLevel));
   }
 
   /**

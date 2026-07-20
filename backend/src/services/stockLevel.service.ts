@@ -98,60 +98,20 @@ class StockLevelService {
    * @deprecated Use getUnifiedStockLevels() for accurate quantities from specialized tables
    */
   async getAllStockLevels(filters?: StockLevelFilters) {
-    const where: Prisma.stock_levelsWhereInput = {};
-
-    if (filters?.warehouseId) {
-      where.warehouseId = filters.warehouseId;
-    }
-
-    if (filters?.materialId) {
-      where.materialId = filters.materialId;
-    }
-
+    // T2-1 Stage B: on-hand quantity + valuation now come from the DERIVED source (derived_stock_view +
+    // stock_settings) instead of the hand-maintained stock_levels.quantity, so the list can no longer show
+    // drifted balances or 0-qty phantom/RAW-proxy rows. Same row shape; filters applied over derived rows.
+    let rows = await getDerivedStockDetailed({ warehouseId: filters?.warehouseId, materialId: filters?.materialId });
     if (filters?.belowReorderLevel) {
-      where.AND = [{ reorderLevel: { not: null } }, { quantity: { lte: prisma.stock_levels.fields.reorderLevel } }];
+      rows = rows.filter((r) => r.reorderLevel != null && Number(r.quantity) <= Number(r.reorderLevel));
     }
-
     if (filters?.search) {
-      where.materials = {
-        OR: [
-          { code: { contains: filters.search, mode: 'insensitive' } },
-          { name: { contains: filters.search, mode: 'insensitive' } },
-        ],
-      };
+      const s = filters.search.toLowerCase();
+      rows = rows.filter(
+        (r) => r.materials?.code?.toLowerCase().includes(s) || r.materials?.name?.toLowerCase().includes(s)
+      );
     }
-
-    const stockLevels = await prisma.stock_levels.findMany({
-      where,
-      include: {
-        materials: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            unit: true,
-            categoryId: true,
-            material_categories: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-        warehouses: {
-          select: {
-            id: true,
-            warehouseCode: true,
-            warehouseName: true,
-            warehouseType: true,
-          },
-        },
-      },
-      orderBy: { lastUpdated: 'desc' },
-    });
-
-    return stockLevels;
+    return rows;
   }
 
   /**
@@ -569,33 +529,9 @@ class StockLevelService {
    * Get stock levels filtered by material type
    */
   async getStockLevelsByMaterialType(materialType: MaterialType) {
-    const stockLevels = await prisma.stock_levels.findMany({
-      where: {
-        materials: {
-          materialType,
-        },
-      },
-      include: {
-        materials: {
-          select: {
-            code: true,
-            name: true,
-            materialType: true,
-          },
-        },
-        warehouses: {
-          select: {
-            warehouseCode: true,
-            warehouseName: true,
-          },
-        },
-      },
-      orderBy: {
-        quantity: 'asc',
-      },
-    });
-
-    return stockLevels;
+    // T2-1 Stage B: derived on-hand filtered by material type, ordered by quantity asc (same as before).
+    const rows = await getDerivedStockDetailed({ materialType });
+    return rows.sort((a, b) => Number(a.quantity) - Number(b.quantity));
   }
 }
 

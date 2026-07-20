@@ -26,6 +26,7 @@ export interface DerivedStockRow {
 }
 
 export interface DerivedStockDetailedRow extends DerivedStockRow {
+  unit: string; // top-level unit (mirrors stock_levels.unit) so display code that reads row.unit still works
   materials: {
     id: string;
     code: string;
@@ -86,6 +87,7 @@ export async function getDerivedStockDetailed(scope: Scope = {}): Promise<Derive
     materialId: r.materialId,
     warehouseId: r.warehouseId,
     quantity: r.quantity,
+    unit: r.m_unit,
     reorderLevel: r.reorderLevel,
     minLevel: r.minLevel,
     maxLevel: r.maxLevel,

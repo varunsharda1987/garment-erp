@@ -1,0 +1,10 @@
+{
+  "when": "2026-07-20T07:08:35.365Z",
+  "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+  "lots": [
+    {
+      "table": "button_stock",
+      "id": "d228ca56-bf56-4db8-b96d-f60de9b20605"
+    }
+  ]
+}

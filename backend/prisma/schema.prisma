@@ -3376,6 +3376,23 @@ model stock_levels {
   @@index([quantity])
 }
 
+/// T2-1 derived-inventory: slim per-(material,warehouse) config that must persist independently of the
+/// per-lot tables once on-hand quantity becomes DERIVED. Holds policy (reorder/min/max) + weighted-avg
+/// valuationRate. Backfilled 1:1 from stock_levels. stockValue is NOT stored (derived = quantity x rate).
+model stock_settings {
+  id            String   @id @default(uuid())
+  materialId    String
+  warehouseId   String
+  reorderLevel  Decimal? @db.Decimal(10, 3)
+  minLevel      Decimal? @db.Decimal(10, 3)
+  maxLevel      Decimal? @db.Decimal(10, 3)
+  valuationRate Decimal? @db.Decimal(10, 2)
+  updatedAt     DateTime @default(now()) @updatedAt
+
+  @@unique([materialId, warehouseId])
+  @@index([materialId])
+}
+
 /// Stock Movements - Transaction log for all stock movements
 model stock_movements {
   id              String       @id @default(uuid())

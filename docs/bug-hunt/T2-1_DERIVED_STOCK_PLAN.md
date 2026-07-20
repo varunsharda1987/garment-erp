@@ -56,6 +56,22 @@ Create a **new** `derived_stock_view` (don't silently repoint `unified_stock_vie
 6. **Reorder-level source of truth** — `materials.reorderLevel` (Int) vs `stock_settings.reorderLevel` (Decimal/warehouse).
 7. **Valuation authority** — `stock_settings` becomes the single WAC home; unify the two duplicate WAC engines.
 
+## ✅ Stage A — DONE (additive, reversible; nothing reads it yet)
+Migration `20260719000000_t2_1_stock_settings_and_derived_view` (applied + resolved; `migrate status` up to date).
+- `stock_settings` created + backfilled 1:1 from `stock_levels` (42 rows).
+- `derived_stock_view` = UNION-ALL of the 11 per-lot tables, master-FK **resolved to `materials.id` via the
+  materials type-FK join** (the Stage A reconciliation caught that a plain equality mis-keys trims, which use
+  `mat-<code>` ids while greige/fabric use `materials.id===masterId`).
+- **Reconciliation: derived == current ledger for 43/44 (material,warehouse) pairs** → the aggregation is a
+  faithful reproduction. **One genuine drift:** button `BTN-0001` ledger=75 vs physical lots=200 (understated by
+  125 — a sync that fell behind; F1/F4 class). Data-quality note: a 100-unit `BTN-0001` lot has **no warehouse**
+  assigned (so it counts as on-hand nowhere).
+- Rollback if ever needed: `DROP VIEW derived_stock_view; DROP TABLE stock_settings;`.
+
+**Decisions confirmed by the data:** thread aggregated on `quantityAvailable` matched the ledger (no meters
+mismatch in current data — meters vs cones can be revisited later); processor/transfer/no-warehouse stock is
+correctly excluded from on-hand (the 100-unit no-warehouse button lot demonstrates this).
+
 ## 6. Risks + safest first stage
 Top risks: a missed on-hand reader silently reading 0 (mitigated by shadow-run diff); ORM-level breakage of
 `where quantity <op> N` filters; master-id resolution correctness; fabric RAW/thread-meters mistakes mis-valuing

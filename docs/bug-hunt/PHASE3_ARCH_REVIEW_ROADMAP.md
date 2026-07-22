@@ -74,7 +74,14 @@
 > Deployed: build clean, challans/GRN/PO endpoints 200, error log clean. Known residuals (baselined/deferred):
 > challan-number count-generation P2002 under concurrency (count-numbering baseline → T3-F), routing-helper
 > swallow message cosmetics, createStockOut `any` typing.
-> ⏳ Next: T3-A (29-item re-parse worklist), T3-C (FG-ledger rebuild), review-NIT backlog, commit accumulated work.
+> ✅ **T3-A single-schema sweep DONE (2026-07-22, deployed, commit 5ccea8b5)** — all 29 re-parse sites analyzed
+> (per-endpoint: route schema vs controller schema vs real frontend payload) then fixed by 8 parallel
+> implementation agents + central build/verify. Classification: 12 DIVERGENT (7 HIGH — including POST
+> /style-costing, whose legacy route schema killed every UI cost-sheet CREATE; pattern-parts ×3; service-PO
+> generate-po/bulk; fabric-procurement create), 7 UNVALIDATED, 10 REDUNDANT. controller-reparse baseline
+> **29 → 0**; enum-drift 44 → 42 (service enums realigned). Live-verified: formerly-dead POSTs return correct
+> field-level validation, touched list endpoints 200. Net −229 lines.
+> ⏳ Next: T3-C (FG-ledger rebuild), review-NIT backlog, §5 remaining detectors, T3-F numbering migration.
 
 *Synthesized from 57 verified CRITICAL/HIGH findings + 60 unverified MEDIUM/LOW backlog items across 7 modules (orders, procurement, production, costing, financial-gst, dispatch, samples-embroidery). Every claim cites a finding id. Static code audit only — live-DB drift magnitudes unmeasured except where noted.*
 

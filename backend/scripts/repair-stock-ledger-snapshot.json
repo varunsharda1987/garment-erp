@@ -1,0 +1,226 @@
+{
+  "runId": "repair-2026-07-18T06:30:42.935Z",
+  "createdMaterials": [
+    "d453fda6-09ac-4af7-a72e-07b644186bda",
+    "7647c8d8-2056-4f47-929d-bd7826348b81",
+    "1c61120e-6c6c-449f-a223-d59fa76442af",
+    "d325ef90-c32b-4445-a92d-98fd2b5c973b",
+    "f2241f1a-68ef-4e39-bb1d-b660d570ee05",
+    "8c66b6b2-e278-4b7b-aad9-36ab26d88d42"
+  ],
+  "writes": [
+    {
+      "materialId": "d453fda6-09ac-4af7-a72e-07b644186bda",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "create",
+      "before": null
+    },
+    {
+      "materialId": "7647c8d8-2056-4f47-929d-bd7826348b81",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "create",
+      "before": null
+    },
+    {
+      "materialId": "1c61120e-6c6c-449f-a223-d59fa76442af",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "create",
+      "before": null
+    },
+    {
+      "materialId": "85c74fbc-e142-43a4-b0c0-8580a94e9462",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "create",
+      "before": null
+    },
+    {
+      "materialId": "c4c9d46f-73ca-4537-bc66-cf2d0f9d92ea",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "zero",
+      "before": {
+        "quantity": "3073",
+        "unit": "METER",
+        "valuationRate": null,
+        "reorderLevel": "0",
+        "minLevel": "0",
+        "maxLevel": null,
+        "stockValue": null,
+        "lastUpdated": "2026-05-01T14:40:05.555Z"
+      }
+    },
+    {
+      "materialId": "63500570-0265-4e1e-8f1c-5cb4347a59ba",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "update",
+      "before": {
+        "quantity": "-5869.5",
+        "unit": "PIECE",
+        "valuationRate": null,
+        "reorderLevel": null,
+        "minLevel": null,
+        "maxLevel": null,
+        "stockValue": null,
+        "lastUpdated": "2026-05-09T09:08:33.173Z"
+      }
+    },
+    {
+      "materialId": "d2aadbbe-8911-4786-87f6-0e9c5aad39d3",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "update",
+      "before": {
+        "quantity": "3708",
+        "unit": "METER",
+        "valuationRate": null,
+        "reorderLevel": "0",
+        "minLevel": "0",
+        "maxLevel": null,
+        "stockValue": null,
+        "lastUpdated": "2026-05-09T08:54:06.414Z"
+      }
+    },
+    {
+      "materialId": "201a8d0a-3b02-41e0-9c66-2d2c2109f305",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "update",
+      "before": {
+        "quantity": "3770",
+        "unit": "METER",
+        "valuationRate": null,
+        "reorderLevel": "0",
+        "minLevel": "0",
+        "maxLevel": null,
+        "stockValue": null,
+        "lastUpdated": "2026-05-01T14:40:05.547Z"
+      }
+    },
+    {
+      "materialId": "90fc9f85-9bf1-4ad8-a052-93eefab0552c",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "update",
+      "before": {
+        "quantity": "-7589.6",
+        "unit": "METER",
+        "valuationRate": "54.15",
+        "reorderLevel": null,
+        "minLevel": null,
+        "maxLevel": null,
+        "stockValue": "1266487.28",
+        "lastUpdated": "2026-05-09T09:06:52.329Z"
+      }
+    },
+    {
+      "materialId": "07f2b522-3405-4de4-b3cf-0cfab5123287",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "create",
+      "before": null
+    },
+    {
+      "materialId": "58ac84d1-a181-407c-9287-c0791c9d5f82",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "update",
+      "before": {
+        "quantity": "26153",
+        "unit": "METER",
+        "valuationRate": "7.71",
+        "reorderLevel": "0",
+        "minLevel": "0",
+        "maxLevel": null,
+        "stockValue": "225000",
+        "lastUpdated": "2026-05-09T08:54:51.494Z"
+      }
+    },
+    {
+      "materialId": "d325ef90-c32b-4445-a92d-98fd2b5c973b",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "create",
+      "before": null
+    },
+    {
+      "materialId": "f2241f1a-68ef-4e39-bb1d-b660d570ee05",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "create",
+      "before": null
+    },
+    {
+      "materialId": "8c66b6b2-e278-4b7b-aad9-36ab26d88d42",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "create",
+      "before": null
+    },
+    {
+      "materialId": "FAB-RAW-1768129087688-uw69l",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "zero",
+      "before": {
+        "quantity": "14472",
+        "unit": "METER",
+        "valuationRate": "43",
+        "reorderLevel": null,
+        "minLevel": null,
+        "maxLevel": null,
+        "stockValue": "437116.5",
+        "lastUpdated": "2026-05-01T14:36:24.669Z"
+      }
+    },
+    {
+      "materialId": "FAB-RAW-1768048796965-kq71kh",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "zero",
+      "before": {
+        "quantity": "443",
+        "unit": "METER",
+        "valuationRate": "40",
+        "reorderLevel": null,
+        "minLevel": null,
+        "maxLevel": null,
+        "stockValue": "19000",
+        "lastUpdated": "2026-05-01T14:36:24.679Z"
+      }
+    },
+    {
+      "materialId": "FAB-RAW-1770293353847-dd8fef",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "zero",
+      "before": {
+        "quantity": "7600",
+        "unit": "METER",
+        "valuationRate": null,
+        "reorderLevel": "0",
+        "minLevel": "0",
+        "maxLevel": null,
+        "stockValue": null,
+        "lastUpdated": "2026-05-01T14:40:05.582Z"
+      }
+    },
+    {
+      "materialId": "40f911b3-028b-4cc8-8664-ccd32004c89c",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "update",
+      "before": {
+        "quantity": "1536",
+        "unit": "METER",
+        "valuationRate": null,
+        "reorderLevel": "0",
+        "minLevel": "0",
+        "maxLevel": null,
+        "stockValue": null,
+        "lastUpdated": "2026-05-01T14:36:24.696Z"
+      }
+    },
+    {
+      "materialId": "0ce81ca7-ff73-4e61-aead-14b45d3678bb",
+      "warehouseId": "a6bef66b-779b-4eb5-8f1d-1a7eff316f93",
+      "action": "update",
+      "before": {
+        "quantity": "1280",
+        "unit": "METER",
+        "valuationRate": null,
+        "reorderLevel": "0",
+        "minLevel": "0",
+        "maxLevel": null,
+        "stockValue": null,
+        "lastUpdated": "2026-05-01T14:36:24.691Z"
+      }
+    }
+  ]
+}

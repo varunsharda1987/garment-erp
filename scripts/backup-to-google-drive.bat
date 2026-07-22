@@ -8,7 +8,7 @@ setlocal enabledelayedexpansion
 
 REM Configuration
 set "SOURCE_DIR=C:\Users\NEW\garment-erp"
-set "LOCAL_BACKUP_DIR=C:\Users\NEW\garment-erp-backups"
+set "LOCAL_BACKUP_DIR=F:\Relocated-from-C\garment-erp-backups"
 set "GDRIVE_REMOTE=gdrive"
 set "GDRIVE_FOLDER=Backups/garment-erp"
 set "DB_NAME=garment_erp"

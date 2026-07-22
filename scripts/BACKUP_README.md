@@ -37,7 +37,7 @@ scripts\setup-scheduled-backup-gdrive.bat
 |-------------|------|
 | Google Drive | `Backups/garment-erp/[YYYY-MM-DD_HH-MM]/` |
 | Synology NAS | `\\synology\DATA STORAGE\Backups\garment-erp\` |
-| Local (temp) | `C:\Users\NEW\garment-erp-backups\` |
+| Local (temp) | `F:\Relocated-from-C\garment-erp-backups\` |
 
 ## Retention
 

@@ -4,6 +4,7 @@ import prisma from '../config/database';
 import { ProductionStage } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { ValidationError } from '../errors';
+import { countDerivedBelowThreshold } from '../services/helpers/derived-stock.helper';
 
 /**
  * Get dashboard summary with real production counts
@@ -402,10 +403,11 @@ export const getGeneralDashboardStats = async (req: Request, res: Response): Pro
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const [lowStockItems, pendingQuotations, outstandingInvoices, monthlyRevenue, overdueOrders] = await Promise.all([
-    // Low stock: materials with quantity < 10 (configurable threshold)
-    prisma.stock_levels.count({
-      where: { quantity: { lt: 10 } },
-    }),
+    // Low stock: materials with DERIVED on-hand < 10 (configurable threshold).
+    // Reads derived_stock_view (T2-1) instead of the hand-maintained stock_levels.quantity, so
+    // phantom/zero-qty ledger rows no longer inflate the count. Can't be a Prisma column filter on a
+    // view, so it's a COUNT(*) query in the helper.
+    countDerivedBelowThreshold(10),
 
     // Draft/pending quotations
     prisma.quotations.count({

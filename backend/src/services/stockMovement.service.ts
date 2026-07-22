@@ -111,7 +111,7 @@ class StockMovementService {
         newStockValue = totalValue;
       }
 
-      return tx.stock_levels.update({
+      const updated = await tx.stock_levels.update({
         where: { id: existing.id },
         data: {
           quantity: newQuantity,
@@ -120,9 +120,20 @@ class StockMovementService {
           lastUpdated: new Date(),
         },
       });
+
+      // T2-1 dual-write: mirror the recomputed WAC rate into stock_settings in the same tx.
+      if (rate) {
+        await tx.stock_settings.upsert({
+          where: { materialId_warehouseId: { materialId, warehouseId } },
+          update: { valuationRate: newValuationRate },
+          create: { materialId, warehouseId, valuationRate: newValuationRate },
+        });
+      }
+
+      return updated;
     } else {
       const stockValue = rate ? new Decimal(quantity.toString()).mul(rate.toString()) : null;
-      return tx.stock_levels.create({
+      const created = await tx.stock_levels.create({
         data: {
           materialId,
           warehouseId,
@@ -132,6 +143,17 @@ class StockMovementService {
           stockValue,
         },
       });
+
+      // T2-1 dual-write: seed stock_settings with the WAC rate for this new (material,warehouse) in the same tx.
+      if (rate) {
+        await tx.stock_settings.upsert({
+          where: { materialId_warehouseId: { materialId, warehouseId } },
+          update: { valuationRate: rate },
+          create: { materialId, warehouseId, valuationRate: rate },
+        });
+      }
+
+      return created;
     }
   }
 
@@ -178,9 +200,12 @@ class StockMovementService {
 
   /**
    * Create stock in movement (GRN, Purchase, etc.)
+   * @param outerTx optional parent transaction — pass it when calling from inside another $transaction
+   * (e.g. receiveChallan) so this write joins that tx instead of opening a second connection on the
+   * global client and escaping the parent's rollback (bug-hunt procurement-3; same pattern as createStockOut).
    */
-  async createStockIn(data: CreateStockMovementDTO) {
-    return await prisma.$transaction(async (tx) => {
+  async createStockIn(data: CreateStockMovementDTO, outerTx?: Prisma.TransactionClient) {
+    const run = async (tx: Prisma.TransactionClient) => {
       // Calculate actual quantity from fold length
       // If foldLengthCm is provided and < 100, actual = nominal × (L/100)
       const nominalQty = data.quantity;
@@ -264,7 +289,9 @@ class StockMovementService {
       );
 
       return movement;
-    });
+    };
+
+    return outerTx ? run(outerTx) : prisma.$transaction(run);
   }
 
   /**

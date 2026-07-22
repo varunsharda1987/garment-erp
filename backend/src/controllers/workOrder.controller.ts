@@ -12,6 +12,7 @@ import { productionBlockingValidationService } from '../services/productionBlock
 import { updateCostSheetActuals } from '../services/costSheet.service';
 import { NotFoundError, UnauthorizedError, ValidationError, ConflictError, BusinessError } from '../errors';
 import { PrismaClient, ChallanType, Unit } from '@prisma/client';
+import { getDerivedOnHandMap } from '../services/helpers/derived-stock.helper';
 import { buildCuttingChartData } from './cutting.controller';
 import { createChallan, issueChallan } from '../services/challan.service';
 
@@ -626,17 +627,9 @@ async function getMaterialIssuanceData(workOrderId: string, materialTypes: strin
   // Get unique material IDs from BOM
   const materialIds = [...new Set(bomItems.map((item) => item.materialId).filter(Boolean))] as string[];
 
-  // Get stock levels for each material
-  const stockLevels = await prisma.stock_levels.findMany({
-    where: { materialId: { in: materialIds } },
-    select: { materialId: true, quantity: true, unit: true, warehouseId: true },
-  });
-
-  // Build stock map: materialId → total available qty across warehouses
-  const stockMap = new Map<string, number>();
-  for (const sl of stockLevels) {
-    stockMap.set(sl.materialId, (stockMap.get(sl.materialId) || 0) + Number(sl.quantity));
-  }
+  // T2-1: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
+  // Returns materialId → total available qty across warehouses.
+  const stockMap = await getDerivedOnHandMap(materialIds);
 
   // Build BOM items with stock info and calculated required qty
   const items = bomItems.map((item) => {

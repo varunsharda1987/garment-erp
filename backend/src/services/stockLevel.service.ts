@@ -2,7 +2,7 @@
 import { Unit, Prisma, MaterialType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import prisma from '../config/database';
-import { getDerivedStockDetailed } from './helpers/derived-stock.helper';
+import { getDerivedStockDetailed, getDerivedValuation } from './helpers/derived-stock.helper';
 
 export interface StockLevelFilters {
   warehouseId?: string;
@@ -72,17 +72,22 @@ class StockLevelService {
   async getStockSummaryByType(): Promise<
     Array<{ materialType: string; totalRecords: number; totalQuantity: number; totalValue: number }>
   > {
+    // T2-1 bug-fix + repoint: unified_stock_view has NO stockValue column, so the old query 500'd
+    // (Postgres 42703). Source per-type on-hand + valuation from the DERIVED view instead
+    // (stockValue = derived_qty × stock_settings.valuationRate), joined to materials.id — so counts exclude
+    // phantom/RAW/zero-qty rows and quantities are the per-lot truth.
     const results = await prisma.$queryRaw<
       Array<{ materialType: string; totalRecords: bigint; totalQuantity: number; totalValue: number }>
     >`
       SELECT
-        "materialType",
+        m."materialType" as "materialType",
         COUNT(*) as "totalRecords",
-        SUM(quantity) as "totalQuantity",
-        SUM("stockValue") as "totalValue"
-      FROM unified_stock_view
-      GROUP BY "materialType"
-      ORDER BY "materialType"
+        SUM(dv.quantity) as "totalQuantity",
+        SUM(dv."stockValue") as "totalValue"
+      FROM derived_stock_view dv
+      JOIN materials m ON m.id = dv."materialId"
+      GROUP BY m."materialType"
+      ORDER BY m."materialType"
     `;
 
     return results.map((r) => ({
@@ -197,74 +202,29 @@ class StockLevelService {
    * Get stock levels by material (across all warehouses)
    */
   async getStockLevelsByMaterial(materialId: string) {
-    const stockLevels = await prisma.stock_levels.findMany({
-      where: { materialId },
-      include: {
-        warehouses: {
-          select: {
-            id: true,
-            warehouseCode: true,
-            warehouseName: true,
-            warehouseType: true,
-            city: true,
-          },
-        },
-      },
-      orderBy: { quantity: 'desc' },
-    });
-
-    const totalQuantity = stockLevels.reduce((sum, level) => {
-      return sum + parseFloat(level.quantity.toString());
-    }, 0);
-
-    const totalValue = stockLevels.reduce((sum, level) => {
-      return sum + (level.stockValue ? parseFloat(level.stockValue.toString()) : 0);
-    }, 0);
-
-    return {
-      stockLevels,
-      totalQuantity,
-      totalValue,
-    };
+    // T2-1 Stage C: derived on-hand across warehouses (per-lot truth) instead of hand-maintained stock_levels.
+    // Returns a BARE StockLevel[] (matches the declared frontend contract + sibling getStockLevelsByMaterialType;
+    // the old wrapper {stockLevels,totals} was consumed by nobody — getByMaterial has zero live callers). Synthetic
+    // composite id keeps any React key / DOM-id usage stable & unique (no write path consumes the row id).
+    const rows = (await getDerivedStockDetailed({ materialId })).sort(
+      (a, b) => Number(b.quantity) - Number(a.quantity)
+    );
+    return rows.map((r) => ({ ...r, id: `${r.materialId}_${r.warehouseId}` }));
   }
 
   /**
    * Get stock levels by warehouse
    */
   async getStockLevelsByWarehouse(warehouseId: string) {
-    const stockLevels = await prisma.stock_levels.findMany({
-      where: {
-        warehouseId,
-        quantity: { gt: 0 },
-      },
-      include: {
-        materials: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            unit: true,
-            material_categories: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: { lastUpdated: 'desc' },
-    });
-
-    const totalValue = stockLevels.reduce((sum, level) => {
-      return sum + (level.stockValue ? parseFloat(level.stockValue.toString()) : 0);
-    }, 0);
-
-    return {
-      stockLevels,
-      totalMaterials: stockLevels.length,
-      totalValue,
-    };
+    // T2-1 Stage C: on-hand + valuation from the DERIVED source (derived_stock_view + stock_settings), so drifted
+    // or missing ledger balances (e.g. BTN-0001 75→300) no longer show on the transaction forms this feeds
+    // (Adjustment / Stock-Out / Transfer / Count). Returns a BARE StockLevel[] — the old wrapper broke those forms
+    // (they call .filter/.map on the result), so this also fixes a long-standing frontend crash. Preserves the old
+    // quantity>0 filter + lastUpdated-desc order; synthetic composite id keeps React keys / checkbox DOM ids stable.
+    const rows = (await getDerivedStockDetailed({ warehouseId }))
+      .filter((r) => Number(r.quantity) > 0)
+      .sort((a, b) => (b.lastUpdated?.getTime() ?? 0) - (a.lastUpdated?.getTime() ?? 0));
+    return rows.map((r) => ({ ...r, id: `${r.materialId}_${r.warehouseId}` }));
   }
 
   /**
@@ -312,6 +272,21 @@ class StockLevelService {
       },
     });
 
+    // T2-1 dual-write: mirror the admin-set WAC rate into stock_settings (the derived view's valuation
+    // source) so derived_stock_view.valuationRate/stockValue stay live once valuation readers repoint (Stage C).
+    // Update only valuationRate so the reorder/min/max policy config Stage B relies on is never clobbered.
+    if (data.valuationRate !== undefined) {
+      await prisma.stock_settings.upsert({
+        where: { materialId_warehouseId: { materialId: existing.materialId, warehouseId: existing.warehouseId } },
+        update: { valuationRate: data.valuationRate },
+        create: {
+          materialId: existing.materialId,
+          warehouseId: existing.warehouseId,
+          valuationRate: data.valuationRate,
+        },
+      });
+    }
+
     return stockLevel;
   }
 
@@ -356,6 +331,15 @@ class StockLevelService {
         },
       });
 
+      // T2-1 dual-write: mirror the recomputed WAC rate into stock_settings within the caller's tx (db = tx||prisma).
+      if (rate) {
+        await db.stock_settings.upsert({
+          where: { materialId_warehouseId: { materialId, warehouseId } },
+          update: { valuationRate: newValuationRate },
+          create: { materialId, warehouseId, valuationRate: newValuationRate },
+        });
+      }
+
       return updated;
     } else {
       // Create new stock level
@@ -371,6 +355,15 @@ class StockLevelService {
           stockValue,
         },
       });
+
+      // T2-1 dual-write: seed stock_settings with the WAC rate for this new (material,warehouse) within the caller's tx.
+      if (rate) {
+        await db.stock_settings.upsert({
+          where: { materialId_warehouseId: { materialId, warehouseId } },
+          update: { valuationRate: rate },
+          create: { materialId, warehouseId, valuationRate: rate },
+        });
+      }
 
       return created;
     }
@@ -430,38 +423,36 @@ class StockLevelService {
    * Get stock aging report
    */
   async getStockAgingReport(warehouseId: string) {
-    // This is a simplified version - in production, you'd track batch-wise aging
-    const stockLevels = await prisma.stock_levels.findMany({
-      where: {
-        warehouseId,
-        quantity: { gt: 0 },
-      },
-      include: {
-        materials: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            unit: true,
-          },
-        },
-      },
-      orderBy: { lastUpdated: 'asc' },
-    });
+    // T2-1: derived per-warehouse on-hand instead of hand-maintained stock_levels. lastUpdated is now the real
+    // last-movement time (MAX per-lot updatedAt); the ledger's lastUpdated was bumped by reconcile runs without
+    // stock actually moving, which made everything look freshly-touched and hid genuine aging.
+    // Derived per-warehouse on-hand: lastUpdated is the real last movement (MAX per-lot updatedAt), not the
+    // reconcile-bumped ledger timestamp — so aging reflects genuine stagnation. The frontend StockAgingReport
+    // type's field is literally "daysSinceLastMovement", confirming last-movement (not received-date) is intended.
+    const stockLevels = (await getDerivedStockDetailed({ warehouseId }))
+      .filter((r) => Number(r.quantity) > 0)
+      .sort((a, b) => (a.lastUpdated?.getTime() ?? 0) - (b.lastUpdated?.getTime() ?? 0));
 
     const now = new Date();
     const aging = stockLevels.map((level) => {
-      const daysSinceUpdate = Math.floor((now.getTime() - level.lastUpdated.getTime()) / (1000 * 60 * 60 * 24));
+      const daysSinceLastMovement = level.lastUpdated
+        ? Math.floor((now.getTime() - level.lastUpdated.getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
 
       let ageCategory = '0-30 days';
-      if (daysSinceUpdate > 180) ageCategory = '180+ days';
-      else if (daysSinceUpdate > 90) ageCategory = '90-180 days';
-      else if (daysSinceUpdate > 60) ageCategory = '60-90 days';
-      else if (daysSinceUpdate > 30) ageCategory = '30-60 days';
+      if (daysSinceLastMovement > 180) ageCategory = '180+ days';
+      else if (daysSinceLastMovement > 90) ageCategory = '90-180 days';
+      else if (daysSinceLastMovement > 60) ageCategory = '60-90 days';
+      else if (daysSinceLastMovement > 30) ageCategory = '30-60 days';
 
+      // Shape aligned to the frontend StockAgingReport contract (was previously mismatched), + ageCategory bonus.
       return {
-        ...level,
-        daysSinceUpdate,
+        materialId: level.materialId,
+        materialCode: level.materials?.code ?? level.materialId,
+        materialName: level.materials?.name ?? 'N/A',
+        quantity: Number(level.quantity),
+        daysSinceLastMovement,
+        lastMovementDate: level.lastUpdated ?? undefined,
         ageCategory,
       };
     });
@@ -473,55 +464,15 @@ class StockLevelService {
    * Get stock valuation report
    */
   async getStockValuationReport(warehouseId?: string) {
-    const where: Prisma.stock_levelsWhereInput = {
-      quantity: { gt: 0 },
-    };
-
-    if (warehouseId) {
-      where.warehouseId = warehouseId;
-    }
-
-    const stockLevels = await prisma.stock_levels.findMany({
-      where,
-      include: {
-        materials: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            unit: true,
-            material_categories: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
-        warehouses: {
-          select: {
-            id: true,
-            warehouseCode: true,
-            warehouseName: true,
-            warehouseType: true,
-          },
-        },
-      },
-      orderBy: { stockValue: 'desc' },
-    });
-
-    const totalValue = stockLevels.reduce((sum, level) => {
-      return sum + (level.stockValue ? parseFloat(level.stockValue.toString()) : 0);
-    }, 0);
-
-    const totalQuantity = stockLevels.reduce((sum, level) => {
-      return sum + parseFloat(level.quantity.toString());
-    }, 0);
-
+    // T2-1 Stage C: derived valuation (quantity>0, sorted stockValue desc) instead of hand-maintained
+    // stock_levels.stockValue. The view recomputes stockValue = derived_qty × stock_settings.valuationRate, so
+    // it auto-corrects drifted stored values (e.g. PKG-0001: stale 1500 → correct 31500).
+    const { rows, totalValue, totalQuantity } = await getDerivedValuation(warehouseId ? { warehouseId } : {});
     return {
-      stockLevels,
+      stockLevels: rows,
       totalValue,
       totalQuantity,
-      totalMaterials: stockLevels.length,
+      totalMaterials: rows.length,
     };
   }
 

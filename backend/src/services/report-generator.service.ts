@@ -6,6 +6,7 @@
  */
 
 import prisma from '../config/database';
+import { getDerivedStockDetailed } from './helpers/derived-stock.helper';
 import exportService from './export.service';
 import { notificationService } from './notification.service';
 import { logInfo, logError } from '../utils/logger';
@@ -123,12 +124,9 @@ class ReportGeneratorService {
     format: string,
     params: ReportParams
   ): Promise<ReportResult> {
-    const stockLevels = await prisma.stock_levels.findMany({
-      include: {
-        materials: true,
-      },
-      orderBy: { materialId: 'asc' },
-    });
+    // T2-1: derived on-hand + policy config (per-lot truth, excludes phantom/RAW/zero rows; lastUpdated is
+    // the real last movement, not the reconcile-bumped ledger timestamp) instead of stock_levels.
+    const stockLevels = (await getDerivedStockDetailed()).sort((a, b) => a.materialId.localeCompare(b.materialId));
 
     const data = stockLevels.map((sl) => ({
       materialCode: sl.materials?.code || sl.materialId,
@@ -161,12 +159,9 @@ class ReportGeneratorService {
    * Detailed stock levels with reorder points
    */
   private async generateStockLevels(filePath: string, format: string, params: ReportParams): Promise<ReportResult> {
-    const stockLevels = await prisma.stock_levels.findMany({
-      include: {
-        materials: true,
-      },
-      orderBy: { materialId: 'asc' },
-    });
+    // T2-1: derived on-hand + policy config (per-lot truth, excludes phantom/RAW/zero rows; lastUpdated is
+    // the real last movement, not the reconcile-bumped ledger timestamp) instead of stock_levels.
+    const stockLevels = (await getDerivedStockDetailed()).sort((a, b) => a.materialId.localeCompare(b.materialId));
 
     const data = stockLevels.map((sl) => ({
       materialCode: sl.materials?.code || sl.materialId,

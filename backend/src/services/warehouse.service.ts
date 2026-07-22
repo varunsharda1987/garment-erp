@@ -1,6 +1,7 @@
 // Warehouse Service - Manage warehouse master data
 import { WarehouseType, Prisma } from '@prisma/client';
 import prisma from '../config/database';
+import { getDerivedValuation } from './helpers/derived-stock.helper';
 
 export interface CreateWarehouseDTO {
   warehouseCode: string;
@@ -294,44 +295,23 @@ class WarehouseService {
    * Get warehouse stock summary
    */
   async getWarehouseStockSummary(id: string) {
-    const warehouse = await prisma.warehouses.findUnique({
-      where: { id },
-      include: {
-        stock_levels: {
-          where: {
-            quantity: { gt: 0 },
-          },
-          include: {
-            materials: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                unit: true,
-              },
-            },
-          },
-          orderBy: {
-            lastUpdated: 'desc',
-          },
-        },
-      },
-    });
+    const warehouse = await prisma.warehouses.findUnique({ where: { id } });
 
     if (!warehouse) {
       throw new Error(`Warehouse not found with ID: ${id}`);
     }
+
+    // T2-1 Stage C: derived on-hand + valuation for this warehouse instead of hand-maintained stock_levels.stockValue.
+    const { rows, totalValue } = await getDerivedValuation({ warehouseId: id });
 
     const summary = {
       warehouseId: warehouse.id,
       warehouseCode: warehouse.warehouseCode,
       warehouseName: warehouse.warehouseName,
       warehouseType: warehouse.warehouseType,
-      totalMaterials: warehouse.stock_levels.length,
-      totalValue: warehouse.stock_levels.reduce((sum, level) => {
-        return sum + (level.stockValue ? parseFloat(level.stockValue.toString()) : 0);
-      }, 0),
-      stockLevels: warehouse.stock_levels,
+      totalMaterials: rows.length,
+      totalValue,
+      stockLevels: rows,
     };
 
     return summary;

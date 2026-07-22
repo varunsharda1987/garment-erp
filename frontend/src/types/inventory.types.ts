@@ -189,6 +189,7 @@ export interface StockAgingReport {
   quantity: number;
   daysSinceLastMovement: number;
   lastMovementDate?: Date | string;
+  ageCategory?: string; // convenience bucket from the backend: '0-30 days' | '30-60 days' | ... | '180+ days'
 }
 
 // Stock Movement Types

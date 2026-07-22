@@ -18,6 +18,7 @@
  */
 
 import prisma from '../config/database';
+import { getGreigeWAC } from './helpers/derived-stock.helper';
 import { lookupRate, getAllDyeingPrintingProcessors } from './processor-rate-v2.service';
 import type { ProcessingTypeV2, RateLookupResult } from '../types/processor-rate-v2.types';
 
@@ -402,18 +403,9 @@ async function calculateGreigeProcessingCost(
   });
 
   // 2. If no procurement, check greige stock for valuation rate (WAC)
-  // Greige stock is tracked via materials table with greigeId reference
-  const greigeStockLevel = await prisma.stock_levels.findFirst({
-    where: {
-      materials: {
-        greigeId: fabric.greigeId,
-        materialType: 'GREIGE',
-      },
-      quantity: { gt: 0 },
-      valuationRate: { not: null },
-    },
-    orderBy: { valuationRate: 'asc' },
-  });
+  // T2-1 Stage C: derived greige WAC (in-stock gate from derived qty, rate + asOf from stock_settings — the
+  // live WAC home) instead of stock_levels.findFirst. getGreigeWAC verified to pick the same lowest rate.
+  const greigeWac = await getGreigeWAC(fabric.greigeId);
 
   // 3. Priority: procurement rate → stock valuation rate → greige master default cost
   let greigeCostPerMeter: number | null = null;
@@ -430,10 +422,10 @@ async function calculateGreigeProcessingCost(
     greigeLastUpdated = latestGreigeProcurement.updatedAt
       ? new Date(latestGreigeProcurement.updatedAt).toISOString()
       : null;
-  } else if (greigeStockLevel?.valuationRate) {
-    greigeCostPerMeter = Number(greigeStockLevel.valuationRate);
+  } else if (greigeWac?.rate) {
+    greigeCostPerMeter = Number(greigeWac.rate);
     greigeRateSource = 'STOCK_WAC';
-    greigeLastUpdated = greigeStockLevel.lastUpdated ? new Date(greigeStockLevel.lastUpdated).toISOString() : null;
+    greigeLastUpdated = greigeWac.asOf ? new Date(greigeWac.asOf).toISOString() : null;
   } else if (fabric.greige.costPerMeter) {
     greigeCostPerMeter = Number(fabric.greige.costPerMeter);
     greigeRateSource = 'GREIGE_MASTER';

@@ -14,6 +14,7 @@ import {
 } from '@prisma/client';
 import { generateCode } from '../utils/code-generator';
 import prisma from '../config/database';
+import { getDerivedOnHand } from './helpers/derived-stock.helper';
 import {
   CalculateRequirementsInput,
   CalculatedRequirement,
@@ -1018,11 +1019,8 @@ export async function calculateRequirementsFromOrder(
         } else if (material?.id || resolvedTrimMaterialId) {
           // Non-fabric/non-lace or without specific IDs: use generic stock_levels
           const stockMaterialId = material?.id || resolvedTrimMaterialId!;
-          const stockLevels = await prisma.stock_levels.aggregate({
-            where: { materialId: stockMaterialId },
-            _sum: { quantity: true },
-          });
-          availableStock = Number(stockLevels._sum?.quantity || 0);
+          // T2-1 Stage B3: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
+          availableStock = await getDerivedOnHand(stockMaterialId);
 
           if (availableStock >= totalRequired) {
             allocatedFromStock = totalRequired;

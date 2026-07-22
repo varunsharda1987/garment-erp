@@ -27,6 +27,7 @@ export interface DerivedStockRow {
 
 export interface DerivedStockDetailedRow extends DerivedStockRow {
   unit: string; // top-level unit (mirrors stock_levels.unit) so display code that reads row.unit still works
+  lastUpdated: Date | null; // MAX of the per-lot updatedAt = real last movement (unlike stock_levels.lastUpdated, which reconcile runs bump)
   materials: {
     id: string;
     code: string;
@@ -70,6 +71,82 @@ export async function getDerivedStock(scope: Scope = {}): Promise<DerivedStockRo
   );
 }
 
+/** Total derived on-hand for a material across warehouses (or a specific warehouse). Replaces the
+ *  stock_levels.aggregate(_sum.quantity) pattern used by MRP/requirement/production-blocking readers. */
+export async function getDerivedOnHand(materialId: string, warehouseId?: string): Promise<number> {
+  const params: any[] = [materialId];
+  let where = `"materialId" = $1`;
+  if (warehouseId) {
+    params.push(warehouseId);
+    where += ` AND "warehouseId" = $2`;
+  }
+  const rows: any[] = await prisma.$queryRawUnsafe(
+    `SELECT COALESCE(SUM(quantity), 0)::float AS total FROM derived_stock_view WHERE ${where}`,
+    ...params
+  );
+  return rows[0]?.total ?? 0;
+}
+
+/** Batch derived on-hand: materialId -> total derived qty across warehouses, for a set of materials.
+ *  Replaces a stock_levels.findMany({ where: { materialId: { in } } }) + in-memory sum (e.g. work-order BOM shortage). */
+export async function getDerivedOnHandMap(materialIds: string[]): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  if (!materialIds.length) return map;
+  const rows: any[] = await prisma.$queryRawUnsafe(
+    `SELECT "materialId", COALESCE(SUM(quantity), 0)::float AS total
+     FROM derived_stock_view
+     WHERE "materialId" = ANY($1::text[])
+     GROUP BY "materialId"`,
+    materialIds
+  );
+  for (const r of rows) map.set(r.materialId, Number(r.total));
+  return map;
+}
+
+/** Count of derived (material,warehouse) on-hand rows below a threshold — replaces the dashboard
+ *  stock_levels.count({ where: { quantity: { lt: N } } }) which can't be a column filter on a view. */
+export async function countDerivedBelowThreshold(threshold: number): Promise<number> {
+  const rows: any[] = await prisma.$queryRawUnsafe(
+    `SELECT COUNT(*)::int AS n FROM derived_stock_view WHERE quantity < $1`,
+    threshold
+  );
+  return rows[0]?.n ?? 0;
+}
+
+/** Derived valuation for a scope: quantity>0 rows sorted by stockValue desc + totals. Replaces the
+ *  getStockValuationReport / getWarehouseStockSummary / getStockLevelsBy* stock_levels.stockValue readers. */
+export async function getDerivedValuation(
+  scope: { warehouseId?: string; materialId?: string } = {}
+): Promise<{ rows: DerivedStockDetailedRow[]; totalValue: number; totalQuantity: number }> {
+  const rows = (await getDerivedStockDetailed(scope))
+    .filter((r) => Number(r.quantity) > 0)
+    .sort((a, b) => Number(b.stockValue ?? 0) - Number(a.stockValue ?? 0));
+  const totalValue = rows.reduce((s, r) => s + Number(r.stockValue ?? 0), 0);
+  const totalQuantity = rows.reduce((s, r) => s + Number(r.quantity), 0);
+  return { rows, totalValue, totalQuantity };
+}
+
+/** Greige weighted-average cost for the fabric-costing STOCK_WAC fallback. Faithfully reproduces the old
+ *  stock_levels.findFirst(materials.greigeId + GREIGE, quantity>0, valuationRate NOT NULL, ORDER BY rate ASC):
+ *  on-hand gate from the DERIVED qty, rate + asOf from stock_settings (the live WAC home post-dual-write).
+ *  asOf degrades to stock_settings.updatedAt (config time) — acceptable because greigeLastUpdated is display
+ *  metadata that never enters the cost math. Returns null when no in-stock greige lot carries a rate. */
+export async function getGreigeWAC(greigeId: string): Promise<{ rate: Prisma.Decimal; asOf: Date | null } | null> {
+  const rows: any[] = await prisma.$queryRawUnsafe(
+    `SELECT ss."valuationRate" AS rate, ss."updatedAt" AS as_of
+     FROM derived_stock_view dv
+     JOIN materials m ON m.id = dv."materialId"
+     JOIN stock_settings ss ON ss."materialId" = dv."materialId" AND ss."warehouseId" = dv."warehouseId"
+     WHERE m."greigeId" = $1 AND m."materialType" = 'GREIGE'
+       AND dv.quantity > 0 AND ss."valuationRate" IS NOT NULL
+     ORDER BY ss."valuationRate" ASC
+     LIMIT 1`,
+    greigeId
+  );
+  if (!rows.length) return null;
+  return { rate: rows[0].rate, asOf: rows[0].as_of ?? null };
+}
+
 /** Derived on-hand rows joined to material + warehouse metadata, shaped like a stock_levels findMany result. */
 export async function getDerivedStockDetailed(scope: Scope = {}): Promise<DerivedStockDetailedRow[]> {
   const conds: string[] = [];
@@ -89,7 +166,7 @@ export async function getDerivedStockDetailed(scope: Scope = {}): Promise<Derive
   const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
   const rows: any[] = await prisma.$queryRawUnsafe(
     `SELECT dv."materialId", dv."warehouseId", dv.quantity, dv."reorderLevel", dv."minLevel", dv."maxLevel",
-            dv."valuationRate", dv."stockValue",
+            dv."valuationRate", dv."stockValue", dv."lastUpdated",
             m.code AS m_code, m.name AS m_name, m.unit AS m_unit, m."materialType" AS m_type, m."reorderLevel" AS m_reorder,
             mc.name AS mc_name, w."warehouseCode" AS w_code, w."warehouseName" AS w_name, w."warehouseType" AS w_type
      FROM derived_stock_view dv
@@ -104,6 +181,7 @@ export async function getDerivedStockDetailed(scope: Scope = {}): Promise<Derive
     warehouseId: r.warehouseId,
     quantity: r.quantity,
     unit: r.m_unit,
+    lastUpdated: r.lastUpdated ?? null,
     reorderLevel: r.reorderLevel,
     minLevel: r.minLevel,
     maxLevel: r.maxLevel,

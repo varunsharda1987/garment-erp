@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import { getDerivedStockDetailed } from '../services/helpers/derived-stock.helper';
 import { generateCode, generateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { threadStockService } from '../services/thread-stock.service';
@@ -836,21 +837,10 @@ export const getThreadStock = async (req: Request, res: Response) => {
     throw new NotFoundError('Thread', id);
   }
 
-  // Get stock levels for this material (thread)
-  const stockLevels = await prisma.stock_levels.findMany({
-    where: {
-      materialId: materialId,
-      ...(warehouseId ? { warehouseId: warehouseId as string } : {}),
-    },
-    include: {
-      warehouses: {
-        select: {
-          id: true,
-          warehouseName: true,
-          warehouseCode: true,
-        },
-      },
-    },
+  // T2-1: derived per-warehouse on-hand (per-lot truth) instead of hand-maintained stock_levels.
+  const stockLevels = await getDerivedStockDetailed({
+    materialId,
+    ...(warehouseId ? { warehouseId: warehouseId as string } : {}),
   });
 
   // Calculate total available units

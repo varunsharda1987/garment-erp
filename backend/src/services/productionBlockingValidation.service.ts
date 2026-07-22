@@ -1,6 +1,7 @@
 import { ProductionStage, SampleType, SampleStatus, TestResult } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
+import { getDerivedOnHand } from './helpers/derived-stock.helper';
 
 // Shortfall tolerance: ignore shortfalls below 0.5% of required quantity
 // (handles BOM wastage rounding — e.g. need 1670.29m, have 1670.00m → 0.017% short → pass)
@@ -386,11 +387,8 @@ class ProductionBlockingValidationService {
         availableStock = Number(fabricStock._sum.quantityAvailable || 0);
       } else {
         if (!bom.materialId) continue;
-        const trimStock = await prisma.stock_levels.aggregate({
-          where: { materialId: bom.materialId },
-          _sum: { quantity: true },
-        });
-        availableStock = Number(trimStock._sum.quantity || 0);
+        // T2-1 Stage B3: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
+        availableStock = await getDerivedOnHand(bom.materialId);
       }
 
       const shortfall = totalRequired - availableStock;
@@ -652,11 +650,8 @@ class ProductionBlockingValidationService {
           availableCount++; // No materialId means no stock check possible — skip
           continue;
         }
-        const trimStock = await prisma.stock_levels.aggregate({
-          where: { materialId: bom.materialId },
-          _sum: { quantity: true },
-        });
-        availableStock = Number(trimStock._sum.quantity || 0);
+        // T2-1 Stage B3: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
+        availableStock = await getDerivedOnHand(bom.materialId);
       }
 
       const shortfall = totalRequired - availableStock;

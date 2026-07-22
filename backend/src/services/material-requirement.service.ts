@@ -7,6 +7,7 @@
 import prisma from '../config/database';
 import { Decimal } from '@prisma/client/runtime/library';
 import { logWarn } from '../utils/logger';
+import { getDerivedOnHand } from './helpers/derived-stock.helper';
 
 export interface MaterialRequirement {
   materialId: string;
@@ -45,12 +46,8 @@ async function getAvailableStock(materialId: string): Promise<number> {
     return 0;
   }
 
-  const stockLevels = await prisma.stock_levels.aggregate({
-    where: { materialId },
-    _sum: { quantity: true },
-  });
-
-  return Number(stockLevels._sum.quantity || 0);
+  // T2-1 Stage B3: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
+  return getDerivedOnHand(materialId);
 }
 
 /**

@@ -1,0 +1,380 @@
+[
+  {
+    "id": "ea576327-8179-4439-a681-0c0b9875482f",
+    "migration_name": "0_init",
+    "started_at": "2026-03-21T11:21:08.487Z",
+    "finished_at": "2026-03-21T11:21:08.487Z",
+    "checksum": "75149636e25db655994c92e3e8b557ac4a8e97ae22242a295b435a197d8516cf"
+  },
+  {
+    "id": "d2e1e9f3-fa0e-431e-82bd-2a1beccc1594",
+    "migration_name": "20260321112130_verify_clean",
+    "started_at": "2026-03-21T11:22:03.499Z",
+    "finished_at": "2026-03-21T11:22:03.614Z",
+    "checksum": "e71c002f1e9a8c3b83d98d3e561e1e76dff1db2d1c78ea69f83411b57f6468f1"
+  },
+  {
+    "id": "955f2cdf-fb62-4964-93a1-6d2a6d2f7643",
+    "migration_name": "20260322_add_layers_and_fabric_consumed",
+    "started_at": "2026-03-22T03:46:30.981Z",
+    "finished_at": "2026-03-22T03:46:30.981Z",
+    "checksum": "ec39d476f2a6e937b10cb875dec7b382edf36e6d320c6c17cf777057e07921ec"
+  },
+  {
+    "id": "2a7ba4ca-70f6-4ad4-b735-408311c734ef",
+    "migration_name": "20260322_add_cutting_lay_fabrics",
+    "started_at": "2026-03-22T04:21:24.146Z",
+    "finished_at": "2026-03-22T04:21:24.146Z",
+    "checksum": "04b98d45883f67f2192714c987ad6141cc44f48a038a4a3ea234e4bf85fd483f"
+  },
+  {
+    "id": "da932e79-8a91-42ee-a22a-6f075151376b",
+    "migration_name": "20260322044623_add_stock_production_orders_and_sale_orders",
+    "started_at": "2026-03-22T04:46:23.120Z",
+    "finished_at": "2026-03-22T04:46:23.289Z",
+    "checksum": "d12122aa26142591c5f919d105e6ee42086ca2214fa1035f54e6153bd5b07f3c"
+  },
+  {
+    "id": "4fcabe50-a4a9-4ed8-897f-d6da5a999908",
+    "migration_name": "20260322_add_unique_constraints_and_code_sequences",
+    "started_at": "2026-03-22T08:11:21.328Z",
+    "finished_at": "2026-03-22T08:11:21.328Z",
+    "checksum": "0437d6653fecb6d57ba98810bba35a35f991da99fef7ae5705e296308ae77b58"
+  },
+  {
+    "id": "ca516680-1194-47f7-a2ef-e460244df7c0",
+    "migration_name": "20260323121447_add_color_name_to_bom_and_requirements",
+    "started_at": "2026-03-23T12:14:47.543Z",
+    "finished_at": "2026-03-23T12:14:47.550Z",
+    "checksum": "322ee5b8549199de87836a9aeef4775fae35fb1bc2d322fe5bf0665f937ee768"
+  },
+  {
+    "id": "4ec63437-abe5-4d9f-bced-d152c1cb9d81",
+    "migration_name": "20260323144631_add_component_color_traceability_chain",
+    "started_at": "2026-03-23T14:46:31.250Z",
+    "finished_at": "2026-03-23T14:46:31.262Z",
+    "checksum": "5734987f697da87c4d583484026ebe948350c3a6c0bd0e00751416a1d6fb64fd"
+  },
+  {
+    "id": "ab1a4545-b7a5-46d1-885b-97eaf648431f",
+    "migration_name": "20260324065408_add_fabric_width_to_po_items",
+    "started_at": "2026-03-24T06:54:08.475Z",
+    "finished_at": "2026-03-24T06:54:08.484Z",
+    "checksum": "7c3f8a3b51b558e00aac5ff21eb997bcec6da13c1078239d6e9f584240ff5f07"
+  },
+  {
+    "id": "1be35a85-d4e8-4098-8bbb-18c472d159c3",
+    "migration_name": "20260326100000_fabric_master_finish_type_enum",
+    "started_at": "2026-03-26T12:11:14.589Z",
+    "finished_at": "2026-03-26T12:11:14.640Z",
+    "checksum": "b4a874fbded7d715afe3b0755ccdb0f697b5cb8e7fa3b92271f6ae924cb07863"
+  },
+  {
+    "id": "717459ed-2409-4abf-b8dd-c476bcd37536",
+    "migration_name": "20260327085500_add_system_settings_and_fix_wastage_defaults",
+    "started_at": "2026-03-27T08:55:00.644Z",
+    "finished_at": "2026-03-27T08:55:00.671Z",
+    "checksum": "927ce3c1ae38305870cf6eaec8af10465f563ce71ec700b39189f00dcb9e1d14"
+  },
+  {
+    "id": "6e960a7c-0d60-477a-b07d-0ed2d8e70f33",
+    "migration_name": "20260328110531_add_generic_trim_fk_columns",
+    "started_at": "2026-03-28T11:05:31.771Z",
+    "finished_at": "2026-03-28T11:05:31.864Z",
+    "checksum": "156beafb1c611e854520fe469e02281730b5c3dcb8940046f6e0bb2e1d7c0ecc"
+  },
+  {
+    "id": "3b31f712-89c9-4d48-af30-e0dfe9bf3c3b",
+    "migration_name": "20260328140035_add_generic_trim_fk_to_order_bom_items",
+    "started_at": "2026-03-28T14:00:35.788Z",
+    "finished_at": "2026-03-28T14:00:35.861Z",
+    "checksum": "34734902a9c85e40d0f1071dc6bb07206fa90158727e5e280de842ab84755cff"
+  },
+  {
+    "id": "66d1e64a-d747-4bc8-8d8a-9e110c1303b4",
+    "migration_name": "20260329110713_add_thread_procurement_and_stock",
+    "started_at": "2026-03-29T11:07:13.918Z",
+    "finished_at": "2026-03-29T11:07:14.313Z",
+    "checksum": "76d64e765b2228e04bbc7812088b879c148edd6cc4db3a640002b1cf2dec6f04"
+  },
+  {
+    "id": "e51456af-0ff4-40a3-a7a2-a73c96db2ff4",
+    "migration_name": "20260329113057_add_thread_stock_to_challan_items",
+    "started_at": "2026-03-29T11:30:57.428Z",
+    "finished_at": "2026-03-29T11:30:57.447Z",
+    "checksum": "08038dc5e12daeebd88497d0f14857902ff0cca9beb0d929d2d42dac68a59eb9"
+  },
+  {
+    "id": "5a2e77ed-610a-44ad-b97b-6492ce8c4c72",
+    "migration_name": "20260401082752_add_cutting_batch_timestamps",
+    "started_at": "2026-04-01T08:27:53.025Z",
+    "finished_at": "2026-04-01T08:27:53.109Z",
+    "checksum": "cf62a0c261f93fe21d52a6464f6a625baee1515b108964bc288bfe971e847912"
+  },
+  {
+    "id": "74c856d1-7529-45dd-bfd9-5aabd0b78ace",
+    "migration_name": "20260401_add_fabric_return_tracking",
+    "started_at": "2026-04-01T09:50:01.406Z",
+    "finished_at": "2026-04-01T09:50:01.406Z",
+    "checksum": "8903d4482a9070fd0ab5b5040609072fb75d94cb8f0f349f116a46c0c53b1a99"
+  },
+  {
+    "id": "b3fa952b-df23-49e3-befe-930fa4274ee9",
+    "migration_name": "20260401120422_add_supplier_warehouse_link",
+    "started_at": "2026-04-01T12:04:22.962Z",
+    "finished_at": "2026-04-01T12:04:23.878Z",
+    "checksum": "ccfc4cb84e116961321ea46258679d6439ba201340c7ccb895d772e8c761b985"
+  },
+  {
+    "id": "044aa510-a27f-4428-9e9c-78f03d9a1940",
+    "migration_name": "20260402120512_add_greige_quality",
+    "started_at": "2026-04-02T12:05:12.235Z",
+    "finished_at": "2026-04-02T12:05:12.246Z",
+    "checksum": "1ad83247af25c50dff56b6ef1bd3a5c2289c804423c4ee34343eae2d9e93f12a"
+  },
+  {
+    "id": "cccd5b96-3198-4636-bbc9-45d525b6f4ca",
+    "migration_name": "20260402131722_add_weaver_field",
+    "started_at": "2026-04-02T13:17:22.279Z",
+    "finished_at": "2026-04-02T13:17:22.287Z",
+    "checksum": "ff6ec46daa610e63a213c4436ecf68fdebecf7e3936064181ce9675c8f258c5f"
+  },
+  {
+    "id": "0841a240-79f2-460f-b0e7-09c3330d1e91",
+    "migration_name": "20260402150927_add_grn_item_measurements_and_details",
+    "started_at": "2026-04-02T15:09:27.739Z",
+    "finished_at": "2026-04-02T15:09:27.773Z",
+    "checksum": "60520a3f343ba2bc9f9052e526e3f9681fc4bfeb1dfc3a968a212abebc8f7244"
+  },
+  {
+    "id": "7a3ab6e1-996a-4afe-b27d-a35c91d8f9cd",
+    "migration_name": "20260402170646_add_external_process_tracking",
+    "started_at": "2026-04-02T17:06:47.048Z",
+    "finished_at": "2026-04-02T17:06:47.148Z",
+    "checksum": "be1260c147e954297429fe1ddbb22fe48eb6b79cc206348fedbda520234f9d2e"
+  },
+  {
+    "id": "1e398965-a87b-4add-b9c3-ee0f89237b58",
+    "migration_name": "20260403074726_add_fold_length_to_stock_movements_and_challan_items",
+    "started_at": "2026-04-03T07:47:26.792Z",
+    "finished_at": "2026-04-03T07:47:26.824Z",
+    "checksum": "67ed89cd41a3a5404638986548829505aea9ff072c33a56cb52314f54e0153c8"
+  },
+  {
+    "id": "c8e9ce30-16ce-4f54-b4ed-04a03811934a",
+    "migration_name": "20260403114949_add_greige_stock_transaction",
+    "started_at": "2026-04-03T11:49:49.681Z",
+    "finished_at": "2026-04-03T11:49:49.715Z",
+    "checksum": "1cf0236708cd83693a938d3080a25a540afa080a2be6d5e50f16d23dbe90215e"
+  },
+  {
+    "id": "446a04ef-3171-4a54-b013-ccb63d3ee228",
+    "migration_name": "20260404_remove_duplicate_material_types",
+    "started_at": "2026-04-04T10:09:58.468Z",
+    "finished_at": "2026-04-04T10:09:58.468Z",
+    "checksum": "43c0d1610394b9e41652e00c0b6e7e5eefb38882a1a5b6217fac7adeaf455333"
+  },
+  {
+    "id": "513af82f-dc85-4b5b-8288-cb4ae07f98a2",
+    "migration_name": "20260404120318_add_fabric_stock_needs_embroidery",
+    "started_at": "2026-04-04T12:03:19.072Z",
+    "finished_at": "2026-04-04T12:03:19.089Z",
+    "checksum": "cb2558964846cca7e1a8e1af983e81fb2ef0771e1eef830fd2de6611ee4e311b"
+  },
+  {
+    "id": "17ed955f-b71a-48bd-a383-555986970e31",
+    "migration_name": "20260404_enum_drift_cleanup",
+    "started_at": "2026-04-04T12:23:30.567Z",
+    "finished_at": "2026-04-04T12:23:30.567Z",
+    "checksum": "6f2a6ee4ebcf7acf75e89947b6daed338f51d8a7e441f589dbc59ab83fc693f1"
+  },
+  {
+    "id": "0e1541df-a3da-4450-b5dd-7077d08e3297",
+    "migration_name": "20260407080000_add_greige_stock_source_tracking",
+    "started_at": "2026-04-07T07:37:08.068Z",
+    "finished_at": "2026-04-07T07:37:08.108Z",
+    "checksum": "f79b0e4925124f8ca701bd7dfcf9232b7a075d33816b6222dd8c477d79af0a5d"
+  },
+  {
+    "id": "1830e2f5-733a-41d5-9417-b10c155576c3",
+    "migration_name": "20260410111821_add_received_as_ready_fabric",
+    "started_at": "2026-04-10T11:18:21.807Z",
+    "finished_at": "2026-04-10T11:18:21.822Z",
+    "checksum": "9a3e5c7dd023eec71d1c59b21e146f262124dc9e3c6ede28723b4f5e9c571b62"
+  },
+  {
+    "id": "97a0b6ca-688d-40f9-9459-556eabacc466",
+    "migration_name": "20260410123115_add_cad_multi_part_selection",
+    "started_at": "2026-04-10T12:31:15.736Z",
+    "finished_at": "2026-04-10T12:31:15.791Z",
+    "checksum": "c702f1320b62afac503ae51435765cbad925e2748cb2dec17dea0981738fbcf7"
+  },
+  {
+    "id": "3239df5c-915d-412c-be69-e90c97d66412",
+    "migration_name": "20260415074518_add_print_design_color_to_style_fabrics",
+    "started_at": "2026-04-15T07:45:18.520Z",
+    "finished_at": "2026-04-15T07:45:18.540Z",
+    "checksum": "4033bfdbe7b373a27a471c65878bad0e97f68d1e9e3a9cbb34f45718a371f407"
+  },
+  {
+    "id": "53eead88-8b25-45d9-84e3-409bc6c147b1",
+    "migration_name": "20260416075507_add_costing_trim_accessory_items",
+    "started_at": "2026-04-16T07:55:07.581Z",
+    "finished_at": "2026-04-16T07:55:07.698Z",
+    "checksum": "7f961538fc905f1947ba8eddd8691faf4d42f6286c9ec0b0f5a4c094bba35072"
+  },
+  {
+    "id": "2cf965ed-8165-4097-a92c-e2adf905a1f0",
+    "migration_name": "20260416085523_add_master_id_fallback",
+    "started_at": "2026-04-16T08:55:23.548Z",
+    "finished_at": "2026-04-16T08:55:23.583Z",
+    "checksum": "4a108093fa68471ee70bda61d5087f84c1fe9e5a97530199ac8a07d145fcbaa3"
+  },
+  {
+    "id": "1f0c18d6-8c1d-427b-a274-2edb71f8199d",
+    "migration_name": "20260416132229_add_supplier_to_stock_movements",
+    "started_at": "2026-04-16T13:22:29.633Z",
+    "finished_at": "2026-04-16T13:22:29.651Z",
+    "checksum": "085d95da0af801f2262f58c00ddafc95432d363ba65656cb5e23f8f7b85d7c31"
+  },
+  {
+    "id": "eb9701c6-b9e9-4d54-83b1-b7a94c884590",
+    "migration_name": "20260422100000_add_greige_stock_processor_id",
+    "started_at": "2026-04-22T06:18:39.156Z",
+    "finished_at": "2026-04-22T06:18:39.204Z",
+    "checksum": "a713ffb44dfccd882831d2d1663e3bc04d3d4395bdf653ef5443e338200186e9"
+  },
+  {
+    "id": "82e6e22f-1973-4bb3-aada-64ca5fb81920",
+    "migration_name": "20260422110000_rename_millid_to_processorid",
+    "started_at": "2026-04-22T06:49:31.853Z",
+    "finished_at": "2026-04-22T06:49:31.937Z",
+    "checksum": "90941647ed32ba3bf0b8d2d1cedca502a827ba5ddcf2d1ce205a54e25c6b01b0"
+  },
+  {
+    "id": "9ac561df-fb8a-4add-ae1c-d743730e16e2",
+    "migration_name": "20260422150000_add_processor_rate_history",
+    "started_at": "2026-04-22T08:07:39.729Z",
+    "finished_at": "2026-04-22T08:07:39.793Z",
+    "checksum": "06878c3ea0c30891940ff77586548e9f2fc78ec243797ef150bc30c159ee3772"
+  },
+  {
+    "id": "7e5c874c-6767-4673-a19e-8eb048e9f1f9",
+    "migration_name": "20260424092651_add_cad_rejection_tracking",
+    "started_at": "2026-04-24T09:27:28.531Z",
+    "finished_at": "2026-04-24T09:27:28.553Z",
+    "checksum": "ef6475596e936775b1b09e0dd1105982677d851c5d260cfc8d1d6c9ac810cad7"
+  },
+  {
+    "id": "7f3f25f1-747b-49d5-b7ef-fe71f9901bc0",
+    "migration_name": "20260426114652_add_pair_pack_units",
+    "started_at": "2026-04-26T11:46:52.995Z",
+    "finished_at": "2026-04-26T11:46:53.005Z",
+    "checksum": "3d7db9c06e9f5bcfc3ddddd4e45664931d43ecc0116161f6b726f816c2f7b005"
+  },
+  {
+    "id": "1613201d-8282-491a-b785-e31f34058545",
+    "migration_name": "20260426124547_add_po_traceability_links",
+    "started_at": "2026-04-26T12:46:17.740Z",
+    "finished_at": "2026-04-26T12:46:17.805Z",
+    "checksum": "ccf903d50411a29aa70c7234976739229058eadb9b44c64728d94b0d02b9b884"
+  },
+  {
+    "id": "8d231314-1264-4a10-bb8d-18121e4b7292",
+    "migration_name": "20260430130241_add_fold_length_to_po_items",
+    "started_at": "2026-04-30T13:02:41.840Z",
+    "finished_at": "2026-04-30T13:02:41.855Z",
+    "checksum": "c72d44bd043c3dfa546bf900b5a410fe9d957418bc6eb16c25eae35c85cde282"
+  },
+  {
+    "id": "da22a969-8d84-442e-92be-fb76bd31fd86",
+    "migration_name": "20260430140101_add_invoice_fields_to_procurement_and_stock",
+    "started_at": "2026-04-30T14:01:01.462Z",
+    "finished_at": "2026-04-30T14:01:01.476Z",
+    "checksum": "db18dbb551692a195e4b8d1885301bd636f51a2ca1074be3f6194e0dff7e3399"
+  },
+  {
+    "id": "7164fafc-0ca8-4c48-89a6-c3a7d8fd84cc",
+    "migration_name": "20260501071238_add_invoice_to_stock_movements",
+    "started_at": "2026-05-01T07:12:38.687Z",
+    "finished_at": "2026-05-01T07:12:38.697Z",
+    "checksum": "2807ed8577c469f943791fff0d9d28de977c046383fc25c871432058d7eaefbf"
+  },
+  {
+    "id": "66d8f940-8821-4d61-9a5b-9f9ff4cce56e",
+    "migration_name": "20260501120840_add_delivery_location_amendment",
+    "started_at": "2026-05-01T12:08:40.163Z",
+    "finished_at": "2026-05-01T12:08:40.200Z",
+    "checksum": "1ccfd0952f3e924592841c0d7dbbf3cfab22bebcf98a187c584f213a16700a7d"
+  },
+  {
+    "id": "39ba3739-7d56-481f-a13f-76dae19b8f5f",
+    "migration_name": "20260501123338_add_fold_fields_to_greige_stock",
+    "started_at": "2026-05-01T12:33:39.072Z",
+    "finished_at": "2026-05-01T12:33:39.079Z",
+    "checksum": "57340a3fbe62724629a4bf6806f358fc0cc7dd8c83067f57a67817eed7c8bd8d"
+  },
+  {
+    "id": "e82ba722-7ef9-4095-b34e-9c91e73645c3",
+    "migration_name": "20260501143059_add_trim_stock_tables",
+    "started_at": "2026-05-01T14:30:59.247Z",
+    "finished_at": "2026-05-01T14:30:59.367Z",
+    "checksum": "18eac534b786cabc9607a40ce8d0fb31a987d9b85b0935210fcdf86173bbb84a"
+  },
+  {
+    "id": "362ac7a9-f189-48bf-9fdc-66ce972f1e2d",
+    "migration_name": "20260501150347_add_warehouse_fk_to_all_stock_tables",
+    "started_at": "2026-05-01T15:03:47.599Z",
+    "finished_at": "2026-05-01T15:03:47.683Z",
+    "checksum": "21233212c6ed365ca9efcf70dfd2e2d8aef20c2d142393bfd3da67ce9661b4c5"
+  },
+  {
+    "id": "58ca7a6c-dfd3-4a75-b0c9-71d332de57de",
+    "migration_name": "20260501220346_add_trim_po_categories",
+    "started_at": "2026-05-01T16:34:03.654Z",
+    "finished_at": "2026-05-01T16:34:03.654Z",
+    "checksum": "aff6c18f28416705f8dbc5f4bb0553638e869f898ddbaccd2f791a28952bd4ec"
+  },
+  {
+    "id": "6b97ae90-3f9a-408d-b13d-258a69019f87",
+    "migration_name": "20260501230000_add_unified_stock_view",
+    "started_at": "2026-05-01T18:06:34.495Z",
+    "finished_at": null,
+    "checksum": "b090956dfb3f12db4337c858a90b77e471855c6d172436cc31f4f9fe122212e1"
+  },
+  {
+    "id": "0808711e-9a36-484c-9e7b-beb81d6fa930",
+    "migration_name": "20260501231000_add_unified_stock_view",
+    "started_at": "2026-05-01T18:07:59.248Z",
+    "finished_at": "2026-05-01T18:07:59.248Z",
+    "checksum": "73fec96b2991f1eb5a36f51aaad1180178f68f5f393416d89b23c33beea3b7f6"
+  },
+  {
+    "id": "a740649d-327b-49a8-a930-550be2d7ea67",
+    "migration_name": "20260501230000_add_unified_stock_view",
+    "started_at": "2026-05-09T09:19:29.324Z",
+    "finished_at": "2026-05-09T09:19:29.324Z",
+    "checksum": "b090956dfb3f12db4337c858a90b77e471855c6d172436cc31f4f9fe122212e1"
+  },
+  {
+    "id": "d2d0010e-eef3-4aab-b7ff-e9a302fa90c1",
+    "migration_name": "20260508000000_add_lace_processed_style_tracking",
+    "started_at": "2026-05-09T09:20:32.545Z",
+    "finished_at": "2026-05-09T09:20:32.545Z",
+    "checksum": "d773b84cb5d7a8a9cae0f741ced5b27b5eebb3a1a765860442dee2b7c6f9c2ec"
+  },
+  {
+    "id": "f1272c62-a60b-4360-8d66-dc029093c0c0",
+    "migration_name": "20260509100000_add_source_challan_to_greige_stock_unique",
+    "started_at": "2026-05-09T09:22:04.038Z",
+    "finished_at": null,
+    "checksum": "5a6e34a4b933afac3d6d67f4b7277a9905e0482636b59a6a2ab906a74a3f53d0"
+  },
+  {
+    "id": "007800db-5f37-4d6b-b22a-2933bd728b37",
+    "migration_name": "20260509100000_add_source_challan_to_greige_stock_unique",
+    "started_at": "2026-05-09T09:22:27.137Z",
+    "finished_at": "2026-05-09T09:22:27.184Z",
+    "checksum": "10214b9b30b8c3da0a2f1dfb78b6b6403fdde04a1bd6927ba79a81bc3f1f13a0"
+  }
+]

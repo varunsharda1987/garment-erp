@@ -81,7 +81,17 @@
 > generate-po/bulk; fabric-procurement create), 7 UNVALIDATED, 10 REDUNDANT. controller-reparse baseline
 > **29 → 0**; enum-drift 44 → 42 (service enums realigned). Live-verified: formerly-dead POSTs return correct
 > field-level validation, touched list endpoints 200. Net −229 lines.
-> ⏳ Next: T3-C (FG-ledger rebuild), review-NIT backlog, §5 remaining detectors, T3-F numbering migration.
+> ✅ **T3-C FG-ledger completion DONE (2026-07-22, deployed, commit ddf4a08a)** — migration
+> 20260722150000 (additive, pre-verified safe): `delivery_note_fg_allocations` records every FG deduction inside
+> the create tx → deleting a PENDING note restores stock EXACTLY (dispatch-2 closed); over-dispatch validation
+> moved in-tx with order row-lock + PER-SKU caps from order_item_breakup (dispatch-3); deliveryNumber +
+> slipNumber UNIQUE + partial uniques = one slip per cutting batch/stitching issue/finishing issue
+> (dispatch-5/production-8); finishing slip+FG credit is one tx with existing-slip guard + upsert-increment
+> (production-9); cutting/stitching guards added; frontend service surfaces fgShortfalls.
+> **⚠ Flagged missing FEATURE (not built):** the "Create Delivery Note" buttons link to
+> /manufacturing/dispatch/delivery/new — no page/route exists; needs a product pass to build the form.
+> ⏳ Remaining backlog: review NITs, §5 detectors #2/#4/#7, T3-F sequence-table numbering (41 baselined),
+> MEDIUM/LOW findings backlog (60), delivery-note create page.
 
 *Synthesized from 57 verified CRITICAL/HIGH findings + 60 unverified MEDIUM/LOW backlog items across 7 modules (orders, procurement, production, costing, financial-gst, dispatch, samples-embroidery). Every claim cites a finding id. Static code audit only — live-DB drift magnitudes unmeasured except where noted.*
 

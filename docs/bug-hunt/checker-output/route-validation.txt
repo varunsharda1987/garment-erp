@@ -1,0 +1,105 @@
+
+=== Route Validation Audit ===
+
+Total route files: 126
+Compliant (has validateBody): 84
+Non-compliant (missing validation): 6
+Read-only (no POST/PUT/PATCH): 36
+
+--- Routes MISSING validation ---
+
+  - componentGroup.routes.ts (NO SCHEMA)
+  - componentPatternPart.routes.ts (NO SCHEMA)
+  - export.routes.ts (NO SCHEMA)
+  - report.routes.ts (NO SCHEMA)
+  - thread-stock.routes.ts (NO SCHEMA)
+  - trim-stock.routes.ts (NO SCHEMA)
+
+--- Compliant routes ---
+
+  + .template.routes.ts
+  + agent.routes.ts
+  + ai-admin.routes.ts
+  + ai.routes.ts
+  + auth.routes.ts
+  + button.routes.ts
+  + cad-planning.routes.ts
+  + chartOfAccounts.routes.ts
+  + color.routes.ts
+  + conversation.routes.ts
+  + costSheetPOGeneration.routes.ts
+  + creditNote.routes.ts
+  + currencies.routes.ts
+  + customer-accessories.routes.ts
+  + customer.routes.ts
+  + cutting.routes.ts
+  + debitNote.routes.ts
+  + dispatch.routes.ts
+  + document.routes.ts
+  + dyeing.routes.ts
+  + embroidery-stock.routes.ts
+  + embroidery.routes.ts
+  + external-process.routes.ts
+  + fabric-costing-run.routes.ts
+  + fabric-costing.routes.ts
+  + fabric-greige.routes.ts
+  + fabric-procurement.routes.ts
+  + fabric-stock.routes.ts
+  + finishing.routes.ts
+  + generic-trim.routes.ts
+  + greige-stock.routes.ts
+  + grn.routes.ts
+  + gst.routes.ts
+  + hsnSacMaster.routes.ts
+  + invoice.routes.ts
+  + label.routes.ts
+  + lace.routes.ts
+  + laceCosting.routes.ts
+  + laceDefect.routes.ts
+  + laceIssueNote.routes.ts
+  + laceStock.routes.ts
+  + lookup.routes.ts
+  + machine-part.routes.ts
+  + material-master.routes.ts
+  + material.routes.ts
+  + mrp.routes.ts
+  + order-bom.routes.ts
+  + order-label.routes.ts
+  + order-thread-requirement.routes.ts
+  + orderItems.routes.ts
+  + other-material.routes.ts
+  + packaging.routes.ts
+  + paymentTerms.routes.ts
+  + permission.routes.ts
+  + printing.routes.ts
+  + processingDelivery.routes.ts
+  + processingMovement.routes.ts
+  + processingStage.routes.ts
+  + processor-rate-card-v2.routes.ts
+  + productCategory.routes.ts
+  + purchaseOrder.routes.ts
+  + saleOrder.routes.ts
+  + sample.routes.ts
+  + season.routes.ts
+  + service-requirement.routes.ts
+  + stitching.routes.ts
+  + stockLevel.routes.ts
+  + stockMovement.routes.ts
+  + stockProductionOrder.routes.ts
+  + style-image.routes.ts
+  + style-import.routes.ts
+  + style-tech-specs.routes.ts
+  + style.routes.ts
+  + styleCosting.routes.ts
+  + system-settings.routes.ts
+  + tcs.routes.ts
+  + tds.routes.ts
+  + template.routes.ts
+  + testTemplates.routes.ts
+  + thread.routes.ts
+  + unified-po.routes.ts
+  + user.routes.ts
+  + workOrder.routes.ts
+  + zipper.routes.ts
+
+Compliance rate: 93.3%

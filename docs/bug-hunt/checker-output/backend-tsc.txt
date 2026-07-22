@@ -1,0 +1,21 @@
+src/controllers/laceCosting.controller.ts(31,5): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/controllers/laceCosting.controller.ts(70,47): error TS2345: Argument of type '{ laceId: any; laceName: any; quantityPerGarment: number; orderQuantity: number | undefined; wastagePercent: number | undefined; styleId: any; costSheetId: any; }[]' is not assignable to parameter of type 'LaceCostOptions[]'.
+  Type '{ laceId: any; laceName: any; quantityPerGarment: number; orderQuantity: number | undefined; wastagePercent: number | undefined; styleId: any; costSheetId: any; }' is not assignable to type 'LaceCostOptions'.
+    Types of property 'wastagePercent' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/controllers/styleCosting.controller.ts(387,30): error TS2339: Property 'wastagePercent' does not exist on type '{ laceName: string; laceWidth: number; laceAverage: number; laceRate: number; laceTotal: number; isNotApplicable: boolean; laceId?: string | null | undefined; greigeLaceId?: string | null | undefined; ... 4 more ...; processingCost?: number | undefined; }'.
+src/controllers/styleCosting.controller.ts(388,65): error TS2339: Property 'wastagePercent' does not exist on type '{ laceName: string; laceWidth: number; laceAverage: number; laceRate: number; laceTotal: number; isNotApplicable: boolean; laceId?: string | null | undefined; greigeLaceId?: string | null | undefined; ... 4 more ...; processingCost?: number | undefined; }'.
+src/server.ts(53,31): error TS2769: No overload matches this call.
+  Overload 1 of 6, '(port: number, hostname: string, backlog: number, callback?: ((error?: Error | undefined) => void) | undefined): Server<typeof IncomingMessage, typeof ServerResponse>', gave the following error.
+    Argument of type 'string | 5000' is not assignable to parameter of type 'number'.
+      Type 'string' is not assignable to type 'number'.
+  Overload 2 of 6, '(port: number, hostname: string, callback?: ((error?: Error | undefined) => void) | undefined): Server<typeof IncomingMessage, typeof ServerResponse>', gave the following error.
+    Argument of type 'string | 5000' is not assignable to parameter of type 'number'.
+      Type 'string' is not assignable to type 'number'.
+src/services/__tests__/material-sync.helper.test.ts(195,69): error TS2345: Argument of type 'Omit<PrismaClient<PrismaClientOptions, never, DefaultArgs>, "$connect" | "$disconnect" | "$on" | "$transaction" | "$extends">' is not assignable to parameter of type 'string'.
+src/services/stockMovement.service.ts(1252,22): error TS2339: Property 'unitPrice' does not exist on type '{ materials: { name: string; code: string; }; } & { materialId: string; unit: Unit; remarks: string | null; id: string; receivedQuantity: Decimal; colorName: string | null; componentName: string | null; ... 16 more ...; updateFutureSourcing: boolean; }'.
+src/services/stockMovement.service.ts(1252,46): error TS2339: Property 'unitPrice' does not exist on type '{ materials: { name: string; code: string; }; } & { materialId: string; unit: Unit; remarks: string | null; id: string; receivedQuantity: Decimal; colorName: string | null; componentName: string | null; ... 16 more ...; updateFutureSourcing: boolean; }'.
+src/services/stockMovement.service.ts(1253,28): error TS2339: Property 'totalPrice' does not exist on type '{ materials: { name: string; code: string; }; } & { materialId: string; unit: Unit; remarks: string | null; id: string; receivedQuantity: Decimal; colorName: string | null; componentName: string | null; ... 16 more ...; updateFutureSourcing: boolean; }'.
+src/services/stockMovement.service.ts(1253,53): error TS2339: Property 'totalPrice' does not exist on type '{ materials: { name: string; code: string; }; } & { materialId: string; unit: Unit; remarks: string | null; id: string; receivedQuantity: Decimal; colorName: string | null; componentName: string | null; ... 16 more ...; updateFutureSourcing: boolean; }'.

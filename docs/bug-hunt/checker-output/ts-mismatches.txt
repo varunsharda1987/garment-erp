@@ -1,0 +1,56 @@
+[1m[36m=== TypeScript LSP MCP Server ===[0m
+
+[32mCamelCase/snake_case Mismatches:[0m
+  Total found: 167
+
+[33mFirst 10 mismatches:[0m
+
+  \frontend\src\components\MoodBoardCanvas.tsx:61
+    Property: [31mVITE_API_URL[0m
+    Suggestion: [32mVITE_API_URL[0m
+    Line: const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+
+  \frontend\src\components\StyleGallery.tsx:95
+    Property: [31mVITE_API_URL[0m
+    Suggestion: [32mVITE_API_URL[0m
+    Line: const backendUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+
+  \frontend\src\config\api.config.ts:8
+    Property: [31mVITE_SERVER_URL[0m
+    Suggestion: [32mVITE_SERVER_URL[0m
+    Line: export const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
+
+  \frontend\src\config\api.config.ts:11
+    Property: [31mVITE_API_URL[0m
+    Suggestion: [32mVITE_API_URL[0m
+    Line: export const API_URL = import.meta.env.VITE_API_URL || `${SERVER_URL}/api`;
+
+  \frontend\src\config\permissions.config.ts:12
+    Property: [31mPRODUCTION_MANAGER[0m
+    Suggestion: [32mPRODUCTION_MANAGER[0m
+    Line: UserRole.PRODUCTION_MANAGER,
+
+  \frontend\src\config\permissions.config.ts:18
+    Property: [31mFACTORY_SUPERVISOR[0m
+    Suggestion: [32mFACTORY_SUPERVISOR[0m
+    Line: UserRole.FACTORY_SUPERVISOR,
+
+  \frontend\src\config\permissions.config.ts:31
+    Property: [31mPRODUCTION_MANAGER[0m
+    Suggestion: [32mPRODUCTION_MANAGER[0m
+    Line: productionStatus: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER, UserRole.FACTORY_SUPERVISOR],
+
+  \frontend\src\config\permissions.config.ts:31
+    Property: [31mFACTORY_SUPERVISOR[0m
+    Suggestion: [32mFACTORY_SUPERVISOR[0m
+    Line: productionStatus: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER, UserRole.FACTORY_SUPERVISOR],
+
+  \frontend\src\config\permissions.config.ts:34
+    Property: [31mPRODUCTION_MANAGER[0m
+    Suggestion: [32mPRODUCTION_MANAGER[0m
+    Line: styles: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER, UserRole.SALES],
+
+  \frontend\src\config\permissions.config.ts:35
+    Property: [31mPRODUCTION_MANAGER[0m
+    Suggestion: [32mPRODUCTION_MANAGER[0m
+    Line: cadPlanning: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER],

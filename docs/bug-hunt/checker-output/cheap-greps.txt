@@ -1,0 +1,288 @@
+=== CHEAP GREPS HARVEST (read-only candidates; reviewers must verify) ===
+
+=== 1. ROUTE-ORDER: literal route after /:id ===
+backend/src/routes/button.routes.ts:80: (first /:param at line 54) router.post('/bulk-import', validateBody(bulkImportButtonSchema), asyncHandler(bulkImportButtons));
+backend/src/routes/elastic.routes.ts:80: (first /:param at line 54) router.post('/bulk-import', validateBody(bulkImportElasticSchema), asyncHandler(bulkImportElastic));
+backend/src/routes/label.routes.ts:75: (first /:param at line 54) router.post('/bulk-import', validateBody(bulkImportLabelSchema), asyncHandler(bulkImportLabel));
+backend/src/routes/lace.routes.ts:103: (first /:param at line 82) router.post('/bulk-import', validateBody(bulkImportLaceSchema), asyncHandler(bulkImportLace));
+backend/src/routes/machine-part.routes.ts:41: (first /:param at line 31) router.post('/bulk-import', validateBody(bulkImportMachinePartsSchema), asyncHandler(bulkImportMachineParts));
+backend/src/routes/other-material.routes.ts:31: (first /:param at line 26) router.post('/bulk-import', validateBody(bulkImportOtherMaterialSchema), asyncHandler(bulkImportOtherMaterials));
+backend/src/routes/packaging.routes.ts:80: (first /:param at line 54) router.post('/bulk-import', validateBody(bulkImportPackagingSchema), asyncHandler(bulkImportPackaging));
+backend/src/routes/zipper.routes.ts:80: (first /:param at line 54) router.post('/bulk-import', validateBody(bulkImportZipperSchema), asyncHandler(bulkImportZipper));
+
+=== 2. FLOAT MATH ON MONEY (parseFloat/Number on price|amount|rate|gst|tax|total|cost|value) ===
+backend/src/services/challan.service.ts:91: async function generateChallanNumber(tx?: Prisma.TransactionClient): Promise<string> {
+backend/src/services/challan.service.ts:124: const challanNumber = await generateChallanNumber(tx);
+backend/src/services/challan.service.ts:594: const totalExpected = allItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+backend/src/services/challan.service.ts:777: const totalCost = Number(processing.costPerMeter);
+backend/src/services/challan.service.ts:885: const requiredQty = Number(requirement.totalRequired);
+backend/src/services/challan.service.ts:913: const challanNumber = await generateChallanNumber(tx);
+backend/src/services/challan.service.ts:981: const challanNumber = await generateChallanNumber(tx);
+backend/src/services/cost-sheet-versioning.service.ts:75: const oldCost = Number(latestVersion.totalProductCost);
+backend/src/services/cost-sheet-versioning.service.ts:282: const totalCost1 = Number(v1.totalProductCost);
+backend/src/services/cost-sheet-versioning.service.ts:283: const totalCost2 = Number(v2.totalProductCost);
+backend/src/services/costing.service.ts:539: const num = Number(value);
+backend/src/services/costing.service.ts:600: parseFloat(cad.cadMeters?.toString() || '0') * parseFloat(styleFabric.unitPrice?.toString() || '0');
+backend/src/services/costing.service.ts:607: fabricRate: parseFloat(styleFabric.unitPrice?.toString() || '0'),
+backend/src/services/costing.service.ts:644: const unitPrice = parseFloat(bom.unitPrice?.toString() || '0');
+backend/src/services/costing.service.ts:690: totalProcessingCost += parseFloat(process.estimatedCost.toString());
+backend/src/services/costing.service.ts:742: const embroideryRate = embroidery.costPerMeter ? parseFloat(embroidery.costPerMeter.toString()) : 0;
+backend/src/services/costing.service.ts:844: const greigeCost = Number(cad.greigeCostPerMeter) || 0;
+backend/src/services/costing.service.ts:845: const processingCost = Number(cad.processingPricePerMeter) || 0;
+backend/src/services/costing.service.ts:901: const rateValue = Number(card.ratePerMeter) || 0;
+backend/src/services/costing.service.ts:912: const rate = rateMap.get(process.processType) || Number(process.estimatedCost) || 0;
+backend/src/services/costSheet.service.ts:77: result.fabricVariance = parseFloat((Number(costSheet.fabricActual) - Number(costSheet.fabricBudget)).toFixed(2));
+backend/src/services/costSheet.service.ts:79: if (Number(costSheet.fabricBudget) !== 0) {
+backend/src/services/costSheet.service.ts:81: ((result.fabricVariance / Number(costSheet.fabricBudget)) * 100).toFixed(2)
+backend/src/services/costSheet.service.ts:85: if (Math.abs(result.fabricVariancePercent) > Number(costSheet.fabricBufferPercent || 5)) {
+backend/src/services/costSheet.service.ts:96: result.trimsVariance = parseFloat((Number(costSheet.trimsActual) - Number(costSheet.trimsBudget)).toFixed(2));
+backend/src/services/costSheet.service.ts:98: if (Number(costSheet.trimsBudget) !== 0) {
+backend/src/services/costSheet.service.ts:100: ((result.trimsVariance / Number(costSheet.trimsBudget)) * 100).toFixed(2)
+backend/src/services/costSheet.service.ts:103: if (Math.abs(result.trimsVariancePercent) > Number(costSheet.trimsBufferPercent || 10)) {
+backend/src/services/costSheet.service.ts:114: result.cmtVariance = parseFloat((Number(costSheet.cmtActual) - Number(costSheet.cmtBudget)).toFixed(2));
+backend/src/services/costSheet.service.ts:116: if (Number(costSheet.cmtBudget) !== 0) {
+backend/src/services/costSheet.service.ts:117: result.cmtVariancePercent = parseFloat(((result.cmtVariance / Number(costSheet.cmtBudget)) * 100).toFixed(2));
+backend/src/services/costSheet.service.ts:119: if (Math.abs(result.cmtVariancePercent) > Number(costSheet.cmtBufferPercent || 5)) {
+backend/src/services/costSheet.service.ts:131: (Number(costSheet.embroideryActual) - Number(costSheet.embroideryBudget)).toFixed(2)
+backend/src/services/costSheet.service.ts:134: if (Number(costSheet.embroideryBudget) !== 0) {
+backend/src/services/costSheet.service.ts:136: ((result.embroideryVariance / Number(costSheet.embroideryBudget)) * 100).toFixed(2)
+backend/src/services/costSheet.service.ts:139: if (Math.abs(result.embroideryVariancePercent) > Number(costSheet.embroideryBufferPercent || 8)) {
+backend/src/services/costSheet.service.ts:151: (Number(costSheet.accessoriesActual) - Number(costSheet.accessoriesBudget)).toFixed(2)
+backend/src/services/costSheet.service.ts:154: if (Number(costSheet.accessoriesBudget) !== 0) {
+backend/src/services/costSheet.service.ts:156: ((result.accessoriesVariance / Number(costSheet.accessoriesBudget)) * 100).toFixed(2)
+backend/src/services/costSheet.service.ts:159: if (Math.abs(result.accessoriesVariancePercent) > Number(costSheet.accessoriesBufferPercent || 10)) {
+backend/src/services/costSheet.service.ts:169: result.totalVariance = parseFloat((Number(costSheet.totalActual) - Number(costSheet.totalBudget)).toFixed(2));
+backend/src/services/costSheet.service.ts:171: if (Number(costSheet.totalBudget) !== 0) {
+backend/src/services/costSheet.service.ts:172: result.totalVariancePercent = parseFloat(
+backend/src/services/costSheet.service.ts:173: ((result.totalVariance / Number(costSheet.totalBudget)) * 100).toFixed(2)
+backend/src/services/costSheetPOGeneration.service.ts:41: async function generatePONumber(): Promise<string> {
+backend/src/services/costSheetPOGeneration.service.ts:180: unitPrice: Number(fabricItem.greigeCost || 0),
+backend/src/services/costSheetPOGeneration.service.ts:181: priceRequired: !Number(fabricItem.greigeCost),
+backend/src/services/costSheetPOGeneration.service.ts:199: unitPrice: Number(fabricItem.processingCost || 0),
+backend/src/services/costSheetPOGeneration.service.ts:200: priceRequired: !Number(fabricItem.processingCost),
+backend/src/services/costSheetPOGeneration.service.ts:221: unitPrice: Number(fabricItem.costPerMeter),
+backend/src/services/costSheetPOGeneration.service.ts:222: priceRequired: !Number(fabricItem.costPerMeter),
+backend/src/services/costSheetPOGeneration.service.ts:237: trimRate: Number(t.trimRate) || 0,
+backend/src/services/costSheetPOGeneration.service.ts:310: unitPrice: Number(trim.trimRate || trim.rate || 0),
+backend/src/services/costSheetPOGeneration.service.ts:311: priceRequired: !Number(trim.trimRate || trim.rate),
+backend/src/services/costSheetPOGeneration.service.ts:366: unitPrice: Number(laceItem.costPerMeter),
+backend/src/services/costSheetPOGeneration.service.ts:367: priceRequired: !Number(laceItem.costPerMeter),
+backend/src/services/costSheetPOGeneration.service.ts:398: unitPrice: Number(laceItem.greigeCost || 0),
+backend/src/services/costSheetPOGeneration.service.ts:399: priceRequired: !Number(laceItem.greigeCost),
+backend/src/services/costSheetPOGeneration.service.ts:410: unitPrice: Number(laceItem.processingCost || 0),
+backend/src/services/costSheetPOGeneration.service.ts:411: priceRequired: !Number(laceItem.processingCost),
+backend/src/services/costSheetPOGeneration.service.ts:603: const poNumber = await generatePONumber();
+backend/src/services/costSheetPOGeneration.service.ts:653: const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+backend/src/services/costSheetPOGeneration.service.ts:654: const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
+backend/src/services/costSheetPOGeneration.service.ts:688: subtotal: parseFloat(subtotal.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:689: totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:690: totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:691: totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:725: totalAmount: Number(purchaseOrder.totalAmount),
+backend/src/services/costSheetPOGeneration.service.ts:744: const poNumber = await generatePONumber();
+backend/src/services/costSheetPOGeneration.service.ts:793: const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+backend/src/services/costSheetPOGeneration.service.ts:794: const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
+backend/src/services/costSheetPOGeneration.service.ts:828: subtotal: parseFloat(subtotal.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:829: totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:830: totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:831: totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:865: totalAmount: Number(purchaseOrder.totalAmount),
+backend/src/services/costSheetPOGeneration.service.ts:909: const poNumber = await generatePONumber();
+backend/src/services/costSheetPOGeneration.service.ts:958: const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+backend/src/services/costSheetPOGeneration.service.ts:959: const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
+backend/src/services/costSheetPOGeneration.service.ts:995: subtotal: parseFloat(subtotal.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:996: totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:997: totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:998: totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1035: totalAmount: Number(purchaseOrder.totalAmount),
+backend/src/services/costSheetPOGeneration.service.ts:1065: const poNumber = await generatePONumber();
+backend/src/services/costSheetPOGeneration.service.ts:1111: const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+backend/src/services/costSheetPOGeneration.service.ts:1112: const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
+backend/src/services/costSheetPOGeneration.service.ts:1145: subtotal: parseFloat(subtotal.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1146: totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1147: totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1148: totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1182: totalAmount: Number(purchaseOrder.totalAmount),
+backend/src/services/costSheetPOGeneration.service.ts:1249: const costSheetRate = Number(laceItem.processingCost || 0);
+backend/src/services/costSheetPOGeneration.service.ts:1250: const currentRateValue = Number(currentRate.ratePerMeter || 0);
+backend/src/services/costSheetPOGeneration.service.ts:1300: const poNumber = await generatePONumber();
+backend/src/services/costSheetPOGeneration.service.ts:1346: const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+backend/src/services/costSheetPOGeneration.service.ts:1347: const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
+backend/src/services/costSheetPOGeneration.service.ts:1380: subtotal: parseFloat(subtotal.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1381: totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1382: totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1383: totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1417: totalAmount: Number(purchaseOrder.totalAmount),
+backend/src/services/costSheetPOGeneration.service.ts:1439: const poNumber = await generatePONumber();
+backend/src/services/costSheetPOGeneration.service.ts:1487: const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+backend/src/services/costSheetPOGeneration.service.ts:1488: const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
+backend/src/services/costSheetPOGeneration.service.ts:1522: subtotal: parseFloat(subtotal.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1523: totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1524: totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1525: totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1559: totalAmount: Number(purchaseOrder.totalAmount),
+backend/src/services/costSheetPOGeneration.service.ts:1618: const poNumber = await generatePONumber();
+backend/src/services/costSheetPOGeneration.service.ts:1666: const totalTax = parseFloat((poTotalCgst + poTotalSgst + poTotalIgst).toFixed(2));
+backend/src/services/costSheetPOGeneration.service.ts:1667: const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
+backend/src/services/costSheetPOGeneration.service.ts:1703: subtotal: parseFloat(subtotal.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1704: totalCgst: parseFloat(poTotalCgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1705: totalSgst: parseFloat(poTotalSgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1706: totalIgst: parseFloat(poTotalIgst.toFixed(2)),
+backend/src/services/costSheetPOGeneration.service.ts:1743: totalAmount: Number(purchaseOrder.totalAmount),
+backend/src/services/costSheetPOGeneration.service.ts:1902: totalAmount: Number(po.totalAmount),
+backend/src/services/creditNote.service.ts:37: private async generateCreditNoteNumber(): Promise<string> {
+
+=== 3. EMPTY CATCH BLOCKS (single-line) ===
+
+=== 4. .map(async ...) CANDIDATES (check for missing Promise.all/await) ===
+backend/src/services/costSheetPOGeneration.service.ts:617: input.items.map(async (item) => {
+backend/src/services/costSheetPOGeneration.service.ts:757: input.items.map(async (item) => {
+backend/src/services/costSheetPOGeneration.service.ts:922: input.items.map(async (item) => {
+backend/src/services/costSheetPOGeneration.service.ts:1075: validItems.map(async (item) => {
+backend/src/services/costSheetPOGeneration.service.ts:1310: input.items.map(async (item) => {
+backend/src/services/costSheetPOGeneration.service.ts:1449: input.items.map(async (item) => {
+backend/src/services/costSheetPOGeneration.service.ts:1628: input.items.map(async (item) => {
+backend/src/services/creditNote.service.ts:83: data.items.map(async (item) => {
+backend/src/services/debitNote.service.ts:86: data.items.map(async (item) => {
+backend/src/services/purchaseOrder.service.ts:125: data.items.map(async (item) => {
+backend/src/services/quotation.service.ts:254: data.items.map(async (item) => {
+backend/src/services/style.service.ts:275: data.components.map(async (comp: StyleComponentInput, idx: number) => {
+
+=== 5. FRONTEND snake_case PROPERTY ACCESS (lib false-positives excluded) ===
+
+=== 6. deleteMany/updateMany CALL-SITES (verify $transaction context) ===
+backend/src/services/ai/conversation.service.ts:356: const result = await prisma.ai_conversations.updateMany({
+backend/src/services/ai/conversation.service.ts:380: const result = await prisma.ai_conversations.deleteMany({
+backend/src/services/audit.service.ts:352: const result = await prisma.audit_logs.deleteMany({
+backend/src/services/categoryComponentDefault.service.ts:227: await tx.category_component_defaults.deleteMany({
+backend/src/services/customer.service.ts:379: await this.prisma.customer_gst_numbers.deleteMany({
+backend/src/services/customer.service.ts:479: await this.prisma.customer_accessories_presets.updateMany({
+backend/src/services/customer.service.ts:531: await this.prisma.customer_accessories_presets.updateMany({
+backend/src/services/customer.service.ts:547: await this.prisma.customer_accessories_preset_items.deleteMany({
+backend/src/services/customer.service.ts:861: await this.prisma.brand_categories.deleteMany({
+backend/src/services/fabric.service.ts:487: await this.prisma.fabric_suppliers.deleteMany({
+backend/src/services/greige.service.ts:543: await this.prisma.greige_suppliers.deleteMany({
+backend/src/services/grn.service.ts:1377: await prisma.order_thread_requirements.updateMany({
+backend/src/services/helpers/material-sync.helper.ts:124: const updateResult = await client.stock_levels.updateMany({
+backend/src/services/helpers/source-mismatch.helper.ts:281: await tx.material_requirements.updateMany({
+backend/src/services/helpers/source-mismatch.helper.ts:291: const processingReqs = await tx.material_requirements.updateMany({
+backend/src/services/helpers/source-mismatch.helper.ts:317: const result = await tx.fabric_processing.updateMany({
+backend/src/services/helpers/source-mismatch.helper.ts:345: const result = await tx.challans.updateMany({
+backend/src/services/invoice.service.ts:751: const result = await this.model.updateMany({
+backend/src/services/material-master.service.ts:189: await prisma.material_supplier_mapping.updateMany({
+backend/src/services/material.service.ts:402: await this.prisma.material_suppliers.deleteMany({
+backend/src/services/mrp.service.ts:704: await prisma.material_requirements.updateMany({
+backend/src/services/notification.service.ts:148: const result = await prisma.notifications.updateMany({
+backend/src/services/notification.service.ts:167: const result = await prisma.notifications.updateMany({
+backend/src/services/notification.service.ts:186: const result = await prisma.notifications.deleteMany({
+backend/src/services/notification.service.ts:203: const result = await prisma.notifications.deleteMany({
+backend/src/services/order-bom.service.ts:1120: await tx.order_bom.updateMany({
+backend/src/services/order-bom.service.ts:1329: await tx.order_bom.updateMany({
+backend/src/services/order-bom.service.ts:1722: await tx.order_bom_items.deleteMany({
+backend/src/services/order-bom.service.ts:1904: const result = await this.prisma.order_bom.updateMany({
+backend/src/services/order-bom.service.ts:2296: const result = await prismaClient.order_bom_items.updateMany({
+backend/src/services/order.service.ts:508: await tx.work_orders.updateMany({
+backend/src/services/order.service.ts:519: await tx.order_bom.updateMany({
+backend/src/services/order.service.ts:715: await tx.asn_skus.deleteMany({
+backend/src/services/order.service.ts:720: await tx.asn_applications.deleteMany({
+backend/src/services/order.service.ts:725: await tx.delivery_note_items.deleteMany({
+backend/src/services/order.service.ts:730: await tx.delivery_notes.deleteMany({
+backend/src/services/order.service.ts:735: await tx.invoices.deleteMany({
+backend/src/services/order.service.ts:740: await tx.work_orders.deleteMany({
+backend/src/services/order.service.ts:745: await tx.material_requirements.deleteMany({
+backend/src/services/order.service.ts:750: await tx.order_bom_items.deleteMany({
+backend/src/services/order.service.ts:755: await tx.order_bom.deleteMany({
+backend/src/services/order.service.ts:760: await tx.order_item_breakup.deleteMany({
+backend/src/services/order.service.ts:765: await tx.order_item_costing.deleteMany({
+backend/src/services/order.service.ts:770: await tx.order_items.deleteMany({
+backend/src/services/patternPart.service.ts:210: await tx.pattern_part_groups.deleteMany({
+backend/src/services/permission.service.ts:442: const deleted = await prisma.role_permissions.deleteMany();
+backend/src/services/po-status-manager.service.ts:442: await prisma.material_requirements.updateMany({
+backend/src/services/po-status-manager.service.ts:462: await prisma.work_order_service_requirements.updateMany({
+backend/src/services/processor-rate-v2.service.ts:410: await prisma.processor_quantity_slabs.deleteMany({
+backend/src/services/processor-rate-v2.service.ts:517: await prisma.processor_rate_card.deleteMany({
+backend/src/services/processor-rate-v2.service.ts:544: await prisma.processor_rate_card.deleteMany({
+backend/src/services/processor-rate-v2.service.ts:650: await prisma.processor_rate_card.updateMany({
+backend/src/services/processor-rate-v2.service.ts:734: await prisma.processor_quantity_slabs.deleteMany({
+backend/src/services/processor-rate-v2.service.ts:892: await prisma.processor_rate_card.deleteMany({
+backend/src/services/processor-rate-v2.service.ts:1524: await prisma.processor_rate_card.deleteMany({
+backend/src/services/purchaseOrder.service.ts:411: await tx.requirement_po_links.deleteMany({
+backend/src/services/purchaseOrder.service.ts:414: await tx.grn_items.deleteMany({
+backend/src/services/purchaseOrder.service.ts:420: await tx.purchase_order_items.deleteMany({
+backend/src/services/purchaseOrder.service.ts:836: await tx.material_requirements.updateMany({
+backend/src/services/purchaseOrder.service.ts:851: await tx.work_order_service_requirements.updateMany({
+backend/src/services/quotation.service.ts:471: await this.prisma.quotation_items.deleteMany({
+backend/src/services/quotation.service.ts:618: const result = await this.model.updateMany({
+backend/src/services/saleOrder.service.ts:168: await tx.sale_order_items.deleteMany({
+backend/src/services/stockProductionOrder.service.ts:187: await tx.stock_production_order_items.deleteMany({
+backend/src/services/style-import.service.ts:1079: await prisma.style_import_staging.updateMany({
+backend/src/services/style.service.ts:867: const unlinkResult = await tx.fabric_width_cad.updateMany({
+backend/src/services/style.service.ts:902: await tx.style_fabrics.deleteMany({
+backend/src/services/style.service.ts:908: await tx.style_components.deleteMany({
+backend/src/services/style.service.ts:1010: await tx.style_processes.deleteMany({
+backend/src/services/style.service.ts:1075: await tx.style_variants.deleteMany({
+backend/src/services/style.service.ts:1141: await tx.style_material_bom.deleteMany({
+backend/src/services/style.service.ts:1845: await this.prisma.fabric_width_cad.updateMany({
+backend/src/services/style.service.ts:1858: await this.prisma.style_fabrics.updateMany({
+backend/src/services/supplier.service.ts:298: await this.prisma.supplier_gst_numbers.deleteMany({
+backend/src/services/template.service.ts:30: await prisma.export_templates.updateMany({
+backend/src/services/template.service.ts:138: await prisma.export_templates.updateMany({
+backend/src/services/unified-po-creation.service.ts:732: await prisma.material_requirements.updateMany({
+backend/src/services/unified-po-creation.service.ts:739: await prisma.work_order_service_requirements.updateMany({
+backend/src/services/vendor-suggestion.service.ts:477: const result = await tx.material_requirements.updateMany({
+backend/src/services/vendor-suggestion.service.ts:800: const result = await tx.material_requirements.updateMany({
+backend/src/services/work-order-service-requirement.service.ts:802: const result = await tx.work_order_service_requirements.updateMany({
+backend/src/services/workOrder.service.ts:944: const result = await prisma.work_orders.updateMany({
+
+=== 7. RACE-PRONE CODE GENERATION (findFirst/count then +1) ===
+backend/src/services/agent.service.ts:121: orderBy: { code: 'desc' },
+backend/src/services/ai/conversation.service.ts:332: orderBy: { createdAt: 'desc' },
+backend/src/services/ai/erp-context.service.ts:121: orderBy: { createdAt: 'desc' },
+backend/src/services/ai/erp-context.service.ts:171: orderBy: { createdAt: 'desc' },
+backend/src/services/ai/erp-context.service.ts:258: orderBy: { createdAt: 'desc' },
+backend/src/services/ai/erp-context.service.ts:306: orderBy: { createdAt: 'desc' },
+backend/src/services/ai/erp-context.service.ts:348: orderBy: { createdAt: 'desc' },
+backend/src/services/ai/insights.service.ts:120: orderBy: { createdAt: 'desc' },
+backend/src/services/challan.service.ts:547: orderBy: { createdAt: 'desc' },
+backend/src/services/costing.service.ts:895: orderBy: { createdAt: 'desc' },
+backend/src/services/costSheetPOGeneration.service.ts:1245: orderBy: { createdAt: 'desc' },
+backend/src/services/designer-dashboard.service.ts:151: orderBy: { createdAt: 'desc' },
+backend/src/services/external-process.service.ts:680: orderBy: { createdAt: 'desc' },
+backend/src/services/fabric-matcher.service.ts:38: orderBy: { createdAt: 'desc' },
+backend/src/services/fabric-matcher.service.ts:67: orderBy: { createdAt: 'desc' },
+backend/src/services/fabric-matcher.service.ts:86: orderBy: { createdAt: 'desc' },
+backend/src/services/fabric-stock.service.ts:282: orderBy: { createdAt: 'desc' },
+backend/src/services/garmentPhysicalTests.service.ts:193: orderBy: { createdAt: 'desc' },
+backend/src/services/garmentPhysicalTests.service.ts:306: orderBy: { createdAt: 'desc' },
+backend/src/services/grn.service.ts:1357: orderBy: { createdAt: 'desc' },
+backend/src/services/invoice.service.ts:180: orderBy: { createdAt: 'desc' as const },
+backend/src/services/laceLabDip.service.ts:154: orderBy: { createdAt: 'desc' },
+backend/src/services/material-master.service.ts:229: orderBy: { code: 'desc' },
+backend/src/services/orderProductionStatus.service.ts:151: orderBy: { createdAt: 'desc' },
+backend/src/services/orderProductionStatus.service.ts:182: orderBy: { createdAt: 'desc' },
+backend/src/services/orderProductionStatus.service.ts:185: orderBy: { createdAt: 'desc' },
+backend/src/services/po-rate-resolver.service.ts:213: orderBy: { createdAt: 'desc' },
+backend/src/services/po-rate-resolver.service.ts:462: orderBy: { createdAt: 'desc' },
+backend/src/services/po-status-manager.service.ts:536: orderBy: { createdAt: 'desc' },
+backend/src/services/productionBlockingValidation.service.ts:95: orderBy: { createdAt: 'desc' },
+backend/src/services/productionBlockingValidation.service.ts:147: orderBy: { createdAt: 'desc' },
+backend/src/services/productionBlockingValidation.service.ts:210: orderBy: { createdAt: 'desc' },
+backend/src/services/productionBlockingValidation.service.ts:274: orderBy: { createdAt: 'desc' },
+backend/src/services/productionStatus.service.ts:110: orderBy: { createdAt: 'desc' },
+backend/src/services/quotation.service.ts:149: orderBy: { createdAt: 'desc' as const },
+backend/src/services/report-generator.service.ts:228: orderBy: { createdAt: 'desc' },
+backend/src/services/report-generator.service.ts:270: orderBy: { createdAt: 'desc' },
+backend/src/services/report-generator.service.ts:312: orderBy: { createdAt: 'desc' },
+backend/src/services/saleOrder.service.ts:369: orderBy: { createdAt: 'desc' },
+backend/src/services/stockProductionOrder.service.ts:347: orderBy: { createdAt: 'desc' },
+backend/src/services/style-comment.service.ts:103: orderBy: { createdAt: 'desc' },
+backend/src/services/style-comment.service.ts:235: orderBy: { createdAt: 'desc' },
+backend/src/services/vendor-suggestion.service.ts:648: orderBy: { createdAt: 'desc' },
+backend/src/services/warehouse.service.ts:140: orderBy: { createdAt: 'desc' },
+backend/src/services/work-order-service-requirement.service.ts:368: orderBy: { createdAt: 'desc' },
+backend/src/services/work-order-service-requirement.service.ts:573: orderBy: { createdAt: 'desc' },
+backend/src/services/work-order-service-requirement.service.ts:612: orderBy: { createdAt: 'desc' },
+backend/src/services/work-order-service-requirement.service.ts:1246: orderBy: { createdAt: 'desc' },
+backend/src/services/workOrder.service.ts:1002: orderBy: { createdAt: 'desc' },
+
+=== END HARVEST ===

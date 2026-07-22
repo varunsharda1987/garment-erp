@@ -1,0 +1,42 @@
+
+=== Schema-Controller Alignment Check ===
+
+[31m1 CRITICAL MISMATCHES:[0m
+
+[31m  POST /:costingId/lace-items/calculate-options[0m
+    Schema: calculateLaceOptionsSchema (styleCosting.schema.ts)
+    Controller: calculateLaceOptions (styleCostingLaceItems.controller.ts)
+    [31mCRITICAL - Controller expects but schema missing:[0m
+      - quantityPerGarment
+      - orderQuantity
+      - wastagePercent
+      - styleId
+    Schema has but controller ignores:
+      - quantity
+
+[32m38 fully aligned:[0m
+  POST /bulk-import (bulkImportButtonSchema)
+  POST /:styleId/row (addCADTableRowSchema)
+  POST /:styleId/combined-row (addCombinedCADRowSchema)
+  POST /:styleId/row/:rowId/approve-variance (approveProductionVarianceSchema)
+  POST /:customerId/accessory-presets/:presetId/clone (cloneAccessoryPresetSchema)
+  POST /batches (createCuttingBatchSchema)
+  POST /batches/:id/hold (batchActionSchema)
+  POST /batches/:id/cancel (batchActionSchema)
+  POST /bulk-import (bulkImportElasticSchema)
+  POST /lookup-rate (lookupRateSchema)
+  ... and 28 more
+
+[33m200 warnings:[0m
+  NO_DESTRUCTURE: Controller 'createAgent' doesn't destructure req.body (agent.routes.ts) (exists in agent.controller.ts but uses internal validation)
+  NO_DESTRUCTURE: Controller 'updateAgent' doesn't destructure req.body (agent.routes.ts) (exists in agent.controller.ts but uses internal validation)
+  NO_DESTRUCTURE: Controller 'createBankAccount' doesn't destructure req.body (bankAccounts.routes.ts) (exists in bankAccounts.controller.ts but uses internal validation)
+  NO_DESTRUCTURE: Controller 'updateBankAccount' doesn't destructure req.body (bankAccounts.routes.ts) (exists in bankAccounts.controller.ts but uses internal validation)
+  MISSING_SCHEMA: Schema 'createButtonSchema' not found (used in button.routes.ts)
+  ... and 195 more
+
+--- Summary ---
+  Total routes checked: 76
+  Aligned: 75
+  [31mMisaligned (CRITICAL): 1[0m
+  Warnings: 200

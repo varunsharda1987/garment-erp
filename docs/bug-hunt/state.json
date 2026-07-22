@@ -1,0 +1,2424 @@
+{
+  "version": 1,
+  "started_at": "2026-07-11T22:28:48+05:30",
+  "iteration": 95,
+  "git_baseline_dirty_count": 43,
+  "next_finding_seq": 385,
+  "budget": {
+    "last_limit_error_at": null,
+    "consecutive_limit_errors": 0,
+    "backoff_until": null,
+    "iterations_by_date": {
+      "2026-07-11": 5,
+      "2026-07-12": 27,
+      "2026-07-13": 25,
+      "2026-07-14": 20,
+      "2026-07-15": 9,
+      "2026-07-16": 9
+    },
+    "daily_cap": 30
+  },
+  "digest_done_for": [
+    "2026-07-11",
+    "2026-07-12",
+    "2026-07-13"
+  ],
+  "queue": [
+    {
+      "id": "P0-B1",
+      "phase": "P0",
+      "title": "Setup state/protocol/report files + git baseline",
+      "targets": [],
+      "bug_classes": [],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-11T22:30:00+05:30",
+      "finding_ids": []
+    },
+    {
+      "id": "P0-B2",
+      "phase": "P0",
+      "title": "Run all read-only checkers into checker-output/",
+      "targets": [
+        "backend npm run type-check",
+        "frontend npm run type-check",
+        "scripts/hooks/check-route-validation.js --report",
+        "scripts/hooks/check-schema-controller-alignment.js --report",
+        "scripts/skills/sync-types.js --report",
+        "scripts/skills/api-docs.js --validate",
+        "mcp-servers/prisma-server/index.js mappings",
+        "mcp-servers/prisma-server/index.js diff",
+        "mcp-servers/typescript-server/index.js mismatches"
+      ],
+      "bug_classes": [],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-11T22:45:00+05:30",
+      "finding_ids": []
+    },
+    {
+      "id": "P0-B3",
+      "phase": "P0",
+      "title": "Cheap greps harvest into checker-output/cheap-greps.txt",
+      "targets": [
+        "route-order after /:id",
+        "parseFloat|Number( near money fields",
+        "empty catch blocks",
+        "un-awaited promises in loops",
+        "frontend snake_case property access",
+        "deleteMany/updateMany outside $transaction"
+      ],
+      "bug_classes": [],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-11T22:59:00+05:30",
+      "finding_ids": []
+    },
+    {
+      "id": "P1-B1",
+      "phase": "P1",
+      "title": "fabric-stock atomicity audit (known lead :110)",
+      "targets": [
+        "backend/src/services/fabric-stock.service.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "material-sync",
+        "race",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-11T23:35:00+05:30",
+      "finding_ids": [
+        "BH-0001",
+        "BH-0002",
+        "BH-0003",
+        "BH-0004",
+        "BH-0005",
+        "BH-0006",
+        "BH-0007",
+        "BH-0008",
+        "BH-0009"
+      ]
+    },
+    {
+      "id": "P1-B2",
+      "phase": "P1",
+      "title": "greige-stock atomicity audit",
+      "targets": [
+        "backend/src/services/greige-stock.service.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "material-sync",
+        "race",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T00:25:00+05:30",
+      "finding_ids": [
+        "BH-0010",
+        "BH-0011",
+        "BH-0012",
+        "BH-0013",
+        "BH-0014",
+        "BH-0015",
+        "BH-0016",
+        "BH-0017",
+        "BH-0018",
+        "BH-0019",
+        "BH-0020"
+      ]
+    },
+    {
+      "id": "P1-B3",
+      "phase": "P1",
+      "title": "laceStock + thread-stock atomicity audit",
+      "targets": [
+        "backend/src/services/laceStock.service.ts",
+        "backend/src/services/thread-stock.service.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "material-sync",
+        "race",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T01:55:00+05:30",
+      "finding_ids": [
+        "BH-0021",
+        "BH-0022",
+        "BH-0023",
+        "BH-0024",
+        "BH-0025",
+        "BH-0026",
+        "BH-0027",
+        "BH-0028",
+        "BH-0029",
+        "BH-0030",
+        "BH-0031",
+        "BH-0032",
+        "BH-0033",
+        "BH-0034",
+        "BH-0035"
+      ]
+    },
+    {
+      "id": "P1-B4",
+      "phase": "P1",
+      "title": "trim-stock + stockLevel/stockCount interplay",
+      "targets": [
+        "backend/src/services/trim-stock.service.ts",
+        "backend/src/services/stockLevel.service.ts",
+        "backend/src/services/stockCount.service.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "material-sync",
+        "race",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T03:05:00+05:30",
+      "finding_ids": [
+        "BH-0036",
+        "BH-0037",
+        "BH-0038",
+        "BH-0039",
+        "BH-0040",
+        "BH-0041",
+        "BH-0042",
+        "BH-0043",
+        "BH-0044",
+        "BH-0045",
+        "BH-0046"
+      ]
+    },
+    {
+      "id": "P1-B5",
+      "phase": "P1",
+      "title": "syncStockLevelQuantity call-site cross-cut + tx threading in stockMovement/embroidery-stock + WeightedAverageCostService",
+      "targets": [
+        "grep syncStockLevelQuantity call-sites",
+        "backend/src/services/stockMovement.service.ts",
+        "backend/src/services/embroidery-stock.service.ts",
+        "backend/src/services/WeightedAverageCostService.ts",
+        "backend/src/services/helpers/material-sync.helper.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "material-sync",
+        "race"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T04:25:00+05:30",
+      "finding_ids": [
+        "BH-0047",
+        "BH-0048",
+        "BH-0049",
+        "BH-0050",
+        "BH-0051",
+        "BH-0052",
+        "BH-0053",
+        "BH-0054",
+        "BH-0055"
+      ]
+    },
+    {
+      "id": "P2-B1",
+      "phase": "P2",
+      "title": "Unvalidated routes: thread-stock, trim-stock, stockCount",
+      "targets": [
+        "backend/src/routes/thread-stock.routes.ts",
+        "backend/src/routes/trim-stock.routes.ts",
+        "backend/src/routes/stockCount.routes.ts"
+      ],
+      "bug_classes": [
+        "zod-drift",
+        "route-order",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T05:10:00+05:30",
+      "finding_ids": [
+        "BH-0056",
+        "BH-0057",
+        "BH-0058"
+      ]
+    },
+    {
+      "id": "P2-B2",
+      "phase": "P2",
+      "title": "Unvalidated routes: processingBatch, componentGroup, componentPatternPart",
+      "targets": [
+        "backend/src/routes/processingBatch.routes.ts",
+        "backend/src/routes/componentGroup.routes.ts",
+        "backend/src/routes/componentPatternPart.routes.ts"
+      ],
+      "bug_classes": [
+        "zod-drift",
+        "route-order",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T05:50:00+05:30",
+      "finding_ids": [
+        "BH-0059",
+        "BH-0060",
+        "BH-0061"
+      ]
+    },
+    {
+      "id": "P2-B3",
+      "phase": "P2",
+      "title": "Unvalidated routes: customer-size-presets, export, import",
+      "targets": [
+        "backend/src/routes/customer-size-presets.routes.ts",
+        "backend/src/routes/export.routes.ts",
+        "backend/src/routes/import.routes.ts"
+      ],
+      "bug_classes": [
+        "zod-drift",
+        "route-order",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T06:35:00+05:30",
+      "finding_ids": [
+        "BH-0062",
+        "BH-0063"
+      ]
+    },
+    {
+      "id": "P2-B4",
+      "phase": "P2",
+      "title": "Unvalidated routes: fabric-processing, laceLabDip, notification",
+      "targets": [
+        "backend/src/routes/fabric-processing.routes.ts",
+        "backend/src/routes/laceLabDip.routes.ts",
+        "backend/src/routes/notification.routes.ts"
+      ],
+      "bug_classes": [
+        "zod-drift",
+        "route-order",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T07:20:00+05:30",
+      "finding_ids": [
+        "BH-0064",
+        "BH-0065"
+      ]
+    },
+    {
+      "id": "P2-B5",
+      "phase": "P2",
+      "title": "Unvalidated routes: report, style-comment, style-material-bom",
+      "targets": [
+        "backend/src/routes/report.routes.ts",
+        "backend/src/routes/style-comment.routes.ts",
+        "backend/src/routes/style-material-bom.routes.ts"
+      ],
+      "bug_classes": [
+        "zod-drift",
+        "route-order",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T08:05:00+05:30",
+      "finding_ids": [
+        "BH-0066",
+        "BH-0067",
+        "BH-0068",
+        "BH-0069"
+      ]
+    },
+    {
+      "id": "P3-B1",
+      "phase": "P3",
+      "title": "document-generator.service.ts lines 1-2000",
+      "targets": [
+        "backend/src/services/document-generator.service.ts:1-2000"
+      ],
+      "bug_classes": [
+        "money-math",
+        "error-swallow",
+        "dead-stub",
+        "serializer"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T08:55:00+05:30",
+      "finding_ids": [
+        "BH-0070",
+        "BH-0071",
+        "BH-0072",
+        "BH-0073",
+        "BH-0074"
+      ]
+    },
+    {
+      "id": "P3-B2",
+      "phase": "P3",
+      "title": "document-generator.service.ts lines 2000-4047",
+      "targets": [
+        "backend/src/services/document-generator.service.ts:2000-4047"
+      ],
+      "bug_classes": [
+        "money-math",
+        "error-swallow",
+        "dead-stub",
+        "serializer"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T09:40:00+05:30",
+      "finding_ids": [
+        "BH-0075",
+        "BH-0076",
+        "BH-0077"
+      ]
+    },
+    {
+      "id": "P3-B3",
+      "phase": "P3",
+      "title": "mrp.service.ts lines 1-1650",
+      "targets": [
+        "backend/src/services/mrp.service.ts:1-1650"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "money-math",
+        "race",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T10:25:00+05:30",
+      "finding_ids": [
+        "BH-0078",
+        "BH-0079",
+        "BH-0080",
+        "BH-0081",
+        "BH-0082",
+        "BH-0083"
+      ]
+    },
+    {
+      "id": "P3-B4",
+      "phase": "P3",
+      "title": "mrp.service.ts lines 1650-3316",
+      "targets": [
+        "backend/src/services/mrp.service.ts:1650-3316"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "money-math",
+        "race",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T11:15:00+05:30",
+      "finding_ids": [
+        "BH-0084",
+        "BH-0085",
+        "BH-0086",
+        "BH-0087",
+        "BH-0088",
+        "BH-0089",
+        "BH-0090",
+        "BH-0091",
+        "BH-0092"
+      ]
+    },
+    {
+      "id": "P3-B5",
+      "phase": "P3",
+      "title": "order-bom.service.ts",
+      "targets": [
+        "backend/src/services/order-bom.service.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "money-math",
+        "race",
+        "error-swallow",
+        "zod-drift"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T12:05:00+05:30",
+      "finding_ids": [
+        "BH-0093",
+        "BH-0094",
+        "BH-0095",
+        "BH-0096",
+        "BH-0097",
+        "BH-0098",
+        "BH-0099"
+      ]
+    },
+    {
+      "id": "P3-B6",
+      "phase": "P3",
+      "title": "style.service.ts",
+      "targets": [
+        "backend/src/services/style.service.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "serializer",
+        "race",
+        "error-swallow",
+        "zod-drift"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T12:50:00+05:30",
+      "finding_ids": [
+        "BH-0100",
+        "BH-0101",
+        "BH-0102",
+        "BH-0103",
+        "BH-0104",
+        "BH-0105",
+        "BH-0106"
+      ]
+    },
+    {
+      "id": "P3-B7",
+      "phase": "P3",
+      "title": "grn.service.ts",
+      "targets": [
+        "backend/src/services/grn.service.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "material-sync",
+        "money-math",
+        "race",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T13:40:00+05:30",
+      "finding_ids": [
+        "BH-0107",
+        "BH-0108",
+        "BH-0109",
+        "BH-0110",
+        "BH-0111",
+        "BH-0112",
+        "BH-0113"
+      ]
+    },
+    {
+      "id": "P3-B8",
+      "phase": "P3",
+      "title": "costSheetPOGeneration.service.ts",
+      "targets": [
+        "backend/src/services/costSheetPOGeneration.service.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "money-math",
+        "race",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T14:35:00+05:30",
+      "finding_ids": [
+        "BH-0114",
+        "BH-0115",
+        "BH-0116",
+        "BH-0117",
+        "BH-0118",
+        "BH-0119",
+        "BH-0120",
+        "BH-0121"
+      ]
+    },
+    {
+      "id": "P3-B9",
+      "phase": "P3",
+      "title": "processor-rate-v2.service.ts",
+      "targets": [
+        "backend/src/services/processor-rate-v2.service.ts"
+      ],
+      "bug_classes": [
+        "money-math",
+        "race",
+        "error-swallow",
+        "zod-drift"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T15:25:00+05:30",
+      "finding_ids": [
+        "BH-0122",
+        "BH-0123",
+        "BH-0124",
+        "BH-0125"
+      ]
+    },
+    {
+      "id": "P3-B10",
+      "phase": "P3",
+      "title": "work-order-service-requirement.service.ts",
+      "targets": [
+        "backend/src/services/work-order-service-requirement.service.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "money-math",
+        "race",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T16:20:00+05:30",
+      "finding_ids": [
+        "BH-0126",
+        "BH-0127",
+        "BH-0128",
+        "BH-0129"
+      ]
+    },
+    {
+      "id": "P3-B11",
+      "phase": "P3",
+      "title": "stockMovement.service.ts deep pass",
+      "targets": [
+        "backend/src/services/stockMovement.service.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "material-sync",
+        "race",
+        "error-swallow"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T17:10:00+05:30",
+      "finding_ids": [
+        "BH-0130",
+        "BH-0131",
+        "BH-0132",
+        "BH-0133",
+        "BH-0134"
+      ]
+    },
+    {
+      "id": "P3-B12",
+      "phase": "P3",
+      "title": "purchaseOrder.service.ts",
+      "targets": [
+        "backend/src/services/purchaseOrder.service.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "money-math",
+        "race",
+        "error-swallow",
+        "zod-drift"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T18:00:00+05:30",
+      "finding_ids": [
+        "BH-0135",
+        "BH-0136",
+        "BH-0137",
+        "BH-0138"
+      ]
+    },
+    {
+      "id": "P4-B1",
+      "phase": "P4",
+      "title": "StyleFormRedesigned.tsx lines 1-1800",
+      "targets": [
+        "frontend/src/pages/StyleFormRedesigned.tsx:1-1800"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "rq-invalidate",
+        "form-state"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T18:50:00+05:30",
+      "finding_ids": [
+        "BH-0139",
+        "BH-0140",
+        "BH-0141",
+        "BH-0142"
+      ]
+    },
+    {
+      "id": "P4-B2",
+      "phase": "P4",
+      "title": "StyleFormRedesigned.tsx lines 1800-3588",
+      "targets": [
+        "frontend/src/pages/StyleFormRedesigned.tsx:1800-3588"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "rq-invalidate",
+        "form-state"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T19:40:00+05:30",
+      "finding_ids": [
+        "BH-0143",
+        "BH-0144"
+      ]
+    },
+    {
+      "id": "P4-B3",
+      "phase": "P4",
+      "title": "FabricCostingPage.tsx",
+      "targets": [
+        "frontend/src/pages/FabricCostingPage.tsx"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "rq-invalidate",
+        "form-state",
+        "money-math"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T20:30:00+05:30",
+      "finding_ids": [
+        "BH-0145",
+        "BH-0146",
+        "BH-0147",
+        "BH-0148"
+      ]
+    },
+    {
+      "id": "P4-B4",
+      "phase": "P4",
+      "title": "CostSheetForm.tsx",
+      "targets": [
+        "frontend/src/pages/CostSheetForm.tsx"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "rq-invalidate",
+        "form-state",
+        "money-math"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T21:20:00+05:30",
+      "finding_ids": [
+        "BH-0149",
+        "BH-0150",
+        "BH-0151",
+        "BH-0152",
+        "BH-0153"
+      ]
+    },
+    {
+      "id": "P4-B5",
+      "phase": "P4",
+      "title": "PurchaseOrderForm.tsx",
+      "targets": [
+        "frontend/src/pages/PurchaseOrderForm.tsx"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "rq-invalidate",
+        "form-state",
+        "money-math"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-12T22:10:00+05:30",
+      "finding_ids": [
+        "BH-0154",
+        "BH-0155",
+        "BH-0156",
+        "BH-CLEAN-01"
+      ]
+    },
+    {
+      "id": "P4-B6",
+      "phase": "P4",
+      "title": "UnifiedRequirementsPage.tsx",
+      "targets": [
+        "frontend/src/pages/UnifiedRequirementsPage.tsx"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "rq-invalidate",
+        "form-state"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-13T00:05:00+05:30",
+      "finding_ids": [
+        "BH-0157",
+        "BH-0158",
+        "BH-0159",
+        "BH-0160",
+        "BH-0161"
+      ]
+    },
+    {
+      "id": "P4-B7",
+      "phase": "P4",
+      "title": "StockInForm.tsx",
+      "targets": [
+        "frontend/src/pages/StockInForm.tsx"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "rq-invalidate",
+        "form-state"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-13T00:45:00+05:30",
+      "finding_ids": [
+        "BH-0162",
+        "BH-0163",
+        "BH-0164"
+      ]
+    },
+    {
+      "id": "P4-B8",
+      "phase": "P4",
+      "title": "OrderForm.tsx",
+      "targets": [
+        "frontend/src/pages/OrderForm.tsx"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "rq-invalidate",
+        "form-state"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-13T01:35:00+05:30",
+      "finding_ids": [
+        "BH-0165",
+        "BH-0166",
+        "BH-0167",
+        "BH-0168"
+      ]
+    },
+    {
+      "id": "P2-DRIFT",
+      "phase": "P2",
+      "title": "PRIORITY (inserted iter 36): systematic schema-drift audit of ALL mutation routes — the bug class empirically confirmed to have killed 3 features",
+      "targets": [
+        "backend/src/routes/*.routes.ts",
+        "backend/src/schemas/*.schema.ts",
+        "backend/src/controllers/*"
+      ],
+      "bug_classes": [
+        "zod-drift"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-13T03:10:00+05:30",
+      "finding_ids": [
+        "BH-0169",
+        "BH-0170",
+        "BH-0171",
+        "BH-0172",
+        "BH-0173",
+        "BH-0174",
+        "BH-0175"
+      ]
+    },
+    {
+      "id": "P4-B9",
+      "phase": "P4",
+      "title": "FabricForm.tsx + CuttingDetail.tsx + GRNForm.tsx (merged — remaining P4 forms)",
+      "targets": [
+        "frontend/src/pages/FabricForm.tsx",
+        "frontend/src/pages/CuttingDetail.tsx",
+        "frontend/src/pages/GRNForm.tsx"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "rq-invalidate",
+        "form-state",
+        "money-math"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-13T04:45:00+05:30",
+      "finding_ids": [
+        "BH-0196",
+        "BH-0197",
+        "BH-0198",
+        "BH-0199",
+        "BH-CLEAN-04"
+      ]
+    },
+    {
+      "id": "P4-B10",
+      "phase": "P4",
+      "title": "CuttingDetail.tsx",
+      "targets": [
+        "frontend/src/pages/CuttingDetail.tsx"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "rq-invalidate",
+        "form-state"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "completed_at": null,
+      "finding_ids": []
+    },
+    {
+      "id": "P4-B11",
+      "phase": "P4",
+      "title": "ProcessorRateCardPage.tsx",
+      "targets": [
+        "frontend/src/pages/ProcessorRateCardPage.tsx"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "rq-invalidate",
+        "form-state",
+        "money-math"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "completed_at": null,
+      "finding_ids": []
+    },
+    {
+      "id": "P4-B12",
+      "phase": "P4",
+      "title": "GRNForm.tsx",
+      "targets": [
+        "frontend/src/pages/GRNForm.tsx"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "rq-invalidate",
+        "form-state"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "completed_at": null,
+      "finding_ids": []
+    },
+    {
+      "id": "P4-B13",
+      "phase": "P4",
+      "title": "WorkOrderDetail.tsx",
+      "targets": [
+        "frontend/src/pages/WorkOrderDetail.tsx"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "rq-invalidate",
+        "form-state"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "completed_at": null,
+      "finding_ids": []
+    },
+    {
+      "id": "P5-B1",
+      "phase": "P5",
+      "title": "Typecheck triage — backend + frontend snapshots (merged P5-B1..B5)",
+      "targets": [
+        "docs/bug-hunt/checker-output/backend-tsc.txt",
+        "docs/bug-hunt/checker-output/frontend-tsc.txt"
+      ],
+      "bug_classes": [
+        "zod-drift",
+        "serializer",
+        "fe-camelCase",
+        "form-state"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-13T05:35:00+05:30",
+      "finding_ids": [
+        "BH-0201",
+        "BH-0202",
+        "BH-0203",
+        "BH-0204",
+        "BH-0205"
+      ]
+    },
+    {
+      "id": "P5-B2",
+      "phase": "P5",
+      "title": "Frontend tsc triage cluster 1 (TS2339 property-does-not-exist)",
+      "targets": [
+        "docs/bug-hunt/checker-output/frontend-tsc.txt"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "serializer",
+        "form-state"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "completed_at": null,
+      "finding_ids": []
+    },
+    {
+      "id": "P5-B3",
+      "phase": "P5",
+      "title": "Frontend tsc triage cluster 2 (TS2322/TS2345 assignability)",
+      "targets": [
+        "docs/bug-hunt/checker-output/frontend-tsc.txt"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "serializer",
+        "form-state"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "completed_at": null,
+      "finding_ids": []
+    },
+    {
+      "id": "P5-B4",
+      "phase": "P5",
+      "title": "Frontend tsc triage cluster 3 (TS18046/TS2571 unknown-type)",
+      "targets": [
+        "docs/bug-hunt/checker-output/frontend-tsc.txt"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "serializer",
+        "error-swallow"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "completed_at": null,
+      "finding_ids": []
+    },
+    {
+      "id": "P5-B5",
+      "phase": "P5",
+      "title": "Frontend tsc triage cluster 4 (remaining codes + drift vs stale ts-errors.txt)",
+      "targets": [
+        "docs/bug-hunt/checker-output/frontend-tsc.txt",
+        "ts-errors.txt"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "serializer",
+        "form-state"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "completed_at": null,
+      "finding_ids": []
+    },
+    {
+      "id": "P5-B6",
+      "phase": "P5",
+      "title": "typescript-server mismatches triage (filter false positives)",
+      "targets": [
+        "docs/bug-hunt/checker-output/ts-mismatches.txt"
+      ],
+      "bug_classes": [
+        "fe-camelCase",
+        "serializer"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "completed_at": null,
+      "finding_ids": []
+    },
+    {
+      "id": "P5-B7",
+      "phase": "P5",
+      "title": "Serializer RELATION_MAPPINGS audit vs Prisma schema",
+      "targets": [
+        "docs/bug-hunt/checker-output/prisma-mappings.txt",
+        "backend/src/utils/serializer.ts"
+      ],
+      "bug_classes": [
+        "serializer"
+      ],
+      "status": "pending",
+      "attempts": 0,
+      "completed_at": null,
+      "finding_ids": []
+    },
+    {
+      "id": "P6-SERIALIZER",
+      "phase": "P6",
+      "title": "PRIORITY: systematic serializer-mismatch audit (the class tsc provably CANNOT see — see BH-0205)",
+      "targets": [
+        "backend/src/utils/serializer.ts RELATION_MAPPINGS",
+        "frontend/src/pages/**",
+        "frontend/src/components/**"
+      ],
+      "bug_classes": [
+        "serializer",
+        "fe-camelCase"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-13T20:40:00+05:30",
+      "finding_ids": [
+        "BH-0206",
+        "BH-0207",
+        "BH-0208",
+        "BH-0209",
+        "BH-0210",
+        "BH-0211",
+        "BH-0212",
+        "BH-0213",
+        "BH-CLEAN-05"
+      ],
+      "result": "MAJOR — proved by EXECUTING the real serializer, not by inference. BH-0207 (S1): saving any fabric silently DELETES all its supplier links. BH-0206 (S2, systemic): humps.camelize('_count')==='count' so every _count badge in the app (18 sites / 10 pages) is blank or shows 0 — one-line fix in the process hook. Money review: BH-0208 (S1) GSTR-1 drops OVERDUE invoices while GSTR-3B includes them (tax-filing mismatch); BH-0209 payment recording non-atomic. CLEAN BILL on the GST arithmetic itself (BH-CLEAN-05) — rates, CGST/SGST split, rounding and interstate logic correct across all 4 callers; invoice-number race killed by a DB @unique."
+    },
+    {
+      "id": "P6-GEN-SVC-1",
+      "phase": "P6",
+      "title": "Remaining backend services, cluster 1: challan + workOrder + production-status + processing",
+      "targets": [
+        "backend/src/services/challan.service.ts",
+        "backend/src/services/workOrder.service.ts",
+        "backend/src/services/orderProductionStatus.service.ts",
+        "backend/src/services/processing*.service.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "race",
+        "money-math",
+        "error-swallow",
+        "check-then-write"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-13T21:25:00+05:30",
+      "finding_ids": [
+        "BH-0214",
+        "BH-0215",
+        "BH-0216",
+        "BH-0217",
+        "BH-0218",
+        "BH-0219",
+        "BH-0220",
+        "BH-CLEAN-06"
+      ],
+      "result": "BH-0214 (S1) is the most urgent bug in the whole report: cancelChallan flips a status field and never reverses the stock issueChallan deducted. LIVE module — DB has 22 ISSUED challans and the Cancel button is enabled on all of them; 0 cancelled so far, so it is ARMED BUT NOT YET FIRED. Also: BH-0215 fabric read-then-absolute-write in a LONG transaction (wide window); BH-0216 work orders can never complete (checks ProductionStage.PACKING, which nothing in the app ever sends). KEY DB FACT: work_orders = 0 rows, production_tracking = 0 rows — the entire work-order module has never run (downstream of the dead orders feature), so those findings are dormant landmines. CLEAN: challanNumber IS @unique (kills that race); receiveChallan is orphaned; challan zod-drift is harmless in practice."
+    },
+    {
+      "id": "P6-GEN-SVC-2",
+      "phase": "P6",
+      "title": "Remaining backend services, cluster 2: processing + fabric-processing + production-status + dispatch/delivery",
+      "targets": [
+        "backend/src/services/processing*.service.ts",
+        "backend/src/services/fabric-processing*.service.ts",
+        "backend/src/services/orderProductionStatus.service.ts",
+        "backend/src/services/deliveryNote*.service.ts",
+        "backend/src/services/dispatch*.service.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "race",
+        "status-machine",
+        "error-swallow",
+        "zod-drift"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-13T22:10:00+05:30",
+      "finding_ids": [
+        "BH-0221",
+        "BH-0222",
+        "BH-0223",
+        "BH-0224",
+        "BH-0225",
+        "BH-CLEAN-07"
+      ],
+      "result": "NEW PATTERN FOUND: finished backend features with no way in. BH-0221 (S2) — the entire Dyeing/Printing Process PO workflow 404s: New Process PO / QC / Return Unprocessed all navigate to routes that were never registered, and no ProcessPO*.tsx component exists at all. Backend is COMPLETE and working (POST /dyeing/process-pos registered+validated). DB confirms: job_work_orders=0, fabric_processing=0. BH-0222 (S1, DORMANT) — sending fabric for RE-processing never decrements fabric_stock (only the greige path is handled); goes LIVE the day the Process PO screen is built. BH-0225 — Processing Batch module is a shell (New Batch 404s, detail page is a hardcoded Loading stub). CLEAN: processingDelivery bounds delivered qty correctly; receiveProcessPO blocks double-receipt."
+    },
+    {
+      "id": "P6-DEADROUTE",
+      "phase": "P6",
+      "title": "PRIORITY: whole-app dead-button/orphaned-route audit (generalizing BH-0221 — every navigate() target vs registered routes)",
+      "targets": [
+        "frontend/src/App.tsx",
+        "frontend/src/routes/lazy-routes.tsx",
+        "frontend/src/pages/**",
+        "frontend/src/components/Sidebar.tsx"
+      ],
+      "bug_classes": [
+        "dead-stub"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-13T23:05:00+05:30",
+      "finding_ids": [
+        "BH-0226",
+        "BH-0227",
+        "BH-0228",
+        "BH-0229",
+        "BH-0230",
+        "BH-0231",
+        "BH-0232",
+        "BH-0233",
+        "BH-CLEAN-08"
+      ],
+      "result": "BIGGEST SWEEP OF THE RUN. Script-driven: 244 registered routes vs 822 nav targets -> 16 dead-button clusters, all verified against App.tsx by direct grep. Whole modules unreachable despite COMPLETE backends: Stock Counts (cannot open a count you just created — even the post-create redirect 404s), Dispatch ASN+Delivery Notes (cannot ship anything), Testing FPT/GPT/Labs/Templates (only empty lists render; FPT has NO backend at all), Dyeing+Printing Lab Dips, Chart of Accounts (accounting backbone is read-only), Credit Notes (no CN can ever be opened), Invoice/Quotation edit. BH-0232: JobWorkDashboard is a FAKE — setTimeout fakes loading, then renders hardcoded zeros, no API call, looks like it works. CLEAN: sidebar/navigation.ts 100% sound — every menu item resolves; the app skeleton is fine, the leaf CRUD pages were never finished."
+    },
+    {
+      "id": "P6-GEN-SVC-3",
+      "phase": "P6",
+      "title": "Remaining backend services, cluster 3: dispatch/delivery-note/ASN/POD + sample + embroidery",
+      "targets": [
+        "backend/src/services/deliveryNote*.service.ts",
+        "backend/src/services/dispatch*.service.ts",
+        "backend/src/services/asn*.service.ts",
+        "backend/src/services/sample*.service.ts",
+        "backend/src/services/embroidery*.service.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "race",
+        "status-machine",
+        "error-swallow",
+        "dead-stub"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-13T23:55:00+05:30",
+      "finding_ids": [
+        "BH-0234",
+        "BH-0235",
+        "BH-0236",
+        "BH-0237",
+        "BH-0238",
+        "BH-0239",
+        "BH-0240",
+        "BH-0241",
+        "BH-CLEAN-09"
+      ],
+      "result": "TWO LIVE + SIX DORMANT + the best clean-bill of the run. LIVE: BH-0234 — the Samples module is MATHEMATICALLY UNSATISFIABLE (Zod sampleType enum and the Prisma enum are DISJOINT SETS; no input can ever pass both). PROVED BY EXECUTION; samples=0 rows. BH-0235 — 4 of 5 real sample statuses 400, incl. APPROVED_WITH_COMMENTS which the frontend sends. DORMANT (dispatch pages 404): BH-0236 deleteDeliveryNote never restores FG stock (3rd instance of the cancelChallan shape); BH-0237 embroidery receive has no upper bound + partial receipts OVERWRITE (goes live the day BH-0180 is fixed); BH-0238 a REJECTED delivery still records as DELIVERED; BH-0239 per-SKU over-dispatch guard is flattened to an aggregate. BH-CLEAN-09 IS THE HEADLINE: embroidery cancelSendOut()/sendOut() are EXEMPLARY — correct reversal, atomic increment/decrement, bound checks, material-sync. The correct pattern for the two worst bug shapes already exists IN THE REPO. Point the fix pass there."
+    },
+    {
+      "id": "P6-GEN-SVC-4",
+      "phase": "P6",
+      "title": "Remaining backend services, cluster 4: cutting/stitching/finishing production services + quality/AQL + notification/AI/infra",
+      "targets": [
+        "backend/src/services/cutting*.service.ts",
+        "backend/src/services/stitching*.service.ts",
+        "backend/src/services/finishing*.service.ts",
+        "backend/src/services/quality*.service.ts",
+        "backend/src/jobs/handlers.ts"
+      ],
+      "bug_classes": [
+        "atomicity",
+        "race",
+        "status-machine",
+        "error-swallow",
+        "dead-stub",
+        "quantity-math"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T00:45:00+05:30",
+      "finding_ids": [
+        "BH-0242",
+        "BH-0243",
+        "BH-0244",
+        "BH-0245",
+        "BH-0246",
+        "BH-0247",
+        "BH-0248",
+        "BH-0249",
+        "BH-0250",
+        "BH-CLEAN-10"
+      ],
+      "result": "PRODUCTION FLOOR: all 3 stages reviewed, ALL DORMANT (DB: cutting_batches/stitching_issues/finishing_issues/transfer_slips/production_tracking = 0). I DOWNGRADED the reviewer LIVE->DORMANT after checking the DB myself — it reasoned from route-registration, the data says otherwise. BH-0242 S1: the FIRST cutting batch deducts the ENTIRE fabric lot (reads cutQuantity, frontend sends plannedQty -> totalPieces always 0 -> silent fallback to issue everything). BH-0243 S1: that fabric can NEVER be released — delete restore is dead code; cancelCuttingBatch is a copy of hold (sets ON_HOLD; there IS no CANCELLED state). 4th reversal-that-doesnt-reverse. BH-0244 S1: one extra click in Finishing doubles finished_goods_stock (guard never advances the status; button never disabled). BH-0245 S2: NOTHING bounds any quantity across all 3 stages. BH-0246 S2: receive endpoints ignore the shortage payload entirely — pure rubber stamps. BH-0247: import/export/email job handlers return success while doing nothing. BH-0249: AQL is DECORATIVE (2 grep hits, no sample-size table); 4 quality_* models have zero code. CLEAN-10: ZERO instances of the escaped-transaction anti-pattern in production code — the non-atomicity is transactions never opened, an easier fix."
+    },
+    {
+      "id": "P6-GEN-SVC",
+      "phase": "P6",
+      "title": "GENERATOR: batch remaining ~85 backend services into domain clusters",
+      "targets": [
+        "backend/src/services/**/*.service.ts minus P1/P3 coverage",
+        "backend/src/jobs/handlers.ts"
+      ],
+      "bug_classes": [],
+      "status": "pending",
+      "attempts": 0,
+      "completed_at": null,
+      "finding_ids": []
+    },
+    {
+      "id": "P6-GEN-PAGES",
+      "phase": "P6",
+      "title": "GENERATOR: batch remaining ~187 frontend pages, mutation-heavy first",
+      "targets": [
+        "frontend/src/pages/**/*.tsx minus P4 coverage"
+      ],
+      "bug_classes": [],
+      "status": "pending",
+      "attempts": 0,
+      "completed_at": null,
+      "finding_ids": []
+    },
+    {
+      "id": "P7-B1",
+      "phase": "P7",
+      "title": "Final digest + coverage table + top-5 must-reads",
+      "targets": [
+        "docs/bug-hunt/findings.jsonl"
+      ],
+      "bug_classes": [],
+      "status": "pending",
+      "attempts": 0,
+      "completed_at": null,
+      "finding_ids": []
+    },
+    {
+      "id": "P7-B2",
+      "phase": "P7",
+      "title": "Wrap-up: re-run both type-checks, confirm snapshots unchanged, close report",
+      "targets": [
+        "backend npm run type-check",
+        "frontend npm run type-check"
+      ],
+      "bug_classes": [],
+      "status": "pending",
+      "attempts": 0,
+      "completed_at": null,
+      "finding_ids": []
+    },
+    {
+      "id": "P6-SECURITY",
+      "phase": "P6",
+      "title": "PRIORITY: auth/authz audit — route middleware coverage, role checks, IDOR, JWT/password handling (NEVER REVIEWED)",
+      "targets": [
+        "backend/src/middleware/auth*.ts",
+        "backend/src/routes/**",
+        "backend/src/controllers/auth*.ts",
+        "backend/src/services/auth*.ts",
+        "backend/src/services/user*.ts"
+      ],
+      "bug_classes": [
+        "authz",
+        "auth-bypass",
+        "idor",
+        "secret-handling"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T01:35:00+05:30",
+      "finding_ids": [
+        "BH-0251",
+        "BH-0252",
+        "BH-0253",
+        "BH-0254",
+        "BH-0255",
+        "BH-0256",
+        "BH-CLEAN-11"
+      ],
+      "result": "SECURITY AUDIT (first ever). BH-0251 S1 VERIFIED BY ME: backend/.env is TRACKED in git with a populated JWT_SECRET (65 chars) + DATABASE_URL (59 chars). .gitignore lists .env but never untracks. Repo is PRIVATE (calibrating mitigant) and AI_API_KEY is a 2-char placeholder (I corrected my own over-read). Rotation does not remove it from history. BH-0252 S1: JWT_SECRET has a hardcoded fallback -> if env unset, anyone can forge an ADMIN token; fix = throw on startup. BH-0253 S2: no token revocation — deactivating/demoting a user leaves their token valid for 7 days. BH-0254 S2: AUTHORIZATION barely exists (18/127 files use authorize()) — any authenticated user can approve GRNs, approve/delete credit+debit notes, create/cancel POs, and change processor rate cards; the route comments CLAIM role restrictions that were never implemented. BH-CLEAN-11 IS THE HEADLINE: AUTHENTICATION IS SOLID — 1198/1205 routes require a token; the 7 exceptions are correctly public. No unauthenticated access anywhere. bcrypt(10), no password-hash leaks, CORS whitelist, helmet+CSP+HSTS, no stack traces in prod. Single-tenant by design -> no IDOR (recorded as an explicit NON-finding)."
+    },
+    {
+      "id": "P6-GEN-SVC-5",
+      "phase": "P6",
+      "title": "Remaining services: notification, report, dashboard, AI, import/export, masters",
+      "targets": [
+        "backend/src/services/notification*.ts",
+        "backend/src/services/report*.ts",
+        "backend/src/services/dashboard*.ts",
+        "backend/src/services/ai*.ts",
+        "backend/src/controllers/import*.ts",
+        "backend/src/controllers/export*.ts"
+      ],
+      "bug_classes": [
+        "error-swallow",
+        "dead-stub",
+        "zod-drift",
+        "race"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T02:20:00+05:30",
+      "finding_ids": [
+        "BH-0257",
+        "BH-0258",
+        "BH-0259",
+        "BH-0260",
+        "BH-0261",
+        "BH-0262",
+        "BH-0263",
+        "BH-0264",
+        "BH-0265",
+        "BH-0266",
+        "BH-CLEAN-12"
+      ],
+      "result": "THE DASHBOARDS LIE. BH-0257 S1 (verified by me at both ends): ALL FOUR role dashboards are structurally broken — backend returns a FLAT object, frontend reads dashboardData?.stats?.X ?? 0, so EVERY tile is zero, including values the backend correctly computed. Accounts shows Rs 0 outstanding/overdue/GST-payable. BH-0258 S2: the dashboards then FABRICATE the trend — trend={{value:12}} is a literal in the JSX; Production Efficiency=87%, Conversion=68%, Collection Rate=78% are all invented. So Accounts shows Rs 0 with a green +8% beside it. BH-0259 S1: Monthly Revenue filters invoice createdAt not payment date -> an invoice raised in June and paid in July appears in NEITHER month. BH-0260 S1: GSTR-3B claims ITC from PO status (incl. merely SENT), not goods receipt — over-claiming credit. BH-0261/0262 S1: style importer groups by styleCode with NO customer scoping (merges two buyers styles) and uses a naive split(chr44) CSV parser (a comma in a name shifts every column, silently). BH-CLEAN-12: the AI layer is scrupulously HONEST (503 on failure, never fabricates) — the exact opposite of the dashboards."
+    },
+    {
+      "id": "P6-SHAPE",
+      "phase": "P6",
+      "title": "PRIORITY: systematic response-shape audit — every page reading a field the backend never sends, masked by a ?? 0 / ?? [] fallback (generalizing BH-0257)",
+      "targets": [
+        "frontend/src/pages/**",
+        "backend/src/controllers/**"
+      ],
+      "bug_classes": [
+        "serializer",
+        "dead-stub"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T03:10:00+05:30",
+      "finding_ids": [
+        "BH-0267",
+        "BH-0268",
+        "BH-0269",
+        "BH-0270",
+        "BH-0271",
+        "BH-0272",
+        "BH-0273",
+        "BH-0274",
+        "BH-CLEAN-13"
+      ],
+      "result": "TWO MORE LIVE DATA-LOSS BUGS, both verified by me at source. BH-0267 S1: editing a style loads ZERO SKU variants (serializer emits styleVariants, form reads variants) and SAVING DESTROYS them — 1,040 styles. BH-0268 S1: SupplierForm HARDCODES billingCityId/billingPincode to blank on load; update deletes+recreates GST rows -> every supplier save wipes city/PIN from every GST registration — 82 suppliers. Proof it is a bug: CustomerForm uses the SAME component and hydrates correctly. BH-0269 S2: serializer maps laceSuppliers->suppliers; StockInForm therefore prices lace at the RAW GREIGE cost instead of the preferred supplier price — systematically under-values lace stock. BH-0270 S2 (proved by execution): StockAdjustmentForm sends quantity, schema requires adjustmentQuantity -> every adjustment 400s. BH-0271 S2 (proved by execution): material supplier price/lead-time/MOQ silently stripped by Zod while the controller sits ready to persist them. BH-0272: the dashboard LIST panels bypass the stats wrapper -> fixing BH-0257 will NOT bring them back. BH-CLEAN-13: the class is CONTAINED — ~130 fallback sites traced, only 7 real. Dashboard.tsx shows the right pattern (pass undefined to a loading-aware card; do not collapse no-data into 0)."
+    },
+    {
+      "id": "P6-REVERSAL",
+      "phase": "P6",
+      "title": "PRIORITY: systematic reversal-that-does-not-reverse audit (4 instances found organically — find them ALL)",
+      "targets": [
+        "backend/src/**/*cancel*",
+        "backend/src/**/*delete*",
+        "backend/src/**/*reject*",
+        "backend/src/**/*void*",
+        "backend/src/**/*reverse*"
+      ],
+      "bug_classes": [
+        "status-machine"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T04:00:00+05:30",
+      "finding_ids": [
+        "BH-0276",
+        "BH-0277"
+      ],
+      "result": "42 reversals enumerated, 19 with side effects, only 3 broken. BH-0276 S1 LIVE: deleteStock hard-deletes fabric_stock without decrementing stock_levels -> the two stock layers desync permanently on every delete, overstating availability (fabric_stock=12, stock_levels=34, delete button live). BH-0277 DOWNGRADED by me from the reviewer LIVE to DORMANT after a DB check (job_work_orders=0): the generic Cancel-PO button does not reverse the Processing-PO greige consumption. LONG list of CORRECT reversals verified — the pattern is NOT universal."
+    },
+    {
+      "id": "P6-WIPEFORM",
+      "phase": "P6",
+      "title": "PRIORITY: systematic delete-then-recreate audit — every edit form whose child collection is wiped by a field it never loaded (4 instances found: fabric suppliers, style variants, supplier GST)",
+      "targets": [
+        "frontend/src/pages/*Form*.tsx",
+        "backend/src/services/**"
+      ],
+      "bug_classes": [
+        "form-state",
+        "serializer"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T04:00:00+05:30",
+      "finding_ids": [
+        "BH-0275",
+        "BH-0278",
+        "BH-0279",
+        "BH-CLEAN-14"
+      ],
+      "result": "A FIFTH DATA WIPE, and it has live rows. BH-0275 S1: StyleFormRedesigned NEVER LOADS style_processes (grep: 0 refs) and hardcodes processes:[] into every save; the backend guard is !== undefined, so [] passes and deleteMany fires, recreating nothing. VERIFIED AGAINST THE LIVE DB: 21 style_processes rows across 9 styles with real costs (CUTTING 15, STITCHING 50, FINISHING 15) — destroyed on the next save of any of them. BH-0278: the style form silently drops VALUE_ADDITION BOM rows on load then deletes them on save (dormant, 0 rows — but guaranteed on the first one). BH-0279 S3 LATENT: 8 more supplier tables use the same !== undefined guard; safe today only by luck. THE KEY INSIGHT: changing  to  immunises the ENTIRE class (5 data-loss bugs + 8 latent tables) in one change. CLEAN-14: 47 delete-recreate sites / 22 forms audited, only 2 broken; processor-rate-v2 (956 rows) and CAD planning are correctly DIFF-BASED."
+    },
+    {
+      "id": "P6-IDEMPOTENCY",
+      "phase": "P6",
+      "title": "PRIORITY: systematic double-click / crash-safety audit — every mutating endpoint: is a status guard in the where-clause? is the write atomic?",
+      "targets": [
+        "backend/src/controllers/**",
+        "backend/src/services/**"
+      ],
+      "bug_classes": [
+        "race",
+        "atomicity",
+        "check-then-write"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T04:45:00+05:30",
+      "finding_ids": [
+        "BH-0280",
+        "BH-0281",
+        "BH-0282",
+        "BH-CLEAN-15"
+      ],
+      "result": "SYSTEMIC AMPLIFIER FOUND. BH-0280 S1 (verified by me at source): frontend/src/lib/api.ts configures axiosRetry with retries:3 and a retryCondition that fires on ANY status >= 500 with NO METHOD CHECK — so POSTs are silently retried. The library own isNetworkOrIdempotentRequestError deliberately EXCLUDES POST; this config overrides that safety. It also resends on a raw network drop (server committed, response lost). Combined with BH-0281 (stock adjustment is a read-then-absolute-write), one click can deduct 40m instead of 10m, with the user seeing only a success toast. It defeats the UI button-disable, because the retry happens BELOW the button in the axios layer. This is not one bug — it is a MULTIPLIER on every non-idempotent write in the app. BH-0282 DORMANT: approveStockCount applies adjustments outside its transaction with no status guard. CLEAN-15: 30 check-then-write sites, only 4 dangerous; the rest are idempotent status flips (harmless — do not fix). purchaseOrder.cancelPurchaseOrder already uses the CORRECT self-guarding updateMany({where:{status}}) pattern."
+    },
+    {
+      "id": "P6-FPAUDIT",
+      "phase": "P6",
+      "title": "False-positive audit of my OWN report — hostile skeptic vs 12 early S1/S2 findings",
+      "targets": [
+        "docs/bug-hunt/findings.jsonl"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T05:30:00+05:30",
+      "finding_ids": [],
+      "result": "RESULT: 0 outright false positives out of 12 sampled EARLY S1/S2 findings. All 12 cited file:line locations were real and every core technical claim survived adversarial re-reading — including 6 where the skeptic actively hunted for a compensating transaction/Zod bound/DB constraint and confirmed none existed. TWO SEVERITY OVERSTATEMENTS CAUGHT AND CORRECTED: BH-0032 S2->S3 (thread_stock.unit is never used in arithmetic — only displayed; the downstream mis-bucketing I claimed does not exist) and BH-0061 S2->S3 (no frontend component calls receiveProcessedLace — orphaned method, 0 rows; not an active 404). THE HONEST SELF-CRITICISM, published in the report: I sometimes assigned severity from CODE SHAPE rather than CURRENT EXPOSURE. Guidance to the user: trust the EXISTENCE claims (all sampled were real); sanity-check the SEVERITY labels against live row counts and real call sites."
+    },
+    {
+      "id": "P6-MASTERS",
+      "phase": "P6",
+      "title": "Master-data services (the last area holding LIVE data) + full exposure census",
+      "targets": [
+        "backend/src/services/{customer,supplier,agency,agent,material,fabric,greige,lace,color,warehouse}*"
+      ],
+      "bug_classes": [
+        "cascade-danger",
+        "zod-drift",
+        "serializer"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T06:15:00+05:30",
+      "finding_ids": [
+        "BH-0283",
+        "BH-0284",
+        "BH-0285",
+        "BH-CLEAN-16"
+      ],
+      "result": "NEW BUG CLASS: cascade-danger. BH-0283 S1 LIVE — deleteGreigeMaster checks ONE dependency (finishedFabrics) while the sibling deleteFabricMaster checks SIX plus materials-with-stock. The FKs are ON DELETE SET NULL, so the delete SILENTLY nulls links instead of failing. Live: 54 greige, 51 with materials rows, 24 of those with real stock_levels, 36 fabric_procurement rows referencing greige. Verified the A/B contrast myself by grep. Also ran a FULL EXPOSURE CENSUS of every table -> published in the report as the primary triage tool. KEY CORRECTION: fabric_suppliers = 0 rows, so BH-0207 (saving a fabric deletes supplier links) has NOTHING to destroy today — ARMED, not active. I had it in the top table as actively destroying data; corrected publicly. AND: style_variants = 1,442 rows -> BH-0267 is the single largest quantity of real data at risk in the report. CLEAN-16: deleteFabricMaster is the reference implementation for fixing the new cascade class."
+    },
+    {
+      "id": "P6-CASCADE",
+      "phase": "P6",
+      "title": "PRIORITY: systematic cascade-danger sweep — every delete handler vs every ON DELETE SET NULL / CASCADE foreign key",
+      "targets": [
+        "backend/src/controllers/**delete**",
+        "backend/prisma/migrations/**/migration.sql"
+      ],
+      "bug_classes": [
+        "cascade-danger"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T07:00:00+05:30",
+      "finding_ids": [
+        "BH-0286",
+        "BH-0287",
+        "BH-CLEAN-17"
+      ],
+      "result": "CASCADE SWEEP: 622 cascading FKs (472 SET NULL + 150 CASCADE) mapped, 132 delete handlers audited, 7 broken. BH-0286 S1 LIVE is the most precisely-wrong bug in the report: all SIX trim-master deletes (label/packaging/elastic/button/zipper/thread) DO have a guard, it runs, it passes — and it is POINTED AT THE WRONG TABLE. They check order_bom_items (0 ROWS, because orders never worked) and NONE of them check style_material_bom (311 LIVE ROWS). Verified by me: grep across all 6 controllers returns ZERO references to style_material_bom. 244 live BOM lines can be silently orphaned (label 186, packaging 48, elastic 5, button 3, zipper 1, thread 1). zipper_master and thread_master each have exactly 1 row, each referenced by a live BOM line. BH-0287 S1 LIVE: permanentDeleteStyle -> BaseService.hardDelete performs ZERO dependency checks (verified: the entire body is findByIdOrThrow + delete) -> orphans 111 live CAD records and 10 fabric stock lots. CLEAN-17: most deletes in the app are SOFT deletes (no cascade possible), and RESTRICT FKs on stock_levels/material_requirements have been quietly protecting the material deletes all along."
+    },
+    {
+      "id": "P6-PRECISION",
+      "phase": "P6",
+      "title": "PRIORITY: numeric-precision sweep — Prisma Decimal converted to JS float for money/quantity math (rounding, accumulation, comparison)",
+      "targets": [
+        "backend/src/services/**",
+        "backend/src/controllers/**",
+        "backend/prisma/schema.prisma Decimal columns"
+      ],
+      "bug_classes": [
+        "money-math"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T07:45:00+05:30",
+      "finding_ids": [
+        "BH-0288",
+        "BH-0289",
+        "BH-0290",
+        "BH-CLEAN-18"
+      ],
+      "result": "PRECISION SWEEP — and an honest NEGATIVE headline: float precision is NOT a widespread problem here. Of ~500 Decimal->float conversions, only 3 real bugs, all sharing one narrow mechanism (a status decided on an UNROUNDED float before the DB rounds the value). BH-0289 S2 LIVE(armed): consuming a greige lot leaves a +2.8e-14 residue, so  is false and status stays AVAILABLE — then the DB rounds the quantity to 0.00. Self-contradictory row (0.00 metres, AVAILABLE) and the availability query has NO quantity>0 filter, so the phantom lot shows as usable stock forever. It has survived only because every quantity booked so far is a multiple of 0.25 (exact in binary). BH-0288 S2 (found while sweeping, NOT a precision bug): the weighted-average-cost service uses Prisma _avg — a PLAIN mean of lot costs, ignoring quantities. 1000m@Rs100 + 1m@Rs500 returns Rs 300 instead of Rs 100.40. The CORRECT quantity-weighted function exists 10 lines up in the same class, unused. CLEAN-18: stockLevel.service.ts (the central ledger) uses Decimal arithmetic END TO END and is safe — explicit advice to the user NOT to do a codebase-wide Decimal migration."
+    },
+    {
+      "id": "P7-STRUCTURE",
+      "phase": "P7",
+      "title": "Restructure deliverables for a returning reader: START_HERE.md + complete FINDINGS_INDEX.md",
+      "targets": [
+        "docs/bug-hunt/"
+      ],
+      "bug_classes": [],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T08:30:00+05:30",
+      "finding_ids": [],
+      "result": "The report had grown to 1,115 lines across 55 iterations, with sections stacked in DISCOVERY order and the executive summary buried at line 358 — unusable for someone returning cold. Created TWO new deliverables: (1) START_HERE.md — the whole run in 5 minutes: one-paragraph verdict, the 4 things to do this morning (3 one-line fixes + rotate secrets + hide the challan Cancel button + warn the team about 3 screens that destroy data on save), then the 4-stage ordered fix plan, the LIVE/DORMANT triage rule, the false-positive audit calibration, and the closing insight (the correct implementation already exists in-repo for every major bug class — these are inconsistency bugs, not knowledge bugs). (2) FINDINGS_INDEX.md — ALL 305 findings in one table by severity, each marked LIVE/DORMANT, with the 18 CLEAN BILLS listed separately per tier so the user knows where NOT to spend time. Added a prominent pointer at the top of BUG_HUNT_REPORT.md."
+    },
+    {
+      "id": "P6-CAD",
+      "phase": "P6",
+      "title": "CAD planning module deep review (LIVE data: 149 CADs, 526 size breakdowns) — the math that decides how much fabric you buy",
+      "targets": [
+        "backend/src/controllers/cad*.ts",
+        "backend/src/services/cad*.ts",
+        "frontend/src/pages/CADPlanningPage.tsx",
+        "frontend/src/components/CADSpreadsheetTable.tsx"
+      ],
+      "bug_classes": [
+        "money-math",
+        "quantity-math",
+        "serializer"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T09:15:00+05:30",
+      "finding_ids": [
+        "BH-0291",
+        "BH-0292",
+        "BH-0293",
+        "BH-CLEAN-19"
+      ],
+      "result": "CAD PLANNING (LIVE: 149 CADs, 526 size breakdowns, 36 procurements). HEADLINE CLEAN RESULT: the core fabric-consumption formula is CORRECT — cadAverage = (cadMeters + layerMargin) / piecesPerMarker, verified against ALL 149 live rows with ZERO discrepancies on both piecesPerMarker-vs-size-breakdown-sum and stored-vs-recomputed cadAverage. Units consistent. The formula that decides your fabric purchasing is sound. BH-0291/0292 S1 LIVE: when fabric arrives at a DIFFERENT width than planned, both the create-from-stock and link-to-stock paths update cutableWidth to the real width but COPY the old cadMeters unchanged — so the per-piece consumption still describes the OLD width, and cad-approval then reserves real fabric with it (3,200 pcs x 2.14 m = 6,848 m on a real row). THE DAMNING DETAIL: the code COMPUTES AND STORES widthVariance/variancePercent — it KNOWS the width changed — and a repo-wide grep proves those fields are only ever DISPLAYED. It measures the problem and ignores it. NOTE: the reviewer caught an error in its OWN analysis script mid-review and published the false alarm rather than reporting it — which is why I trust the clean bill."
+    },
+    {
+      "id": "P6-FORENSIC",
+      "phase": "P6",
+      "title": "FORENSIC: read-only data-integrity audit — hunt the live DB for the FINGERPRINTS of the bugs found (has corruption already happened?)",
+      "targets": [
+        "live database (SELECT only)"
+      ],
+      "bug_classes": [
+        "forensic"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T10:00:00+05:30",
+      "finding_ids": [
+        "BH-0294",
+        "BH-0295",
+        "BH-CLEAN-20"
+      ],
+      "result": "THE MOST IMPORTANT ITERATION OF THE RUN. Stopped hunting for bugs and hunted the LIVE DB for DAMAGE THAT HAS ALREADY HAPPENED — querying for the fingerprints of the documented stock-sync bugs. FOUND THEM. BH-0294 S1: stock_levels disagrees with actual greige_stock by 92,650 METRES across 7 materials. GRG-0034 is OVERSTATED by 17,080 m (system says 26,153 m; reality 9,073 m — plan production on that and you are 17,080 m short). TWO stock_levels rows are NEGATIVE (-7,589.6 and -5,869.5) — physically impossible, unarguable proof of a write bug. One negative row even carries unit PIECE for a metre-measured fabric (the BH-0037 fingerprint). Rigorously sanity-checked: each material has exactly ONE stock_levels row, so this is not an aggregation artefact. BH-0295 S2 IS THE MECHANISM: ensureMaterialRecord is creating DUPLICATE materials rows — 5 greige masters have two each — so receipts sync to one of the two and neither holds the truth. The two materials with negative stock are BOTH in the duplicate list. CLEAN-20: the DELETE-related bugs (orphaned styles/BOM lines/phantom lots) have NOT fired — clean. So: stock bugs need a code fix AND a data repair; delete bugs need only a code fix. || EXTENDED (iter 58): the desync is NOT confined to greige — fabric_stock is ALSO out of sync by 3,076 m across 2 fabrics. TOTAL ACROSS BOTH STOCK LAYERS: 95,726.85 METRES unaccounted for. Unit corruption confirmed as exactly ONE row (30 METER, 1 PIECE). Orphan checks all CLEAN (0 orphan style_variants, 0 orphan BOM, 0 orphan challan_items) — confirming the delete bugs have still not fired."
+    },
+    {
+      "id": "P6-ROOTCAUSE",
+      "phase": "P6",
+      "title": "Trace the stock corruption to its root cause + write REPAIR_PLAN.md",
+      "targets": [
+        "backend/src/services/fabric-stock.service.ts",
+        "live DB"
+      ],
+      "bug_classes": [
+        "forensic"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T11:00:00+05:30",
+      "finding_ids": [
+        "BH-0296"
+      ],
+      "result": "ROOT CAUSE FOUND AND TRACED FROM THE CORRUPT ROWS BACK TO THE LINE THAT CREATES THEM. fabric-stock.service.ts:196 mints a VIRTUAL fabric_master for every raw greige (fabricCode: greigeCode + \"-RAW\", id: FAB-RAW-<timestamp>-<random>, isGeneric: true). That phantom master gets its OWN materials row — while the greige master already has one. So ONE physical lot has TWO LEDGERS. Receipts credit one; consumption deducts the other; the deducted-only ledger marches past zero into NEGATIVE. Proven on the live rows: GRG-0009 -> materials GRG-0009 = -5,869.5 PIECE while its GRG-0009-RAW twin = 14,472 METER (2 movements). GRG-0017 -> -7,589.6 METER on one row, nothing on the twin. This ONE defect explains ALL of it: the 95,727 m gap, both negative balances, AND the wrong unit (the two paths pass different units). Also wrote REPAIR_PLAN.md — a step-by-step repair against the ACTUAL rows: backup, fix the code FIRST (or the repair re-corrupts), add @unique + a CHECK(quantity>=0), recompute stock_levels FROM the specialized tables (which hold the truth), then prove it. Flagged one judgement call I refused to make for the user: PHYSICALLY COUNT the 3 worst lots before trusting the recomputed number, because the consumption history itself may have been double-counted by BH-0010/BH-0030."
+    },
+    {
+      "id": "P6-FORENSIC2",
+      "phase": "P6",
+      "title": "Extended forensic sweep: have the OTHER documented bugs already fired?",
+      "targets": [
+        "live DB"
+      ],
+      "bug_classes": [
+        "forensic"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T11:45:00+05:30",
+      "finding_ids": [
+        "BH-CLEAN-21",
+        "BH-0297"
+      ],
+      "result": "MOSTLY CLEAN — and it VALIDATES THE REPAIR PLAN. BH-CLEAN-21: I tested the premise the repair rests on instead of assuming it — for all 61 greige lots, quantityAvailable + quantityConsumed = nominalQuantity reconciles EXACTLY (61/61). The per-lot physical ledger is internally sound; only the derived stock_levels cache drifted. So rebuilding stock_levels FROM the specialized tables is now evidence-backed, not hopeful. ALSO CLEARED 4 MORE BUGS as UNFIRED: BH-0261 (importer merging 2 customers styles) — 0 duplicate styleCodes among 1,040 styles. BH-0262 (naive CSV split) — 0 style names containing a comma. No CAD has a non-finite/absurd cadAverage. No materials row has a type contradicting its master link. So the damage really IS confined to stock_levels + the duplicate materials rows. BH-0297: reported HONESTLY as PLAUSIBLE and explicitly NOT confirmed — 2 costing CADs have no size breakdown so cadAverage was stored equal to the raw marker length. Two readings fit the data (either the marker yields several garments and consumption is overstated, OR the user legitimately entered a per-garment figure). I could not distinguish them, so I handed the user a 2-minute manual check rather than a false certainty — applying the exact discipline my own false-positive audit demanded."
+    },
+    {
+      "id": "P6-DUPENTITY",
+      "phase": "P6",
+      "title": "PRIORITY: systematic duplicate-entity sweep — every find-or-create that can create a SECOND row (the class that caused the 95,727m corruption)",
+      "targets": [
+        "backend/src/services/**",
+        "backend/src/controllers/**",
+        "backend/prisma/schema.prisma unique constraints"
+      ],
+      "bug_classes": [
+        "forensic",
+        "race"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T12:30:00+05:30",
+      "finding_ids": [
+        "BH-0298",
+        "BH-0299",
+        "BH-CLEAN-22"
+      ],
+      "result": "DUPLICATE-ENTITY SWEEP: 24 find-or-create sites, 13 genuinely protected by a @unique, 3 broken. BH-CLEAN-22 IS THE HEADLINE AND IT EXONERATES THE MANDATED HELPER: ensureMaterialRecord is SOUND — it always sets materials.id = the master own id, so the PRIMARY KEY protects it even under a race. BH-0296 damage came ENTIRELY from the caller (fabric-stock.service.ts:196 invents a synthetic FAB-RAW- id and THEN hands it to the helper). So the fix is ONE FILE, not a refactor of every stock service — recorded in REPAIR_PLAN.md. BH-0298 S2 (verified by me against the live index AND live rows): the @@unique on brand_categories LOOKS protective but protects NOTHING — subCategory/subSubCategory are nullable, Postgres treats NULLs as DISTINCT, and ALL 11 of the 11 live rows have NULL subCategory. The constraint currently protects ZERO rows. A guard everyone would assume is working is doing nothing. BH-0299 S3 DORMANT: size/colour options minted by find-then-create with no @@unique — the SKU backbone could split the same way stock did. Live-verified: zero duplicates across EVERY master code column today."
+    },
+    {
+      "id": "P6-NULLUNIQUE",
+      "phase": "P6",
+      "title": "Systematic sweep: every composite @@unique containing a NULLABLE column (silently does not enforce)",
+      "targets": [
+        "backend/prisma/schema.prisma",
+        "live DB"
+      ],
+      "bug_classes": [
+        "forensic"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T13:15:00+05:30",
+      "finding_ids": [
+        "BH-0300"
+      ],
+      "result": "SYSTEMIC S1, GENERALISING BH-0298. Postgres never treats two NULLs as equal in a unique index, so any composite @@unique containing a NULLABLE column silently stops enforcing. I parsed all 77 composite uniques: 16 CONTAIN A NULLABLE COLUMN. The worst sit on LIVE stock tables: greige_stock (4 of 7 constrained cols nullable; 22 of 61 rows have NULL procurementId = unprotected), fabric_stock, fabric_width_cad (5 nullable), processor_rate_card (956 rows, 4 nullable), and 8 SKU tables with colorId nullable. AND IT HAS ALREADY BEEN BREACHED: rigorous test (grouping by EVERY constrained column) found greige_stock = 1 TRUE duplicate group (GRG-0017, 63in, grade A — TWO identical lots totalling 15,797.9 m that the DB should have rejected) and fabric_stock = 3 TRUE duplicate groups. GRG-0017 is ALREADY one of the two materials carrying a NEGATIVE stock level — so this is a SECOND, INDEPENDENT mechanism feeding the same corruption (BH-0296 splits the materials ledger; this splits the stock lot itself). METHOD NOTE: my first query grouped on only 3 of 7 columns and reported 5 duplicates — several were legitimate distinct lots. I re-ran on ALL constrained columns and reported the rigorous figure (1+3), not the alarming one."
+    },
+    {
+      "id": "P6-DBGUARANTEES",
+      "phase": "P6",
+      "title": "Database-level guarantees audit: what does the schema actually enforce?",
+      "targets": [
+        "live DB pg_constraint",
+        "backend/prisma/schema.prisma"
+      ],
+      "bug_classes": [
+        "forensic"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T14:00:00+05:30",
+      "finding_ids": [
+        "BH-0301"
+      ],
+      "result": "BH-0301 S2: the database has ZERO user-defined CHECK constraints — verified directly against pg_constraint — across 576 numeric money/quantity columns. A price can be negative, a quantity can be negative, a percentage can be 5000, and the DB accepts all of it. THAT IS WHY the impossible negative stock got in: the database should have refused those writes and had no rule telling it to. Every safety guarantee lives in application code, and this report is 300+ findings showing application code fails — the DB is the last line of defence and it is unmanned. A THIRD INDEPENDENT CONFIRMATION FOR THE REPAIR PLAN: the negatives exist ONLY in stock_levels (the derived cache). greige_stock and fabric_stock have ZERO negative rows — so the specialized tables really are sound and rebuilding the cache from them is right. Added concrete ALTER TABLE statements to REPAIR_PLAN.md, noting that the stock_levels one will (correctly) FAIL until the repair is done, and that the other two apply cleanly today."
+    },
+    {
+      "id": "P6-STOCKPAGES",
+      "phase": "P6",
+      "title": "The stock DISPLAY pages — do they compound or hide the corrupt data? (GreigeAvailableStock, FabricAvailableStock, StockLevels, unified view)",
+      "targets": [
+        "frontend/src/pages/GreigeAvailableStock.tsx",
+        "frontend/src/pages/FabricAvailableStock.tsx",
+        "frontend/src/pages/StockLevels*.tsx",
+        "frontend/src/pages/StockDashboard.tsx",
+        "backend unified_stock_view"
+      ],
+      "bug_classes": [
+        "serializer",
+        "money-math",
+        "form-state"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T14:45:00+05:30",
+      "finding_ids": [
+        "BH-0302",
+        "BH-0303",
+        "BH-CLEAN-23"
+      ],
+      "result": "I CAUGHT AND CORRECTED MY OWN OVER-CLAIM. The reviewer reported two S1 double-counts (greige/fabric stock pages summing duplicate lots) and I initially believed it. I KILLED BOTH. greige_stock uses .create() PER RECEIPT, not an upsert, and the fix migration in the repo states the intent in plain words: multiple issues of the same greige via different challans are BY DESIGN. The two GRG-0017 rows carry DIFFERENT quantities (8,762.3 and 7,035.6) — two real rolls, not a duplicate. Summing them is CORRECT. I therefore also DOWNGRADED MY OWN BH-0300 from S1 to S2 and retracted its already-breached claim, and CORRECTED REPAIR_PLAN.md, which had told the user to merge those lots — advice that would have DESTROYED REAL STOCK. WHAT SURVIVED: BH-0302 S2 — the Stock Dashboard HIDES the corruption: getStockValuationReport filters , so both impossible negative rows are silently dropped and a broken ledger renders as a clean Rs 682,616.50 (vs Rs 1,949,103.78 across all 34 rows). That concealment is WHY 95,727 m of drift went unnoticed for months. BH-0303 S3 dormant: fabric KPI tiles sum only the fetched page (limit 20) — accurate today at 12 lots, silently undercounting at 21. CLEAN-23: StockLevelList is the most honest page in the system — no quantity filter, shows the negatives verbatim with their own units. Anyone who opened it would have SEEN the corruption."
+    },
+    {
+      "id": "P7-VERIFY-CORE",
+      "phase": "P7",
+      "title": "ADVERSARIAL RE-VERIFICATION of the centrepiece: is the 95,727m stock-desync claim (BH-0294) actually correct, or did I misread the table semantics as I did in BH-0300?",
+      "targets": [
+        "BH-0294",
+        "BH-0295",
+        "BH-0296",
+        "REPAIR_PLAN.md"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T15:30:00+05:30",
+      "finding_ids": [
+        "BH-0304",
+        "BH-0305",
+        "BH-CLEAN-24"
+      ],
+      "result": "THE MOST IMPORTANT PROCESS ITERATION OF THE RUN. I sent a HOSTILE SKEPTIC to DESTROY my own centrepiece claim (the 95,727m desync) before the user could act on it. THE CLAIM HELD — and is now far better evidenced: ~20 of 27 greige materials match EXACTLY between stock_levels and greige_stock, PROVING the invariant is real and normally works, so the 7-9 that do not are genuinely broken. The negatives are confirmed impossible (stockLevelService.updateStockLevel explicitly THROWS Stock quantity cannot be negative). The -RAW materials are confirmed phantoms (createGenericGreigeStock is self-declared @deprecated: creates proxy fabric_master records which pollutes the fabric master list). BUT MY REPAIR PLAN WOULD HAVE DESTROYED DATA A SECOND TIME: it said delete the -RAW phantoms. I verified myself that for GRG-0029 and GRG-0049 the -RAW row holds the ONLY CORRECT FIGURE (443 and 7,600, both matching greige_stock exactly) while the REAL material has NO stock_levels row at all. Deleting them would have shown ZERO stock. REPAIR_PLAN rewritten: REBUILD FIRST, DELETE ONLY AFTER. TWO NEW ROOT CAUSES FOUND BY THE ATTACK: BH-0304 — syncStockLevelQuantity has a hardcoded default  (in a metres-based system), which is exactly how a poplin became -5,869.5 PIECE; and it decrements with NO floor check while decreaseStock() in the SAME FILE validates properly. BH-0305 — consumeFromProcessor/receiveFromProcessor never call syncStockLevelQuantity AT ALL, which is why GRG-0034 OVERSTATES by 17,080m (the one data point that never fitted my original story), plus a warehouse-scoping gap. This is why the repair must be a full REBUILD, not a reconciliation. LESSON ON THE RECORD: I have now been wrong TWICE in a way that would have destroyed real data, and BOTH times adversarial self-verification caught it — not more hunting."
+    },
+    {
+      "id": "P7-VERIFY-ACTIONS",
+      "phase": "P7",
+      "title": "ADVERSARIAL re-verification of the 6 START_HERE action items — the ones the user will act on FIRST",
+      "targets": [
+        "BH-0267",
+        "BH-0268",
+        "BH-0275",
+        "BH-0214",
+        "BH-0280",
+        "BH-0286"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T16:15:00+05:30",
+      "finding_ids": [],
+      "result": "ATTACKED MY OWN SIX HEADLINE ACTION ITEMS. FOUR HELD, TWO WERE OVERSTATED AND ARE NOW RETRACTED. HELD: BH-0275 (style processes wiped — confirmed end to end; the 21 rows all have proc.createdAt AFTER style.updatedAt, i.e. the signature of a live-but-not-yet-triggered bug, NOT a disproof), BH-0214 (cancelChallan — the entire function is a 4-line status update; no middleware, no trigger, button live for ISSUED), BH-0280 (axios-retry — I had the skeptic read the LIBRARY SOURCE in node_modules: shouldRetry() applies NO method filter of its own, so the app retryCondition status>=500 clause genuinely retries POSTs), BH-0286 (trim deletes — scope CORRECTED UP: 7 handlers not 6, ~247 rows not 244). OVERSTATED AND CORRECTED: BH-0267 S1->S2 — I claimed saving a style destroys 1,442 SKU variants including barcodes. FALSE. The 1,442 rows span 241 styles NOT 1,040 (I conflated the total style count), there are ZERO barcodes, zero inactive rows, and only 6 custom SKUs; the form regenerates the standard sizes so ~99.6% of rows come back byte-identical. The REAL bug is narrower: delete+recreate churns row IDs and silently NULLs variantId references from orders/delivery notes. BH-0268 S1->S3 — I claimed saving a supplier wipes city/PIN from 39 GST registrations. FALSE. Only 2 of 39 rows have a city and 1 has a pincode; all 39 have createdAt=updatedAt so it has NEVER fired. Overstated by ~19x. MY SELF-DIAGNOSIS, PUBLISHED: I was citing TABLE-WIDE ROW COUNTS as blast radius without checking how much of that data is actually populated or distinctive. RETRACTED the advice to stop saving styles and suppliers."
+    },
+    {
+      "id": "P7-S1-TRIAGE",
+      "phase": "P7",
+      "title": "Re-calibrate ALL 82 S1 findings by REAL exposure (corrupting now / armed / broken-feature / dormant)",
+      "targets": [
+        "findings.jsonl"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T17:00:00+05:30",
+      "finding_ids": [],
+      "result": "DEFUSED THE HEADLINE NUMBER, HONESTLY. After catching myself overstating blast radius FOUR times, I re-classified all 82 S1 findings by what they ACTUALLY do today. RESULT: only 4 are CORRUPTING DATA RIGHT NOW (the stock-ledger corruption + its root causes: BH-0294/0296/0304/0305). 39 are ARMED (live data, one action away, but NOT yet fired -> code fix only, no cleanup). **37 are BROKEN FEATURES** — orders, invoices, cost sheets, quotations, dispatch, embroidery, thread, cutting/stitching/finishing. They 400 or silently no-op. They CORRUPT NOTHING; the tables are empty BECAUSE of them. 2 are dormant/unreachable. So \"82 S1s\" was a frightening and unhelpful number: 4 things are actively hurting the user, and 37 are features that simply do not function. Conflating those would have had them firefighting the wrong problems. Published at the top of START_HERE and as a triage section in FINDINGS_INDEX."
+    },
+    {
+      "id": "P7-EVIDENCE-AUDIT",
+      "phase": "P7",
+      "title": "Audit the EVIDENCE QUALITY of all 302 bug findings — how many rest on a single agent word?",
+      "targets": [
+        "findings.jsonl"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T17:45:00+05:30",
+      "finding_ids": [],
+      "result": "THE COUNTERWEIGHT TO MY FOUR CORRECTIONS, AND IT IS QUANTIFIED. I graded the evidence behind every one of the 302 bug findings. RESULT: S1 = 82 findings, 82 INDEPENDENTLY VERIFIED (100%). S2 = 112 findings, 112 VERIFIED (100%). S3 = 93%. S4 = 91%. Only EIGHT findings in the entire corpus rest on a single agent word alone — and EVERY ONE of those is S3 or S4. Nothing the user would act on urgently is unverified. Breakdown of verification method: 32 findings PROVED BY EXECUTION (ran the real Zod schema / the real serializer against the real payload), 47 DB-VERIFIED against live rows, 13 that I personally re-checked at source, and 192 where a hostile skeptic tried to kill the claim and failed. CRUCIALLY: all four of my corrections were about SEVERITY and BLAST RADIUS, never about whether the bug EXISTS. The existence claims have held at 100% — including under a formal false-positive audit (0 of 12 sampled early findings were false). The failure mode was consistent and now named in the report: I inflated impact from table-wide row counts without checking how much of that data was actually populated. Published as a measured trust calibration at the top of START_HERE, replacing assertion with numbers."
+    },
+    {
+      "id": "P6-CHALLAN-DOC",
+      "phase": "P6",
+      "title": "The PRINTED CHALLAN — the one document actually being produced today (23 live). Do its numbers match the data?",
+      "targets": [
+        "backend/src/services/document-generator.service.ts (challan)",
+        "frontend/src/pages/ChallanDetail.tsx",
+        "challan print/PDF path"
+      ],
+      "bug_classes": [
+        "money-math",
+        "serializer"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T18:30:00+05:30",
+      "finding_ids": [
+        "BH-0306",
+        "BH-0307",
+        "BH-CLEAN-25"
+      ],
+      "result": "REVIEWED THE ONE DOCUMENT THIS BUSINESS ACTUALLY PRODUCES (23 challans, 22 issued, physically travelling with goods; everything else — invoices/orders/GRNs/cost sheets — is at ZERO rows). BH-CLEAN-25 IS THE HEADLINE AND IT IS REASSURING: **the NUMBERS on your printed challans are CORRECT.** The quantity printed equals the quantity deducted (verified across all 5 material branches); header totals match their items on ALL 23 challans with ZERO drift; no item is silently dropped (no filter/take/pagination); every material type renders through the same path; and the PDF builds off raw Prisma so there is no serializer wrong-key risk. Given this report documents 95,727m of ledger corruption, it genuinely matters that the PAPER going out with the goods is accurate — and it is. THE ONE LIVE DEFECT (BH-0306 S2, verified by me): the TOTAL row prints the CHALLAN HEADER unit, which defaults to PIECE when the caller omits it. TWO ALREADY-ISSUED challans print PCS for fabric measured in METRES — CH2603-0001 (6,670 MTR of fabric -> TOTAL row says 6670 PCS) and CH2604-0001 (4,485 MTR -> 4485 PCS). 2 of 23 affected, and the manual challan form still reproduces it. Deliberately NOT inflated: the numbers are right, only the unit LABEL on the summary line is wrong."
+    },
+    {
+      "id": "P6-ENTRYPATH",
+      "phase": "P6",
+      "title": "How does stock ACTUALLY enter the business? (61 greige lots but ZERO GRNs)",
+      "targets": [
+        "greige-stock.service.ts createGreigeStock",
+        "greige_stock_transaction",
+        "fabric_procurement"
+      ],
+      "bug_classes": [
+        "forensic"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T19:15:00+05:30",
+      "finding_ids": [
+        "BH-0308",
+        "BH-CLEAN-26"
+      ],
+      "result": "Asked the question I should have asked on day one: 61 greige lots but ZERO GRNs, so how did stock get in? BH-CLEAN-26 (orientation): 39 of 61 lots arrived via fabric_procurement (36 rows, all RECEIVED); 22 were created bare via manual stock-in. THE GRN MODULE IS NEVER USED — which correctly DE-PRIORITISES several high-graded GRN findings (BH-0107 double-approve, BH-0034 swallowed failures, BH-0048 identity assumption). They are real but dormant; that is not how this business receives goods. BH-0308 S2 (verified by me at source AND against live data): createGreigeStock NEVER WRITES A RECEIPT TRANSACTION. Consumption, transfers, adjustments and processor-returns are all logged — the ORIGINAL RECEIPT is not. LIVE PROOF: greige_stock_transaction contains only outflows (26 CONSUMPTION + 20 TRANSFER_OUT) and nets to MINUS 100,561 m, while the business actually holds 145,851 m. The audit trail cannot account for a single metre of the stock owned. It is a debit list, not a ledger. Consequences: a wrong quantity cannot be audited (no receipt to check against); the transaction log CANNOT serve as an independent cross-check on the repair, and REPAIR_PLAN.md now says so; and a stock ledger that records only what leaves is an audit/compliance gap in its own right."
+    },
+    {
+      "id": "P6-PROCUREMENT",
+      "phase": "P6",
+      "title": "fabric_procurement + manual Stock IN — the paths goods ACTUALLY arrive by (39 + 22 of 61 lots). GRN is unused.",
+      "targets": [
+        "backend/src/services/fabric-procurement*.ts",
+        "backend/src/controllers/fabric-procurement*.ts",
+        "frontend/src/pages/StockInForm.tsx",
+        "greige-stock.service.ts createGreigeStock"
+      ],
+      "bug_classes": [
+        "money-math",
+        "material-sync",
+        "atomicity",
+        "zod-drift"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T20:00:00+05:30",
+      "finding_ids": [
+        "BH-0309",
+        "BH-0310",
+        "BH-CLEAN-27"
+      ],
+      "result": "THE CORRUPTION IS NOW FULLY ROOT-CAUSED IN ALL THREE DIRECTIONS. BH-0309 S1 (verified by me with a rigorous query): createFabricStock — the live Add Fabric Stock form — NEVER credits the ledger. PROOF: for both affected fabrics the ledger equals the STYLE-path total EXACTLY, and the generic-form quantity is entirely absent: 1,670 + 1,406 = 3,076 m = precisely the fabric discrepancy in BH-0294. The 5 fabrics entered only via the style path all match perfectly. METHOD NOTE: my FIRST verification query was wrong (I tested for fabrics with NO ledger row and found none, which would have wrongly rejected the claim); the real shape is subtler — the fabric HAS a ledger row, it is just short by exactly the generic-form quantity. I re-ran splitting by entry type. BH-0310 S1: syncStockLevelQuantity SILENTLY DROPS a first receipt when warehouseId is falsy (the create-guard requires it), and the main Add Greige Stock form never sends one. FORENSIC PROOF on GRG-0017: stock_movements records +23,388.5 m of STOCK_IN receipts, yet the ledger says -7,589.6; working backwards, -7,589.6 + 3,756.9 + 3,833.7 = +1.00, exactly the one legacy lot. THE CREDITS VANISHED AND EVERY DEBIT LANDED — that is the precise mechanism of the negative balance. Together with BH-0305 (processor consumption never syncs -> the GRG-0034 OVER-statement), all three directions are explained. BH-CLEAN-27: the manual Stock IN form (createStockIn, the path 22 of the 61 lots came through) is CORRECT — fully transactional, warehouse-scoped, threads tx, guards double-credit. It is the reference template the broken forms should copy. The real lesson: stock entry is not broken per se — THREE forms enter stock THREE ways and only ONE does it right."
+    },
+    {
+      "id": "P7-DRYRUN",
+      "phase": "P7",
+      "title": "DRY-RUN the repair plan read-only — does it actually produce the right numbers?",
+      "targets": [
+        "REPAIR_PLAN.md",
+        "live DB"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T20:45:00+05:30",
+      "finding_ids": [
+        "BH-CLEAN-28"
+      ],
+      "result": "THIRD DESTRUCTIVE FLAW FOUND IN MY OWN REPAIR PLAN — and this one would have DOUBLED the stock. I executed the plan read-only to see what it would actually produce. THE FLAW: it said rebuild stock_levels per material from the lots. But 5 greige masters have TWO materials rows each, BOTH pointing at the SAME greigeId — so a per-material rebuild credits the full lot total to EACH. GRG-0009 would be set to 24,637.5 on BOTH rows = 49,275 m where 24,637.5 m exists. CORRECTED ORDER (deliberately not the obvious one): resolve the duplicate materials pairs FIRST (picking the survivor by real references, NOT assuming -RAW is disposable — for GRG-0029/0049 the -RAW row holds the ONLY correct figure), THEN rebuild so each greige maps to exactly one material, skip the ~24 empty materials, and re-run the dry run before committing. THE LESSON, third time now: READING A PLAN IS NOT THE SAME AS RUNNING IT. Two of my three destructive errors were in the REMEDIATION, not the diagnosis. Published the full dry-run before/after table in REPAIR_PLAN.md."
+    },
+    {
+      "id": "P7-DRYRUN-FABRIC",
+      "phase": "P7",
+      "title": "Complete the repair dry-run: the FABRIC half + review the remaining live-data pages",
+      "targets": [
+        "REPAIR_PLAN.md",
+        "frontend live-data pages"
+      ],
+      "bug_classes": [
+        "process",
+        "form-state"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T21:30:00+05:30",
+      "finding_ids": [
+        "BH-0311",
+        "BH-CLEAN-29"
+      ],
+      "result": "COMPLETED THE REPAIR PLAN — both halves now dry-run verified, and they are NOT symmetric. FABRIC: only 2 rows need correcting (FAB-EMFK00262-001: 1,536 -> 3,206; -002: 1,280 -> 2,686), corrections sum to +3,076 m = exactly the fabric gap, and there are ZERO duplicate materials rows on the fabric side, so a straight rebuild is SAFE with no dedupe. GREIGE: 5 duplicate pairs must be resolved FIRST or the rebuild doubles the stock. Advised doing fabric FIRST as a confidence-builder — small, safe, and it proves the rebuild query is sound before touching the harder half. ALSO reviewed the remaining live-data pages. BH-0311 S3: the Greige export WORKS (the .xlsx downloads) and then references an undefined variable, throwing a ReferenceError that the catch block turns into a FALSE FAILURE TOAST — the user is told the export failed every single time it succeeded. BH-CLEAN-29: the live-data pages are otherwise in good shape (fold-length maths verified identical between the form preview and the backend; StyleDetail fabricType is a deliberate mapping, not a bug). MOST ENCOURAGING: the reviewer found two more technically-real defects and CORRECTLY DECLINED to report them after checking the live data (0 of 245 rows populated; 2 rows under a 20-row limit). That is exactly the check I failed to make four times — the blast-radius discipline is now being applied BEFORE a finding is filed."
+    },
+    {
+      "id": "P7-CONSISTENCY",
+      "phase": "P7",
+      "title": "Deliverable integrity audit — do the 5 files contradict each other?",
+      "targets": [
+        "docs/bug-hunt/*.md"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T22:15:00+05:30",
+      "finding_ids": [
+        "BH-CLEAN-30"
+      ],
+      "result": "FOUND A REAL INTEGRITY DEFECT IN MY OWN DELIVERABLES. When I corrected four overstated findings, the corrections landed in START_HERE.md and findings.jsonl — but BUG_HUNT_REPORT.md, the 1,100-line reference, STILL ASSERTED ALL FOUR ORIGINAL CLAIMS: the 1,442 SKU variants line, the 39 GST registrations line, the ensureMaterialRecord mechanism, and the duplicate-stock-lot claim. A reader opening the report first (entirely likely, given its name) would have acted on withdrawn numbers — and in one case would have stopped using their main screen for no reason. FIXED: every stale claim struck through and corrected inline, plus a CORRECTIONS BANNER at the very top stating that where the report conflicts with START_HERE or findings.jsonl, the correction wins. VERIFIED THE OTHERS: FINDINGS_INDEX already carried corrected titles/severities; START_HERE had zero stale claims; REPAIR_PLAN no longer contains the destructive merge-the-lots instruction and carries all 3 of its corrections. THE LESSON: a report that corrects itself in one file and not the others is WORSE than one that never corrected itself, because the reader cannot tell which version they are holding."
+    },
+    {
+      "id": "P6-PERF",
+      "phase": "P6",
+      "title": "PERFORMANCE — the one user-facing class never reviewed. N+1 queries, missing indexes, unbounded fetches on LIVE tables (1,040 styles, 526 CAD rows, 311 BOM)",
+      "targets": [
+        "backend/src/services/**",
+        "backend/src/controllers/**",
+        "backend/prisma/schema.prisma indexes"
+      ],
+      "bug_classes": [
+        "performance"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T23:00:00+05:30",
+      "finding_ids": [
+        "BH-0312",
+        "BH-CLEAN-31"
+      ],
+      "result": "PERFORMANCE — the one user-facing class nobody had reviewed in 74 iterations. BH-0312 S1 LIVE (verified by me, and MEASURED not inferred): saving a processor rate card fires roughly 1,460 SEQUENTIAL DB round-trips. The loop issues a findFirst per cell, then updateRateWithHistory does a findUnique with 4 includes and OPENS ITS OWN prisma.$transaction (2 updates + 2 creates) PER CELL — about 8 round-trips per cell. The real matrix is 172 cells (43 greiges x 4 slabs), with 4 printing sub-types at 172 each and 956 rate rows total. And the frontend does NOT diff — it resubmits the ENTIRE matrix on every Save click, even for a one-cell change. MEASURED: just 2 of the ~8 per-cell queries, across the real 172-cell matrix, took 728 ms on a LOCAL DB (4.23 ms/query); the full path runs ~4x more queries per cell, projecting to several seconds locally and comfortably past 10s on hosted Postgres. ONCE AGAIN THE RIGHT PATTERN IS NEXT DOOR: cad-planning correctly uses deleteMany + createMany. BH-CLEAN-31: performance is otherwise GOOD — the styles list (1,040 rows) is properly indexed and FAST, confirmed with EXPLAIN ANALYZE (Index Scans, no seq scans, sub-3ms); CAD planning batches correctly; search is debounced; lists are server-side paginated. Of 263 service-layer loops, exactly ONE is a real felt N+1. Two plausible candidates were correctly WITHHELD after checking (one is bounded by a single style’s own components; the other has zero frontend callers)."
+    },
+    {
+      "id": "P7-BEHIND-THE-400",
+      "phase": "P7",
+      "title": "CRITICAL FOR STAGE 1: is fixing the schema ENOUGH? Or is there a SECOND bug waiting behind each 400?",
+      "targets": [
+        "order.service.ts",
+        "styleCosting",
+        "invoice.service.ts",
+        "saleOrder",
+        "quotation — the top broken features"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-14T23:45:00+05:30",
+      "finding_ids": [
+        "BH-0313",
+        "BH-0314",
+        "BH-0315"
+      ],
+      "result": "MY STAGE 1 PLAN WAS FALSE, AND I FOUND OUT BEFORE THE USER SPENT A DAY ON IT. I asked: does fixing the schema actually make the feature work, or is there a SECOND bug waiting behind the 400 (which nobody has ever hit, because the request never reaches the service)? ANSWER: false for 4 of the 5 headline features. BH-0313 (verified by me at source + live DB): order.controller.ts:94-105 REFUSES to create an order unless an APPROVED COST SHEET exists for the style (MISSING_PROCUREMENT_COSTING) — and style_costing has ZERO rows. So orders are structurally BLOCKED on cost sheets. A hidden dependency chain: COST SHEETS -> ORDERS -> INVOICES. BH-0314: cost sheets have TWO DIFFERENT Zod schemas validating the same request — the route one STRIPS fabricDetails/trimsDetails/cmtCosts BEFORE the controller re-parses with a second schema that REQUIRES them. This is also why the EDIT silently saves nothing while reporting success (the controller update schema is .partial(), so the emptied body parses fine and falls back to existing values). It violates CLAUDE.md own single-source-of-truth rule. BH-0315: ALL 5 customers have billingStateId = null and createInvoice throws without a place of supply — every invoice fails regardless of the schema. AND SALE ORDERS IS NOT A SCHEMA BUG AT ALL: the form hardcodes items:[] and there is NO UI anywhere to add items — it needs new frontend work. ONLY QUOTATIONS is a genuine one-schema, 30-minute fix. REWROTE STAGE 1 HONESTLY: sequence it Quotations (30 min) -> Cost Sheets (0.5-1 day, 4 bugs) -> Orders (blocked until then) -> Invoices (blocked until Orders, plus a customer data backfill) -> Sale Orders (separate multi-day ticket). Budget 3-4 days SEQUENCED, not 1 day parallel."
+    },
+    {
+      "id": "P7-BEHIND-THE-404",
+      "phase": "P7",
+      "title": "Same trap, Stage 3: I claimed the backends of the dead-route modules are complete and working. But they have NEVER RUN. Is that claim true?",
+      "targets": [
+        "stockCount.service.ts",
+        "dispatch.controller.ts",
+        "chartOfAccounts",
+        "creditNote",
+        "testing labs — the modules whose pages 404"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-15T00:30:00+05:30",
+      "finding_ids": [
+        "BH-0316",
+        "BH-0317",
+        "BH-0318",
+        "BH-0319",
+        "BH-0320",
+        "BH-0321",
+        "BH-CLEAN-32"
+      ],
+      "result": "STAGE 3 WAS WRONG TOO — and in a way I did not predict. I claimed the dead-route modules have \"complete backends that just need a page.\" REFUTED, with one inversion so complete it is almost funny. (1) BH-0317: FABRIC PHYSICAL TESTS is the EXACT OPPOSITE — the frontend page, the service layer, the Zod schema and the Prisma model all exist, and the BACKEND WAS NEVER WRITTEN. grep of backend/src/routes for fabric-physical-tests returns ZERO matches, while the frontend calls it in FIVE places and the page fires a request ON MOUNT. Opening that sidebar item 404s today. (2) BH-0316: DELIVERY NOTES has a 100% GUARANTEED, not-data-dependent CRASH on every create — the nested Zod item schema does not declare colorId/sizeId and STRIPS them, while Prisma declares both NOT NULL. The mechanism is a Zod trap: the OUTER schema has .passthrough() but IT DOES NOT PROPAGATE TO NESTED SCHEMAS (BH-0320 — 19 schema files rely on .passthrough(); audit grn.schema.ts first, its item quantities become stock). (3) BH-0318 IS THE ONE THAT MATTERS TODAY AND IT CORRECTS MY OWN ASSUMPTION: Stock Counts is NOT a dead module — StockCountForm/List EXIST and are routed (App.tsx:500-501), anyone can use it right now — and approveStockCount applies variance via createStockAdjustment, which writes stock_levels DIRECTLY and NEVER calls routeToSpecializedStock/syncStockLevelQuantity (createStockIn, in the same file, DOES). All 34 stock_levels rows are ~97% specialized-stock materials, so the FIRST count approval silently desyncs greige/fabric/lace stock, on top of data that is already corrupt. DO NOT APPROVE A STOCK COUNT. (4) BH-0319: a whole new failure class — DEAD CREATE BUTTONS. Chart of Accounts \"New Account\", GPT \"Create GPT\", FPT \"New Test\", Dispatch \"New Delivery Note\"/\"New ASN\" ALL navigate to routes that were never registered and land on NotFound. (5) BH-0321: the dependency chain is deeper than Orders — COST SHEET -> ORDER -> WORK ORDER -> GPT, and COST SHEET -> ORDER -> INVOICE -> {CREDIT NOTE, PAYMENT}. GOOD NEWS: BH-CLEAN-32 — DEBIT NOTES GENUINELY WORKS END-TO-END TODAY (no gate, no drift, page built, 82 suppliers); Chart of Accounts backend is clean and its empty state harms nothing (zero accountCode lookups anywhere else); and PAYMENTS adds ZERO new walls — its UI and service are already correct and unblock for free once Invoices work."
+    },
+    {
+      "id": "P7-PASSTHROUGH-SWEEP",
+      "phase": "P7",
+      "title": "Sweep the .passthrough() nested-schema trap across all 19 schema files — nested item schemas silently strip keys the outer passthrough does NOT protect",
+      "targets": [
+        "backend/src/schemas/*.ts (19 files using .passthrough())"
+      ],
+      "bug_classes": [
+        "zod-drift"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-15T01:20:00+05:30",
+      "finding_ids": [
+        "BH-0322",
+        "BH-0323",
+        "BH-0324",
+        "BH-0325",
+        "BH-0326",
+        "BH-0327",
+        "BH-0328",
+        "BH-CLEAN-33"
+      ],
+      "result": "SWEPT THE .passthrough() NESTED-STRIP TRAP ACROSS ALL 19 SCHEMA FILES. Bounded result: it bites in 5 files, NOT 19 (BH-CLEAN-33 — dyeing/printing/embroidery/laceStock/genericTrim are structurally immune, machinePart is clean, and the shared trim supplier schema is correct for 5 of 7 types). BIGGEST FIND — BH-0322 (S1, LIVE): **YOU CANNOT EDIT YOUR PROCESSOR RATE CARDS AT ALL.** RateCellSchema requires a field called `rate`; the frontend only ever sends `ratePerMeter`; validateBody IS applied -> every Save returns 400. Three independent causes (the name mismatch; slabId .uuid() rejecting the app own `temp-N` placeholder; the shrinkages shape). 956 live rate rows, and the screen cannot save. **AND I KILLED A MUCH SCARIER CLAIM FROM MY OWN REVIEWER:** it told me the service deleteMany branch means every Save DELETES your rates. FALSE — `rate` is REQUIRED, so Zod rejects the request BEFORE the controller runs and deleteMany is unreachable. DB-VERIFIED: all 956 rows intact, every one with ratePerMeter > 0. BROKEN, NOT DESTRUCTIVE. BH-0328 — SELF-CORRECTION: that same 400 means my own BH-0312 (the 1,460-round-trip slow save, filed LIVE in iter 75) is actually UNREACHABLE -> downgraded to DORMANT, with an explicit instruction to fix it IN THE SAME PASS as BH-0322 or you convert a dead screen into a 10-second one. BH-0323 (S1): the GRN \"received as ready fabric\" checkbox is silently disabled — 3 fields stripped — so every greige receipt routes to the WRONG stock table and the rate override is discarded (quantities are NOT corrupted; I checked). BH-0324 (S1): Cutting can NEVER save — three separate guaranteed 400s — which is WHY the production tables are empty. BH-0326: bulk import silently drops 8-9 columns per row, BUT I QUERIED THE DB AND IT HAS COST NOTHING — 53/54 greige rows still have yarnCount/construction/weaveType. The scary version of that finding would have been FALSE."
+    },
+    {
+      "id": "P7-MONEY-REACHABILITY",
+      "phase": "P7",
+      "title": "Stage 2 audit: are the money bugs REACHABLE today, or unreachable behind a 400 / empty table? Reachability decides urgency.",
+      "targets": [
+        "BH-0145/BH-0078 shrinkage",
+        "BH-0288 weighted-avg cost",
+        "BH-0208/BH-0260 GSTR",
+        "BH-0126 service-PO unit",
+        "BH-0122 rate slabs",
+        "BH-0070 amount-in-words"
+      ],
+      "bug_classes": [
+        "money-math",
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-15T02:10:00+05:30",
+      "finding_ids": [
+        "BH-0329",
+        "BH-0330",
+        "BH-0331",
+        "BH-0332"
+      ],
+      "result": "THE STAGE 2 REACHABILITY MAP — 7 money bugs, and only 2 can actually execute today. LIVE (2, both in Fabric Costing, which requires no order and has 149 real rows): (a) BH-0329/BH-0122 overlapping rate slabs — I TRIED TO KILL THIS ONE AND THE DATA CONFIRMED IT: your live slabs are literally 0-500, 500-1000, 1000-5000, so **500 is in BOTH** — 11 overlapping pairs, and the lookup is a findFirst with NO orderBy, so a 500 m job bills at whichever rate Postgres feels like. The boundaries (500/1000/5000 m) are the exact round numbers people order. Reachable from TWO live screens (fabric costing auto-lookup + the PO form) because the LOOKUP schema matches the payload — it is NOT behind the broken save-matrix 400. Persisted into 22 rows. (b) BH-0330/BH-0145 shrinkage formula — real, live, persisted in 27 rows — BUT I MEASURED IT AND DOWNGRADED MY OWN S1 -> S2: the understatement is Rs 0.264/m = **0.37% of fabric cost** (worst row 0.79%), not the margin-killer my S1 implied. Nothing is locked/approved (isLocked=0 on all 149). DORMANT (5, each gated behind an EMPTY table, so they have never run): MRP under-buy (needs orderId; orders=0) · GSTR-1 drops overdue invoices (invoices=0) · GSTR-3B false ITC (purchase_orders=0 — and I VERIFIED it does NOT read the 23 live challans) · service-PO metre/piece (work_orders=0) · amount-in-words (invoices=0 AND quotations=0; the 23 live challans do NOT call amountToWords at all). DEAD CODE (1): BH-0331 RETRACTS my own BH-0288 — the \"not actually weighted\" average has ZERO callers, and the method you DO use (getStockValuation) is correctly weighted. Your stock valuation is NOT wrong. THE STRATEGIC PAYOFF: the 5 dormant money bugs detonate EXACTLY when Stage 1 succeeds — first order -> MRP under-buy; first invoice -> GSTR-1 drop + wrong words; first PO -> false ITC. So fix the money bugs BEFORE restoring the dead features, or your first real transactions carry wrong numbers onto documents you have already sent to customers and the GST portal."
+    },
+    {
+      "id": "P7-REPAIR-DURABILITY",
+      "phase": "P7",
+      "title": "Stage 4 audit: if the user runs REPAIR_PLAN.md today, will the data RE-CORRUPT tomorrow because the write bugs are still live? Which stock write paths are reachable, and does the plan sequence code-fix BEFORE data-repair?",
+      "targets": [
+        "docs/bug-hunt/REPAIR_PLAN.md",
+        "all live stock write paths"
+      ],
+      "bug_classes": [
+        "material-sync",
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-15T03:00:00+05:30",
+      "finding_ids": [
+        "BH-0333",
+        "BH-0334",
+        "BH-0335",
+        "BH-0336",
+        "BH-0337"
+      ],
+      "result": "THE MOST IMPORTANT ITERATION OF THE RUN. I asked: \"if the user follows my REPAIR_PLAN exactly, does the data STAY fixed?\" ANSWER: NO — and finding out why exposed the root cause of the whole stock-corruption class. **BH-0333 (THE SYSTEMIC ONE):** CLAUDE.md mandates that every stock service call syncStockLevelQuantity, and advertises a pre-commit hook that enforces it. **THAT GUARDRAIL IS A SIEVE.** Its filter is `f.includes('stock') && f.endsWith('.service.ts')`. I enumerated every backend file that writes a stock table: **there are 24; the hook checks 6.** Of the 18 it never looks at, **11 have NO sync at all.** THREE HOLES IN ONE LINE: it excludes ALL controllers (so fabric-stock.controller.ts — which holds BH-0309, the bug that caused the ENTIRE 3,076 m fabric gap — is skipped despite having \"stock\" in its filename); it is CASE-SENSITIVE (so laceStock.service.ts is skipped); and it only warns, never blocks. The rule was right; the enforcement was never looking. **BH-0334:** printing.controller.ts and dyeing.controller.ts — your two CORE production workflows — make **7 stock writes EACH with ZERO material-sync imports** (verified by count), across sendToMill/updateStock/updateStockProcessPO/returnUnprocessedProcessPO, and BOTH are live screens. external-process.service.ts (6 live Smocking/Handwork/EmbroideryPiece pages) — 3 writes, 0 sync. Meanwhile embroidery-stock.service.ts does the SAME workflow correctly. **BH-0335:** the manual Stock Adjustment and Stock Transfer forms desync any greige/fabric/lace they touch — and their material picker is UNFILTERED, so it offers exactly those. Plus a correction to my own work: of the two processor functions, I had documented consumeFromProcessor (ZERO callers) and MISSED receiveFromProcessor, which is the one actually wired to your Stock IN form. **BH-0337:** trim stock can go UP but never DOWN — trim-stock.service.ts has no consume function at all, so the challan trim branch deducts stock_levels only; for trims the corruption is INVERTED. **BH-0336 — MY OWN PLAN WAS BROKEN:** REPAIR_PLAN.md had TWO CONTRADICTORY FIX LISTS, and the one under \"Do it in this order\" omitted three of the four fixes that explain all 95,727 metres — a developer following it would have repaired the data and never touched createFabricStock. Plus 10+ live corruption sources were absent entirely. BOTH DEFECTS NOW FIXED: Step 1 is replaced with one complete, verified stop-the-bleeding checklist. TWO of my four worst errors this run have now been in the REMEDIATION, not the diagnosis."
+    },
+    {
+      "id": "P7-GUARDRAIL-AUDIT",
+      "phase": "P7",
+      "title": "Do the OTHER project guardrails actually check what they claim? (after the stock hook turned out to be a sieve)",
+      "targets": [
+        ".husky/",
+        "scripts/hooks/*.js"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-15T03:50:00+05:30",
+      "finding_ids": [
+        "BH-0338",
+        "BH-0339",
+        "BH-0340"
+      ],
+      "result": "THE SYSTEMIC EXPLANATION FOR THE ENTIRE AUDIT. BH-0338: your quality gates are DECORATIVE, in three independent ways. (1) **The documented pre-commit hook NEVER RUNS.** core.hooksPath = .husky/_, so .git/hooks/pre-commit is bypassed; .husky/pre-commit runs ONLY lint-staged + smart-check.js; and NOTHING anywhere invokes scripts/hooks/pre-commit.js — the file CLAUDE.md describes as the pre-commit hook, containing the stock-sync guardrail. It is dead code the team believes is protecting them. (2) The hook that DOES run (smart-check.js:43) has the IDENTICAL sieve filter for stock services. (3) **Six of its nine checks return true even when they FAIL** — marked \"Warning only\" — and the six that cannot block are precisely the ones matching this audit's biggest classes: stock-sync, schema-controller alignment, serializer mismatch, response structure, type sync, console.log. THE SMOKING GUN (smart-check.js:119): \"don't block commits for now since there are legacy mismatches // Once all mismatches are fixed, change this to return false to enforce\" — enforcement was switched OFF because violations already existed, and then they multiplied. The ratchet failed open. BH-0339 — THE PERFECT DEMONSTRATION: I ran the project's own alignment checker and it printed ONE critical mismatch, which is a real guaranteed 400 — calculateLaceOptionsSchema declares {laceId, quantity} while the controller needs quantityPerGarment (+3 more), so Zod strips it and the controller throws \"Missing required fields\" on EVERY call. **The machine already knew. Nobody listened, because the check only warns.** BH-0340 — AND I CORRECTED MYSELF BEFORE OVERSELLING IT: the tempting conclusion is \"un-muzzle the checker and it would have caught the Zod-drift class.\" I RAN IT: it checks 76 of 528 mutating routes (14%), and only compares the schema to the CONTROLLER's top-level destructuring — so it is structurally BLIND to nested item schemas (delivery notes, cutting, GRN) and to frontend-payload mismatches (the rate card, where schema and controller agree with each other perfectly). It detects 1 of my ~15 Zod-drift findings. The check nobody has written — a FORM-PAYLOAD vs SCHEMA diff — is the one that would have caught all five broken features."
+    },
+    {
+      "id": "P7-PAYLOAD-DIFF",
+      "phase": "P7",
+      "title": "THE CHECK NOBODY WROTE: diff what each FORM actually POSTs against the Zod schema on that route. Backend-only checkers are structurally blind to this — it is where all 5 broken features live.",
+      "targets": [
+        "every mutating frontend form vs its route schema"
+      ],
+      "bug_classes": [
+        "zod-drift"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-15T04:40:00+05:30",
+      "finding_ids": [
+        "BH-0341",
+        "BH-0342",
+        "BH-0343",
+        "BH-0344",
+        "BH-0345",
+        "BH-0346",
+        "BH-0347"
+      ],
+      "result": "I RAN THE CHECK NOBODY WROTE — form payload vs Zod schema — AND IT WAS THE BIGGEST HAUL OF THE RUN: 11 new bugs in ONE pass, SIX of them completely dead features, in forms nobody had examined. **BH-0341 (THE BEST FIND): YOU CANNOT CREATE A USER.** The form sends firstName/lastName, the CONTROLLER destructures firstName/lastName — they agree perfectly — but createUserSchema sits between them requiring `name` and declaring neither. 400 every time; and even past Zod, the stripped fields would trip the controller's own guard. **AND UPDATE IS WORSE BECAUSE IT FAILS SILENTLY: updateUserSchema declares no `password` field, so an admin resetting a user's password gets a success toast and the password does not change.** BH-0342: Stock Adjustment is DEAD (form sends `quantity`, schema requires `adjustmentQuantity`) — WHICH CORRECTS MY OWN BH-0335: that form has never desynced anything because it has never submitted. The desync survives through two OTHER doors (approveStockCount bypasses validateBody; Stock Transfer's payload is clean) — and ⚠️ fixing this 400 with an innocuous rename would ARM the corruption bug, so BH-0335 must be fixed in the same commit. BH-0343: Stock IN 400s when the user picks \"Roll\" — the natural unit for fabric — because ROLL and GRAM are missing from UnitEnum while the dropdown offers them. BH-0344: editing greige stock silently discards purchaseCost, warehouseLocation and rollNumbers (only qualityGrade saves) — and the SERVICE expects exactly the form's names, so the schema is provably the outlier. 61 live rows. BH-0345: five whole trim modules (belt + 4 \"other\" types) 400 on EVERY operation including the list page, because TrimTypeEnum has 11 of 16 values. BH-0346: silent data-loss cluster — the entire MaterialMaster Pricing card, all supplier commercial terms, PatternPart's componentGroupIds (the cost-sheet double-schema bug AGAIN), and an editable styleCode that can never be saved. **BH-0347 — AND THE USER BUG PROVES THE TOOLING DIAGNOSIS:** the existing alignment checker looks for EXACTLY that shape and WOULD have caught it — it just does not cover that route (76 of 528). One honest limit remains (WarehouseForm): country/contactEmail pass every validator and are dropped by a SERVICE that hand-lists its Prisma fields — no schema check can catch that."
+    },
+    {
+      "id": "P7-PAYLOAD-DIFF-2",
+      "phase": "P7",
+      "title": "Form-payload vs Zod-schema diff, part 2: costing, CAD, production, samples, embroidery, job work, orders",
+      "targets": [
+        "remaining mutating frontend forms"
+      ],
+      "bug_classes": [
+        "zod-drift"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-15T05:30:00+05:30",
+      "finding_ids": [
+        "BH-0348",
+        "BH-0349",
+        "BH-0350",
+        "BH-0351",
+        "BH-0352",
+        "BH-0353",
+        "BH-0354",
+        "BH-0355",
+        "BH-0356"
+      ],
+      "result": "THE PAYLOAD DIFF, PART 2 — AND IT FOUND THE BIGGEST CLASS IN THE WHOLE AUDIT. **BH-0348 (SYSTEMIC): `z.string().datetime()` REJECTS every date your UI produces.** I ran it against your actual installed zod 4.1.12: `.datetime()` on \"2026-07-15\" — the exact output of every `<input type=\"date\">` — is REJECTED, and `.optional()` does NOT save you (it rejects a present-but-invalid value). SCALE: **131 .datetime() validators across 20 schema files vs 68 date pickers.** PROOF IT IS DRIFT, NOT DESIGN: **Dyeing uses plain z.string() and WORKS; Printing uses .datetime() and 400s — same UI, same action.** One find-and-replace resurrects several features. **BH-0349 REFINES MY OWN BH-0313:** orders 400 at the SCHEMA (`items[].quantity` required; the form sends totalQuantity+breakup) BEFORE they ever reach the cost-sheet gate I reported — and the controller's OWN COMMENT documents the form's shape. Two walls; the schema fires first. **BH-0350: samples are 100% dead — the sample-type enum shares ZERO values with Prisma/the UI/the controller.** Plus 3 more independent 400s in the same module. **BH-0351: Smocking + Handwork + Piece-Embroidery (SIX live pages) all dead — and one cause is an enum with the words TRANSPOSED (PIECE_EMBROIDERY vs EMBROIDERY_PIECE).** The status enum also breaks the READ path, so the receive dropdown is permanently empty. **BH-0352: embroidery stock — an abandoned schema rewrite; the controller and service still speak the old design.** **BH-0353: FOUR CAD actions dead (149 LIVE rows), including \"Approve CAD Plan\" (the gateway to fabric costing), plus a button calling a route that does not exist (404).** **BH-0354: Stitching and Finishing are dead at STEP ONE — the Receive button sends `transferSlipId: ''` with the comment \"// Backend should handle this\".** **BH-0355: \"Calculate Services\" reads a localStorage key NOTHING in the app ever writes.** **BH-0356 — THE SYNTHESIS, and the most useful sentence in the report: in ~25 broken features the FORM, CONTROLLER, SERVICE and DATABASE all agree with each other, and the ZOD SCHEMA is the lone outlier. So FIX THE SCHEMA, NEVER THE FORM. And three mechanical changes — generate enums from Prisma, replace .datetime() with z.coerce.date(), extend the alignment checker to all 528 routes and make it block — address the majority of everything broken here."
+    },
+    {
+      "id": "P7-STRESS-TEST-FIXES",
+      "phase": "P7",
+      "title": "Stress-test the three mechanical fixes before the user commits days to them",
+      "targets": [
+        "z.coerce.date()",
+        "enums from Prisma",
+        "extend + enforce the checker"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-15T06:20:00+05:30",
+      "finding_ids": [
+        "BH-0357",
+        "BH-0358",
+        "BH-0359"
+      ],
+      "result": "I ATTACKED MY OWN THREE FIXES BEFORE THE USER SPENDS DAYS ON THEM. **FIX #1 (z.coerce.date()) SURVIVES — I verified it end to end.** It accepts BOTH \"2026-07-15\" and full ISO; it returns a Date object, and I checked the obvious way that could break things: ZERO controllers or services do string ops (.split/.substring/.slice/.replace) on any date field, and the 29 `new Date(x)` calls are safe with a Date. **BUT the naive find-and-replace still 400s:** `z.coerce.date().optional()` REJECTS \"\" (optional allows undefined, not a present-but-empty value), and 4 forms send '' for an optional date — the developer would think the fix had failed. Correct form: `z.preprocess(v => v === '' ? undefined : v, z.coerce.date().optional())`. **AND I CORRECTED MY OWN INFLATED NUMBER:** \"131 .datetime() validators\" is a VALIDATOR count, not a bug count — 12 frontend senders use full ISO and already pass. The class is real and large (55 date truncations + 43 files with date pickers vs 12 full-ISO), but I confirmed a specific set, not 131. **FIX #3 IS THE BIG ONE — MY ADVICE WOULD HAVE RECREATED THE EXACT FAILURE I DIAGNOSED.** I said \"extend the checker and make it block.\" But the comment that disabled it reads: \"don't block commits FOR NOW SINCE THERE ARE LEGACY MISMATCHES.\" They disabled it because turning it on was unsatisfiable. Extending coverage 76 -> ~411 validated routes AND blocking would block every commit until the legacy pile is cleared -> someone flips it back to warning-only -> the ratchet fails open AGAIN. **THE CORRECT ANSWER IS A RATCHET, NOT A SWITCH: baseline the existing violations to a file, block only violations NOT in the baseline (i.e. new/newly-touched ones), and burn the baseline down.** A blocking check that cannot be satisfied gets disabled; one that only catches NEW mistakes gets kept — and it would have caught every Zod-drift bug in this report as it was written. **BH-0359 — A HOLE IN MY OWN AUDIT:** my rule \"no validateBody -> CLEAN\" quietly passed routes with NO validation at all. There are 528 mutating routes and 411 validateBody calls -> ~117 take raw req.body (including POST /challans/quick-issue, which is LIVE). Some of my \"clean\" bills mean \"correct\" and some mean \"nothing is checking this\" — those are not the same and I should not have counted them together."
+    },
+    {
+      "id": "P7-UNGUARDED-ROUTES",
+      "phase": "P7",
+      "title": "The ~117 mutating routes with NO validateBody: what reaches Prisma raw? Mass-assignment via req.body spread? Negative quantities on a DB with zero CHECK constraints?",
+      "targets": [
+        "backend/src/routes/* without validateBody"
+      ],
+      "bug_classes": [
+        "zod-drift",
+        "money-math"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-15T07:10:00+05:30",
+      "finding_ids": [
+        "BH-0360",
+        "BH-0361",
+        "BH-0362"
+      ],
+      "result": "THE MOST SERIOUS INTEGRITY HOLE OF THE RUN. **BH-0360: STOCK CAN BE CREATED FROM NOTHING.** Three parts, each individually reasonable: (1) `POST /challans` is validated and its item schema requires `quantity: z.number().positive()` — but **`POST /challans/quick-issue` has NO validateBody at all**, spreads the RAW req.body, and calls **the very same createChallan() service**. It is not obscure: it is the endpoint the **Stock OUT form** posts to. (2) createChallan() has no guard of its own — it just does `items.reduce((sum, item) => sum + item.quantity, 0)`. (3) **AND THE SAFETY NET FACES THE WRONG WAY:** issueChallan does `const newAvailable = quantityAvailable - qty; if (newAvailable < 0) throw \"Insufficient stock\"`. **Feed it a NEGATIVE qty and newAvailable GROWS** — available - (-500) = available + 500 — **so the guard passes and the inflated figure is written.** One unvalidated POST with quantity: -500 manufactures 500 m of cloth, through the stock-DEDUCTION path, and the DB has ZERO check constraints to refuse it. HONEST: ARMED, NOT FIRED — the form sends positive numbers and the 23 live challans look normal. **BH-0361: 119 of 528 mutating routes have NO validation** — and the split is inconsistent INSIDE a single router: in challan.routes.ts the ONLY guarded mutating route is the one that does NOT move stock, while quick-issue / greige-outward / issue / receive / cancel are all unguarded. processingBatch has 0 of 4 guarded and spreads req.body. A partially-validated router is MORE dangerous than an unvalidated one, because it looks safe. **BH-0362 — THE ARCHITECTURAL LESSON:** every guarantee here is enforced at the ROUTE, so it is only as strong as the set of routes reaching the protected code — and nobody maintains that set. The same shape appears three times (challan quick-issue; approveStockCount bypassing validateBody service-to-service; the pre-commit filter covering 6 of 24 files). **Move invariants DOWN — into the service and into the database (CHECK constraints) — where every caller must pass through them. Schema validation is a good front door; it is not a lock on the safe.**"
+    },
+    {
+      "id": "P7-INVERTED-GUARDS",
+      "phase": "P7",
+      "title": "Hunt the INVERTED GUARD shape: checks that a negative or zero value sails past (subtract-then-check-negative; if(!x) treating a legitimate 0 as missing; division by zero; unbounded percentages)",
+      "targets": [
+        "all guards on quantities, money, percentages"
+      ],
+      "bug_classes": [
+        "money-math"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-15T08:00:00+05:30",
+      "finding_ids": [
+        "BH-0363",
+        "BH-0364",
+        "BH-CLEAN-34"
+      ],
+      "result": "HUNTED THE INVERTED-GUARD SHAPE — a check that LOOKS right but a negative/zero value walks past. TWO REAL FINDINGS, and ~12 REJECTED (the rejections are the substance). **BH-0363 — WORSE THAN THE CHALLAN BUG:** consumeGreigeStock does `if (quantity <= reserved) { newReserved = reserved - quantity; } else { ...throw \"Insufficient stock\"... }`. **The throw is in the ELSE branch — so a NEGATIVE quantity takes the first branch and hits NO check at all.** With quantity=-500 and reserved=0: (-500 <= 0) is TRUE -> newReserved = 0 - (-500) = **500 units of reserved stock created from nothing**, and quantityConsumed driven negative. Reachable through the SAME unvalidated quick-issue door as BH-0360, and greige_stock is the LARGEST live stock table (61 rows). It is the 4th member of the family and has the weakest guard of the four. **BH-0364 — MY FAVOURITE BUG OF THE RUN: THE SCHEMA EXPLICITLY PERMITS THE ONE VALUE THAT BREAKS THE MATH.** The formula is `greigeRequired = fabricRequired / (1 - shrinkage/100)` and the schema is `z.number().min(0).max(100)` — **`.max(100)` allows exactly the value that divides by zero.** Measured: 10% -> 1,111 · 50% -> 2,000 · 99% -> **100,000 (a 100x blowup)** · 100% -> **Infinity**. **AND THE LIVE GUARD CHECKS THE WRONG END:** FabricCostingPage.tsx:1231 does `shrinkage > 0 ? ... : fabricReq` — it guards 0 (harmless) and permits 100 (catastrophic). 149 LIVE rows. The realistic trigger is not malice but a KEYSTROKE: real shrinkage is 3-10%, and \"100\" instead of \"10\" is one extra zero. Infinity then propagates through Math.max(0, Infinity - available) into a PO line and throws at the Prisma Decimal layer. **BH-CLEAN-34 — THE BOUND:** ~12 other weak guards were REJECTED because Zod already constrains them (.positive() on laceStock, stockMovement, mrp, saleOrder, external-process; invoice recordPayment has an independent amount<=0 throw). **The class bites in exactly two places: where validation is missing (the 119 unvalidated routes) and where the schema permits the breaking value.** Everywhere Zod does its job, the weak guards are harmless — which is precisely why BH-0362's advice (put the invariant in the SERVICE) closes both seams at once."
+    },
+    {
+      "id": "P7-BREAKING-BOUNDS",
+      "phase": "P7",
+      "title": "Validators that PERMIT the breaking value: divisors that can be zero, percentages with no ceiling, ranges whose endpoint the downstream math cannot survive",
+      "targets": [
+        "every division in services",
+        "every percent/rate schema bound"
+      ],
+      "bug_classes": [
+        "money-math"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-16T08:50:00+05:30",
+      "finding_ids": [
+        "BH-0365",
+        "BH-0366",
+        "BH-0367",
+        "BH-CLEAN-35"
+      ],
+      "result": "SWEPT FOR VALIDATORS THAT PERMIT THE BREAKING VALUE — and it produced the most important sequencing instruction in the whole report. **BH-0367: YOUR 400s ARE LOAD-BEARING.** Three separate times now, a broken validation is the ONLY thing preventing a worse bug from firing: (1) the Stock Adjustment 400 (BH-0342) is the only thing stopping a live stock desync (BH-0335) — and the fix looks like a one-word rename; (2) the rate-card 400 (BH-0322), which I called \"the highest-value 15 minutes in this report\", is the only thing stopping BOTH a ~1,460-query save (BH-0312) AND an entirely unbounded divide-by-zero (BH-0366); (3) the cost-sheet 400 (BH-0314) is the only thing stopping a division by a field whose DB default is 0 (BH-0365). **A 400 IS NOT A WALL, IT IS A FUSE. The broken validation layer has, entirely by accident, been PROTECTING the data — which is exactly why the transactional tables are empty AND uncorrupted while the tables that DO work are the corrupted ones.** BH-0366: the lace shrinkage divisor is `z.record(z.string(), z.number())` — a BARE number, no min, no max, not even nonnegative — so it permits 100 (Infinity), negatives and 5000%. Weaker than the .max(100) bug, and dormant ONLY because the rate-card save 400s. BH-0365: cost-sheet versioning divides by `totalProductCost`, whose Prisma DEFAULT IS 0 — so the default value is the breaking value — and the CORRECT guard sits SIX LINES BELOW in the same file (the 8th time the right code has been next door). BH-CLEAN-35: ~15 other divisions swept and REJECTED — the codebase actually guards its denominators well (.positive() in schemas, `x > 0 ?` ternaries everywhere). The class is narrow: it bites only where a bound is missing entirely or where the breaking value is the column default."
+    },
+    {
+      "id": "P7-FUSE-MAP",
+      "phase": "P7",
+      "title": "THE FUSE MAP: for EVERY dead feature, trace what fires the moment its 400 is fixed. 400s are load-bearing (BH-0367) and I only traced 3 of them.",
+      "targets": [
+        "every broken feature in the report"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-16T09:40:00+05:30",
+      "finding_ids": [
+        "BH-0368",
+        "BH-0369",
+        "BH-0370",
+        "BH-0371",
+        "BH-0372",
+        "BH-CLEAN-36"
+      ],
+      "result": "BUILT THE FUSE MAP — for every dead feature, what fires when its 400 is fixed. **BH-0368 — AND IT CAUGHT AN ERROR IN MY OWN ADVICE, THE 4TH TIME:** I told the user to \"add ROLL and GRAM to UnitEnum\". **The PRISMA enum does not contain ROLL or GRAM either** (13 values: METER..PACK). So my fix would have turned a clean 400 into an unhandled 500 — and if they also migrated the DB enum, **there is NO roll-to-metre conversion anywhere**, so routeToSpecializedStock would store \"5 rolls\" as **5 METRES**. My own recommended fix would have CORRUPTED STOCK. The correct fix is the opposite: remove ROLL/GRAM from the dropdown, or build a real conversion. **BH-0369: PROBABLY WHY PURCHASE ORDERS ARE EMPTY** — the PO UnitEnum omits PAIR and PACK, which Prisma HAS and the form OFFERS. Buttons are bought per PAIR and packaging per PACK — the two most common trim units. And fixing it ARMS the GSTR-3B ITC-before-GRN bug (a false claim filed with the GST portal). **BH-0370 — THE BIGGEST FUSE:** the external-process 400 (a TRANSPOSED enum) is the only thing stopping SIX LIVE PAGES (Smocking/Handwork/Piece-Embroidery) from writing fabric_stock with ZERO ledger sync AND ZERO audit rows — silent and untraceable. The correct implementation sits next door in embroidery-stock.service.ts. **BH-0371: the user-creation fix would LOOK like it worked** — the role enum is ALSO stale, so 3 of 9 roles still 400; but ADMIN is the one shared value AND the first dropdown option, so casual testing passes. **BH-0372: two missing reversals** — deleting a delivery note PERMANENTLY leaks finished-goods stock (deducted at creation, never restored), and approving a credit note NEVER reduces the invoice balance (so the customer still owes the full amount, feeding aging reports and the GSTR-1 CDNR section). **BH-CLEAN-36 — THE SAFE LIST, which is what makes this actionable: FIVE fixes are genuinely free** — Quotations (I re-checked it adversarially because I had already promised it: the tax branch is opt-in and never triggered, so the invoice-killing gate is never entered — my promise holds), Stitching/Finishing receive (pure status flips), Cutting add-lay/issue (no stock writes; the real deduction goes through the correctly-synced challan), Embroidery stock (the SERVICE is already correct — only the schema is wrong), and Samples (align the enum; the only gate behind it is a deliberate business rule)."
+    },
+    {
+      "id": "P7-AUDIT-MY-ADVICE",
+      "phase": "P7",
+      "title": "Audit EVERY remaining recommendation in START_HERE and REPAIR_PLAN against the code. 4 of my fixes have been wrong; find the rest before the user acts.",
+      "targets": [
+        "every actionable recommendation I have made"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-16T10:30:00+05:30",
+      "finding_ids": [
+        "BH-0373",
+        "BH-0374",
+        "BH-0375",
+        "BH-CLEAN-37"
+      ],
+      "result": "AUDITED EVERY REMAINING RECOMMENDATION I HAVE MADE. THREE MORE WERE WRONG — bringing the total to SEVEN, two of which would have caused data loss. **BH-0373 — MY MOST-REPEATED FIX IS WRONG IN BOTH DIRECTIONS.** I told the user to change `x !== undefined` to `x?.length` across 9 controllers + style.service.ts. (a) The form GENUINELY MANAGES trims/accessories/skuVariants — so when a user removes their LAST trim and correctly sends `[]`, `?.length` would SILENTLY IGNORE the deletion and the trim would come back. **I would have created \"you can never delete the last trim\" across three fields.** (b) The real culprit is `processes: []`, HARDCODED in StyleFormRedesigned.tsx:2139 with a comment saying processes are \"assumed\" — the form does not manage them at all. **`!== undefined` is the CORRECT semantic** (absent = leave alone, empty = delete all). The bug is the FORM sending a field it does not own. **THE REAL FIX IS ONE LINE IN THE FRONTEND, not ten backend files.** **BH-0374: my axios-retry fix is INCOMPLETE.** Deleting the `status >= 500` clause leaves `isNetworkOrIdempotentRequestError`, which does NOT check the HTTP method — so POSTs still retry on NETWORK errors, which is precisely the dangerous case (the write may have SUCCEEDED and only the response was lost -> a retry duplicates the challan/payment). The correct fix is a METHOD GUARD: never retry POST. **BH-0375: THE @unique MIGRATION IN MY OWN REPAIR PLAN WOULD FAIL — I RAN IT.** Five greiges (GRG-0003/0009/0017/0029/0049) each have TWO materials rows (the real one + a `-RAW` phantom) — exactly the BH-0296 damage. So Step 1 (add the constraint) CANNOT run until Step 3 (clean the data). **My plan has the order backwards.** And the cleanup is BOOBY-TRAPPED: for GRG-0029 and GRG-0049 the `-RAW` row holds the ONLY correct figure — deleting it blindly would ZERO those materials. **BH-CLEAN-37: seven recommendations DO hold** (JWT throw, secret rotation, CHECK constraints, coerce.date+preprocess, enums-from-Prisma, the ratchet, hide-the-cancel-button-as-a-stopgap). **THE HONEST SUMMARY: my FINDINGS have held up under attack; my RECOMMENDATIONS have not. Treat every fix in this report as a hypothesis to verify, not an instruction to execute.**"
+    },
+    {
+      "id": "P7-REPAIR-SQL-DRYRUN",
+      "phase": "P7",
+      "title": "Dry-run EVERY data-repair step in REPAIR_PLAN read-only against the live DB. This is the irreversible part and 7 of my recommendations have already been wrong.",
+      "targets": [
+        "docs/bug-hunt/REPAIR_PLAN.md Step 2 + Step 3"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-16T11:20:00+05:30",
+      "finding_ids": [
+        "BH-0376",
+        "BH-0377",
+        "BH-0378"
+      ],
+      "result": "DRY-RAN THE ENTIRE DATA REPAIR AGAINST THE LIVE DB — the irreversible part — AND FOUND AN ERROR IN THE HEADLINE NUMBER OF THE WHOLE REPORT. **BH-0376: THE REAL FIGURE IS 71,089 m, NOT 95,727 m. I over-counted by 24,638 m — and I did it by committing the EXACT bug I was diagnosing.** My central finding says \"a phantom master is minted per greige, so ONE LOT OF CLOTH ENDS UP WITH TWO LEDGERS.\" And in my own arithmetic I counted one lot's discrepancy TWICE — because it has two ledgers. GRG-0009 has a real materials row (-5,869.5) and a -RAW phantom (14,472); I measured EACH against the full lot total as though they were different materials. Corrected: greige is out by **68,013 m across SIX materials** (not 92,651 across seven); fabric 3,076 m (unchanged — no duplicates on that side). UNCHANGED: every individual row is still correct, the negatives are still impossible, the emergency is still an emergency, and the repair plan is unaffected (it already dedupes first — that is WHY the number falls). But the headline was 35% too high and the user would have quoted it. **BH-0377: MY REPAIR FIXES THE QUANTITY AND NOT THE UNIT.** Exactly one row (GRG-0009) says PIECE. A quantity-only rebuild makes it \"24,637.5 PIECE\" — right number, wrong unit, and it no longer LOOKS broken, so nobody would ever notice. The repair must SET quantity AND unit in the same statement. **BH-0378: MY PLAN SAID \"PICK THE SURVIVOR BY CHECKING WHICH ROW IS REFERENCED\" — I RAN IT, AND THE ANSWER IS NOT UNIFORM.** Three distinct cases: GRG-0003/0017 the phantom is a pure orphan (trivial); GRG-0029/0049 are INVERTED (the phantom is the referenced row, the real material is the orphan); and **GRG-0009 has BOTH rows referenced** — the phantom holds 2 stock_movements AND a stock_levels row — **a case my instruction did not cover at all.** VERIFICATION TARGET now published: SUM(stock_levels) across greige materials must equal 122,170.3 m after the repair; 6 materials to correct; net +33,853.4 m."
+    },
+    {
+      "id": "P7-VERIFY-EVERY-NUMBER",
+      "phase": "P7",
+      "title": "Re-derive EVERY quantitative claim in the report against the live DB. The headline was 35% wrong; find the others.",
+      "targets": [
+        "every published figure"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-16T12:10:00+05:30",
+      "finding_ids": [
+        "BH-0379",
+        "BH-CLEAN-38"
+      ],
+      "result": "RE-DERIVED EVERY PUBLISHED NUMBER AGAINST THE LIVE DB. **15 of 16 reproduce EXACTLY** — every stock figure (GRG-0034 overstated by exactly 17,080 m; GRG-0017 at -7,589.6 vs 23,389.5 real; GRG-0009 at -5,869.5 vs 24,637.5; the 3,076 m fabric gap; 61 lots; 23 challans / 22 ISSUED) and every count (311 BOM lines, 21 processes / 9 styles, 1,442 variants / 241 styles, 39 GST rows, 956 rate rows, 149 CAD rows / 27 with shrinkage, 34 stock_levels, 5 customers all with a NULL billing state, 1,040 styles, 184 materials, 82 suppliers). **BUT THE ONE THAT FAILED IS THE MOST LOAD-BEARING CLAIM IN THE ENTIRE REPORT — BH-0379, and it is the most serious retraction of the run.** I published, prominently, that the repair rests on evidence: *\"For every one of the 61 greige lots I checked quantityAvailable + quantityConsumed = nominalQuantity. All 61 reconcile exactly. Zero broken lots. That is exactly what this repair depends on, and it now rests on evidence rather than hope.\"* **`nominalQuantity` is NON-NULL on exactly ONE of the 61 lots.** The check was possible on one. **My verification was VACUOUS.** And there is no better check available: greige_stock has NO column recording the received quantity, so the identity has no right-hand side — and BH-0308 (correct) established the transaction log never records receipts. **THEREFORE THERE IS NO WAY, FROM INSIDE THE SYSTEM, TO VERIFY THE LOTS ARE CORRECT.** The repair must still rebuild from them (nothing better exists), but it MUST be validated against something OUTSIDE the system — supplier invoices, GRN paperwork, or a physical count of the six affected greiges — and the code fix must start recording the received quantity or this stays permanently unauditable. **THE RULE THAT FALLS OUT: what I MEASURED has been reliable; what I DERIVED (the 95,727 headline) or ASSURED (the lot check) has not.**"
+    },
+    {
+      "id": "P7-VERIFY-THE-ASSURANCES",
+      "phase": "P7",
+      "title": "Audit every remaining \"I verified/I checked/confirmed against live data\" claim in findings.jsonl — confirm each was actually performed. 2 have been hollow.",
+      "targets": [
+        "every db_checked:true finding + every assurance in START_HERE/REPAIR_PLAN"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-16T13:00:00+05:30",
+      "finding_ids": [
+        "BH-CLEAN-39",
+        "BH-0380"
+      ],
+      "result": "AUDITED THE LOAD-BEARING \"CLEAN / NO REPAIR NEEDED\" ASSURANCES — the ones that make the user SKIP a repair — by re-running them against the live DB. **THE GOOD NEWS: the ones that matter HELD.** BH-CLEAN-20 (the STOP-box all-clear that the delete bugs have done no damage): all four fingerprints re-run to 0 — order_items->deleted variant = 0 (0 order_items), BOM->deleted material = 0 of 247, greige_stock->missing master = 0 of 61, style_variants->deleted style = 0 of 1442. And the \"247 BOM lines at risk\" figure from BH-0286 reproduces EXACTLY. BH-0322 (956 rate rows intact, all ratePerMeter > 0): confirmed exactly. **BUT THE LESSON IS THE META ONE: MY FIRST RE-CHECK WAS ITSELF WRONG.** I queried threadId/greigeId/laceId and got \"0 of 0\" — which would have said the BOM references no materials at all — because the 190 LABEL + 49 PACKAGING lines use labelId/packagingId, which I had not checked. I caught it and re-ran correctly. So three layers deep: the findings held, the numbers held, the all-clears held — but every layer of checking needed checking. **NEW (BH-0380, S3): while re-checking I found 64 of 311 BOM lines name a material TYPE but no specific master — 54 are THREAD (plausibly intentional generic thread), but the consequence is real: costing cannot resolve a price for them and a \"which styles use this trim\" query misses them.** Reported as a decision-with-consequences, not an asserted bug."
+    },
+    {
+      "id": "P7-SERIALIZER-SWEEP",
+      "phase": "P7",
+      "title": "Serializer/camelCase sweep: frontend reading a snake_case relation key the serializer already camelCased -> silent undefined -> blank/zero on screen, never an error",
+      "targets": [
+        "frontend reading response data"
+      ],
+      "bug_classes": [
+        "serializer"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-16T13:50:00+05:30",
+      "finding_ids": [
+        "BH-0381",
+        "BH-CLEAN-40"
+      ],
+      "result": "SWEPT THE SERIALIZER/CAMELCASE CLASS — the 92 non-naive RELATION_MAPPINGS where the serializer renames a relation to something other than its camelCase, and reading the pre-map name yields a silent undefined. **ONE REAL FINDING, TIGHTLY BOUNDED. BH-0381 (S2, masked): OrderForm and SampleForm read `.colorOptions`/`.sizeOptions`, but the serializer maps color_options->colorOptions->COLORS and size_options->sizeOptions->SIZES** (serializer.ts:220, applied globally via transformResponse at app.ts:145). So the style response carries .colors/.sizes and the forms read undefined -> the colour and size pickers are silently EMPTY (OrderForm ~8 sites, SampleForm 2). PROOF IT IS REAL, NOT MY MISREADING: the frontend team DOCUMENTED this exact trap themselves (cad-planning.types.ts:181: \"Backend returns sizeOptions but serializer maps it to sizes\") and reads .sizes correctly there; and OrderForm itself reads preset.sizeCategory.sizes CORRECTLY in the same file while reading the style naive key wrongly. MASKED today because Orders (BH-0349) and Samples (BH-0350) are both otherwise broken -> nobody reaches the empty picker -- but it is the SAME load-bearing-400 trap: fix those schemas and the pickers are still empty, so fix this in the same pass. BH-CLEAN-40 (the bound): of the 92 non-naive mappings, ONLY colorOptions/sizeOptions are actually misread. The frontend correctly reads the mapped names for styleFabrics->fabrics, grnItems->items, purchaseOrderItems->items, supplierContacts->contacts, qualityDefects->defects, etc., and the raw snake_case sweep across every .tsx returned only third-party XLSX calls. The class is small because the mapped names are baked into the frontend type definitions the whole app compiles against -- unlike Zod-drift, which nothing enforced."
+    },
+    {
+      "id": "P7-AUDIT-SAFE-LIST",
+      "phase": "P7",
+      "title": "Re-audit the 5 \"genuinely free — start here\" fixes for hidden fuses. The user will do these FIRST, and I already found the empty-picker fuse behind Samples.",
+      "targets": [
+        "Quotations",
+        "Stitching/Finishing receive",
+        "Cutting add-lay",
+        "Embroidery stock",
+        "Samples"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-16T14:40:00+05:30",
+      "finding_ids": [
+        "BH-0382"
+      ],
+      "result": "RE-AUDITED MY OWN \"GENUINELY FREE — START HERE\" LIST OF 5 FIXES ADVERSARIALLY (the user does these FIRST). **TWO HAVE HIDDEN FUSES; THREE HELD.** 🔴 SAMPLES still 400s after the enum fix I recommended: createSampleSchema.requiredDate (sample.schema.ts:46) AND updateSampleSchema:104 are z.string().datetime(), REQUIRED, and the date picker sends a bare \"2026-08-01\" -> rejected. A dev applying only the enum fix hits a fresh 400 six lines away and thinks the fix failed. So Samples needs enums + requiredDate + the empty pickers (BH-0381) = THREE coordinated fixes, not one. 🔴 CUTTING ADD-LAY silently breaks multi-colour batches: addCuttingLaySchema.skuOutputs has no colorId and no .passthrough(), so validateBody strips the colorId the form sends; the controller stores null; recalculateBatchTotals keys on `${colorId}|${sizeId}` -> a null key never matches a multi-colour batch SKU -> the cut quantity for that colour silently stays 0 forever, no error. ✅ HELD (re-verified): Quotations (no div-by-zero, reads .items correctly, tax opt-in unwired), Stitching/Finishing receive (pure status flips, transferSlipId \"\" is falsy so the branch skips), Embroidery Stock (syncs on all 3 paths; the one division is falsy-guarded twice). LESSON AGAIN: even my \"safe\" verdicts needed adversarial re-checking — but 3 of 5 survived, and the 2 that did not are corrected BEFORE the user acted."
+    },
+    {
+      "id": "P7-WRAPUP",
+      "phase": "P7",
+      "title": "Final wrap-up: coverage table + one-page executive summary of the whole run",
+      "targets": [
+        "deliverables"
+      ],
+      "bug_classes": [
+        "process"
+      ],
+      "status": "done",
+      "attempts": 1,
+      "completed_at": "2026-07-16T15:30:00+05:30",
+      "finding_ids": [
+        "BH-CLEAN-41"
+      ],
+      "result": "FINAL WRAP-UP on the user's likely return day. Computed the coverage stats from the data: 419 findings (136 S1/131 S2/78 S3/74 S4), 403 confirmed, 41 clean bills, 111 db-verified, 95 iterations over 6 days, 25 bug classes. Added a coverage table to START_HERE and rewrote the stale trust section (it still said \"four corrections\" and carried pre-200-finding verification counts). Published the honest ledger — 8 numbered self-corrections + 1 retraction, all self-caught — and the reading rule: MY MEASUREMENTS HELD (100% of existence claims survived adversarial testing), MY DERIVED AGGREGATES + ASSURANCES + FIX ADVICE DID NOT (2 fixes would have destroyed data, the headline was 35% high, one assurance was vacuous). So: TRUST THE DIAGNOSIS, VERIFY THE PRESCRIPTION. The 5 deliverables are internally consistent, every headline number is current, and the git guard has held at 44 for all 95 iterations — not one app file touched."
+    }
+  ],
+  "status": "COMPLETE",
+  "completed_at": "2026-07-16T16:00:00+05:30",
+  "final_summary": "Bug hunt complete. 420 findings (136 S1/131 S2/78 S3/75 S4), 404 confirmed, 41 clean bills, 111 db-verified, across 95 iterations over 6 days (2026-07-11 to 16), 25 bug classes. Final coherence check passed: 0 malformed, 0 duplicate IDs, START_HERE headline matches findings.jsonl exactly, all 8 deliverables present, git guard held at 44 for the entire run (43 pre-existing dirty files + docs/bug-hunt/ — not one application file touched). Loop stopped cleanly at its natural endpoint on the user return day; the report is self-audited and internally consistent. Entry point: docs/bug-hunt/START_HERE.md. Reading rule: trust the diagnosis, verify the prescription."
+}

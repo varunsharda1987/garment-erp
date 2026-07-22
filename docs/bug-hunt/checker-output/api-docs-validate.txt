@@ -1,0 +1,691 @@
+
+[1m[36m=== API Route Validation ===[0m
+
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and .template.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and .template.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and agency.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and agency.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and agency.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and agency.routes.ts
+[33m⚠[0m Duplicate: GET /search
+  Found in: agency.routes.ts and agent.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and agent.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and agent.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and agent.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and agent.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and agent.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and bankAccounts.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and bankAccounts.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and bankAccounts.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and bankAccounts.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and button.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and button.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and button.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and button.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and chartOfAccounts.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and chartOfAccounts.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and chartOfAccounts.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and chartOfAccounts.routes.ts
+[33m⚠[0m Duplicate: GET /search
+  Found in: agency.routes.ts and color.routes.ts
+[33m⚠[0m Duplicate: GET /template
+  Found in: button.routes.ts and color.routes.ts
+[33m⚠[0m Duplicate: POST /bulk-import
+  Found in: button.routes.ts and color.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and color.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and color.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and color.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and color.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and color.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and componentGroup.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and componentGroup.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and componentMasters.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and componentMasters.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and componentMasters.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and componentMasters.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and componentPatternPart.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and componentPatternPart.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and costCenters.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and costCenters.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and costCenters.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and costCenters.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and costCenters.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and currencies.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and currencies.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and customer.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and customer.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and customer.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and dashboard.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and debitNote.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and dispatch.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and dyeing.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and elastic.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and elastic.routes.ts
+[33m⚠[0m Duplicate: GET /template
+  Found in: button.routes.ts and elastic.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and elastic.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and elastic.routes.ts
+[33m⚠[0m Duplicate: POST /bulk-import
+  Found in: button.routes.ts and elastic.routes.ts
+[33m⚠[0m Duplicate: GET /pending
+  Found in: cad-planning.routes.ts and embroidery-stock.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and embroidery-stock.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and embroidery.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and embroidery.routes.ts
+[33m⚠[0m Duplicate: GET /search
+  Found in: agency.routes.ts and embroidery.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and embroidery.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and embroidery.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and embroidery.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and expenseTypes.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and expenseTypes.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and expenseTypes.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and expenseTypes.routes.ts
+[33m⚠[0m Duplicate: GET /dashboard
+  Found in: designer-dashboard.routes.ts and external-process.routes.ts
+[33m⚠[0m Duplicate: POST /receive
+  Found in: embroidery-stock.routes.ts and external-process.routes.ts
+[33m⚠[0m Duplicate: GET /style/:styleId
+  Found in: fabric-costing-run.routes.ts and fabric-costing.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and fabric-processing.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and fabric-processing.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and fabric-processing.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and fabric-procurement.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and fabric-procurement.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and fabric-procurement.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and fabric-procurement.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and fabric-stock.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and fabric-stock.routes.ts
+[33m⚠[0m Duplicate: GET /dashboard
+  Found in: designer-dashboard.routes.ts and fabric-stock.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and fabric-stock.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and fabric-stock.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and fabric-stock.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and finishing.routes.ts
+[33m⚠[0m Duplicate: GET /style-size-summary
+  Found in: cutting.routes.ts and finishing.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and garmentPhysicalTests.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and garmentPhysicalTests.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and garmentPhysicalTests.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and garmentPhysicalTests.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and grn.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and grn.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and grn.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and health.routes.ts
+[33m⚠[0m Duplicate: GET /search
+  Found in: agency.routes.ts and hsnSacMaster.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and invoice.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and invoice.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and invoice.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and invoice.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and label.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and label.routes.ts
+[33m⚠[0m Duplicate: GET /template
+  Found in: button.routes.ts and label.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and label.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and label.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and label.routes.ts
+[33m⚠[0m Duplicate: POST /bulk-import
+  Found in: button.routes.ts and label.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and lace.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and lace.routes.ts
+[33m⚠[0m Duplicate: GET /template
+  Found in: button.routes.ts and lace.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and lace.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and lace.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and lace.routes.ts
+[33m⚠[0m Duplicate: POST /bulk-import
+  Found in: button.routes.ts and lace.routes.ts
+[33m⚠[0m Duplicate: POST /calculate
+  Found in: fabric-costing.routes.ts and laceCosting.routes.ts
+[33m⚠[0m Duplicate: POST /batch-calculate
+  Found in: fabric-costing.routes.ts and laceCosting.routes.ts
+[33m⚠[0m Duplicate: GET /statistics
+  Found in: .template.routes.ts and laceDefect.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and laceDefect.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and laceDefect.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and laceDefect.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and laceIssueNote.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and laceIssueNote.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and laceIssueNote.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and laceLabDip.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and laceLabDip.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and laceLabDip.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and laceLabDip.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and laceLabDip.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and laceStock.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and laceStock.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and laceStock.routes.ts
+[33m⚠[0m Duplicate: GET /categories
+  Found in: componentMasters.routes.ts and lookup.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and lookup.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and lookup.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and lookup.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and lookup.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and machine-part.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and machine-part.routes.ts
+[33m⚠[0m Duplicate: GET /template
+  Found in: button.routes.ts and machine-part.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and machine-part.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and machine-part.routes.ts
+[33m⚠[0m Duplicate: POST /bulk-import
+  Found in: button.routes.ts and machine-part.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and masterDataDashboard.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and material-master.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and material-master.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and material-master.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and material-master.routes.ts
+[33m⚠[0m Duplicate: GET /categories
+  Found in: componentMasters.routes.ts and material.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and material.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and material.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and material.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and material.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and mood-board.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and mood-board.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and mood-board.routes.ts
+[33m⚠[0m Duplicate: PATCH /:id
+  Found in: .template.routes.ts and mood-board.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and mood-board.routes.ts
+[33m⚠[0m Duplicate: POST /calculate
+  Found in: fabric-costing.routes.ts and mrp.routes.ts
+[33m⚠[0m Duplicate: GET /dashboard
+  Found in: designer-dashboard.routes.ts and mrp.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and notification.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and notification.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and order-label.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and order.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and order.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and order.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and order.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and order.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and other-material.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and other-material.routes.ts
+[33m⚠[0m Duplicate: GET /template
+  Found in: button.routes.ts and other-material.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and other-material.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and other-material.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and other-material.routes.ts
+[33m⚠[0m Duplicate: POST /bulk-import
+  Found in: button.routes.ts and other-material.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and packaging.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and packaging.routes.ts
+[33m⚠[0m Duplicate: GET /template
+  Found in: button.routes.ts and packaging.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and packaging.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and packaging.routes.ts
+[33m⚠[0m Duplicate: POST /bulk-import
+  Found in: button.routes.ts and packaging.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and paymentTerms.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and paymentTerms.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and paymentTerms.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and paymentTerms.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: GET /summary/style/:styleId
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: GET /summary/processor/:processorId
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: GET /process-pos
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: GET /process-pos/:id
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: POST /process-pos
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: DELETE /process-pos/:id
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: GET /lab-dips/search
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: GET /lab-dips/approved
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: GET /lab-dips
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: GET /lab-dips/:id
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: POST /lab-dips
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: DELETE /lab-dips/:id
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: GET /jobs
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: GET /jobs/:id
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: POST /jobs
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: DELETE /jobs/:id
+  Found in: dyeing.routes.ts and printing.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and processingBatch.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and processingBatch.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and processingBatch.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and processingBatch.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and processingDelivery.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and processingStage.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and processingStage.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and processingStage.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and processor-rate-card-v2.routes.ts
+[33m⚠[0m Duplicate: GET /processors
+  Found in: fabric-costing.routes.ts and processor-rate-card-v2.routes.ts
+[33m⚠[0m Duplicate: GET /hierarchy
+  Found in: chartOfAccounts.routes.ts and productCategory.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and productCategory.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and productCategory.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and productionStatus.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and productionStatus.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and purchaseOrder.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and purchaseOrder.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and purchaseOrder.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and purchaseOrder.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and quotation.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and quotation.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and quotation.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and quotation.routes.ts
+[33m⚠[0m Duplicate: GET /types
+  Found in: material-master.routes.ts and report.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and report.routes.ts
+[33m⚠[0m Duplicate: GET /search
+  Found in: agency.routes.ts and saleOrder.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and saleOrder.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and sample.routes.ts
+[33m⚠[0m Duplicate: GET /search
+  Found in: agency.routes.ts and sample.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and sample.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and sample.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and sample.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and sample.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and sample.routes.ts
+[33m⚠[0m Duplicate: GET /search
+  Found in: agency.routes.ts and season.routes.ts
+[33m⚠[0m Duplicate: GET /types
+  Found in: material-master.routes.ts and season.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and season.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and season.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and season.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and season.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and season.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and size-category.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and size-category.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and size-category.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and size-category.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and stitching.routes.ts
+[33m⚠[0m Duplicate: GET /style-size-summary
+  Found in: cutting.routes.ts and stitching.routes.ts
+[33m⚠[0m Duplicate: GET /available-managers
+  Found in: finishing.routes.ts and stitching.routes.ts
+[33m⚠[0m Duplicate: GET /issues
+  Found in: finishing.routes.ts and stitching.routes.ts
+[33m⚠[0m Duplicate: GET /issues/:id
+  Found in: finishing.routes.ts and stitching.routes.ts
+[33m⚠[0m Duplicate: POST /issues
+  Found in: finishing.routes.ts and stitching.routes.ts
+[33m⚠[0m Duplicate: DELETE /issues/:id
+  Found in: finishing.routes.ts and stitching.routes.ts
+[33m⚠[0m Duplicate: POST /issues/:id/start
+  Found in: finishing.routes.ts and stitching.routes.ts
+[33m⚠[0m Duplicate: POST /issues/:id/complete
+  Found in: finishing.routes.ts and stitching.routes.ts
+[33m⚠[0m Duplicate: POST /issues/:id/generate-transfer-slip
+  Found in: finishing.routes.ts and stitching.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and stockCount.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and stockCount.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and stockCount.routes.ts
+[33m⚠[0m Duplicate: POST /:id/cancel
+  Found in: order.routes.ts and stockCount.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and stockLevel.routes.ts
+[33m⚠[0m Duplicate: GET /valuation
+  Found in: fabric-stock.routes.ts and stockLevel.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and stockLevel.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and stockMovement.routes.ts
+[33m⚠[0m Duplicate: GET /unified
+  Found in: stockLevel.routes.ts and stockMovement.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and stockMovement.routes.ts
+[33m⚠[0m Duplicate: GET /search
+  Found in: agency.routes.ts and stockProductionOrder.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and style.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and style.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and style.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and styleCosting.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and styleCosting.routes.ts
+[33m⚠[0m Duplicate: GET /style/:styleId
+  Found in: fabric-costing-run.routes.ts and styleCosting.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and supplier.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and supplier.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and supplier.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and supplier.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and taxMasters.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and taxMasters.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and taxMasters.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and taxMasters.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and taxMasters.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and tcs.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and tcs.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and tcs.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and tcs.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and tcs.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and tds.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and tds.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and tds.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and tds.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and tds.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and template.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and template.routes.ts
+[33m⚠[0m Duplicate: GET /modules
+  Found in: permission.routes.ts and template.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and template.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and template.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and testingLabs.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and testingLabs.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and testingLabs.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and testingLabs.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and testingLabs.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and testTemplates.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and testTemplates.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and testTemplates.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and testTemplates.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and thread-stock.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and thread-stock.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and thread-stock.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and thread-stock.routes.ts
+[33m⚠[0m Duplicate: GET /template
+  Found in: button.routes.ts and thread.routes.ts
+[33m⚠[0m Duplicate: POST /bulk-import
+  Found in: button.routes.ts and thread.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and thread.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and thread.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and thread.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and thread.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and trim-dashboard.routes.ts
+[33m⚠[0m Duplicate: GET /search
+  Found in: agency.routes.ts and trim-dashboard.routes.ts
+[33m⚠[0m Duplicate: GET /summary
+  Found in: cutting.routes.ts and trim-stock.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and user.routes.ts
+[33m⚠[0m Duplicate: GET /pending
+  Found in: cad-planning.routes.ts and user.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and user.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and user.routes.ts
+[33m⚠[0m Duplicate: PUT /:id
+  Found in: .template.routes.ts and user.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and user.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and warehouse.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and warehouse.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and warehouse.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and warehouse.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and workOrder.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and workOrder.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and workOrder.routes.ts
+[33m⚠[0m Duplicate: PATCH /:id/approve
+  Found in: grn.routes.ts and workOrder.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and workOrder.routes.ts
+[33m⚠[0m Duplicate: POST /
+  Found in: .template.routes.ts and zipper.routes.ts
+[33m⚠[0m Duplicate: GET /
+  Found in: .template.routes.ts and zipper.routes.ts
+[33m⚠[0m Duplicate: GET /template
+  Found in: button.routes.ts and zipper.routes.ts
+[33m⚠[0m Duplicate: GET /:id
+  Found in: .template.routes.ts and zipper.routes.ts
+[33m⚠[0m Duplicate: DELETE /:id
+  Found in: .template.routes.ts and zipper.routes.ts
+[33m⚠[0m Duplicate: POST /bulk-import
+  Found in: button.routes.ts and zipper.routes.ts
+[33m⚠ Found 343 issue(s)[0m
+

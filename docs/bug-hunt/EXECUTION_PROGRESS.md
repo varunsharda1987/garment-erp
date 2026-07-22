@@ -158,3 +158,30 @@ wrong GST; ASN/DN 500s). F2 ~11 — **our materials uniqueness fix is only 9 of 
 - **Guardrail is file-level** (misses unsynced write paths inside an otherwise-synced file) — the derived-view redesign removes the need for it.
 - **Don't run `prisma migrate dev` casually** — it created a "modified/reset" scare from stale failed records (now cleaned).
 - User is **non-technical** — explain fixes in plain terms; commit only the assistant's own files; never touch the user's WIP files or `.env`.
+
+---
+
+## 📦 T2-1 progress (derived on-hand inventory) — see `T2-1_DERIVED_STOCK_PLAN.md` for the full staged plan
+
+- **Stage A** (build derived source) — DONE. `stock_settings` + `derived_stock_view`; drift report = derived==ledger
+  for 43/44 (material,warehouse) pairs; 1 genuine drift (BTN-0001 ledger 75 vs physical 300).
+- **Stage B1** (reorder alerts) + **B2** (Stock Levels page) — DONE + live-verified via Playwright.
+- **Stage B3** (on-hand DECISION readers) — DONE + live. Repointed MRP (`mrp.service`, `material-requirement.service`),
+  production-blocking (×2), and the dashboard low-stock KPI to `getDerivedOnHand` / `countDerivedBelowThreshold`.
+  Parallel-run diff (`backend/scripts/diff-derived-onhand.ts`): only BTN-0001 changes (75→300, correct physical);
+  dashboard KPI 5→4 (dropped a phantom row). Build clean, `pm2 reload garment-erp-api` OK.
+  **Deferred within B3:** `stockMovement.service` reads (they're the ledger *writers* → Stage C);
+  `stockCount.service` worksheet builder (→ B5 frontend/worksheet pass).
+- **Stage B-valuation** (WAC dual-write) — WRITE HALF DONE + live; READ half deferred to Stage C. A 9-agent
+  verification workflow (reader/writer sweep + 4 adversarial checks, all SAFE) ruled: valuation rate is NOT
+  derivable (it's a stored WAC), so make `stock_settings` a live WAC target FIRST, repoint zero readers.
+  Dual-wrote the rate into `stock_settings` from all 3 write sites (both WAC engines + manual admin), guarded
+  `if (rate)`, update-only (never clobbers reorder/min/max). Verified non-destructively: mirror in sync,
+  SUM(stockValue) unchanged (no reader moved), real in-tx `increaseStock` mirrored settings↔ledger then rolled
+  back. See `T2-1_DERIVED_STOCK_PLAN.md` for the deferred-reader list + the ⛔ Stage-C sequencing gate.
+  Surfaced 2 pre-existing bugs (logged, not fixed): `getStockSummaryByType` 500s on `unified_stock_view`
+  (no stockValue column); `mat-pkg-0001` has stockValue≠qty×rate drift.
+- **Next:** B5 (frontend + stockCount worksheet) → Stage C (stop writing `stock_levels.quantity`; re-backfill
+  `stock_settings.valuationRate`; repoint valuation readers as one atomic set; retire the 5 writers + guardrail)
+  → Stage D (cleanup). Reminder: PM2 runs compiled `dist/`, so every backend repoint needs `npm run build` +
+  `pm2 reload garment-erp-api` to go live.

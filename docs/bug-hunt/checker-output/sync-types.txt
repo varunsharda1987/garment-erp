@@ -1,0 +1,139 @@
+
+[1m[36m=== Type Synchronization Report ===[0m
+
+[1mSummary:[0m
+  Backend type files:  24
+  Frontend type files: 91
+  Matched files:       [32m16[0m
+  Backend only:        [33m8[0m
+  Frontend only:       [33m75[0m
+
+[1mSerializer Mappings:[0m
+  Total mappings: 194
+  [36m(snake_case → camelCase transformations defined in backend/src/utils/serializer.ts)[0m
+  [1mExamples:[0m
+    materialCategories → category
+    inventoryStock → inventoryStock
+    styleCategories → category
+    styleComponents → components
+    styleProcesses → processes
+    styleCosting → costing
+    styleProductionTracking → productionTracking
+    styleValueAdditions → valueAdditions
+    stylePackaging → packaging
+    styleFabrics → fabrics
+    ... and 184 more
+
+[1m[32m✓ Matched Type Files (16):[0m
+  [32m✓[0m auth.types.ts                       (B: 0.9KB, F: 0.7KB)
+  [32m✓[0m cad-planning.types.ts               (B: 8.0KB, F: 17.5KB)
+  [32m✓[0m color.types.ts                      (B: 2.7KB, F: 3.7KB)
+  [32m✓[0m componentGroup.types.ts             (B: 1.8KB, F: 1.0KB)
+  [32m✓[0m costSheetPOGeneration.types.ts      (B: 9.4KB, F: 4.7KB)
+  [32m✓[0m grn.types.ts                        (B: 8.2KB, F: 8.3KB)
+  [32m✓[0m gst.types.ts                        (B: 1.0KB, F: 2.5KB)
+  [32m✓[0m material-master.types.ts            (B: 13.1KB, F: 7.5KB)
+  [32m✓[0m mrp.types.ts                        (B: 11.7KB, F: 10.3KB)
+  [32m✓[0m patternPart.types.ts                (B: 3.3KB, F: 1.1KB)
+  [32m✓[0m permission.types.ts                 (B: 1.5KB, F: 1.4KB)
+  [32m✓[0m purchaseOrder.types.ts              (B: 7.6KB, F: 14.0KB)
+  [32m✓[0m season.types.ts                     (B: 2.7KB, F: 3.7KB)
+  [32m✓[0m style-import.types.ts               (B: 11.6KB, F: 0.9KB)
+  [32m✓[0m style.types.ts                      (B: 7.6KB, F: 22.5KB)
+  [32m✓[0m testing.types.ts                    (B: 11.8KB, F: 9.2KB)
+
+[1m[33m⚠ Backend Only (8):[0m
+  [33m![0m customer-accessories.types.ts       (1.0KB)
+  [33m![0m fabric.types.ts                     (4.5KB)
+  [33m![0m greige.types.ts                     (3.9KB)
+  [33m![0m order-bom.types.ts                  (6.3KB)
+  [33m![0m prisma.types.ts                     (3.3KB)
+  [33m![0m processor-rate-v2.types.ts          (5.9KB)
+  [33m![0m style-accessories.types.ts          (1.3KB)
+  [33m![0m style-variant.types.ts              (0.5KB)
+  [36mThese backend types may need corresponding frontend types.[0m
+
+[1m[33m⚠ Frontend Only (75):[0m
+  [33m![0m agency.types.ts                     (1.1KB)
+  [33m![0m agent.types.ts                      (1.3KB)
+  [33m![0m button.types.ts                     (4.4KB)
+  [33m![0m challan.types.ts                    (5.2KB)
+  [33m![0m componentMaster.types.ts            (1.1KB)
+  [33m![0m costSheet.types.ts                  (12.0KB)
+  [33m![0m creditNote.types.ts                 (2.6KB)
+  [33m![0m customer.types.ts                   (5.4KB)
+  [33m![0m customerSizePreset.types.ts         (1.2KB)
+  [33m![0m cutting.types.ts                    (13.0KB)
+  [33m![0m dashboard.types.ts                  (0.7KB)
+  [33m![0m debitNote.types.ts                  (2.2KB)
+  [33m![0m designerDashboard.types.ts          (1.7KB)
+  [33m![0m dispatch.types.ts                   (8.1KB)
+  [33m![0m dyeing.types.ts                     (7.8KB)
+  [33m![0m elastic.types.ts                    (3.8KB)
+  [33m![0m embroidery.types.ts                 (6.5KB)
+  [33m![0m export.types.ts                     (0.7KB)
+  [33m![0m external-process.types.ts           (4.2KB)
+  [33m![0m fabric-greige.types.ts              (11.2KB)
+  [33m![0m fabricCosting.types.ts              (16.4KB)
+  [33m![0m fabricStock.types.ts                (0.4KB)
+  [33m![0m financial.types.ts                  (6.1KB)
+  [33m![0m finishing.types.ts                  (6.4KB)
+  [33m![0m genericTrim.types.ts                (18.5KB)
+  [33m![0m greigeStock.types.ts                (0.2KB)
+  [33m![0m hsnSacMaster.types.ts               (1.4KB)
+  [33m![0m import.types.ts                     (0.9KB)
+  [33m![0m inventory.types.ts                  (9.1KB)
+  [33m![0m invoice.types.ts                    (5.0KB)
+  [33m![0m label.types.ts                      (9.0KB)
+  [33m![0m lace.types.ts                       (5.1KB)
+  [33m![0m laceDefect.types.ts                 (4.8KB)
+  [33m![0m laceLabDip.types.ts                 (3.6KB)
+  [33m![0m laceStock.types.ts                  (7.9KB)
+  [33m![0m location.types.ts                   (1.7KB)
+  [33m![0m lookup.types.ts                     (1.9KB)
+  [33m![0m machinePart.types.ts                (2.2KB)
+  [33m![0m material-quick-add.types.ts         (2.1KB)
+  [33m![0m material.types.ts                   (6.0KB)
+  [33m![0m moodBoard.types.ts                  (2.6KB)
+  [33m![0m order.types.ts                      (6.3KB)
+  [33m![0m orderBom.types.ts                   (6.9KB)
+  [33m![0m orderProductionStatus.types.ts      (6.6KB)
+  [33m![0m otherMaterial.types.ts              (2.1KB)
+  [33m![0m packaging.types.ts                  (6.3KB)
+  [33m![0m permissions.types.ts                (1.7KB)
+  [33m![0m printing.types.ts                   (10.9KB)
+  [33m![0m processGuide.types.ts               (1.3KB)
+  [33m![0m processing.types.ts                 (11.6KB)
+  [33m![0m processorRateCardV2.types.ts        (9.2KB)
+  [33m![0m productCategory.types.ts            (3.0KB)
+  [33m![0m production.types.ts                 (12.0KB)
+  [33m![0m productionStatus.types.ts           (4.6KB)
+  [33m![0m quotation.types.ts                  (4.4KB)
+  [33m![0m saleOrder.types.ts                  (2.9KB)
+  [33m![0m sample.types.ts                     (7.7KB)
+  [33m![0m serviceRequirement.types.ts         (10.6KB)
+  [33m![0m sizeCategory.types.ts               (2.3KB)
+  [33m![0m stitching.types.ts                  (6.3KB)
+  [33m![0m stockProductionOrder.types.ts       (2.2KB)
+  [33m![0m style-material-bom.types.ts         (3.8KB)
+  [33m![0m style-stock.types.ts                (4.4KB)
+  [33m![0m styleComment.types.ts               (1.0KB)
+  [33m![0m styleImage.types.ts                 (1.1KB)
+  [33m![0m supplier.types.ts                   (11.4KB)
+  [33m![0m system-settings.types.ts            (0.6KB)
+  [33m![0m taxMaster.types.ts                  (1.2KB)
+  [33m![0m tcs.types.ts                        (1.7KB)
+  [33m![0m tds.types.ts                        (2.4KB)
+  [33m![0m techSpecs.types.ts                  (3.0KB)
+  [33m![0m template.types.ts                   (1.0KB)
+  [33m![0m thread.types.ts                     (7.8KB)
+  [33m![0m user.types.ts                       (1.3KB)
+  [33m![0m zipper.types.ts                     (3.8KB)
+  [36mThese may be UI-specific types (forms, state, etc.).[0m
+
+[1m[36mKey Reminders:[0m
+  1. Backend uses snake_case for Prisma relations (e.g., brand_categories)
+  2. Serializer converts to camelCase in API responses (e.g., brandCategories)
+  3. Frontend MUST use camelCase when accessing nested relations
+  4. Check RELATION_MAPPINGS in serializer.ts for custom mappings
+

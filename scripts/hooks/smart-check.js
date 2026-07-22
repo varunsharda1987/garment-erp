@@ -239,6 +239,50 @@ function checkCurrencyFormat(tsFiles) {
   );
 }
 
+/** Check (C1): controller re-parses req.body/query after route validation — BLOCKING new + ratchet. */
+function checkControllerReparse(tsFiles) {
+  console.log(`\n${c.cyan}Checking for controller re-parse (dual-schema validation)...${c.reset}`);
+  return runRatchetedCheck(
+    'controller re-parse(s) of req.body/query (dual-schema drift)',
+    detectors.controllerReparse(tsFiles),
+    'controller-reparse-baseline.json',
+    'Validate ONCE at the route with validateBody/validateQuery using this schema; type req.body in the controller (or mark `// allow-reparse`). If intentional, add the key to scripts/hooks/controller-reparse-baseline.json.'
+  );
+}
+
+/** Check (C2): global prisma client WRITE inside a $transaction callback — BLOCKING new + ratchet. */
+function checkGlobalPrismaInTx(tsFiles) {
+  console.log(`\n${c.cyan}Checking for global-prisma writes inside transactions...${c.reset}`);
+  return runRatchetedCheck(
+    'global-prisma write(s) inside $transaction (escape rollback)',
+    detectors.globalPrismaInTx(tsFiles),
+    'global-prisma-tx-baseline.json',
+    'Use the tx client for every write inside the $transaction callback (or mark `// allow-global-prisma`). If intentional, add the key to scripts/hooks/global-prisma-tx-baseline.json.'
+  );
+}
+
+/** Check (C3): raw relational compare between Decimal-looking fields — BLOCKING new + ratchet. */
+function checkDecimalCompare(tsFiles) {
+  console.log(`\n${c.cyan}Checking for raw Decimal comparisons...${c.reset}`);
+  return runRatchetedCheck(
+    'raw Decimal comparison(s) (compare as strings)',
+    detectors.decimalCompare(tsFiles),
+    'decimal-compare-baseline.json',
+    'Wrap both sides in Number() or use .gte()/.lte() (or mark `// allow-decimal-compare`). If intentional, add the key to scripts/hooks/decimal-compare-baseline.json.'
+  );
+}
+
+/** Check (C4): count()/findFirst-max+1 document numbering — BLOCKING new + ratchet. */
+function checkCountNumbering(tsFiles) {
+  console.log(`\n${c.cyan}Checking for count-based document numbering...${c.reset}`);
+  return runRatchetedCheck(
+    'count()/max+1 number generator(s) (racy duplicates)',
+    detectors.countNumbering(tsFiles),
+    'count-numbering-baseline.json',
+    'Use a sequence table with retry-on-P2002 (or mark `// allow-count-numbering`). If intentional, add the key to scripts/hooks/count-numbering-baseline.json.'
+  );
+}
+
 /**
  * Check: Type synchronization between frontend and backend
  */
@@ -590,6 +634,10 @@ function runAllModeChecks() {
   if (!checkDatetimeSchema(schemaFiles)) ok = false;
   if (!checkShrinkageDivide(tsFiles)) ok = false;
   if (!checkCurrencyFormat(tsFiles)) ok = false;
+  if (!checkControllerReparse(tsFiles)) ok = false;
+  if (!checkGlobalPrismaInTx(tsFiles)) ok = false;
+  if (!checkDecimalCompare(tsFiles)) ok = false;
+  if (!checkCountNumbering(tsFiles)) ok = false;
 
   console.log(`\n${c.bright}${c.blue}═══════════════════════════════════════════════════${c.reset}`);
   if (ok) {
@@ -659,6 +707,12 @@ function main() {
     checksRun++;
     if (!checkShrinkageDivide(categories.typescript)) allPassed = false;
     if (!checkCurrencyFormat(categories.typescript)) allPassed = false;
+    // Phase-3 guardrails: dual-schema re-parse, rollback-escaping writes, Decimal string-compare,
+    // count-based numbering (BLOCKING new + ratchet)
+    if (!checkControllerReparse(categories.typescript)) allPassed = false;
+    if (!checkGlobalPrismaInTx(categories.typescript)) allPassed = false;
+    if (!checkDecimalCompare(categories.typescript)) allPassed = false;
+    if (!checkCountNumbering(categories.typescript)) allPassed = false;
   }
 
   // Type file changes → check type sync

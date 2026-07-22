@@ -204,20 +204,30 @@ function enumDrift(relFiles) {
       const pEnum = prisma.get(nameHint.toLowerCase());
       if (!pEnum) continue; // no clearly-corresponding Prisma enum → skip (false-positive guard)
       const values = [...m[3].matchAll(/['"`]([^'"`]+)['"`]/g)].map((x) => x[1]);
-      // Only treat this as a Prisma-backed enum if it MOSTLY matches (>= half its values are in
-      // the Prisma enum). A near-zero overlap means the Zod enum isn't really that Prisma enum
-      // (different casing/purpose, e.g. display labels) — flagging it would be noise.
+      if (!values.length) continue;
+      // HARDENED (Phase-3 review): the old "skip if < half the values match" guard is exactly how a
+      // ZERO-overlap SampleTypeEnum shipped and killed sample creation — a name that matches a Prisma
+      // enum but shares no values is the WORST drift, not noise. Name-matched enums are now always
+      // compared: zero overlap → one loud violation; partial → per-missing-value violations.
       const matched = values.filter((v) => pEnum.values.has(v)).length;
-      if (!values.length || matched / values.length < 0.5) continue;
       const line = lineOf(content, m.index);
-      for (const v of values) {
-        if (!pEnum.values.has(v)) {
-          out.push({
-            key: `${rel} :: ${nameHint} :: ${v}`,
-            file: rel,
-            line,
-            detail: `Zod value '${v}' is not in Prisma enum ${pEnum.name}`,
-          });
+      if (matched === 0) {
+        out.push({
+          key: `${rel} :: ${nameHint} :: ZERO-OVERLAP`,
+          file: rel,
+          line,
+          detail: `Zod enum ${nameHint} shares NO values with Prisma enum ${pEnum.name} — the endpoint using it is dead (every real value 400s, every Zod value 500s)`,
+        });
+      } else {
+        for (const v of values) {
+          if (!pEnum.values.has(v)) {
+            out.push({
+              key: `${rel} :: ${nameHint} :: ${v}`,
+              file: rel,
+              line,
+              detail: `Zod value '${v}' is not in Prisma enum ${pEnum.name}`,
+            });
+          }
         }
       }
     }
@@ -300,4 +310,144 @@ function currencyFormat(relFiles) {
   return out;
 }
 
-module.exports = { perRouteValidation, enumDrift, datetimeSchema, shrinkageDivide, currencyFormat, REPO_ROOT };
+// C1 — controller re-parses req.body/req.query with its own schema after route-level validation.
+// Two independently-maintained schemas for one request ALWAYS drift (Phase-3: the cost-sheet edit
+// endpoint silently discarded every edit because the route schema and controller schema shared zero
+// fields). Rule: exactly ONE schema per endpoint, applied by the route's validateBody/validateQuery.
+function controllerReparse(relFiles) {
+  const out = [];
+  const re = /(\w+)\.(?:safeParse|parse)\(\s*req\.(body|query)\s*\)/g;
+  for (const rel of relFiles) {
+    if (!/controllers\/.*\.controller\.ts$/.test(rel.replace(/\\/g, '/'))) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(content))) {
+      const lineStart = content.lastIndexOf('\n', m.index) + 1;
+      let lineEnd = content.indexOf('\n', m.index);
+      if (lineEnd === -1) lineEnd = content.length;
+      if (/allow-reparse/.test(content.slice(lineStart, lineEnd))) continue; // opt-out
+      out.push({
+        key: `${rel} :: ${m[1]}.parse(req.${m[2]})`,
+        file: rel,
+        line: lineOf(content, m.index),
+        detail: `controller re-parses req.${m[2]} with ${m[1]} — validate ONCE at the route (validateBody/validateQuery) with this schema and type req.${m[2]} instead`,
+      });
+    }
+  }
+  return out;
+}
+
+// C2 — the GLOBAL prisma client used for a WRITE inside a $transaction callback. It opens a second
+// connection and ESCAPES ROLLBACK (Phase-3: GRN receiving called createStockIn on the global client
+// inside the receive tx — stock rows survived a rolled-back receipt). Use the tx client.
+function globalPrismaInTx(relFiles) {
+  const out = [];
+  const txRe = /\$transaction\s*\(/g;
+  const writeRe = /(?:^|[^.\w])((?:this\.)?prisma)\.(\w+)\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(/g;
+  for (const rel of relFiles) {
+    if (!/\.(ts)$/.test(rel)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    txRe.lastIndex = 0;
+    let t;
+    while ((t = txRe.exec(content))) {
+      const call = sliceBalanced(content, t.index + t[0].length - 1);
+      // only interactive transactions (async callback) — array-form txs pass promises built elsewhere
+      if (!/^\(\s*async/.test(call)) continue;
+      writeRe.lastIndex = 0;
+      let w;
+      while ((w = writeRe.exec(call))) {
+        if (w[2].startsWith('$')) continue;
+        const abs = t.index + t[0].length - 1 + w.index;
+        const lineStart = content.lastIndexOf('\n', abs) + 1;
+        let lineEnd = content.indexOf('\n', abs);
+        if (lineEnd === -1) lineEnd = content.length;
+        if (/allow-global-prisma/.test(content.slice(lineStart, lineEnd))) continue; // opt-out
+        out.push({
+          key: `${rel} :: tx :: ${w[1]}.${w[2]}.${w[3]}`,
+          file: rel,
+          line: lineOf(content, abs),
+          detail: `${w[1]}.${w[2]}.${w[3]}() inside a $transaction callback — use the tx client or the write escapes rollback`,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+// C3 — Prisma Decimal fields compared with a raw relational operator. Decimals compare as STRINGS
+// ("95" >= "100" is true — Phase-3: the fully-received gate flipped on digit count). Both sides
+// must look like money/qty property accesses; wrapping in Number() breaks the pattern (the fix).
+function decimalCompare(relFiles) {
+  const out = [];
+  const FIELD = String.raw`\w+\.\w*(?:Quantity|Amount|Qty|Price|Cost|Balance|Total)`;
+  const re = new RegExp(`(${FIELD})\\s*(>=|<=|>|<)\\s*(${FIELD})`, 'g');
+  for (const rel of relFiles) {
+    if (!/\.(ts|tsx)$/.test(rel)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(content))) {
+      const lineStart = content.lastIndexOf('\n', m.index) + 1;
+      let lineEnd = content.indexOf('\n', m.index);
+      if (lineEnd === -1) lineEnd = content.length;
+      const lineText = content.slice(lineStart, lineEnd);
+      if (/allow-decimal-compare/.test(lineText)) continue; // opt-out
+      // Number(x.fooQty) >= ... doesn't match (the ')' sits between field and operator), but skip
+      // lines that already coerce BOTH sides some other way (.toNumber() etc.)
+      if (/\.toNumber\(\)/.test(lineText)) continue;
+      out.push({
+        key: `${rel} :: ${m[1]}${m[2]}${m[3]}`.replace(/\s+/g, ''),
+        file: rel,
+        line: lineOf(content, m.index),
+        detail: `raw '${m[2]}' between ${m[1]} and ${m[3]} — Prisma Decimals compare as strings; wrap both in Number() or use .gte()/.lte()`,
+      });
+    }
+  }
+  return out;
+}
+
+// C4 — count()/findFirst-max+1 document numbering: racy (duplicate legal numbers under concurrency)
+// and permanently wedges at padded limits (Phase-3: CN numbering stuck at #999). Use a sequence
+// table with retry-on-P2002.
+function countNumbering(relFiles) {
+  const out = [];
+  const fnRe = /(?:async\s+)?(generate\w*(?:Number|Code)\w*)\s*\(/g;
+  for (const rel of relFiles) {
+    if (!/\.(ts)$/.test(rel)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    fnRe.lastIndex = 0;
+    let m;
+    while ((m = fnRe.exec(content))) {
+      // examine the ~50 lines after the generator's definition
+      const slice = content.slice(m.index, m.index + 2500);
+      if (/allow-count-numbering/.test(slice.slice(0, 200))) continue; // opt-out near the signature
+      if (/\.count\s*\(/.test(slice) || /findFirst\s*\([\s\S]{0,300}?orderBy/.test(slice)) {
+        out.push({
+          key: `${rel} :: ${m[1]}`,
+          file: rel,
+          line: lineOf(content, m.index),
+          detail: `${m[1]}() derives the next number from count()/findFirst-max — racy duplicates + wedges at padded limits; use a sequence table with retry-on-P2002`,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+module.exports = {
+  perRouteValidation,
+  enumDrift,
+  datetimeSchema,
+  shrinkageDivide,
+  currencyFormat,
+  controllerReparse,
+  globalPrismaInTx,
+  decimalCompare,
+  countNumbering,
+  REPO_ROOT,
+};

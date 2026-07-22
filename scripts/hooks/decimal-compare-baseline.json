@@ -1,0 +1,6 @@
+[
+  "backend/src/services/costSheetPOGeneration.service.ts::item.receivedQuantity>=item.orderedQuantity",
+  "frontend/src/pages/CostSheetDetail.tsx::costSheet.closedCost>=costSheet.totalProductCost",
+  "frontend/src/pages/CostSheetDetail.tsx::costSheet.closedCost>costSheet.totalProductCost",
+  "frontend/src/pages/ProcessorRateCardPage.tsx::slab.minQuantity>=slab.maxQuantity"
+]

@@ -44,7 +44,9 @@ export {
  * POST /api/style-costing
  */
 export const createCostSheet = async (req: Request, res: Response): Promise<void> => {
-  const validatedData = CreateCostSheetSchema.parse(req.body);
+  // Body already validated by the route's validateBody(CreateCostSheetSchema) — validateBody REPLACES
+  // req.body with the parse result (defaults materialized), so no re-parse here.
+  const validatedData = req.body as z.infer<typeof CreateCostSheetSchema>;
   const userId = req.user?.userId;
 
   if (!userId) {

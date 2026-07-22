@@ -4,7 +4,6 @@
  */
 
 import { Request, Response } from 'express';
-import { z } from 'zod';
 import {
   calculateRequirementsFromWorkOrder,
   suggestProcessorForService,
@@ -23,76 +22,21 @@ import {
 } from '../services/work-order-service-requirement.service';
 import { ServiceType, ServiceRequirementStatus, RequirementSource } from '@prisma/client';
 import { ValidationError } from '../errors';
-
-// ============================================
-// VALIDATION SCHEMAS
-// ============================================
-
-const CalculateServicesSchema = z.object({
-  userId: z.string().uuid('Invalid user ID'),
-});
-
-const SuggestProcessorSchema = z.object({
-  serviceType: z.nativeEnum(ServiceType, { message: 'Invalid service type' }),
-  styleId: z.string().uuid('Invalid style ID').optional(),
-});
-
-const SuggestProcessorsForRequirementsSchema = z.object({
-  requirementIds: z.array(z.string().uuid()).min(1, 'At least one requirement ID is required'),
-});
-
-const BulkAssignProcessorsSchema = z.object({
-  assignments: z
-    .array(
-      z.object({
-        requirementId: z.string().uuid('Invalid requirement ID'),
-        processorId: z.string().uuid('Invalid processor ID'),
-      })
-    )
-    .min(1, 'At least one assignment is required'),
-});
-
-const AutoAssignProcessorsSchema = z.object({
-  requirementIds: z.array(z.string().uuid()).min(1, 'At least one requirement ID is required'),
-  minConfidence: z.enum(['high', 'medium']).optional().default('medium'),
-});
-
-const GroupByProcessorSchema = z.object({
-  requirementIds: z.array(z.string().uuid()).min(1, 'At least one requirement ID is required'),
-});
-
-const GenerateServicePOSchema = z.object({
-  processorId: z.string().uuid('Invalid processor ID'),
-  requirementIds: z.array(z.string().uuid()).min(1, 'At least one requirement ID is required'),
-  expectedDeliveryDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-    message: 'Invalid date format',
-  }),
-  remarks: z.string().optional(),
-});
-
-const BulkGenerateServicePOsSchema = z.object({
-  groups: z
-    .array(
-      z.object({
-        processorId: z.string().uuid('Invalid processor ID'),
-        requirementIds: z.array(z.string().uuid()).min(1, 'At least one requirement ID is required'),
-        expectedDeliveryDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
-          message: 'Invalid date format',
-        }),
-        remarks: z.string().optional(),
-      })
-    )
-    .min(1, 'At least one processor group is required'),
-});
-
-const UpdateServiceExecutionSchema = z.object({
-  jobWorkOrderId: z.string().uuid().optional(),
-  embroiderySendOutId: z.string().uuid().optional(),
-  processingBatchId: z.string().uuid().optional(),
-  actualQuantity: z.number().positive().optional(),
-  actualCost: z.number().positive().optional(),
-  status: z.nativeEnum(ServiceRequirementStatus, { message: 'Invalid status' }),
-});
+// Validation happens at the route layer via validateBody(schema) — see
+// backend/src/routes/service-requirement.routes.ts. The single source of truth
+// for these body schemas is backend/src/schemas/serviceRequirement.schema.ts.
+// Do NOT re-add controller-local schemas or .parse(req.body) calls here.
+import type {
+  CalculateServicesInput,
+  SuggestProcessorInput,
+  SuggestProcessorsBulkInput,
+  BulkAssignProcessorsInput,
+  AutoAssignProcessorsInput,
+  GroupByProcessorInput,
+  GeneratePOInput,
+  BulkGeneratePOsInput,
+  UpdateExecutionInput,
+} from '../schemas/serviceRequirement.schema';
 
 // ============================================
 // CONTROLLER METHODS
@@ -104,7 +48,7 @@ const UpdateServiceExecutionSchema = z.object({
  */
 export const calculateServices = async (req: Request, res: Response) => {
   const { workOrderId } = req.params;
-  const validatedData = CalculateServicesSchema.parse(req.body);
+  const { userId } = req.body as CalculateServicesInput;
 
   if (!workOrderId) {
     throw new ValidationError('Work order ID is required');
@@ -112,7 +56,7 @@ export const calculateServices = async (req: Request, res: Response) => {
 
   const result = await calculateRequirementsFromWorkOrder({
     workOrderId,
-    userId: validatedData.userId,
+    userId,
   });
 
   res.json({
@@ -177,9 +121,9 @@ export const getServiceRequirementsSummaryController = async (req: Request, res:
  * POST /api/service-requirements/suggest-processor
  */
 export const suggestProcessor = async (req: Request, res: Response) => {
-  const validatedData = SuggestProcessorSchema.parse(req.body);
+  const { serviceType, styleId } = req.body as SuggestProcessorInput;
 
-  const suggestion = await suggestProcessorForService(validatedData.serviceType, validatedData.styleId);
+  const suggestion = await suggestProcessorForService(serviceType, styleId);
 
   res.json({
     success: true,
@@ -193,9 +137,9 @@ export const suggestProcessor = async (req: Request, res: Response) => {
  * POST /api/service-requirements/suggest-processors-bulk
  */
 export const suggestProcessorsBulk = async (req: Request, res: Response) => {
-  const validatedData = SuggestProcessorsForRequirementsSchema.parse(req.body);
+  const { requirementIds } = req.body as SuggestProcessorsBulkInput;
 
-  const suggestions = await suggestProcessorsForRequirements(validatedData.requirementIds);
+  const suggestions = await suggestProcessorsForRequirements(requirementIds);
 
   // Summary statistics
   const stats = {
@@ -222,15 +166,15 @@ export const suggestProcessorsBulk = async (req: Request, res: Response) => {
  * POST /api/service-requirements/bulk-assign-processors
  */
 export const bulkAssign = async (req: Request, res: Response) => {
-  const validatedData = BulkAssignProcessorsSchema.parse(req.body);
+  const { assignments } = req.body as BulkAssignProcessorsInput;
 
-  const updatedCount = await bulkAssignProcessors(validatedData.assignments);
+  const updatedCount = await bulkAssignProcessors(assignments);
 
   res.json({
     success: true,
     data: {
       updatedCount,
-      requested: validatedData.assignments.length,
+      requested: assignments.length,
     },
     message: `${updatedCount} service requirement(s) assigned to processors`,
   });
@@ -242,9 +186,10 @@ export const bulkAssign = async (req: Request, res: Response) => {
  * POST /api/service-requirements/auto-assign-processors
  */
 export const autoAssign = async (req: Request, res: Response) => {
-  const validatedData = AutoAssignProcessorsSchema.parse(req.body);
+  const { requirementIds, minConfidence } = req.body as AutoAssignProcessorsInput;
 
-  const result = await autoAssignProcessors(validatedData.requirementIds, validatedData.minConfidence);
+  // minConfidence may be undefined — autoAssignProcessors defaults it to 'medium'
+  const result = await autoAssignProcessors(requirementIds, minConfidence);
 
   res.json({
     success: true,
@@ -259,9 +204,9 @@ export const autoAssign = async (req: Request, res: Response) => {
  * POST /api/service-requirements/group-by-processor
  */
 export const groupByProcessor = async (req: Request, res: Response) => {
-  const validatedData = GroupByProcessorSchema.parse(req.body);
+  const { requirementIds } = req.body as GroupByProcessorInput;
 
-  const result = await groupRequirementsByProcessor(validatedData.requirementIds);
+  const result = await groupRequirementsByProcessor(requirementIds);
 
   // Convert Map to object for JSON serialization
   const groupsObject: Record<string, any> = {};
@@ -285,7 +230,8 @@ export const groupByProcessor = async (req: Request, res: Response) => {
  * POST /api/service-requirements/generate-po
  */
 export const generatePO = async (req: Request, res: Response) => {
-  const validatedData = GenerateServicePOSchema.parse(req.body);
+  // expectedDeliveryDate arrives as a Date (z.coerce.date in generatePOSchema)
+  const { processorId, requirementIds, expectedDeliveryDate, remarks } = req.body as GeneratePOInput;
 
   // Get user ID from request (should be added by auth middleware)
   const userId = req.user?.userId;
@@ -294,10 +240,10 @@ export const generatePO = async (req: Request, res: Response) => {
   }
 
   const result = await generateServicePO({
-    processorId: validatedData.processorId,
-    requirementIds: validatedData.requirementIds,
-    expectedDeliveryDate: new Date(validatedData.expectedDeliveryDate),
-    remarks: validatedData.remarks,
+    processorId,
+    requirementIds,
+    expectedDeliveryDate,
+    remarks,
     userId,
   });
 
@@ -314,7 +260,7 @@ export const generatePO = async (req: Request, res: Response) => {
  * POST /api/service-requirements/generate-pos-bulk
  */
 export const bulkGeneratePOs = async (req: Request, res: Response) => {
-  const validatedData = BulkGenerateServicePOsSchema.parse(req.body);
+  const { groups } = req.body as BulkGeneratePOsInput;
 
   // Get user ID from request (should be added by auth middleware)
   const userId = req.user?.userId;
@@ -322,7 +268,7 @@ export const bulkGeneratePOs = async (req: Request, res: Response) => {
     throw new ValidationError('User ID not found in request');
   }
 
-  const result = await bulkGenerateServicePOs(validatedData.groups, userId);
+  const result = await bulkGenerateServicePOs(groups, userId);
 
   res.json({
     success: true,
@@ -340,7 +286,7 @@ export const bulkGeneratePOs = async (req: Request, res: Response) => {
  */
 export const updateExecution = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const validatedData = UpdateServiceExecutionSchema.parse(req.body);
+  const validatedData = req.body as UpdateExecutionInput;
 
   if (!id) {
     throw new ValidationError('Service requirement ID is required');

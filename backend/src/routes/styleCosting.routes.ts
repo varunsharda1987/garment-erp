@@ -39,9 +39,11 @@ import {
 // UpdateCostSheetSchema (style-costing.utils) is THE schema for PUT /:id — the same one the controller
 // types against. The old schemas/styleCosting.schema.ts updateCostSheetSchema had ZERO field overlap
 // with it, so validateBody stripped every real field and edits were silently discarded (bug-hunt costing-2).
-import { UpdateCostSheetSchema } from '../controllers/style-costing.utils';
+// CreateCostSheetSchema (style-costing.utils) is likewise THE schema for POST / — the legacy
+// createCostSheetSchema in schemas/styleCosting.schema.ts shared only styleId+purpose with it, so
+// validateBody stripped fabricDetails/trimsDetails/cmtCosts and every UI create failed with 400.
+import { UpdateCostSheetSchema, CreateCostSheetSchema } from '../controllers/style-costing.utils';
 import {
-  createCostSheetSchema,
   generateCostSheetSchema,
   approveCostSheetSchema,
   createCostSheetVersionSchema,
@@ -70,7 +72,7 @@ router.post(
   '/',
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  validateBody(createCostSheetSchema),
+  validateBody(CreateCostSheetSchema),
   asyncHandler(createCostSheet)
 );
 

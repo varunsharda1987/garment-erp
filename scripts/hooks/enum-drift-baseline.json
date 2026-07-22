@@ -25,8 +25,6 @@
   "backend/src/schemas/production.schema.ts :: StitchingIssueStatus :: ON_HOLD",
   "backend/src/schemas/production.schema.ts :: StitchingIssueStatus :: PENDING",
   "backend/src/schemas/saleOrder.schema.ts :: SaleOrderStatus :: DELIVERED",
-  "backend/src/schemas/serviceRequirement.schema.ts :: ServiceRequirementStatus :: PROCESSOR_ASSIGNED",
-  "backend/src/schemas/serviceRequirement.schema.ts :: ServiceType :: PLEATING",
   "backend/src/schemas/stock.schema.ts :: materialType :: ZERO-OVERLAP",
   "backend/src/schemas/unifiedPo.schema.ts :: POCategory :: EMBROIDERY",
   "backend/src/schemas/unifiedPo.schema.ts :: POCategory :: OTHER",

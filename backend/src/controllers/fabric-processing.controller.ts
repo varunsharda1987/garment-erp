@@ -25,40 +25,13 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../config/database';
 import { NotFoundError, UnauthorizedError } from '../errors';
+// Body schemas live in ../schemas/fabric-processing.schema and are applied by the
+// route via validateBody() — do not re-add controller-local body schemas here.
+import type { SendForProcessingInput, ReceiveFinishedFabricInput } from '../schemas/fabric-processing.schema';
 
 /**
  * Validation Schemas
  */
-
-// Schema for sending greige for processing
-const sendForProcessingSchema = z.object({
-  procurementId: z.string().uuid(),
-  greigeId: z.string().uuid(),
-  processorId: z.string().uuid(),
-  processingType: z.enum(['DYEING', 'PRINTING', 'CALENDERING', 'SANFORIZING', 'MERCERIZING']),
-  greigeQuantitySent: z.number().positive(),
-  greigeWidth: z.number().positive(),
-  expectedFinishedWidthMin: z.number().positive(),
-  expectedFinishedWidthMax: z.number().positive(),
-  expectedShrinkagePercent: z.number().min(0).max(100),
-  greigeCost: z.number().positive(),
-  processingCost: z.number().positive(),
-  sentDate: z.string().datetime(),
-  expectedReturnDate: z.string().datetime().optional(),
-  batchNumber: z.string().optional(),
-  processSpecifications: z.string().optional(),
-});
-
-// Schema for receiving finished fabric
-const receiveFinishedFabricSchema = z.object({
-  actualFinishedWidth: z.number().positive(),
-  actualQuantityReceived: z.number().positive(),
-  actualShrinkagePercent: z.number().min(0).max(100),
-  processingLossMeters: z.number().min(0),
-  finishedFabricId: z.string().uuid(),
-  actualReturnDate: z.string().datetime(),
-  qualityNotes: z.string().optional(),
-});
 
 // Schema for listing with filters
 const listProcessingSchema = z.object({
@@ -185,7 +158,7 @@ export const sendForProcessing = async (req: Request, res: Response): Promise<vo
   if (!req.user?.id) {
     throw new UnauthorizedError();
   }
-  const data = sendForProcessingSchema.parse(req.body);
+  const data = req.body as SendForProcessingInput;
   const userId = req.user.id;
 
   // Calculate total finished cost
@@ -213,8 +186,8 @@ export const sendForProcessing = async (req: Request, res: Response): Promise<vo
       processingCost: data.processingCost,
       totalFinishedCost,
       costPerMeter,
-      sentDate: new Date(data.sentDate),
-      expectedReturnDate: data.expectedReturnDate ? new Date(data.expectedReturnDate) : null,
+      sentDate: data.sentDate,
+      expectedReturnDate: data.expectedReturnDate ?? null,
       batchNumber: data.batchNumber || null,
       processSpecifications: data.processSpecifications || null,
       processingStatus: 'SENT',
@@ -246,7 +219,7 @@ export const sendForProcessing = async (req: Request, res: Response): Promise<vo
  */
 export const receiveFinishedFabric = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const data = receiveFinishedFabricSchema.parse(req.body);
+  const data = req.body as ReceiveFinishedFabricInput;
 
   // Get the existing batch
   const existingBatch = await prisma.fabric_processing.findUnique({
@@ -304,7 +277,7 @@ export const receiveFinishedFabric = async (req: Request, res: Response): Promis
       varianceFromMillAvg,
       costPerMeter: updatedCostPerMeter,
       finishedFabricId: data.finishedFabricId,
-      actualReturnDate: new Date(data.actualReturnDate),
+      actualReturnDate: data.actualReturnDate,
       qualityNotes: data.qualityNotes || null,
       processingStatus: 'COMPLETED',
     },

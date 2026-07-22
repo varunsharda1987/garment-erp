@@ -1,11 +1,10 @@
 import { Request, Response } from 'express';
 import { componentGroupService } from '../services/componentGroup.service';
-import {
-  createComponentGroupSchema,
-  updateComponentGroupSchema,
-  reorderComponentGroupsSchema,
-} from '../types/componentGroup.types';
-import { z } from 'zod';
+import type {
+  CreateComponentGroupInput,
+  UpdateComponentGroupInput,
+  ReorderComponentGroupsInput,
+} from '../schemas/componentGroup.schema';
 import { NotFoundError, ValidationError, ConflictError } from '../errors';
 
 export class ComponentGroupController {
@@ -15,7 +14,8 @@ export class ComponentGroupController {
    */
   async createComponentGroup(req: Request, res: Response) {
     try {
-      const validatedData = createComponentGroupSchema.parse(req.body);
+      // Body validated by validateBody(createComponentGroupSchema) at the route
+      const validatedData = req.body as CreateComponentGroupInput;
       const componentGroup = await componentGroupService.createComponentGroup(validatedData);
 
       res.status(201).json({
@@ -24,10 +24,6 @@ export class ComponentGroupController {
         data: componentGroup,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new ValidationError('Validation error', { errors: error.issues as any });
-      }
-
       if (error instanceof Error) {
         if (error.message.includes('already exists')) {
           throw new ConflictError(error.message);
@@ -99,7 +95,8 @@ export class ComponentGroupController {
   async updateComponentGroup(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const validatedData = updateComponentGroupSchema.parse(req.body);
+      // Body validated by validateBody(updateComponentGroupSchema) at the route
+      const validatedData = req.body as UpdateComponentGroupInput;
 
       const componentGroup = await componentGroupService.updateComponentGroup(id, validatedData);
 
@@ -109,10 +106,6 @@ export class ComponentGroupController {
         data: componentGroup,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new ValidationError('Validation error', { errors: error.issues as any });
-      }
-
       if (error instanceof Error) {
         if (error.message === 'Component group not found') {
           throw new NotFoundError('Component group', req.params.id);
@@ -161,21 +154,14 @@ export class ComponentGroupController {
    * POST /api/component-groups/reorder
    */
   async reorderComponentGroups(req: Request, res: Response) {
-    try {
-      const validatedData = reorderComponentGroupsSchema.parse(req.body);
-      await componentGroupService.reorderComponentGroups(validatedData);
+    // Body validated by validateBody(reorderComponentGroupsSchema) at the route
+    const validatedData = req.body as ReorderComponentGroupsInput;
+    await componentGroupService.reorderComponentGroups(validatedData);
 
-      res.json({
-        success: true,
-        message: 'Component groups reordered successfully',
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new ValidationError('Validation error', { errors: error.issues as any });
-      }
-
-      throw error;
-    }
+    res.json({
+      success: true,
+      message: 'Component groups reordered successfully',
+    });
   }
 
   /**

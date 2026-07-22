@@ -1,13 +1,12 @@
 import { Request, Response } from 'express';
 import { patternPartService } from '../services/patternPart.service';
-import {
-  createPatternPartSchema,
-  updatePatternPartSchema,
-  reorderPatternPartsSchema,
-  addComponentPatternPartSchema,
-  updateComponentPatternPartSchema,
-} from '../types/patternPart.types';
-import { z } from 'zod';
+import type {
+  CreatePatternPartInput,
+  UpdatePatternPartInput,
+  ReorderPatternPartsInput,
+  AddComponentPatternPartInput,
+  UpdateComponentPatternPartInput,
+} from '../schemas/patternPart.schema';
 import { NotFoundError, ValidationError, ConflictError } from '../errors';
 
 export class PatternPartController {
@@ -17,7 +16,7 @@ export class PatternPartController {
    */
   async createPatternPart(req: Request, res: Response) {
     try {
-      const validatedData = createPatternPartSchema.parse(req.body);
+      const validatedData = req.body as CreatePatternPartInput;
       const patternPart = await patternPartService.createPatternPart(validatedData);
 
       res.status(201).json({
@@ -26,10 +25,6 @@ export class PatternPartController {
         data: patternPart,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new ValidationError('Validation error', { errors: error.issues });
-      }
-
       if (error instanceof Error) {
         if (error.message.includes('already exists')) {
           throw new ConflictError(error.message);
@@ -101,7 +96,7 @@ export class PatternPartController {
   async updatePatternPart(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const validatedData = updatePatternPartSchema.parse(req.body);
+      const validatedData = req.body as UpdatePatternPartInput;
 
       const patternPart = await patternPartService.updatePatternPart(id, validatedData);
 
@@ -111,10 +106,6 @@ export class PatternPartController {
         data: patternPart,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new ValidationError('Validation error', { errors: error.issues });
-      }
-
       if (error instanceof Error) {
         if (error.message === 'Pattern part not found') {
           throw new NotFoundError('Pattern part', req.params.id);
@@ -163,21 +154,13 @@ export class PatternPartController {
    * POST /api/pattern-parts/reorder
    */
   async reorderPatternParts(req: Request, res: Response) {
-    try {
-      const validatedData = reorderPatternPartsSchema.parse(req.body);
-      await patternPartService.reorderPatternParts(validatedData);
+    const validatedData = req.body as ReorderPatternPartsInput;
+    await patternPartService.reorderPatternParts(validatedData);
 
-      res.json({
-        success: true,
-        message: 'Pattern parts reordered successfully',
-      });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new ValidationError('Validation error', { errors: error.issues });
-      }
-
-      throw error;
-    }
+    res.json({
+      success: true,
+      message: 'Pattern parts reordered successfully',
+    });
   }
 
   /**
@@ -201,7 +184,7 @@ export class PatternPartController {
   async addPatternPartToComponent(req: Request, res: Response) {
     try {
       const { componentId } = req.params;
-      const validatedData = addComponentPatternPartSchema.parse(req.body);
+      const validatedData = req.body as AddComponentPatternPartInput;
 
       const association = await patternPartService.addPatternPartToComponent(componentId, validatedData);
 
@@ -211,10 +194,6 @@ export class PatternPartController {
         data: association,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new ValidationError('Validation error', { errors: error.issues });
-      }
-
       if (error instanceof Error) {
         if (error.message.includes('not found')) {
           throw new ValidationError(error.message);
@@ -235,7 +214,7 @@ export class PatternPartController {
   async updateComponentPatternPart(req: Request, res: Response) {
     try {
       const { componentId, patternPartId } = req.params;
-      const validatedData = updateComponentPatternPartSchema.parse(req.body);
+      const validatedData = req.body as UpdateComponentPatternPartInput;
 
       const association = await patternPartService.updateComponentPatternPart(
         componentId,
@@ -249,10 +228,6 @@ export class PatternPartController {
         data: association,
       });
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new ValidationError('Validation error', { errors: error.issues });
-      }
-
       if (error instanceof Error) {
         if (error.message.includes('not found')) {
           throw new NotFoundError('Component pattern part association');

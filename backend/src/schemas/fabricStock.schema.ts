@@ -71,7 +71,7 @@ export const createFabricStockSchema = z.object({
 /**
  * Update Fabric Stock
  * PATCH /api/fabric-stock/:id (or /api/stock/:id)
- * Aligned with controller UpdateStockSchema
+ * Single source of truth (controller consumes typed req.body)
  */
 export const updateFabricStockSchema = z
   .object({
@@ -89,7 +89,7 @@ export const updateFabricStockSchema = z
 /**
  * Transfer Fabric Stock
  * POST /api/fabric-stock/transfer (or /api/stock/transfer)
- * Aligned with controller StockTransferSchema
+ * Single source of truth (controller consumes typed req.body)
  */
 export const transferFabricStockSchema = z.object({
   stockId: z.string().uuid('Invalid stock ID'),
@@ -102,7 +102,7 @@ export const transferFabricStockSchema = z.object({
 /**
  * Adjust Fabric Stock
  * POST /api/fabric-stock/adjust (or /api/stock/adjust)
- * Aligned with controller StockAdjustmentSchema
+ * Single source of truth (controller consumes typed req.body)
  */
 export const adjustFabricStockSchema = z.object({
   stockId: z.string().uuid('Invalid stock ID'),

@@ -2,6 +2,8 @@ import express from 'express';
 import { patternPartController } from '../controllers/patternPart.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import { addComponentPatternPartSchema, updateComponentPatternPartSchema } from '../schemas/patternPart.schema';
 
 const router = express.Router({ mergeParams: true }); // mergeParams to access :componentId from parent router
 
@@ -12,11 +14,16 @@ router.use(authenticateToken);
 router.get('/', asyncHandler(patternPartController.getPatternPartsByComponent.bind(patternPartController)));
 
 // Add pattern part to component
-router.post('/', asyncHandler(patternPartController.addPatternPartToComponent.bind(patternPartController)));
+router.post(
+  '/',
+  validateBody(addComponentPatternPartSchema),
+  asyncHandler(patternPartController.addPatternPartToComponent.bind(patternPartController))
+);
 
 // Update component-pattern part association
 router.put(
   '/:patternPartId',
+  validateBody(updateComponentPatternPartSchema),
   asyncHandler(patternPartController.updateComponentPatternPart.bind(patternPartController))
 );
 

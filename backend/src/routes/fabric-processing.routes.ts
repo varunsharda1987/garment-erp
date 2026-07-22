@@ -14,8 +14,9 @@ import {
 } from '../controllers/fabric-processing.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateParams } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { idParamSchema } from '../schemas/common.schema';
+import { sendForProcessingSchema, receiveFinishedFabricSchema } from '../schemas/fabric-processing.schema';
 
 const router = Router();
 
@@ -33,9 +34,14 @@ router.get('/', asyncHandler(listProcessingBatches));
 router.get('/:id', validateParams(idParamSchema), asyncHandler(getProcessingDetails));
 
 // POST /api/processing - Send greige for processing
-router.post('/', asyncHandler(sendForProcessing));
+router.post('/', validateBody(sendForProcessingSchema), asyncHandler(sendForProcessing));
 
 // PUT /api/processing/:id/receive - Receive finished fabric
-router.put('/:id/receive', validateParams(idParamSchema), asyncHandler(receiveFinishedFabric));
+router.put(
+  '/:id/receive',
+  validateParams(idParamSchema),
+  validateBody(receiveFinishedFabricSchema),
+  asyncHandler(receiveFinishedFabric)
+);
 
 export default router;

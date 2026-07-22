@@ -3,6 +3,11 @@
  *
  * Zod schemas for fabric procurement CRUD operations.
  * These are the SINGLE SOURCE OF TRUTH for field definitions.
+ *
+ * NOTE: The former items-based create schema and PLANNED/PO_CREATED/PARTIAL_RECEIVED
+ * status values belonged to a legacy procurement design the controller never
+ * implemented. The schemas below match fabric-procurement.controller.ts and the
+ * fabric_procurement table (single source — do not reintroduce a controller-local copy).
  */
 
 import { z } from 'zod';
@@ -11,12 +16,15 @@ import { z } from 'zod';
 // Enums
 // ============================================================================
 
+// Aligned with fabric_procurement.status values written by the app
+// (default 'ORDERED'; services write 'RECEIVED'/'COMPLETED').
 export const ProcurementStatusEnum = z.enum([
-  'PLANNED',
-  'PO_CREATED',
   'ORDERED',
-  'PARTIAL_RECEIVED',
+  'CONFIRMED',
+  'IN_TRANSIT',
   'RECEIVED',
+  'PROCESSING',
+  'COMPLETED',
   'CANCELLED',
 ]);
 
@@ -25,52 +33,46 @@ export const ProcurementStatusEnum = z.enum([
 // ============================================================================
 
 /**
- * Procurement Item
- */
-const procurementItemSchema = z.object({
-  fabricId: z.string().uuid('Invalid fabric ID').optional(),
-  greigeId: z.string().uuid('Invalid greige ID').optional(),
-  quantity: z.number().positive('Quantity must be positive'),
-  unit: z.string().max(20).optional().default('METER'),
-  rate: z.number().nonnegative('Rate cannot be negative').optional(),
-  requiredDate: z.string().datetime().optional(),
-  orderId: z.string().uuid('Invalid order ID').optional(),
-  styleId: z.string().uuid('Invalid style ID').optional(),
-  remarks: z.string().max(500).optional(),
-});
-
-/**
  * Create Procurement
  * POST /api/procurement
  */
-export const createProcurementSchema = z
-  .object({
-    supplierId: z.string().uuid('Invalid supplier ID'),
-    orderId: z.string().uuid('Invalid order ID').optional(),
-    expectedDeliveryDate: z.string().datetime().optional(),
-    remarks: z.string().max(500).optional(),
-    items: z.array(procurementItemSchema).min(1, 'At least one item is required'),
-  })
-  .passthrough();
+export const createProcurementSchema = z.object({
+  procurementType: z.enum(['GREIGE', 'FINISHED']),
+  purchaseOrderNumber: z.string().optional(),
+  supplierId: z.string().uuid(),
+  greigeId: z.string().uuid().optional(),
+  fabricId: z.string().uuid().optional(),
+  quantityPurchased: z.number().positive(),
+  unit: z.string().default('meters'),
+  width: z.number().positive(),
+  ratePerUnit: z.number().positive(),
+  totalCost: z.number().positive(),
+
+  // Origin tracking
+  orderedForStyleId: z.string().uuid().optional(),
+  orderedForOrderId: z.string().uuid().optional(),
+  isStockPurchase: z.boolean().default(false),
+
+  // Processing details (for greige)
+  processingRequired: z.boolean().default(false),
+  processingType: z.string().optional(),
+  processingColor: z.string().optional(),
+  processedFabricId: z.string().uuid().optional(),
+  processingMoq: z.number().optional(),
+
+  expectedDelivery: z.coerce.date().optional(),
+  notes: z.string().optional(),
+});
 
 /**
  * Update Procurement
  * PUT /api/procurement/:id
  */
-export const updateProcurementSchema = z
-  .object({
-    supplierId: z.string().uuid('Invalid supplier ID').optional(),
-    expectedDeliveryDate: z.string().datetime().optional().nullable(),
-    status: ProcurementStatusEnum.optional(),
-    remarks: z.string().max(500).optional().nullable(),
-    items: z.array(procurementItemSchema).optional(),
-    receivedDate: z.string().datetime().optional().nullable(),
-    actualQuantityReceived: z.number().nonnegative('Quantity cannot be negative').optional(),
-    notes: z.string().max(500).optional().nullable(),
-    invoiceNumber: z.string().max(50).optional().nullable(),
-    invoiceDate: z.string().datetime().or(z.date()).optional().nullable(),
-  })
-  .passthrough();
+export const updateProcurementSchema = z.object({
+  status: ProcurementStatusEnum.optional(),
+  receivedDate: z.coerce.date().optional(),
+  notes: z.string().optional(),
+});
 
 /**
  * Plan Procurement
@@ -100,8 +102,8 @@ export const procurementQuerySchema = z.object({
   supplierId: z.string().uuid().optional(),
   orderId: z.string().uuid().optional(),
   status: ProcurementStatusEnum.optional(),
-  fromDate: z.string().datetime().optional(),
-  toDate: z.string().datetime().optional(),
+  fromDate: z.string().datetime().optional(), // allow-datetime
+  toDate: z.string().datetime().optional(), // allow-datetime
 });
 
 // ============================================================================

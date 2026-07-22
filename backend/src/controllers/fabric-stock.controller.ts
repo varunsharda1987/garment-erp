@@ -21,6 +21,12 @@ import WeightedAverageCostService from '../services/WeightedAverageCostService';
 import { logInfo, logWarn, logDebug } from '../utils/logger';
 import { NotFoundError, ValidationError } from '../errors';
 import { syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
+import type {
+  CreateFabricStockInput,
+  UpdateFabricStockInput,
+  TransferFabricStockInput,
+  AdjustFabricStockInput,
+} from '../schemas/fabricStock.schema';
 
 // ==================== VALIDATION SCHEMAS ====================
 
@@ -36,51 +42,10 @@ const StockListQuerySchema = z.object({
   limit: z.number().int().positive().max(500).default(20).optional(), // 500: Stock-Out fabric picker requests 200 (this controller schema is the effective gate, re-parsed in listStock)
 });
 
-const StockTransferSchema = z.object({
-  stockId: z.string().uuid(),
-  toWarehouse: z.string().min(1),
-  toRackNumber: z.string().optional(),
-  quantityToTransfer: z.number().positive(),
-  notes: z.string().optional(),
-});
-
-const StockAdjustmentSchema = z.object({
-  stockId: z.string().uuid(),
-  adjustmentType: z.enum(['INCREASE', 'DECREASE']),
-  quantity: z.number().positive(),
-  reason: z.string().min(1),
-  notes: z.string().optional(),
-});
-
-const CreateStockSchema = z.object({
-  fabricId: z.string().uuid(),
-  width: z.number().positive(),
-  quantityAvailable: z.number().positive(),
-  rollNumbers: z.string().optional(),
-  warehouseLocation: z.string().optional(),
-  rackNumber: z.string().optional(),
-  purchaseCost: z.number().nonnegative().optional(),
-  qualityGrade: z.enum(['A', 'B', 'DEFECT']).default('A'),
-  stockType: z.enum(['GENERIC', 'EXCESS', 'PLANNED_STOCK', 'RETURNED', 'VARIANCE_UNUSED']).default('GENERIC'),
-  receivedDate: z.string().or(z.date()).optional(),
-  status: z.enum(['AVAILABLE', 'RESERVED', 'EXHAUSTED', 'ISSUED', 'PENDING_RETURN']).default('AVAILABLE'),
-  procurementId: z.string().uuid().optional(),
-  originStyleId: z.string().uuid().optional(),
-  originOrderId: z.string().uuid().optional(),
-});
-
-const UpdateStockSchema = z
-  .object({
-    purchaseCost: z.number().nonnegative().optional(),
-    weightedAvgCost: z.number().nonnegative().optional(),
-    qualityGrade: z.enum(['A', 'B', 'DEFECT']).optional(),
-    warehouseLocation: z.string().optional(),
-    rackNumber: z.string().optional(),
-    rollNumbers: z.string().optional(),
-  })
-  .refine((data) => Object.keys(data).length > 0, {
-    message: 'At least one field must be provided for update',
-  });
+// Body schemas for create/transfer/adjust/update live in ../schemas/fabricStock.schema
+// (createFabricStockSchema, transferFabricStockSchema, adjustFabricStockSchema,
+// updateFabricStockSchema) and are applied by the route via validateBody — the single
+// source of truth. Do NOT re-declare or re-parse them here (prevents schema drift).
 
 // ==================== CONTROLLERS ====================
 
@@ -90,7 +55,7 @@ const UpdateStockSchema = z
  */
 export const createFabricStock = async (req: Request, res: Response) => {
   logInfo('Creating fabric stock with data:', req.body);
-  const data = CreateStockSchema.parse(req.body);
+  const data = req.body as CreateFabricStockInput;
   const userId = req.user?.userId;
   logInfo('Parsed data:', data);
   logInfo('User ID:', userId);
@@ -918,7 +883,7 @@ export const getStockValuation = async (req: Request, res: Response) => {
  * Transfer stock between warehouses
  */
 export const transferStock = async (req: Request, res: Response) => {
-  const data = StockTransferSchema.parse(req.body);
+  const data = req.body as TransferFabricStockInput;
   const userId = req.user?.userId;
 
   // Get stock record
@@ -974,7 +939,7 @@ export const transferStock = async (req: Request, res: Response) => {
  * Adjust stock quantities (increase/decrease for corrections)
  */
 export const adjustStock = async (req: Request, res: Response) => {
-  const data = StockAdjustmentSchema.parse(req.body);
+  const data = req.body as AdjustFabricStockInput;
   const userId = req.user?.userId;
 
   const stock = await prisma.fabric_stock.findUnique({
@@ -1054,8 +1019,8 @@ export const updateStock = async (req: Request, res: Response) => {
 
   logInfo(`Updating stock: ${id}`, { data: req.body });
 
-  // Validate input
-  const data = UpdateStockSchema.parse(req.body);
+  // Body already validated by route-level validateBody(updateFabricStockSchema)
+  const data = req.body as UpdateFabricStockInput;
 
   // Get existing stock record
   const existingStock = await prisma.fabric_stock.findUnique({

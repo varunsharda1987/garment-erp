@@ -9,88 +9,20 @@ import { orderBomService } from '../services/order-bom.service';
 import workOrderService from '../services/workOrder.service';
 import { logError } from '../utils/logger';
 import { NotFoundError, UnauthorizedError, BusinessError } from '../errors';
+import type { CreateFromCostSheetInput, UpdateOrderBOMInput, ChangeWidthInput } from '../schemas/orderBom.schema';
 
 // ============================================
 // VALIDATION SCHEMAS
 // ============================================
-
-const MaterialTypeEnum = z.enum([
-  'GENERIC',
-  'TRIMS',
-  'LACE',
-  'BUTTON',
-  'THREAD',
-  'ZIPPER',
-  'ELASTIC',
-  'LABEL',
-  'PACKAGING',
-  'ACCESSORIES',
-  'SERVICE',
-  'MACHINE_PART',
-  'OTHER',
-  'FABRIC',
-  'GREIGE',
-  'HOOK_EYE',
-  'SNAP_BUTTON',
-  'BUCKLE',
-  'BELT',
-  'VELCRO',
-  'DRAWSTRING',
-  'RIBBON',
-  'SEQUIN',
-  'BEAD',
-  'MOTIF',
-  'INTERLINING',
-  'PADDING',
-  'OTHER_FASTENER',
-]);
-
-const UsageCategoryEnum = z.enum(['GARMENT_TRIM', 'PACKAGING', 'VALUE_ADDITION', 'FABRIC']);
-
-const OrderBOMItemSchema = z.object({
-  materialType: MaterialTypeEnum,
-  materialId: z.string().uuid().optional(),
-  buttonId: z.string().uuid().optional(),
-  threadId: z.string().uuid().optional(),
-  zipperId: z.string().uuid().optional(),
-  laceId: z.string().uuid().optional(),
-  elasticId: z.string().uuid().optional(),
-  labelId: z.string().uuid().optional(),
-  packagingId: z.string().uuid().optional(),
-  fabricId: z.string().uuid().optional(),
-  greigeId: z.string().uuid().optional(),
-  sourcingStrategy: z.string().optional(),
-  processorId: z.string().uuid().optional(),
-  greigeCost: z.number().optional(),
-  processingCost: z.number().optional(),
-  rateCardId: z.string().uuid().optional(),
-  colorName: z.string().optional(),
-  quantityPerGarment: z.number().nonnegative('Quantity must be non-negative'),
-  orderQuantity: z.number().int().positive('Order quantity must be positive'),
-  wastagePercent: z.number().min(0).max(100).optional(),
-  unit: z.string().min(1, 'Unit is required'),
-  unitPrice: z.number().nonnegative('Unit price must be non-negative'),
-  componentName: z.string().optional(),
-  usageCategory: UsageCategoryEnum.optional(),
-  notes: z.string().optional(),
-  sortOrder: z.number().int().optional(),
-});
-
-const CreateFromCostSheetSchema = z.object({
-  styleId: z.string().uuid('Invalid style ID'),
-  costSheetId: z.string().min(1, 'Cost sheet ID is required'), // Cost sheets use CS-TIMESTAMP format, not UUID
-  orderItemId: z.string().uuid().optional(),
-});
+// NOTE: Body validation lives in backend/src/schemas/orderBom.schema.ts and is
+// applied at the route via validateBody() (see order-bom.routes.ts). Do NOT
+// re-declare or re-parse body schemas here — req.body is already validated/typed.
 
 const CopyFromOrderSchema = z.object({
   sourceOrderId: z.string().uuid('Invalid source order ID'),
   styleId: z.string().uuid('Invalid style ID'),
   orderItemId: z.string().uuid().optional(),
   adjustQuantity: z.number().int().positive().optional(),
-});
-
-const UpdateOrderBOMSchema = z.object({
-  items: z.array(OrderBOMItemSchema).min(1, 'At least one BOM item is required'),
 });
 
 // ============================================
@@ -103,7 +35,7 @@ const UpdateOrderBOMSchema = z.object({
  */
 export const createFromCostSheet = async (req: Request, res: Response) => {
   const { orderId } = req.params;
-  const validatedData = CreateFromCostSheetSchema.parse(req.body);
+  const validatedData = req.body as CreateFromCostSheetInput;
   const userId = req.user?.userId;
 
   if (!userId) {
@@ -227,7 +159,7 @@ export const listOrderBOMs = async (req: Request, res: Response) => {
 export const updateOrderBOM = async (req: Request, res: Response) => {
   const { orderId } = req.params;
   const { styleId } = req.query;
-  const validatedData = UpdateOrderBOMSchema.parse(req.body);
+  const validatedData = req.body as UpdateOrderBOMInput;
 
   // Get the active BOM for this order
   const existingBOM = await orderBomService.getByOrderId(orderId, styleId as string);
@@ -621,21 +553,11 @@ export const deactivateOrderBOM = async (req: Request, res: Response) => {
 /**
  * Change fabric width on Order BOM (creates new version)
  * POST /api/order-bom/:id/change-width
+ * Body validated at the route by validateBody(changeWidthSchema) — see orderBom.schema.ts
  */
-const ChangeWidthSchema = z.object({
-  fabricItemChanges: z
-    .array(
-      z.object({
-        bomItemId: z.string().uuid('Invalid BOM item ID'),
-        newCadId: z.string().uuid('Invalid CAD ID'),
-      })
-    )
-    .min(1, 'At least one fabric item change is required'),
-});
-
 export const changeWidth = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const validatedData = ChangeWidthSchema.parse(req.body);
+  const validatedData = req.body as ChangeWidthInput;
   const userId = req.user?.userId;
 
   if (!userId) {

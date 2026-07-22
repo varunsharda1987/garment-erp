@@ -2,8 +2,13 @@ import express from 'express';
 import { componentGroupController } from '../controllers/componentGroup.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateParams } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { idParamSchema, codeParamSchema } from '../schemas/common.schema';
+import {
+  createComponentGroupSchema,
+  updateComponentGroupSchema,
+  reorderComponentGroupsSchema,
+} from '../schemas/componentGroup.schema';
 
 const router = express.Router();
 
@@ -11,10 +16,18 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create a new component group
-router.post('/', asyncHandler(componentGroupController.createComponentGroup.bind(componentGroupController)));
+router.post(
+  '/',
+  validateBody(createComponentGroupSchema),
+  asyncHandler(componentGroupController.createComponentGroup.bind(componentGroupController))
+);
 
 // Reorder component groups (must be before /:id routes to avoid conflict)
-router.post('/reorder', asyncHandler(componentGroupController.reorderComponentGroups.bind(componentGroupController)));
+router.post(
+  '/reorder',
+  validateBody(reorderComponentGroupsSchema),
+  asyncHandler(componentGroupController.reorderComponentGroups.bind(componentGroupController))
+);
 
 // Get all component groups with pagination
 router.get('/', asyncHandler(componentGroupController.getComponentGroups.bind(componentGroupController)));
@@ -44,6 +57,7 @@ router.get(
 router.put(
   '/:id',
   validateParams(idParamSchema),
+  validateBody(updateComponentGroupSchema),
   asyncHandler(componentGroupController.updateComponentGroup.bind(componentGroupController))
 );
 

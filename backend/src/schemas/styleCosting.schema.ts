@@ -22,35 +22,13 @@ export const VarianceStatusEnum = z.enum(['NONE', 'PENDING_APPROVAL', 'APPROVED'
 // ============================================================================
 
 /**
- * Cost Sheet Item
+ * Create Cost Sheet — DELETED (T3-A single-schema fix, same class as bug-hunt costing-2).
+ * POST /api/style-costing validates with CreateCostSheetSchema from
+ * controllers/style-costing.utils.ts — the SAME schema the controller types against. The legacy
+ * schema that lived here shared only styleId+purpose with it, so validateBody stripped
+ * fabricDetails/trimsDetails/cmtCosts and every UI create failed with 400. Do NOT re-add a
+ * second create schema here.
  */
-const costSheetItemSchema = z.object({
-  itemType: z.enum(['FABRIC', 'TRIM', 'LABOR', 'OVERHEAD', 'OTHER']),
-  itemId: z.string().uuid().optional(),
-  description: z.string().max(500),
-  quantity: z.number().positive(),
-  unit: z.string().max(20).optional(),
-  rate: z.number().nonnegative(),
-  amount: z.number().nonnegative().optional(),
-  remarks: z.string().max(500).optional(),
-});
-
-/**
- * Create Cost Sheet
- * POST /api/style-costing
- */
-export const createCostSheetSchema = z.object({
-  styleId: z.string().uuid('Invalid style ID'),
-  purpose: CostSheetPurposeEnum.optional().default('COSTING'),
-  widthCombination: z.string().max(100).optional(),
-  fabricCost: z.number().nonnegative().optional().default(0),
-  trimCost: z.number().nonnegative().optional().default(0),
-  laborCost: z.number().nonnegative().optional().default(0),
-  overheadCost: z.number().nonnegative().optional().default(0),
-  profitMargin: z.number().min(0).max(100).optional(),
-  remarks: z.string().max(500).optional(),
-  items: z.array(costSheetItemSchema).optional(),
-});
 
 /**
  * Update Cost Sheet — DELETED (bug-hunt costing-2).
@@ -220,8 +198,8 @@ export const calculateLaceOptionsSchema = z.object({
 // Type Exports
 // ============================================================================
 
-export type CreateCostSheetInput = z.infer<typeof createCostSheetSchema>;
-// UpdateCostSheetInput: infer from UpdateCostSheetSchema in controllers/style-costing.utils.ts (the ONE update schema — see note above)
+// CreateCostSheetInput / UpdateCostSheetInput: infer from CreateCostSheetSchema / UpdateCostSheetSchema
+// in controllers/style-costing.utils.ts (the ONE create/update schema pair — see notes above)
 export type GenerateCostSheetInput = z.infer<typeof generateCostSheetSchema>;
 export type ApproveCostSheetInput = z.infer<typeof approveCostSheetSchema>;
 export type CreateCostSheetVersionInput = z.infer<typeof createCostSheetVersionSchema>;

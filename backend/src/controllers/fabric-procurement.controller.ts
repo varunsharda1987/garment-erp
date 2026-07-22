@@ -10,9 +10,9 @@
 
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
-import { z } from 'zod';
 import prisma from '../config/database';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
+import type { CreateProcurementInput, UpdateProcurementInput } from '../schemas/fabricProcurement.schema';
 
 // ============================================
 // Types for Fabric Procurement Controller
@@ -35,41 +35,8 @@ interface FabricRequirement {
   estimatedCost: number;
 }
 
-// Validation schemas
-const CreateProcurementSchema = z.object({
-  procurementType: z.enum(['GREIGE', 'FINISHED']),
-  purchaseOrderNumber: z.string().optional(),
-  supplierId: z.string().uuid(),
-  greigeId: z.string().uuid().optional(),
-  fabricId: z.string().uuid().optional(),
-  quantityPurchased: z.number().positive(),
-  unit: z.string().default('meters'),
-  width: z.number().positive(),
-  ratePerUnit: z.number().positive(),
-  totalCost: z.number().positive(),
-
-  // Origin tracking
-  orderedForStyleId: z.string().uuid().optional(),
-  orderedForOrderId: z.string().uuid().optional(),
-  isStockPurchase: z.boolean().default(false),
-
-  // Processing details (for greige)
-  processingRequired: z.boolean().default(false),
-  processingType: z.string().optional(),
-  processingColor: z.string().optional(),
-  processedFabricId: z.string().uuid().optional(),
-  processingMoq: z.number().optional(),
-
-  expectedDelivery: z.string().datetime().optional(),
-  notes: z.string().optional(),
-});
-
-const UpdateProcurementSchema = z.object({
-  status: z.enum(['ORDERED', 'CONFIRMED', 'IN_TRANSIT', 'RECEIVED', 'PROCESSING', 'COMPLETED', 'CANCELLED']).optional(),
-  receivedDate: z.string().datetime().optional(),
-  actualQuantityReceived: z.number().positive().optional(),
-  notes: z.string().optional(),
-});
+// Validation schemas live in ../schemas/fabricProcurement.schema.ts and are
+// applied by the route via validateBody() — do not re-declare or re-parse here.
 
 /**
  * GET /api/procurement
@@ -194,7 +161,7 @@ export const getProcurementById = async (req: Request, res: Response) => {
  * Create new fabric procurement order
  */
 export const createProcurement = async (req: Request, res: Response) => {
-  const validatedData = CreateProcurementSchema.parse(req.body);
+  const validatedData = req.body as CreateProcurementInput;
   const userId = req.user?.userId;
 
   if (!userId) {
@@ -217,7 +184,7 @@ export const createProcurement = async (req: Request, res: Response) => {
     data: {
       ...validatedData,
       purchaseOrderNumber,
-      expectedDelivery: validatedData.expectedDelivery ? new Date(validatedData.expectedDelivery) : undefined,
+      expectedDelivery: validatedData.expectedDelivery,
       createdById: userId,
     },
     include: {
@@ -242,7 +209,7 @@ export const createProcurement = async (req: Request, res: Response) => {
  */
 export const updateProcurement = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const validatedData = UpdateProcurementSchema.parse(req.body);
+  const validatedData = req.body as UpdateProcurementInput;
 
   const existing = await prisma.fabric_procurement.findUnique({
     where: { id },
@@ -256,7 +223,7 @@ export const updateProcurement = async (req: Request, res: Response) => {
     where: { id },
     data: {
       ...validatedData,
-      receivedDate: validatedData.receivedDate ? new Date(validatedData.receivedDate) : undefined,
+      receivedDate: validatedData.receivedDate,
     },
     include: {
       greigeMaster: true,

@@ -906,6 +906,18 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
   // Calculate total quantity
   const totalGoodPieces = batch.skuOutputs.reduce((sum: number, sku) => sum + sku.goodPcs, 0);
 
+  // ONE slip per cutting batch (bug-hunt production-8): duplicates double-counted the same pieces
+  // downstream. The partial unique index on cuttingBatchId is the DB backstop.
+  const existingSlipForBatch = await prisma.transfer_slips.findFirst({
+    where: { cuttingBatchId: id },
+    select: { slipNumber: true },
+  });
+  if (existingSlipForBatch) {
+    throw new ValidationError(
+      `A transfer slip (${existingSlipForBatch.slipNumber}) already exists for this cutting batch`
+    );
+  }
+
   // Create transfer slip
   const transferSlip = await prisma.transfer_slips.create({
     data: {

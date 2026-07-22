@@ -645,32 +645,7 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
   const skuBreakdownForSlip = Array.from(skuFinishedQtyMap.values()).filter((sku) => sku.finishedQty > 0);
   const totalGoodPieces = skuBreakdownForSlip.reduce((sum, sku) => sum + sku.finishedQty, 0);
 
-  // Create transfer slip
-  const transferSlip = await prisma.transfer_slips.create({
-    data: {
-      slipNumber,
-      transferDate: today,
-      workOrderId: issue.workOrderId,
-      fromStage: 'FINISHING',
-      toStage: 'DISPATCH',
-      fromDepartment: 'Finishing',
-      toDepartment: 'Dispatch',
-      totalGoodPieces,
-      status: 'CREATED',
-      finishingIssueId: id,
-      preparedById: userId,
-      skuBreakdown: {
-        create: skuBreakdownForSlip.map((sku) => ({
-          colorId: sku.colorId,
-          sizeId: sku.sizeId,
-          quantity: sku.finishedQty,
-        })),
-      },
-    },
-  });
-
-  // Auto-populate finished_goods_stock from finished output
-  // Get or create a default FG location
+  // Get or create a default FG location (independent of the slip tx)
   let fgLocation = await prisma.locations.findFirst({
     where: { locationType: 'WAREHOUSE', isActive: true },
     select: { id: true },
@@ -688,41 +663,82 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
     });
   }
 
-  // Upsert finished_goods_stock per SKU
-  for (const sku of skuBreakdownForSlip) {
-    const existing = await prisma.finished_goods_stock.findUnique({
-      where: {
-        styleId_colorId_sizeId_locationId: {
-          styleId: issue.workOrder.styleId,
-          colorId: sku.colorId,
-          sizeId: sku.sizeId,
-          locationId: fgLocation.id,
-        },
-      },
-    });
+  // Slip creation + FG stock credit in ONE transaction with an existing-slip guard (bug-hunt
+  // production-8/-9): the old code created the slip then did non-atomic read-modify-write FG updates
+  // on the global client with NO duplicate check — a double-click created a second slip and counted
+  // the same good pieces into finished-goods stock twice. The partial unique index on
+  // finishingIssueId (migration 20260722150000) is the hard DB backstop.
+  let transferSlip;
+  try {
+    transferSlip = await prisma.$transaction(async (tx) => {
+      const existingSlip = await tx.transfer_slips.findFirst({
+        where: { finishingIssueId: id },
+        select: { id: true, slipNumber: true },
+      });
+      if (existingSlip) {
+        throw new ValidationError(
+          `A transfer slip (${existingSlip.slipNumber}) already exists for this finishing issue`
+        );
+      }
 
-    if (existing) {
-      await prisma.finished_goods_stock.update({
-        where: { id: existing.id },
+      const slip = await tx.transfer_slips.create({
         data: {
-          quantity: existing.quantity + sku.finishedQty,
-          lastUpdated: new Date(),
-        },
-      });
-    } else {
-      await prisma.finished_goods_stock.create({
-        data: {
-          id: randomUUID(),
-          styleId: issue.workOrder.styleId,
-          colorId: sku.colorId,
-          sizeId: sku.sizeId,
-          quantity: sku.finishedQty,
-          locationId: fgLocation.id,
+          slipNumber,
+          transferDate: today,
           workOrderId: issue.workOrderId,
-          receivedDate: new Date(),
+          fromStage: 'FINISHING',
+          toStage: 'DISPATCH',
+          fromDepartment: 'Finishing',
+          toDepartment: 'Dispatch',
+          totalGoodPieces,
+          status: 'CREATED',
+          finishingIssueId: id,
+          preparedById: userId,
+          skuBreakdown: {
+            create: skuBreakdownForSlip.map((sku) => ({
+              colorId: sku.colorId,
+              sizeId: sku.sizeId,
+              quantity: sku.finishedQty,
+            })),
+          },
         },
       });
+
+      // Atomic upsert-with-increment per SKU (the FG unique on style+color+size+location makes this exact)
+      for (const sku of skuBreakdownForSlip) {
+        await tx.finished_goods_stock.upsert({
+          where: {
+            styleId_colorId_sizeId_locationId: {
+              styleId: issue.workOrder.styleId,
+              colorId: sku.colorId,
+              sizeId: sku.sizeId,
+              locationId: fgLocation.id,
+            },
+          },
+          update: { quantity: { increment: sku.finishedQty }, lastUpdated: new Date() },
+          create: {
+            id: randomUUID(),
+            styleId: issue.workOrder.styleId,
+            colorId: sku.colorId,
+            sizeId: sku.sizeId,
+            quantity: sku.finishedQty,
+            locationId: fgLocation.id,
+            workOrderId: issue.workOrderId,
+            receivedDate: new Date(),
+          },
+        });
+      }
+
+      return slip;
+    });
+  } catch (err: any) {
+    // P2002 = the partial unique index caught a concurrent duplicate (or a slip-number collision)
+    if (err?.code === 'P2002') {
+      throw new ValidationError(
+        'A transfer slip already exists for this finishing issue (or slip number collided — retry)'
+      );
     }
+    throw err;
   }
 
   res.json({

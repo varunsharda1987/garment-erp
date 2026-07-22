@@ -667,6 +667,18 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
   const skuBreakdownForSlip = Array.from(skuGoodQtyMap.values()).filter((sku) => sku.goodQty > 0);
   const totalGoodPieces = skuBreakdownForSlip.reduce((sum, sku) => sum + sku.goodQty, 0);
 
+  // ONE slip per stitching issue (bug-hunt production-8): duplicates double-counted the same pieces
+  // downstream. The partial unique index on stitchingIssueId is the DB backstop.
+  const existingSlipForIssue = await prisma.transfer_slips.findFirst({
+    where: { stitchingIssueId: id },
+    select: { slipNumber: true },
+  });
+  if (existingSlipForIssue) {
+    throw new ValidationError(
+      `A transfer slip (${existingSlipForIssue.slipNumber}) already exists for this stitching issue`
+    );
+  }
+
   // Create transfer slip
   const transferSlip = await prisma.transfer_slips.create({
     data: {

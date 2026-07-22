@@ -44,10 +44,33 @@ export const deliveryNoteService = {
     return response.data.data;
   },
 
-  // Create new delivery note
-  create: async (data: CreateDeliveryNoteRequest): Promise<DeliveryNote> => {
-    const response = await api.post<{ data: DeliveryNote }>(`${BASE_URL}/delivery-notes`, data);
-    return response.data.data;
+  // Create new delivery note. The backend flags SKUs whose finished-goods stock couldn't cover the
+  // dispatched quantity (fgShortfalls) — callers MUST surface these to the user (never silent).
+  create: async (
+    data: CreateDeliveryNoteRequest
+  ): Promise<{
+    note: DeliveryNote;
+    fgShortfalls?: Array<{
+      styleId: string;
+      colorId: string | null;
+      sizeId: string;
+      requested: number;
+      deducted: number;
+    }>;
+    message?: string;
+  }> => {
+    const response = await api.post<{
+      data: DeliveryNote;
+      fgShortfalls?: Array<{
+        styleId: string;
+        colorId: string | null;
+        sizeId: string;
+        requested: number;
+        deducted: number;
+      }>;
+      message?: string;
+    }>(`${BASE_URL}/delivery-notes`, data);
+    return { note: response.data.data, fgShortfalls: response.data.fgShortfalls, message: response.data.message };
   },
 
   // Delete delivery note

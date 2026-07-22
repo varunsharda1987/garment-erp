@@ -637,52 +637,70 @@ model delivery_note_items {
 }
 
 model delivery_notes {
-  id                  String                @id
-  deliveryNumber      String
+  id                  String                         @id
+  deliveryNumber      String                         @unique // legal document number — duplicates were possible with the plain column (bug-hunt dispatch-5)
   orderId             String?
   saleOrderId         String?
   customerId          String
-  deliveryDate        DateTime              @default(now())
+  deliveryDate        DateTime                       @default(now())
   vehicleNumber       String?
   driverName          String?
   driverPhone         String?
-  status              DeliveryStatus        @default(PENDING)
+  status              DeliveryStatus                 @default(PENDING)
   remarks             String?
   createdById         String
-  createdAt           DateTime              @default(now())
-  isActive            Boolean               @default(true)
+  createdAt           DateTime                       @default(now())
+  isActive            Boolean                        @default(true)
   delivery_note_items delivery_note_items[]
-  users               users                 @relation(fields: [createdById], references: [id])
-  customers           customers             @relation(fields: [customerId], references: [id])
-  orders              orders?               @relation(fields: [orderId], references: [id])
-  sale_orders         sale_orders?          @relation(fields: [saleOrderId], references: [id])
+  users               users                          @relation(fields: [createdById], references: [id])
+  customers           customers                      @relation(fields: [customerId], references: [id])
+  orders              orders?                        @relation(fields: [orderId], references: [id])
+  sale_orders         sale_orders?                   @relation(fields: [saleOrderId], references: [id])
   delivery_notes_ext  delivery_notes_ext?
+  fg_allocations      delivery_note_fg_allocations[]
 
-  @@index([deliveryNumber])
   @@index([orderId])
   @@index([saleOrderId])
   @@index([createdById])
   @@index([customerId])
 }
 
+/// Which finished_goods_stock rows a delivery note ACTUALLY deducted (and by how much). Written inside
+/// the create-note transaction; deleting a PENDING note restores stock from these records EXACTLY —
+/// without them, restore-by-SKU could re-inflate stock the creation never deducted (shortfalls) or
+/// restore to the wrong location row (bug-hunt dispatch-2 / T3-C).
+model delivery_note_fg_allocations {
+  id             String               @id @default(uuid())
+  deliveryNoteId String
+  fgStockId      String
+  quantity       Int
+  createdAt      DateTime             @default(now())
+  delivery_note  delivery_notes       @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
+  fgStock        finished_goods_stock @relation(fields: [fgStockId], references: [id])
+
+  @@index([deliveryNoteId])
+  @@index([fgStockId])
+}
+
 model finished_goods_stock {
-  id                   String                 @id
-  styleId              String
-  colorId              String
-  sizeId               String
-  variantId            String?
-  quantity             Int
-  locationId           String
-  workOrderId          String?
-  receivedDate         DateTime               @default(now())
-  lastUpdated          DateTime               @default(now())
-  color_options        color_options          @relation(fields: [colorId], references: [id])
-  locations            locations              @relation(fields: [locationId], references: [id])
-  size_options         size_options           @relation(fields: [sizeId], references: [id])
-  styles               styles                 @relation(fields: [styleId], references: [id])
-  style_variants       style_variants?        @relation(fields: [variantId], references: [id])
-  work_orders          work_orders?           @relation(fields: [workOrderId], references: [id])
-  fg_stock_allocations fg_stock_allocations[]
+  id                           String                         @id
+  styleId                      String
+  colorId                      String
+  sizeId                       String
+  variantId                    String?
+  quantity                     Int
+  locationId                   String
+  workOrderId                  String?
+  receivedDate                 DateTime                       @default(now())
+  lastUpdated                  DateTime                       @default(now())
+  color_options                color_options                  @relation(fields: [colorId], references: [id])
+  locations                    locations                      @relation(fields: [locationId], references: [id])
+  size_options                 size_options                   @relation(fields: [sizeId], references: [id])
+  styles                       styles                         @relation(fields: [styleId], references: [id])
+  style_variants               style_variants?                @relation(fields: [variantId], references: [id])
+  work_orders                  work_orders?                   @relation(fields: [workOrderId], references: [id])
+  fg_stock_allocations         fg_stock_allocations[]
+  delivery_note_fg_allocations delivery_note_fg_allocations[]
 
   @@unique([styleId, colorId, sizeId, locationId])
   @@index([locationId])
@@ -5946,7 +5964,7 @@ model cutting_lay_skus {
 /// Transfer Slip - Movement between production stages
 model transfer_slips {
   id               String               @id @default(uuid())
-  slipNumber       String
+  slipNumber       String               @unique // duplicate slips double-counted FG stock (bug-hunt production-8); partial per-source uniques live in the migration SQL
   workOrderId      String
   componentId      String?
   fromStage        String

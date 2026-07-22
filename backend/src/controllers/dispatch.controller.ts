@@ -265,47 +265,6 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
   }
   const { orderId, customerId, deliveryDate, remarks, items } = req.body;
 
-  // Validate dispatch quantities against order
-  if (orderId && items?.length > 0) {
-    // Get order with its items to know ordered quantities
-    const order = await prisma.orders.findUnique({
-      where: { id: orderId },
-      include: { order_items: true },
-    });
-
-    if (order) {
-      // Get already-dispatched quantities for this order
-      const existingDeliveryItems = await prisma.delivery_note_items.findMany({
-        where: {
-          delivery_notes: {
-            orderId,
-          },
-        },
-        select: { styleId: true, colorId: true, sizeId: true, quantity: true },
-      });
-
-      // Build dispatched map: styleId-colorId-sizeId → total dispatched
-      const dispatchedMap = new Map<string, number>();
-      for (const di of existingDeliveryItems) {
-        const key = `${di.styleId || ''}-${di.colorId || ''}-${di.sizeId || ''}`;
-        dispatchedMap.set(key, (dispatchedMap.get(key) || 0) + di.quantity);
-      }
-
-      // Get total ordered quantity
-      const totalOrdered = order.order_items.reduce((sum, oi) => sum + oi.totalQuantity, 0);
-      const totalAlreadyDispatched = Array.from(dispatchedMap.values()).reduce((sum, qty) => sum + qty, 0);
-      const totalNewDispatch = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
-
-      if (totalAlreadyDispatched + totalNewDispatch > totalOrdered) {
-        throw new ValidationError(
-          `Dispatch quantity (${totalNewDispatch}) would exceed order limit. ` +
-            `Ordered: ${totalOrdered}, already dispatched: ${totalAlreadyDispatched}, ` +
-            `remaining: ${totalOrdered - totalAlreadyDispatched}`
-        );
-      }
-    }
-  }
-
   const deliveryNumber = await generateDeliveryNumber();
 
   // Note creation + FG deductions run in ONE transaction with guarded atomic decrements (bug-hunt
@@ -321,8 +280,78 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
     deducted: number;
   }> = [];
 
+  // Records of exactly which FG rows this note deducts (and how much) — written with the note so a
+  // later delete can restore stock precisely (bug-hunt dispatch-2).
+  const fgAllocations: Array<{ fgStockId: string; quantity: number }> = [];
+
   const note = await prisma.$transaction(
     async (tx) => {
+      // Over-dispatch validation runs INSIDE the tx with the order row locked — the old pre-tx
+      // check-then-insert raced (two concurrent notes both passed, then both inserted), and it only
+      // compared ORDER-TOTAL quantities, so one SKU could absorb another SKU's allowance
+      // (bug-hunt dispatch-3). Per-SKU caps come from order_item_breakup where it exists.
+      if (orderId && items?.length > 0) {
+        await tx.$queryRaw`SELECT id FROM orders WHERE id = ${orderId} FOR UPDATE`;
+        const order = await tx.orders.findUnique({
+          where: { id: orderId },
+          include: { order_items: { include: { order_item_breakup: true } } },
+        });
+
+        if (order) {
+          const existingDeliveryItems = await tx.delivery_note_items.findMany({
+            where: { delivery_notes: { orderId } },
+            select: { styleId: true, colorId: true, sizeId: true, quantity: true },
+          });
+
+          const skuKey = (styleId?: string | null, colorId?: string | null, sizeId?: string | null) =>
+            `${styleId || ''}-${colorId || ''}-${sizeId || ''}`;
+
+          const dispatchedMap = new Map<string, number>();
+          for (const di of existingDeliveryItems) {
+            const key = skuKey(di.styleId, di.colorId, di.sizeId);
+            dispatchedMap.set(key, (dispatchedMap.get(key) || 0) + di.quantity);
+          }
+
+          // Ordered per SKU (style+color+size) from the order item breakups
+          const orderedMap = new Map<string, number>();
+          let hasBreakup = false;
+          for (const oi of order.order_items) {
+            for (const b of oi.order_item_breakup) {
+              hasBreakup = true;
+              const key = skuKey(oi.styleId, b.colorId, b.sizeId);
+              orderedMap.set(key, (orderedMap.get(key) || 0) + b.quantity);
+            }
+          }
+
+          if (hasBreakup) {
+            for (const item of items) {
+              if (!item.styleId || !item.sizeId || !item.quantity) continue;
+              const key = skuKey(item.styleId, item.colorId, item.sizeId);
+              const ordered = orderedMap.get(key) ?? 0;
+              const already = dispatchedMap.get(key) ?? 0;
+              if (already + item.quantity > ordered) {
+                throw new ValidationError(
+                  `Dispatch exceeds ordered quantity for this SKU (style/color/size): ordered ${ordered}, ` +
+                    `already dispatched ${already}, requested ${item.quantity}`
+                );
+              }
+            }
+          }
+
+          // Order-total backstop (also covers legacy orders without SKU breakups)
+          const totalOrdered = order.order_items.reduce((sum, oi) => sum + oi.totalQuantity, 0);
+          const totalAlreadyDispatched = Array.from(dispatchedMap.values()).reduce((sum, qty) => sum + qty, 0);
+          const totalNewDispatch = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
+          if (totalAlreadyDispatched + totalNewDispatch > totalOrdered) {
+            throw new ValidationError(
+              `Dispatch quantity (${totalNewDispatch}) would exceed order limit. ` +
+                `Ordered: ${totalOrdered}, already dispatched: ${totalAlreadyDispatched}, ` +
+                `remaining: ${totalOrdered - totalAlreadyDispatched}`
+            );
+          }
+        }
+      }
+
       const created = await tx.delivery_notes.create({
         data: {
           id: crypto.randomUUID(),
@@ -379,7 +408,11 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
               FROM before
               WHERE f.id = ${row.id} AND f.quantity > 0
               RETURNING LEAST(before.quantity, CAST(${remaining} AS int)) AS taken`;
-              if (taken.length > 0) remaining -= Number(taken[0].taken);
+              if (taken.length > 0) {
+                const took = Number(taken[0].taken);
+                remaining -= took;
+                if (took > 0) fgAllocations.push({ fgStockId: row.id, quantity: took });
+              }
             }
           }
 
@@ -393,6 +426,18 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
             });
           }
         }
+      }
+
+      // Persist the exact deductions so deleting this (PENDING) note can restore them precisely.
+      if (fgAllocations.length > 0) {
+        await tx.delivery_note_fg_allocations.createMany({
+          data: fgAllocations.map((a) => ({
+            id: crypto.randomUUID(),
+            deliveryNoteId: created.id,
+            fgStockId: a.fgStockId,
+            quantity: a.quantity,
+          })),
+        });
       }
 
       return created;
@@ -458,11 +503,27 @@ export const deleteDeliveryNote = async (req: Request, res: Response) => {
     throw new ValidationError('Can only delete pending delivery notes');
   }
 
-  await prisma.delivery_notes.delete({
-    where: { id },
+  // Restore + delete in ONE tx, from the note's own allocation records — the exact FG rows and
+  // quantities its creation deducted. Deleting used to just drop the note, leaking every deduction
+  // forever (bug-hunt dispatch-2). Restore-by-allocation (not by SKU) is exact: it never re-inflates
+  // quantity a shortfall-creation didn't deduct, and it restores to the same location rows.
+  // Notes created BEFORE allocation records existed simply have none — delete behaves as before.
+  await prisma.$transaction(async (tx) => {
+    const allocations = await tx.delivery_note_fg_allocations.findMany({
+      where: { deliveryNoteId: id },
+      select: { fgStockId: true, quantity: true },
+    });
+    for (const a of allocations) {
+      await tx.finished_goods_stock.update({
+        where: { id: a.fgStockId },
+        data: { quantity: { increment: a.quantity }, lastUpdated: new Date() },
+      });
+    }
+    // allocations cascade-delete with the note
+    await tx.delivery_notes.delete({ where: { id } });
   });
 
-  res.json({ message: 'Delivery note deleted successfully' });
+  res.json({ message: 'Delivery note deleted successfully (finished-goods stock restored)' });
 };
 
 // ============================================

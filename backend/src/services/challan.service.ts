@@ -877,10 +877,24 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
 }
 
 export async function cancelChallan(id: string) {
-  return prisma.challans.update({
-    where: { id },
+  // Guarded flip: only DRAFT challans (no stock touched yet) can be cancelled. Issuing deducts stock
+  // across five paths (greige consumption + processor-warehouse transfer, fabric, lace, thread,
+  // general-material stock-out) — the old unconditional cancel silently orphaned every one of those
+  // deductions ("truck never left" → stock gone forever; bug-hunt procurement-13). Issued goods must
+  // come back through the receive flow, which credits stock correctly.
+  const flipped = await prisma.challans.updateMany({
+    where: { id, status: 'DRAFT' },
     data: { status: 'CANCELLED' },
   });
+  if (flipped.count === 0) {
+    const existing = await prisma.challans.findUnique({ where: { id }, select: { status: true } });
+    if (!existing) throw new Error('Challan not found');
+    throw new Error(
+      `Only DRAFT challans can be cancelled (this one is ${existing.status}). ` +
+        `Stock was already deducted at issue — receive the goods back via the challan receive flow instead.`
+    );
+  }
+  return prisma.challans.findUnique({ where: { id } });
 }
 
 // ============================================

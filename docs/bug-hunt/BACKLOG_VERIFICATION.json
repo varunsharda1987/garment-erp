@@ -1,0 +1,698 @@
+[
+ {
+  "module": "orders",
+  "id": "orders-5",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "POST /orders is still wired to controller createOrder (order.routes.ts:36), which calls the local non-atomic generateOrderNumber (order.controller.ts:1127-1151, findFirst+parseInt+1) at line 138; orderService.createWithItems still exists in parallel and delegates to generateAtomicOrderNumber (order.service.ts:828-830) with different behavior (0-qty breakup filtering, auto work-orders). Concurrent creates on the live path collide on orders.orderNumber @unique → P2002 → 500.",
+  "fix": "Replace the controller's local generateOrderNumber() call with generateAtomicOrderNumber() (or route POST /orders through orderService.createWithItems and fold the cost-sheet validation/snapshot into the service) and delete the dead duplicate implementation."
+ },
+ {
+  "module": "orders",
+  "id": "orders-6",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "order.controller.ts:828-831 still has `else if (totalQuantity !== undefined) { updateData.totalQuantity = totalQuantity; }` — the header quantity is overwritten from the client without touching order_items and totalAmount is never recomputed; getOrderStatisticsByCustomer (lines 1080-1083) and orderService.getStatistics (order.service.ts:806-808) still aggregate the stored columns, so drifted headers feed reports.",
+  "fix": "Remove the client-supplied header-total branch and always recompute totalQuantity/totalAmount from SUM(order_items) inside the same update."
+ },
+ {
+  "module": "orders",
+  "id": "orders-7",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "order.service.ts:219-234 still runs the work-order auto-creation loop after the $transaction with `catch { logError }` — a mid-loop failure leaves the order committed with a partial set of work orders and no signal in the API response; the controller's order_item_costing snapshot loop (order.controller.ts:251-326) likewise swallows failures at 321-325 (explicitly 'best-effort').",
+  "fix": "Move the work-order creation loop inside the same $transaction (or collect per-item failures and return them in the response with a persisted retry flag), and do the same for the costing-snapshot loop."
+ },
+ {
+  "module": "orders",
+  "id": "orders-11",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "quotation.schema.ts:107-109 still uses `z.string().datetime('Invalid date format')` for fromDate/toDate and GET /quotations applies validateQuery(quotationQuerySchema) (quotation.routes.ts:50) — the quick-wins datetime remediation covered invoice/dispatch/sample schemas but not quotation, so `?fromDate=2026-07-01` from a date input is rejected with 400 and date filtering is unusable.",
+  "fix": "Change fromDate/toDate to `z.coerce.date().optional()` per the project's datetime-schema guardrail."
+ },
+ {
+  "module": "orders",
+  "id": "orders-12",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "order.schema.ts:71-72 still validates startDate/endDate while getAllOrders destructures fromDate/toDate from req.query (order.controller.ts:343) — it only works because validateQuery (validation.middleware.ts:51-73) copies validated keys onto req.query without removing unvalidated ones, so fromDate/toDate reach the controller raw; `?fromDate=garbage` produces Invalid Date in the Prisma where clause (500) and a valid startDate is validated then silently ignored.",
+  "fix": "Rename the schema fields to fromDate/toDate as z.coerce.date() and have the controller read them from req.validatedQuery."
+ },
+ {
+  "module": "orders",
+  "id": "orders-13",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "OrderList.tsx:98 still does `setTotalPages(response.pagination.pages)` and order.types.ts:242 declares `pages`, but the backend returns `totalPages` (order.controller.ts:429-434) — totalPages state becomes undefined and the pagination next-button logic (page < undefined) never enables, capping users at page 1; CostSheetList.tsx:91 has the identical bug (TaxMasterList/LaceLabDipList/LaceStockList also read `.pages`).",
+  "fix": "Change to `response.pagination.totalPages`, fix OrderListResponse to declare `totalPages: number`, and sweep the remaining `.pagination.pages` consumers whose backends return totalPages."
+ },
+ {
+  "module": "orders",
+  "id": "orders-14",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "orderBom.schema.ts MaterialTypeEnum (lines 14-43) still ends at OTHER_FASTENER while Prisma MaterialType (schema.prisma:9029-9032) additionally has OTHER_TAPE, OTHER_DECORATIVE, OTHER_FUNCTIONAL, OTHER_MATERIAL — a BOM created server-side with those types fails route validateBody on PUT /orders/:orderId/bom with 400, making the BOM uneditable through the UI; note the controller-side duplicate enum the audit cited was already removed by T3-A, so only the schema needs fixing.",
+  "fix": "Add OTHER_TAPE, OTHER_DECORATIVE, OTHER_FUNCTIONAL, OTHER_MATERIAL to MaterialTypeEnum in backend/src/schemas/orderBom.schema.ts."
+ },
+ {
+  "module": "orders",
+  "id": "orders-15",
+  "verdict": "ALREADY_FIXED",
+  "severityAdjusted": "NONE",
+  "reasoning": "T3-A resolved this: order-bom.controller.ts now has an explicit comment (lines 17-19) that body validation lives only in schemas/orderBom.schema.ts, and createFromCostSheet/updateOrderBOM/changeWidth consume req.body typed via schema imports with no re-parse; the sole remaining local schema, CopyFromOrderSchema (lines 21-26), re-parses only to merge the sourceOrderId route param and mirrors the route's copyFromPreviousOrderSchema exactly, so the dual-maintenance failure mode is essentially gone.",
+  "fix": "N/A"
+ },
+ {
+  "module": "orders",
+  "id": "orders-16",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "schema.prisma:1086-1099 still has nullable colorId inside @@unique([orderItemId, colorId, sizeId]), and no migration adds a partial/NULLS-NOT-DISTINCT index (only the 0_init standard unique index exists); size-only orders are an explicit path (controller nulls '' colorId at lines 178/760), so duplicate (item, NULL, sizeM) rows insert freely and propagate into work_order_breakup, double-counting sizes in cutting.",
+  "fix": "Add a raw-SQL partial unique index `(orderItemId, sizeId) WHERE \"colorId\" IS NULL` (or NULLS NOT DISTINCT on the existing index) plus server-side de-duplication of breakup input."
+ },
+ {
+  "module": "orders",
+  "id": "orders-17",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "utils/currency.ts is imported only by invoice.service.ts and its unit test — order line totals/rollups are still raw float math (order.controller.ts:149-153 and 742-746, order.service.ts:139-143), quotation totals and GST are float-summed (quotation.service.ts:167-172, 304-311, 683-706 accumulate cgst/sgst/igst with plain +=), and orderCosting computes subtotal/valueLoss/markup on floats before wrapping in Prisma.Decimal (orderCosting.service.ts:174-184), so paise-level drift vs the invoice module's Decimal math persists.",
+  "fix": "Route line totals, header rollups, and GST summation in order/quotation/order-bom/orderCosting through the decimal.js helpers (roundToCent etc.) in backend/src/utils/currency.ts."
+ },
+ {
+  "module": "orders",
+  "id": "orders-18",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "LOW",
+  "reasoning": "order.schema.ts:41 still marks expectedDeliveryDate `z.coerce.date().optional()` while createOrder does an unconditional `new Date(expectedDeliveryDate)` (order.controller.ts:192) into a required DateTime column — omitting it yields Invalid Date → Prisma 500 instead of a 400; the schema also still accepts orderNumber, status, currencyId, exchangeRate, billingAddress and internalNotes (lines 38-51) that the controller never destructures (lines 35-44), silently dropping them.",
+  "fix": "Make expectedDeliveryDate required in createOrderSchema and remove (or actually implement) the six accepted-but-ignored fields."
+ },
+ {
+  "module": "orders",
+  "id": "orders-19",
+  "verdict": "PLAUSIBLE",
+  "severityAdjusted": "LOW",
+  "reasoning": "quotation.service.ts:136-162 is unchanged: generateQuotationNumber reads the latest quotation by createdAt, regex-extracts and increments with no lock or atomic sequence, against the @unique quotationNumber — the collision only occurs when two quotations are created in the same instant, so failure needs concurrency.",
+  "fix": "Generate quotation numbers via the atomicCodeGenerator sequence pattern already used by generateAtomicOrderNumber."
+ },
+ {
+  "module": "orders",
+  "id": "orders-20",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "orderCosting.service.ts:145 still does `style.style_costing[0]` from an include declared as bare `style_costing: true` (line 93) — no where/orderBy, so Prisma returns unspecified order including superseded/unapproved versions — while the createOrder snapshot path selects `{ isApproved: true, supersededById: null, orderBy: version desc }` (order.controller.ts:254-261); recalculation can silently base order_item_costing on an obsolete cost sheet (getCostingComparison at line 450 has the same [0] pattern).",
+  "fix": "Change the include to `style_costing: { where: { isApproved: true, supersededById: null }, orderBy: { version: 'desc' }, take: 1 }` in both recalculate and getCostingComparison."
+ },
+ {
+  "module": "orders",
+  "id": "orders-21",
+  "verdict": "PLAUSIBLE",
+  "severityAdjusted": "LOW",
+  "reasoning": "orderCosting.service.ts is unchanged: selectCadAndRecalculate (lines 273-282) persists selectedCadId then calls recalculate as a second independent operation (recalculate wraps errors in InternalError at 261-267), and delete (287-305) deletes the costing then clears selectedCadId in a separate call — a failure between the two writes leaves the CAD selection inconsistent with the stored costing, but it requires a mid-operation error to manifest.",
+  "fix": "Wrap the order_items update and the costing upsert/delete in one prisma.$transaction, passing the tx client into recalculate."
+ },
+ {
+  "module": "procurement",
+  "id": "procurement-8",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "grn.service.ts:95 still reads `if (item.acceptedQuantity + item.rejectedQuantity !== item.receivedQuantity)` — raw float strict equality on decimal meter quantities, so 10.1+0.2 !== 10.3 blocks a legitimate GRN with an error the user cannot resolve from the form.",
+  "fix": "Replace the strict equality with an epsilon check `if (Math.abs(item.acceptedQuantity + item.rejectedQuantity - item.receivedQuantity) > 0.001)` (or compare via decimal.js from utils/currency.ts)."
+ },
+ {
+  "module": "procurement",
+  "id": "procurement-9",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "mrp.service.ts:2178 and work-order-service-requirement.service.ts:1010 still call generateCode('PO','purchase_orders','poNumber'); code-generator.ts still instantiates its own `new PrismaClient()` (line 4), does SELECT-max+1 outside the caller's transaction (lines 41-63), and silently falls back to `PO-<timestamp>` on any error (lines 70-76), while purchaseOrder.service uses generateAtomicPONumber — two racy numbering series remain live.",
+  "fix": "Route MRP and Service-PO number generation through generateAtomicPONumber() (atomicCodeGenerator) inside the creating transaction and delete the timestamp fallback."
+ },
+ {
+  "module": "procurement",
+  "id": "procurement-10",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "mrp.service.ts:2186-2229 still computes GST inline as `mat?.gstRate ? Number(mat.gstRate) : gstService.getDefaultGSTRate(hsn)` with hand-rolled parseFloat/toFixed cgst/sgst/igst math and unrounded float subtotal/totalAmount (2228-2247), bypassing gstService.calculateLineItemGST (HSN resolution chain + apparel price-slab) that the manual PO path uses — the same material can be taxed differently depending on which screen created the PO.",
+  "fix": "Replace the inline block with a per-item await of gstService.calculateLineItemGST({ lineTotal, materialId, isInterstate, unitPrice }) and round header totals to 2dp before persisting, mirroring purchaseOrder.service.createPurchaseOrder."
+ },
+ {
+  "module": "procurement",
+  "id": "procurement-12",
+  "verdict": "ALREADY_FIXED",
+  "severityAdjusted": "LOW",
+  "reasoning": "T3-A resolved the core finding: service-requirement.controller.ts now has zero .parse() calls (only a comment forbidding re-adding them), generatePOSchema uses z.coerce.date() (schema line 133), bulk dates use a refine that accepts YYYY-MM-DD, and there is no divergent controller actualQuantity check. One residual from the evidence survives: listServiceRequirementsSchema (lines 67-68) validates status/serviceType as single enums while the controller (lines 348-364) supports comma-separated lists, so `?status=PENDING,PO_GENERATED` still 400s at validateQuery; orderId reaches the controller only because validateQuery passes unknown keys through. Residual is LOW, hence not NONE.",
+  "fix": "Extend listServiceRequirementsSchema so status/serviceType accept comma-separated enum lists (transform split + validate each) and add orderId: z.string().uuid().optional()."
+ },
+ {
+  "module": "procurement",
+  "id": "procurement-13",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "HIGH",
+  "reasoning": "challan.service.ts:879-884 is still `export async function cancelChallan(id) { return prisma.challans.update({ where:{id}, data:{status:'CANCELLED'} }); }` — no status guard and no stock compensation, and the controller (challan.controller.ts:108-110) adds none; issueChallan deducts greige/fabric/lace/thread stock plus syncStockLevelQuantity, so cancelling an ISSUED (or even RECEIVED) challan permanently corrupts the stock ledger silently under a completely normal 'truck never left' workflow. Upgraded to HIGH: silent, permanent stock corruption with a one-click trigger.",
+  "fix": "In cancelChallan, reject any challan whose status is not DRAFT (or, for ISSUED, run a compensating reversal of every stock deduction and syncStockLevelQuantity call in one transaction before setting CANCELLED)."
+ },
+ {
+  "module": "procurement",
+  "id": "procurement-14",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "createFabricReturnChallan (challan.service.ts:1072-1082) still increments fabric_stock.quantityAvailable and decrements quantityConsumed with no syncStockLevelQuantity call (the receiveChallan fabric branch at line 683 does sync, proving the mandate applies) and no check that item.quantity <= quantityConsumed, so quantityConsumed can go negative on a typo; even with T2-1's derived_stock_view for reads, the mandated stock_levels shim silently drifts on every cutting return.",
+  "fix": "Inside the same transaction, resolve the fabric's materials record and call syncStockLevelQuantity(materialId, +item.quantity, undefined, 'METER', tx) per item, and reject returns where quantity > current quantityConsumed."
+ },
+ {
+  "module": "procurement",
+  "id": "procurement-15",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "generateChallanNumber (challan.service.ts:91-116) is still findFirst(startsWith prefix, desc)+1 with no lock against challans.challanNumber @unique (schema.prisma:8365); concurrent creates race to the same number and the loser gets P2002. The original swallowed-in-GRN aggravator is gone (T3-B moved the PROCESSING inward challan inside the GRN transaction per the comment at grn.service.ts:244-247), so the failure now surfaces as a 500 that rolls back the whole GRN/quick-issue rather than a silently missing challan — still a normal-use concurrency 500.",
+  "fix": "Generate challan numbers via the atomic sequence generator (atomicCodeGenerator) instead of read-max+1."
+ },
+ {
+  "module": "procurement",
+  "id": "procurement-16",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "All three legs still present: po_source_links (schema.prisma:3643-3674) has 4 nullable polymorphic FKs with only @@index and no @@unique; linkRequirementToPO (mrp.service.ts:2339-2372) creates a requirement_po_links row and force-sets status PO_GENERATED with no check of current status or existing links (and not even in a transaction); generateServicePO reads requirement statuses outside its transaction (work-order-service-requirement.service.ts:958-963) before creating the PO inside it, so two concurrent calls can both pass the PENDING filter and double-procure.",
+  "fix": "Add partial unique indexes on po_source_links per source column, reject linkRequirementToPO when the requirement is already PO_GENERATED/RECEIVED, and re-check status inside the PO-generation transaction with a conditional updateMany guard."
+ },
+ {
+  "module": "procurement",
+  "id": "procurement-17",
+  "verdict": "ALREADY_FIXED",
+  "severityAdjusted": "NONE",
+  "reasoning": "The T3-B 'rejection netting + PO re-open' work added the missing branch: purchaseOrder.service.ts:886-895 now handles the nothing-received case by downgrading RECEIVED/PARTIALLY_RECEIVED POs back to ACKNOWLEDGED via a guarded updateMany (the comment explicitly cites this review catch), so a fully-rejected GRN no longer leaves the PO stuck at PARTIALLY_RECEIVED. The recompute still runs post-commit on the global client (grn.service.ts:346, 991, 1854), but it is a full recompute from purchase_order_items, so a crash-window stale status self-corrects on the next GRN/approval — negligible residual.",
+  "fix": "N/A"
+ },
+ {
+  "module": "procurement",
+  "id": "procurement-18",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "purchaseOrderItemSchema still accepts foldLengthCm (purchaseOrder.schema.ts:85) and both updatePurchaseOrder (service line 475) and addPurchaseOrderItem (line 599) persist it, but the createPurchaseOrder item mapping (itemsWithTotals, lines 142-162) still omits it and passes straight into purchase_order_items.create (line 210) — fold length entered at PO creation (the primary greige-PO path, and a recently shipped fold-tracking feature) is silently dropped to NULL.",
+  "fix": "Add `foldLengthCm: item.foldLengthCm ?? null` to the itemsWithTotals object returned in createPurchaseOrder's item mapping."
+ },
+ {
+  "module": "procurement",
+  "id": "procurement-19",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "LOW",
+  "reasoning": "addPurchaseOrderItem still does purchase_order_items.create (line 577) then this.recalculatePOTotal(poId) (line 615) as two separate global-client calls, and recalculatePOTotal (line 41) is not tx-aware; the same non-transactional pattern remains in updatePurchaseOrderItem and removePurchaseOrderItem — a crash between the two leaves header totals disagreeing with the item sum, but only on DRAFT POs and it self-heals on the next item operation.",
+  "fix": "Wrap the item write and recalculatePOTotal in one prisma.$transaction by making recalculatePOTotal accept an optional Prisma.TransactionClient."
+ },
+ {
+  "module": "procurement",
+  "id": "procurement-20",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "The PROCESSING approval branch (grn.service.ts:779-792) still unconditionally sets the PO to 'RECEIVED' regardless of quantities and then ASSIGNS receivedQuantity = qtyReceived onto poItems[0] only, clobbering the per-item increments applied at createGRN (lines 230-241) and ignoring any additional PO items; the post-approval recompute deliberately skips PROCESSING POs (lines 982-992), so the wrong status/quantities are never corrected.",
+  "fix": "Set receivedQuantity per matching PO item (by poItemId, using increments consistent with createGRN) and derive the PO status via updateReceivingStatus instead of force-setting RECEIVED on poItems[0]."
+ },
+ {
+  "module": "procurement",
+  "id": "procurement-21",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "HIGH",
+  "reasoning": "material-requirement.service.ts still computes per-style shortfall = totalRequired − availableStock (line 148, from shared stock) and the bulk aggregation does `existing.shortfall += req.shortfall` (line 229), so the same available stock is subtracted once per style — with 100m free and styles needing 150m+120m the aggregate shortfall reports 70m instead of 170m. Upgraded to HIGH: bulk procurement suggestions silently under-buy under the completely normal case of multiple styles sharing a fabric.",
+  "fix": "In the aggregation, accumulate only requiredQuantity and recompute `existing.shortfall = existing.requiredQuantity - existing.availableStock` once per material instead of summing per-style shortfalls."
+ },
+ {
+  "module": "procurement",
+  "id": "procurement-22",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "LOW",
+  "reasoning": "Raw-float money math persists: grn.service.ts:832 `totalValue = acceptedQty * unitPrice` stored to stock_movements.value, line 644 `totalCostPerMeter = processingRate + sourceCost`, lines 710-711 defect stock at `totalCostPerMeter * 0.5`, line 1136 `totalCost: acceptedQty * actualRate`, and updatePurchaseOrder writes header totals unrounded (purchaseOrder.service.ts:485-490 `subtotal`, `subtotal + totalTax`) while the create path rounds with toFixed(2); none route through utils/currency.ts — paise-level float dust in valuations.",
+  "fix": "Route these multiplications/sums through the Decimal helpers in backend/src/utils/currency.ts and roundToCent before persisting, and round updatePurchaseOrder's header totals like the create path does."
+ },
+ {
+  "module": "production",
+  "id": "production-11",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "HIGH",
+  "reasoning": "external-process.service.ts still has `quantityGood = data.quantityReceived - quantityDamaged` (line 375, received INCLUSIVE of damaged) but `totalAccountedFor = data.quantityReceived + quantityDamaged` (line 392, disjoint). Any receipt with damage (sent 100, received 95 incl. 10 damaged → accountedFor 105 ≥ 100) silently flips the send-out to RECEIVED and marks the linked work_order_service_requirements COMPLETED (lines 425-429) while pieces remain at the vendor. Normal-use silent corruption of vendor-liability tracking → upgraded to HIGH.",
+  "fix": "Use `totalAccountedFor = data.quantityReceived` (accumulated across receipts) and validate quantityDamaged <= quantityReceived."
+ },
+ {
+  "module": "production",
+  "id": "production-12",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "cancelSendOut (line 750-756) still calls updateProductionTracking with 'RECEIVE' ('Reverse = same as receive' comment intact); for SMOCKING the RECEIVE branch (lines 544-546) decrements piecesInSmocking and INCREMENTS piecesInStitching — a cancel pushes pieces forward to stitching instead of restoring piecesInCutting, permanently corrupting the stage counters (whose update errors are also swallowed at 572-574).",
+  "fix": "Add a distinct 'CANCEL' action in updateProductionTracking that decrements the process stage and increments the ORIGIN stage (piecesInCutting for SMOCKING/EMBROIDERY_PIECE, piecesInStitching for HANDWORK)."
+ },
+ {
+  "module": "production",
+  "id": "production-13",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "disposeDefectsSchema is still z.enum(['RECTIFIED','REJECTED','REWORK']) (production.schema.ts:297), applied via validateBody on the route (stitching.routes.ts:93), while the controller requires ['REWORK','SCRAP'] (stitching.controller.ts:1123). SCRAP is rejected by Zod before the controller; RECTIFIED/REJECTED pass Zod then 400 in the controller — only REWORK works, so scrapping defects is impossible through the API.",
+  "fix": "Change disposeDefectsSchema to z.enum(['REWORK','SCRAP']) (matching the controller) and remove the now-redundant controller guard."
+ },
+ {
+  "module": "production",
+  "id": "production-14",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "receiveFromStitchingSchema still requires receivedQty: z.number().int().positive() (production.schema.ts:345) but finishing.controller.ts receiveFromStitching (line 382) destructures only { transferSlipId } and merely flips statuses — the mandatory receivedQty is discarded, so short receipts are never recorded anywhere. Same pattern in stitching receiveFromCutting (stitching.controller.ts:406) which destructures skuReceived but never uses it.",
+  "fix": "Persist the received quantities (per-SKU) on the issue/slip records during receive, or delete receivedQty/skuReceived from the schemas so the API contract is honest."
+ },
+ {
+  "module": "production",
+  "id": "production-15",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "pushToCutting (workOrder.controller.ts:326-340) still sets status IN_PRODUCTION + actualStartDate first, THEN calls addProductionTracking, which runs productionBlockingValidationService.validateStageTransition and throws if blocked (workOrder.service.ts:538-546). No transaction spans the two calls, so a block leaves the WO IN_PRODUCTION with no tracking entry, and issueFabric/issueTrims then accept it (they only check status === 'IN_PRODUCTION'). Worse, the controller never passes adminOverride into addProductionTracking (line 332 called with one arg), so the override flag cannot actually bypass the block.",
+  "fix": "Run validateStageTransition first (passing adminOverride), then perform the status update and tracking insert together in one $transaction."
+ },
+ {
+  "module": "production",
+  "id": "production-16",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "workOrder.routes.ts lines 55-61 (POST /:id/tracking, /split, /push-to-cutting, /issue-fabric, /issue-trims, /issue-packaging, /issue-thread) still have only validateParams, no validateBody. Controller does parseInt(req.body.quantityCompleted) and casts req.body.productionStage (workOrder.controller.ts:204-205) → NaN/invalid enum reach Prisma as 500s, and issueFabric accepts arbitrary lot quantities (lines 516-521) straight into stock-deducting challans.",
+  "fix": "Add Zod schemas + validateBody for each of the seven mutation sub-routes (including positive-quantity checks on issue-* lot arrays)."
+ },
+ {
+  "module": "production",
+  "id": "production-17",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "Partially remediated: transfer_slips.slipNumber is now @unique (schema.prisma:5967, T3-C). But work_orders.workOrderNumber (3047), cutting_batches.batchNumber (5801) and stitching_issues.issueNumber (6059) remain non-unique; generateWorkOrderNumber is still findFirst-desc+1 (workOrder.service.ts:81-98) and splitWorkOrder calls it inside the $transaction at line 894 via the GLOBAL prisma client; generateBatchNumber (cutting.utils.ts:109) and generateIssueNumber (stitching.controller.ts:85) are still count-based so deletions reuse numbers.",
+  "fix": "Add @unique to workOrderNumber/batchNumber/issueNumber, switch count-based generators to max-based, and generate inside the transaction with retry-on-P2002 (or the atomicCodeGenerator)."
+ },
+ {
+  "module": "production",
+  "id": "production-18",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "cutting_batch_skus @@unique([cuttingBatchId, colorId, sizeId]) with colorId String? (schema.prisma:5879/5892), stitching_issue_skus (6105/6113) and transfer_slip_skus (6006/6013) all unchanged; no migration adds NULLS NOT DISTINCT or partial indexes (only 0_init mentions cutting_batch_skus). For size-only orders two NULL-color rows for the same size are legal, and recalculateBatchTotals keys by `${colorId}|${sizeId}` writing the same cutQty into every matching row (cutting.utils.ts:176-183) — duplicates double totalCut/goodPcs/WIP.",
+  "fix": "Add NULLS NOT DISTINCT (or partial WHERE colorId IS NULL) unique indexes via raw SQL migration and dedupe SKU arrays server-side before create."
+ },
+ {
+  "module": "production",
+  "id": "production-19",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "createWorkOrder (workOrder.service.ts:104-134) still writes data.totalQuantity and the work_order_breakup rows independently, and createWorkOrderSchema (workOrder.schema.ts:35) has no refine comparing sum(colorSizeBreakup.quantity) to totalQuantity — cutting ratios, WIP orderQty and the split-quantity guard all trust a header total that can disagree with the size grid.",
+  "fix": "Add a .refine on createWorkOrderSchema (and a service check) that sum(colorSizeBreakup.quantity) === totalQuantity, or derive totalQuantity from the breakup."
+ },
+ {
+  "module": "production",
+  "id": "production-20",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "processingBatch.service.ts lace receive still divides unguarded: actualShrinkagePercent /(sentQty) (582), processingCostPerMeter = totalCost/sentQty (588), finishedCostPerMeter *= sentQty/receivedQty (590) with receivedQty taken raw from input; result persisted to lace_stock.weightedAvgCost/purchaseCost (608-609). No guard rejects actualQuantityReceived <= 0 and no overallStatus check prevents a second receive creating a duplicate full-quantity lot. receivedQty=0 (lost lot) yields Infinity into stock cost.",
+  "fix": "Reject actualQuantityReceived <= 0, guard against re-receiving a COMPLETED batch, and route the cost math through guarded-divide/roundToCent in backend/src/utils/currency.ts."
+ },
+ {
+  "module": "production",
+  "id": "production-21",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "Partially improved by remediation (completedQuantity is now derived from SUM of PACKING tracking rows, fixing the stale-quantity input), but calculateCMTCost/updateActualCMTCosts still use raw Number() float reduce/multiply (workOrder.service.ts:1047-1061, 1115-1119) with no currency.ts import anywhere in the file, and the controller trigger is still catch-logWarn-and-continue (workOrder.controller.ts:163-165), so a failure leaves order_item_costing silently on estimates.",
+  "fix": "Route the per-piece/variance arithmetic through roundToCent/decimal helpers in backend/src/utils/currency.ts and surface updateActualCMTCosts failures in the response (or a retry flag) instead of logWarn."
+ },
+ {
+  "module": "production",
+  "id": "production-22",
+  "verdict": "PLAUSIBLE",
+  "severityAdjusted": "LOW",
+  "reasoning": "The contradictory guards are still present verbatim (`goodQty === undefined && goodQty === null` at stitching.controller.ts:502 and 507 — always false) with the `Number(goodQty) || 0` fallback. However the route applies validateBody(recordStitchingOutputSchema) which REQUIRES goodQty (production.schema.ts:283) and validateBody replaces req.body with the parsed value (validation.middleware.ts:28), stripping the passedQty alias — so a goodQty-less request 400s at the route and the dead guards can't currently be reached with bad data. Latent bug only (bites if the schema loosens or the handler is reused unvalidated).",
+  "fix": "Change && to || in both guards (or delete them and add passedQty/rejectedQty aliases to the Zod schema if that legacy path is meant to work)."
+ },
+ {
+  "module": "production",
+  "id": "production-23",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "createStitchingIssue (stitching.controller.ts:285-311) still accepts skuBreakdown availableQty/issuedQty verbatim from the client with no check against cutting goodPcs or transfer-slip quantities, and bulk-marks transferSlipIds RECEIVED outside any transaction; recordDailyOutput has no cumulative cap against issuedQty; completeStitchingIssue only checks total output > 0 (553-558). Stitching 'produced' can exceed cutting 'completed' with the discrepancy masked downstream.",
+  "fix": "Validate per-SKU issuedQty against the selected transfer slips' quantities minus already-issued, consume the slips in the same transaction as the issue create, and cap cumulative daily output at issuedQty."
+ },
+ {
+  "module": "production",
+  "id": "production-24",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "production-run-split.service.ts:116 still does `Math.round(breakup.plannedQuantity * ratio)` independently per child with no largest-remainder reconciliation and no assertion that the child breakup sums to split.quantity — a routine 3-way split of an odd size quantity creates phantom or lost pieces in the size grids, feeding the production-19 header/breakup drift.",
+  "fix": "Allocate per-size child quantities by largest-remainder so they sum exactly to the parent's breakup, then assert sum(child breakup) === child.totalQuantity."
+ },
+ {
+  "module": "production",
+  "id": "production-25",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "createDelivery increments stage.quantityReceived / decrements quantityInProcess in a tx (processingDelivery.service.ts:162-172) and acceptDelivery rolls into batch counters atomically (582-595, per a bug-hunt T1/F4 remediation comment), but rejectDelivery still only flips qualityStatus/rejectionReason (605-611) with no stage/batch compensation, and the generic updateDelivery (446-448) passes data straight to prisma.update so quantityAccepted/quantityRejected can be rewritten after acceptance without touching batch totals.",
+  "fix": "Make rejectDelivery and post-acceptance quantity edits flow through the same transactional batch/stage rollup as acceptDelivery (or derive stage/batch totals from processing_delivery aggregates, as the createDelivery guard at line 89 already does)."
+ },
+ {
+  "module": "production",
+  "id": "production-26",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "LOW",
+  "reasoning": "workOrder.controller.ts:19 still has `const prisma = new PrismaClient()` (second connection pool), and issueFabric still runs createChallan (line 533) then issueChallan (line 555) as two separate non-transactional calls — a failure in issueChallan leaves an orphan DRAFT challan.",
+  "fix": "Import the shared prisma singleton from config/database and wrap each createChallan+issueChallan pair in a single transaction."
+ },
+ {
+  "module": "production",
+  "id": "production-27",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "LOW",
+  "reasoning": "cancelCuttingBatch (cutting.controller.ts:843-870) still writes status 'ON_HOLD' with a 'CANCELLED: ...' remark instead of the CANCELLED status that CuttingBatchStatusEnum supports, and performs no fabric restore or challan reversal — cancelled batches pollute ON_HOLD views and their issued fabric stays deducted.",
+  "fix": "Set status 'CANCELLED' and reverse any outstanding auto-issued fabric (challan reversal) in the same transaction."
+ },
+ {
+  "module": "costing",
+  "id": "costing-13",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "Current schema.prisma:1829-1865 still has no @@unique/partial-unique on costSheetId, and generateFabricPO (costSheetPOGeneration.service.ts:693-750) still does findFirst(fabricPOId:null) -> create-if-missing -> PO+items in $transaction (716-744) -> cost_sheet_po_generation.update OUTSIDE that transaction (747-750); the identical off-tx update repeats at lines 887, 1057, 1204, 1439, 1581, 1765 for the other six categories. A double-click still yields two full DRAFT POs with the second silently overwriting the link.",
+  "fix": "Move the generation get-or-create, PO create, and link update into one $transaction using a conditional updateMany({where:{id, fabricPOId:null}}) guard (fail/retry when count===0), and add a partial unique index enforcing one open generation row per costSheetId."
+ },
+ {
+  "module": "costing",
+  "id": "costing-14",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "processor-rate-validation.service.ts still hardcodes 'DYEING' in both getCurrentProcessorRate calls — fabric items at lines 249-255 and lace items at 299-305 — while cost-sheet rates are built with processingType derived from finishType (DYEING or PRINTING); a PRINTED item's current rate lookup finds no DYEING card and `if (!currentRate) continue` (257/307) silently skips validation, so stale-rate Processing POs pass the guard unblocked.",
+  "fix": "Derive the item's actual processingType from its finishType/rateCard and pass it into getCurrentProcessorRate instead of the 'DYEING' literal, consolidating on the V2 lookupRate resolution."
+ },
+ {
+  "module": "costing",
+  "id": "costing-15",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "WeightedAverageCostService.consumeStock is unchanged: findUnique (215), availability check on the read value (225), fabric_stock.update writing the pre-computed `availableQty - data.quantity` (230-237, not an atomic decrement), then fabric_stock_transaction.create (243-259) — no $transaction anywhere in the file (grep confirms zero occurrences), so concurrent consumers oversell the lot and a failure between the two writes leaves stock changed with no ledger row.",
+  "fix": "Wrap the stock update and ledger insert in one prisma.$transaction and replace the read-then-write with a guarded atomic updateMany({where:{id, quantityAvailable:{gte:qty}}, data:{quantityAvailable:{decrement:qty}, quantityConsumed:{increment:qty}}}) checking the affected count."
+ },
+ {
+  "module": "costing",
+  "id": "costing-16",
+  "verdict": "PLAUSIBLE",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "style-costing-approval.controller.ts still creates the new version (style_costing.create at 187-283) and then supersedes/locks the old sheet in a separate un-transactioned update (286-292); a failure between the two leaves two sheets with supersededById null so 'current version' resolution becomes nondeterministic. The dead cost-sheet-versioning.service.ts still exists with its inverted semantics but is imported nowhere (grep confirms), so the inversion only bites if someone wires it up; the live-path failure needs a crash between two adjacent writes — real but unusual.",
+  "fix": "Wrap the clone-create and the old sheet's supersededById/lockedForOrders update in one prisma.$transaction, and delete (or invert) the unused cost-sheet-versioning.service.ts."
+ },
+ {
+  "module": "costing",
+  "id": "costing-17",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "All four falsy guards are still present: laceCosting.controller.ts:31 and :65 plus styleCostingLaceItems.controller.ts:72 and :258 use `wastagePercent ? parseFloat(...) : undefined`, and laceCostingCalculation.service.ts:125-127 still throws 'wastagePercent is required - no hardcoded defaults allowed' on undefined — so a legal wastagePercent of 0 (which the sibling path at styleCostingLaceItems.controller.ts:219-221 explicitly documents as valid) deterministically becomes a 500.",
+  "fix": "Replace the truthiness checks with nullish checks (`wastagePercent != null ? parseFloat(wastagePercent) : undefined`) in all four spots."
+ },
+ {
+  "module": "costing",
+  "id": "costing-18",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "fabric-costing-run.controller.ts still stores totalFabricCost/isComplete at createRun (203-214) and only refreshes them via the separate PATCH /:runId/recalculate endpoint (307-320), while fabric-costing.controller.ts contains zero references to fabric_costing_run or totalFabricCost (grep confirms), so saveFabricCosting edits to a CAD's cost never update the owning run's stored totals — they drift until someone manually hits recalculate.",
+  "fix": "Compute run totals at read time from the always-loaded fabricCads (or trigger the recalc inside saveFabricCosting when the CAD belongs to a run) instead of trusting the stored columns."
+ },
+ {
+  "module": "costing",
+  "id": "costing-19",
+  "verdict": "PLAUSIBLE",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "schema.prisma:1995-2022 still declares the 24 nullable master FKs on style_costing_trim_items with only the comment 'only ONE should be populated' as enforcement — no CHECK constraint exists in any migration (no num_nonnulls hit repo-wide) and no partial unique blocks duplicates, so multi-FK or duplicate rows remain legal and the PO generator's first-non-null cascade would silently drop the extra master; normal UI flows set one FK, so hitting it needs a misbehaving client or future code path.",
+  "fix": "Add a raw-SQL migration with CHECK (num_nonnulls(materialId, threadId, ..., masterId) <= 1) plus a Zod refine that exactly the FK matching materialType is set."
+ },
+ {
+  "module": "costing",
+  "id": "costing-20",
+  "verdict": "PLAUSIBLE",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "styleCostingLaceItems.service.ts is unchanged: the item write and updateCostSheetLaceTotal recompute remain separate awaits with no $transaction anywhere in the file (create->recompute at 121, update->recompute at 219, delete->recompute at 244, plus 509), and updateCostSheetLaceTotal (382) itself is aggregate-read then style_costing.update — a failure or interleaving between writes leaves cost-sheet totals disagreeing with line items, but requires a mid-sequence error or concurrent edits.",
+  "fix": "Pass a shared tx through each item write and updateCostSheetLaceTotal inside one prisma.$transaction."
+ },
+ {
+  "module": "costing",
+  "id": "costing-21",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "getStockInfoForLace still returns `total: available + reserved` (costSheetPOGeneration.service.ts:586) while getStockInfoForGreige returns `available - reserved` (558) and getStockInfoForMaterial returns `available + fabricAvailable - totalReserved` (529) — the lace sign is inverted versus both siblings, so any lace with reserved stock deterministically over-reports net availability in the PO-requirements payload.",
+  "fix": "Change line 586 to `total: available - reserved` to match the greige/material implementations."
+ },
+ {
+  "module": "costing",
+  "id": "costing-22",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "The mismatch survives T3-A: the route applies validateBody(approveCostSheetSchema) (styleCosting.routes.ts:165) whose schema is still {approved: z.boolean() required, remarks, rejectionReason} (styleCosting.schema.ts:54-58), and validateBody does `req.body = schema.parse(req.body)` which strips unknown keys — so the controller's primary contract {action, rejectionNotes} (style-costing-approval.controller.ts:25) is unreachable (400 'approved required'), only the legacy boolean survives, and since legacy approved:false maps to PENDING (line 53) a true REJECTED-with-notes flow is impossible through the API while rejectionReason is silently dropped.",
+  "fix": "Unify the contract: change approveCostSheetSchema to {action: z.enum(['approve','reject','revoke']), rejectionNotes: z.string().optional()} (keeping approved as an optional legacy field) so the controller's fields survive validation."
+ },
+ {
+  "module": "costing",
+  "id": "costing-23",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "LOW",
+  "reasoning": "Every generate* method still accumulates subtotal/poTotalCgst/Sgst/Igst as raw JS floats (`subtotal += totalPrice` at 654-664) and rounds only once via parseFloat(toFixed(2)) (689-690, 724-727, repeated at 829-830/864-867, 994-995, 1147-1148, 1382-1383, 1523-1524, 1702-1703, 1739-1742); utils/currency.ts is still unimported here, so header totals can differ by paise from the sum of the already-rounded per-line taxAmounts stored on purchase_order_items.",
+  "fix": "Sum the already-rounded line amounts with decimal.js helpers from backend/src/utils/currency.ts and derive header totals from the stored line values."
+ },
+ {
+  "module": "costing",
+  "id": "costing-24",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "LOW",
+  "reasoning": "fabric-cost-calculation.service.ts:327 is still `else if (fabric.costPerMeter)` — a Prisma Decimal(0) is a truthy object, so an unpriced master with costPerMeter=0 yields cost=0, available:true, totalCost:0 (346-351) and wins the ascending-by-totalCost recommendation, whereas the greige branch treats 0 as missing; requires a zero-rate fabric_master row but then fails deterministically.",
+  "fix": "Change the guard to `else if (fabric.costPerMeter != null && Number(fabric.costPerMeter) > 0)` so a zero rate is treated as 'no rate', matching the greige branch."
+ },
+ {
+  "module": "financial-gst",
+  "id": "financial-gst-7",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "debitNote.service.ts create() lines 77-82 still read `let isInterstate = false; if (data.poId) { const result = await gstService.isInterstatePO(data.supplierId); ... }` — poId is optional in DebitNoteCreateInput, so a standalone debit note for an out-of-state supplier is always taxed CGST/SGST; the remediation waves did not touch this file's interstate logic.",
+  "fix": "Call gstService.isInterstatePO(data.supplierId) unconditionally (remove the `if (data.poId)` guard), since the lookup only needs supplierId."
+ },
+ {
+  "module": "financial-gst",
+  "id": "financial-gst-9",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "invoice.service.ts createInvoice header-level path (lines 410-411) still uses client-supplied taxAmount/totalAmount verbatim when provided while lines 429-435 store server-computed gstCalc.cgst/sgst/igst, and invoice.schema.ts still accepts optional taxAmount/totalAmount (its comment even claims 'the server overwrites' them, which is true only for updateInvoice — R1b fixed update, not create); an API client posting subtotal=1000, taxAmount=0 persists an invoice where taxAmount ≠ cgst+sgst+igst and balanceAmount seeds from the inconsistent total.",
+  "fix": "In the no-items branch of createInvoice, ignore data.taxAmount/data.totalAmount and always persist gstCalc.totalTax and subtotal+totalTax (or 400 when client figures deviate beyond a rounding epsilon), matching what updateInvoice now does."
+ },
+ {
+  "module": "financial-gst",
+  "id": "financial-gst-10",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "HIGH",
+  "reasoning": "gstReport.service.ts generateGSTR3B (lines 290-327) still sums ITC from purchase_orders.totalCgst/totalSgst/totalIgst filtered by poDate with status in ['SENT','ACKNOWLEDGED','PARTIALLY_RECEIVED','RECEIVED'] — a merely-SENT PO with nothing delivered contributes 100% of its PO tax as claimed input credit — and netTaxPayable still clamps each head with Math.max(0, ...), silently discarding carry-forward credit; this produces a wrong statutory GSTR-3B under completely normal use (any open PO in the period), so I upgraded it to HIGH.",
+  "fix": "Base ITC on GRN-received value (or supplier invoice records) dated in the period, pro-rating PO tax by received fraction, and report negative net tax as carry-forward credit instead of clamping to zero."
+ },
+ {
+  "module": "financial-gst",
+  "id": "financial-gst-11",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "All three generators are unchanged: creditNote.service.ts:37-59 still does findFirst orderBy creditNoteNumber:'desc' (lexicographic) + padStart(3) on the GLOBAL prisma client from inside the tx callback (called at line 79), so after CN-1000 exists the string-max is still 'CN-999' and every subsequent create regenerates 'CN-1000' → permanent P2002; debitNote.service.ts:45-67 is identical and the number is minted before the $transaction (line 119); invoice.service.ts generateInvoiceNumber (168-194) is read-then-create outside the tx (called at line 274) so concurrent month-start invoices collide on the unique.",
+  "fix": "Replace all three with the atomicCodeGenerator pattern (counter row updated inside the creating transaction, or numeric-cast max via raw SQL) with a single retry on P2002."
+ },
+ {
+  "module": "financial-gst",
+  "id": "financial-gst-12",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "recordPayment was hardened (guard and balance update now atomic inside one $transaction with increment/decrement, invoice.service.ts:682-726) but the duplicate heuristic is still keyed only on invoiceId+amount within 24h (lines 685-692) regardless of referenceNumber/method — so two genuine equal-amount UPI installments the same day are hard-rejected — and the payments model (schema.prisma:1195-1210) still has no unique constraint on referenceNumber, so the same UTR/cheque re-keyed after 24h double-increments paidAmount.",
+  "fix": "Add a partial unique index on payments(invoiceId, referenceNumber) WHERE referenceNumber IS NOT NULL and restrict the 24h amount heuristic to payments lacking a reference (or with the same reference)."
+ },
+ {
+  "module": "financial-gst",
+  "id": "financial-gst-13",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "gst.service.ts calculateLineItemGST (lines 244-266) still computes per-item `parseFloat(((lineTotal * rate) / 100).toFixed(2))` on raw floats; calculateTotals (272-299) still claims 'round only at the end' while its inputs are the already-per-item-rounded amounts; creditNote.service (110-123) and debitNote.service (104-118) still float-sum headers independently; a repo grep shows utils/currency.ts is imported only by invoice.service.ts, and there only for updateInvoice's roundToCent (the R1b fix) — the create/GST paths remain raw-float.",
+  "fix": "Route line and header arithmetic through utils/currency.ts (Decimal add/mul + roundToCent) and make all four services aggregate via a single corrected gstService.calculateTotals that genuinely rounds once at the header."
+ },
+ {
+  "module": "financial-gst",
+  "id": "financial-gst-14",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "createInvoice still derives isInterstate from `COMPANY_STATE_ID !== placeOfSupplyId` (env-var state UUID, invoice.service.ts:257-271) while gstService.isInterstatePO/isInterstateSale compare stateCode strings against COMPANY_CONFIG.stateCode and both swallow all errors returning `{ isInterstate: false }` (gst.service.ts:352-355, 381-384) — a DB hiccup during the supplier-state lookup silently converts an interstate supply to CGST/SGST; only creditNote improved (it now copies invoice.isInterstate), the divergent authorities and silent-intrastate defaults remain.",
+  "fix": "Consolidate to one gstService.isInterstate(stateIdOrCode) backed by a single config source (COMPANY_CONFIG) used by createInvoice, debit notes and quotations, and let lookup errors propagate instead of defaulting to intrastate."
+ },
+ {
+  "module": "financial-gst",
+  "id": "financial-gst-15",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "creditNote.service.ts create() (lines 82-107) still calls gstService.calculateLineItemGST with a fresh rate lookup for every CN item even when invoiceItemId is provided — the linked invoice_items row's stored gstRate/hsnCode is never read — so a CN item missing hsnCode falls through getGSTRate to the 5% fallback and reverses less tax than the invoice charged, and any hsn_sac_masters rate change between invoice and return silently mis-nets GSTR-1 CDNR; the R1b remediation fixed isInterstate sourcing (now copied from the invoice) but not the rate.",
+  "fix": "When invoiceItemId is set, copy gstRate/hsnCode (and the cgst/sgst/igst split) from the linked invoice_items row and compute the reversal at that rate, using fresh lookup only for unlinked lines."
+ },
+ {
+  "module": "financial-gst",
+  "id": "financial-gst-16",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "LOW",
+  "reasoning": "currencies.controller.ts is unchanged: createCurrency runs updateMany({isBaseCurrency:false}) at lines 24-29 then a separate create at line 31, and updateCurrency repeats the pattern at 127-142, with no $transaction and no partial unique index guaranteeing exactly one base currency — a failed create after the unset (e.g. currencyCode conflict slipping past the pre-check) leaves zero base currencies.",
+  "fix": "Wrap the base-unset and the create/update in one prisma.$transaction and add a partial unique index on currencies(isBaseCurrency) WHERE isBaseCurrency = true."
+ },
+ {
+  "module": "financial-gst",
+  "id": "financial-gst-17",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "LOW",
+  "reasoning": "export.service.ts still formats invoice amounts with `toLocaleString('en-IN', { minimumFractionDigits: 2 })` and no maximumFractionDigits at lines 320 (taxAmount), 335 (totalAmount), 348 (paidAmount) and 357 (balanceAmount) — the known/baselined currency-format bug class, so a float-dust balance renders as ₹563.796 on the customer PDF.",
+  "fix": "Add `maximumFractionDigits: 2` to all four toLocaleString calls in the invoice PDF and remove the corresponding entries from scripts/hooks/currency-format-baseline.json."
+ },
+ {
+  "module": "financial-gst",
+  "id": "financial-gst-18",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "LOW",
+  "reasoning": "chartOfAccounts.controller.ts getAllAccounts still hardcodes `where = { isActive: true }` (line 82) and `orderBy: { accountCode: 'asc' }` (line 108) while chartOfAccounts.schema.ts's query schema still declares isActive/sortBy/sortOrder (schema lines 85-97) that are therefore validated and ignored — inactive accounts are unreachable via the list endpoint — and parentAccountId is still read from raw req.query (line 75/99-101) without being declared in the query schema, with the controller's limit default '50' disagreeing with the schema default.",
+  "fix": "Read isActive/sortBy/sortOrder from the validated query into the where/orderBy, add parentAccountId to chartOfAccountQuerySchema, and align the limit default with the schema."
+ },
+ {
+  "module": "dispatch",
+  "id": "dispatch-7",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "The quick-wins wave fixed the datetime format (schemas now use z.coerce.date), but the optionality mismatch is untouched: recordPODSchema (dispatch.schema.ts:266-272) marks deliveryDate/receivedBy/deliveryStatus optional while dispatch_pods requires all three (schema.prisma:6611/6613/6617) and the controller does new Date(deliveryDate) unconditionally (dispatch.controller.ts:741); createASNSchema (lines 164-166) marks plannedDispatchQty/cartonsPlanned/requestedShipDate optional while asn_applications requires them (schema.prisma:6482-6484) and the controller does new Date(requestedShipDate) (line 864); approveASN does new Date(appointmentDate) (line 931) with schema-optional appointmentDate; deliveryNoteItemSchema (lines 39-45) marks styleId/colorId/sizeId optional while delivery_note_items requires all three (schema.prisma:619-621), so an item without colorId rolls back the whole create-note transaction with an opaque Prisma 500 — despite the new FG-deduction code explicitly claiming to tolerate missing colorId.",
+  "fix": "Make the controller/DB-required fields required in the Zod schemas: recordPOD's deliveryDate/receivedBy/deliveryStatus, createASN's plannedDispatchQty/cartonsPlanned/requestedShipDate, approveASN's appointmentDate, and deliveryNoteItemSchema's styleId/colorId/sizeId."
+ },
+ {
+  "module": "dispatch",
+  "id": "dispatch-8",
+  "verdict": "PLAUSIBLE",
+  "severityAdjusted": "LOW",
+  "reasoning": "Still present but latent: frontend dispatch.service.ts still defines generateDocument POSTing /dispatch/delivery-notes/:id/generate-document (line 102) and getSummaryByOrder GETting /dispatch/summary/order/:orderId (line 194), and neither route exists in dispatch.routes.ts; CreateDeliveryNoteRequest (dispatch.types.ts:292-299) still has cartonIds: string[] and no items while createDeliveryNoteSchema requires items min(1). However, a repo grep shows NO page currently calls generateDocument, getSummaryByOrder, or deliveryNoteService.create — the failure only fires when someone wires UI to these dead/mismatched client methods, so it is a landmine rather than an active bug.",
+  "fix": "Delete (or implement) the two dead service methods and rewrite CreateDeliveryNoteRequest to match createDeliveryNoteSchema (items: {styleId, colorId, sizeId, quantity}[] instead of cartonIds)."
+ },
+ {
+  "module": "dispatch",
+  "id": "dispatch-9",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "Repo-wide grep of backend/src confirms the only occurrence of carton status 'DISPATCHED' is the read filter in getOrdersReadyForDispatch (dispatch.controller.ts:1131); there is no carton_packings.update to DISPATCHED and no dispatch_cartons write anywhere. dispatchDeliveryNote (lines 627-688) still only flips the note to IN_TRANSIT and stamps transport dispatchDate, so getAvailableCartons (status 'PACKED', line 1062) lists already-dispatched cartons forever and dispatchedPieces is permanently 0. Kept MEDIUM (not HIGH) because the T3-C per-SKU/order dispatch caps and FG deduction now prevent actual quantity double-dispatch — this corrupts the carton availability/readiness reporting, not the stock ledger.",
+  "fix": "When a delivery note is dispatched, mark its linked cartons status='DISPATCHED' (creating dispatch_cartons link rows) in the same transaction, or derive availability by excluding cartons joined to dispatched notes."
+ },
+ {
+  "module": "dispatch",
+  "id": "dispatch-11",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "Unchanged by remediation: recordPOD still does prisma.dispatch_pods.create (dispatch.controller.ts:738) followed by a separate prisma.delivery_notes.update to DELIVERED (line 758) with no $transaction, and dispatch_pods.deliveryNoteExtId is @unique (schema.prisma:6610) — a failure between the two writes leaves the note IN_TRANSIT with a POD attached, and every retry then hits P2002 on the unique, permanently wedging the note without DB surgery. assignTransport (ext create + transport upsert + note update, lines 564-622) and dispatchDeliveryNote (status update + transport dispatchDate, lines 669-685) have the same multi-write non-atomic pattern. The T3-C atomicity work covered delivery-note creation/deletion FG flows but not these workflow actions.",
+  "fix": "Wrap each workflow action's writes in one prisma.$transaction and make recordPOD idempotent via upsert on deliveryNoteExtId."
+ },
+ {
+  "module": "dispatch",
+  "id": "dispatch-12",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "HIGH",
+  "reasoning": "Still fully present: recordPOD sets status 'DELIVERED' unconditionally (dispatch.controller.ts:758-761) regardless of deliveryStatus DELIVERED|PARTIAL|REJECTED or shortageQty; the (now row-locked, per-SKU) over-dispatch guard in createDeliveryNote (lines 293-351) sums delivery_note_items for ALL notes of the order with no netting of POD shortage/rejection; and nothing re-credits finished_goods_stock or delivery_note_fg_allocations for rejected/short goods. Upgraded to HIGH: a customer rejection is a normal business event, and the result is silent double corruption — the FG ledger permanently understates stock that physically returned, and the strengthened T3-C per-SKU cap now hard-blocks dispatching the replacement quantity, so the order can never be fulfilled through the UI.",
+  "fix": "Net the dispatched-against-order figure by POD shortage/rejection (or introduce PARTIAL/REJECTED note statuses excluded from the cap) and post a compensating FG stock restore for returned/short quantities in the POD transaction."
+ },
+ {
+  "module": "dispatch",
+  "id": "dispatch-13",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "Still present: deliveryNoteExtendedIncludeOptions is defined at dispatch.controller.ts:159-166 and a repo grep finds no other reference; getDeliveryNoteById (line 251) and getAllDeliveryNotes (line 230) both use plain deliveryNoteIncludeOptions, so transformDeliveryNote's note.delivery_notes_ext branch (lines 58-72) always yields ext: null. POD data (customer GRN number/date, sign-off, shortage) is written by recordPOD but never returned by any read endpoint, while frontend DeliveryNote.ext (dispatch.types.ts:171) models it — stored-but-invisible data.",
+  "fix": "Use deliveryNoteExtendedIncludeOptions (extended to also include the transport relation) in getDeliveryNoteById."
+ },
+ {
+  "module": "dispatch",
+  "id": "dispatch-14",
+  "verdict": "PLAUSIBLE",
+  "severityAdjusted": "LOW",
+  "reasoning": "Still present exactly as described: dispatch.routes.ts:96 validates POST /asn/:id/apply with approveASNSchema while applyASN (dispatch.controller.ts:885-908) reads no body fields. All approveASNSchema fields are optional and passthrough, so there is no current failure — the defect is latent schema-sharing drift that only bites if the approve schema is ever tightened (e.g., making appointmentDate required per dispatch-7's fix, which would then 400 every apply call since the frontend sends no body).",
+  "fix": "Validate the apply route with asnActionSchema (or drop validateBody with a // no-body marker) instead of approveASNSchema — especially before tightening approveASNSchema for dispatch-7."
+ },
+ {
+  "module": "samples-embroidery",
+  "id": "samples-embroidery-8",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "sample.routes.ts:77 applies validateQuery(sampleQuerySchema); sample.schema.ts:243-246 transforms pendingApproval to boolean and validation.middleware.ts:58-60 copies the transformed value back onto req.query; sample.controller.ts:357 still compares `pendingApproval === 'true'` — boolean true never equals the string, so the pending-approval filter silently returns all samples with a 200.",
+  "fix": "In getAllSamples change the check to `if (pendingApproval === true)` (or read req.validatedQuery.pendingApproval)."
+ },
+ {
+  "module": "samples-embroidery",
+  "id": "samples-embroidery-9",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "schema.prisma has no minFabricWidth column on embroidery_master (grep confirms), yet embroidery.schema.ts:29/55 accepts it, updateEmbroidery sets updateData.minFabricWidth whenever the key is present (embroidery.controller.ts:335) → PrismaClientValidationError 500 on PUT, createEmbroidery destructures it (line 73) but the create data (110-126) never writes it → silent drop, and serializeEmbroidery (line 18) serializes the always-undefined field as null.",
+  "fix": "Add a `minFabricWidth Decimal?` column via migration, or remove the field from embroidery.schema.ts, both controller paths, and serializeEmbroidery."
+ },
+ {
+  "module": "samples-embroidery",
+  "id": "samples-embroidery-10",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "samples.sampleNumber is still only @@index'd (schema.prisma:1479/1514), generateSampleNumber still uses count(isActive:true)+1 (sample.controller.ts:38-48), deleteSample still HARD-deletes (line 701), FIT versioning uses a count WITHOUT the isActive filter (lines 151-157 and 980-987), and embroidery_master.embroideryCode is likewise @@index-only (schema.prisma:2157/2181) with a read-then-create generator — delete-then-create or concurrent creates silently mint duplicate sample numbers exactly as audited.",
+  "fix": "Add @@unique on samples.sampleNumber and embroidery_master.embroideryCode, derive the sequence from the max existing number (not a row count), and wrap creation in a retry-on-P2002 loop."
+ },
+ {
+  "module": "samples-embroidery",
+  "id": "samples-embroidery-11",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "createSample still calls logOverride AFTER prisma.samples.create outside any transaction with no toStage (sample.controller.ts:253-260); logOverride passes `data.toStage!` (productionBlockingValidation.service.ts:757) into stage_transition_overrides.toStage which is still a required ProductionStage (schema.prisma:7333) — undefined throws PrismaClientValidationError, so every admin-override sample creation 500s after the sample row is committed (retry → duplicate) and the mandatory audit record is never written.",
+  "fix": "Make stage_transition_overrides.toStage nullable (ProductionStage?) for SAMPLE_CREATION block types and wrap the sample create + logOverride in one $transaction."
+ },
+ {
+  "module": "samples-embroidery",
+  "id": "samples-embroidery-12",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "embroidery-stock.service.ts is unchanged: receive() computes `embroideryCostPerMeter = data.actualCost / data.quantityReceived` unguarded (lines 248-250), recombines parseFloat'd Decimals as floats into weightedAvgCost/purchaseCost (269-270) and transaction totals (283, 292-296); sendOut has the same float pattern (122-136); utils/currency.ts is imported nowhere in the file. Note the failure is currently hard to reach via the API because receiveSchema/sendOutSchema bodies don't match the controllers' destructuring (non-passthrough schemas strip sourceFabricStockId/quantityReceived etc.), but the defect fires deterministically once that drift is fixed.",
+  "fix": "Route per-meter cost and totals through decimal.js helpers in backend/src/utils/currency.ts (guarded divide + roundToCent) and reject quantityReceived<=0 explicitly."
+ },
+ {
+  "module": "samples-embroidery",
+  "id": "samples-embroidery-13",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "embroideryStock.schema.ts:91 still enumerates ['PENDING','PARTIAL','COMPLETED','CANCELLED'] while the service writes SENT (service:159), PARTIALLY_RECEIVED/RECEIVED (:310) and CANCELLED (:525); the route applies validateQuery(embroideryStockQuerySchema) (embroidery-stock.routes.ts:40), so filtering by any real status except CANCELLED 400s; the controller's real filters (embroideryId/forStyleId/forOrderId, controller:122) are undeclared and only survive because validateQuery doesn't strip; fromDate/toDate still use .datetime(). (The same file's BODY schemas — sendOutSchema/receiveSchema — are even more drifted: they require processorId/items[] the controllers never read and strip the fields they do read, leaving POST /send-out and /receive effectively dead.)",
+  "fix": "Rewrite embroideryStock.schema.ts to match the actual controller contract: status enum SENT/PARTIALLY_RECEIVED/RECEIVED/CANCELLED, declare embroideryId/supplierId/forStyleId/forOrderId, and use z.coerce.date() for fromDate/toDate (and fix the sendOut/receive body schemas to the controllers' flat field shape)."
+ },
+ {
+  "module": "samples-embroidery",
+  "id": "samples-embroidery-14",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "Still divergent: validateFitSampleForStage returns not-blocked when no FIT sample exists (productionBlockingValidation.service.ts:100-102) and validateSizeSetSampleForStage likewise (152-154), while validatePPSampleCreation/validateSizeSetSampleCreation (692-743) and checkApprovalGate (sample.controller.ts:1150-1153, canCreateWorkOrder = sizeSetApproved > 0) require an approved sample to exist — a style with no SIZE_SET_SAMPLE row bypasses the cutting-stage gate entirely by never creating the sample.",
+  "fix": "Pick one invariant: make the stage gates block when no approved sample of the required type exists (matching checkApprovalGate), or add an explicit sample-exempt flag on styles honored by both code paths."
+ },
+ {
+  "module": "samples-embroidery",
+  "id": "samples-embroidery-15",
+  "verdict": "PLAUSIBLE",
+  "severityAdjusted": "MEDIUM",
+  "reasoning": "The code is unchanged — availableQty is read at embroidery-stock.service.ts:87, compared at 88, then blindly decremented at 111-119 with no conditional updateMany guard or row lock, so two concurrent transactions (READ COMMITTED) can both pass and drive fabric_stock negative; it stays PLAUSIBLE rather than CONFIRMED because it needs concurrent send-outs on the same lot AND the endpoint is currently unreachable (sendOutSchema strips the fields the controller requires, so POST /send-out 400s).",
+  "fix": "Replace the blind decrement with `tx.fabric_stock.updateMany({ where: { id, quantityAvailable: { gte: data.quantitySent } }, data: { quantityAvailable: { decrement: ... } } })` and throw if count === 0."
+ },
+ {
+  "module": "samples-embroidery",
+  "id": "samples-embroidery-16",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "LOW",
+  "reasoning": "Partially fixed by the quick-wins wave: sample.schema.ts now uses z.coerce.date() everywhere (lines 59-60, 117-130, 186, 197, 214, 241-242) so the sample-module half is resolved; but embroideryStock.schema.ts still has z.string().datetime() on sendDate/expectedReturnDate (42-43), receiveDate (54) and fromDate/toDate (92-93) — date-picker YYYY-MM-DD values still 400 there; severity lowered to LOW because only the embroidery-stock remnant is left and its body schemas are wholly drifted anyway (covered under -13).",
+  "fix": "Replace the remaining z.string().datetime() occurrences in embroideryStock.schema.ts with z.coerce.date() per the smart-check guardrail."
+ },
+ {
+  "module": "samples-embroidery",
+  "id": "samples-embroidery-17",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "LOW",
+  "reasoning": "laceLabDip.routes.ts still wires POST / (line 34), PUT /:id (63) and POST /:id/status (78) with no validateBody and no laceLabDip schema file exists in backend/src/schemas (glob confirms); the controller still does unguarded parseFloat on sampleQuantity/labDipCost (laceLabDip.controller.ts:35, 39, 114-115) so non-numeric input yields NaN → Prisma Decimal 500 instead of a 400.",
+  "fix": "Create backend/src/schemas/laceLabDip.schema.ts (create/update/status schemas with z.number() quantities and z.nativeEnum status) and add validateBody to the three mutation routes."
+ },
+ {
+  "module": "samples-embroidery",
+  "id": "samples-embroidery-18",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "LOW",
+  "reasoning": "updateEmbroiderySchema still allows null for costPerMeter and cutableWidth (embroidery.schema.ts:57, 61) while the controller does unguarded `updateData.cutableWidth = parseFloat(cutableWidth)` and `updateData.costPerMeter = parseFloat(costPerMeter)` (embroidery.controller.ts:336-337) — parseFloat(null) is NaN → Prisma Decimal conversion error 500 when a client clears either field; sibling fields (repeatWidth etc.) have the null guard, these two don't.",
+  "fix": "Guard nulls on lines 336-337 (`x === null ? null : parseFloat(x)`) — or drop parseFloat entirely since Zod already delivers numbers."
+ },
+ {
+  "module": "samples-embroidery",
+  "id": "samples-embroidery-19",
+  "verdict": "CONFIRMED",
+  "severityAdjusted": "LOW",
+  "reasoning": "recordReceiptSchema still accepts receivedBy and condition (sample.schema.ts:196-201) but recordReceipt destructures only receivedDate/remarks (sample.controller.ts:865) — the validated fields are silently dropped; createRevisionSchema still accepts remarks/changesToMake (223-226) while createRevision (955-1040) reads neither and hardcodes remarks to 'Revision of ...' — silent data loss the caller cannot detect.",
+  "fix": "Either persist receivedBy/condition and remarks/changesToMake to columns in the respective handlers, or delete the fields from recordReceiptSchema/createRevisionSchema so the schema matches the controller contract."
+ }
+]

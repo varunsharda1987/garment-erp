@@ -372,6 +372,11 @@ class ExternalProcessService {
       }
 
       const quantityDamaged = data.quantityDamaged || 0;
+      if (quantityDamaged > data.quantityReceived) {
+        throw new Error(
+          `Damaged quantity (${quantityDamaged}) cannot exceed received quantity (${data.quantityReceived}) — received is INCLUSIVE of damaged pieces`
+        );
+      }
       const quantityGood = data.quantityReceived - quantityDamaged;
 
       // 2. Update SKU breakdown if provided
@@ -388,8 +393,11 @@ class ExternalProcessService {
         }
       }
 
-      // 3. Determine new status
-      const totalAccountedFor = data.quantityReceived + quantityDamaged;
+      // 3. Determine new status. quantityReceived is INCLUSIVE of damaged (quantityGood above is
+      // received − damaged), so received alone accounts for every piece back from the vendor — the old
+      // `received + damaged` double-counted damage and flipped the send-out to RECEIVED (and the linked
+      // service requirement to COMPLETED) while pieces were still at the vendor (bug-hunt production-11).
+      const totalAccountedFor = data.quantityReceived;
       const quantitySent = parseFloat(sendOut.quantitySent.toString());
       const newStatus: ExternalProcessStatus = totalAccountedFor >= quantitySent ? 'RECEIVED' : 'PARTIALLY_RECEIVED';
 

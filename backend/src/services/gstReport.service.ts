@@ -286,13 +286,20 @@ class GSTReportService {
       },
     });
 
-    // Input tax credit (from approved POs in the period)
-    const purchaseOrders = await prisma.purchase_orders.findMany({
-      where: {
-        poDate: { gte: fromDate, lte: toDate },
-        status: { in: ['SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED', 'RECEIVED'] },
+    // Input tax credit from goods ACTUALLY RECEIVED in the period (ACCEPTED GRNs), pro-rating each
+    // PO's header tax by the accepted fraction of its subtotal. The old query summed the FULL header
+    // tax of every PO merely dated in the period (including SENT POs with nothing delivered) —
+    // over-claiming ITC on a statutory return (bug-hunt financial-gst-10).
+    const acceptedGrns = await prisma.goods_receiving_notes.findMany({
+      where: { status: 'ACCEPTED', receivingDate: { gte: fromDate, lte: toDate } },
+      select: {
+        grn_items: {
+          select: { acceptedQuantity: true, purchase_order_items: { select: { unitPrice: true } } },
+        },
+        purchase_orders: {
+          select: { subtotal: true, totalCgst: true, totalSgst: true, totalIgst: true },
+        },
       },
-      select: { totalCgst: true, totalSgst: true, totalIgst: true },
     });
 
     const taxable = {
@@ -302,10 +309,27 @@ class GSTReportService {
       igst: invoices.reduce((s, i) => s + Number(i.igstAmount), 0),
     };
 
-    const itc = {
-      cgst: purchaseOrders.reduce((s, p) => s + Number(p.totalCgst || 0), 0),
-      sgst: purchaseOrders.reduce((s, p) => s + Number(p.totalSgst || 0), 0),
-      igst: purchaseOrders.reduce((s, p) => s + Number(p.totalIgst || 0), 0),
+    const itc = { cgst: 0, sgst: 0, igst: 0 };
+    for (const grn of acceptedGrns) {
+      const po = grn.purchase_orders;
+      const poSubtotal = Number(po?.subtotal || 0);
+      if (!po || poSubtotal <= 0) continue;
+      const receivedValue = grn.grn_items.reduce(
+        (s, it) => s + Number(it.acceptedQuantity || 0) * Number(it.purchase_order_items?.unitPrice || 0),
+        0
+      );
+      const fraction = Math.min(1, receivedValue / poSubtotal);
+      itc.cgst += Number(po.totalCgst || 0) * fraction;
+      itc.sgst += Number(po.totalSgst || 0) * fraction;
+      itc.igst += Number(po.totalIgst || 0) * fraction;
+    }
+
+    // Net tax may legitimately be NEGATIVE (excess ITC = carry-forward credit). The old Math.max(0,..)
+    // clamp silently discarded carry-forward on the statutory summary.
+    const net = {
+      cgst: taxable.cgst - itc.cgst,
+      sgst: taxable.sgst - itc.sgst,
+      igst: taxable.igst - itc.igst,
     };
 
     return {
@@ -317,13 +341,10 @@ class GSTReportService {
       },
       inputTaxCredit: { fromPurchases: itc },
       netTaxPayable: {
-        cgst: Math.max(0, taxable.cgst - itc.cgst),
-        sgst: Math.max(0, taxable.sgst - itc.sgst),
-        igst: Math.max(0, taxable.igst - itc.igst),
-        total:
-          Math.max(0, taxable.cgst - itc.cgst) +
-          Math.max(0, taxable.sgst - itc.sgst) +
-          Math.max(0, taxable.igst - itc.igst),
+        cgst: net.cgst,
+        sgst: net.sgst,
+        igst: net.igst,
+        total: net.cgst + net.sgst + net.igst,
       },
     };
   }

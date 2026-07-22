@@ -338,14 +338,38 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
             }
           }
 
+          // Net out goods the customer did NOT keep (bug-hunt dispatch-12): REJECTED PODs return the
+          // whole note; PARTIAL PODs return shortageQty. Without this, returned goods permanently ate
+          // the order's dispatch allowance and the redelivery was blocked. Header-level shortage has no
+          // per-SKU detail, so netting applies to the order-total backstop only — the per-SKU caps above
+          // stay conservative (may block a redelivery of a heavily-shorted SKU early; safe direction).
+          const podNotes = await tx.delivery_notes.findMany({
+            where: { orderId },
+            select: {
+              delivery_notes_ext: { select: { pod: { select: { deliveryStatus: true, shortageQty: true } } } },
+              delivery_note_items: { select: { quantity: true } },
+            },
+          });
+          let returnedQty = 0;
+          for (const n of podNotes) {
+            const pod = n.delivery_notes_ext?.pod;
+            if (!pod) continue;
+            if (pod.deliveryStatus === 'REJECTED') {
+              returnedQty += n.delivery_note_items.reduce((s, i) => s + i.quantity, 0);
+            } else {
+              returnedQty += Number(pod.shortageQty || 0);
+            }
+          }
+
           // Order-total backstop (also covers legacy orders without SKU breakups)
           const totalOrdered = order.order_items.reduce((sum, oi) => sum + oi.totalQuantity, 0);
-          const totalAlreadyDispatched = Array.from(dispatchedMap.values()).reduce((sum, qty) => sum + qty, 0);
+          const totalAlreadyDispatched =
+            Array.from(dispatchedMap.values()).reduce((sum, qty) => sum + qty, 0) - returnedQty;
           const totalNewDispatch = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
           if (totalAlreadyDispatched + totalNewDispatch > totalOrdered) {
             throw new ValidationError(
               `Dispatch quantity (${totalNewDispatch}) would exceed order limit. ` +
-                `Ordered: ${totalOrdered}, already dispatched: ${totalAlreadyDispatched}, ` +
+                `Ordered: ${totalOrdered}, already dispatched (net of returns): ${totalAlreadyDispatched}, ` +
                 `remaining: ${totalOrdered - totalAlreadyDispatched}`
             );
           }
@@ -721,46 +745,86 @@ export const recordPOD = async (req: Request, res: Response) => {
     throw new ValidationError('Can only record POD for in-transit deliveries');
   }
 
-  // Check or create delivery_notes_ext
-  let noteExt = await prisma.delivery_notes_ext.findUnique({
-    where: { deliveryNoteId: id },
-  });
+  // POD + FG restore + note status in ONE transaction (bug-hunt dispatch-12: a PARTIAL/REJECTED POD
+  // used to change nothing — rejected/short goods stayed deducted from finished-goods stock forever and
+  // kept counting against the order's dispatch cap).
+  const restoredQty = await prisma.$transaction(async (tx) => {
+    let noteExt = await tx.delivery_notes_ext.findUnique({
+      where: { deliveryNoteId: id },
+    });
+    if (!noteExt) {
+      noteExt = await tx.delivery_notes_ext.create({ data: { deliveryNoteId: id } });
+    }
 
-  if (!noteExt) {
-    noteExt = await prisma.delivery_notes_ext.create({
+    await tx.dispatch_pods.create({
       data: {
-        deliveryNoteId: id,
+        deliveryNoteExtId: noteExt.id,
+        deliveryDate: new Date(deliveryDate),
+        deliveryTime,
+        receivedBy,
+        designation,
+        customerSignOff: customerSignOff || false,
+        podDocumentUrl,
+        deliveryStatus,
+        shortageQty,
+        rejectionReason,
+        customerGrnNumber,
+        customerGrnDate: customerGrnDate ? new Date(customerGrnDate) : null,
+        remarks,
+        createdById: userId,
       },
     });
-  }
 
-  // Create POD
-  await prisma.dispatch_pods.create({
-    data: {
-      deliveryNoteExtId: noteExt.id,
-      deliveryDate: new Date(deliveryDate),
-      deliveryTime,
-      receivedBy,
-      designation,
-      customerSignOff: customerSignOff || false,
-      podDocumentUrl,
-      deliveryStatus,
-      shortageQty,
-      rejectionReason,
-      customerGrnNumber,
-      customerGrnDate: customerGrnDate ? new Date(customerGrnDate) : null,
-      remarks,
-      createdById: userId,
-    },
+    // Restore finished-goods stock for goods that did NOT stay with the customer: everything for a
+    // REJECTED delivery, shortageQty for a PARTIAL one. Restored against this note's own allocation
+    // records (same rows the creation deducted), and the allocation quantities are reduced so a later
+    // note-delete cannot double-restore. Header-level shortage has no per-SKU detail, so restoration
+    // is greedy across allocations — exact in aggregate.
+    let restored = 0;
+    const wantRestore =
+      deliveryStatus === 'REJECTED'
+        ? Number.MAX_SAFE_INTEGER
+        : deliveryStatus === 'PARTIAL'
+          ? Number(shortageQty || 0)
+          : 0;
+    if (wantRestore > 0) {
+      const allocations = await tx.delivery_note_fg_allocations.findMany({
+        where: { deliveryNoteId: id, quantity: { gt: 0 } },
+        orderBy: { createdAt: 'desc' },
+      });
+      let remaining = wantRestore;
+      for (const a of allocations) {
+        if (remaining <= 0) break;
+        const restore = Math.min(a.quantity, remaining);
+        await tx.finished_goods_stock.update({
+          where: { id: a.fgStockId },
+          data: { quantity: { increment: restore }, lastUpdated: new Date() },
+        });
+        await tx.delivery_note_fg_allocations.update({
+          where: { id: a.id },
+          data: { quantity: a.quantity - restore },
+        });
+        remaining -= restore;
+        restored += restore;
+      }
+    }
+
+    // Note status: DELIVERED marks the end of the journey; the POD row carries the PARTIAL/REJECTED
+    // truth, and the dispatch-cap computation nets it (see createDeliveryNote).
+    await tx.delivery_notes.update({
+      where: { id },
+      data: { status: 'DELIVERED' },
+    });
+
+    return restored;
   });
 
-  // Update delivery note status
-  await prisma.delivery_notes.update({
-    where: { id },
-    data: { status: 'DELIVERED' },
+  res.json({
+    message:
+      restoredQty > 0
+        ? `POD recorded — ${restoredQty} piece(s) restored to finished-goods stock (${deliveryStatus})`
+        : 'POD recorded successfully',
   });
-
-  res.json({ message: 'POD recorded successfully' });
 };
 
 // ============================================

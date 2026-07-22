@@ -221,12 +221,15 @@ export async function calculateBulkRequirements(
   for (const order of orders) {
     const styleRequirements = await calculateMaterialRequirement(order.styleId, order.quantity);
 
-    // Aggregate by material code
+    // Aggregate by material code. Shortfall is RECOMPUTED from the aggregated requirement — summing
+    // per-style shortfalls double-counted the SAME shared on-hand once per style (100m free, styles
+    // needing 150m+120m reported 70m short instead of 170m → bulk procurement under-bought;
+    // bug-hunt procurement-21).
     for (const req of styleRequirements) {
       const existing = allRequirements.get(req.materialCode);
       if (existing) {
         existing.requiredQuantity += req.requiredQuantity;
-        existing.shortfall += req.shortfall;
+        existing.shortfall = existing.requiredQuantity - existing.availableStock; // negative = surplus, same semantics as the per-style figure
         if (!existing.usedInStyles.includes(req.usedInStyles[0])) {
           existing.usedInStyles.push(req.usedInStyles[0]);
         }

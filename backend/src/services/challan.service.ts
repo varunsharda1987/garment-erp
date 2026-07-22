@@ -563,11 +563,44 @@ export async function getChallans(filters: ChallanFilters) {
 
 export async function receiveChallan(id: string, input: ReceiveChallanInput) {
   return prisma.$transaction(async (tx) => {
-    // Fetch challan to check for processing link
+    // Row-lock the challan FIRST so concurrent receives serialize: without this, two double-clicked
+    // receives could both snapshot the pre-receipt quantities before either committed, and the loser
+    // would credit the full amount again (adversarial-review finding on the delta fix).
+    await tx.$queryRaw`SELECT id FROM challans WHERE id = ${id} FOR UPDATE`;
+
+    // Fetch challan to check status + processing link
     const existingChallan = await tx.challans.findUnique({
       where: { id },
-      select: { challanType: true, fabricProcessingId: true, orderId: true },
+      select: { challanType: true, fabricProcessingId: true, orderId: true, status: true },
     });
+
+    if (!existingChallan) {
+      throw new Error('Challan not found');
+    }
+    // Status guard (bug-hunt procurement-4): re-receiving a RECEIVED challan used to re-credit the FULL
+    // receivedQty of every item — double stock credit. PARTIALLY_RECEIVED stays receivable (progressive
+    // receiving is safe because crediting below is DELTA-based).
+    if (existingChallan.status === 'RECEIVED' || existingChallan.status === 'CANCELLED') {
+      throw new Error(`Challan is already ${existingChallan.status} — cannot receive again`);
+    }
+
+    // Snapshot each item's PREVIOUS receivedQty BEFORE writing the new figures: stock is credited by
+    // the DELTA (new − previous), so neither a repeat call nor a progressive second receipt can
+    // re-credit quantity that was already credited.
+    const prevItems = await tx.challan_items.findMany({
+      where: { challanId: id },
+      select: { id: true, receivedQty: true },
+    });
+    const prevQtyById = new Map(prevItems.map((p) => [p.id, p.receivedQty === null ? 0 : Number(p.receivedQty)]));
+
+    // Every submitted item must belong to THIS challan — a foreign challanItemId would write onto
+    // another challan's item (crediting nothing here but poisoning that challan's prev-snapshot so its
+    // real receipt later computes delta 0 and never credits).
+    for (const itemReceipt of input.items) {
+      if (!prevQtyById.has(itemReceipt.challanItemId)) {
+        throw new Error(`Challan item ${itemReceipt.challanItemId} does not belong to challan ${id}`);
+      }
+    }
 
     // Update each item's received quantities
     for (const itemReceipt of input.items) {
@@ -615,7 +648,8 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
 
     // Auto-credit stock for INWARD challans
     if (existingChallan?.challanType === 'INWARD') {
-      // Credit fabric/lace/material stock for each received item
+      // Credit fabric/lace/material stock for each received item — by DELTA (new − previously credited),
+      // so repeat receives and progressive receiving never double-credit (bug-hunt procurement-4).
       for (const item of allItems) {
         if (item.receivedQty === null) {
           logWarn(
@@ -623,7 +657,7 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
           );
           continue;
         }
-        const receivedQty = Number(item.receivedQty);
+        const receivedQty = Number(item.receivedQty) - (prevQtyById.get(item.id) ?? 0);
         if (receivedQty <= 0) continue;
 
         // Fabric stock credit (return to stock)
@@ -692,17 +726,23 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
 
           if (warehouse) {
             try {
-              await stockMovementService.createStockIn({
-                movementType: 'STOCK_IN' as MovementType,
-                materialId: item.materialId,
-                warehouseId: warehouse.id,
-                quantity: new Decimal(receivedQty),
-                unit: (item.unit || 'PIECE') as Unit,
-                referenceType: 'CHALLAN',
-                referenceId: id,
-                remarks: `Received via challan`,
-                performedById: input.receivedById,
-              });
+              // tx passed so the credit joins THIS transaction — without it, createStockIn opened its
+              // own $transaction on the global client and the stock rows survived a rolled-back
+              // receive (bug-hunt procurement-3).
+              await stockMovementService.createStockIn(
+                {
+                  movementType: 'STOCK_IN' as MovementType,
+                  materialId: item.materialId,
+                  warehouseId: warehouse.id,
+                  quantity: new Decimal(receivedQty),
+                  unit: (item.unit || 'PIECE') as Unit,
+                  referenceType: 'CHALLAN',
+                  referenceId: id,
+                  remarks: `Received via challan`,
+                  performedById: input.receivedById,
+                },
+                tx
+              );
             } catch (err: any) {
               // Stock credit failure must block challan reception
               // to prevent data inconsistency (challan RECEIVED but stock not credited)
@@ -727,10 +767,12 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
           });
           if (serviceReq) {
             const requiredQty = Number(serviceReq.quantityRequired);
+            // CUMULATIVE received (item.receivedQty), NOT the credit delta — a progressive receive's
+            // final call has a small delta but the full cumulative total (review regression catch).
             await tx.work_order_service_requirements.update({
               where: { id: item.serviceRequirementId },
               data: {
-                status: receivedQty >= requiredQty ? 'COMPLETED' : 'IN_PROGRESS',
+                status: Number(item.receivedQty) >= requiredQty ? 'COMPLETED' : 'IN_PROGRESS',
               },
             });
           }
@@ -753,10 +795,12 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
       });
 
       if (processing) {
-        // Create fabric stock for each received item with fabric
+        // Create fabric stock for each received item with fabric — by DELTA, same as the general
+        // branch above (review BLOCKER: this branch still credited the FULL cumulative receivedQty via
+        // createStyleStock on every call, so a progressive 60m+100m receive booked 160m for 100m received).
         for (const item of allItems) {
           if (item.receivedQty === null) continue; // Already warned above
-          const receivedQty = Number(item.receivedQty);
+          const receivedQty = Number(item.receivedQty) - (prevQtyById.get(item.id) ?? 0);
           if (receivedQty > 0 && (item.fabricId || processing.finishedFabricId)) {
             // Find the order's style for stock association (style is on order_items, not orders)
             let styleId: string | null = null;

@@ -109,137 +109,143 @@ class GRNService {
 
     const grnNumber = await this.generateGRNNumber();
 
-    // Create GRN with items in transaction
-    const grn = await prisma.$transaction(async (tx) => {
-      // Create GRN
-      const newGRN = await tx.goods_receiving_notes.create({
-        data: {
-          id: randomUUID(),
-          grnNumber,
-          poId: data.poId,
-          supplierId: po.supplierId,
-          warehouseId: data.warehouseId || null, // Target warehouse for received goods
-          receivingDate: data.receivingDate ? new Date(data.receivingDate) : new Date(),
-          invoiceNumber: data.invoiceNumber || null,
-          invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : null,
-          status: GRNStatus.PENDING_QC,
-          remarks: data.remarks || null,
-          receivedById: userId,
-          grn_items: {
-            create: data.items.map((item) => {
-              const poItem = po.purchase_order_items.find((pi) => pi.id === item.poItemId);
-              const orderedQty = Number(poItem?.orderedQuantity || 0);
-              const alreadyReceived = Number(poItem?.receivedQuantity || 0);
-              const pendingQty = orderedQty - alreadyReceived;
-              const isOverReceipt = item.receivedQuantity > pendingQty;
-              const overReceiptQty = isOverReceipt ? item.receivedQuantity - pendingQty : null;
-
-              // Compute counts from details if provided
-              let baleCount: number | null = null;
-              let thanCount: number | null = null;
-              let rollCount: number | null = null;
-              let totalMeters: number | null = null;
-
-              if (item.details && item.details.length > 0) {
-                const thans = item.details.filter((d) => d.detailType === 'THAN');
-                const rolls = item.details.filter((d) => d.detailType === 'ROLL');
-                thanCount = thans.length || null;
-                rollCount = rolls.length || null;
-                totalMeters = item.details.reduce((sum, d) => sum + d.meters, 0);
-                // Count distinct bale numbers for bale count
-                const baleNumbers = new Set(thans.filter((d) => d.baleNumber).map((d) => d.baleNumber));
-                baleCount = baleNumbers.size > 0 ? baleNumbers.size : null;
-              }
-
-              return {
-                id: randomUUID(),
-                poItemId: item.poItemId,
-                materialId: item.materialId,
-                orderedQuantity: poItem?.orderedQuantity || 0,
-                receivedQuantity: item.receivedQuantity,
-                acceptedQuantity: item.acceptedQuantity,
-                rejectedQuantity: item.rejectedQuantity,
-                unit: item.unit,
-                remarks: item.remarks || null,
-                componentName: (poItem as any)?.componentName || null,
-                colorName: (poItem as any)?.colorName || null,
-                // Measurement fields
-                foldLengthCm: item.foldLengthCm || null,
-                receivedWidthInches: item.receivedWidthInches || null,
-                entryMode: item.entryMode || null,
-                baleCount,
-                thanCount,
-                rollCount,
-                totalMeters: totalMeters ?? (item.receivedQuantity || null),
-                isOverReceipt,
-                overReceiptQty,
-                // Source mismatch override fields
-                receivedAsReadyFabric: item.receivedAsReadyFabric || false,
-                actualRatePerUnit: item.actualRatePerUnit || null,
-                updateFutureSourcing: item.updateFutureSourcing || false,
-              };
-            }),
-          },
-        },
-        include: this.getFullInclude(),
+    // PROCESSING PO: validate the linked job work order BEFORE booking anything (bug-hunt
+    // procurement-5: these user-facing rejections used to fire AFTER the GRN + PO received-quantity
+    // increments had already committed — the receipt existed even though the user saw an error).
+    let processingJob: Prisma.job_work_ordersGetPayload<{
+      include: { style: { select: { id: true; styleCode: true } } };
+    }> | null = null;
+    if (po.poCategory === 'PROCESSING' && data.processingData) {
+      processingJob = await prisma.job_work_orders.findFirst({
+        where: { purchaseOrderId: po.id },
+        include: { style: { select: { id: true, styleCode: true } } },
       });
+      if (!processingJob) {
+        logError('No job work order linked to PROCESSING PO', { poId: po.id });
+      } else if (processingJob.receivedDate) {
+        throw new Error('This processing PO has already been received via the Printing/Dyeing module');
+      } else if (processingJob.status !== 'AT_MILL' && processingJob.status !== 'SENT_TO_MILL') {
+        throw new Error(`Cannot receive. Job status is ${processingJob.status}, expected AT_MILL`);
+      }
+    }
 
-      // Create grn_item_details for items with breakdown data
-      for (const item of data.items) {
-        if (item.details && item.details.length > 0) {
-          // Find the created grn_item by poItemId match
-          const createdItem = (newGRN as any).grn_items?.find((gi: any) => gi.poItemId === item.poItemId);
-          if (createdItem) {
-            await tx.grn_item_details.createMany({
-              data: item.details.map((detail: GRNItemDetailDTO) => ({
-                id: randomUUID(),
-                grnItemId: createdItem.id,
-                detailType: detail.detailType,
-                baleNumber: detail.baleNumber || null,
-                sequenceNo: detail.sequenceNo,
-                meters: detail.meters,
-                remarks: detail.remarks || null,
-              })),
+    // Create GRN with items in transaction
+    const grn = await prisma.$transaction(
+      async (tx) => {
+        // Create GRN
+        const newGRN = await tx.goods_receiving_notes.create({
+          data: {
+            id: randomUUID(),
+            grnNumber,
+            poId: data.poId,
+            supplierId: po.supplierId,
+            warehouseId: data.warehouseId || null, // Target warehouse for received goods
+            receivingDate: data.receivingDate ? new Date(data.receivingDate) : new Date(),
+            invoiceNumber: data.invoiceNumber || null,
+            invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : null,
+            status: GRNStatus.PENDING_QC,
+            remarks: data.remarks || null,
+            receivedById: userId,
+            grn_items: {
+              create: data.items.map((item) => {
+                const poItem = po.purchase_order_items.find((pi) => pi.id === item.poItemId);
+                const orderedQty = Number(poItem?.orderedQuantity || 0);
+                const alreadyReceived = Number(poItem?.receivedQuantity || 0);
+                const pendingQty = orderedQty - alreadyReceived;
+                const isOverReceipt = item.receivedQuantity > pendingQty;
+                const overReceiptQty = isOverReceipt ? item.receivedQuantity - pendingQty : null;
+
+                // Compute counts from details if provided
+                let baleCount: number | null = null;
+                let thanCount: number | null = null;
+                let rollCount: number | null = null;
+                let totalMeters: number | null = null;
+
+                if (item.details && item.details.length > 0) {
+                  const thans = item.details.filter((d) => d.detailType === 'THAN');
+                  const rolls = item.details.filter((d) => d.detailType === 'ROLL');
+                  thanCount = thans.length || null;
+                  rollCount = rolls.length || null;
+                  totalMeters = item.details.reduce((sum, d) => sum + d.meters, 0);
+                  // Count distinct bale numbers for bale count
+                  const baleNumbers = new Set(thans.filter((d) => d.baleNumber).map((d) => d.baleNumber));
+                  baleCount = baleNumbers.size > 0 ? baleNumbers.size : null;
+                }
+
+                return {
+                  id: randomUUID(),
+                  poItemId: item.poItemId,
+                  materialId: item.materialId,
+                  orderedQuantity: poItem?.orderedQuantity || 0,
+                  receivedQuantity: item.receivedQuantity,
+                  acceptedQuantity: item.acceptedQuantity,
+                  rejectedQuantity: item.rejectedQuantity,
+                  unit: item.unit,
+                  remarks: item.remarks || null,
+                  componentName: (poItem as any)?.componentName || null,
+                  colorName: (poItem as any)?.colorName || null,
+                  // Measurement fields
+                  foldLengthCm: item.foldLengthCm || null,
+                  receivedWidthInches: item.receivedWidthInches || null,
+                  entryMode: item.entryMode || null,
+                  baleCount,
+                  thanCount,
+                  rollCount,
+                  totalMeters: totalMeters ?? (item.receivedQuantity || null),
+                  isOverReceipt,
+                  overReceiptQty,
+                  // Source mismatch override fields
+                  receivedAsReadyFabric: item.receivedAsReadyFabric || false,
+                  actualRatePerUnit: item.actualRatePerUnit || null,
+                  updateFutureSourcing: item.updateFutureSourcing || false,
+                };
+              }),
+            },
+          },
+          include: this.getFullInclude(),
+        });
+
+        // Create grn_item_details for items with breakdown data
+        for (const item of data.items) {
+          if (item.details && item.details.length > 0) {
+            // Find the created grn_item by poItemId match
+            const createdItem = (newGRN as any).grn_items?.find((gi: any) => gi.poItemId === item.poItemId);
+            if (createdItem) {
+              await tx.grn_item_details.createMany({
+                data: item.details.map((detail: GRNItemDetailDTO) => ({
+                  id: randomUUID(),
+                  grnItemId: createdItem.id,
+                  detailType: detail.detailType,
+                  baleNumber: detail.baleNumber || null,
+                  sequenceNo: detail.sequenceNo,
+                  meters: detail.meters,
+                  remarks: detail.remarks || null,
+                })),
+              });
+            }
+          }
+        }
+
+        // Update PO item received quantities
+        for (const item of data.items) {
+          const poItem = po.purchase_order_items.find((pi) => pi.id === item.poItemId);
+          if (poItem) {
+            await tx.purchase_order_items.update({
+              where: { id: item.poItemId },
+              data: {
+                receivedQuantity: {
+                  increment: item.receivedQuantity,
+                },
+              },
             });
           }
         }
-      }
 
-      // Update PO item received quantities
-      for (const item of data.items) {
-        const poItem = po.purchase_order_items.find((pi) => pi.id === item.poItemId);
-        if (poItem) {
-          await tx.purchase_order_items.update({
-            where: { id: item.poItemId },
-            data: {
-              receivedQuantity: {
-                increment: item.receivedQuantity,
-              },
-            },
-          });
-        }
-      }
-
-      return newGRN;
-    });
-
-    // PROCESSING PO: handle processing-specific receive
-    if (po.poCategory === 'PROCESSING' && data.processingData) {
-      try {
-        const jobWorkOrder = await prisma.job_work_orders.findFirst({
-          where: { purchaseOrderId: po.id },
-          include: {
-            style: { select: { id: true, styleCode: true } },
-          },
-        });
-
-        if (!jobWorkOrder) {
-          logError('No job work order linked to PROCESSING PO', { poId: po.id });
-        } else if (jobWorkOrder.receivedDate) {
-          throw new Error('This processing PO has already been received via the Printing/Dyeing module');
-        } else if (jobWorkOrder.status !== 'AT_MILL' && jobWorkOrder.status !== 'SENT_TO_MILL') {
-          throw new Error(`Cannot receive. Job status is ${jobWorkOrder.status}, expected AT_MILL`);
-        } else {
+        // PROCESSING PO: the processing writes (fabric width, inward challan, job receive) are part of
+        // THIS transaction (bug-hunt procurement-5: they used to run post-commit on the global client as
+        // three separate writes, with the inward-challan failure silently swallowed — a failed challan
+        // left the job RECEIVED with no inward document).
+        if (processingJob && data.processingData) {
           const { qtyReceivedMeters, receivedWidthInches, thanCount, foldLengthCm, receivedChallan } =
             data.processingData;
 
@@ -254,14 +260,14 @@ class GRNService {
           }
 
           // Calculate shrinkage and width variance
-          const sentMeters = Number(jobWorkOrder.qtySentMeters);
+          const sentMeters = Number(processingJob.qtySentMeters);
           const actualShrinkage = sentMeters > 0 ? ((sentMeters - actualMeters) / sentMeters) * 100 : 0;
-          const widthVariance = receivedWidthInches - Number(jobWorkOrder.sentWidthInches);
+          const widthVariance = receivedWidthInches - Number(processingJob.sentWidthInches);
 
           // Update fabric_master actual width if finished fabric exists
-          if (jobWorkOrder.finishedFabricId && receivedWidthInches) {
-            await prisma.fabric_master.update({
-              where: { id: jobWorkOrder.finishedFabricId },
+          if (processingJob.finishedFabricId && receivedWidthInches) {
+            await tx.fabric_master.update({
+              where: { id: processingJob.finishedFabricId },
               data: {
                 actualWidth: receivedWidthInches,
                 cutableWidth: receivedWidthInches > 2 ? receivedWidthInches - 2 : receivedWidthInches,
@@ -269,10 +275,10 @@ class GRNService {
             });
           }
 
-          // Create INWARD challan
-          let inwardChallanId: string | null = null;
-          try {
-            const challan = await createChallan({
+          // Create INWARD challan in the same tx — a failure now ABORTS the whole receive instead of
+          // being swallowed.
+          const challan = await createChallan(
+            {
               challanType: 'INWARD',
               challanDate: data.receivingDate ? new Date(data.receivingDate as string) : new Date(),
               fromType: 'VENDOR',
@@ -287,21 +293,22 @@ class GRNService {
               items: [
                 {
                   itemType: 'FABRIC',
-                  fabricId: jobWorkOrder.finishedFabricId || jobWorkOrder.fabricId,
-                  description: `Processed fabric received via GRN - ${jobWorkOrder.style?.styleCode || ''}`,
+                  fabricId: processingJob.finishedFabricId || processingJob.fabricId,
+                  description: `Processed fabric received via GRN - ${processingJob.style?.styleCode || ''}`,
                   quantity: actualMeters,
                   unit: Unit.METER,
                 },
               ],
-            });
-            inwardChallanId = challan.id;
-          } catch (challanError) {
-            logError('Failed to create inward challan from GRN', challanError);
-          }
+            },
+            tx
+          );
 
-          // Update job_work_orders with received data
-          await prisma.job_work_orders.update({
-            where: { id: jobWorkOrder.id },
+          // Guarded receive (receivedDate still null) — a concurrent receive that won the race makes
+          // count 0 and aborts this one instead of double-receiving.
+          const jobUpdate = await tx.job_work_orders.updateMany({
+            // re-check status too (not just receivedDate): a job cancelled between the pre-tx validation
+            // and this write must not be force-received
+            where: { id: processingJob.id, receivedDate: null, status: { in: ['AT_MILL', 'SENT_TO_MILL'] } },
             data: {
               qtyReceivedMeters: actualMeters,
               receivedWidthInches: receivedWidthInches,
@@ -313,31 +320,27 @@ class GRNService {
               thanCount: thanCount || null,
               foldLengthCm: foldLengthCm || null,
               calculatedActualMeters: calculatedActualMeters,
-              inwardChallanId: inwardChallanId,
-              grnId: grn.id,
+              inwardChallanId: challan.id,
+              grnId: newGRN.id,
               status: 'RECEIVED',
             },
           });
+          if (jobUpdate.count === 0) {
+            throw new Error('This processing PO has already been received via the Printing/Dyeing module');
+          }
 
-          logInfo(`Processing PO received via GRN ${grn.grnNumber}`, {
+          logInfo(`Processing PO received via GRN ${newGRN.grnNumber}`, {
             poId: po.id,
-            jobId: jobWorkOrder.id,
+            jobId: processingJob.id,
             actualMeters,
             shrinkage: actualShrinkage,
           });
         }
-      } catch (processingError) {
-        // If it's a user-facing error (conflict/validation), re-throw
-        if (
-          processingError instanceof Error &&
-          (processingError.message.includes('already been received') ||
-            processingError.message.includes('Cannot receive'))
-        ) {
-          throw processingError;
-        }
-        logError('Failed to process PROCESSING PO receive via GRN', processingError);
-      }
-    }
+
+        return newGRN;
+      },
+      { timeout: 15000, maxWait: 5000 }
+    ); // headroom over the 5s default: PROCESSING receives create a challan in-tx and lock-waits count against the clock
 
     // Update PO status based on receiving
     await purchaseOrderService.updateReceivingStatus(data.poId);
@@ -569,14 +572,22 @@ class GRNService {
     // Update GRN status in transaction with stock movements
     const updatedGRN = await prisma.$transaction(
       async (tx) => {
-        // Update GRN status and warehouseId if provided
-        const approved = await tx.goods_receiving_notes.update({
-          where: { id },
+        // GUARDED status flip (PENDING_QC only): the pre-tx status check races with a concurrent
+        // approve/reject — without this guard both could commit, double-netting the PO counters
+        // (potentially negative) and double-writing stock (review catch).
+        const flip = await tx.goods_receiving_notes.updateMany({
+          where: { id, status: GRNStatus.PENDING_QC },
           data: {
             status: GRNStatus.ACCEPTED,
             approvedById: userId,
             warehouseId: targetWarehouseId,
           },
+        });
+        if (flip.count === 0) {
+          throw new Error('GRN is no longer PENDING_QC — it was already approved or rejected');
+        }
+        const approved = await tx.goods_receiving_notes.findUniqueOrThrow({
+          where: { id },
           include: this.getFullInclude(),
         });
 
@@ -882,9 +893,19 @@ class GRNService {
             }
           }
 
-          // Track rejected quantities as audit trail
+          // Track rejected quantities as audit trail — and NET THEM OUT of the PO's received counter
+          // (bug-hunt procurement-7: createGRN increments receivedQuantity by the GROSS receipt pre-QC;
+          // without this decrement, QC-rejected quantity stayed counted as "received" forever, the PO
+          // closed as RECEIVED, and the rejected goods were never re-procured. This also makes the PO
+          // counter agree with the MRP link, which was already updated with ACCEPTED qty only).
           const rejectedQty = Number(item.rejectedQuantity || 0);
           if (rejectedQty > 0) {
+            if (item.poItemId) {
+              await tx.purchase_order_items.update({
+                where: { id: item.poItemId },
+                data: { receivedQuantity: { decrement: rejectedQty } },
+              });
+            }
             await tx.stock_movements.create({
               data: {
                 id: randomUUID(),
@@ -953,6 +974,24 @@ class GRNService {
       } catch (costSheetErr) {
         logError('Failed to update cost sheet sourcing strategy', costSheetErr);
       }
+    }
+
+    // Recompute PO receiving status from the now-netted counters, so a QC-rejection RE-OPENS the PO
+    // (PARTIALLY_RECEIVED) instead of leaving it closed as RECEIVED (bug-hunt procurement-7).
+    // Best-effort post-commit: the status is fully derivable, so a failure here never invalidates the receipt.
+    // SKIPPED for PROCESSING POs (review catch): their approval branch sets RECEIVED itself with
+    // shrinkage semantics — received meters < ordered is NORMAL there (mill shrinkage), and a naive
+    // recompute would wrongly demote every shrinkage-bearing processing PO to PARTIALLY_RECEIVED.
+    try {
+      const poCat = await prisma.purchase_orders.findUnique({
+        where: { id: grn.poId },
+        select: { poCategory: true },
+      });
+      if (poCat?.poCategory !== 'PROCESSING') {
+        await purchaseOrderService.updateReceivingStatus(grn.poId);
+      }
+    } catch (statusErr) {
+      logError('Failed to recompute PO receiving status after GRN approval', statusErr);
     }
 
     return updatedGRN;
@@ -1778,14 +1817,21 @@ class GRNService {
     });
 
     const updatedGRN = await prisma.$transaction(async (tx) => {
-      // Update GRN status
-      const rejected = await tx.goods_receiving_notes.update({
-        where: { id },
+      // GUARDED status flip (PENDING_QC only) — same guard as approveGRN: a concurrent approve/reject
+      // pair could otherwise both commit and double-decrement the PO counters (potentially negative).
+      const flip = await tx.goods_receiving_notes.updateMany({
+        where: { id, status: GRNStatus.PENDING_QC },
         data: {
           status: GRNStatus.REJECTED,
           approvedById: userId,
           remarks: reason ? `${grn.remarks || ''}\n\nRejection reason: ${reason}`.trim() : grn.remarks,
         },
+      });
+      if (flip.count === 0) {
+        throw new Error('GRN is no longer PENDING_QC — it was already approved or rejected');
+      }
+      const rejected = await tx.goods_receiving_notes.findUniqueOrThrow({
+        where: { id },
         include: this.getFullInclude(),
       });
 

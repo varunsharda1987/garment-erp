@@ -884,7 +884,15 @@ class PurchaseOrderService {
     } else if (anyPartiallyReceived) {
       newStatus = PurchaseOrderStatus.PARTIALLY_RECEIVED;
     } else {
-      return; // No change needed
+      // Nothing received. No longer always a no-op: QC rejection now NETS the received counters back
+      // down (grn.service approveGRN), so a 100%-rejected PO arrives here with 0 received while still
+      // marked RECEIVED/PARTIALLY_RECEIVED — it must RE-OPEN (review catch). Only the receiving pair
+      // is downgraded; DRAFT/SENT/CANCELLED etc. are untouched.
+      await prisma.purchase_orders.updateMany({
+        where: { id: poId, status: { in: [PurchaseOrderStatus.RECEIVED, PurchaseOrderStatus.PARTIALLY_RECEIVED] } },
+        data: { status: PurchaseOrderStatus.ACKNOWLEDGED },
+      });
+      return;
     }
 
     await prisma.purchase_orders.update({

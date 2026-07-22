@@ -1034,8 +1034,11 @@ export const receiveFromMill = async (req: Request, res: Response, _next: NextFu
     });
   }
 
-  const job = await prisma.job_work_orders.update({
-    where: { id },
+  // GUARDED receive (receivedDate still null): the check at the top races with the GRN receive path
+  // (grn.service PROCESSING branch, which uses the same guard) — without it, a receive via GRN and one
+  // via this module could both pass the check and the later write would silently overwrite the first.
+  const guarded = await prisma.job_work_orders.updateMany({
+    where: { id, receivedDate: null },
     data: {
       qtyReceivedMeters: actualMeters,
       receivedWidthInches,
@@ -1049,6 +1052,12 @@ export const receiveFromMill = async (req: Request, res: Response, _next: NextFu
       calculatedActualMeters: calculatedActualMeters ? new Prisma.Decimal(calculatedActualMeters) : null,
       status: 'RECEIVED',
     },
+  });
+  if (guarded.count === 0) {
+    throw new ValidationError('Fabric has already been received (possibly via the GRN module)');
+  }
+  const job = await prisma.job_work_orders.findUniqueOrThrow({
+    where: { id },
     include: jobWorkOrderInclude,
   });
 

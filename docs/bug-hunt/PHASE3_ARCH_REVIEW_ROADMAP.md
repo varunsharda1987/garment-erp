@@ -90,8 +90,17 @@
 > (production-9); cutting/stitching guards added; frontend service surfaces fgShortfalls.
 > **⚠ Flagged missing FEATURE (not built):** the "Create Delivery Note" buttons link to
 > /manufacturing/dispatch/delivery/new — no page/route exists; needs a product pass to build the form.
-> ⏳ Remaining backlog: review NITs, §5 detectors #2/#4/#7, T3-F sequence-table numbering (41 baselined),
-> MEDIUM/LOW findings backlog (60), delivery-note create page.
+> ✅ **BACKLOG FULLY VERIFIED + 5 HIGHs fixed (2026-07-22, commit 1ea3c2f2, deployed + pushed).** All 87
+> MEDIUM/LOW findings verified against CURRENT code (docs/bug-hunt/BACKLOG_VERIFICATION.json): 75 CONFIRMED,
+> 9 PLAUSIBLE, 3 ALREADY_FIXED, 0 REFUTED. The 5 severity-upgrades all fixed: procurement-21 (bulk MRP
+> under-buying on shared fabrics), production-11 (damaged double-count falsely completing send-outs),
+> procurement-13 (cancelChallan orphaning issued stock — now DRAFT-only), financial-gst-10 (STATUTORY:
+> GSTR-3B ITC now from ACCEPTED GRN receipts pro-rated, carry-forward no longer clamped), dispatch-12
+> (REJECTED/PARTIAL PODs restore FG stock + net the dispatch cap).
+> **Every one of the original 145 audit findings is now fixed, verified-and-queued, or closed.**
+> ⏳ Open queue (verified, prioritized): 69 CONFIRMED/PLAUSIBLE MEDIUMs + 19 LOWs in BACKLOG_VERIFICATION.json
+> (each with a one-sentence fix); T3-F sequence-table numbering (41 generators); §5 detectors #2/#4/#7;
+> review NITs; delivery-note create page (product pass).
 
 *Synthesized from 57 verified CRITICAL/HIGH findings + 60 unverified MEDIUM/LOW backlog items across 7 modules (orders, procurement, production, costing, financial-gst, dispatch, samples-embroidery). Every claim cites a finding id. Static code audit only — live-DB drift magnitudes unmeasured except where noted.*
 

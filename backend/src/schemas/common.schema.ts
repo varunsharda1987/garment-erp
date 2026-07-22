@@ -15,6 +15,18 @@ export const idParamSchema = z.object({
   id: z.string().uuid('Invalid ID'),
 });
 
+// For tables whose PK is @default(cuid()) (e.g. embroidery_master, color_master): a UUID-only param
+// schema rejects every real record (bug-hunt samples-embroidery-4).
+export const flexIdParamSchema = z.object({
+  id: z
+    .string()
+    .refine(
+      (val) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val),
+      { message: 'Invalid ID (expected UUID or CUID)' }
+    ),
+});
+
 // Cost sheet ID format: CS-{timestamp}-{randomString} (not UUID)
 export const costSheetIdAsIdParamSchema = z.object({
   id: z.string().regex(/^CS-\d+-[a-z0-9]+$/i, 'Invalid cost sheet ID format'),
@@ -49,7 +61,14 @@ export const fabricIdParamSchema = z.object({
 });
 
 export const embroideryIdParamSchema = z.object({
-  embroideryId: z.string().uuid('Invalid embroidery ID'),
+  // embroidery_master PKs are cuid, not uuid — a uuid-only check rejected every real record (bug-hunt s-e-4)
+  embroideryId: z
+    .string()
+    .refine(
+      (val) =>
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val),
+      { message: 'Invalid embroidery ID (expected UUID or CUID)' }
+    ),
 });
 
 export const managerIdParamSchema = z.object({

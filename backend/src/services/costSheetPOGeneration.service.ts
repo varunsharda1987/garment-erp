@@ -4,6 +4,7 @@
  */
 
 import prisma from '../config/database';
+import { getDerivedOnHand } from './helpers/derived-stock.helper';
 import { randomUUID } from 'crypto';
 import { PurchaseOrderStatus, POCategory as PrismaPOCategory, POSource, Unit } from '@prisma/client';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
@@ -490,13 +491,8 @@ class CostSheetPOGenerationService {
    * Get stock info for a material
    */
   private async getStockInfoForMaterial(materialId: string): Promise<StockInfo> {
-    const stockLevels = await prisma.stock_levels.findMany({
-      where: { materialId },
-    });
-
-    const available = stockLevels.reduce((sum, level) => {
-      return sum + Number(level.quantity || 0);
-    }, 0);
+    // T2-1: derived on-hand (per-lot truth) instead of hand-maintained stock_levels.quantity.
+    const available = await getDerivedOnHand(materialId);
 
     // Also check fabric_stock for fabric materials
     const fabricStock = await prisma.fabric_stock.findMany({
@@ -1805,9 +1801,11 @@ class CostSheetPOGenerationService {
       return;
     }
 
-    // Check if PO is fully received
+    // Check if PO is fully received. Number() is REQUIRED: these are Prisma Decimal objects, and >= on
+    // them compares their STRING forms — lexicographic, so "95">="100" is true and "100">="20" is false
+    // (bug-hunt costing-8: the gate flipped on digit count, not quantity).
     const fullyReceived = greigeLacePO.purchase_order_items.every(
-      (item) => item.receivedQuantity >= item.orderedQuantity
+      (item) => Number(item.receivedQuantity) >= Number(item.orderedQuantity)
     );
 
     if (!fullyReceived) {

@@ -556,66 +556,92 @@ class WorkOrderService {
       });
     }
 
-    const tracking = await prisma.production_tracking.create({
-      data: {
-        id: randomUUID(),
-        workOrderId: data.workOrderId,
-        productionStage: data.productionStage,
-        quantityCompleted: data.quantityCompleted,
-        remarks: data.remarks,
-        updatedById: data.updatedById,
-      },
-      include: {
-        users: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+    // Tracking insert + work-order rollup update are ONE transaction, and completedQuantity is
+    // RECOMPUTED as SUM(PACKING tracking rows) — never taken from a single entry (bug-hunt production-1:
+    // the old code only set completedQuantity when ONE entry alone reached totalQuantity, so a WO packed
+    // in two 500-pc entries stayed at 0 forever and CMT costs were computed on 0).
+    const tracking = await prisma.$transaction(async (tx) => {
+      const created = await tx.production_tracking.create({
+        data: {
+          id: randomUUID(),
+          workOrderId: data.workOrderId,
+          productionStage: data.productionStage,
+          quantityCompleted: data.quantityCompleted,
+          remarks: data.remarks,
+          updatedById: data.updatedById,
+        },
+        include: {
+          users: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          work_orders: {
+            select: {
+              id: true,
+              workOrderNumber: true,
+              totalQuantity: true,
+            },
           },
         },
-        work_orders: {
-          select: {
-            id: true,
-            workOrderNumber: true,
-            totalQuantity: true,
-          },
-        },
-      },
-    });
+      });
 
-    // Update work order status based on production stage
-    const workOrder = await prisma.work_orders.findUnique({
-      where: { id: data.workOrderId },
-    });
+      // Lock the WO row BEFORE aggregating so concurrent completion entries serialize — without this,
+      // two simultaneous entries each aggregate before the other commits and the last writer persists an
+      // undercounted sum (review nit on the original tx version).
+      await tx.$queryRaw`SELECT id FROM work_orders WHERE id = ${data.workOrderId} FOR UPDATE`;
 
-    if (workOrder) {
-      let newStatus = workOrder.status;
+      const workOrder = await tx.work_orders.findUnique({
+        where: { id: data.workOrderId },
+      });
 
-      if (data.productionStage === ProductionStage.CUTTING && !workOrder.actualStartDate) {
-        // Mark as started when cutting begins
-        await prisma.work_orders.update({
-          where: { id: data.workOrderId },
-          data: {
-            actualStartDate: new Date(),
-            status: OrderStatus.IN_PRODUCTION,
-          },
-        });
-      } else if (
-        data.productionStage === ProductionStage.PACKING &&
-        data.quantityCompleted >= workOrder.totalQuantity
-      ) {
-        // Mark as completed when packing is done
-        await prisma.work_orders.update({
-          where: { id: data.workOrderId },
-          data: {
-            actualEndDate: new Date(),
-            status: OrderStatus.COMPLETED,
-            completedQuantity: workOrder.totalQuantity,
-          },
-        });
+      // Completion stages: the finishing flow's packing-complete writes READY_TO_SHIP (with real issued
+      // quantities) and nothing in the shipped UI writes PACKING — keying on PACKING alone left the
+      // derivation unreachable (review IMPORTANT). Both count as "finished units".
+      const COMPLETION_STAGES: ProductionStage[] = [ProductionStage.PACKING, ProductionStage.READY_TO_SHIP];
+
+      if (workOrder) {
+        if (data.productionStage === ProductionStage.CUTTING && !workOrder.actualStartDate) {
+          // Mark as started when cutting begins
+          await tx.work_orders.update({
+            where: { id: data.workOrderId },
+            data: {
+              actualStartDate: new Date(),
+              status: OrderStatus.IN_PRODUCTION,
+            },
+          });
+        } else if (COMPLETION_STAGES.includes(data.productionStage)) {
+          // Derive completed qty from the line items (all completion-stage entries), in the same tx as the insert.
+          const packed = await tx.production_tracking.aggregate({
+            where: { workOrderId: data.workOrderId, productionStage: { in: COMPLETION_STAGES } },
+            _sum: { quantityCompleted: true },
+          });
+          const completedQuantity = Math.min(packed._sum.quantityCompleted ?? 0, workOrder.totalQuantity);
+          const isComplete = (packed._sum.quantityCompleted ?? 0) >= workOrder.totalQuantity;
+          // Only flip forward from pre-COMPLETED states — never demote DISPATCHED/CANCELLED, and never
+          // overwrite an existing completion date (late correction entries would otherwise rewrite history).
+          const canFlipToCompleted =
+            isComplete &&
+            workOrder.status !== OrderStatus.COMPLETED &&
+            workOrder.status !== OrderStatus.DISPATCHED &&
+            workOrder.status !== OrderStatus.CANCELLED;
+          await tx.work_orders.update({
+            where: { id: data.workOrderId },
+            data: {
+              completedQuantity,
+              ...(canFlipToCompleted
+                ? { actualEndDate: workOrder.actualEndDate ?? new Date(), status: OrderStatus.COMPLETED }
+                : {}),
+            },
+          });
+        }
       }
-    }
+
+      return created;
+    });
 
     return tracking;
   }

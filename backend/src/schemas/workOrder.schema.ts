@@ -49,7 +49,9 @@ export const updateWorkOrderSchema = z.object({
   actualStartDate: z.string().optional().nullable(),
   actualEndDate: z.string().optional().nullable(),
   totalQuantity: z.number().int().positive('Total quantity must be a positive integer').optional(),
-  completedQuantity: z.number().int().nonnegative('Completed quantity must be 0 or greater').optional(),
+  // completedQuantity is intentionally NOT accepted: it is DERIVED (SUM of PACKING production_tracking
+  // entries, recomputed in addProductionTracking's transaction). Hand-setting it corrupted CMT costing
+  // (totalCost = perPiece × completedQuantity) — bug-hunt production-1.
   status: OrderStatusEnum.optional(),
   priority: PriorityEnum.optional(),
   remarks: z.string().max(1000, 'Remarks must not exceed 1000 characters').trim().optional().nullable(),

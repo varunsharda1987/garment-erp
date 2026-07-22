@@ -33,7 +33,7 @@ const StockListQuerySchema = z.object({
   agingDaysMin: z.number().int().nonnegative().optional(),
   originStyleId: z.string().uuid().optional(),
   page: z.number().int().positive().default(1).optional(),
-  limit: z.number().int().positive().max(100).default(20).optional(),
+  limit: z.number().int().positive().max(500).default(20).optional(), // 500: Stock-Out fabric picker requests 200 (this controller schema is the effective gate, re-parsed in listStock)
 });
 
 const StockTransferSchema = z.object({

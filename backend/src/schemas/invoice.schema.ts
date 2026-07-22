@@ -14,16 +14,11 @@ export const createInvoiceSchema = z.object({
 
   customerId: z.string().uuid('Invalid customer ID format'),
 
-  invoiceDate: z
-    .string()
-    .datetime('Invalid date format')
-    .optional()
-    .transform((val) => (val ? new Date(val) : undefined)),
+  // z.coerce.date() (not z.string().datetime()): the InvoiceForm date pickers send YYYY-MM-DD, which
+  // .datetime() rejects — invoice creation from the UI 400'd on every call (bug-hunt financial-gst-4).
+  invoiceDate: z.coerce.date().optional(),
 
-  dueDate: z
-    .string()
-    .datetime('Invalid date format')
-    .transform((val) => new Date(val)),
+  dueDate: z.coerce.date(),
 
   subtotal: z
     .number()
@@ -78,17 +73,9 @@ export const createInvoiceSchema = z.object({
  * PUT /api/invoices/:id
  */
 export const updateInvoiceSchema = z.object({
-  invoiceDate: z
-    .string()
-    .datetime('Invalid date format')
-    .transform((val) => new Date(val))
-    .optional(),
+  invoiceDate: z.coerce.date().optional(),
 
-  dueDate: z
-    .string()
-    .datetime('Invalid date format')
-    .transform((val) => new Date(val))
-    .optional(),
+  dueDate: z.coerce.date().optional(),
 
   subtotal: z
     .number()
@@ -121,11 +108,7 @@ export const recordPaymentSchema = z.object({
     .positive('Payment amount must be positive')
     .or(z.string().transform((val) => parseFloat(val))),
 
-  paymentDate: z
-    .string()
-    .datetime('Invalid date format')
-    .optional()
-    .transform((val) => (val ? new Date(val) : undefined)),
+  paymentDate: z.coerce.date().optional(),
 
   paymentMethod: z.enum(['CASH', 'CHEQUE', 'BANK_TRANSFER', 'UPI'], {
     message: 'Invalid payment method',
@@ -153,9 +136,9 @@ export const invoiceQuerySchema = z.object({
 
   orderId: z.string().uuid('Invalid order ID format').optional(),
 
-  fromDate: z.string().datetime('Invalid from date format').optional(),
+  fromDate: z.coerce.date().optional(),
 
-  toDate: z.string().datetime('Invalid to date format').optional(),
+  toDate: z.coerce.date().optional(),
 
   sortBy: z
     .enum(['createdAt', 'updatedAt', 'invoiceNumber', 'invoiceDate', 'dueDate', 'totalAmount', 'status'])

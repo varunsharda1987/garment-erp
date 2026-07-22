@@ -11,16 +11,29 @@ import { z } from 'zod';
 // Enums
 // ============================================================================
 
-export const SampleTypeEnum = z.enum(['DEVELOPMENT', 'FIT', 'PRE_PRODUCTION', 'PRODUCTION', 'PHOTO_SHOOT']);
+// These MUST mirror the Prisma enums (SampleType / SampleStatus in schema.prisma) exactly. The old
+// values (DEVELOPMENT/FIT/... and PENDING/RECEIVED/REVISION_REQUIRED) shared ZERO/partial overlap with
+// the DB enums, so sample creation and status updates were dead endpoints: real values 400'd at Zod,
+// Zod-accepted values 500'd at the DB (bug-hunt samples-embroidery-1/-3).
+export const SampleTypeEnum = z.enum([
+  'FIT_SAMPLE',
+  'PHOTO_SAMPLE',
+  'PRODUCTION_SAMPLE',
+  'PP_SAMPLE',
+  'SIZE_SET_SAMPLE',
+  'SHIPMENT_SAMPLE',
+]);
 
 export const SampleStatusEnum = z.enum([
-  'PENDING',
+  'REQUESTED',
   'IN_PROGRESS',
-  'SENT',
-  'RECEIVED',
+  'SUBMITTED',
   'APPROVED',
   'REJECTED',
-  'REVISION_REQUIRED',
+  'SENT',
+  'FEEDBACK_PENDING',
+  'REVISION_NEEDED',
+  'APPROVED_WITH_COMMENTS',
 ]);
 
 // ============================================================================
@@ -42,8 +55,9 @@ export const createSampleSchema = z
     customerId: z.string().uuid('Invalid customer ID'),
     styleId: z.string().uuid('Invalid style ID').optional(),
     sampleType: SampleTypeEnum,
-    requestDate: z.string().datetime().optional(),
-    requiredDate: z.string().datetime(),
+    // z.coerce.date(): date pickers send YYYY-MM-DD, which z.string().datetime() rejects
+    requestDate: z.coerce.date().optional(),
+    requiredDate: z.coerce.date(),
     remarks: z.string().max(500).optional(),
     // Type-specific fields
     sampleSizeId: z.string().uuid('Invalid sample size ID').optional(),
@@ -99,18 +113,21 @@ export const createSampleSchema = z
  * - sentDate, courierMode, trackingNumber, receivedDate, feedbackDate
  * - measurementComments, revisionRequired, nextAction
  */
+// Nullable dates use union([null, coerce.date]) — a bare z.coerce.date() would silently turn null into 1970-01-01.
+const nullableDate = z.union([z.null(), z.coerce.date()]);
+
 export const updateSampleSchema = z
   .object({
-    requiredDate: z.string().datetime().optional(),
-    completionDate: z.string().datetime().optional().nullable(),
+    requiredDate: z.coerce.date().optional(),
+    completionDate: nullableDate.optional(),
     status: SampleStatusEnum.optional(),
     customerFeedback: z.string().max(2000).optional().nullable(),
     remarks: z.string().max(500).optional().nullable(),
-    sentDate: z.string().datetime().optional().nullable(),
+    sentDate: nullableDate.optional(),
     courierMode: z.string().max(100).optional().nullable(),
     trackingNumber: z.string().max(100).optional().nullable(),
-    receivedDate: z.string().datetime().optional().nullable(),
-    feedbackDate: z.string().datetime().optional().nullable(),
+    receivedDate: nullableDate.optional(),
+    feedbackDate: nullableDate.optional(),
     measurementComments: z.string().max(1000).optional().nullable(),
     revisionRequired: z.boolean().optional(),
     nextAction: z.string().max(500).optional().nullable(),
@@ -166,7 +183,7 @@ export const recordActualMeasurementsSchema = z.object({
  */
 export const markAsSentSchema = z
   .object({
-    sentDate: z.string().datetime().optional(),
+    sentDate: z.coerce.date().optional(),
     courierMode: z.string().max(100).optional(),
     trackingNumber: z.string().max(100).optional(),
   })
@@ -177,7 +194,7 @@ export const markAsSentSchema = z
  * POST /api/samples/:id/receive
  */
 export const recordReceiptSchema = z.object({
-  receivedDate: z.string().datetime().optional(),
+  receivedDate: z.coerce.date().optional(),
   receivedBy: z.string().max(200).optional(),
   condition: z.string().max(200).optional(),
   remarks: z.string().max(500).optional(),
@@ -191,9 +208,10 @@ export const recordReceiptSchema = z.object({
  */
 export const recordFeedbackSchema = z
   .object({
-    status: z.enum(['APPROVED', 'REJECTED', 'REVISION_REQUIRED', 'REVISION_NEEDED']),
+    // Prisma-valid feedback outcomes only ('REVISION_REQUIRED' is not a SampleStatus value — it 500'd at the DB)
+    status: z.enum(['APPROVED', 'REJECTED', 'REVISION_NEEDED', 'APPROVED_WITH_COMMENTS']),
     feedback: z.string().max(1000).optional(),
-    feedbackDate: z.string().datetime().optional(),
+    feedbackDate: z.coerce.date().optional(),
     measurementComments: z.string().max(1000).optional(),
   })
   .passthrough();
@@ -217,10 +235,11 @@ export const sampleQuerySchema = z.object({
   search: z.string().max(100).optional(),
   styleId: z.string().uuid().optional(),
   customerId: z.string().uuid().optional(),
-  sampleType: SampleTypeEnum.optional(),
-  status: SampleStatusEnum.optional(),
-  fromDate: z.string().datetime().optional(),
-  toDate: z.string().datetime().optional(),
+  // Single value or array — the controller supports type/status arrays (sample.controller.ts ~324)
+  sampleType: z.union([SampleTypeEnum, z.array(SampleTypeEnum)]).optional(),
+  status: z.union([SampleStatusEnum, z.array(SampleStatusEnum)]).optional(),
+  fromDate: z.coerce.date().optional(),
+  toDate: z.coerce.date().optional(),
   pendingApproval: z
     .string()
     .transform((val) => val === 'true')

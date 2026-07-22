@@ -309,4 +309,27 @@ export const CreateCostSheetSchema = z.object({
   orderItemId: z.string().uuid('Invalid order item ID').optional(),
 });
 
-export const UpdateCostSheetSchema = CreateCostSheetSchema.partial().omit({ styleId: true });
+// Update schema must be TRULY partial: in Zod 4, .partial() does NOT suppress .default() values, so a
+// plain CreateCostSheetSchema.partial() would inject purpose:'COSTING', markupPercent:15,
+// valueLossPercent:2, empty detail arrays, etc. into every partial update — and since the route's
+// validateBody REPLACES req.body with the parse result, those defaults would overwrite stored values.
+// Strip every ZodDefault wrapper first so omitted fields stay undefined (adversarial-review finding on
+// bug-hunt costing-2).
+const stripDefault = (s: z.ZodTypeAny): z.ZodTypeAny => {
+  if (s instanceof z.ZodDefault) {
+    const inner = s as unknown as { removeDefault?: () => z.ZodTypeAny; unwrap?: () => z.ZodTypeAny };
+    if (typeof inner.removeDefault === 'function') return inner.removeDefault();
+    if (typeof inner.unwrap === 'function') return inner.unwrap();
+  }
+  return s;
+};
+// Typed via the plain partial (same field types); runtime uses the default-stripped shape.
+const typedPartialForInference = CreateCostSheetSchema.partial().omit({ styleId: true });
+export const UpdateCostSheetSchema = z
+  .object(
+    Object.fromEntries(
+      Object.entries(CreateCostSheetSchema.shape).map(([k, v]) => [k, stripDefault(v as z.ZodTypeAny)])
+    )
+  )
+  .partial()
+  .omit({ styleId: true }) as typeof typedPartialForInference;

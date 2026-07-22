@@ -506,18 +506,31 @@ export const recordCuttingOutput = async (req: Request, res: Response) => {
 
   // Update SKU outputs and add defects in transaction
   await prisma.$transaction(async (tx) => {
-    // Update SKU outputs
+    // Update SKU outputs. When the row id isn't sent, resolve it by (batch, colorId, sizeId) — the old
+    // `if (sku.id)` silently SKIPPED id-less rows, so output was recorded as saved but never written
+    // (bug-hunt production-3). Unresolvable rows now throw (rolls back the tx) instead of vanishing.
     for (const sku of skuOutputs) {
-      if (sku.id) {
-        await tx.cutting_batch_skus.update({
-          where: { id: sku.id },
-          data: {
-            cutQty: sku.cutQty,
-            rejectedQty: sku.rejectedQty || 0,
-            goodPcs: sku.cutQty - (sku.rejectedQty || 0),
-          },
+      let rowId: string | undefined = sku.id;
+      if (!rowId) {
+        const row = await tx.cutting_batch_skus.findFirst({
+          where: { cuttingBatchId: id, sizeId: sku.sizeId, colorId: sku.colorId ?? null },
+          select: { id: true },
         });
+        if (!row) {
+          throw new ValidationError(
+            `No SKU row on this batch for sizeId=${sku.sizeId}${sku.colorId ? `, colorId=${sku.colorId}` : ''} — output not recorded`
+          );
+        }
+        rowId = row.id;
       }
+      await tx.cutting_batch_skus.update({
+        where: { id: rowId },
+        data: {
+          cutQty: sku.cutQty,
+          rejectedQty: sku.rejectedQty || 0,
+          goodPcs: sku.cutQty - (sku.rejectedQty || 0),
+        },
+      });
     }
 
     // Add defects if any

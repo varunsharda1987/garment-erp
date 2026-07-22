@@ -11,6 +11,7 @@ import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { gstService } from './gst.service';
+import { roundToCent } from '../utils/currency';
 
 // ============================================
 // Types
@@ -560,24 +561,58 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
    */
   async updateInvoice(id: string, data: UpdateInvoiceDTO): Promise<invoices> {
     try {
-      // Check if invoice exists
-      const existing = await this.getInvoiceById(id);
+      // One transaction: read + recompute + write, so balance derives from the row read INSIDE the tx
+      // (the old pre-read/compute/write raced with concurrent payments — the exact pattern recordPayment
+      // was hardened against). All money columns are recomputed SERVER-SIDE from subtotal so the header
+      // can no longer diverge from its own tax/total columns (bug-hunt financial-gst-8: the UI edit sends
+      // subtotal alone, and the old code accepted each figure independently, never touching cgst/sgst/igst).
+      const invoice = await this.prisma.$transaction(async (tx) => {
+        const existing = await tx.invoices.findUnique({ where: { id } });
+        if (!existing) {
+          throw new NotFoundError(`${this.entityName} not found`);
+        }
 
-      // Recalculate balance if amounts changed
-      let updateData: any = { ...data };
+        const updateData: any = { ...data };
+        const moneyTouched =
+          data.subtotal !== undefined || data.taxAmount !== undefined || data.totalAmount !== undefined;
 
-      if (data.totalAmount !== undefined) {
-        const paidAmount = parseFloat(existing.paidAmount.toString());
-        updateData.balanceAmount = data.totalAmount - paidAmount;
+        if (moneyTouched) {
+          const oldSubtotal = Number(existing.subtotal);
+          const oldTax = Number(existing.taxAmount);
+          const newSubtotal = data.subtotal !== undefined ? Number(data.subtotal) : oldSubtotal;
+          // Preserve the invoice's effective tax rate + intra/inter-state GST split; scale to the new base.
+          const effectiveRate = oldSubtotal > 0 ? oldTax / oldSubtotal : 0;
+          const newTax = roundToCent(newSubtotal * effectiveRate).toNumber();
+          const newTotal = roundToCent(newSubtotal + newTax).toNumber();
+          const gstScale = oldTax > 0 ? newTax / oldTax : 0;
+          const newCgst = roundToCent(Number(existing.cgstAmount) * gstScale).toNumber();
+          const newIgst = roundToCent(Number(existing.igstAmount) * gstScale).toNumber();
+          // sgst takes the rounding remainder so cgst+sgst+igst always equals taxAmount exactly
+          const newSgst = roundToCent(newTax - newCgst - newIgst).toNumber();
 
-        // Recalculate status
-        updateData.status = this.calculateInvoiceStatus(data.totalAmount, paidAmount, data.dueDate || existing.dueDate);
-      }
+          const paid = Number(existing.paidAmount);
+          updateData.subtotal = newSubtotal;
+          updateData.taxAmount = newTax;
+          updateData.totalAmount = newTotal;
+          updateData.cgstAmount = newCgst;
+          updateData.sgstAmount = newSgst;
+          updateData.igstAmount = newIgst;
+          updateData.balanceAmount = roundToCent(newTotal - paid).toNumber();
+          updateData.status = this.calculateInvoiceStatus(newTotal, paid, data.dueDate || existing.dueDate);
+        } else if (data.dueDate !== undefined) {
+          // A due-date-only change can still flip OVERDUE ↔ PENDING/PARTIALLY_PAID
+          updateData.status = this.calculateInvoiceStatus(
+            Number(existing.totalAmount),
+            Number(existing.paidAmount),
+            data.dueDate
+          );
+        }
 
-      const invoice = await this.model.update({
-        where: { id },
-        data: updateData,
-        include: this.getDefaultIncludes(),
+        return tx.invoices.update({
+          where: { id },
+          data: updateData,
+          include: this.getDefaultIncludes(),
+        });
       });
 
       logInfo(`Invoice updated: ${invoice.invoiceNumber}`);

@@ -1,5 +1,14 @@
 import prisma from '../config/database';
-import { InvoiceStatus } from '@prisma/client';
+
+/**
+ * The ONE where-clause for statutory-reportable invoices, shared by GSTR-1 and GSTR-3B so the two
+ * returns can never diverge. GST liability arises on invoice ISSUANCE, not payment — payment status
+ * (PENDING/PARTIALLY_PAID/PAID/OVERDUE) must NEVER filter a statutory report. If a genuinely
+ * non-reportable status (e.g. CANCELLED) is ever added to InvoiceStatus, exclude it HERE only.
+ */
+const reportableInvoicesWhere = (fromDate: Date, toDate: Date) => ({
+  invoiceDate: { gte: fromDate, lte: toDate },
+});
 
 interface GSTReportParams {
   fromDate: string; // YYYY-MM-DD
@@ -95,12 +104,11 @@ class GSTReportService {
     const toDate = new Date(params.toDate);
     toDate.setHours(23, 59, 59, 999);
 
-    // Fetch all invoices in the period with their items, customer details
+    // Fetch ALL invoices issued in the period (statutory: liability arises on issuance — the old
+    // `status: { not: OVERDUE }` filter silently under-reported GSTR-1 by every past-due unpaid
+    // invoice and made it disagree with GSTR-3B for the same period).
     const invoices = await prisma.invoices.findMany({
-      where: {
-        invoiceDate: { gte: fromDate, lte: toDate },
-        status: { not: InvoiceStatus.OVERDUE }, // Include PENDING, PARTIALLY_PAID, PAID
-      },
+      where: reportableInvoicesWhere(fromDate, toDate),
       include: {
         customers: {
           select: {
@@ -265,9 +273,9 @@ class GSTReportService {
     const toDate = new Date(params.toDate);
     toDate.setHours(23, 59, 59, 999);
 
-    // Outward supplies (sales invoices)
+    // Outward supplies (sales invoices) — same shared reportable-invoices clause as GSTR-1.
     const invoices = await prisma.invoices.findMany({
-      where: { invoiceDate: { gte: fromDate, lte: toDate } },
+      where: reportableInvoicesWhere(fromDate, toDate),
       select: {
         subtotal: true,
         cgstAmount: true,

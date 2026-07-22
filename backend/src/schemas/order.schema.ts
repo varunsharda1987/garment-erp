@@ -52,14 +52,13 @@ export const createOrderSchema = z.object({
   items: z.array(orderItemSchema).min(1, 'At least one item is required'), // Renamed from lineItems
 });
 
-// Update order schema
-export const updateOrderSchema = createOrderSchema.partial().extend({
-  id: z.string().uuid(),
-});
+// Update order schema. NO body `id`: the order id arrives as the :id route param (validated there) and
+// the frontend never sends it in the body — requiring it here made PUT /orders/:id 400 on every call
+// (bug-hunt orders-1).
+export const updateOrderSchema = createOrderSchema.partial();
 
-// Update order status schema
+// Update order status schema (same: id comes from the route param, not the body).
 export const updateOrderStatusSchema = z.object({
-  id: z.string().uuid(),
   status: OrderStatus,
   reason: z.string().max(500).optional(),
 });

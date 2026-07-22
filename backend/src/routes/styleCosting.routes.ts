@@ -36,9 +36,12 @@ import {
   costingAndItemIdParamSchema,
   compareCostSheetsParamSchema,
 } from '../schemas/style.schema';
+// UpdateCostSheetSchema (style-costing.utils) is THE schema for PUT /:id — the same one the controller
+// types against. The old schemas/styleCosting.schema.ts updateCostSheetSchema had ZERO field overlap
+// with it, so validateBody stripped every real field and edits were silently discarded (bug-hunt costing-2).
+import { UpdateCostSheetSchema } from '../controllers/style-costing.utils';
 import {
   createCostSheetSchema,
-  updateCostSheetSchema,
   generateCostSheetSchema,
   approveCostSheetSchema,
   createCostSheetVersionSchema,
@@ -143,7 +146,7 @@ router.put(
   authenticateToken,
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
   validateParams(costSheetIdAsIdParamSchema),
-  validateBody(updateCostSheetSchema),
+  validateBody(UpdateCostSheetSchema),
   asyncHandler(updateCostSheet)
 );
 

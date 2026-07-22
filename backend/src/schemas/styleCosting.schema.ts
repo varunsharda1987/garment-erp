@@ -53,19 +53,12 @@ export const createCostSheetSchema = z.object({
 });
 
 /**
- * Update Cost Sheet
- * PUT /api/style-costing/:id
+ * Update Cost Sheet — DELETED (bug-hunt costing-2).
+ * PUT /api/style-costing/:id validates with UpdateCostSheetSchema from
+ * controllers/style-costing.utils.ts — the SAME schema the controller types against. The divergent
+ * schema that lived here shared zero fields with it, so validateBody stripped every real field and the
+ * endpoint silently discarded all edits while returning success. Do NOT re-add a second schema here.
  */
-export const updateCostSheetSchema = z.object({
-  widthCombination: z.string().max(100).optional().nullable(),
-  fabricCost: z.number().nonnegative().optional(),
-  trimCost: z.number().nonnegative().optional(),
-  laborCost: z.number().nonnegative().optional(),
-  overheadCost: z.number().nonnegative().optional(),
-  profitMargin: z.number().min(0).max(100).optional().nullable(),
-  remarks: z.string().max(500).optional().nullable(),
-  items: z.array(costSheetItemSchema).optional(),
-});
 
 /**
  * Generate Cost Sheet from Style
@@ -91,6 +84,9 @@ export const approveCostSheetSchema = z.object({
  * POST /api/style-costing/:id/create-version
  */
 export const createCostSheetVersionSchema = z.object({
+  // versionReason MUST be declared: the controller requires it and the frontend sends it — without it
+  // validateBody stripped the field and every create-version call was rejected (bug-hunt costing-5).
+  versionReason: z.string().min(1, 'Version reason is required').max(500),
   remarks: z.string().max(500).optional(),
 });
 
@@ -225,7 +221,7 @@ export const calculateLaceOptionsSchema = z.object({
 // ============================================================================
 
 export type CreateCostSheetInput = z.infer<typeof createCostSheetSchema>;
-export type UpdateCostSheetInput = z.infer<typeof updateCostSheetSchema>;
+// UpdateCostSheetInput: infer from UpdateCostSheetSchema in controllers/style-costing.utils.ts (the ONE update schema — see note above)
 export type GenerateCostSheetInput = z.infer<typeof generateCostSheetSchema>;
 export type ApproveCostSheetInput = z.infer<typeof approveCostSheetSchema>;
 export type CreateCostSheetVersionInput = z.infer<typeof createCostSheetVersionSchema>;

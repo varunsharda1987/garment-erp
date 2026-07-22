@@ -118,7 +118,7 @@ export const adjustFabricStockSchema = z.object({
  */
 export const fabricStockQuerySchema = z.object({
   page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
-  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
+  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(500)).optional(), // 500 so the Stock-Out fabric picker (requests 200) isn't rejected/truncated
   search: z.string().max(100).optional(),
   fabricId: z.string().uuid().optional(),
   warehouseId: z.string().uuid().optional(),

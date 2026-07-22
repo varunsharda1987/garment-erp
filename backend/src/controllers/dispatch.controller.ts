@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import logger from '../utils/logger';
+import logger, { logWarn } from '../utils/logger';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import crypto from 'crypto';
@@ -308,56 +308,103 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
 
   const deliveryNumber = await generateDeliveryNumber();
 
-  const note = await prisma.delivery_notes.create({
-    data: {
-      id: crypto.randomUUID(),
-      deliveryNumber,
-      orderId,
-      customerId,
-      deliveryDate: deliveryDate ? new Date(deliveryDate) : new Date(),
-      status: 'PENDING',
-      remarks,
-      createdById: userId,
-      delivery_note_items:
-        items?.length > 0
-          ? {
-              create: items.map((item: any) => ({
-                id: crypto.randomUUID(),
-                styleId: item.styleId,
-                colorId: item.colorId,
-                sizeId: item.sizeId,
-                quantity: item.quantity,
-              })),
-            }
-          : undefined,
-    },
-    include: deliveryNoteIncludeOptions,
-  });
+  // Note creation + FG deductions run in ONE transaction with guarded atomic decrements (bug-hunt
+  // dispatch-1). The old code was off-transaction read-modify-write: concurrent notes lost deductions,
+  // a SKU split across locations was skipped entirely, and a missing colorId deducted ANY color's stock
+  // (finished_goods_stock.colorId is required, so `colorId: undefined` dropped the filter).
+  // Shortfalls no longer vanish silently: what exists is deducted, the gap is flagged in the response.
+  const fgShortfalls: Array<{
+    styleId: string;
+    colorId: string | null;
+    sizeId: string;
+    requested: number;
+    deducted: number;
+  }> = [];
 
-  // Deduct from finished_goods_stock for each dispatched item
-  if (items?.length > 0) {
-    for (const item of items) {
-      if (!item.styleId || !item.sizeId || !item.quantity) continue;
-      // Find FG stock matching this SKU (any location)
-      const fgStock = await prisma.finished_goods_stock.findFirst({
-        where: {
-          styleId: item.styleId,
-          colorId: item.colorId || undefined,
-          sizeId: item.sizeId,
-          quantity: { gte: item.quantity },
+  const note = await prisma.$transaction(
+    async (tx) => {
+      const created = await tx.delivery_notes.create({
+        data: {
+          id: crypto.randomUUID(),
+          deliveryNumber,
+          orderId,
+          customerId,
+          deliveryDate: deliveryDate ? new Date(deliveryDate) : new Date(),
+          status: 'PENDING',
+          remarks,
+          createdById: userId,
+          delivery_note_items:
+            items?.length > 0
+              ? {
+                  create: items.map((item: any) => ({
+                    id: crypto.randomUUID(),
+                    styleId: item.styleId,
+                    colorId: item.colorId,
+                    sizeId: item.sizeId,
+                    quantity: item.quantity,
+                  })),
+                }
+              : undefined,
         },
+        include: deliveryNoteIncludeOptions,
       });
-      if (fgStock) {
-        await prisma.finished_goods_stock.update({
-          where: { id: fgStock.id },
-          data: {
-            quantity: fgStock.quantity - item.quantity,
-            lastUpdated: new Date(),
-          },
-        });
+
+      if (items?.length > 0) {
+        for (const item of items) {
+          if (!item.styleId || !item.sizeId || !item.quantity) continue;
+          let remaining: number = item.quantity;
+
+          // Exact-SKU rows only. Without a colorId we cannot know WHICH color's stock left the warehouse,
+          // so nothing is deducted and the full quantity is flagged (never deduct a different SKU).
+          if (item.colorId) {
+            // Deterministic order (quantity desc, id asc) so concurrent notes lock rows in the same
+            // sequence — avoids lock-order deadlocks between notes covering the same SKU.
+            const rows = await tx.finished_goods_stock.findMany({
+              where: { styleId: item.styleId, colorId: item.colorId, sizeId: item.sizeId, quantity: { gt: 0 } },
+              orderBy: [{ quantity: 'desc' }, { id: 'asc' }],
+              select: { id: true },
+            });
+            for (const row of rows) {
+              if (remaining <= 0) break;
+              // Atomic take-min under a row lock: takes whatever the row STILL has (up to remaining) even
+              // if a concurrent note consumed part of it after our findMany — the snapshot-based
+              // "decrement exactly N or skip" version under-deducted in that race (review finding).
+              const taken: Array<{ taken: number }> = await tx.$queryRaw`
+              WITH before AS (
+                SELECT quantity FROM finished_goods_stock WHERE id = ${row.id} FOR UPDATE
+              )
+              UPDATE finished_goods_stock f
+              SET quantity = f.quantity - LEAST(f.quantity, CAST(${remaining} AS int)),
+                  "lastUpdated" = now()
+              FROM before
+              WHERE f.id = ${row.id} AND f.quantity > 0
+              RETURNING LEAST(before.quantity, CAST(${remaining} AS int)) AS taken`;
+              if (taken.length > 0) remaining -= Number(taken[0].taken);
+            }
+          }
+
+          if (remaining > 0) {
+            fgShortfalls.push({
+              styleId: item.styleId,
+              colorId: item.colorId ?? null,
+              sizeId: item.sizeId,
+              requested: item.quantity,
+              deducted: item.quantity - remaining,
+            });
+          }
+        }
       }
-      // If no FG stock found, still allow dispatch (backward compat for existing orders without FG stock)
-    }
+
+      return created;
+    },
+    { timeout: 15000, maxWait: 5000 }
+  ); // headroom over Prisma's 5s default: per-item row-locked allocation on large notes
+
+  if (fgShortfalls.length > 0) {
+    logWarn(`Delivery note ${deliveryNumber} created with FG stock shortfalls (dispatched more than on-hand FG)`, {
+      deliveryNoteId: note.id,
+      fgShortfalls,
+    });
   }
 
   // Auto-create production_tracking: SHIPPED for all work orders of this order
@@ -384,7 +431,15 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
     }
   }
 
-  res.status(201).json({ data: transformDeliveryNote(note), message: 'Delivery note created successfully' });
+  res.status(201).json({
+    data: transformDeliveryNote(note),
+    // Explicit flag (never silent): SKUs whose FG on-hand couldn't cover the dispatched quantity.
+    fgShortfalls: fgShortfalls.length > 0 ? fgShortfalls : undefined,
+    message:
+      fgShortfalls.length > 0
+        ? `Delivery note created — WARNING: ${fgShortfalls.length} item(s) exceeded finished-goods stock on hand`
+        : 'Delivery note created successfully',
+  });
 };
 
 export const deleteDeliveryNote = async (req: Request, res: Response) => {

@@ -228,7 +228,11 @@ export const getAccountById = async (req: Request, res: Response): Promise<void>
  */
 export const updateAccount = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { accountCode, accountName, accountType, accountGroup, parentAccountId, description } = req.body;
+  // accountCode is IMMUTABLE — updateChartOfAccountSchema deliberately strips it, so it must not be
+  // read here. The old code destructured it (always undefined), making `accountCode !== existing`
+  // always true and the uniqueness findFirst({ accountCode: undefined }) match ANY active account —
+  // every update returned 409 'Account code already exists' (bug-hunt financial-gst-5).
+  const { accountName, accountType, accountGroup, parentAccountId, description } = req.body;
 
   // Check if account exists
   const existingAccount = await prisma.chart_of_accounts.findUnique({
@@ -244,17 +248,6 @@ export const updateAccount = async (req: Request, res: Response): Promise<void> 
     throw new ForbiddenError('System accounts cannot be modified');
   }
 
-  // Check if new account code already exists
-  if (accountCode !== existingAccount.accountCode) {
-    const codeExists = await prisma.chart_of_accounts.findFirst({
-      where: { accountCode, isActive: true },
-    });
-
-    if (codeExists) {
-      throw new ConflictError('Account code already exists');
-    }
-  }
-
   // Validate parent account (cannot be itself or its own child)
   if (parentAccountId && parentAccountId === id) {
     throw new ValidationError('Account cannot be its own parent');
@@ -263,7 +256,6 @@ export const updateAccount = async (req: Request, res: Response): Promise<void> 
   const account = await prisma.chart_of_accounts.update({
     where: { id },
     data: {
-      accountCode,
       accountName,
       accountType: accountType as AccountType,
       accountGroup: accountGroup as AccountGroup,

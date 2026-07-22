@@ -677,8 +677,10 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       return { canDelete: false, reason: 'Order has active work orders (production has started)' };
     }
 
-    // Check delivery notes - no shipped or delivered
-    const shippedDeliveries = order.delivery_notes.filter((dn) => ['SHIPPED', 'DELIVERED'].includes(dn.status));
+    // Check delivery notes - no in-transit or delivered. Must use the actual DeliveryStatus enum values
+    // (PENDING/IN_TRANSIT/DELIVERED) — the old check used 'SHIPPED', which is not a value in the enum,
+    // so in-transit deliveries never blocked deletion (bug-hunt dispatch-10).
+    const shippedDeliveries = order.delivery_notes.filter((dn) => ['IN_TRANSIT', 'DELIVERED'].includes(dn.status));
     if (shippedDeliveries.length > 0) {
       return { canDelete: false, reason: 'Order has shipped deliveries' };
     }

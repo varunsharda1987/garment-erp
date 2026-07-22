@@ -11,6 +11,11 @@ import { z } from 'zod';
 const isValidIdFormat = (val: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val);
 
+// Date fields use z.coerce.date() (NOT z.string().datetime()): the UI date pickers send YYYY-MM-DD,
+// which .datetime() rejects — that made recording POD (and other dispatch writes) 400 on every call
+// (bug-hunt dispatch-6). Nullable dates need the union: a bare z.coerce.date() turns null into 1970-01-01.
+const nullableDate = z.union([z.null(), z.coerce.date()]);
+
 // ============================================================================
 // Enums
 // ============================================================================
@@ -58,8 +63,8 @@ export const createDeliveryNoteSchema = z
     vehicleNumber: z.string().max(50).optional(),
     driverName: z.string().max(100).optional(),
     driverContact: z.string().max(20).optional(),
-    deliveryDate: z.string().datetime().optional(), // Renamed from dispatchDate to match controller
-    expectedDeliveryDate: z.string().datetime().optional(),
+    deliveryDate: z.coerce.date().optional(), // Renamed from dispatchDate to match controller
+    expectedDeliveryDate: z.coerce.date().optional(),
     deliveryAddress: z.string().max(500).optional(),
     remarks: z.string().max(500).optional(),
     items: z.array(deliveryNoteItemSchema).min(1, 'At least one item is required'),
@@ -76,9 +81,9 @@ export const updateDeliveryNoteSchema = z
     vehicleNumber: z.string().max(50).optional().nullable(),
     driverName: z.string().max(100).optional().nullable(),
     driverContact: z.string().max(20).optional().nullable(),
-    deliveryDate: z.string().datetime().optional().nullable(), // Renamed from dispatchDate
-    expectedDeliveryDate: z.string().datetime().optional().nullable(),
-    actualDeliveryDate: z.string().datetime().optional().nullable(),
+    deliveryDate: nullableDate.optional(), // Renamed from dispatchDate
+    expectedDeliveryDate: nullableDate.optional(),
+    actualDeliveryDate: nullableDate.optional(),
     deliveryAddress: z.string().max(500).optional().nullable(),
     status: DeliveryNoteStatusEnum.optional(),
     remarks: z.string().max(500).optional().nullable(),
@@ -100,8 +105,8 @@ export const deliveryNoteQuerySchema = z
     warehouseId: z.string().uuid().optional(),
     transporterId: z.string().uuid().optional(),
     status: DeliveryNoteStatusEnum.optional(),
-    fromDate: z.string().datetime().optional(),
-    toDate: z.string().datetime().optional(),
+    fromDate: z.coerce.date().optional(),
+    toDate: z.coerce.date().optional(),
   })
   .passthrough();
 
@@ -112,7 +117,7 @@ export const deliveryNoteQuerySchema = z
 export const deliveryNoteActionSchema = z
   .object({
     remarks: z.string().max(500).optional(),
-    actualDeliveryDate: z.string().datetime().optional(),
+    actualDeliveryDate: z.coerce.date().optional(),
     receivedBy: z.string().max(100).optional(),
     proofOfDelivery: z.string().max(500).optional(),
   })
@@ -158,7 +163,7 @@ export const createASNSchema = z
     orderId: z.string().uuid('Invalid order ID').optional(),
     plannedDispatchQty: z.number().int().nonnegative().optional(),
     cartonsPlanned: z.number().int().nonnegative().optional(),
-    requestedShipDate: z.string().datetime().optional(),
+    requestedShipDate: z.coerce.date().optional(),
     skus: z.array(asnSkuSchema).optional(), // Simple SKU breakdown
 
     // EDI fields (optional for future EDI integration)
@@ -170,8 +175,8 @@ export const createASNSchema = z
     carrierCode: z.string().max(50).optional(),
     carrierName: z.string().max(100).optional(),
     trackingNumber: z.string().max(100).optional(),
-    shipDate: z.string().datetime().optional(),
-    expectedArrivalDate: z.string().datetime().optional(),
+    shipDate: z.coerce.date().optional(),
+    expectedArrivalDate: z.coerce.date().optional(),
     remarks: z.string().max(500).optional(),
     items: z.array(asnItemSchema).optional(), // EDI-style items (made optional)
   })
@@ -187,9 +192,9 @@ export const updateASNSchema = z
     carrierCode: z.string().max(50).optional().nullable(),
     carrierName: z.string().max(100).optional().nullable(),
     trackingNumber: z.string().max(100).optional().nullable(),
-    shipDate: z.string().datetime().optional().nullable(),
-    expectedArrivalDate: z.string().datetime().optional().nullable(),
-    actualArrivalDate: z.string().datetime().optional().nullable(),
+    shipDate: nullableDate.optional(),
+    expectedArrivalDate: nullableDate.optional(),
+    actualArrivalDate: nullableDate.optional(),
     status: ASNStatusEnum.optional(),
     remarks: z.string().max(500).optional().nullable(),
     items: z.array(asnItemSchema).optional(),
@@ -209,8 +214,8 @@ export const asnQuerySchema = z
     customerId: z.string().uuid().optional(),
     deliveryNoteId: z.string().uuid().optional(),
     status: ASNStatusEnum.optional(),
-    fromDate: z.string().datetime().optional(),
-    toDate: z.string().datetime().optional(),
+    fromDate: z.coerce.date().optional(),
+    toDate: z.coerce.date().optional(),
   })
   .passthrough();
 
@@ -222,7 +227,7 @@ export const asnActionSchema = z
   .object({
     remarks: z.string().max(500).optional(),
     rejectionReason: z.string().max(500).optional(),
-    newExpectedArrivalDate: z.string().datetime().optional(),
+    newExpectedArrivalDate: z.coerce.date().optional(),
   })
   .passthrough();
 
@@ -244,10 +249,10 @@ export const assignTransportSchema = z
     driverPhone: z.string().max(20).optional(),
     driverLicense: z.string().max(50).optional(),
     lrNumber: z.string().max(50).optional(),
-    lrDate: z.string().datetime().optional(),
+    lrDate: z.coerce.date().optional(),
     freightCharges: z.number().nonnegative().optional(),
     freightPaidBy: z.string().max(50).optional(),
-    expectedDeliveryDate: z.string().datetime().optional(),
+    expectedDeliveryDate: z.coerce.date().optional(),
     remarks: z.string().max(500).optional(),
   })
   .passthrough();
@@ -258,7 +263,7 @@ export const assignTransportSchema = z
  */
 export const recordPODSchema = z
   .object({
-    deliveryDate: z.string().datetime().optional(),
+    deliveryDate: z.coerce.date().optional(),
     deliveryTime: z.string().max(10).optional(),
     receivedBy: z.string().max(100).optional(),
     designation: z.string().max(100).optional(),
@@ -268,7 +273,7 @@ export const recordPODSchema = z
     shortageQty: z.number().int().nonnegative().optional(),
     rejectionReason: z.string().max(500).optional(),
     customerGrnNumber: z.string().max(50).optional(),
-    customerGrnDate: z.string().datetime().optional(),
+    customerGrnDate: z.coerce.date().optional(),
     remarks: z.string().max(500).optional(),
   })
   .passthrough();
@@ -279,7 +284,7 @@ export const recordPODSchema = z
  */
 export const approveASNSchema = z
   .object({
-    appointmentDate: z.string().datetime().optional(),
+    appointmentDate: z.coerce.date().optional(),
     appointmentTime: z.string().max(10).optional(),
     buyerRefNumber: z.string().max(50).optional(),
     approvedQty: z.number().int().nonnegative().optional(),
@@ -304,7 +309,7 @@ export const rejectASNSchema = z
  */
 export const rescheduleASNSchema = z
   .object({
-    rescheduleDate: z.string().datetime(),
+    rescheduleDate: z.coerce.date(),
     remarks: z.string().max(500).optional(),
   })
   .passthrough();

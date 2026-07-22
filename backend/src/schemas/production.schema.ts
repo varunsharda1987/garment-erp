@@ -92,11 +92,16 @@ export const updateCuttingBatchSchema = z.object({
  */
 export const recordCuttingOutputSchema = z
   .object({
+    // Shape matches what the frontend sends (RecordCuttingOutputRequest: id?/colorId/sizeId/cutQty) and
+    // what the controller reads. The old required 'skuId' was a field NOBODY sends → every record-output
+    // call 400'd (bug-hunt production-3).
     skuOutputs: z
       .array(
         z
           .object({
-            skuId: z.string().uuid('Invalid SKU ID'),
+            id: z.string().uuid('Invalid SKU row ID').optional(),
+            colorId: z.string().nullable().optional(),
+            sizeId: z.string().uuid('Invalid size ID'),
             cutQty: z.number().int().nonnegative(),
             rejectedQty: z.number().int().nonnegative().optional(),
             goodPcs: z.number().int().nonnegative().optional(),
@@ -155,11 +160,14 @@ export const addCuttingLaySchema = z.object({
  */
 export const issueToStitchingSchema = z
   .object({
+    // Matches the frontend IssueToStitchingRequest ({colorId, sizeId, quantity}); the old required
+    // 'skuId' was never sent → every issue-to-stitching call 400'd (bug-hunt production-3).
     skuOutputs: z
       .array(
         z
           .object({
-            skuId: z.string().uuid('Invalid SKU ID'),
+            colorId: z.string().nullable().optional(),
+            sizeId: z.string().uuid('Invalid size ID'),
             quantity: z.number().int().positive('Quantity must be positive'),
           })
           .passthrough()
@@ -185,7 +193,10 @@ export const completeCuttingBatchSchema = z
         z
           .object({
             fabricStockId: z.string().uuid('Invalid fabric stock ID'),
-            returnQuantity: z.number().positive('Return quantity must be positive'),
+            // 'returnedQuantity' — the name BOTH the controller (cutting.controller completeCuttingBatch)
+            // and the frontend (cutting.types.ts) use; the old 'returnQuantity' meant the validated value
+            // never reached the controller and fabric returns were silently 0 (bug-hunt production-2).
+            returnedQuantity: z.number().positive('Return quantity must be positive'),
           })
           .passthrough()
       )

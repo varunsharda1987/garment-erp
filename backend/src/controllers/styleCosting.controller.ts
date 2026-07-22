@@ -719,7 +719,11 @@ export const getCostSheetsGroupedByWidth = async (req: Request, res: Response): 
  */
 export const updateCostSheet = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const validatedData = UpdateCostSheetSchema.parse(req.body);
+  // req.body was already validated by the route's validateBody(UpdateCostSheetSchema) — the ONE schema
+  // for this endpoint. The old controller-local re-parse paired with a DIFFERENT route schema whose
+  // fields had zero overlap, so validateBody stripped every real field and this endpoint returned
+  // "updated successfully" while discarding every edit (bug-hunt costing-2).
+  const validatedData: z.infer<typeof UpdateCostSheetSchema> = req.body;
 
   // Check if cost sheet exists
   const existingCostSheet = await prisma.style_costing.findUnique({

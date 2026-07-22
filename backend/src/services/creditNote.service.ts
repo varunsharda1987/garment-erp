@@ -328,22 +328,54 @@ export class CreditNoteService {
       throw new BusinessError('Only DRAFT credit notes can be approved');
     }
 
-    return prisma.credit_notes.update({
-      where: { id },
-      data: { status: 'APPROVED' },
-      include: {
-        invoice: true,
-        customer: true,
-        createdBy: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+    // Approval + receivable effect are ONE transaction (bug-hunt financial-gst-6: approved credit notes
+    // never touched invoices.balanceAmount, so receivables stayed overstated and recordPayment's balance
+    // guard allowed collecting the full amount on top of the credit).
+    // NOTE: cancel/delete only apply to DRAFT notes, so approval is one-way — if a reversal path for
+    // APPROVED notes is ever added, it MUST re-increment the invoice balance the same way.
+    return prisma.$transaction(async (tx) => {
+      // Guarded flip (DRAFT only) inside the tx — a concurrent double-approve gets count 0 and cannot
+      // decrement the balance twice.
+      const flipped = await tx.credit_notes.updateMany({
+        where: { id, status: 'DRAFT' },
+        data: { status: 'APPROVED' },
+      });
+      if (flipped.count === 0) {
+        throw new BusinessError('Only DRAFT credit notes can be approved');
+      }
+
+      const note = await tx.credit_notes.findUnique({
+        where: { id },
+        select: { invoiceId: true, totalAmount: true },
+      });
+
+      // Atomic decrement; if the credit fully settles the invoice, mark it PAID. A negative balance is
+      // allowed (credit exceeding the open balance = refund due).
+      const inv = await tx.invoices.update({
+        where: { id: note!.invoiceId },
+        data: { balanceAmount: { decrement: note!.totalAmount } },
+      });
+      if (Number(inv.balanceAmount) <= 0.005 && inv.status !== 'PAID') {
+        await tx.invoices.update({ where: { id: inv.id }, data: { status: 'PAID' } });
+      }
+
+      // Fetched AFTER the invoice update so the included invoice reflects the new balance.
+      return tx.credit_notes.findUnique({
+        where: { id },
+        include: {
+          invoice: true,
+          customer: true,
+          createdBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
           },
+          items: true,
         },
-        items: true,
-      },
+      });
     });
   }
 

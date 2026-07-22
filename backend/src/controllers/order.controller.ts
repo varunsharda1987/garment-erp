@@ -497,7 +497,7 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
  */
 export const updateOrderStatus = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { status } = req.body;
+  const { status, reason } = req.body;
 
   // Get the current order with items to check for status change
   const currentOrder = await prisma.orders.findUnique({
@@ -518,25 +518,11 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
 
   const previousStatus = currentOrder.status;
 
-  const order = await prisma.orders.update({
-    where: { id },
-    data: { status },
-    include: {
-      customers: {
-        select: {
-          id: true,
-          code: true,
-          name: true,
-        },
-      },
-      order_items: {
-        select: {
-          id: true,
-          styleId: true,
-        },
-      },
-    },
-  });
+  // Delegate to the service so the state machine actually runs (validateTransition + admin-override
+  // logging). The raw prisma.orders.update this replaced allowed ANY transition — e.g. DELIVERED back
+  // to PENDING — silently bypassing the validator that already existed (bug-hunt orders-3).
+  const updated = await orderService.updateStatus(id, status, req.user?.role, reason);
+  const order = { ...updated, order_items: currentOrder.order_items };
 
   // =====================================================
   // AUTO-TRIGGER RAW_MATERIAL_CALCULATION CAD

@@ -473,7 +473,7 @@ export default function StitchingDetail() {
             );
           }
 
-          if (issue.status === 'COMPLETED' && hasTransferSlip) {
+          if (issue.status === 'COMPLETED' && transferSlip) {
             return (
               <Card className="border-success/20 bg-success-muted">
                 <CardContent className="pt-6">

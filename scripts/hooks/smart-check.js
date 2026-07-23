@@ -639,6 +639,20 @@ function runAllModeChecks() {
   if (!checkDecimalCompare(tsFiles)) ok = false;
   if (!checkCountNumbering(tsFiles)) ok = false;
 
+  // Frontend typecheck gate (CI mode only — too slow for per-commit). The frontend reached ZERO tsc
+  // errors on 2026-07-23 after clearing 184 pre-existing ones (several were real display bugs: pages
+  // reading fields the API never returns). This keeps the count at zero.
+  console.log(`\n${c.cyan}Typechecking frontend (tsc -b)...${c.reset}`);
+  try {
+    execSync('npx tsc -b', { cwd: path.join(process.cwd(), 'frontend'), encoding: 'utf-8', stdio: 'pipe' });
+    console.log(`${c.green}  ✓ Frontend typecheck OK (0 errors)${c.reset}`);
+  } catch (e) {
+    const out = ((e.stdout || '') + (e.stderr || '')).split('\n').filter((l) => /error TS/.test(l));
+    console.log(`${c.red}  ✗ Frontend typecheck FAILED (${out.length} error(s)) — the frontend must stay at ZERO tsc errors:${c.reset}`);
+    out.slice(0, 10).forEach((l) => console.log(`${c.red}    ${l.trim()}${c.reset}`));
+    ok = false;
+  }
+
   console.log(`\n${c.bright}${c.blue}═══════════════════════════════════════════════════${c.reset}`);
   if (ok) {
     console.log(`${c.green}${c.bright}✓ Guardrails passed (no new drift / money-math violations)${c.reset}\n`);

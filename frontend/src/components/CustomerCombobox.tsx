@@ -37,13 +37,11 @@ export function CustomerCombobox({
         search: search || undefined,
       });
 
-      const customerOptions: ComboboxOption[] = (response.data ?? []).map(
-        (customer: { id: string; code: string; name: string; brandNames?: string; billingName?: string }) => ({
-          value: customer.id,
-          label: `${customer.code} - ${customer.name}`,
-          searchText: `${customer.code} ${customer.name} ${customer.brandNames || ''} ${customer.billingName || ''}`,
-        })
-      );
+      const customerOptions: ComboboxOption[] = (response.data ?? []).map((customer) => ({
+        value: customer.id,
+        label: `${customer.code} - ${customer.name}`,
+        searchText: `${customer.code} ${customer.name} ${customer.brandNames || ''} ${customer.billingName || ''}`,
+      }));
 
       setCustomers(customerOptions);
       setInitialLoaded(true);

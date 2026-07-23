@@ -14,11 +14,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from '../components/ui/textarea';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
-import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 import { externalProcessService } from '../services/external-process.service';
 import { ArrowLeft } from 'lucide-react';
-import type { ExternalProcessSendOut, ExternalProcessReceiveRequest } from '../types/external-process.types';
+import type { ExternalProcessReceiveRequest } from '../types/external-process.types';
 import { formatCurrency } from '../lib/currency';
 
 export default function SmockingReceive() {

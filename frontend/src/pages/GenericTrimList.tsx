@@ -94,9 +94,13 @@ export default function GenericTrimList() {
     }
   };
 
-  // Get the value from item using dynamic field name
-  const getFieldValue = (item: GenericTrimItem, field: string): unknown => {
-    return (item as Record<string, unknown>)[field];
+  // Get the value from item using dynamic field name.
+  // Spreading into a fresh object gives it an implicit index signature, so no cast is needed;
+  // the result is narrowed to the primitive types trim fields can actually hold.
+  const getFieldValue = (item: GenericTrimItem, field: string): string | number | boolean | null => {
+    const record: Record<string, unknown> = { ...item };
+    const value = record[field];
+    return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' ? value : null;
   };
 
   if (!trimType || !config) {
@@ -164,7 +168,11 @@ export default function GenericTrimList() {
       header: priceField.label,
       render: (item) => {
         const price = getFieldValue(item, priceField.name);
-        return <div className="text-sm font-medium text-foreground">{price ? formatCurrency(price) : '-'}</div>;
+        return (
+          <div className="text-sm font-medium text-foreground">
+            {price && typeof price !== 'boolean' ? formatCurrency(price) : '-'}
+          </div>
+        );
       },
     });
   }
@@ -195,7 +203,7 @@ export default function GenericTrimList() {
         <Button
           variant="destructive"
           size="sm"
-          onClick={() => handleDeleteClick(item.id, getFieldValue(item, config.nameField))}
+          onClick={() => handleDeleteClick(item.id, String(getFieldValue(item, config.nameField) ?? ''))}
         >
           Delete
         </Button>

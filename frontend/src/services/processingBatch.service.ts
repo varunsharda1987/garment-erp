@@ -31,7 +31,7 @@ class ProcessingBatchService {
     const url = query ? `${this.basePath}?${query}` : this.basePath;
 
     const response = await api.get<ApiResponse<ProcessingBatch[]>>(url);
-    return response.data.data;
+    return response.data.data ?? [];
   }
 
   /**
@@ -72,7 +72,7 @@ class ProcessingBatchService {
    */
   async getByProcessor(processorId: string): Promise<ProcessingBatch[]> {
     const response = await api.get<ApiResponse<ProcessingBatch[]>>(`${this.basePath}/processor/${processorId}`);
-    return response.data.data;
+    return response.data.data ?? [];
   }
 
   /**

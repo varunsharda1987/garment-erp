@@ -14,7 +14,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Search, ChevronDown, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';

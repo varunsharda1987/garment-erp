@@ -76,6 +76,19 @@ const getNumericField = (item: TrimMasterItem, field: string): number | undefine
   return undefined;
 };
 
+/**
+ * Adapt a concrete master-list fetch function (Thread, Button, Zipper, ...) to the
+ * generic TrimMasterResponse shape. The `{ id: string }` element type is an anonymous
+ * object type, which TypeScript gives an implicit index signature, so the concrete
+ * items flow into TrimMasterItem without any casts.
+ */
+const adaptFetch =
+  (fetchFn: (params: TrimMasterQueryParams) => Promise<{ data?: Array<{ id: string }> }>) =>
+  async (params: TrimMasterQueryParams): Promise<TrimMasterResponse> => {
+    const response = await fetchFn(params);
+    return { data: response.data ?? [] };
+  };
+
 // Map materialType → service function + name/code field extractors
 const MASTER_CONFIG: Record<
   string,
@@ -89,7 +102,7 @@ const MASTER_CONFIG: Record<
   }
 > = {
   THREAD: {
-    fetch: getAllThreads as (params: TrimMasterQueryParams) => Promise<TrimMasterResponse>,
+    fetch: adaptFetch(getAllThreads),
     getName: (item) => getStringField(item, 'threadName', 'name'),
     getCode: (item) => getStringField(item, 'threadCode', 'code'),
     getPrice: (item) => getNumericField(item, 'pricePerCone'),
@@ -97,7 +110,7 @@ const MASTER_CONFIG: Record<
     idField: 'threadId',
   },
   BUTTON: {
-    fetch: getAllButtons as (params: TrimMasterQueryParams) => Promise<TrimMasterResponse>,
+    fetch: adaptFetch(getAllButtons),
     getName: (item) => getStringField(item, 'buttonName', 'name'),
     getCode: (item) => getStringField(item, 'buttonCode', 'code'),
     getPrice: (item) => getNumericField(item, 'pricePerPiece'),
@@ -105,7 +118,7 @@ const MASTER_CONFIG: Record<
     idField: 'buttonId',
   },
   ZIPPER: {
-    fetch: getAllZippers as (params: TrimMasterQueryParams) => Promise<TrimMasterResponse>,
+    fetch: adaptFetch(getAllZippers),
     getName: (item) => getStringField(item, 'zipperName', 'name'),
     getCode: (item) => getStringField(item, 'zipperCode', 'code'),
     getPrice: (item) => getNumericField(item, 'pricePerPiece'),
@@ -113,7 +126,7 @@ const MASTER_CONFIG: Record<
     idField: 'zipperId',
   },
   ELASTIC: {
-    fetch: getAllElastics as (params: TrimMasterQueryParams) => Promise<TrimMasterResponse>,
+    fetch: adaptFetch(getAllElastics),
     getName: (item) => getStringField(item, 'elasticName', 'name'),
     getCode: (item) => getStringField(item, 'elasticCode', 'code'),
     getPrice: (item) => getNumericField(item, 'pricePerMeter'),
@@ -121,7 +134,7 @@ const MASTER_CONFIG: Record<
     idField: 'elasticId',
   },
   LABEL: {
-    fetch: getAllLabels as (params: TrimMasterQueryParams) => Promise<TrimMasterResponse>,
+    fetch: adaptFetch(getAllLabels),
     getName: (item) => getStringField(item, 'labelName', 'name'),
     getCode: (item) => getStringField(item, 'labelCode', 'code'),
     getPrice: (item) => getNumericField(item, 'pricePerPiece'),
@@ -129,7 +142,7 @@ const MASTER_CONFIG: Record<
     idField: 'labelId',
   },
   PACKAGING: {
-    fetch: getAllPackaging as (params: TrimMasterQueryParams) => Promise<TrimMasterResponse>,
+    fetch: adaptFetch(getAllPackaging),
     getName: (item) => getStringField(item, 'packagingName', 'name'),
     getCode: (item) => getStringField(item, 'packagingCode', 'code'),
     getPrice: (item) => getNumericField(item, 'pricePerPiece'),
@@ -143,10 +156,9 @@ const MASTER_CONFIG: Record<
       .map((entry) => [
         entry.value,
         {
-          fetch: ((params: TrimMasterQueryParams) =>
-            getGenericTrims(entry.apiKey!, { limit: params.limit, search: params.search })) as (
-            params: TrimMasterQueryParams
-          ) => Promise<TrimMasterResponse>,
+          fetch: adaptFetch((params: TrimMasterQueryParams) =>
+            getGenericTrims(entry.apiKey!, { limit: params.limit, search: params.search })
+          ),
           getName: (item: TrimMasterItem) => getStringField(item, entry.nameField!, 'name'),
           getCode: (item: TrimMasterItem) => getStringField(item, entry.codeField!, 'code'),
           getPrice: (item: TrimMasterItem) => getNumericField(item, entry.priceField!),

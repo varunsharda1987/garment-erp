@@ -42,6 +42,9 @@ import { getServiceRequirementsSummary, calculateServices } from '@/services/ser
 import type { ServiceRequirementsSummary } from '@/types/serviceRequirement.types';
 import { ServiceTypeLabels } from '@/types/serviceRequirement.types';
 import type { WorkOrder, OrderStatus, Priority } from '@/types/production.types';
+import type { CuttingBatch } from '@/types/cutting.types';
+import type { StitchingIssue } from '@/types/stitching.types';
+import type { FinishingIssue } from '@/types/finishing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import SplitProductionModal from '@/components/SplitProductionModal';
 import AdminOverrideModal from '@/components/AdminOverrideModal';
@@ -138,27 +141,26 @@ export default function WorkOrderDetail() {
       ]);
 
       // Calculate cutting progress
-      const cuttingBatches = cuttingRes.data || [];
-      const totalCut = cuttingBatches.reduce((sum: number, b: Record<string, unknown>) => {
-        const skuBreakdown = b.skuBreakdown as Array<{ cutQty?: number }> | undefined;
-        const skuTotal = skuBreakdown?.reduce((s: number, sku) => s + (sku.cutQty || 0), 0) || 0;
+      // NOTE: the cutting API returns `skuOutputs` (see backend transformCuttingBatch),
+      // not `skuBreakdown` — reading skuBreakdown always yielded 0 total cut.
+      const cuttingBatches: CuttingBatch[] = cuttingRes.data || [];
+      const totalCut = cuttingBatches.reduce((sum, b) => {
+        const skuTotal = b.skuOutputs?.reduce((s, sku) => s + (sku.cutQty || 0), 0) || 0;
         return sum + skuTotal;
       }, 0);
 
       // Calculate stitching progress
-      const stitchingIssues = stitchingRes.data || [];
-      const totalStitched = stitchingIssues.reduce((sum: number, i: Record<string, unknown>) => {
-        const dailyOutputs = i.dailyOutputs as Array<{ skuOutputs?: Array<{ goodQty?: number }> }> | undefined;
-        const outputs = dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
-        return sum + outputs.reduce((s: number, o) => s + (o.goodQty || 0), 0);
+      const stitchingIssues: StitchingIssue[] = stitchingRes.data || [];
+      const totalStitched = stitchingIssues.reduce((sum, i) => {
+        const outputs = i.dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
+        return sum + outputs.reduce((s, o) => s + (o.goodQty || 0), 0);
       }, 0);
 
       // Calculate finishing progress
-      const finishingIssues = finishingRes.data || [];
-      const totalFinished = finishingIssues.reduce((sum: number, i: Record<string, unknown>) => {
-        const dailyOutputs = i.dailyOutputs as Array<{ skuOutputs?: Array<{ finishedQty?: number }> }> | undefined;
-        const outputs = dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
-        return sum + outputs.reduce((s: number, o) => s + (o.finishedQty || 0), 0);
+      const finishingIssues: FinishingIssue[] = finishingRes.data || [];
+      const totalFinished = finishingIssues.reduce((sum, i) => {
+        const outputs = i.dailyOutputs?.flatMap((o) => o.skuOutputs || []) || [];
+        return sum + outputs.reduce((s, o) => s + (o.finishedQty || 0), 0);
       }, 0);
 
       setManufacturingProgress({
@@ -235,7 +237,9 @@ export default function WorkOrderDetail() {
     } catch (err: unknown) {
       const responseData = isAxiosError(err) ? err.response?.data : undefined;
       const errorMsg = responseData?.message || (err instanceof Error ? err.message : 'Failed to push to cutting');
-      const blockers = responseData?.blockers as string[] | undefined;
+      const blockers = responseData?.blockers as
+        | Array<{ type: string; message: string; severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' }>
+        | undefined;
 
       if (blockers && blockers.length > 0) {
         // Show override modal with server-returned blockers so admin can override

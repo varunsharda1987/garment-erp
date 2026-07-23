@@ -28,7 +28,6 @@ import { externalProcessService } from '../services/external-process.service';
 import { Plus, PackageCheck, Clock, AlertTriangle, CheckCircle2, Search, XCircle } from 'lucide-react';
 import { format, differenceInCalendarDays } from 'date-fns';
 import type { ExternalProcessSendOut, ExternalProcessStatus } from '../types/external-process.types';
-import { formatCurrency } from '../lib/currency';
 
 const STATUS_BADGES: Record<
   ExternalProcessStatus,

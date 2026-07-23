@@ -57,7 +57,8 @@ interface InvoiceSearchResult {
   id: string;
   invoiceNumber: string;
   customerId: string;
-  customers?: {
+  // NOTE: backend serializer maps the Prisma `customers` relation to `customer` (singular)
+  customer?: {
     id: string;
     code: string;
     name: string;

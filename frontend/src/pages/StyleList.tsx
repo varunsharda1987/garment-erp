@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { styleService, type DeactivationCheck } from '@/services/style.service';
 import type { Style } from '@/types/style.types';
-import { PRODUCTION_STAGE_LABELS } from '@/types/style.types';
+import { PRODUCTION_STAGE_LABELS, CADStatus } from '@/types/style.types';
 import { useAuthStore } from '@/stores/auth.store';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -448,7 +448,10 @@ export default function StyleList() {
       header: 'CAD Status',
       render: (style) => (
         <CADStatusBadge
-          status={(style as Style & { effectiveCadStatus?: string }).effectiveCadStatus || style.cadStatus}
+          status={
+            ((style as Style & { effectiveCadStatus?: CADStatus }).effectiveCadStatus ?? style.cadStatus) ||
+            CADStatus.PENDING
+          }
           size="sm"
         />
       ),

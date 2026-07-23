@@ -38,31 +38,33 @@ import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 import { COMPANY_CONFIG, getCompanyFullAddress } from '@/config/company.config';
 
 // Extended types for PO relations not yet in the base PurchaseOrder type
+// NOTE: the backend serializer maps the Prisma `styles` relation key to `style`
+// in API responses (see backend/src/utils/serializer.ts RELATION_MAPPINGS).
 interface POSourceLink {
   id: string;
   sourceType: string;
   materialRequirement?: {
     requirementNumber?: string;
     orderItems?: {
-      styles?: { id: string; styleCode: string };
+      style?: { id: string; styleCode: string };
     };
   };
   serviceRequirement?: {
     serviceType?: string;
     workOrder?: {
-      styles?: { id: string; styleCode: string };
+      style?: { id: string; styleCode: string };
     };
   };
   productionRun?: {
     workOrderNumber?: string;
-    styles?: { id: string; styleCode: string };
+    style?: { id: string; styleCode: string };
   };
 }
 
 interface RequirementPOLink {
   materialRequirements?: {
     orderItems?: {
-      styles?: { id: string; styleCode: string };
+      style?: { id: string; styleCode: string };
     };
   };
 }
@@ -224,15 +226,15 @@ export default function PurchaseOrderDetail() {
     // MRP path: requirement_po_links → material_requirements → order_items → styles
     const reqLinks = po.requirementPoLinks || [];
     for (const link of reqLinks) {
-      const style = link.materialRequirements?.orderItems?.styles;
+      const style = link.materialRequirements?.orderItems?.style;
       if (style?.styleCode) styles.set(style.id, style.styleCode);
     }
-    // Unified path: po_source_links → materialRequirement → order_items → styles
+    // Unified path: po_source_links → materialRequirement → order_items → style
     const srcLinks = po.poSourceLinks || [];
     for (const link of srcLinks) {
-      const style = link.materialRequirement?.orderItems?.styles;
+      const style = link.materialRequirement?.orderItems?.style;
       if (style?.styleCode) styles.set(style.id, style.styleCode);
-      const pStyle = link.productionRun?.styles;
+      const pStyle = link.productionRun?.style;
       if (pStyle?.styleCode) styles.set(pStyle.id, pStyle.styleCode);
       // Service requirement path: serviceRequirement → workOrder → style
       const svcStyle = link.serviceRequirement?.workOrder?.style;
@@ -496,7 +498,7 @@ export default function PurchaseOrderDetail() {
               </CardTitle>
               <div className="flex items-center gap-2">
                 {isDeliveryLocationAmended && (
-                  <Badge variant="warning" className="text-xs">
+                  <Badge variant="outline" className="text-xs border-amber-300 bg-amber-100 text-amber-800">
                     Amended
                   </Badge>
                 )}

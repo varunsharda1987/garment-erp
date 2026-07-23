@@ -3,7 +3,6 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { CustomerCombobox } from '../components/CustomerCombobox';
 import { customerService } from '../services/customer.service';
@@ -16,20 +15,17 @@ import type { Customer } from '../types/customer.types';
 import type { Style } from '../types/style.types';
 import type { Priority, CreateOrderItemBreakup } from '../types/order.types';
 import type { CostSheet } from '../types/costSheet.types';
-import { PriorityLabels } from '../types/order.types';
 import { logError } from '../lib/logger';
 import { formatCurrency } from '../lib/currency';
 import CostSheetComparisonModal from '../components/cost-sheet/CostSheetComparisonModal';
 import {
   Search,
-  Package,
   Check,
   ChevronDown,
   ChevronUp,
   AlertCircle,
   CheckCircle2,
   Hash,
-  FileText,
   Sparkles,
   Calculator,
 } from 'lucide-react';

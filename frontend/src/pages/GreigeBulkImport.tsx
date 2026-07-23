@@ -322,7 +322,7 @@ export default function GreigeBulkImport() {
           // Send to backend
           const response = await api.post<{
             summary: { created: number; failed: number };
-            errors?: string[];
+            errors?: Array<{ row: number; error: string }>;
           }>('/fabric-management/greige/bulk-import', { greiges: greigeData });
 
           setResult({

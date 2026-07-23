@@ -104,8 +104,9 @@ export default function GenericTrimForm() {
     if (!trimType || !config) return;
 
     // Validate required field (name)
-    const name = formData[config.nameField];
-    if (!name || name.trim() === '') {
+    const rawName = formData[config.nameField];
+    const name = typeof rawName === 'string' ? rawName.trim() : '';
+    if (!name) {
       setError(`${config.label} name is required`);
       return;
     }
@@ -116,12 +117,16 @@ export default function GenericTrimForm() {
     try {
       // Prepare data - convert empty strings to null for optional fields
       const submitData: Record<string, string | number | boolean | null> = {};
-      submitData[config.nameField] = name.trim();
+      submitData[config.nameField] = name;
 
       config.fields.forEach((field) => {
         const value = formData[field.name];
         if (field.type === 'number') {
-          submitData[field.name] = value ? parseFloat(value) : null;
+          if (typeof value === 'number') {
+            submitData[field.name] = value;
+          } else {
+            submitData[field.name] = typeof value === 'string' && value ? parseFloat(value) : null;
+          }
         } else if (field.type === 'boolean') {
           submitData[field.name] = !!value;
         } else {
@@ -180,13 +185,20 @@ export default function GenericTrimForm() {
     );
   }
 
+  // Coerce a dynamic form value into something an input/select can display
+  const asInputValue = (value: string | number | boolean | null | undefined): string | number =>
+    typeof value === 'string' || typeof value === 'number' ? value || '' : '';
+
   // Render a field based on its config
   const renderField = (field: FieldConfig) => {
     const value = formData[field.name];
 
     if (field.type === 'select' && field.options) {
       return (
-        <Select value={value || ''} onValueChange={(val) => handleInputChange(field.name, val)}>
+        <Select
+          value={typeof value === 'string' ? value : ''}
+          onValueChange={(val) => handleInputChange(field.name, val)}
+        >
           <SelectTrigger>
             <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
           </SelectTrigger>
@@ -215,7 +227,7 @@ export default function GenericTrimForm() {
         <Input
           type="number"
           step="0.01"
-          value={value || ''}
+          value={asInputValue(value)}
           onChange={(e) => handleInputChange(field.name, e.target.value)}
           placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
         />
@@ -225,7 +237,7 @@ export default function GenericTrimForm() {
     return (
       <Input
         type="text"
-        value={value || ''}
+        value={asInputValue(value)}
         onChange={(e) => handleInputChange(field.name, e.target.value)}
         placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
       />
@@ -269,7 +281,7 @@ export default function GenericTrimForm() {
               </Label>
               <Input
                 id={config.nameField}
-                value={formData[config.nameField] || ''}
+                value={asInputValue(formData[config.nameField])}
                 onChange={(e) => handleInputChange(config.nameField, e.target.value)}
                 placeholder={`Enter ${config.label.toLowerCase()} name`}
                 required
@@ -293,7 +305,7 @@ export default function GenericTrimForm() {
             <div className="space-y-2">
               <Label htmlFor="supplierId">Supplier</Label>
               <Select
-                value={formData.supplierId || 'none'}
+                value={typeof formData.supplierId === 'string' && formData.supplierId ? formData.supplierId : 'none'}
                 onValueChange={(val) => handleInputChange('supplierId', val === 'none' ? '' : val)}
               >
                 <SelectTrigger>
@@ -315,7 +327,7 @@ export default function GenericTrimForm() {
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                value={formData.description || ''}
+                value={asInputValue(formData.description)}
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 placeholder="Enter description (optional)"
                 rows={3}
@@ -326,7 +338,7 @@ export default function GenericTrimForm() {
             {isEditMode && (
               <div className="flex items-center space-x-2">
                 <Switch
-                  checked={formData.isActive ?? true}
+                  checked={typeof formData.isActive === 'boolean' ? formData.isActive : true}
                   onCheckedChange={(checked) => handleInputChange('isActive', checked)}
                 />
                 <Label>Active</Label>

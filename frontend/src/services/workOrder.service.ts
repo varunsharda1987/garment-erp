@@ -131,6 +131,7 @@ export const workOrderService = {
     isReady: boolean;
     totalMaterials: number;
     availableMaterials: number;
+    hasApprovedBom: boolean;
     missingMaterials: Array<{
       materialName: string;
       materialCode: string;

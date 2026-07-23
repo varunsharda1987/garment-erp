@@ -11,7 +11,6 @@ import { fabricService } from '../services/fabricGreigeService';
 import { warehouseService } from '../services/warehouse.service';
 import { CheckCircle, XCircle, Package2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
 import type { FabricMaster } from '../types/fabric-greige.types';
-import { logError } from '../lib/logger';
 import api from '@/lib/api';
 import { formatCurrency } from '@/lib/currency';
 import { toast } from 'sonner';

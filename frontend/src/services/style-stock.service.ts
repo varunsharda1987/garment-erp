@@ -4,7 +4,6 @@ import api from '../lib/api';
 import type {
   StyleStockEntry,
   StyleStockAvailability,
-  ComponentWithFabrics,
   StyleStockCreateResponse,
   FabricStyleUsage,
   FabricStockHistoryEntry,

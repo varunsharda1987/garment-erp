@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { externalProcessService } from '../services/external-process.service';
 import { ArrowLeft } from 'lucide-react';
 import api from '../lib/api';
+import { formatCurrency } from '../lib/currency';
 import type { CreateExternalProcessSendOutRequest, ExternalProcessSourceType } from '../types/external-process.types';
 
 interface WorkOrderOption {

@@ -37,13 +37,11 @@ export function MaterialCombobox({
           supplierId: supplierId || undefined,
         });
 
-        const materialOptions: ComboboxOption[] = (response.data ?? []).map(
-          (material: { id: string; code: string; name: string; category?: string; description?: string }) => ({
-            value: material.id,
-            label: `${material.code} - ${material.name}`,
-            searchText: `${material.code} ${material.name} ${material.category || ''} ${material.description || ''}`,
-          })
-        );
+        const materialOptions: ComboboxOption[] = (response.data ?? []).map((material) => ({
+          value: material.id,
+          label: `${material.code} - ${material.name}`,
+          searchText: `${material.code} ${material.name} ${material.category?.name || ''} ${material.description || ''}`,
+        }));
 
         setMaterials(materialOptions);
         setInitialLoaded(true);

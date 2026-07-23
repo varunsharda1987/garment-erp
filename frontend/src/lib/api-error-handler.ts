@@ -100,6 +100,11 @@ function getStatusMessage(status: number): string {
  * @returns The error message string
  */
 export function handleApiError(error: unknown, customMessage?: string, showToast: boolean = true): string {
+  // Skip handling for session expiry - already handled by API interceptor
+  if (error instanceof Error && error.message === 'SESSION_EXPIRED') {
+    return 'Session expired';
+  }
+
   const errorMessage = getErrorMessage(error);
   const fullMessage = customMessage ? `${customMessage}: ${errorMessage}` : errorMessage;
 

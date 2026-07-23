@@ -4,18 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import {
-  Search,
-  Package2,
-  Plus,
-  ArrowLeft,
-  Download,
-  Tag,
-  Pencil,
-  Trash2,
-  PackagePlus,
-  AlertTriangle,
-} from 'lucide-react';
+import { Search, Package2, Plus, ArrowLeft, Download, Tag, Pencil, PackagePlus, AlertTriangle } from 'lucide-react';
 import { Label } from '../components/ui/label';
 import { DialogFooter } from '../components/ui/dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
@@ -24,7 +13,6 @@ import { logError } from '../lib/logger';
 import api from '@/lib/api';
 import { formatCurrency } from '../lib/currency';
 import { EditStockModal } from '../components/fabric/EditStockModal';
-import { ConfirmDeleteDialog } from '../components/dialogs/ConfirmDeleteDialog';
 import { fabricStockService } from '../services/fabricStockService';
 import { toast } from 'sonner';
 
@@ -85,11 +73,8 @@ export default function FabricAvailableStock() {
   const [warehouseFilter, setWarehouseFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('AVAILABLE');
   const [editingStock, setEditingStock] = useState<FabricStock | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [stockToDelete, setStockToDelete] = useState<FabricStock | null>(null);
   const [styleSelectOpen, setStyleSelectOpen] = useState(false);
   const [selectedStyleId, setSelectedStyleId] = useState('');
-  const [isDeleting, setIsDeleting] = useState(false);
 
   // Stock adjustment state
   const [adjustingStock, setAdjustingStock] = useState<FabricStock | null>(null);
@@ -275,38 +260,6 @@ export default function FabricAvailableStock() {
     a.href = url;
     a.download = `fabric-stock-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
-  };
-
-  const handleDeleteClick = (stock: FabricStock) => {
-    setStockToDelete(stock);
-    setDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!stockToDelete) return;
-
-    setIsDeleting(true);
-    try {
-      await fabricStockService.deleteStock(stockToDelete.id);
-
-      toast.success('Stock deleted successfully', {
-        description: `${stockToDelete.fabric?.fabricCode} - ${stockToDelete.quantityAvailable.toFixed(2)}m deleted`,
-      });
-
-      setDeleteDialogOpen(false);
-      setStockToDelete(null);
-      loadFabricStock(); // Refresh the list
-    } catch (error) {
-      logError('Error deleting stock:', error);
-
-      const errorMessage = error instanceof Error ? error.message : 'Failed to delete stock';
-      toast.error('Failed to delete stock', {
-        description: errorMessage,
-        duration: 8000, // Show longer for dependency errors
-      });
-    } finally {
-      setIsDeleting(false);
-    }
   };
 
   return (

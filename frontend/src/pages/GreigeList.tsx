@@ -130,7 +130,7 @@ export default function GreigeList() {
       // Download file
       XLSX.writeFile(wb, `Greige_Masters_${new Date().toISOString().split('T')[0]}.xlsx`);
 
-      handleApiSuccess('Export successful', `${result.totalRecords} greige masters exported`);
+      handleApiSuccess('Export successful', `${response.data.data.length} greige masters exported`);
     } catch (err: unknown) {
       handleApiError(err, 'Failed to export greige masters');
     }

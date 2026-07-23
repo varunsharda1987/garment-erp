@@ -175,7 +175,7 @@ const FormField: React.FC<FormFieldProps> = ({ field, value, onChange }) => {
           <Input
             id={field.name}
             type="text"
-            value={value || ''}
+            value={typeof value === 'boolean' ? '' : (value ?? '')}
             onChange={(e) => onChange(e.target.value)}
             placeholder={field.placeholder}
             required={field.required}
@@ -187,7 +187,7 @@ const FormField: React.FC<FormFieldProps> = ({ field, value, onChange }) => {
           <Input
             id={field.name}
             type="number"
-            value={value || ''}
+            value={typeof value === 'boolean' ? '' : (value ?? '')}
             onChange={(e) => onChange(e.target.value ? Number(e.target.value) : '')}
             placeholder={field.placeholder}
             required={field.required}
@@ -196,7 +196,7 @@ const FormField: React.FC<FormFieldProps> = ({ field, value, onChange }) => {
 
       case 'select':
         return (
-          <Select value={value || ''} onValueChange={onChange}>
+          <Select value={typeof value === 'string' ? value : ''} onValueChange={onChange}>
             <SelectTrigger id={field.name}>
               <SelectValue placeholder={field.placeholder || `Select ${field.label.toLowerCase()}`} />
             </SelectTrigger>

@@ -36,13 +36,13 @@ import {
   updatePurchaseOrder,
   sendPurchaseOrder,
 } from '@/services/purchaseOrder.service';
-import type { CreatePurchaseOrderRequest, CreatePurchaseOrderItemRequest, Unit } from '@/types/purchaseOrder.types';
-import {
-  Unit as UnitEnum,
-  PO_CATEGORY_LABELS,
-  PO_CATEGORY_COLORS,
-  PO_GROUP_CATEGORIES,
+import type {
+  CreatePurchaseOrderRequest,
+  CreatePurchaseOrderItemRequest,
+  Unit,
+  SupplierSummary,
 } from '@/types/purchaseOrder.types';
+import { PO_CATEGORY_LABELS, PO_CATEGORY_COLORS, PO_GROUP_CATEGORIES } from '@/types/purchaseOrder.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { useAuthStore } from '@/stores/auth.store';
 import { formatCurrency } from '@/lib/currency';
@@ -126,15 +126,7 @@ const PO_CATEGORY_TO_MATERIAL_TYPES: Record<string, string[] | undefined> = {
 // Types
 // ============================================
 
-interface Supplier {
-  id: string;
-  code: string;
-  name: string;
-  paymentTerms: string | null;
-  contactPerson: string | null;
-  phone: string | null;
-  email: string | null;
-}
+type Supplier = SupplierSummary;
 
 interface Material {
   id: string;
@@ -847,7 +839,7 @@ export default function PurchaseOrderForm() {
     if (isProcessing && field === 'orderedQuantity') {
       const item = items.find((i) => i.tempId === tempId);
       if (item?.materialId) {
-        const qty = parseFloat(value) || 0;
+        const qty = parseFloat(String(value)) || 0;
         if (qty > 0) {
           lookupProcessingRate(tempId, item.materialId, qty);
         }

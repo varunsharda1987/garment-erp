@@ -69,7 +69,7 @@ interface GRNItemForm {
 // Helpers
 // ============================================
 
-const isFabricOrGreige = (poCategory?: string) => poCategory === 'FABRIC' || poCategory === 'GREIGE';
+const isFabricOrGreige = (poCategory?: string | null) => poCategory === 'FABRIC' || poCategory === 'GREIGE';
 
 const computeDetailSum = (details: DetailRow[]): number =>
   details.reduce((sum, d) => sum + (parseFloat(d.meters) || 0), 0);
@@ -680,7 +680,7 @@ export default function GRNForm() {
                   </div>
                   {baleDetails.map((d) => {
                     // Find original index in item.details
-                    const origIdx = item.details.findIndex((orig, oi) => oi === d.sequenceNo);
+                    const origIdx = item.details.findIndex((_, oi) => oi === d.sequenceNo);
                     return (
                       <div key={d.sequenceNo} className="flex items-center gap-2 pl-4">
                         <span className="text-xs text-muted-foreground w-8">T{baleDetails.indexOf(d) + 1}</span>

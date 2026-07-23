@@ -53,7 +53,7 @@ interface FabricStock {
 }
 
 interface SKUPlan {
-  colorId: string;
+  colorId: string | null; // null for size-only work orders
   colorName: string;
   sizeId: string;
   sizeName: string;

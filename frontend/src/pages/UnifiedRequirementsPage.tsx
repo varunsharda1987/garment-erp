@@ -58,7 +58,6 @@ import {
 import { getAllSuppliers } from '@/services/supplier.service';
 import type { Supplier } from '@/types/supplier.types';
 import type {
-  OrderThreadRequirement,
   ThreadRequirementStatus,
   ThreadRequirementStats,
   PaginatedThreadRequirements,
@@ -326,6 +325,7 @@ function MaterialRequirementsTab({
   updateURLParams: (updates: Record<string, string | undefined>) => void;
 }) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState<string[]>([]);

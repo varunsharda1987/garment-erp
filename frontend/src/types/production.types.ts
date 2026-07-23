@@ -131,12 +131,13 @@ export interface WorkOrder {
   updatedAt: string;
 
   // Relations (transformed from snake_case by API middleware)
+  // NOTE: serializer maps the Prisma `customers` relation to `customer` in responses
   orders?: {
     id: string;
     orderNumber: string;
     orderDate?: string;
     expectedDeliveryDate?: string;
-    customers: {
+    customer: {
       id: string;
       name: string;
       code: string;

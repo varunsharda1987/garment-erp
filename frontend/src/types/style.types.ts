@@ -20,6 +20,9 @@ export const ProductionStage = {
 
 export type ProductionStage = (typeof ProductionStage)[keyof typeof ProductionStage];
 
+// Import CAD enums for local use in this file (re-exports below do not create local bindings)
+import type { CADStatus, PrintDirection } from './cad-planning.types';
+
 // Re-export CAD enums from dedicated CAD module (backward compatibility)
 export { CADStatus, PrintDirection, PRINT_DIRECTION_LABELS } from './cad-planning.types';
 export type { CADStatus as CADStatusType, PrintDirection as PrintDirectionType } from './cad-planning.types';
@@ -40,8 +43,11 @@ export interface Style {
     subCategory?: string | null;
     subSubCategory?: string | null;
   } | null; // Expanded brand_categories relation from backend (camelCase from serializer)
+  image?: string | null;
   imageUrl: string | null;
   description: string | null;
+  costPrice?: number | null; // Prisma Decimal, serialized to number
+  sellingPrice?: number | null; // Prisma Decimal, serialized to number
   season: string | null;
   seasonId?: string | null;
   seasonMaster?: {
@@ -188,6 +194,7 @@ export interface StyleFabric {
   cutableWidth?: number | null;
 
   // Design/Color identification
+  fabricFinishType?: 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW' | null; // Matches Prisma FabricFinishType enum
   printDesign?: string | null; // For PRINTED/YARN_DYED fabrics
   colorMasterId?: string | null; // For SOLID/DYED fabrics
   colorMaster?: {

@@ -49,6 +49,13 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
   const [selectedGstRate, setSelectedGstRate] = useState('');
   const hsnDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm<CreateMaterialRequest>();
+
   const searchHSN = useCallback(async (query: string) => {
     if (query.length < 2) {
       setHsnResults([]);
@@ -99,13 +106,6 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
 
     return suppliers.filter((s) => (s.supplierCategories || []).some((cat) => relevantCategories.includes(cat)));
   })();
-
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors },
-  } = useForm<CreateMaterialRequest>();
 
   const isNewMaterial = mode === 'create' || !id;
 
@@ -238,7 +238,7 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
     setMaterialSuppliers((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSupplierChange = (index: number, field: string, value: string | boolean) => {
+  const handleSupplierChange = (index: number, field: string, value: string | boolean | number | null) => {
     setMaterialSuppliers((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 

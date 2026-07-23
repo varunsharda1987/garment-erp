@@ -131,18 +131,19 @@ export const finishingSummaryService = {
     return response.data.data;
   },
 
-  // Get available managers
+  // Get available finishing contractors (suppliers with FINISHING_CONTRACTOR category)
   getAvailableManagers: async (): Promise<
     Array<{
       id: string;
+      code: string;
       name: string;
-      email: string;
-      role: string;
+      contactPerson: string | null;
+      phone: string | null;
     }>
   > => {
-    const response = await api.get<{ data: Array<{ id: string; name: string; email: string; role: string }> }>(
-      `${BASE_URL}/available-managers`
-    );
+    const response = await api.get<{
+      data: Array<{ id: string; code: string; name: string; contactPerson: string | null; phone: string | null }>;
+    }>(`${BASE_URL}/available-managers`);
     return response.data.data;
   },
 };

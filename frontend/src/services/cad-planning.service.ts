@@ -75,10 +75,13 @@ export interface AddCADRowRequest {
 
 export interface UpdateCADRowRequest {
   purpose?: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION';
-  partId?: string;
+  /** null clears the part (backend schema is .optional().nullable()) */
+  partId?: string | null;
+  partIds?: string[];
   isEmbroidery?: boolean;
   greigeId?: string;
-  cutableWidth?: number;
+  /** null clears the width (backend schema is .optional().nullable()) */
+  cutableWidth?: number | null;
   printDirection?: string;
   sizeBreakdowns?: Array<{ sizeName: string; quantity: number }>;
   cadMeters?: number;
@@ -86,6 +89,8 @@ export interface UpdateCADRowRequest {
   markerEfficiency?: number;
   cadWastagePercent?: number;
   layerMarginMeters?: number;
+  /** null clears the layer length (backend schema is .optional().nullable()) */
+  layerLengthMeters?: number | null;
   notes?: string;
 }
 

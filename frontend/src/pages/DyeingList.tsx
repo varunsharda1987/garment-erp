@@ -15,7 +15,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { dyeingService } from '@/services/dyeing.service';
-import type { DyeLabDip, DyeLabDipQueryParams, DyeingSummary, ProcessPO, ProcessPOStatus } from '@/types/dyeing.types';
+import type {
+  DyeLabDip,
+  DyeLabDipQueryParams,
+  DyeingSummary,
+  ProcessPO,
+  ProcessPOStatus,
+  ReceiveFromMillRequest,
+} from '@/types/dyeing.types';
 import {
   LabDipStatusLabels,
   LabDipStatusColors,
@@ -255,7 +262,7 @@ export default function DyeingList() {
     if (!selectedPOForReceive) return;
     setReceiveLoading(true);
     try {
-      const data: Record<string, string | number> = {
+      const data: ReceiveFromMillRequest = {
         receivedWidthInches: parseFloat(receiveForm.receivedWidthInches),
         receivedDate: receiveForm.receivedDate,
       };
@@ -373,7 +380,7 @@ export default function DyeingList() {
     {
       key: 'mill',
       header: 'Mill',
-      render: (item) => <div className="text-sm text-foreground">{item.mill?.name || '-'}</div>,
+      render: (item) => <div className="text-sm text-foreground">{item.processor?.name || '-'}</div>,
     },
     {
       key: 'submissionDate',

@@ -25,6 +25,24 @@ import * as genericTrimService from '../services/genericTrim.service';
  * Material Type Configurations
  */
 
+/** Shape of the dynamically-assembled quick-add payload */
+type QuickAddPayload = Record<string, string | number | boolean | string[] | undefined>;
+
+/**
+ * Single deliberate bridge between the dynamic quick-add payload and each
+ * material service's typed create function. The payload is assembled at runtime
+ * from field configs, so TypeScript cannot prove it matches the service's input
+ * type; the backend Zod schema for each material type is the real validation
+ * contract (it also auto-generates names/codes the dialog intentionally omits).
+ */
+const submitQuickAdd = async <TInput>(
+  create: (input: TInput) => Promise<{ id: string }>,
+  payload: QuickAddPayload
+): Promise<MaterialCreateResult> => {
+  const result = await create(payload as QuickAddPayload & TInput);
+  return result;
+};
+
 // Dedicated trim services (5 types)
 const BUTTON_CONFIG: MaterialTypeConfig = {
   type: 'BUTTON',
@@ -43,7 +61,7 @@ const BUTTON_CONFIG: MaterialTypeConfig = {
   ],
   createService: async (data: MaterialFormData, styleCode?: string) => {
     // Don't force-set the name field; let backend auto-generate if not provided
-    const payload: Record<string, string | number | boolean | string[] | undefined> = { ...data };
+    const payload: QuickAddPayload = { ...data };
 
     // Only set type-specific name field if name was provided
     if (data.name !== undefined) {
@@ -59,8 +77,7 @@ const BUTTON_CONFIG: MaterialTypeConfig = {
     delete payload.name;
     delete payload._nameManuallyEdited;
 
-    const result = await createButton(payload as Parameters<typeof createButton>[0]);
-    return result as unknown as MaterialCreateResult;
+    return submitQuickAdd(createButton, payload);
   },
 };
 
@@ -79,7 +96,7 @@ const THREAD_CONFIG: MaterialTypeConfig = {
     { name: 'color', label: 'Color', type: 'text', required: false },
   ],
   createService: async (data: MaterialFormData, styleCode?: string) => {
-    const payload: Record<string, string | number | boolean | string[] | undefined> = { ...data };
+    const payload: QuickAddPayload = { ...data };
     if (data.name !== undefined) {
       payload.threadName = data.name;
     }
@@ -88,8 +105,7 @@ const THREAD_CONFIG: MaterialTypeConfig = {
     }
     delete payload.name;
     delete payload._nameManuallyEdited;
-    const result = await createThread(payload as Parameters<typeof createThread>[0]);
-    return result as unknown as MaterialCreateResult;
+    return submitQuickAdd(createThread, payload);
   },
 };
 
@@ -109,7 +125,7 @@ const ZIPPER_CONFIG: MaterialTypeConfig = {
     { name: 'color', label: 'Color', type: 'text', required: false },
   ],
   createService: async (data: MaterialFormData, styleCode?: string) => {
-    const payload: Record<string, string | number | boolean | string[] | undefined> = { ...data };
+    const payload: QuickAddPayload = { ...data };
     if (data.name !== undefined) {
       payload.zipperName = data.name;
     }
@@ -118,8 +134,7 @@ const ZIPPER_CONFIG: MaterialTypeConfig = {
     }
     delete payload.name;
     delete payload._nameManuallyEdited;
-    const result = await createZipper(payload as Parameters<typeof createZipper>[0]);
-    return result as unknown as MaterialCreateResult;
+    return submitQuickAdd(createZipper, payload);
   },
 };
 
@@ -138,7 +153,7 @@ const ELASTIC_CONFIG: MaterialTypeConfig = {
     { name: 'color', label: 'Color', type: 'text', required: false },
   ],
   createService: async (data: MaterialFormData, styleCode?: string) => {
-    const payload: Record<string, string | number | boolean | string[] | undefined> = { ...data };
+    const payload: QuickAddPayload = { ...data };
     if (data.name !== undefined) {
       payload.elasticName = data.name;
     }
@@ -147,8 +162,7 @@ const ELASTIC_CONFIG: MaterialTypeConfig = {
     }
     delete payload.name;
     delete payload._nameManuallyEdited;
-    const result = await createElastic(payload as Parameters<typeof createElastic>[0]);
-    return result as unknown as MaterialCreateResult;
+    return submitQuickAdd(createElastic, payload);
   },
 };
 
@@ -204,7 +218,7 @@ const LACE_CONFIG: MaterialTypeConfig = {
     },
   ],
   createService: async (data: MaterialFormData, styleCode?: string) => {
-    const payload: Record<string, string | number | boolean | string[] | undefined> = { ...data };
+    const payload: QuickAddPayload = { ...data };
     if (data.name !== undefined) {
       payload.laceName = data.name;
     }
@@ -219,8 +233,7 @@ const LACE_CONFIG: MaterialTypeConfig = {
       delete payload.color;
     }
 
-    const result = await createLace(payload as Parameters<typeof createLace>[0]);
-    return result as unknown as MaterialCreateResult;
+    return submitQuickAdd(createLace, payload);
   },
 };
 
@@ -268,7 +281,7 @@ const createGenericTrimConfig = (trimType: string): MaterialTypeConfig => {
     })),
     createService: async (data: MaterialFormData, styleCode?: string) => {
       // Prepare data with the correct field names
-      const payload: Record<string, string | number | boolean | string[] | undefined> = {};
+      const payload: QuickAddPayload = {};
 
       // Only set name field if provided
       if (data.name !== undefined) {
@@ -287,11 +300,11 @@ const createGenericTrimConfig = (trimType: string): MaterialTypeConfig => {
         }
       });
 
-      const result = await genericTrimService.createGenericTrim(
-        trimType,
-        payload as unknown as Parameters<typeof genericTrimService.createGenericTrim>[1]
+      return submitQuickAdd(
+        (input: Parameters<typeof genericTrimService.createGenericTrim>[1]) =>
+          genericTrimService.createGenericTrim(trimType, input).then((response) => response.data),
+        payload
       );
-      return result.data as unknown as MaterialCreateResult;
     },
   };
 };
@@ -322,7 +335,7 @@ const LABEL_CONFIG: MaterialTypeConfig = {
     // Determine labelCategory based on labelType
     const labelCategory = data.labelType === 'Price Tag' ? 'PRICE_TAG' : 'HANGTAG';
 
-    const payload: Record<string, string | number | boolean | string[] | undefined> = {
+    const payload: QuickAddPayload = {
       labelCategory,
       ...data,
     };
@@ -338,8 +351,7 @@ const LABEL_CONFIG: MaterialTypeConfig = {
     delete payload.name;
     delete payload._nameManuallyEdited;
 
-    const result = await createLabel(payload as Parameters<typeof createLabel>[0]);
-    return result as unknown as MaterialCreateResult;
+    return submitQuickAdd(createLabel, payload);
   },
 };
 
@@ -364,7 +376,7 @@ const PACKAGING_CONFIG: MaterialTypeConfig = {
     { name: 'thickness', label: 'Thickness', type: 'text', required: false, placeholder: '40 microns, 3 ply' },
   ],
   createService: async (data: MaterialFormData, styleCode?: string) => {
-    const payload: Record<string, string | number | boolean | string[] | undefined> = { ...data };
+    const payload: QuickAddPayload = { ...data };
     if (data.name !== undefined) {
       payload.packagingName = data.name;
     }
@@ -373,8 +385,7 @@ const PACKAGING_CONFIG: MaterialTypeConfig = {
     }
     delete payload.name;
     delete payload._nameManuallyEdited;
-    const result = await createPackaging(payload as Parameters<typeof createPackaging>[0]);
-    return result as unknown as MaterialCreateResult;
+    return submitQuickAdd(createPackaging, payload);
   },
 };
 

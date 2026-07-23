@@ -296,7 +296,7 @@ export default function MaterialMasterList() {
                         </Badge>
                       </TableCell>
 
-                      <TableCell>{material.supplier?.length || 0}</TableCell>
+                      <TableCell>{material.suppliers?.length || 0}</TableCell>
 
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

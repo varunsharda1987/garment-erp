@@ -27,7 +27,7 @@ export default function FabricPhysicalTests() {
   const fetchTests = async () => {
     try {
       setLoading(true);
-      const params: Record<string, unknown> = { page, limit: 20 };
+      const params: Record<string, string | number | boolean> = { page, limit: 20 };
       if (search) params.search = search;
       if (filterStatus !== 'all') params.overallTestResult = filterStatus;
 

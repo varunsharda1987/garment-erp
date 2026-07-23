@@ -65,7 +65,7 @@ interface CatalogueStyle {
   season?: string;
   sizeRange?: string;
   brandCategories?: { id: string; category: string };
-  productCategory?: { id: string; name: string; code?: string };
+  productCategory?: { id: string; name: string; code?: string | null };
 }
 
 interface Season {
@@ -150,19 +150,20 @@ export default function CatalogueGenerator() {
         undefined,
         'ACTIVE'
       );
-      const newStyles = (response.data || []).map((style: Record<string, unknown>) => ({
-        id: style.id as string,
-        styleCode: style.styleCode as string,
-        styleName: (style.styleName as string) || '',
-        image: style.image as string | undefined,
-        imageUrl: style.imageUrl as string | null | undefined,
-        costPrice: style.costPrice as number | undefined,
-        sellingPrice: style.sellingPrice as number | undefined,
-        season: style.season as string | undefined,
-        sizeRange: style.sizeRange as string | undefined,
-        brandCategories: style.brandCategories as { id: string; category: string } | undefined,
-        productCategory: style.productCategory as { id: string; name: string; code?: string } | undefined,
-      })) as CatalogueStyle[];
+      const newStyles: CatalogueStyle[] = (response.data || []).map((style) => ({
+        id: style.id,
+        styleCode: style.styleCode,
+        styleName: style.styleName || '',
+        image: style.image ?? undefined,
+        imageUrl: style.imageUrl,
+        costPrice: style.costPrice ?? undefined,
+        sellingPrice: style.sellingPrice ?? undefined,
+        season: style.season ?? undefined,
+        // NOTE: the styles API does not return a sizeRange field; kept for the UI filter shape
+        sizeRange: undefined,
+        brandCategories: style.brandCategories ?? undefined,
+        productCategory: style.productCategory ?? undefined,
+      }));
 
       if (append) {
         setStyles((prev) => [...prev, ...newStyles]);

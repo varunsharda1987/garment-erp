@@ -190,7 +190,6 @@ export default function StockOutForm() {
   const [lineItems, setLineItems] = useState<LineItem[]>([createEmptyLineItem()]);
 
   // Data lists
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [allStockLevels, setAllStockLevels] = useState<StockLevel[]>([]);
   const [supplierOptions, setSupplierOptions] = useState<ComboboxOption[]>([]);
   const [fabricStocks, setFabricStocks] = useState<FabricStockOption[]>([]);
@@ -200,13 +199,6 @@ export default function StockOutForm() {
   // Derived: allowed material types based on selected supplier's categories (for OUTWARD)
   const allowedMaterialTypes = challanType === 'OUTWARD' ? getAllowedMaterialTypes(supplierCategories) : [];
   const hasSingleMaterialType = allowedMaterialTypes.length === 1;
-
-  // Warehouse options for combobox
-  const warehouseOptions: ComboboxOption[] = warehouses.map((wh) => ({
-    value: wh.id,
-    label: `${wh.warehouseCode} - ${wh.warehouseName}`,
-    searchText: `${wh.warehouseCode} ${wh.warehouseName}`,
-  }));
 
   // Compute tile counts for material type display
   const tileCounts: Record<string, number> = {};
@@ -377,7 +369,6 @@ export default function StockOutForm() {
   const loadWarehouses = async () => {
     try {
       const data = await warehouseService.getAll({ isActive: true });
-      setWarehouses(data);
       // Auto-select first RAW_MATERIAL warehouse, fallback to first active
       const defaultWh = data.find((w: Warehouse) => w.warehouseType === 'RAW_MATERIAL') || data[0];
       if (defaultWh && !warehouseId) {

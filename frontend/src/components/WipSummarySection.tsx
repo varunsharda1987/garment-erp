@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, ArrowRight, Scissors, Shirt, CheckSquare, Package } from 'lucide-react';
-import { handleApiError } from '@/lib/api-error-handler';
 import workOrderService from '@/services/workOrder.service';
 import type { WipSummary } from '@/types/production.types';
 

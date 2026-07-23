@@ -406,7 +406,7 @@ export default function FabricCostingPage() {
               // Landed price mode
               landedPricePerMeter:
                 (cs.costInputMode || fabric.costInputMode) === 'LANDED_PRICE'
-                  ? cs.totalCostPerMeter || fabric.totalCostPerMeter
+                  ? cs.totalCostPerMeter || fabric.totalCostPerMeter || null
                   : null,
 
               // Build-up mode - Greige & Transport (from saved data)
@@ -425,11 +425,11 @@ export default function FabricCostingPage() {
 
               // Shrinkage (from saved data, fallback to API which includes greige master default)
               shrinkagePercent: cs.shrinkagePercent ?? fabric.shrinkagePercent,
-              shrinkageValue: cs.shrinkageCostPerMeter,
+              shrinkageValue: cs.shrinkageCostPerMeter ?? null,
 
               // Processor selection (from saved data or fabric directly)
-              processorId: cs.processorId || fabric.processorId,
-              processorName: cs.processorName || fabric.processorName,
+              processorId: cs.processorId || fabric.processorId || null,
+              processorName: cs.processorName || fabric.processorName || null,
               processingType:
                 fabric.finishType === 'PRINTED'
                   ? 'PRINTING'
@@ -437,7 +437,7 @@ export default function FabricCostingPage() {
                     ? 'DYEING'
                     : null,
               printingType: null,
-              processingCostPerMeter: cs.processingPricePerMeter || fabric.processingPricePerMeter,
+              processingCostPerMeter: cs.processingPricePerMeter || fabric.processingPricePerMeter || null,
               slabLabel: null,
               rateCardId: null,
 
@@ -446,10 +446,10 @@ export default function FabricCostingPage() {
               screenType: (cs.screenType || fabric.screenType) as ScreenType | null,
               screenCostPerScreen: null,
               screenCostTotal: null,
-              screenCostPerMeter: cs.screenCostPerMeter,
+              screenCostPerMeter: cs.screenCostPerMeter ?? null,
 
               // Calculated totals (from saved data or fabric directly)
-              totalCostPerMeter: cs.totalCostPerMeter || fabric.totalCostPerMeter,
+              totalCostPerMeter: cs.totalCostPerMeter || fabric.totalCostPerMeter || null,
               totalCostForQuantity: null,
 
               // Processing batch group (from saved data)

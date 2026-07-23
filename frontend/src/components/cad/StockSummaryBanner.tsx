@@ -24,6 +24,9 @@ interface StockSummaryItem {
   productionCadId?: string | null;
   productionCadStatus?: string | null;
   stockLotNumber?: string | null;
+  // Descriptive labels (see FabricStockSummaryItem in types/cad-planning.types.ts)
+  patternPartName?: string | null;
+  fabricFinishType?: string | null;
 }
 
 interface Props {

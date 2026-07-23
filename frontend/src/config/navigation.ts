@@ -282,7 +282,7 @@ export const NAV_GROUPS: NavGroup[] = [
       'divider',
       { title: 'Chart of Accounts', path: '/chart-of-accounts', iconName: 'Wallet', permission: 'chartOfAccounts' },
       'divider',
-      { type: 'sub-header' as const, label: 'Tax & GST' },
+      { type: 'sub-header' as const, title: 'Tax & GST' },
       { title: 'HSN/SAC Codes', path: '/hsn-sac-masters', iconName: 'Hash' },
       { title: 'Tax Masters', path: '/tax-masters', iconName: 'Calculator' },
       { title: 'Credit Notes', path: '/credit-notes', iconName: 'FileText' },

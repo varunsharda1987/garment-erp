@@ -87,14 +87,20 @@ export interface StyleFabricsResponse {
   unlinkedFabrics: UnlinkedFabric[];
 }
 
+/**
+ * Response of POST /api/styles/:styleId/stock-entry
+ * (StyleStockController.createStyleStock → FabricStockService.bulkCreateStyleStock)
+ */
 export interface StyleStockCreateResponse {
+  success: boolean;
   message: string;
-  stockEntries: Array<{
-    id: string;
-    fabricId: string;
-    quantity: number;
-    createdAt: string;
-  }>;
+  data: {
+    /** Number of entries created successfully */
+    success: number;
+    /** Number of entries that failed */
+    failed: number;
+    errors: Array<{ fabricId: string; error: string }>;
+  };
 }
 
 export interface FabricStyleUsage {

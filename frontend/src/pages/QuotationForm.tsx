@@ -131,7 +131,7 @@ export default function QuotationForm() {
     setItems(items.filter((item) => item.tempId !== tempId));
   };
 
-  const handleItemChange = (tempId: string, field: keyof QuotationItemInput, value: string | number) => {
+  const handleItemChange = (tempId: string, field: keyof QuotationItemInput, value: string | number | undefined) => {
     setItems(items.map((item) => (item.tempId === tempId ? { ...item, [field]: value } : item)));
   };
 

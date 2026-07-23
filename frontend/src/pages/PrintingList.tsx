@@ -380,7 +380,7 @@ export default function PrintingList() {
     {
       key: 'mill',
       header: 'Mill',
-      render: (item) => <div className="text-sm text-foreground">{item.mill?.name || '-'}</div>,
+      render: (item) => <div className="text-sm text-foreground">{item.processor?.name || '-'}</div>,
     },
     {
       key: 'submissionDate',

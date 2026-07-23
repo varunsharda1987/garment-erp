@@ -135,6 +135,13 @@ export interface StitchingIssue {
     id: string;
     name: string;
   };
+  contractor?: {
+    id: string;
+    code: string;
+    name: string;
+    contactPerson?: string | null;
+    phone?: string | null;
+  } | null;
   createdBy?: {
     id: string;
     name: string;

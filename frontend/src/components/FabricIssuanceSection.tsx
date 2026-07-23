@@ -9,12 +9,7 @@ import { Separator } from '@/components/ui/separator';
 import { Package, Loader2, AlertTriangle, CheckCircle, ExternalLink } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import workOrderService from '@/services/workOrder.service';
-import type {
-  FabricIssuanceData,
-  FabricIssuanceFabric,
-  FabricIssuanceAnalysis,
-  IssuedChallan,
-} from '@/types/production.types';
+import type { FabricIssuanceData, FabricIssuanceAnalysis, IssuedChallan } from '@/types/production.types';
 import { useNavigate } from 'react-router-dom';
 
 interface FabricIssuanceSectionProps {
@@ -22,7 +17,7 @@ interface FabricIssuanceSectionProps {
   workOrderNumber?: string;
 }
 
-export default function FabricIssuanceSection({ workOrderId, workOrderNumber }: FabricIssuanceSectionProps) {
+export default function FabricIssuanceSection({ workOrderId }: FabricIssuanceSectionProps) {
   const navigate = useNavigate();
   const [data, setData] = useState<FabricIssuanceData | null>(null);
   const [isLoading, setIsLoading] = useState(true);

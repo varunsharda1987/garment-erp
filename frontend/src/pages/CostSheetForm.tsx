@@ -2386,10 +2386,9 @@ const CostSheetForm = () => {
                     {hasTrimMasterLink(trim) ? (
                       <Link2 className="inline-block w-3 h-3 ml-1 text-success" />
                     ) : trim.materialType && trim.materialType !== 'OTHER' && trim.trimName ? (
-                      <Unlink
-                        className="inline-block w-3 h-3 ml-1 text-orange-500"
-                        title="Not linked to a master record. MRP may skip this item."
-                      />
+                      <span title="Not linked to a master record. MRP may skip this item.">
+                        <Unlink className="inline-block w-3 h-3 ml-1 text-orange-500" />
+                      </span>
                     ) : null}
                   </label>
                   {trim.materialType && trim.materialType !== 'OTHER' ? (
@@ -2674,10 +2673,9 @@ const CostSheetForm = () => {
                       {hasAccessoryMasterLink(acc) ? (
                         <Link2 className="inline-block w-3 h-3 ml-1 text-success" />
                       ) : acc.materialType && acc.accessoryName ? (
-                        <Unlink
-                          className="inline-block w-3 h-3 ml-1 text-orange-500"
-                          title="Not linked to a master record. MRP may skip this item."
-                        />
+                        <span title="Not linked to a master record. MRP may skip this item.">
+                          <Unlink className="inline-block w-3 h-3 ml-1 text-orange-500" />
+                        </span>
                       ) : null}
                     </label>
                     {acc.materialType === 'LABEL' || acc.materialType === 'PACKAGING' ? (

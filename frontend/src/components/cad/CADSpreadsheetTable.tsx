@@ -509,21 +509,6 @@ export function CADSpreadsheetTable({
       .filter((group) => group.rows.length > 0);
   }, [rows]);
 
-  // Get available widths for a greige (0.5 inch increments)
-  const getAvailableWidths = (greigeId: string | null): number[] => {
-    if (!greigeId) return [];
-    const greige = availableGreiges.find((g) => g.id === greigeId);
-    if (!greige) return [];
-
-    const min = greige.expectedFinishedWidthMin || 36;
-    const max = greige.expectedFinishedWidthMax || greige.greigeWidth || 60;
-    const widths: number[] = [];
-    for (let w = min; w <= max; w += 0.5) {
-      widths.push(w);
-    }
-    return widths;
-  };
-
   // Get default cutable width based on greige width
   // Business rules: 63" greige → 52", 48" greige → 40"
   const getDefaultCutableWidth = (greigeId: string | null): number | null => {
@@ -1309,10 +1294,6 @@ export function CADSpreadsheetTable({
                     const isDeleting = deletingRow === row.id;
                     // Lock rows that are APPROVED when style is approved (prevents editing historical data)
                     const isRowLocked = isStyleApproved && row.approvalStatus === 'APPROVED';
-                    const availableWidths =
-                      row.availableWidths.length > 0
-                        ? row.availableWidths
-                        : getAvailableWidths(getDisplayValue(row, 'greigeId', null));
                     const currentPartId = getDisplayValue(row, 'partId', null);
                     const currentPartCode = row.partCode; // Use partCode from row data
                     const currentWidth = getDisplayValue(row, 'cutableWidth', null);

@@ -27,7 +27,8 @@ export interface GreigeMaster {
   createdAt: string;
   updatedAt: string;
   createdById: string;
-  suppliers?: Array<{
+  // Note: Prisma relation `suppliers` is renamed to `supplier` by the serializer (RELATION_MAPPINGS singular rename)
+  supplier?: Array<{
     supplier: {
       id: string;
       code: string;
@@ -136,7 +137,8 @@ export interface FabricMaster {
       id: string;
       componentName: string;
       componentType: string;
-      styles: {
+      // Note: styles -> style (via RELATION_MAPPINGS singular rename)
+      style: {
         id: string;
         styleCode: string;
         styleName: string;
@@ -273,6 +275,13 @@ export interface GreigeMasterFormData {
   isActive: boolean;
   suppliers: SupplierRelationship[];
 }
+
+// API payload for fabric create/update. The form sanitizes optional text fields
+// from '' to null before sending (backend Zod accepts null/undefined, not '').
+// FabricMasterFormData is assignable to this type.
+export type FabricMasterSavePayload = {
+  [K in keyof FabricMasterFormData]: FabricMasterFormData[K] | null;
+};
 
 export interface FabricMasterFormData {
   fabricCode: string;

@@ -50,7 +50,6 @@ import {
 } from '../components/ui/dialog';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../components/ui/command';
 import { GenericGreigeSelector } from '../components/GenericGreigeSelector';
-import { DebouncedInput } from '../components/DebouncedInput';
 // MaterialBOMPicker removed - using TrimSelector and AccessorySelector instead
 import { EmbroiderySelector } from '../components/EmbroiderySelector';
 import ColorPicker from '../components/ColorPicker';
@@ -3317,7 +3316,7 @@ export default function StyleFormRedesigned() {
                                             handleUpdateFabric(fabric.id, 'colorMasterId', null);
                                             handleUpdateFabric(fabric.id, 'colorName', null);
                                           }}
-                                          styleId={effectiveId}
+                                          styleId={effectiveId ?? undefined}
                                           styleCode={styleCode}
                                           componentName={fabric.componentName}
                                           finishType={fabric.fabricFinishType}

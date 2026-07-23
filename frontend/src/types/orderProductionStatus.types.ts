@@ -107,6 +107,7 @@ export interface OrderStageBreakdown {
   inPrinting: number;
   inDying: number;
   inEmbroidery: number;
+  inSmocking: number;
   inHandwork: number;
   inCutting: number;
   inStitching: number;

@@ -12,7 +12,6 @@ import { getGenericGreigeStock } from '../services/style-stock.service';
 import { greigeStockService } from '../services/greigeStock.service';
 import { warehouseService } from '../services/warehouse.service';
 import type { GenericGreigeStock, GreigeStockDetail, UpdateGreigeStockData } from '../types/style-stock.types';
-import type { GreigeStockSummary } from '../types/greigeStock.types';
 import {
   Search,
   Package2,
@@ -47,19 +46,6 @@ function getAgeBadge(days: number) {
   );
 }
 
-function getQualityBadge(grade: string) {
-  switch (grade) {
-    case 'A':
-      return <Badge className="bg-success-muted text-success border-success/20">A</Badge>;
-    case 'B':
-      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">B</Badge>;
-    case 'DEFECT':
-      return <Badge variant="destructive">Defect</Badge>;
-    default:
-      return <Badge variant="outline">{grade}</Badge>;
-  }
-}
-
 function formatCurrency(value: number | null | undefined) {
   if (value == null || isNaN(value)) return '-';
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(value);
@@ -74,7 +60,6 @@ export default function GreigeAvailableStock() {
   const [qualityFilter, setQualityFilter] = useState('all');
   const [warehouseFilter, setWarehouseFilter] = useState('all');
   const [showAgedOnly, setShowAgedOnly] = useState(false);
-  const [summary, setSummary] = useState<GreigeStockSummary | null>(null);
   const [page, setPage] = useState(1);
   const [warehouses, setWarehouses] = useState<Array<{ id: string; warehouseCode: string; warehouseName: string }>>([]);
 
@@ -105,13 +90,11 @@ export default function GreigeAvailableStock() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [stockData, summaryData, warehouseData] = await Promise.all([
+      const [stockData, warehouseData] = await Promise.all([
         getGenericGreigeStock(),
-        greigeStockService.getSummary(),
         warehouseService.getAll({ isActive: true }),
       ]);
       setGreigeStock(stockData);
-      setSummary(summaryData);
       setWarehouses(warehouseData);
     } catch (err) {
       logError('Failed to load greige stock:', err);

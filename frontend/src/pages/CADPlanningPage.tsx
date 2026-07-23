@@ -82,6 +82,8 @@ interface CADHistoryGroup {
   groupKey: string;
   genericGreigeName: string;
   fabricFinishType: string;
+  printDesign: string | null;
+  colorName: string | null;
   hasEmbroidery: boolean;
   embroidery: { id: string; embroideryCode: string; designName: string } | null;
   greige: { id: string; greigeCode: string; greigeName: string; greigeWidth: number } | null;

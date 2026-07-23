@@ -988,7 +988,7 @@ export default function OrderDetail() {
                       <div>
                         <div className="text-muted-foreground">Location</div>
                         <div className="font-medium">
-                          {wo.locations?.locationName || <span className="text-warning">Not Assigned</span>}
+                          {wo.warehouses?.warehouseName || <span className="text-warning">Not Assigned</span>}
                         </div>
                       </div>
                       <div>

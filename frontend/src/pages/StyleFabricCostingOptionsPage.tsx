@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { fabricCostingService } from '../services/fabricCosting.service';
 import { styleService } from '../services/style.service';
-import type { CostingOption, GroupedCostingByStyle } from '../types/fabricCosting.types';
+import type { CostingOption } from '../types/fabricCosting.types';
 import type { Style } from '../types/style.types';
 import { notify } from '../lib/notify';
 
@@ -56,22 +56,12 @@ export default function StyleFabricCostingOptionsPage() {
 
     setIsLoading(true);
     try {
-      // Fetch all options for this style without purpose filter (shows all modes)
-      const response = await fabricCostingService.getCostingOptions({
-        styleId,
-        purpose: 'ALL',
-        status: 'ALL',
-        page: 1,
-        limit: 100, // Reasonable limit per style
-      });
-      const data = response.data as Record<string, GroupedCostingByStyle>;
-
-      // Extract components for this style
-      if (data[styleId]) {
-        setComponents(data[styleId].components);
-      } else {
-        setComponents({});
-      }
+      // Fetch all options for this style without purpose filter (shows all modes).
+      // Uses the style-specific endpoint (/fabric-costing/style/:styleId/options) because
+      // it returns componentName, patternPart and printDesign/colorName per option,
+      // which the aggregate /fabric-costing/options endpoint does not include.
+      const response = await fabricCostingService.getStyleCostingOptions(styleId);
+      setComponents(response.data || {});
     } catch {
       notify.error('Failed to load costing options');
     } finally {

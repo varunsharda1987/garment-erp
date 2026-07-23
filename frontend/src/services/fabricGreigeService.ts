@@ -4,7 +4,7 @@ import type {
   FabricMaster,
   FabricWidthCAD,
   GreigeMasterFormData,
-  FabricMasterFormData,
+  FabricMasterSavePayload,
   FabricWidthCADFormData,
   PaginatedResponse,
   GreigeStatistics,
@@ -191,13 +191,13 @@ export const fabricService = {
   },
 
   // Create new fabric master
-  async create(data: FabricMasterFormData): Promise<FabricMaster> {
+  async create(data: FabricMasterSavePayload): Promise<FabricMaster> {
     const response = await api.post<FabricMaster>(`${API_PREFIX}/fabric`, data);
     return response.data;
   },
 
   // Update fabric master
-  async update(id: string, data: Partial<FabricMasterFormData>): Promise<FabricMaster> {
+  async update(id: string, data: Partial<FabricMasterSavePayload>): Promise<FabricMaster> {
     const response = await api.put<FabricMaster>(`${API_PREFIX}/fabric/${id}`, data);
     return response.data;
   },

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import axiosRetry from 'axios-retry';
 import humps from 'humps';
+import { toast } from 'sonner';
 import { useAuthStore } from '../stores/auth.store';
 
 // API base URL - uses environment variable with fallback for development
@@ -18,7 +19,13 @@ axiosRetry(api, {
   retries: 3, // Retry 3 times
   retryDelay: axiosRetry.exponentialDelay, // Exponential backoff
   retryCondition: (error) => {
-    // Retry on network errors or 5xx errors or rate limiting (429)
+    // NEVER auto-retry a POST. On a network error the write may have SUCCEEDED on the
+    // server and only the response was lost — retrying would duplicate it (a second
+    // challan, payment, or stock movement). Non-idempotent by definition (bug-hunt BH-0280).
+    if (error.config?.method?.toLowerCase() === 'post') {
+      return false;
+    }
+    // Idempotent methods (GET/PUT/DELETE/...): retry on network errors, 5xx, or rate limiting (429).
     return (
       axiosRetry.isNetworkOrIdempotentRequestError(error) ||
       error.response?.status === 429 ||
@@ -87,14 +94,27 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Handle 401 unauthorized - clear auth
-    // But skip clearing auth for login/register endpoints (they return 401 on invalid credentials)
+    // Handle 401 unauthorized - clear auth and redirect to login
+    // But skip for login/register endpoints (they return 401 on invalid credentials)
     if (error.response?.status === 401) {
       const isAuthEndpoint =
         error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/register');
 
       if (!isAuthEndpoint) {
+        const wasAuthenticated = useAuthStore.getState().isAuthenticated;
         useAuthStore.getState().clearAuth();
+
+        // Show toast and redirect only if user was previously logged in (session expired)
+        if (wasAuthenticated) {
+          toast.error('Session expired. Please log in again.');
+          // Redirect to login after a brief delay for toast visibility
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 500);
+        }
+
+        // Return a rejected promise that won't show additional error messages
+        return Promise.reject(new Error('SESSION_EXPIRED'));
       }
     }
 

@@ -447,6 +447,9 @@ export interface CostingOption {
   patternPartId: string | null;
   patternPartCode: string | null;
   patternPartName: string | null;
+  // Design/Color identification (returned by GET /fabric-costing/style/:styleId/options)
+  printDesign?: string | null;
+  colorName?: string | null;
   processorId: string | null;
   processorName: string | null;
   processorCode: string | null;

@@ -418,17 +418,20 @@ export interface AddCADRowRequest {
  */
 export interface UpdateCADRowRequest {
   purpose?: CADPurpose;
-  partId?: string;
+  /** null clears the part (backend schema is .optional().nullable()) */
+  partId?: string | null;
   /** Multi-part selection - array of pattern part IDs */
   partIds?: string[];
   isEmbroidery?: boolean;
   greigeId?: string;
-  cutableWidth?: number;
+  /** null clears the width (backend schema is .optional().nullable()) */
+  cutableWidth?: number | null;
   printDirection?: PrintDirection;
   sizeBreakdowns?: CADSizeBreakdown[];
   cadMeters?: number;
   piecesPerMarker?: number;
-  layerLengthMeters?: number;
+  /** null clears the layer length (backend schema is .optional().nullable()) */
+  layerLengthMeters?: number | null;
 }
 
 /**

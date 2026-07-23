@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Combobox, type ComboboxOption } from './ui/combobox';
 import { warehouseService } from '@/services/warehouse.service';
+import type { WarehouseType } from '@/types/inventory.types';
 import { toast } from 'sonner';
 
 interface WarehouseComboboxProps {
@@ -9,7 +10,7 @@ interface WarehouseComboboxProps {
   placeholder?: string;
   className?: string;
   disabled?: boolean;
-  warehouseTypeFilter?: string;
+  warehouseTypeFilter?: WarehouseType;
 }
 
 export function WarehouseCombobox({

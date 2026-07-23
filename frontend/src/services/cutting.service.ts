@@ -124,8 +124,27 @@ export const cuttingBatchService = {
   // Issue to Stitching
   // ============================================
 
-  issueToStitching: async (batchId: string, data: IssueToStitchingRequest): Promise<unknown> => {
-    const response = await api.post(`${BASE_URL}/batches/${batchId}/issue-to-stitching`, data);
+  issueToStitching: async (
+    batchId: string,
+    data: IssueToStitchingRequest
+  ): Promise<{
+    id: string;
+    slipNumber: string;
+    issueDate: string;
+    issuedTo: { id: string; name: string } | null;
+    totalPieces: number;
+    status: string;
+  }> => {
+    const response = await api.post<{
+      data: {
+        id: string;
+        slipNumber: string;
+        issueDate: string;
+        issuedTo: { id: string; name: string } | null;
+        totalPieces: number;
+        status: string;
+      };
+    }>(`${BASE_URL}/batches/${batchId}/issue-to-stitching`, data);
     return response.data.data;
   },
 

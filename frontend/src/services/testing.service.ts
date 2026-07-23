@@ -22,7 +22,9 @@ import type {
 // ============================================================================
 
 export const testingLabsService = {
-  getAll: async (params?: Record<string, string | number | boolean>): Promise<PaginatedResponse<TestingLab>> => {
+  getAll: async (
+    params?: Record<string, string | number | boolean | undefined>
+  ): Promise<PaginatedResponse<TestingLab>> => {
     const { data } = await api.get('/testing-labs', { params });
     return data;
   },
@@ -57,7 +59,9 @@ export const testingLabsService = {
 // ============================================================================
 
 export const testTemplatesService = {
-  getAll: async (params?: Record<string, string | number | boolean>): Promise<PaginatedResponse<TestTemplate>> => {
+  getAll: async (
+    params?: Record<string, string | number | boolean | undefined>
+  ): Promise<PaginatedResponse<TestTemplate>> => {
     const { data } = await api.get('/test-templates', { params });
     return data;
   },
@@ -139,7 +143,7 @@ export const fabricPhysicalTestsService = {
 
 export const garmentPhysicalTestsService = {
   getAll: async (
-    params?: Record<string, string | number | boolean>
+    params?: Record<string, string | number | boolean | undefined>
   ): Promise<PaginatedResponse<GarmentPhysicalTest>> => {
     const { data } = await api.get('/garment-physical-tests', { params });
     return data;

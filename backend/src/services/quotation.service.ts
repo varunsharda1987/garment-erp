@@ -12,6 +12,7 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { gstService, GSTCalculation } from './gst.service';
 import { addCurrency, multiplyCurrency, roundToCent } from '../utils/currency';
+import { generateAtomicQuotationNumber } from '../utils/atomicCodeGenerator';
 
 // ============================================
 // Types
@@ -131,35 +132,13 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
   }
 
   /**
-   * Generate next quotation number
-   * Format: QT-YYMM-0001
+   * Generate next quotation number (QT2607-0001, ...).
+   * bug-hunt orders-19: the old findFirst → regex → increment ran outside any lock, so two
+   * concurrent creates minted the same number and one 500'd on the unique index.
+   * The atomic code_sequences UPSERT cannot collide.
    */
   async generateQuotationNumber(): Promise<string> {
-    const now = new Date();
-    const year = now.getFullYear().toString().slice(-2); // Last 2 digits
-    const month = (now.getMonth() + 1).toString().padStart(2, '0');
-    const prefix = `QT-${year}${month}-`;
-
-    // Find the latest quotation for this month
-    const latestQuotation = await this.model.findFirst({
-      where: {
-        quotationNumber: {
-          startsWith: prefix,
-        },
-      },
-      orderBy: { createdAt: 'desc' as const },
-    });
-
-    let nextNumber = 1;
-    if (latestQuotation) {
-      // Extract number from QT-YYMM-NNNN
-      const match = latestQuotation.quotationNumber.match(/QT-\d{4}-(\d+)/);
-      if (match) {
-        nextNumber = parseInt(match[1], 10) + 1;
-      }
-    }
-
-    return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+    return generateAtomicQuotationNumber();
   }
 
   /**

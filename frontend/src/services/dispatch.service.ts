@@ -97,18 +97,6 @@ export const deliveryNoteService = {
   recordPOD: async (id: string, data: RecordPODRequest): Promise<void> => {
     await api.post(`${BASE_URL}/delivery-notes/${id}/record-pod`, data);
   },
-
-  // Generate document (Challan, Packing List, Invoice, E-way Bill)
-  generateDocument: async (
-    id: string,
-    documentType: string
-  ): Promise<{ documentId: string; documentNumber: string }> => {
-    const response = await api.post<{ data: { documentId: string; documentNumber: string } }>(
-      `${BASE_URL}/delivery-notes/${id}/generate-document`,
-      { documentType }
-    );
-    return response.data.data;
-  },
 };
 
 // ============================================
@@ -186,12 +174,6 @@ export const dispatchSummaryService = {
   // Get overall summary
   getSummary: async (): Promise<DispatchSummary> => {
     const response = await api.get<{ data: DispatchSummary }>(`${BASE_URL}/summary`);
-    return response.data.data;
-  },
-
-  // Get summary by order
-  getSummaryByOrder: async (orderId: string): Promise<DispatchSummary> => {
-    const response = await api.get<{ data: DispatchSummary }>(`${BASE_URL}/summary/order/${orderId}`);
     return response.data.data;
   },
 

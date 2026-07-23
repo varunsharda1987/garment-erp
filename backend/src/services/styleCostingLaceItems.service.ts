@@ -6,6 +6,7 @@
  */
 
 import prisma from '../config/database';
+import { Prisma } from '@prisma/client';
 import { calculateLaceCost, LaceCostCalculationResult } from './laceCostingCalculation.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -61,64 +62,70 @@ export async function addLaceItemToCostSheet(input: CreateLaceItemInput): Promis
   const effectiveQuantity = input.quantityPerGarment * (1 + wastagePercent / 100);
   const totalCost = effectiveQuantity * input.costPerMeter;
 
-  // Create lace item
-  const laceItem = await prisma.style_costing_lace_items.create({
-    data: {
-      costingId: input.costingId,
-      laceId: input.laceId,
-      laceName: input.laceName,
-      colorName: input.colorName || null,
-      width: input.width ? new Decimal(input.width) : null,
-      quantityPerGarment: new Decimal(input.quantityPerGarment),
-      wastagePercent: new Decimal(wastagePercent),
-      effectiveQuantity: new Decimal(effectiveQuantity),
-      sourcingStrategy: input.sourcingStrategy,
-      greigeCost: input.greigeCost ? new Decimal(input.greigeCost) : null,
-      processingCost: input.processingCost ? new Decimal(input.processingCost) : null,
-      readyLaceCost: input.readyLaceCost ? new Decimal(input.readyLaceCost) : null,
-      stockCost: input.stockCost ? new Decimal(input.stockCost) : null,
-      costPerMeter: new Decimal(input.costPerMeter),
-      totalCost: new Decimal(totalCost),
-      greigeLaceId: input.greigeLaceId || null,
-      processorId: input.processorId || null,
-      rateCardId: input.rateCardId || null,
-      stockLotId: input.stockLotId || null,
-      procurementId: input.procurementId || null,
-      labDipId: input.labDipId || null,
-      labDipStatus: input.labDipStatus || (input.sourcingStrategy === 'GREIGE_PROCESSED' ? 'PENDING' : 'NOT_REQUIRED'),
-      isManualOverride: input.isManualOverride || false,
-      overrideReason: input.overrideReason || null,
-      notes: input.notes || null,
-    },
-    include: {
-      lace: {
-        select: {
-          id: true,
-          laceName: true,
-          laceCode: true,
-          color: true,
-          width: true,
+  // Create lace item and recompute the cost sheet lace total in the SAME transaction —
+  // a failure between the two must not leave totals disagreeing with line items (bug-hunt costing-20)
+  const laceItem = await prisma.$transaction(async (tx) => {
+    const created = await tx.style_costing_lace_items.create({
+      data: {
+        costingId: input.costingId,
+        laceId: input.laceId,
+        laceName: input.laceName,
+        colorName: input.colorName || null,
+        width: input.width ? new Decimal(input.width) : null,
+        quantityPerGarment: new Decimal(input.quantityPerGarment),
+        wastagePercent: new Decimal(wastagePercent),
+        effectiveQuantity: new Decimal(effectiveQuantity),
+        sourcingStrategy: input.sourcingStrategy,
+        greigeCost: input.greigeCost ? new Decimal(input.greigeCost) : null,
+        processingCost: input.processingCost ? new Decimal(input.processingCost) : null,
+        readyLaceCost: input.readyLaceCost ? new Decimal(input.readyLaceCost) : null,
+        stockCost: input.stockCost ? new Decimal(input.stockCost) : null,
+        costPerMeter: new Decimal(input.costPerMeter),
+        totalCost: new Decimal(totalCost),
+        greigeLaceId: input.greigeLaceId || null,
+        processorId: input.processorId || null,
+        rateCardId: input.rateCardId || null,
+        stockLotId: input.stockLotId || null,
+        procurementId: input.procurementId || null,
+        labDipId: input.labDipId || null,
+        labDipStatus:
+          input.labDipStatus || (input.sourcingStrategy === 'GREIGE_PROCESSED' ? 'PENDING' : 'NOT_REQUIRED'),
+        isManualOverride: input.isManualOverride || false,
+        overrideReason: input.overrideReason || null,
+        notes: input.notes || null,
+      },
+      include: {
+        lace: {
+          select: {
+            id: true,
+            laceName: true,
+            laceCode: true,
+            color: true,
+            width: true,
+          },
+        },
+        greigeLace: {
+          select: {
+            id: true,
+            laceName: true,
+            laceCode: true,
+          },
+        },
+        processor: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
         },
       },
-      greigeLace: {
-        select: {
-          id: true,
-          laceName: true,
-          laceCode: true,
-        },
-      },
-      processor: {
-        select: {
-          id: true,
-          name: true,
-          code: true,
-        },
-      },
-    },
-  });
+    });
 
-  // Update cost sheet lace total
-  await updateCostSheetLaceTotal(input.costingId);
+    // Update cost sheet lace total
+    await updateCostSheetLaceTotal(input.costingId, tx);
+
+    return created;
+  });
 
   return laceItem;
 }
@@ -184,39 +191,43 @@ export async function updateLaceItem(itemId: string, input: UpdateLaceItemInput)
   updateData.effectiveQuantity = new Decimal(effectiveQuantity);
   updateData.totalCost = new Decimal(totalCost);
 
-  // Update item
-  const laceItem = await prisma.style_costing_lace_items.update({
-    where: { id: itemId },
-    data: updateData,
-    include: {
-      lace: {
-        select: {
-          id: true,
-          laceName: true,
-          laceCode: true,
-          color: true,
-          width: true,
+  // Update item and recompute the cost sheet lace total in the SAME transaction (bug-hunt costing-20)
+  const laceItem = await prisma.$transaction(async (tx) => {
+    const updated = await tx.style_costing_lace_items.update({
+      where: { id: itemId },
+      data: updateData,
+      include: {
+        lace: {
+          select: {
+            id: true,
+            laceName: true,
+            laceCode: true,
+            color: true,
+            width: true,
+          },
+        },
+        greigeLace: {
+          select: {
+            id: true,
+            laceName: true,
+            laceCode: true,
+          },
+        },
+        processor: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
         },
       },
-      greigeLace: {
-        select: {
-          id: true,
-          laceName: true,
-          laceCode: true,
-        },
-      },
-      processor: {
-        select: {
-          id: true,
-          name: true,
-          code: true,
-        },
-      },
-    },
-  });
+    });
 
-  // Update cost sheet lace total
-  await updateCostSheetLaceTotal(existing.costingId);
+    // Update cost sheet lace total
+    await updateCostSheetLaceTotal(existing.costingId, tx);
+
+    return updated;
+  });
 
   return laceItem;
 }
@@ -235,13 +246,15 @@ export async function removeLaceItem(itemId: string): Promise<void> {
     throw new Error(`Lace item not found: ${itemId}`);
   }
 
-  // Delete item
-  await prisma.style_costing_lace_items.delete({
-    where: { id: itemId },
-  });
+  // Delete item and recompute the cost sheet lace total in the SAME transaction (bug-hunt costing-20)
+  await prisma.$transaction(async (tx) => {
+    await tx.style_costing_lace_items.delete({
+      where: { id: itemId },
+    });
 
-  // Update cost sheet lace total
-  await updateCostSheetLaceTotal(item.costingId);
+    // Update cost sheet lace total
+    await updateCostSheetLaceTotal(item.costingId, tx);
+  });
 }
 
 /**
@@ -378,10 +391,14 @@ export async function calculateLaceItemCostOptions(
 
 /**
  * Update the lace total on a cost sheet
+ * Accepts an optional transaction client so item writes and the total recompute stay atomic.
  */
-async function updateCostSheetLaceTotal(costingId: string): Promise<void> {
+async function updateCostSheetLaceTotal(
+  costingId: string,
+  tx: Prisma.TransactionClient | typeof prisma = prisma
+): Promise<void> {
   // Calculate total from all lace items
-  const result = await prisma.style_costing_lace_items.aggregate({
+  const result = await tx.style_costing_lace_items.aggregate({
     where: { costingId },
     _sum: { totalCost: true },
   });
@@ -389,7 +406,7 @@ async function updateCostSheetLaceTotal(costingId: string): Promise<void> {
   const laceTotal = result._sum.totalCost || new Decimal(0);
 
   // Get current cost sheet to recalculate totals
-  const costSheet = await prisma.style_costing.findUnique({
+  const costSheet = await tx.style_costing.findUnique({
     where: { id: costingId },
     select: {
       fabricTotal: true,
@@ -423,7 +440,7 @@ async function updateCostSheetLaceTotal(costingId: string): Promise<void> {
   const totalProductCost = totalAfterValueLoss + markupAmount;
 
   // Update cost sheet
-  await prisma.style_costing.update({
+  await tx.style_costing.update({
     where: { id: costingId },
     data: {
       laceTotal: new Decimal(laceTotalNum),
@@ -471,42 +488,46 @@ export async function copyLaceItems(sourceCostingId: string, targetCostingId: st
     return [];
   }
 
-  // Create items in target cost sheet
-  const createdItems: any[] = [];
+  // Create items in target cost sheet and recompute its lace total in the SAME transaction (bug-hunt costing-20)
+  const createdItems = await prisma.$transaction(async (tx) => {
+    const items: any[] = [];
 
-  for (const item of sourceItems) {
-    const created = await prisma.style_costing_lace_items.create({
-      data: {
-        costingId: targetCostingId,
-        laceId: item.laceId,
-        laceName: item.laceName,
-        colorName: item.colorName,
-        width: item.width,
-        quantityPerGarment: item.quantityPerGarment,
-        wastagePercent: item.wastagePercent,
-        effectiveQuantity: item.effectiveQuantity,
-        sourcingStrategy: item.sourcingStrategy,
-        greigeCost: item.greigeCost,
-        processingCost: item.processingCost,
-        readyLaceCost: item.readyLaceCost,
-        stockCost: item.stockCost,
-        costPerMeter: item.costPerMeter,
-        totalCost: item.totalCost,
-        greigeLaceId: item.greigeLaceId,
-        processorId: item.processorId,
-        // Note: Don't copy rateCardId, stockLotId, procurementId - these are order-specific
-        labDipId: item.labDipId,
-        labDipStatus: item.labDipStatus,
-        isManualOverride: item.isManualOverride,
-        overrideReason: item.overrideReason,
-        notes: item.notes,
-      },
-    });
-    createdItems.push(created);
-  }
+    for (const item of sourceItems) {
+      const created = await tx.style_costing_lace_items.create({
+        data: {
+          costingId: targetCostingId,
+          laceId: item.laceId,
+          laceName: item.laceName,
+          colorName: item.colorName,
+          width: item.width,
+          quantityPerGarment: item.quantityPerGarment,
+          wastagePercent: item.wastagePercent,
+          effectiveQuantity: item.effectiveQuantity,
+          sourcingStrategy: item.sourcingStrategy,
+          greigeCost: item.greigeCost,
+          processingCost: item.processingCost,
+          readyLaceCost: item.readyLaceCost,
+          stockCost: item.stockCost,
+          costPerMeter: item.costPerMeter,
+          totalCost: item.totalCost,
+          greigeLaceId: item.greigeLaceId,
+          processorId: item.processorId,
+          // Note: Don't copy rateCardId, stockLotId, procurementId - these are order-specific
+          labDipId: item.labDipId,
+          labDipStatus: item.labDipStatus,
+          isManualOverride: item.isManualOverride,
+          overrideReason: item.overrideReason,
+          notes: item.notes,
+        },
+      });
+      items.push(created);
+    }
 
-  // Update target cost sheet totals
-  await updateCostSheetLaceTotal(targetCostingId);
+    // Update target cost sheet totals
+    await updateCostSheetLaceTotal(targetCostingId, tx);
+
+    return items;
+  });
 
   return createdItems;
 }

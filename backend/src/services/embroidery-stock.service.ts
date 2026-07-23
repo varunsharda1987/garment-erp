@@ -111,8 +111,14 @@ class EmbroideryStockService {
       }
 
       // 4. Deduct from source stock and clear needsEmbroidery flag
-      await tx.fabric_stock.update({
-        where: { id: data.sourceFabricStockId },
+      // Guarded conditional write: the gte filter makes check+decrement atomic, so two
+      // concurrent send-outs cannot both pass the check and drive stock negative
+      // (bug-hunt samples-embroidery-15)
+      const deducted = await tx.fabric_stock.updateMany({
+        where: {
+          id: data.sourceFabricStockId,
+          quantityAvailable: { gte: data.quantitySent },
+        },
         data: {
           quantityAvailable: {
             decrement: data.quantitySent,
@@ -121,11 +127,19 @@ class EmbroideryStockService {
         },
       });
 
-      // 5. Create stock transaction for the deduction
+      if (deducted.count === 0) {
+        throw new Error(`Insufficient stock. Available: ${availableQty}, Requested: ${data.quantitySent}`);
+      }
+
+      // 5. Create stock transaction for the deduction — balance read back post-decrement
+      // so the audit row reflects the actual committed balance under concurrency
+      const updatedSource = await tx.fabric_stock.findUniqueOrThrow({
+        where: { id: data.sourceFabricStockId },
+        select: { quantityAvailable: true },
+      });
+      const balanceAfterQty = parseFloat(updatedSource.quantityAvailable.toString());
       const totalValue = roundToCent(multiplyCurrency(data.quantitySent, sourceStock.weightedAvgCost.toString()));
-      const balanceAfterValue = roundToCent(
-        multiplyCurrency(availableQty - data.quantitySent, sourceStock.weightedAvgCost.toString())
-      );
+      const balanceAfterValue = roundToCent(multiplyCurrency(balanceAfterQty, sourceStock.weightedAvgCost.toString()));
 
       await tx.fabric_stock_transaction.create({
         data: {
@@ -136,7 +150,7 @@ class EmbroideryStockService {
           costPerUnit: sourceStock.weightedAvgCost,
           weightedAvgCost: sourceStock.weightedAvgCost,
           totalValue: new Decimal(totalValue.toString()),
-          balanceAfter: new Decimal(availableQty - data.quantitySent),
+          balanceAfter: new Decimal(balanceAfterQty),
           valueAfter: new Decimal(balanceAfterValue.toString()),
           notes: `Sent for embroidery: ${embroidery.designName}`,
           createdById: data.createdById,

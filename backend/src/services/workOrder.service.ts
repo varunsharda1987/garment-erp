@@ -12,6 +12,11 @@ import {
   toNumber,
 } from '../utils/currency';
 
+// Completion stages: the finishing flow's packing-complete writes READY_TO_SHIP (with real issued
+// quantities) and nothing in the shipped UI writes PACKING — keying on PACKING alone left the
+// derivation unreachable (review IMPORTANT). Both count as "finished units".
+export const COMPLETION_STAGES: ProductionStage[] = [ProductionStage.PACKING, ProductionStage.READY_TO_SHIP];
+
 export interface CreateWorkOrderDTO {
   orderId?: string | null;
   orderItemId?: string | null;
@@ -49,7 +54,8 @@ export interface UpdateWorkOrderDTO {
   actualStartDate?: Date;
   actualEndDate?: Date;
   totalQuantity?: number;
-  completedQuantity?: number;
+  // completedQuantity is intentionally absent: it is derived from completion-stage
+  // tracking entries (recomputeWorkOrderCompletion) and must never be hand-set.
   status?: OrderStatus;
   priority?: Priority;
   remarks?: string;
@@ -616,22 +622,10 @@ class WorkOrderService {
         },
       });
 
-      // Lock the WO row BEFORE aggregating so concurrent completion entries serialize — without this,
-      // two simultaneous entries each aggregate before the other commits and the last writer persists an
-      // undercounted sum (review nit on the original tx version).
-      await tx.$queryRaw`SELECT id FROM work_orders WHERE id = ${data.workOrderId} FOR UPDATE`;
-
-      const workOrder = await tx.work_orders.findUnique({
-        where: { id: data.workOrderId },
-      });
-
-      // Completion stages: the finishing flow's packing-complete writes READY_TO_SHIP (with real issued
-      // quantities) and nothing in the shipped UI writes PACKING — keying on PACKING alone left the
-      // derivation unreachable (review IMPORTANT). Both count as "finished units".
-      const COMPLETION_STAGES: ProductionStage[] = [ProductionStage.PACKING, ProductionStage.READY_TO_SHIP];
-
-      if (workOrder) {
-        if (data.productionStage === ProductionStage.CUTTING && !workOrder.actualStartDate) {
+      let flippedToCompleted = false;
+      if (data.productionStage === ProductionStage.CUTTING) {
+        const workOrder = await tx.work_orders.findUnique({ where: { id: data.workOrderId } });
+        if (workOrder && !workOrder.actualStartDate) {
           // Mark as started when cutting begins
           await tx.work_orders.update({
             where: { id: data.workOrderId },
@@ -640,39 +634,75 @@ class WorkOrderService {
               status: OrderStatus.IN_PRODUCTION,
             },
           });
-        } else if (COMPLETION_STAGES.includes(data.productionStage)) {
-          // Derive completed qty from the line items (all completion-stage entries), in the same tx as the insert.
-          const packed = await tx.production_tracking.aggregate({
-            where: { workOrderId: data.workOrderId, productionStage: { in: COMPLETION_STAGES } },
-            _sum: { quantityCompleted: true },
-          });
-          const completedQuantity = Math.min(packed._sum.quantityCompleted ?? 0, workOrder.totalQuantity);
-          const isComplete = (packed._sum.quantityCompleted ?? 0) >= workOrder.totalQuantity;
-          // Only flip forward from pre-COMPLETED states — never demote DISPATCHED/CANCELLED, and never
-          // overwrite an existing completion date (late correction entries would otherwise rewrite history).
-          const canFlipToCompleted =
-            isComplete &&
-            workOrder.status !== OrderStatus.COMPLETED &&
-            workOrder.status !== OrderStatus.DISPATCHED &&
-            workOrder.status !== OrderStatus.CANCELLED;
-          await tx.work_orders.update({
-            where: { id: data.workOrderId },
-            data: {
-              completedQuantity,
-              ...(canFlipToCompleted
-                ? { actualEndDate: workOrder.actualEndDate ?? new Date(), status: OrderStatus.COMPLETED }
-                : {}),
-            },
-          });
         }
+      } else if (COMPLETION_STAGES.includes(data.productionStage)) {
+        flippedToCompleted = await this.recomputeWorkOrderCompletion(tx, data.workOrderId);
       }
 
-      return created;
+      return { created, flippedToCompleted };
     };
 
-    const tracking = outerTx ? await runInTransaction(outerTx) : await prisma.$transaction(runInTransaction);
+    const { created: tracking, flippedToCompleted } = outerTx
+      ? await runInTransaction(outerTx)
+      : await prisma.$transaction(runInTransaction);
+
+    // When the tracking entry itself completed the WO, push actual CMT costs to order-item costing —
+    // the manual status-change path does this in the controller, but tracking-driven completion
+    // previously left costing on estimates. Post-commit and best-effort: a costing failure must not
+    // fail the tracking write. With an outerTx the commit isn't ours to observe, so the caller owns
+    // follow-ups (no current completion-stage caller passes outerTx).
+    if (flippedToCompleted && !outerTx) {
+      try {
+        await this.updateActualCMTCosts(data.workOrderId);
+      } catch (err) {
+        logger.warn(`CMT actuals auto-update failed after tracking-driven completion of WO ${data.workOrderId}:`, err);
+      }
+    }
 
     return tracking;
+  }
+
+  /**
+   * Recompute a work order's completedQuantity from its completion-stage tracking entries and
+   * flip the WO to COMPLETED when the derived total reaches totalQuantity. Must run inside the
+   * SAME transaction as the tracking insert that triggered it. Returns true when this call
+   * transitioned the WO to COMPLETED (callers use that to push CMT actuals post-commit).
+   */
+  async recomputeWorkOrderCompletion(tx: Prisma.TransactionClient, workOrderId: string): Promise<boolean> {
+    // Lock the WO row BEFORE aggregating so concurrent completion entries serialize — without this,
+    // two simultaneous entries each aggregate before the other commits and the last writer persists an
+    // undercounted sum (review nit on the original tx version).
+    await tx.$queryRaw`SELECT id FROM work_orders WHERE id = ${workOrderId} FOR UPDATE`;
+
+    const workOrder = await tx.work_orders.findUnique({ where: { id: workOrderId } });
+    if (!workOrder) return false;
+
+    // Derive completed qty from the line items (all completion-stage entries), in the same tx as the insert.
+    const packed = await tx.production_tracking.aggregate({
+      where: { workOrderId, productionStage: { in: COMPLETION_STAGES } },
+      _sum: { quantityCompleted: true },
+    });
+    const packedTotal = packed._sum.quantityCompleted ?? 0;
+    const completedQuantity = Math.min(packedTotal, workOrder.totalQuantity);
+    // totalQuantity > 0 guard: a zero-quantity WO must not auto-complete on its first entry.
+    const isComplete = workOrder.totalQuantity > 0 && packedTotal >= workOrder.totalQuantity;
+    // Only flip forward from pre-COMPLETED states — never demote DISPATCHED/CANCELLED, and never
+    // overwrite an existing completion date (late correction entries would otherwise rewrite history).
+    const canFlipToCompleted =
+      isComplete &&
+      workOrder.status !== OrderStatus.COMPLETED &&
+      workOrder.status !== OrderStatus.DISPATCHED &&
+      workOrder.status !== OrderStatus.CANCELLED;
+    await tx.work_orders.update({
+      where: { id: workOrderId },
+      data: {
+        completedQuantity,
+        ...(canFlipToCompleted
+          ? { actualEndDate: workOrder.actualEndDate ?? new Date(), status: OrderStatus.COMPLETED }
+          : {}),
+      },
+    });
+    return canFlipToCompleted;
   }
 
   /**

@@ -159,8 +159,7 @@ export default function CatalogueGenerator() {
         costPrice: style.costPrice ?? undefined,
         sellingPrice: style.sellingPrice ?? undefined,
         season: style.season ?? undefined,
-        // NOTE: the styles API does not return a sizeRange field; kept for the UI filter shape
-        sizeRange: undefined,
+        sizeRange: (style.sizeOptions || []).map((s) => s.sizeName).join(', ') || undefined,
         brandCategories: style.brandCategories ?? undefined,
         productCategory: style.productCategory ?? undefined,
       }));
@@ -252,10 +251,13 @@ export default function CatalogueGenerator() {
         return false;
       }
 
-      // Size availability filter
+      // Size availability filter (exact token match so "S" doesn't match "XS")
       if (selectedSizes.length > 0) {
-        const sizeRange = (style.sizeRange || '').toUpperCase();
-        if (!selectedSizes.some((size) => sizeRange.includes(size.toUpperCase()))) {
+        const styleSizes = (style.sizeRange || '')
+          .toUpperCase()
+          .split(',')
+          .map((s) => s.trim());
+        if (!selectedSizes.some((size) => styleSizes.includes(size.toUpperCase()))) {
           return false;
         }
       }
@@ -272,6 +274,18 @@ export default function CatalogueGenerator() {
       return true;
     });
   }, [styles, searchTerm, selectedSeason, selectedCategory, selectedBrandCategory, selectedSizes, minPrice, maxPrice]);
+
+  // Size chips come from the sizes actually present on loaded styles (fallback: standard list)
+  const availableSizes = useMemo(() => {
+    const seen = new Set<string>();
+    for (const style of styles) {
+      for (const token of (style.sizeRange || '').split(',')) {
+        const t = token.trim();
+        if (t) seen.add(t);
+      }
+    }
+    return seen.size > 0 ? Array.from(seen) : AVAILABLE_SIZES;
+  }, [styles]);
 
   // Paginate filtered styles for display
   const paginatedFilteredStyles = useMemo(() => {
@@ -758,7 +772,7 @@ export default function CatalogueGenerator() {
               <div className="space-y-2">
                 <Label>Size Availability</Label>
                 <div className="flex flex-wrap gap-1.5">
-                  {AVAILABLE_SIZES.map((size) => (
+                  {availableSizes.map((size) => (
                     <Badge
                       key={size}
                       variant={selectedSizes.includes(size) ? 'default' : 'outline'}

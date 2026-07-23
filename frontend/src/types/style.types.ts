@@ -97,6 +97,7 @@ export interface Style {
   orderDate?: string;
   deliveryDate?: string;
   variants?: StyleVariant[];
+  sizeOptions?: { sizeName: string }[]; // Lean size list included in list view (for catalogue size filter)
 }
 
 export interface StyleComponent {

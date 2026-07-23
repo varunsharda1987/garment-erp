@@ -81,12 +81,14 @@ class OrderCostingServiceClass {
    * Recalculate costing for an order item based on selected CAD
    * Uses the style's base costing as template but recalculates fabric costs based on selected CAD
    */
-  async recalculate(data: RecalculateCostingDTO): Promise<OrderCostingResult> {
+  async recalculate(data: RecalculateCostingDTO, tx?: Prisma.TransactionClient): Promise<OrderCostingResult> {
     logDebug('Recalculating order costing', { orderItemId: data.orderItemId });
+
+    const db = tx ?? prisma;
 
     try {
       // Get order item with all required relations
-      const orderItem = await prisma.order_items.findUnique({
+      const orderItem = await db.order_items.findUnique({
         where: { id: data.orderItemId },
         include: {
           styles: {
@@ -143,7 +145,7 @@ class OrderCostingServiceClass {
       // Get the selected CAD details
       let selectedCad = null;
       if (selectedCadId) {
-        selectedCad = await prisma.fabric_width_cad.findUnique({
+        selectedCad = await db.fabric_width_cad.findUnique({
           where: { id: selectedCadId },
         });
       }
@@ -210,7 +212,7 @@ class OrderCostingServiceClass {
       }
 
       // Upsert order item costing
-      const upsertedCosting = await prisma.order_item_costing.upsert({
+      const upsertedCosting = await db.order_item_costing.upsert({
         where: { orderItemId: data.orderItemId },
         create: {
           orderItemId: data.orderItemId,
@@ -284,16 +286,21 @@ class OrderCostingServiceClass {
 
   /**
    * Select CAD and recalculate costing in one operation
+   * bug-hunt orders-21: CAD selection and the recalculated costing must land together —
+   * a failure between the two writes left selectedCadId pointing at a CAD the stored
+   * costing was never computed from.
    */
   async selectCadAndRecalculate(orderItemId: string, cadId: string): Promise<OrderCostingResult> {
-    // First update the order item's selected CAD
-    await prisma.order_items.update({
-      where: { id: orderItemId },
-      data: { selectedCadId: cadId },
-    });
+    return prisma.$transaction(async (tx) => {
+      // First update the order item's selected CAD
+      await tx.order_items.update({
+        where: { id: orderItemId },
+        data: { selectedCadId: cadId },
+      });
 
-    // Then recalculate costing
-    return this.recalculate({ orderItemId, selectedCadId: cadId });
+      // Then recalculate costing within the same transaction
+      return this.recalculate({ orderItemId, selectedCadId: cadId }, tx);
+    });
   }
 
   /**
@@ -308,14 +315,18 @@ class OrderCostingServiceClass {
       return; // Nothing to delete
     }
 
-    await prisma.order_item_costing.delete({
-      where: { orderItemId },
-    });
+    // bug-hunt orders-21: costing removal and CAD clear must land together —
+    // a failure between the two writes left a dangling selectedCadId with no costing.
+    await prisma.$transaction(async (tx) => {
+      await tx.order_item_costing.delete({
+        where: { orderItemId },
+      });
 
-    // Also clear the selected CAD from order item
-    await prisma.order_items.update({
-      where: { id: orderItemId },
-      data: { selectedCadId: null },
+      // Also clear the selected CAD from order item
+      await tx.order_items.update({
+        where: { id: orderItemId },
+        data: { selectedCadId: null },
+      });
     });
 
     logInfo('Order costing deleted', { orderItemId });

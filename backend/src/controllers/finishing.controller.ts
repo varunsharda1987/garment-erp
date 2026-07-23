@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import { dedupeSkuRows } from './cutting.utils';
+import workOrderService from '../services/workOrder.service';
 
 // ============================================
 // Helper Functions
@@ -588,21 +589,34 @@ export const completeFinishingIssue = async (req: Request, res: Response) => {
     include: issueIncludeOptions,
   });
 
-  // Auto-create production_tracking: READY_TO_SHIP
+  // Auto-create production_tracking: READY_TO_SHIP, and roll the WO's completedQuantity/status up
+  // in the same transaction — this path previously inserted the tracking row without the rollup,
+  // so finishing-driven completion never flipped the WO to COMPLETED (review nit, item F).
   try {
     const userId = req.user?.userId;
     if (issue.workOrderId && userId) {
-      await prisma.production_tracking.create({
-        data: {
-          id: randomUUID(),
-          workOrderId: issue.workOrderId,
-          productionStage: 'READY_TO_SHIP',
-          quantityCompleted:
-            issue.skuBreakdown?.reduce((sum: number, sku: any) => sum + (Number(sku.issuedQty) || 0), 0) || 0,
-          updatedById: userId,
-          updateDate: new Date(),
-        },
+      const workOrderId = issue.workOrderId;
+      const flippedToCompleted = await prisma.$transaction(async (tx) => {
+        await tx.production_tracking.create({
+          data: {
+            id: randomUUID(),
+            workOrderId,
+            productionStage: 'READY_TO_SHIP',
+            quantityCompleted:
+              issue.skuBreakdown?.reduce((sum: number, sku: any) => sum + (Number(sku.issuedQty) || 0), 0) || 0,
+            updatedById: userId,
+            updateDate: new Date(),
+          },
+        });
+        return workOrderService.recomputeWorkOrderCompletion(tx, workOrderId);
       });
+      if (flippedToCompleted) {
+        try {
+          await workOrderService.updateActualCMTCosts(workOrderId);
+        } catch (err) {
+          logger.warn(`CMT actuals auto-update failed after finishing-driven completion of WO ${workOrderId}:`, err);
+        }
+      }
     }
   } catch (err) {
     logger.error('Failed to create production_tracking for finishing completion:', err);

@@ -115,6 +115,36 @@ export const FabricDetailSchema = z
     path: ['fabricRate'],
   });
 
+// The 24 nullable master FK columns on style_costing_trim_items carry a DB CHECK constraint
+// (num_nonnulls(...) <= 1, migration 20260723090000). Enforce the same rule at the API layer so a
+// multi-FK payload fails as a clear 400 instead of a raw CHECK-violation 500 (bug-hunt costing-19).
+const TRIM_MASTER_FK_FIELDS = [
+  'materialId',
+  'threadId',
+  'buttonId',
+  'zipperId',
+  'elasticId',
+  'labelId',
+  'packagingId',
+  'hookEyeId',
+  'snapButtonId',
+  'buckleId',
+  'beltId',
+  'velcroId',
+  'drawstringId',
+  'ribbonId',
+  'sequinId',
+  'beadId',
+  'motifId',
+  'interliningId',
+  'paddingId',
+  'otherFastenerId',
+  'otherTapeId',
+  'otherDecorativeId',
+  'otherFunctionalId',
+  'masterId',
+] as const;
+
 export const TrimDetailSchema = z
   .object({
     trimName: z.string().min(1, 'Trim name is required'),
@@ -156,6 +186,15 @@ export const TrimDetailSchema = z
   .refine((data) => data.isNotApplicable || (data.trimRate > 0 && data.trimQuantity > 0), {
     message: 'Trim rate and quantity must be > 0 unless marked as Not Applicable (N/A)',
     path: ['trimRate'],
+  })
+  .superRefine((data, ctx) => {
+    const setFks = TRIM_MASTER_FK_FIELDS.filter((field) => typeof data[field] === 'string' && data[field] !== '');
+    if (setFks.length > 1) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `A trim item may reference at most one master FK, but ${setFks.length} were set: ${setFks.join(', ')}. Keep only one.`,
+      });
+    }
   });
 
 export const EmbroideryDetailSchema = z

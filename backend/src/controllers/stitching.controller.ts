@@ -635,12 +635,12 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
         create: skuOutputs.map((sku: any) => {
           const goodQty = sku.goodQty ?? sku.passedQty;
           const defectQty = sku.defectQty ?? sku.rejectedQty;
-          if (goodQty === undefined && goodQty === null) {
+          if (goodQty === undefined || goodQty === null) {
             throw new Error(
               `Good/passed quantity is required for each SKU output (color: ${sku.colorId}, size: ${sku.sizeId})`
             );
           }
-          if (defectQty === undefined && defectQty === null) {
+          if (defectQty === undefined || defectQty === null) {
             throw new Error(
               `Defect/rejected quantity is required for each SKU output (color: ${sku.colorId}, size: ${sku.sizeId}). Enter 0 if no defects.`
             );

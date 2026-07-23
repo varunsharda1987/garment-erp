@@ -185,112 +185,118 @@ export const createCostSheetVersion = async (req: Request, res: Response): Promi
   const newVersionId = `CS-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   const newVersionNumber = sourceCostSheet.version + 1;
 
-  // Create new version by cloning the approved cost sheet
-  const newCostSheet = await prisma.style_costing.create({
-    data: {
-      id: newVersionId,
-      styleId: sourceCostSheet.styleId,
+  // Create new version by cloning the approved cost sheet, and supersede/lock the old
+  // version in the SAME transaction — a failure between the two writes must not leave
+  // two active sheets with supersededById null (bug-hunt costing-16)
+  const newCostSheet = await prisma.$transaction(async (tx) => {
+    const created = await tx.style_costing.create({
+      data: {
+        id: newVersionId,
+        styleId: sourceCostSheet.styleId,
 
-      // Versioning fields
-      version: newVersionNumber,
-      versionDate: new Date(),
-      versionReason: versionReason.trim(),
-      costVariancePercent: 0, // Will be calculated when values are changed
+        // Versioning fields
+        version: newVersionNumber,
+        versionDate: new Date(),
+        versionReason: versionReason.trim(),
+        costVariancePercent: 0, // Will be calculated when values are changed
 
-      // Copy all cost data from source
-      numberOfComponents: sourceCostSheet.numberOfComponents,
-      category: sourceCostSheet.category,
-      subCategory: sourceCostSheet.subCategory,
-      fabricDetails: sourceCostSheet.fabricDetails || undefined,
-      fabricTotal: sourceCostSheet.fabricTotal,
-      trimsDetails: sourceCostSheet.trimsDetails || undefined,
-      trimsTotal: sourceCostSheet.trimsTotal,
-      cuttingCost: sourceCostSheet.cuttingCost,
-      stitchingCost: sourceCostSheet.stitchingCost,
-      finishingCost: sourceCostSheet.finishingCost,
-      buttonAttachmentCost: sourceCostSheet.buttonAttachmentCost,
-      handworkCmtCost: sourceCostSheet.handworkCmtCost,
-      cmtTotal: sourceCostSheet.cmtTotal,
-      embroideryDetails: sourceCostSheet.embroideryDetails || undefined,
-      embroideryTotal: sourceCostSheet.embroideryTotal,
-      accessoriesDetails: sourceCostSheet.accessoriesDetails || undefined,
-      accessoriesTotal: sourceCostSheet.accessoriesTotal,
-      valueLossPercent: sourceCostSheet.valueLossPercent,
-      valueLossAmount: sourceCostSheet.valueLossAmount,
-      markupPercent: sourceCostSheet.markupPercent,
-      markupAmount: sourceCostSheet.markupAmount,
-      subtotal: sourceCostSheet.subtotal,
-      totalProductCost: sourceCostSheet.totalProductCost,
+        // Copy all cost data from source
+        numberOfComponents: sourceCostSheet.numberOfComponents,
+        category: sourceCostSheet.category,
+        subCategory: sourceCostSheet.subCategory,
+        fabricDetails: sourceCostSheet.fabricDetails || undefined,
+        fabricTotal: sourceCostSheet.fabricTotal,
+        trimsDetails: sourceCostSheet.trimsDetails || undefined,
+        trimsTotal: sourceCostSheet.trimsTotal,
+        cuttingCost: sourceCostSheet.cuttingCost,
+        stitchingCost: sourceCostSheet.stitchingCost,
+        finishingCost: sourceCostSheet.finishingCost,
+        buttonAttachmentCost: sourceCostSheet.buttonAttachmentCost,
+        handworkCmtCost: sourceCostSheet.handworkCmtCost,
+        cmtTotal: sourceCostSheet.cmtTotal,
+        embroideryDetails: sourceCostSheet.embroideryDetails || undefined,
+        embroideryTotal: sourceCostSheet.embroideryTotal,
+        accessoriesDetails: sourceCostSheet.accessoriesDetails || undefined,
+        accessoriesTotal: sourceCostSheet.accessoriesTotal,
+        valueLossPercent: sourceCostSheet.valueLossPercent,
+        valueLossAmount: sourceCostSheet.valueLossAmount,
+        markupPercent: sourceCostSheet.markupPercent,
+        markupAmount: sourceCostSheet.markupAmount,
+        subtotal: sourceCostSheet.subtotal,
+        totalProductCost: sourceCostSheet.totalProductCost,
 
-      // Additional fields
-      totalMaterialCost: sourceCostSheet.totalMaterialCost,
-      printingCost: sourceCostSheet.printingCost,
-      totalProcessingCost: sourceCostSheet.totalProcessingCost,
-      checkingCost: sourceCostSheet.checkingCost,
-      totalProductionCost: sourceCostSheet.totalProductionCost,
-      profitMargin: sourceCostSheet.profitMargin,
-      totalCostPerPiece: sourceCostSheet.totalCostPerPiece,
-      sellingPricePerPiece: sourceCostSheet.sellingPricePerPiece,
-      cmtCost: sourceCostSheet.cmtCost,
-      fabricCost: sourceCostSheet.fabricCost,
-      trimsCost: sourceCostSheet.trimsCost,
-      embroideryWork: sourceCostSheet.embroideryWork,
-      handWork: sourceCostSheet.handWork,
-      dyeingCost: sourceCostSheet.dyeingCost,
-      washingCost: sourceCostSheet.washingCost,
-      otherProcessingCost: sourceCostSheet.otherProcessingCost,
-      packagingCost: sourceCostSheet.packagingCost,
-      accessoriesCost: sourceCostSheet.accessoriesCost,
-      otherMaterialCost: sourceCostSheet.otherMaterialCost,
-      factoryOverhead: sourceCostSheet.factoryOverhead,
-      adminOverhead: sourceCostSheet.adminOverhead,
-      transportCost: sourceCostSheet.transportCost,
-      otherOverheads: sourceCostSheet.otherOverheads,
-      profitAmount: sourceCostSheet.profitAmount,
-      cadFabricConsumption: sourceCostSheet.cadFabricConsumption,
-      cadUnit: sourceCostSheet.cadUnit,
-      cadWastagePercent: sourceCostSheet.cadWastagePercent,
-      // Note: widthCombinationHash and widthCombinationDescription are copied if they exist
-      // These fields use @map in Prisma schema, so we access them conditionally
-      ...((sourceCostSheet as any).widthCombinationHash && {
-        widthCombinationHash: (sourceCostSheet as any).widthCombinationHash,
-      }),
-      ...((sourceCostSheet as any).widthCombinationDescription && {
-        widthCombinationDescription: (sourceCostSheet as any).widthCombinationDescription,
-      }),
-      notes: `Versioned from v${sourceCostSheet.version}. Reason: ${versionReason.trim()}`,
+        // Additional fields
+        totalMaterialCost: sourceCostSheet.totalMaterialCost,
+        printingCost: sourceCostSheet.printingCost,
+        totalProcessingCost: sourceCostSheet.totalProcessingCost,
+        checkingCost: sourceCostSheet.checkingCost,
+        totalProductionCost: sourceCostSheet.totalProductionCost,
+        profitMargin: sourceCostSheet.profitMargin,
+        totalCostPerPiece: sourceCostSheet.totalCostPerPiece,
+        sellingPricePerPiece: sourceCostSheet.sellingPricePerPiece,
+        cmtCost: sourceCostSheet.cmtCost,
+        fabricCost: sourceCostSheet.fabricCost,
+        trimsCost: sourceCostSheet.trimsCost,
+        embroideryWork: sourceCostSheet.embroideryWork,
+        handWork: sourceCostSheet.handWork,
+        dyeingCost: sourceCostSheet.dyeingCost,
+        washingCost: sourceCostSheet.washingCost,
+        otherProcessingCost: sourceCostSheet.otherProcessingCost,
+        packagingCost: sourceCostSheet.packagingCost,
+        accessoriesCost: sourceCostSheet.accessoriesCost,
+        otherMaterialCost: sourceCostSheet.otherMaterialCost,
+        factoryOverhead: sourceCostSheet.factoryOverhead,
+        adminOverhead: sourceCostSheet.adminOverhead,
+        transportCost: sourceCostSheet.transportCost,
+        otherOverheads: sourceCostSheet.otherOverheads,
+        profitAmount: sourceCostSheet.profitAmount,
+        cadFabricConsumption: sourceCostSheet.cadFabricConsumption,
+        cadUnit: sourceCostSheet.cadUnit,
+        cadWastagePercent: sourceCostSheet.cadWastagePercent,
+        // Note: widthCombinationHash and widthCombinationDescription are copied if they exist
+        // These fields use @map in Prisma schema, so we access them conditionally
+        ...((sourceCostSheet as any).widthCombinationHash && {
+          widthCombinationHash: (sourceCostSheet as any).widthCombinationHash,
+        }),
+        ...((sourceCostSheet as any).widthCombinationDescription && {
+          widthCombinationDescription: (sourceCostSheet as any).widthCombinationDescription,
+        }),
+        notes: `Versioned from v${sourceCostSheet.version}. Reason: ${versionReason.trim()}`,
 
-      // New version starts as PENDING
-      approvalStatus: 'PENDING',
-      isApproved: false,
-      createdById: userId,
-    },
-    include: {
-      styles: {
-        select: {
-          id: true,
-          styleCode: true,
-          styleName: true,
+        // New version starts as PENDING
+        approvalStatus: 'PENDING',
+        isApproved: false,
+        createdById: userId,
+      },
+      include: {
+        styles: {
+          select: {
+            id: true,
+            styleCode: true,
+            styleName: true,
+          },
+        },
+        users_style_costing_createdByIdTousers: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
         },
       },
-      users_style_costing_createdByIdTousers: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-        },
-      },
-    },
-  });
+    });
 
-  // Link the old version to this new version (supersededBy relation)
-  await prisma.style_costing.update({
-    where: { id: sourceCostSheet.id },
-    data: {
-      supersededById: newCostSheet.id,
-      lockedForOrders: true, // Lock the old version
-    },
+    // Link the old version to this new version (supersededBy relation)
+    await tx.style_costing.update({
+      where: { id: sourceCostSheet.id },
+      data: {
+        supersededById: created.id,
+        lockedForOrders: true, // Lock the old version
+      },
+    });
+
+    return created;
   });
 
   logInfo(`Created cost sheet version ${newVersionNumber} for style ${sourceCostSheet.styleId}`, {

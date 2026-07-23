@@ -155,6 +155,13 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           totalCostPerPiece: true,
         },
       },
+      size_options: {
+        select: {
+          sizeName: true,
+        },
+        where: { isActive: true },
+        orderBy: { sortOrder: 'asc' as const },
+      },
     } as unknown as IncludeConfig;
   }
 

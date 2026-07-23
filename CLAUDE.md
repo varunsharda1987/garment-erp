@@ -809,7 +809,7 @@ All documentation is now consolidated in the `docs/` folder. **Total: 19 compreh
 | [DISPATCH_LOGISTICS_GUIDE.md](docs/DISPATCH_LOGISTICS_GUIDE.md) | Delivery Notes, ASN, POD, Transport |
 | [TESTING_QUALITY_GUIDE.md](docs/TESTING_QUALITY_GUIDE.md) | FPT, GPT, Testing Labs, AQL |
 
-### Specialized Modules (5 Guides)
+### Specialized Modules (6 Guides)
 
 | Document | Purpose |
 |----------|---------|
@@ -818,6 +818,7 @@ All documentation is now consolidated in the `docs/` folder. **Total: 19 compreh
 | [MATERIAL_QUICK_ADD_GUIDE.md](docs/MATERIAL_QUICK_ADD_GUIDE.md) | Material quick add dialog - Unified creation for 23 material types |
 | [GST_GUIDE.md](docs/GST_GUIDE.md) | Indian GST compliance (1,602 lines) |
 | [AI_ASSISTANT_GUIDE.md](docs/AI_ASSISTANT_GUIDE.md) | AI integration with Claude/Gemini/OpenAI |
+| [B2B_INTEGRATION_GUIDE.md](docs/B2B_INTEGRATION_GUIDE.md) | **CONTRACT with the House of Kasya B2B app** (external API consumer, LIVE) — sale-order payload/read-back shapes it depends on; read BEFORE changing saleOrder schema/controller/service, the response serializer, or sale-order statuses |
 
 ### Developer Reference (4 Guides)
 

@@ -95,22 +95,39 @@ async function generateChallanNumber(tx?: Prisma.TransactionClient): Promise<str
   const month = (now.getMonth() + 1).toString().padStart(2, '0');
   const prefix = `CH${year}${month}`;
 
+  // Existing max for this prefix — used only to SEED/floor the atomic counter so it never
+  // re-issues a number already present from the pre-counter era.
   const lastChallan = await client.challans.findFirst({
     where: { challanNumber: { startsWith: prefix } },
     orderBy: { challanNumber: 'desc' },
     select: { challanNumber: true },
   });
 
-  let sequence = 1;
+  let lastSequence = 0;
   if (lastChallan?.challanNumber) {
     const parts = lastChallan.challanNumber.split('-');
     if (parts.length === 2) {
-      const lastSequence = parseInt(parts[1], 10);
-      if (!isNaN(lastSequence)) {
-        sequence = lastSequence + 1;
+      const parsed = parseInt(parts[1], 10);
+      if (!isNaN(parsed)) {
+        lastSequence = parsed;
       }
     }
   }
+
+  // Atomic upsert on code_sequences (bug-hunt procurement-15): the previous read-max+1 raced
+  // under concurrency and the loser hit P2002 on challans.challanNumber @unique. The ON CONFLICT
+  // increment is race-safe; GREATEST floors it at the observed max so seeding is automatic.
+  const rows = await client.$queryRaw<Array<{ lastValue: number }>>(
+    Prisma.sql`
+      INSERT INTO code_sequences (id, prefix, "lastValue", "updatedAt")
+      VALUES (gen_random_uuid(), ${prefix}, ${lastSequence + 1}, NOW())
+      ON CONFLICT (prefix) DO UPDATE SET
+        "lastValue" = GREATEST(code_sequences."lastValue" + 1, ${lastSequence + 1}),
+        "updatedAt" = NOW()
+      RETURNING "lastValue"
+    `
+  );
+  const sequence = rows[0].lastValue;
 
   return `${prefix}-${sequence.toString().padStart(4, '0')}`;
 }
@@ -1044,6 +1061,27 @@ export interface CreateFabricReturnInput {
  */
 export async function createFabricReturnChallan(input: CreateFabricReturnInput) {
   return prisma.$transaction(async (tx) => {
+    // Validate each return against what was actually consumed (bug-hunt procurement-14:
+    // an over-return typo could drive quantityConsumed negative).
+    for (const item of input.items) {
+      if (item.quantity <= 0) {
+        throw new Error(`Return quantity must be positive for fabric stock ${item.fabricStockId}`);
+      }
+      const stock = await tx.fabric_stock.findUnique({
+        where: { id: item.fabricStockId },
+        select: { quantityConsumed: true },
+      });
+      if (!stock) {
+        throw new Error(`Fabric stock ${item.fabricStockId} not found`);
+      }
+      if (item.quantity > Number(stock.quantityConsumed)) {
+        throw new Error(
+          `Cannot return ${item.quantity}m to fabric stock ${item.fabricStockId} — only ` +
+            `${Number(stock.quantityConsumed)}m was consumed`
+        );
+      }
+    }
+
     const challanNumber = await generateChallanNumber(tx);
     const totalQuantity = input.items.reduce((sum, item) => sum + item.quantity, 0);
 
@@ -1085,14 +1123,25 @@ export async function createFabricReturnChallan(input: CreateFabricReturnInput) 
 
     // Credit fabric stock for each returned item
     for (const item of input.items) {
-      await tx.fabric_stock.update({
+      const updated = await tx.fabric_stock.update({
         where: { id: item.fabricStockId },
         data: {
           quantityAvailable: { increment: item.quantity },
           quantityConsumed: { decrement: item.quantity },
           status: 'AVAILABLE',
         },
+        select: { fabricId: true },
       });
+
+      // Keep the centralized stock_levels shim in sync (bug-hunt procurement-14: this credit
+      // used to skip syncStockLevelQuantity while the receiveChallan fabric branch syncs).
+      if (updated.fabricId) {
+        const fabMat = await tx.materials.findFirst({
+          where: { fabricId: updated.fabricId },
+          select: { id: true },
+        });
+        if (fabMat) await syncStockLevelQuantity(fabMat.id, item.quantity, undefined, 'METER', tx);
+      }
     }
 
     return challan;

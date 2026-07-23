@@ -35,7 +35,10 @@ export const createQuotation = async (req: Request, res: Response): Promise<void
  * GET /api/quotations
  */
 export const getAllQuotations = async (req: Request, res: Response): Promise<void> => {
-  const options: QuotationQueryInput = req.query as any;
+  // req.validatedQuery, NOT req.query: validateQuery's copy-back onto req.query doesn't stick on this
+  // Express version, so req.query.limit stayed a STRING and Prisma take:"2" 400'd every explicit-limit
+  // list call (pre-existing; surfaced by the usability-wave smoke pass).
+  const options: QuotationQueryInput = ((req as any).validatedQuery ?? req.query) as any;
 
   const result = await quotationService.getQuotations(options);
 

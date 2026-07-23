@@ -105,18 +105,53 @@ export const generateBatchNumber = async (workOrderNumber: string, componentName
   const prefix = `CB-${workOrderNumber}`;
   const componentPart = componentName ? `-${componentName.substring(0, 3).toUpperCase()}` : '';
 
-  // Get the count of existing batches for this work order
-  const existingCount = await prisma.cutting_batches.count({
+  // Max-based (not count-based) so a deleted batch never causes its number to be reused
+  // (bug-hunt production-17)
+  const existing = await prisma.cutting_batches.findMany({
     where: {
       batchNumber: {
         startsWith: prefix,
       },
     },
+    select: { batchNumber: true },
   });
+  const maxSeq = existing.reduce((max, b) => {
+    const m = b.batchNumber.match(/-(\d+)$/);
+    return m ? Math.max(max, parseInt(m[1], 10)) : max;
+  }, 0);
 
-  const seq = (existingCount + 1).toString().padStart(3, '0');
+  const seq = (maxSeq + 1).toString().padStart(3, '0');
   return `${prefix}${componentPart}-${seq}`;
 };
+
+/**
+ * Merge duplicate (colorId, sizeId) rows by summing the given numeric fields.
+ * Postgres treats NULL colorIds as DISTINCT in the @@unique indexes on cutting_batch_skus /
+ * stitching_issue_skus / transfer_slip_skus, so size-only duplicate rows insert freely and
+ * double-count every downstream total (bug-hunt production-18). Dedupe server-side before create.
+ */
+export function dedupeSkuRows<T extends { colorId?: string | null; sizeId: string }>(
+  rows: T[],
+  sumFields: string[]
+): T[] {
+  const map = new Map<string, T>();
+  for (const row of rows) {
+    const key = `${row.colorId ?? ''}|${row.sizeId}`;
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, { ...row });
+    } else {
+      for (const f of sumFields) {
+        const prev = Number((existing as any)[f]);
+        const next = Number((row as any)[f]);
+        if (!isNaN(next)) {
+          (existing as any)[f] = (isNaN(prev) ? 0 : prev) + next;
+        }
+      }
+    }
+  }
+  return Array.from(map.values());
+}
 
 // Include options for cutting batch queries
 export const batchIncludeOptions = {

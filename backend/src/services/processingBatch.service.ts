@@ -1,6 +1,7 @@
 // Processing Batch Service - Manage job work processing batches
 import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
+import { divideCurrency, roundToCent, toNumber } from '../utils/currency';
 
 export interface CreateProcessingBatchDTO {
   materialType: 'GREIGE' | 'FABRIC' | 'LACE';
@@ -576,18 +577,33 @@ class ProcessingBatchService {
       throw new Error('Lace master not found for this batch');
     }
 
+    // Guards (bug-hunt production-20): receivedQty <= 0 previously divided to Infinity and was
+    // persisted into lace_stock cost; re-receiving a COMPLETED batch created a duplicate
+    // full-quantity stock lot.
+    if (batch.overallStatus === 'COMPLETED' || batch.overallStatus === 'CANCELLED') {
+      throw new Error(`Cannot receive: processing batch is already ${batch.overallStatus.toLowerCase()}`);
+    }
+    if (!(data.actualQuantityReceived > 0)) {
+      throw new Error('Received quantity must be greater than zero');
+    }
+
     // Calculate actual shrinkage
     const sentQty = Number(batch.totalQuantitySent);
     const receivedQty = data.actualQuantityReceived;
+    if (!(sentQty > 0)) {
+      throw new Error('Processing batch has no sent quantity — cannot compute shrinkage/cost');
+    }
     const actualShrinkagePercent = ((sentQty - receivedQty) / sentQty) * 100;
 
-    // Calculate cost per meter for finished lace
+    // Calculate cost per meter for finished lace via guarded decimal math (bug-hunt production-20)
     // greigeCost + processingCost, adjusted for shrinkage
     const greigeCostPerMeter = Number(batch.laceMaster.costPerMeterGreige) || 0;
     const totalCost = Number(batch.totalCostIncurred) || 0;
-    const processingCostPerMeter = totalCost / sentQty;
+    const processingCostPerMeterD = divideCurrency(totalCost, sentQty);
     // Cost per finished meter (accounts for shrinkage - we lose material)
-    const finishedCostPerMeter = (greigeCostPerMeter + processingCostPerMeter) * (sentQty / receivedQty);
+    const finishedCostPerMeter = toNumber(
+      roundToCent(processingCostPerMeterD.plus(greigeCostPerMeter).times(sentQty).dividedBy(receivedQty))
+    );
 
     // Create stock entry and update batch in transaction
     const result = await prisma.$transaction(async (tx) => {

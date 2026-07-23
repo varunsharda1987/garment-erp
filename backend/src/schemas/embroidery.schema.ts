@@ -26,7 +26,7 @@ export const createEmbroiderySchema = z
     threadColors: z.number().int().positive().optional().nullable(),
     repeatWidth: z.number().positive().optional().nullable(),
     repeatHeight: z.number().positive().optional().nullable(),
-    minFabricWidth: z.number().positive().optional().nullable(),
+    // minFabricWidth removed: no such column on embroidery_master (bug-hunt samples-embroidery-9)
     usableWidthAfter: z.number().positive('Usable width after is required'),
     costPerMeter: z.number().nonnegative().optional(),
     supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
@@ -52,7 +52,6 @@ export const updateEmbroiderySchema = z
     threadColors: z.number().int().positive().optional().nullable(),
     repeatWidth: z.number().positive().optional().nullable(),
     repeatHeight: z.number().positive().optional().nullable(),
-    minFabricWidth: z.number().positive().optional().nullable(),
     usableWidthAfter: z.number().positive().optional().nullable(),
     costPerMeter: z.number().nonnegative().optional().nullable(),
     supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),

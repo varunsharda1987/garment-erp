@@ -22,7 +22,9 @@ import { UnauthorizedError, NotFoundError, ValidationError, BusinessError, Confl
  */
 export const approveCostSheet = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { action, rejectionNotes } = req.body;
+  // costing-22: rejectionReason accepted as legacy alias so a rejection reason is never silently dropped
+  const { action } = req.body;
+  const rejectionNotes = req.body.rejectionNotes ?? req.body.rejectionReason;
   // Also support legacy 'approved' boolean for backward compatibility
   const legacyApproved = req.body.approved;
   const userId = req.user?.userId;

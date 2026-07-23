@@ -32,6 +32,47 @@ export interface SplitResult {
 // ============================================
 
 /**
+ * Allocate each breakup row across the splits so that (a) every row's allocations sum exactly to the
+ * row's plannedQuantity (largest-remainder method) and (b) every child's column sums exactly to its
+ * split quantity (single-unit rebalancing between children within rows). The old independent
+ * Math.round per child created phantom/lost pieces in the size grids (bug-hunt production-24).
+ *
+ * Returns matrix[rowIndex][childIndex] = allocated quantity.
+ */
+function allocateBreakupAcrossSplits(rowQuantities: number[], splitQuantities: number[]): number[][] {
+  const totalQty = splitQuantities.reduce((a, b) => a + b, 0);
+
+  // 1. Largest-remainder allocation per breakup row (row sums are exact)
+  const matrix = rowQuantities.map((rowQty) => {
+    const exact = splitQuantities.map((q) => (rowQty * q) / totalQty);
+    const base = exact.map((e) => Math.floor(e));
+    let remainder = rowQty - base.reduce((a, x) => a + x, 0);
+    const byFraction = exact.map((e, i) => ({ frac: e - Math.floor(e), i })).sort((a, b) => b.frac - a.frac);
+    for (let k = 0; k < byFraction.length && remainder > 0; k++, remainder--) {
+      base[byFraction[k].i] += 1;
+    }
+    return base;
+  });
+
+  // 2. Rebalance columns: move single units between children inside a row (row sums stay exact)
+  //    until each child's total equals its requested split quantity.
+  const colSum = (c: number) => matrix.reduce((a, row) => a + row[c], 0);
+  let guard = 0;
+  while (guard++ < 100000) {
+    const over = splitQuantities.findIndex((q, c) => colSum(c) > q);
+    if (over === -1) break;
+    const under = splitQuantities.findIndex((q, c) => colSum(c) < q);
+    if (under === -1) break;
+    const row = matrix.findIndex((r) => r[over] > 0);
+    if (row === -1) break;
+    matrix[row][over] -= 1;
+    matrix[row][under] += 1;
+  }
+
+  return matrix;
+}
+
+/**
  * Split a production run (work_order) into multiple child runs.
  *
  * Rules:
@@ -77,15 +118,18 @@ export async function splitProductionRun(parentId: string, splits: SplitInput[],
       throw new Error('Maximum 26 splits supported');
     }
 
+    // Pre-compute the exact per-row/per-child allocation (bug-hunt production-24)
+    const breakupAllocations = allocateBreakupAcrossSplits(
+      parent.work_order_breakup.map((b) => b.plannedQuantity),
+      splits.map((s) => s.quantity)
+    );
+
     const children: SplitResult['children'] = [];
 
     for (let i = 0; i < splits.length; i++) {
       const split = splits[i];
       const suffix = suffixes[i];
       const childNumber = `${parent.workOrderNumber}-${suffix}`;
-
-      // Calculate proportional breakup for this child
-      const ratio = split.quantity / parent.totalQuantity;
 
       const childId = randomUUID();
 
@@ -111,9 +155,12 @@ export async function splitProductionRun(parentId: string, splits: SplitInput[],
         },
       });
 
-      // Create proportional breakup entries for child
-      for (const breakup of parent.work_order_breakup) {
-        const childQty = Math.round(breakup.plannedQuantity * ratio);
+      // Create allocated breakup entries for child (exact — no independent rounding)
+      let childBreakupSum = 0;
+      for (let r = 0; r < parent.work_order_breakup.length; r++) {
+        const breakup = parent.work_order_breakup[r];
+        const childQty = breakupAllocations[r][i];
+        childBreakupSum += childQty;
         if (childQty > 0) {
           await tx.work_order_breakup.create({
             data: {
@@ -125,6 +172,15 @@ export async function splitProductionRun(parentId: string, splits: SplitInput[],
             },
           });
         }
+      }
+
+      // Safety assertion (bug-hunt production-24): a mismatch means the parent's breakup rows do not
+      // sum to its totalQuantity (header/breakup drift) — abort rather than persist a bad size grid.
+      if (childBreakupSum !== split.quantity) {
+        throw new Error(
+          `Split allocation mismatch for ${childNumber}: breakup sums to ${childBreakupSum} but split quantity is ${split.quantity}. ` +
+            `Parent breakup rows likely do not sum to its total quantity (${parent.totalQuantity}).`
+        );
       }
 
       children.push({

@@ -443,6 +443,24 @@ class ProcessingDeliveryService {
    * Update delivery
    */
   async updateDelivery(id: string, data: UpdateProcessingDeliveryDTO) {
+    // QC quantities/status are frozen once the delivery is ACCEPTED/REJECTED — the generic update
+    // has no compensating batch/stage rollup, so post-acceptance edits silently desynced batch
+    // totals (bug-hunt production-25). Use the accept/reject flows for QC decisions.
+    const existing = await prisma.processing_delivery.findUnique({
+      where: { id },
+      select: { qualityStatus: true },
+    });
+    if (!existing) {
+      throw new Error('Delivery not found');
+    }
+    const touchesQcFields =
+      data.quantityAccepted !== undefined || data.quantityRejected !== undefined || data.qualityStatus !== undefined;
+    if (touchesQcFields && (existing.qualityStatus === 'ACCEPTED' || existing.qualityStatus === 'REJECTED')) {
+      throw new Error(
+        `Cannot edit QC quantities/status of a delivery that is already ${existing.qualityStatus} — batch totals have been rolled up`
+      );
+    }
+
     const delivery = await prisma.processing_delivery.update({
       where: { id },
       data,
@@ -602,31 +620,68 @@ class ProcessingDeliveryService {
    * Reject delivery
    */
   async rejectDelivery(id: string, reason: string) {
-    const delivery = await prisma.processing_delivery.update({
-      where: { id },
-      data: {
-        qualityStatus: 'REJECTED',
-        rejectionReason: reason,
-        acceptanceDate: new Date(),
-      },
-      include: {
-        batch: {
-          select: {
-            id: true,
-            batchNumber: true,
-          },
+    // Mirror acceptDelivery: atomic guarded flip + batch rollup. The old version only flipped
+    // qualityStatus, so the rejected quantity never reached batch.quantityRejected and
+    // quantityInProcess kept counting the pieces (bug-hunt production-25).
+    return await prisma.$transaction(async (tx) => {
+      const flipped = await tx.processing_delivery.updateMany({
+        where: { id, qualityStatus: { notIn: ['ACCEPTED', 'REJECTED'] } },
+        data: {
+          qualityStatus: 'REJECTED',
+          rejectionReason: reason,
+          acceptanceDate: new Date(),
         },
-        stage: {
-          select: {
-            id: true,
-            stageNumber: true,
-            processingType: true,
-          },
-        },
-      },
-    });
+      });
+      if (flipped.count === 0) {
+        throw new Error('Delivery not found or already accepted/rejected');
+      }
 
-    return delivery;
+      const delivery = await tx.processing_delivery.findUnique({
+        where: { id },
+        include: {
+          batch: {
+            select: {
+              id: true,
+              batchNumber: true,
+            },
+          },
+          stage: {
+            select: {
+              id: true,
+              stageNumber: true,
+              processingType: true,
+            },
+          },
+        },
+      });
+      if (!delivery) {
+        throw new Error('Delivery not found');
+      }
+
+      // A full rejection: nothing accepted, entire delivered quantity rejected
+      await tx.processing_delivery.update({
+        where: { id },
+        data: {
+          quantityAccepted: 0,
+          quantityRejected: Number(delivery.quantityDelivered),
+        },
+      });
+
+      // Roll up into batch totals — atomic with the rejection flip above
+      await tx.processing_batch.update({
+        where: { id: delivery.batchId },
+        data: {
+          quantityRejected: {
+            increment: Number(delivery.quantityDelivered),
+          },
+          quantityInProcess: {
+            decrement: Number(delivery.quantityDelivered),
+          },
+        },
+      });
+
+      return delivery;
+    });
   }
 
   /**

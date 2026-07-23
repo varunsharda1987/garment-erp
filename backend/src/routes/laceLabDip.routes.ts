@@ -8,8 +8,13 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateParams } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { idParamSchema, greigeLaceIdParamSchema } from '../schemas/common.schema';
+import {
+  createLaceLabDipSchema,
+  updateLaceLabDipSchema,
+  updateLaceLabDipStatusSchema,
+} from '../schemas/laceLabDip.schema';
 import {
   createLabDip,
   getLabDips,
@@ -31,7 +36,7 @@ router.use(authenticateToken);
  * @access  Private
  * @body    greigeLaceId, targetColor, processorId, sampleQuantity
  */
-router.post('/', asyncHandler(createLabDip));
+router.post('/', validateBody(createLaceLabDipSchema), asyncHandler(createLabDip));
 
 /**
  * @route   GET /api/lace-lab-dips
@@ -60,7 +65,7 @@ router.get('/:id', validateParams(idParamSchema), asyncHandler(getLabDipById));
  * @desc    Update lace lab dip details
  * @access  Private
  */
-router.put('/:id', validateParams(idParamSchema), asyncHandler(updateLabDip));
+router.put('/:id', validateParams(idParamSchema), validateBody(updateLaceLabDipSchema), asyncHandler(updateLabDip));
 
 /**
  * @route   POST /api/lace-lab-dips/:id/status
@@ -75,7 +80,12 @@ router.put('/:id', validateParams(idParamSchema), asyncHandler(updateLabDip));
  * - AWAITING_BUYER_APPROVAL -> APPROVED | REJECTED
  * - REJECTED -> PENDING (restart process)
  */
-router.post('/:id/status', validateParams(idParamSchema), asyncHandler(updateStatus));
+router.post(
+  '/:id/status',
+  validateParams(idParamSchema),
+  validateBody(updateLaceLabDipStatusSchema),
+  asyncHandler(updateStatus)
+);
 
 /**
  * @route   DELETE /api/lace-lab-dips/:id

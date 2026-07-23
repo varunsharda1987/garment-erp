@@ -191,6 +191,7 @@ import {
   FinishingForm,
   FinishingDetail,
   DispatchList,
+  DispatchDeliveryNoteForm,
   DispatchPODForm,
   ProductionStatus,
   TestingDashboard,
@@ -581,6 +582,7 @@ function App() {
 
               {/* Dispatch (Manufacturing - Final Step) */}
               <Route path="/manufacturing/dispatch" element={<DispatchList />} />
+              <Route path="/manufacturing/dispatch/delivery/new" element={<DispatchDeliveryNoteForm />} />
               <Route path="/manufacturing/dispatch/delivery/:id/pod" element={<DispatchPODForm />} />
 
               {/* Color Master */}

@@ -2,6 +2,8 @@ import prisma from '../config/database';
 import { Prisma, DebitNoteReason, DocumentStatus } from '@prisma/client';
 import { gstService } from './gst.service';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
+import { generateAtomicDebitNoteNumber } from '../utils/atomicCodeGenerator';
+import { roundToCent, multiplyCurrency, addCurrency } from '../utils/currency';
 
 // ============================================
 // Types
@@ -40,30 +42,13 @@ interface DebitNoteQueryParams {
 
 export class DebitNoteService {
   /**
-   * Generate next debit note number (DN-001, DN-002, etc.)
+   * Generate next debit note number (DN2607-0001, ...).
+   * bug-hunt financial-gst-11: the old lexicographic findFirst('desc') + padStart(3) generator
+   * permanently wedged after DN-999 ('DN-999' > 'DN-1000' as strings → eternal P2002) and raced
+   * under concurrency. The atomic sequence UPSERT cannot collide.
    */
   private async generateDebitNoteNumber(): Promise<string> {
-    const lastNote = await prisma.debit_notes.findFirst({
-      where: {
-        debitNoteNumber: {
-          startsWith: 'DN-',
-        },
-      },
-      orderBy: {
-        debitNoteNumber: 'desc',
-      },
-      select: {
-        debitNoteNumber: true,
-      },
-    });
-
-    if (!lastNote) {
-      return 'DN-001';
-    }
-
-    const lastNumber = parseInt(lastNote.debitNoteNumber.replace('DN-', ''), 10);
-    const nextNumber = lastNumber + 1;
-    return `DN-${nextNumber.toString().padStart(3, '0')}`;
+    return generateAtomicDebitNoteNumber();
   }
 
   /**
@@ -74,17 +59,15 @@ export class DebitNoteService {
       throw new ValidationError('At least one item is required');
     }
 
-    // Determine interstate status
-    let isInterstate = false;
-    if (data.poId) {
-      const result = await gstService.isInterstatePO(data.supplierId);
-      isInterstate = result.isInterstate;
-    }
+    // Determine interstate status from the supplier alone — the lookup needs only supplierId,
+    // so it must NOT be gated on the optional poId (bug-hunt financial-gst-7: standalone debit
+    // notes for out-of-state suppliers were always taxed CGST/SGST instead of IGST).
+    const { isInterstate } = await gstService.isInterstatePO(data.supplierId);
 
     // Calculate GST for each item
     const itemsWithGST = await Promise.all(
       data.items.map(async (item) => {
-        const lineTotal = item.quantity * item.unitPrice;
+        const lineTotal = roundToCent(multiplyCurrency(item.quantity, item.unitPrice)).toNumber();
         const gstResult = await gstService.calculateLineItemGST({
           lineTotal,
           hsnSacCode: item.hsnCode,
@@ -100,22 +83,18 @@ export class DebitNoteService {
       })
     );
 
-    // Calculate header totals
-    let subtotal = 0;
-    let totalCgst = 0;
-    let totalSgst = 0;
-    let totalIgst = 0;
-    let totalTax = 0;
+    // Header totals via the shared decimal.js aggregation (bug-hunt financial-gst-13:
+    // was a raw float += loop that drifted paise vs the stored per-line amounts)
+    const totals = gstService.calculateTotals(
+      itemsWithGST.map((item) => ({ lineTotal: item.lineTotal, ...item.gstResult }))
+    );
+    const subtotal = totals.subtotal;
+    const totalCgst = totals.totalCgst;
+    const totalSgst = totals.totalSgst;
+    const totalIgst = totals.totalIgst;
+    const totalTax = totals.totalTax;
 
-    for (const item of itemsWithGST) {
-      subtotal += item.lineTotal;
-      totalCgst += item.gstResult.cgstAmount;
-      totalSgst += item.gstResult.sgstAmount;
-      totalIgst += item.gstResult.igstAmount;
-      totalTax += item.gstResult.taxAmount;
-    }
-
-    const totalAmount = subtotal + totalTax;
+    const totalAmount = roundToCent(addCurrency(subtotal, totalTax)).toNumber();
     const debitNoteNumber = await this.generateDebitNoteNumber();
 
     // Validate: cumulative debit notes must not exceed PO total (if linked to PO)
@@ -153,12 +132,12 @@ export class DebitNoteService {
           supplierId: data.supplierId,
           debitNoteDate: data.debitNoteDate ? new Date(data.debitNoteDate) : new Date(),
           reason: data.reason,
-          subtotal: parseFloat(subtotal.toFixed(2)),
-          cgstAmount: parseFloat(totalCgst.toFixed(2)),
-          sgstAmount: parseFloat(totalSgst.toFixed(2)),
-          igstAmount: parseFloat(totalIgst.toFixed(2)),
-          totalTax: parseFloat(totalTax.toFixed(2)),
-          totalAmount: parseFloat(totalAmount.toFixed(2)),
+          subtotal,
+          cgstAmount: totalCgst,
+          sgstAmount: totalSgst,
+          igstAmount: totalIgst,
+          totalTax,
+          totalAmount,
           isInterstate,
           status: 'DRAFT',
           remarks: data.remarks || null,
@@ -170,7 +149,7 @@ export class DebitNoteService {
               hsnCode: item.hsnCode || null,
               quantity: item.quantity,
               unitPrice: item.unitPrice,
-              totalPrice: parseFloat(item.lineTotal.toFixed(2)),
+              totalPrice: item.lineTotal,
               gstRate: item.gstResult.gstRate,
               cgstAmount: item.gstResult.cgstAmount,
               sgstAmount: item.gstResult.sgstAmount,

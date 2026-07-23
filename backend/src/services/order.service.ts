@@ -12,6 +12,7 @@ import { randomUUID } from 'crypto';
 import workOrderService from './workOrder.service';
 import { generateAtomicOrderNumber } from '../utils/atomicCodeGenerator';
 import { validateTransition } from '../utils/stateMachine';
+import { multiplyCurrency, roundToCent, Decimal } from '../utils/currency';
 
 // ============================================
 // Types
@@ -114,9 +115,9 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
     // Generate order number
     const orderNumber = await this.generateOrderNumber();
 
-    // Calculate totals
+    // Calculate totals (decimal.js — raw float sums drifted at paise level, bug-hunt orders-17)
     let totalQuantity = 0;
-    let totalAmount = 0;
+    let totalAmountDec = new Decimal(0);
 
     // Prepare order items with generated IDs (needed for work order creation)
     const orderItemsData = data.items.map((item) => {
@@ -137,10 +138,11 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       }
 
       const unitPriceNum = parseFloat(String(item.unitPrice)) || 0;
-      const itemTotal = itemTotalQty * unitPriceNum;
+      const itemTotalDec = roundToCent(multiplyCurrency(itemTotalQty, unitPriceNum));
+      const itemTotal = itemTotalDec.toNumber();
 
       totalQuantity += itemTotalQty;
-      totalAmount += itemTotal;
+      totalAmountDec = totalAmountDec.plus(itemTotalDec);
 
       // Only create breakup records if there are entries with quantity > 0
       const hasValidBreakup = item.breakup.length > 0 && item.breakup.some((b) => b.quantity > 0);
@@ -187,7 +189,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
           expectedDeliveryDate,
           priority,
           totalQuantity,
-          totalAmount,
+          totalAmount: roundToCent(totalAmountDec).toNumber(),
           paymentTerms: data.paymentTerms,
           shippingAddress: data.shippingAddress,
           remarks: data.remarks,
@@ -216,21 +218,35 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       return createdOrder;
     });
 
-    // 3. Auto-create work orders for each order item (outside transaction for cleaner code)
-    // This is done after order creation to ensure order exists
-    try {
-      for (const itemData of orderItemsData) {
+    // 3. Auto-create work orders for each order item.
+    // Runs after the order transaction commits (workOrderService is not tx-aware), but failures are
+    // now collected PER ITEM and surfaced to the caller instead of one catch silently abandoning the
+    // rest of the loop (bug-hunt orders-7). Failed items can be re-created manually.
+    const workOrderFailures: { orderItemId: string; styleId: string; reason: string }[] = [];
+    for (const itemData of orderItemsData) {
+      try {
         await workOrderService.createFromOrderItem(itemData.id, order.id, {
           plannedStartDate: orderDate,
           plannedEndDate: expectedDeliveryDate,
           priority,
           createdById: userId,
         });
+      } catch (error) {
+        logError('Failed to auto-create work order for order item', {
+          orderId: order.id,
+          orderItemId: itemData.id,
+          styleId: itemData.styleId,
+          error,
+        });
+        workOrderFailures.push({
+          orderItemId: itemData.id,
+          styleId: itemData.styleId,
+          reason: error instanceof Error ? error.message : 'Work order creation failed',
+        });
       }
+    }
+    if (workOrderFailures.length === 0) {
       logInfo('Work orders auto-created for order', { orderId: order.id, itemCount: orderItemsData.length });
-    } catch (error) {
-      // Log error but don't fail order creation - work orders can be created manually
-      logError('Failed to auto-create work orders', { orderId: order.id, error });
     }
 
     // 4. Fetch and return complete order with all includes
@@ -285,6 +301,10 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
     });
 
     logInfo('Order created successfully', { id: order.id, orderNumber });
+    // Surface any work-order creation failures to the caller (bug-hunt orders-7)
+    if (workOrderFailures.length > 0) {
+      return { ...completeOrder!, workOrderFailures } as orders;
+    }
     return completeOrder!;
   }
 

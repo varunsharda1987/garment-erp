@@ -4,6 +4,7 @@ import { NotFoundError, ValidationError, BusinessError, UnauthorizedError } from
 import prisma from '../config/database';
 import { Prisma, StitchingIssueStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { dedupeSkuRows } from './cutting.utils';
 
 // ============================================
 // Helper Functions
@@ -82,15 +83,22 @@ const transformStitchingIssue = (issue: any) => ({
 const generateIssueNumber = async (workOrderNumber: string): Promise<string> => {
   const prefix = `SI-${workOrderNumber}`;
 
-  const existingCount = await prisma.stitching_issues.count({
+  // Max-based (not count-based) so a deleted issue never causes its number to be reused
+  // (bug-hunt production-17)
+  const existing = await prisma.stitching_issues.findMany({
     where: {
       issueNumber: {
         startsWith: prefix,
       },
     },
+    select: { issueNumber: true },
   });
+  const maxSeq = existing.reduce((max, i) => {
+    const m = i.issueNumber.match(/-(\d+)$/);
+    return m ? Math.max(max, parseInt(m[1], 10)) : max;
+  }, 0);
 
-  const seq = (existingCount + 1).toString().padStart(3, '0');
+  const seq = (maxSeq + 1).toString().padStart(3, '0');
   return `${prefix}-${seq}`;
 };
 
@@ -263,59 +271,122 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
 
   const issueNumber = await generateIssueNumber(workOrder.workOrderNumber);
 
-  const issue = await prisma.stitching_issues.create({
-    data: {
-      issueNumber,
-      workOrderId,
-      issueDate: new Date(issueDate),
-      managerId: managerId || null,
-      contractorId: contractorId || null,
-      expectedCompletionDate: expectedCompletionDate ? new Date(expectedCompletionDate) : null,
-      status: 'PENDING_RECEIPT',
-      remarks,
-      createdById: userId,
-      components:
-        components?.length > 0
-          ? {
-              create: components.map((componentId: string) => ({
-                componentId,
-              })),
-            }
-          : undefined,
-      skuBreakdown: {
-        create: skuBreakdown.map((sku: any) => {
-          const availableQty = sku.availableQty ?? sku.issuedQty;
-          if (availableQty === undefined || availableQty === null) {
-            throw new Error(
-              `Available quantity is required for SKU (color: ${sku.colorId}, size: ${sku.sizeId}). Must come from cutting output.`
-            );
-          }
-          return {
-            colorId: sku.colorId,
-            sizeId: sku.sizeId,
-            availableQty: Number(availableQty),
-            issuedQty: Number(sku.issuedQty ?? availableQty),
-          };
-        }),
-      },
-    },
-    include: issueIncludeOptions,
-  });
+  // Deduped by (colorId, sizeId) — NULL-color duplicates double-count totals (bug-hunt production-18)
+  const skuRows = dedupeSkuRows(
+    // as any[]: bare `any` receiver collapses the generic to its constraint (loses qty fields)
+    ((skuBreakdown || []) as any[]).map((sku: any) => {
+      const availableQty = sku.availableQty ?? sku.issuedQty;
+      if (availableQty === undefined || availableQty === null) {
+        throw new ValidationError(
+          `Available quantity is required for SKU (color: ${sku.colorId}, size: ${sku.sizeId}). Must come from cutting output.`
+        );
+      }
+      return {
+        colorId: sku.colorId ?? null,
+        sizeId: sku.sizeId,
+        availableQty: Number(availableQty),
+        issuedQty: Number(sku.issuedQty ?? availableQty),
+      };
+    }),
+    ['availableQty', 'issuedQty']
+  );
 
-  // Mark consumed transfer slips as RECEIVED
-  if (transferSlipIds?.length) {
-    await prisma.transfer_slips.updateMany({
-      where: { id: { in: transferSlipIds }, isActive: true },
-      data: { status: 'RECEIVED', receivedDate: new Date() },
-    });
+  if (skuRows.length === 0) {
+    throw new ValidationError('At least one SKU breakdown entry is required');
   }
+
+  // Validate issued quantities against the selected transfer slips — issuing more than cutting
+  // supplied silently inflated stitching WIP (bug-hunt production-23).
+  if (transferSlipIds?.length) {
+    const slips = await prisma.transfer_slips.findMany({
+      where: { id: { in: transferSlipIds }, isActive: true },
+      include: { skuBreakdown: true },
+    });
+
+    if (slips.length !== transferSlipIds.length) {
+      throw new ValidationError('One or more selected transfer slips were not found or are inactive');
+    }
+    const wrongWo = slips.find((s) => s.workOrderId !== workOrderId);
+    if (wrongWo) {
+      throw new ValidationError(`Transfer slip ${wrongWo.slipNumber} belongs to a different work order`);
+    }
+    const consumed = slips.find((s) => s.status === 'RECEIVED'); // RECEIVED = consumed (TransferSlipStatus has no CANCELLED)
+    if (consumed) {
+      throw new ValidationError(
+        `Transfer slip ${consumed.slipNumber} has already been ${consumed.status.toLowerCase()}`
+      );
+    }
+
+    // Per-SKU available = sum across the selected slips
+    const slipQtyByKey = new Map<string, number>();
+    for (const slip of slips) {
+      for (const sku of slip.skuBreakdown) {
+        const key = `${sku.colorId ?? ''}|${sku.sizeId}`;
+        slipQtyByKey.set(key, (slipQtyByKey.get(key) || 0) + sku.quantity);
+      }
+    }
+    for (const row of skuRows) {
+      const key = `${row.colorId ?? ''}|${row.sizeId}`;
+      const available = slipQtyByKey.get(key) || 0;
+      if (row.issuedQty > available) {
+        throw new ValidationError(
+          `Issued quantity (${row.issuedQty}) exceeds the ${available} pieces available on the selected transfer slips for size ${row.sizeId}${row.colorId ? ` / color ${row.colorId}` : ''}`
+        );
+      }
+    }
+  }
+
+  // Create the issue and consume the slips in ONE transaction with a guarded status flip —
+  // previously the slips were bulk-marked RECEIVED outside any transaction (bug-hunt production-23).
+  const issue = await prisma.$transaction(async (tx) => {
+    const created = await tx.stitching_issues.create({
+      data: {
+        issueNumber,
+        workOrderId,
+        issueDate: new Date(issueDate),
+        managerId: managerId || null,
+        contractorId: contractorId || null,
+        expectedCompletionDate: expectedCompletionDate ? new Date(expectedCompletionDate) : null,
+        status: 'PENDING_RECEIPT',
+        remarks,
+        createdById: userId,
+        components:
+          components?.length > 0
+            ? {
+                create: components.map((componentId: string) => ({
+                  componentId,
+                })),
+              }
+            : undefined,
+        skuBreakdown: {
+          create: skuRows,
+        },
+      },
+      include: issueIncludeOptions,
+    });
+
+    // Mark consumed transfer slips as RECEIVED — guarded so a slip consumed concurrently
+    // (already RECEIVED) aborts the whole issue instead of being double-consumed
+    if (transferSlipIds?.length) {
+      const flipped = await tx.transfer_slips.updateMany({
+        where: {
+          id: { in: transferSlipIds },
+          isActive: true,
+          status: { in: ['CREATED', 'PRINTED', 'CONFIRMED'] },
+        },
+        data: { status: 'RECEIVED', receivedDate: new Date() },
+      });
+      if (flipped.count !== transferSlipIds.length) {
+        throw new ValidationError('One or more transfer slips were already consumed by another stitching issue');
+      }
+    }
+
+    return created;
+  });
 
   // Auto-create production_tracking: IN_STITCHING
   try {
-    const totalIssuedQty = skuBreakdown.reduce(
-      (sum: number, sku: any) => sum + (Number(sku.issuedQty) || Number(sku.availableQty) || 0),
-      0
-    );
+    const totalIssuedQty = skuRows.reduce((sum: number, sku) => sum + (Number(sku.issuedQty) || 0), 0);
     await prisma.production_tracking.create({
       data: {
         id: randomUUID(),
@@ -403,11 +474,12 @@ export const deleteStitchingIssue = async (req: Request, res: Response) => {
 // Receive from cutting
 export const receiveFromCutting = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { transferSlipId, skuReceived } = req.body;
+  const { transferSlipId, skuReceived, remarks } = req.body;
+  const userId = req.user?.userId;
 
   const existing = await prisma.stitching_issues.findUnique({
     where: { id },
-    select: { status: true },
+    select: { status: true, workOrderId: true },
   });
 
   if (!existing) {
@@ -424,12 +496,51 @@ export const receiveFromCutting = async (req: Request, res: Response) => {
     include: issueIncludeOptions,
   });
 
-  // Update transfer slip status
+  // Update transfer slip status and persist the received quantities as a stage receipt — the
+  // schema-required skuReceived array used to be silently discarded, so short receipts were
+  // never recorded anywhere (bug-hunt production-14).
   if (transferSlipId) {
-    await prisma.transfer_slips.update({
+    const slip = await prisma.transfer_slips.update({
       where: { id: transferSlipId },
-      data: { status: 'RECEIVED', receivedDate: new Date() },
+      data: { status: 'RECEIVED', receivedDate: new Date(), receivedById: userId ?? undefined },
+      include: { skuBreakdown: true },
     });
+
+    if (skuReceived?.length && userId) {
+      const expectedByKey = new Map(slip.skuBreakdown.map((s) => [`${s.colorId ?? ''}|${s.sizeId}`, s.quantity]));
+      const totalReceived = skuReceived.reduce((sum: number, r: any) => sum + Number(r.receivedQty || 0), 0);
+      const hasDeviation = totalReceived !== slip.totalGoodPieces;
+      await prisma.stage_receipts.create({
+        data: {
+          workOrderId: existing.workOrderId,
+          stage: 'STITCHING',
+          transferSlipId,
+          receivedDate: new Date(),
+          receivedById: userId,
+          hasDeviation,
+          deviationReason: hasDeviation
+            ? `Received ${totalReceived} of ${slip.totalGoodPieces} pieces on slip ${slip.slipNumber}`
+            : null,
+          remarks,
+          skuReceipts: {
+            // stage_receipt_skus.colorId is non-nullable — size-only (null-color) rows are captured
+            // by the header totals/deviation above
+            create: skuReceived
+              .filter((r: any) => r.colorId)
+              .map((r: any) => {
+                const expectedQty = expectedByKey.get(`${r.colorId}|${r.sizeId}`) ?? 0;
+                return {
+                  colorId: r.colorId,
+                  sizeId: r.sizeId,
+                  expectedQty,
+                  receivedQty: Number(r.receivedQty || 0),
+                  deviation: Number(r.receivedQty || 0) - expectedQty,
+                };
+              }),
+          },
+        },
+      });
+    }
   }
 
   res.json({ data: transformStitchingIssue(issue) });
@@ -484,6 +595,31 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
 
   if (existing.status !== 'IN_PROGRESS') {
     throw new ValidationError('Can only record output for in-progress issues');
+  }
+
+  // Cap cumulative output at the issued quantity — stitching 'produced' could silently exceed
+  // what cutting supplied (bug-hunt production-23)
+  const [issuedAgg, producedAgg] = await Promise.all([
+    prisma.stitching_issue_skus.aggregate({
+      where: { stitchingIssueId: id },
+      _sum: { issuedQty: true },
+    }),
+    prisma.stitching_output_skus.aggregate({
+      where: { dailyOutput: { stitchingIssueId: id } },
+      _sum: { goodQty: true, defectQty: true },
+    }),
+  ]);
+  const totalIssued = issuedAgg._sum.issuedQty ?? 0;
+  const alreadyRecorded = (producedAgg._sum.goodQty ?? 0) + (producedAgg._sum.defectQty ?? 0);
+  const newTotal = (skuOutputs || []).reduce(
+    (sum: number, sku: any) =>
+      sum + (Number(sku.goodQty ?? sku.passedQty) || 0) + (Number(sku.defectQty ?? sku.rejectedQty) || 0),
+    0
+  );
+  if (totalIssued > 0 && alreadyRecorded + newTotal > totalIssued) {
+    throw new ValidationError(
+      `Cannot record ${newTotal} pieces: ${alreadyRecorded} of ${totalIssued} issued pieces already recorded (only ${totalIssued - alreadyRecorded} remain)`
+    );
   }
 
   // Create daily output record - stitching_daily_outputs doesn't have aggregate fields
@@ -636,15 +772,19 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
     throw new ValidationError('Can only generate transfer slip for completed issues');
   }
 
-  // Generate slip number
+  // Generate slip number — max-based, not count-based: slipNumber is @unique, so a deleted slip
+  // plus count+1 regenerated an existing number → P2002 (bug-hunt production-17)
   const today = new Date();
   const datePrefix = `TS-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
-  const existingSlips = await prisma.transfer_slips.count({
+  const lastSlip = await prisma.transfer_slips.findFirst({
     where: {
       slipNumber: { startsWith: datePrefix },
     },
+    orderBy: { slipNumber: 'desc' },
+    select: { slipNumber: true },
   });
-  const slipNumber = `${datePrefix}-${(existingSlips + 1).toString().padStart(4, '0')}`;
+  const lastSeq = lastSlip ? parseInt(lastSlip.slipNumber.slice(-4), 10) || 0 : 0;
+  const slipNumber = `${datePrefix}-${(lastSeq + 1).toString().padStart(4, '0')}`;
 
   // Calculate good pieces per SKU from daily outputs
   const skuGoodQtyMap = new Map<string, { colorId: string; sizeId: string; goodQty: number }>();
@@ -1115,14 +1255,11 @@ export const disposeDefects = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   if (!userId) throw new UnauthorizedError('User not authenticated');
 
+  // Validated by disposeDefectsSchema at the route (bug-hunt production-13)
   const { disposition, remarks } = req.body as {
     disposition: 'REWORK' | 'SCRAP';
     remarks?: string;
   };
-
-  if (!disposition || !['REWORK', 'SCRAP'].includes(disposition)) {
-    throw new ValidationError('Disposition must be REWORK or SCRAP');
-  }
 
   const issue = await prisma.stitching_issues.findUnique({
     where: { id },

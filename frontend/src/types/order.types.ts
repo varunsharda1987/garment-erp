@@ -239,7 +239,7 @@ export interface OrderListResponse {
     page: number;
     limit: number;
     total: number;
-    pages: number;
+    totalPages: number; // backend returns totalPages, not pages (bug-hunt orders-13)
   };
 }
 

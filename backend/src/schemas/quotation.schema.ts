@@ -104,9 +104,10 @@ export const quotationQuerySchema = z.object({
 
   customerId: z.string().uuid('Invalid customer ID format').optional(),
 
-  fromDate: z.string().datetime('Invalid date format').optional(),
+  // z.coerce.date() (not .datetime()) so plain YYYY-MM-DD from <input type="date"> is accepted (bug-hunt orders-11)
+  fromDate: z.coerce.date().optional(),
 
-  toDate: z.string().datetime('Invalid date format').optional(),
+  toDate: z.coerce.date().optional(),
 
   sortBy: z.string().optional().default('createdAt'),
 

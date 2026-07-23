@@ -294,7 +294,9 @@ export const recordStitchingOutputSchema = z.object({
  * POST /api/stitching/issues/:id/dispose-defects
  */
 export const disposeDefectsSchema = z.object({
-  disposition: z.enum(['RECTIFIED', 'REJECTED', 'REWORK']),
+  // Must match the controller's contract (REWORK | SCRAP). The old ['RECTIFIED','REJECTED','REWORK']
+  // enum made SCRAP unreachable and RECTIFIED/REJECTED 400 in the controller (bug-hunt production-13).
+  disposition: z.enum(['REWORK', 'SCRAP']),
   remarks: z.string().max(500).optional(),
 });
 

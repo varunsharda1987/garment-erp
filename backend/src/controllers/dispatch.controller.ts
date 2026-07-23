@@ -54,20 +54,13 @@ const transformDeliveryNote = (note: any) => ({
         }
       : null,
   })),
-  // Include POD with customer GRN if available
+  // Include POD (full record: sign-off, shortage, rejection, customer GRN) and transport when the
+  // extended include was used — these were stored but never returned (bug-hunt dispatch-13).
   ext: note.delivery_notes_ext
     ? {
         id: note.delivery_notes_ext.id,
-        pod: note.delivery_notes_ext.pod
-          ? {
-              id: note.delivery_notes_ext.pod.id,
-              deliveryDate: note.delivery_notes_ext.pod.deliveryDate,
-              receivedBy: note.delivery_notes_ext.pod.receivedBy,
-              deliveryStatus: note.delivery_notes_ext.pod.deliveryStatus,
-              customerGrnNumber: note.delivery_notes_ext.pod.customerGrnNumber,
-              customerGrnDate: note.delivery_notes_ext.pod.customerGrnDate,
-            }
-          : null,
+        pod: note.delivery_notes_ext.pod ?? null,
+        transport: note.delivery_notes_ext.transport ?? null,
       }
     : null,
 });
@@ -155,12 +148,13 @@ const deliveryNoteIncludeOptions = {
   },
 };
 
-// Extended include options with POD for delivery note detail
+// Extended include options with POD + transport for delivery note detail
 const deliveryNoteExtendedIncludeOptions = {
   ...deliveryNoteIncludeOptions,
   delivery_notes_ext: {
     include: {
       pod: true,
+      transport: true,
     },
   },
 };
@@ -246,9 +240,10 @@ export const getAllDeliveryNotes = async (req: Request, res: Response) => {
 export const getDeliveryNoteById = async (req: Request, res: Response) => {
   const { id } = req.params;
 
+  // Extended include so POD/transport details actually reach the client (bug-hunt dispatch-13)
   const note = await prisma.delivery_notes.findUnique({
     where: { id },
-    include: deliveryNoteIncludeOptions,
+    include: deliveryNoteExtendedIncludeOptions,
   });
 
   if (!note) {
@@ -263,7 +258,7 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
   if (!userId) {
     throw new UnauthorizedError('User not authenticated');
   }
-  const { orderId, customerId, deliveryDate, remarks, items } = req.body;
+  const { orderId, customerId, deliveryDate, remarks, items, cartonIds } = req.body;
 
   const deliveryNumber = await generateDeliveryNumber();
 
@@ -452,6 +447,33 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
         }
       }
 
+      // Link the packed cartons this note covers (dispatch_cartons rows) so dispatching the note can
+      // flip them to DISPATCHED — previously nothing ever linked or dispatched cartons, so they stayed
+      // "available" forever and dispatchedPieces was always 0 (bug-hunt dispatch-9).
+      if (cartonIds?.length > 0) {
+        const uniqueCartonIds: string[] = [...new Set<string>(cartonIds)];
+        const cartons = await tx.carton_packings.findMany({
+          where: { id: { in: uniqueCartonIds } },
+          select: { id: true, cartonNumber: true, status: true, dispatchItems: { select: { id: true } } },
+        });
+        if (cartons.length !== uniqueCartonIds.length) {
+          throw new ValidationError('One or more selected cartons do not exist');
+        }
+        const unavailable = cartons.filter((c) => c.status !== 'PACKED' || c.dispatchItems.length > 0);
+        if (unavailable.length > 0) {
+          throw new ValidationError(
+            `Carton(s) not available for dispatch (not PACKED or already on a delivery note): ` +
+              unavailable.map((c) => c.cartonNumber).join(', ')
+          );
+        }
+        const ext = await tx.delivery_notes_ext.create({
+          data: { deliveryNoteId: created.id, totalCartons: uniqueCartonIds.length },
+        });
+        await tx.dispatch_cartons.createMany({
+          data: uniqueCartonIds.map((cartonId) => ({ deliveryNoteExtId: ext.id, cartonId })),
+        });
+      }
+
       // Persist the exact deductions so deleting this (PENDING) note can restore them precisely.
       if (fgAllocations.length > 0) {
         await tx.delivery_note_fg_allocations.createMany({
@@ -585,64 +607,68 @@ export const assignTransport = async (req: Request, res: Response) => {
     throw new NotFoundError('Delivery note', id);
   }
 
-  // Check or create delivery_notes_ext
-  let noteExt = await prisma.delivery_notes_ext.findUnique({
-    where: { deliveryNoteId: id },
-  });
+  // ext create + transport upsert + note update in ONE transaction — a failure between the separate
+  // writes used to leave the ext/transport/note trio inconsistent (bug-hunt dispatch-11).
+  await prisma.$transaction(async (tx) => {
+    // Check or create delivery_notes_ext
+    let noteExt = await tx.delivery_notes_ext.findUnique({
+      where: { deliveryNoteId: id },
+    });
 
-  if (!noteExt) {
-    noteExt = await prisma.delivery_notes_ext.create({
-      data: {
-        deliveryNoteId: id,
+    if (!noteExt) {
+      noteExt = await tx.delivery_notes_ext.create({
+        data: {
+          deliveryNoteId: id,
+        },
+      });
+    }
+
+    // Create or update transport
+    await tx.dispatch_transports.upsert({
+      where: { deliveryNoteExtId: noteExt.id },
+      update: {
+        transporterName,
+        transporterGstin,
+        vehicleNumber,
+        vehicleType,
+        driverName,
+        driverPhone,
+        driverLicense,
+        lrNumber,
+        lrDate: lrDate ? new Date(lrDate) : null,
+        freightCharges,
+        freightPaidBy,
+        expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
+        remarks,
+      },
+      create: {
+        deliveryNoteExtId: noteExt.id,
+        transporterName,
+        transporterGstin,
+        vehicleNumber,
+        vehicleType,
+        driverName,
+        driverPhone,
+        driverLicense,
+        lrNumber,
+        lrDate: lrDate ? new Date(lrDate) : null,
+        freightCharges,
+        freightPaidBy,
+        expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
+        remarks,
+        createdById: userId,
       },
     });
-  }
 
-  // Create or update transport
-  await prisma.dispatch_transports.upsert({
-    where: { deliveryNoteExtId: noteExt.id },
-    update: {
-      transporterName,
-      transporterGstin,
-      vehicleNumber,
-      vehicleType,
-      driverName,
-      driverPhone,
-      driverLicense,
-      lrNumber,
-      lrDate: lrDate ? new Date(lrDate) : null,
-      freightCharges,
-      freightPaidBy,
-      expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
-      remarks,
-    },
-    create: {
-      deliveryNoteExtId: noteExt.id,
-      transporterName,
-      transporterGstin,
-      vehicleNumber,
-      vehicleType,
-      driverName,
-      driverPhone,
-      driverLicense,
-      lrNumber,
-      lrDate: lrDate ? new Date(lrDate) : null,
-      freightCharges,
-      freightPaidBy,
-      expectedDeliveryDate: expectedDeliveryDate ? new Date(expectedDeliveryDate) : null,
-      remarks,
-      createdById: userId,
-    },
-  });
-
-  // Update delivery note with vehicle info
-  await prisma.delivery_notes.update({
-    where: { id },
-    data: {
-      vehicleNumber,
-      driverName,
-      driverPhone,
-    },
+    // Update delivery note with vehicle info
+    await tx.delivery_notes.update({
+      where: { id },
+      data: {
+        vehicleNumber,
+        driverName,
+        driverPhone,
+      },
+    });
   });
 
   res.json({ message: 'Transport assigned successfully' });
@@ -690,23 +716,45 @@ export const dispatchDeliveryNote = async (req: Request, res: Response) => {
     }
   }
 
-  const note = await prisma.delivery_notes.update({
-    where: { id },
-    data: { status: 'IN_TRANSIT' },
-    include: deliveryNoteIncludeOptions,
-  });
-
-  // Update transport dispatch date
-  const noteExt = await prisma.delivery_notes_ext.findUnique({
-    where: { deliveryNoteId: id },
-  });
-
-  if (noteExt) {
-    await prisma.dispatch_transports.updateMany({
-      where: { deliveryNoteExtId: noteExt.id },
-      data: { dispatchDate: new Date() },
+  // Status flip + transport dispatch date + carton dispatch in ONE transaction (bug-hunt dispatch-11);
+  // the guarded updateMany also closes the race where two concurrent dispatch calls both passed the
+  // pre-check above.
+  const note = await prisma.$transaction(async (tx) => {
+    const flipped = await tx.delivery_notes.updateMany({
+      where: { id, status: 'PENDING' },
+      data: { status: 'IN_TRANSIT' },
     });
-  }
+    if (flipped.count === 0) {
+      throw new ValidationError('Can only dispatch pending delivery notes');
+    }
+
+    const noteExt = await tx.delivery_notes_ext.findUnique({
+      where: { deliveryNoteId: id },
+      include: { cartons: { select: { cartonId: true } } },
+    });
+
+    if (noteExt) {
+      // Update transport dispatch date
+      await tx.dispatch_transports.updateMany({
+        where: { deliveryNoteExtId: noteExt.id },
+        data: { dispatchDate: new Date() },
+      });
+
+      // Mark the note's linked cartons DISPATCHED so they leave the available pool and the
+      // orders-ready rollup counts them (bug-hunt dispatch-9).
+      if (noteExt.cartons.length > 0) {
+        await tx.carton_packings.updateMany({
+          where: { id: { in: noteExt.cartons.map((c) => c.cartonId) } },
+          data: { status: 'DISPATCHED' },
+        });
+      }
+    }
+
+    return tx.delivery_notes.findUnique({
+      where: { id },
+      include: deliveryNoteIncludeOptions,
+    });
+  });
 
   res.json({ data: transformDeliveryNote(note) });
 };
@@ -756,21 +804,28 @@ export const recordPOD = async (req: Request, res: Response) => {
       noteExt = await tx.delivery_notes_ext.create({ data: { deliveryNoteId: id } });
     }
 
-    await tx.dispatch_pods.create({
-      data: {
+    // Upsert (not create) on the unique deliveryNoteExtId so a retry after a previous partial failure
+    // cannot wedge the note behind a permanent P2002 (bug-hunt dispatch-11).
+    const podData = {
+      deliveryDate: new Date(deliveryDate),
+      deliveryTime,
+      receivedBy,
+      designation,
+      customerSignOff: customerSignOff || false,
+      podDocumentUrl,
+      deliveryStatus,
+      shortageQty,
+      rejectionReason,
+      customerGrnNumber,
+      customerGrnDate: customerGrnDate ? new Date(customerGrnDate) : null,
+      remarks,
+    };
+    await tx.dispatch_pods.upsert({
+      where: { deliveryNoteExtId: noteExt.id },
+      update: podData,
+      create: {
         deliveryNoteExtId: noteExt.id,
-        deliveryDate: new Date(deliveryDate),
-        deliveryTime,
-        receivedBy,
-        designation,
-        customerSignOff: customerSignOff || false,
-        podDocumentUrl,
-        deliveryStatus,
-        shortageQty,
-        rejectionReason,
-        customerGrnNumber,
-        customerGrnDate: customerGrnDate ? new Date(customerGrnDate) : null,
-        remarks,
+        ...podData,
         createdById: userId,
       },
     });
@@ -1124,6 +1179,9 @@ export const getAvailableCartons = async (req: Request, res: Response) => {
 
   const where: Prisma.carton_packingsWhereInput = {
     status: 'PACKED',
+    // A carton already linked to a delivery note (even a PENDING one) is spoken for — without this,
+    // dispatched/reserved cartons stayed "available" forever (bug-hunt dispatch-9).
+    dispatchItems: { none: {} },
   };
 
   if (orderId) {

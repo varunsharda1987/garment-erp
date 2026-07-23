@@ -12,7 +12,8 @@ import {
   POCategory,
   PurchaseOrderStatus,
 } from '@prisma/client';
-import { generateCode } from '../utils/code-generator';
+import { generateAtomicPONumberInTx } from '../utils/atomicCodeGenerator';
+import { roundToCent } from '../utils/currency';
 import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
 import {
@@ -2175,7 +2176,9 @@ export async function generatePOFromRequirements(
 
   // Create PO with items in a transaction
   const result = await prisma.$transaction(async (tx) => {
-    const poNumber = await generateCode('PO', 'purchase_orders', 'poNumber');
+    // Atomic sequence inside the creating tx (bug-hunt procurement-9: generateCode was
+    // read-max+1 on a separate PrismaClient with a silent timestamp fallback)
+    const poNumber = await generateAtomicPONumberInTx(tx);
 
     // Calculate GST per item and totals
     let subtotal = 0;
@@ -2183,50 +2186,48 @@ export async function generatePOFromRequirements(
     let poTotalSgst = 0;
     let poTotalIgst = 0;
 
-    const itemsWithGst = poItems.map((item) => {
-      const mat = item.material;
-      const gstRate = mat?.gstRate ? Number(mat.gstRate) : gstService.getDefaultGSTRate(mat?.hsnCode || undefined);
-      const lineTotal = item.quantity * item.unitPrice;
+    // GST via the shared authority (bug-hunt procurement-10: the previous inline math bypassed
+    // the HSN resolution chain + apparel price-slab, so the same material could be taxed
+    // differently than on a manually-created PO)
+    const itemsWithGst = await Promise.all(
+      poItems.map(async (item) => {
+        const lineTotal = item.quantity * item.unitPrice;
 
-      let cgstRate = 0,
-        cgstAmount = 0,
-        sgstRate = 0,
-        sgstAmount = 0,
-        igstRate = 0,
-        igstAmount = 0;
-      if (isInterstate) {
-        igstRate = gstRate;
-        igstAmount = parseFloat(((lineTotal * gstRate) / 100).toFixed(2));
-      } else {
-        cgstRate = gstRate / 2;
-        sgstRate = gstRate / 2;
-        cgstAmount = parseFloat(((lineTotal * cgstRate) / 100).toFixed(2));
-        sgstAmount = parseFloat(((lineTotal * sgstRate) / 100).toFixed(2));
-      }
-      const taxAmount = cgstAmount + sgstAmount + igstAmount;
+        const gst = await gstService.calculateLineItemGST({
+          lineTotal,
+          hsnSacCode: null, // Resolved from materialId
+          materialId: item.materialId || null,
+          isInterstate,
+          unitPrice: item.unitPrice,
+        });
 
-      subtotal += lineTotal;
-      poTotalCgst += cgstAmount;
-      poTotalSgst += sgstAmount;
-      poTotalIgst += igstAmount;
+        subtotal += lineTotal;
+        poTotalCgst += gst.cgstAmount;
+        poTotalSgst += gst.sgstAmount;
+        poTotalIgst += gst.igstAmount;
 
-      return {
-        ...item,
-        lineTotal,
-        hsnCode: mat?.hsnCode || null,
-        gstRate,
-        cgstRate,
-        cgstAmount,
-        sgstRate,
-        sgstAmount,
-        igstRate,
-        igstAmount,
-        taxAmount,
-      };
-    });
+        return {
+          ...item,
+          lineTotal,
+          hsnCode: gst.hsnCode,
+          gstRate: gst.gstRate,
+          cgstRate: gst.cgstRate,
+          cgstAmount: gst.cgstAmount,
+          sgstRate: gst.sgstRate,
+          sgstAmount: gst.sgstAmount,
+          igstRate: gst.igstRate,
+          igstAmount: gst.igstAmount,
+          taxAmount: gst.taxAmount,
+        };
+      })
+    );
 
-    const totalTax = poTotalCgst + poTotalSgst + poTotalIgst;
-    const totalAmount = subtotal + totalTax;
+    subtotal = roundToCent(subtotal).toNumber();
+    const totalTax = roundToCent(poTotalCgst + poTotalSgst + poTotalIgst).toNumber();
+    const totalAmount = roundToCent(subtotal + totalTax).toNumber();
+    poTotalCgst = roundToCent(poTotalCgst).toNumber();
+    poTotalSgst = roundToCent(poTotalSgst).toNumber();
+    poTotalIgst = roundToCent(poTotalIgst).toNumber();
 
     // Create Purchase Order
     const po = await tx.purchase_orders.create({
@@ -2351,24 +2352,45 @@ export async function linkRequirementToPO(
     throw new Error(`Requirement ${requirementId} not found`);
   }
 
-  // Create link
-  await prisma.requirement_po_links.create({
-    data: {
-      requirementId,
-      purchaseOrderId,
-      purchaseOrderItemId,
-      allocatedQuantity,
-    },
+  // Reject requirements already covered by a PO (bug-hunt procurement-16: linking blindly
+  // force-set PO_GENERATED and allowed double-procurement of the same requirement)
+  const coveredStatuses: MaterialRequirementStatus[] = [
+    MaterialRequirementStatus.PO_GENERATED,
+    MaterialRequirementStatus.PO_SENT,
+    MaterialRequirementStatus.PARTIALLY_RECEIVED,
+    MaterialRequirementStatus.RECEIVED,
+  ];
+  if (coveredStatuses.includes(requirement.status)) {
+    throw new Error(`Requirement ${requirementId} is already ${requirement.status} — it is covered by an existing PO`);
+  }
+
+  // Link + status flip atomically; the guarded updateMany re-checks status INSIDE the tx so a
+  // concurrent link cannot double-cover the requirement
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.requirement_po_links.create({
+      data: {
+        requirementId,
+        purchaseOrderId,
+        purchaseOrderItemId,
+        allocatedQuantity,
+      },
+    });
+
+    const flip = await tx.material_requirements.updateMany({
+      where: { id: requirementId, status: { notIn: coveredStatuses } },
+      data: { status: MaterialRequirementStatus.PO_GENERATED },
+    });
+    if (flip.count === 0) {
+      throw new Error(`Requirement ${requirementId} was already covered by another PO`);
+    }
+
+    return tx.material_requirements.findUnique({
+      where: { id: requirementId },
+      include: getRequirementIncludes(),
+    });
   });
 
-  // Update requirement status
-  const updated = await prisma.material_requirements.update({
-    where: { id: requirementId },
-    data: { status: MaterialRequirementStatus.PO_GENERATED },
-    include: getRequirementIncludes(),
-  });
-
-  return mapToResponse(updated);
+  return mapToResponse(updated!);
 }
 
 /**

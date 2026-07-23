@@ -40,6 +40,11 @@ export const MaterialTypeEnum = z.enum([
   'INTERLINING',
   'PADDING',
   'OTHER_FASTENER',
+  // Keep in sync with Prisma MaterialType — missing values made BOMs uneditable (bug-hunt orders-14)
+  'OTHER_TAPE',
+  'OTHER_DECORATIVE',
+  'OTHER_FUNCTIONAL',
+  'OTHER_MATERIAL',
 ]);
 
 export const UsageCategoryEnum = z.enum(['GARMENT_TRIM', 'PACKAGING', 'VALUE_ADDITION', 'FABRIC']);

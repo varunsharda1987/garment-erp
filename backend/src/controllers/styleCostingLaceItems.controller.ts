@@ -69,7 +69,8 @@ export async function addLaceItem(req: Request, res: Response) {
     colorName,
     width: width ? parseFloat(width) : undefined,
     quantityPerGarment: parseFloat(quantityPerGarment),
-    wastagePercent: wastagePercent ? parseFloat(wastagePercent) : undefined,
+    // costing-17: nullish check so a legal wastagePercent of 0 is not dropped
+    wastagePercent: wastagePercent != null ? parseFloat(wastagePercent) : undefined,
     sourcingStrategy,
     greigeCost: greigeCost ? parseFloat(greigeCost) : undefined,
     processingCost: processingCost ? parseFloat(processingCost) : undefined,
@@ -255,7 +256,8 @@ export async function bulkAddLaceItemsController(req: Request, res: Response) {
     ...item,
     width: item.width ? parseFloat(item.width) : undefined,
     quantityPerGarment: parseFloat(item.quantityPerGarment),
-    wastagePercent: item.wastagePercent ? parseFloat(item.wastagePercent) : undefined,
+    // costing-17: nullish check so a legal wastagePercent of 0 is not dropped
+    wastagePercent: item.wastagePercent != null ? parseFloat(item.wastagePercent) : undefined,
     greigeCost: item.greigeCost ? parseFloat(item.greigeCost) : undefined,
     processingCost: item.processingCost ? parseFloat(item.processingCost) : undefined,
     readyLaceCost: item.readyLaceCost ? parseFloat(item.readyLaceCost) : undefined,

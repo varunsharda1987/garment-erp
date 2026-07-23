@@ -146,48 +146,51 @@ export class WeightedAverageCostService {
         stockType = 'EXCESS_MOQ';
       }
 
-      // Create stock record
-      const stock = await prisma.fabric_stock.create({
-        data: {
-          fabricId: data.fabricId,
-          finishedWidth: data.finishedWidth,
-          cutableWidth: data.cutableWidth || data.finishedWidth - 2,
-          quantityAvailable: data.quantityReceived,
-          quantityReserved: 0,
-          quantityConsumed: 0,
-          procurementId: data.procurementId,
-          originStyleId: data.originStyleId || procurement?.orderedForStyleId || null,
-          originOrderId: data.originOrderId || procurement?.orderedForOrderId || null,
-          status: 'AVAILABLE',
-          stockType,
-          weightedAvgCost,
-          purchaseCost: data.purchaseCost,
-          qualityGrade: data.qualityGrade || 'A',
-          receivedDate: new Date(),
-          agingDays: 0,
-          warehouseLocation: data.warehouseLocation,
-          rackNumber: data.rackNumber,
-          rollNumbers: data.rollNumbers,
-          createdById: data.userId,
-        },
-      });
+      // costing-15: stock row and ledger row must commit together
+      const stock = await prisma.$transaction(async (tx) => {
+        const created = await tx.fabric_stock.create({
+          data: {
+            fabricId: data.fabricId,
+            finishedWidth: data.finishedWidth,
+            cutableWidth: data.cutableWidth || data.finishedWidth - 2,
+            quantityAvailable: data.quantityReceived,
+            quantityReserved: 0,
+            quantityConsumed: 0,
+            procurementId: data.procurementId,
+            originStyleId: data.originStyleId || procurement?.orderedForStyleId || null,
+            originOrderId: data.originOrderId || procurement?.orderedForOrderId || null,
+            status: 'AVAILABLE',
+            stockType,
+            weightedAvgCost,
+            purchaseCost: data.purchaseCost,
+            qualityGrade: data.qualityGrade || 'A',
+            receivedDate: new Date(),
+            agingDays: 0,
+            warehouseLocation: data.warehouseLocation,
+            rackNumber: data.rackNumber,
+            rollNumbers: data.rollNumbers,
+            createdById: data.userId,
+          },
+        });
 
-      // Create transaction record
-      await prisma.fabric_stock_transaction.create({
-        data: {
-          stockId: stock.id,
-          transactionType: 'RECEIPT',
-          quantity: data.quantityReceived,
-          referenceType: 'PROCUREMENT',
-          referenceId: data.procurementId,
-          costPerUnit: data.purchaseCost,
-          weightedAvgCost,
-          totalValue: data.quantityReceived * data.purchaseCost,
-          balanceAfter: data.quantityReceived,
-          valueAfter: data.quantityReceived * weightedAvgCost,
-          qualityGradeTo: data.qualityGrade || 'A',
-          createdById: data.userId,
-        },
+        await tx.fabric_stock_transaction.create({
+          data: {
+            stockId: created.id,
+            transactionType: 'RECEIPT',
+            quantity: data.quantityReceived,
+            referenceType: 'PROCUREMENT',
+            referenceId: data.procurementId,
+            costPerUnit: data.purchaseCost,
+            weightedAvgCost,
+            totalValue: data.quantityReceived * data.purchaseCost,
+            balanceAfter: data.quantityReceived,
+            valueAfter: data.quantityReceived * weightedAvgCost,
+            qualityGradeTo: data.qualityGrade || 'A',
+            createdById: data.userId,
+          },
+        });
+
+        return created;
       });
 
       return stock;
@@ -212,53 +215,60 @@ export class WeightedAverageCostService {
     userId: string;
   }) {
     try {
-      const stock = await prisma.fabric_stock.findUnique({
-        where: { id: data.stockId },
+      // costing-15: guarded atomic decrement + ledger insert in one transaction —
+      // prevents concurrent oversell and stock changes without a matching ledger row
+      return await prisma.$transaction(async (tx) => {
+        const stock = await tx.fabric_stock.findUnique({
+          where: { id: data.stockId },
+        });
+
+        if (!stock) {
+          throw new Error('Stock record not found');
+        }
+
+        // Atomic guarded update: only succeeds if enough stock remains at write time
+        const updated = await tx.fabric_stock.updateMany({
+          where: { id: data.stockId, quantityAvailable: { gte: data.quantity } },
+          data: {
+            quantityAvailable: { decrement: data.quantity },
+            quantityConsumed: { increment: data.quantity },
+            lastConsumedDate: new Date(),
+          },
+        });
+
+        if (updated.count === 0) {
+          throw new Error(
+            `Insufficient stock. Available: ${Number(stock.quantityAvailable)}, Requested: ${data.quantity}`
+          );
+        }
+
+        const updatedStock = await tx.fabric_stock.findUniqueOrThrow({
+          where: { id: data.stockId },
+        });
+
+        const newBalance = Number(updatedStock.quantityAvailable);
+        const weightedAvgCost = Number(stock.weightedAvgCost);
+
+        await tx.fabric_stock_transaction.create({
+          data: {
+            stockId: data.stockId,
+            transactionType: 'CONSUMPTION',
+            quantity: data.quantity,
+            referenceType: data.allocationId ? 'ALLOCATION' : 'MANUAL',
+            referenceId: data.allocationId,
+            costPerUnit: weightedAvgCost,
+            weightedAvgCost,
+            totalValue: data.quantity * weightedAvgCost,
+            actualCad: data.actualCad,
+            piecesProduced: data.piecesProduced,
+            balanceAfter: newBalance,
+            valueAfter: newBalance * weightedAvgCost,
+            createdById: data.userId,
+          },
+        });
+
+        return updatedStock;
       });
-
-      if (!stock) {
-        throw new Error('Stock record not found');
-      }
-
-      const availableQty = Number(stock.quantityAvailable);
-
-      if (availableQty < data.quantity) {
-        throw new Error(`Insufficient stock. Available: ${availableQty}, Requested: ${data.quantity}`);
-      }
-
-      // Update stock quantities
-      const updatedStock = await prisma.fabric_stock.update({
-        where: { id: data.stockId },
-        data: {
-          quantityAvailable: availableQty - data.quantity,
-          quantityConsumed: Number(stock.quantityConsumed) + data.quantity,
-          lastConsumedDate: new Date(),
-        },
-      });
-
-      // Create consumption transaction
-      const newBalance = availableQty - data.quantity;
-      const weightedAvgCost = Number(stock.weightedAvgCost);
-
-      await prisma.fabric_stock_transaction.create({
-        data: {
-          stockId: data.stockId,
-          transactionType: 'CONSUMPTION',
-          quantity: data.quantity,
-          referenceType: data.allocationId ? 'ALLOCATION' : 'MANUAL',
-          referenceId: data.allocationId,
-          costPerUnit: weightedAvgCost,
-          weightedAvgCost,
-          totalValue: data.quantity * weightedAvgCost,
-          actualCad: data.actualCad,
-          piecesProduced: data.piecesProduced,
-          balanceAfter: newBalance,
-          valueAfter: newBalance * weightedAvgCost,
-          createdById: data.userId,
-        },
-      });
-
-      return updatedStock;
     } catch (error) {
       logError('Error consuming stock:', error);
       throw error;

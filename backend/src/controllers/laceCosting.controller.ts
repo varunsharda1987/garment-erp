@@ -28,7 +28,8 @@ export async function calculateSingleLaceCost(req: Request, res: Response) {
     laceId,
     quantityPerGarment: parseFloat(quantityPerGarment),
     orderQuantity: orderQuantity ? parseInt(orderQuantity) : undefined,
-    wastagePercent: wastagePercent ? parseFloat(wastagePercent) : undefined,
+    // costing-17: nullish check so a legal wastagePercent of 0 is not dropped
+    wastagePercent: wastagePercent != null ? parseFloat(wastagePercent) : undefined,
     styleId,
     costSheetId,
   });
@@ -62,7 +63,8 @@ export async function calculateBatchLaceCosts(req: Request, res: Response) {
       : orderQuantity
         ? parseInt(orderQuantity)
         : undefined,
-    wastagePercent: item.wastagePercent ? parseFloat(item.wastagePercent) : undefined,
+    // costing-17: nullish check so a legal wastagePercent of 0 is not dropped
+    wastagePercent: item.wastagePercent != null ? parseFloat(item.wastagePercent) : undefined,
     styleId: item.styleId || styleId,
     costSheetId: item.costSheetId || costSheetId,
   }));

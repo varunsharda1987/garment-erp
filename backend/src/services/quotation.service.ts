@@ -11,6 +11,7 @@ import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { gstService, GSTCalculation } from './gst.service';
+import { addCurrency, multiplyCurrency, roundToCent } from '../utils/currency';
 
 // ============================================
 // Types
@@ -46,8 +47,8 @@ export interface UpdateQuotationDTO extends Partial<Omit<CreateQuotationDTO, 'cu
 export interface QuotationQueryOptions extends PaginationOptions {
   status?: QuotationStatus;
   customerId?: string;
-  fromDate?: string;
-  toDate?: string;
+  fromDate?: string | Date;
+  toDate?: string | Date;
 }
 
 export interface QuotationSummary {
@@ -165,10 +166,12 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
    * Calculate total amount from items
    */
   private calculateTotalAmount(items: QuotationItemDTO[]): number {
-    return items.reduce((sum, item) => {
-      const itemTotal = item.totalQuantity * item.unitPrice;
-      return sum + itemTotal;
-    }, 0);
+    // decimal.js accumulation — raw float sums drifted at paise level (bug-hunt orders-17)
+    const total = items.reduce(
+      (sum, item) => sum.plus(roundToCent(multiplyCurrency(item.totalQuantity, item.unitPrice))),
+      addCurrency(0)
+    );
+    return roundToCent(total).toNumber();
   }
 
   /**
@@ -252,7 +255,7 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
       // Build items with GST (if estimation enabled)
       const itemsForCreate = await Promise.all(
         data.items.map(async (item) => {
-          const totalPrice = item.totalQuantity * item.unitPrice;
+          const totalPrice = roundToCent(multiplyCurrency(item.totalQuantity, item.unitPrice)).toNumber(); // bug-hunt orders-17
 
           // Get HSN code from style
           let hsnCode: string | null = null;
@@ -299,16 +302,17 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
         })
       );
 
-      // Recalculate header GST from per-item GST (more accurate)
+      // Recalculate header GST from per-item GST (more accurate).
+      // Summed with decimal.js and rounded once at the header (bug-hunt orders-17).
       if (gstCalc && placeOfSupplyId) {
-        const itemCgst = itemsForCreate.reduce((s, i) => s + (i.cgstAmount || 0), 0);
-        const itemSgst = itemsForCreate.reduce((s, i) => s + (i.sgstAmount || 0), 0);
-        const itemIgst = itemsForCreate.reduce((s, i) => s + (i.igstAmount || 0), 0);
-        gstCalc.cgst = itemCgst;
-        gstCalc.sgst = itemSgst;
-        gstCalc.igst = itemIgst;
-        gstCalc.totalTax = itemCgst + itemSgst + itemIgst;
-        totalWithTax = totalAmount + gstCalc.totalTax;
+        const itemCgst = roundToCent(addCurrency(...itemsForCreate.map((i) => i.cgstAmount || 0)));
+        const itemSgst = roundToCent(addCurrency(...itemsForCreate.map((i) => i.sgstAmount || 0)));
+        const itemIgst = roundToCent(addCurrency(...itemsForCreate.map((i) => i.igstAmount || 0)));
+        gstCalc.cgst = itemCgst.toNumber();
+        gstCalc.sgst = itemSgst.toNumber();
+        gstCalc.igst = itemIgst.toNumber();
+        gstCalc.totalTax = roundToCent(itemCgst.plus(itemSgst).plus(itemIgst)).toNumber();
+        totalWithTax = roundToCent(addCurrency(totalAmount, gstCalc.totalTax)).toNumber();
       }
 
       // Create quotation with items
@@ -665,10 +669,10 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
       const isInterstate = COMPANY_STATE_ID !== placeOfSupplyId;
       const items = quotation.quotation_items || [];
 
-      // Calculate per-item GST
-      let headerCgst = 0;
-      let headerSgst = 0;
-      let headerIgst = 0;
+      // Calculate per-item GST (header sums via decimal.js — bug-hunt orders-17)
+      let headerCgstDec = addCurrency(0);
+      let headerSgstDec = addCurrency(0);
+      let headerIgstDec = addCurrency(0);
 
       for (const item of items) {
         const totalPrice = parseFloat(item.totalPrice.toString());
@@ -680,9 +684,9 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
           isInterstate,
         });
 
-        headerCgst += gst.cgstAmount;
-        headerSgst += gst.sgstAmount;
-        headerIgst += gst.igstAmount;
+        headerCgstDec = headerCgstDec.plus(gst.cgstAmount);
+        headerSgstDec = headerSgstDec.plus(gst.sgstAmount);
+        headerIgstDec = headerIgstDec.plus(gst.igstAmount);
 
         // Update item with GST fields
         await this.prisma.quotation_items.update({
@@ -701,9 +705,12 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
         });
       }
 
-      const totalTax = headerCgst + headerSgst + headerIgst;
+      const headerCgst = roundToCent(headerCgstDec).toNumber();
+      const headerSgst = roundToCent(headerSgstDec).toNumber();
+      const headerIgst = roundToCent(headerIgstDec).toNumber();
+      const totalTax = roundToCent(addCurrency(headerCgst, headerSgst, headerIgst)).toNumber();
       const subtotal = parseFloat((quotation.totalAmount || 0).toString());
-      const totalWithTax = subtotal + totalTax;
+      const totalWithTax = roundToCent(addCurrency(subtotal, totalTax)).toNumber();
 
       // Update quotation header with tax estimation
       const updated = await this.model.update({

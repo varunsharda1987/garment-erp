@@ -197,6 +197,7 @@ export async function validateCostSheetRates(costSheetId: string): Promise<RateV
               id: true,
               effectiveFrom: true,
               slabId: true,
+              processingType: true, // costing-14: needed to validate against the correct process
             },
           },
         },
@@ -215,6 +216,7 @@ export async function validateCostSheetRates(costSheetId: string): Promise<RateV
               id: true,
               effectiveFrom: true,
               slabId: true,
+              processingType: true, // costing-14: needed to validate against the correct process
             },
           },
         },
@@ -246,11 +248,13 @@ export async function validateCostSheetRates(costSheetId: string): Promise<RateV
     const costSheetRate = toNumber(item.processingCost);
     if (costSheetRate === 0) continue; // Skip items without processing cost
 
+    // costing-14: validate against the processing type the cost-sheet rate was built with
+    // (DYEING or PRINTING) — a hardcoded 'DYEING' silently skipped validation for printed items
     const currentRate = await getCurrentProcessorRate(
       item.processorId,
       item.greigeId,
       null,
-      'DYEING',
+      item.rateCard?.processingType || 'DYEING',
       item.rateCard?.slabId
     );
 
@@ -296,11 +300,12 @@ export async function validateCostSheetRates(costSheetId: string): Promise<RateV
     const costSheetRate = toNumber(item.processingCost);
     if (costSheetRate === 0) continue;
 
+    // costing-14: use the item's actual processing type instead of hardcoded 'DYEING'
     const currentRate = await getCurrentProcessorRate(
       item.processorId,
       null,
       item.greigeLaceId,
-      'DYEING',
+      item.rateCard?.processingType || 'DYEING',
       item.rateCard?.slabId
     );
 

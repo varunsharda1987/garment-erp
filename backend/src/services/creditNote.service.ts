@@ -2,6 +2,8 @@ import prisma from '../config/database';
 import { Prisma, CreditNoteReason, DocumentStatus } from '@prisma/client';
 import { gstService } from './gst.service';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
+import { generateAtomicCreditNoteNumber } from '../utils/atomicCodeGenerator';
+import { roundToCent, multiplyCurrency, addCurrency } from '../utils/currency';
 
 interface CreditNoteCreateInput {
   invoiceId: string;
@@ -32,30 +34,13 @@ interface CreditNoteQueryParams {
 
 export class CreditNoteService {
   /**
-   * Generate next credit note number (CN-001, CN-002, etc.)
+   * Generate next credit note number (CN2607-0001, ...).
+   * bug-hunt financial-gst-11: the old lexicographic findFirst('desc') + padStart(3) generator
+   * permanently wedged after CN-999 ('CN-999' > 'CN-1000' as strings → eternal P2002) and raced
+   * under concurrency. The atomic sequence UPSERT cannot collide.
    */
   private async generateCreditNoteNumber(): Promise<string> {
-    const lastCreditNote = await prisma.credit_notes.findFirst({
-      where: {
-        creditNoteNumber: {
-          startsWith: 'CN-',
-        },
-      },
-      orderBy: {
-        creditNoteNumber: 'desc',
-      },
-      select: {
-        creditNoteNumber: true,
-      },
-    });
-
-    if (!lastCreditNote) {
-      return 'CN-001';
-    }
-
-    const lastNumber = parseInt(lastCreditNote.creditNoteNumber.replace('CN-', ''), 10);
-    const nextNumber = lastNumber + 1;
-    return `CN-${nextNumber.toString().padStart(3, '0')}`;
+    return generateAtomicCreditNoteNumber();
   }
 
   /**
@@ -78,14 +63,36 @@ export class CreditNoteService {
       // Generate credit note number
       const creditNoteNumber = await this.generateCreditNoteNumber();
 
+      // bug-hunt financial-gst-15: a credit note reverses the tax the invoice actually charged.
+      // For items linked to an invoice line, copy the STORED gstRate/hsnCode from invoice_items
+      // instead of re-resolving from current rate tables (which fall back to 5% when hsnCode is
+      // omitted, or may have changed since the invoice was issued).
+      const linkedItemIds = data.items.map((item) => item.invoiceItemId).filter((id): id is string => Boolean(id));
+      const linkedInvoiceItems = linkedItemIds.length
+        ? await tx.invoice_items.findMany({
+            where: { id: { in: linkedItemIds }, invoiceId: data.invoiceId },
+            select: { id: true, gstRate: true, hsnCode: true },
+          })
+        : [];
+      const linkedItemById = new Map(linkedInvoiceItems.map((li) => [li.id, li]));
+
       // Calculate GST for each item
       const itemsWithGST = await Promise.all(
         data.items.map(async (item) => {
-          const lineTotal = item.quantity * item.unitPrice;
+          const lineTotal = roundToCent(multiplyCurrency(item.quantity, item.unitPrice)).toNumber();
+
+          const linked = item.invoiceItemId ? linkedItemById.get(item.invoiceItemId) : undefined;
+          if (item.invoiceItemId && !linked) {
+            throw new ValidationError(
+              `Invoice item ${item.invoiceItemId} does not belong to invoice ${data.invoiceId}`
+            );
+          }
 
           const gstResult = await gstService.calculateLineItemGST({
             lineTotal,
-            hsnSacCode: item.hsnCode,
+            hsnSacCode: item.hsnCode || linked?.hsnCode,
+            // Reverse at the invoiced rate for linked lines; fresh lookup only for unlinked lines
+            gstRateOverride: linked ? Number(linked.gstRate) : undefined,
             isInterstate,
             unitPrice: item.unitPrice,
           });
@@ -93,7 +100,7 @@ export class CreditNoteService {
           return {
             invoiceItemId: item.invoiceItemId || null,
             description: item.description,
-            hsnCode: item.hsnCode || null,
+            hsnCode: item.hsnCode || linked?.hsnCode || null,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             totalPrice: lineTotal,
@@ -106,21 +113,28 @@ export class CreditNoteService {
         })
       );
 
-      // Sum up header totals
-      let subtotal = 0;
-      let totalCgst = 0;
-      let totalSgst = 0;
-      let totalIgst = 0;
-
-      for (const item of itemsWithGST) {
-        subtotal += item.totalPrice;
-        totalCgst += item.cgstAmount;
-        totalSgst += item.sgstAmount;
-        totalIgst += item.igstAmount;
-      }
-
-      const totalTax = parseFloat((totalCgst + totalSgst + totalIgst).toFixed(2));
-      const totalAmount = parseFloat((subtotal + totalTax).toFixed(2));
+      // Header totals via the shared decimal.js aggregation (bug-hunt financial-gst-13:
+      // was a raw float += loop that drifted paise vs the stored per-line amounts)
+      const totals = gstService.calculateTotals(
+        itemsWithGST.map((item) => ({
+          lineTotal: item.totalPrice,
+          hsnCode: item.hsnCode,
+          gstRate: item.gstRate,
+          cgstRate: 0,
+          cgstAmount: item.cgstAmount,
+          sgstRate: 0,
+          sgstAmount: item.sgstAmount,
+          igstRate: 0,
+          igstAmount: item.igstAmount,
+          taxAmount: item.taxAmount,
+        }))
+      );
+      const subtotal = totals.subtotal;
+      const totalCgst = totals.totalCgst;
+      const totalSgst = totals.totalSgst;
+      const totalIgst = totals.totalIgst;
+      const totalTax = totals.totalTax;
+      const totalAmount = roundToCent(addCurrency(subtotal, totalTax)).toNumber();
 
       // Validate: cumulative credit notes must not exceed invoice total
       const existingCreditNotes = await tx.credit_notes.aggregate({
@@ -156,10 +170,10 @@ export class CreditNoteService {
           reason: data.reason,
           remarks: data.remarks || null,
           isInterstate,
-          subtotal: parseFloat(subtotal.toFixed(2)),
-          cgstAmount: parseFloat(totalCgst.toFixed(2)),
-          sgstAmount: parseFloat(totalSgst.toFixed(2)),
-          igstAmount: parseFloat(totalIgst.toFixed(2)),
+          subtotal,
+          cgstAmount: totalCgst,
+          sgstAmount: totalSgst,
+          igstAmount: totalIgst,
           totalTax,
           totalAmount,
           status: 'DRAFT',

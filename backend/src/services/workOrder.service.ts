@@ -3,6 +3,14 @@ import logger from '../utils/logger';
 import { OrderStatus, Priority, ProductionStage, Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
+import {
+  addCurrency,
+  multiplyCurrency,
+  subtractCurrency,
+  divideCurrency,
+  roundToCent,
+  toNumber,
+} from '../utils/currency';
 
 export interface CreateWorkOrderDTO {
   orderId?: string | null;
@@ -71,14 +79,17 @@ class WorkOrderService {
   /**
    * Generate unique work order number
    */
-  private async generateWorkOrderNumber(): Promise<string> {
+  private async generateWorkOrderNumber(tx?: Prisma.TransactionClient): Promise<string> {
+    // Accepts the caller's transaction client — splitWorkOrder used to call this via the GLOBAL
+    // prisma client from inside its $transaction, escaping tx isolation (bug-hunt production-17).
+    const db = tx ?? prisma;
     const year = new Date().getFullYear().toString().slice(-2);
     const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
 
     // Find the last work order number for this month (including deleted WOs to avoid gaps in sequence)
     // Note: We include deleted work orders to maintain sequential numbering without gaps.
     // This prevents confusion in auditing and maintains continuous numbering like WO2511-0001, WO2511-0002, etc.
-    const lastWorkOrder = await prisma.work_orders.findFirst({
+    const lastWorkOrder = await db.work_orders.findFirst({
       where: {
         workOrderNumber: {
           startsWith: `WO${year}${month}`,
@@ -102,6 +113,15 @@ class WorkOrderService {
    * Create a new work order
    */
   async createWorkOrder(data: CreateWorkOrderDTO) {
+    // Service-level backstop for internal callers (createFromOrderItem etc.) that bypass the Zod
+    // schema: header total must equal the breakup sum (bug-hunt production-19).
+    const breakupSum = data.colorSizeBreakup.reduce((sum, b) => sum + b.quantity, 0);
+    if (breakupSum !== data.totalQuantity) {
+      throw new Error(
+        `Work order totalQuantity (${data.totalQuantity}) does not match the color/size breakup sum (${breakupSum})`
+      );
+    }
+
     const workOrderNumber = await this.generateWorkOrderNumber();
 
     const workOrder = await prisma.work_orders.create({
@@ -530,7 +550,12 @@ class WorkOrderService {
   /**
    * Add production tracking update
    */
-  async addProductionTracking(data: ProductionTrackingDTO, isAdminOverride: boolean = false, overrideReason?: string) {
+  async addProductionTracking(
+    data: ProductionTrackingDTO,
+    isAdminOverride: boolean = false,
+    overrideReason?: string,
+    outerTx?: Prisma.TransactionClient
+  ) {
     // Import validation service
     const { productionBlockingValidationService } = await import('./productionBlockingValidation.service');
 
@@ -560,7 +585,9 @@ class WorkOrderService {
     // RECOMPUTED as SUM(PACKING tracking rows) — never taken from a single entry (bug-hunt production-1:
     // the old code only set completedQuantity when ONE entry alone reached totalQuantity, so a WO packed
     // in two 500-pc entries stayed at 0 forever and CMT costs were computed on 0).
-    const tracking = await prisma.$transaction(async (tx) => {
+    // outerTx lets callers (e.g. pushToCutting) make the tracking insert atomic with their own
+    // writes (bug-hunt production-15).
+    const runInTransaction = async (tx: Prisma.TransactionClient) => {
       const created = await tx.production_tracking.create({
         data: {
           id: randomUUID(),
@@ -641,7 +668,9 @@ class WorkOrderService {
       }
 
       return created;
-    });
+    };
+
+    const tracking = outerTx ? await runInTransaction(outerTx) : await prisma.$transaction(runInTransaction);
 
     return tracking;
   }
@@ -890,8 +919,8 @@ class WorkOrderService {
 
     // Use transaction to ensure consistency
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Create new work order with split quantities
-      const newWorkOrderNumber = await this.generateWorkOrderNumber();
+      // 1. Create new work order with split quantities (number generated inside THIS tx — production-17)
+      const newWorkOrderNumber = await this.generateWorkOrderNumber(tx);
 
       const newWorkOrder = await tx.work_orders.create({
         data: {
@@ -1052,13 +1081,13 @@ class WorkOrderService {
       smockingCost: Number(costSheet.smockingCost) || 0,
     };
 
-    // Use cmtCost if available, otherwise sum components
+    // Use cmtCost if available, otherwise sum components (decimal math — bug-hunt production-21)
     const perPieceCost =
       Number(costSheet.cmtCost) > 0
         ? Number(costSheet.cmtCost)
-        : Object.values(breakdown).reduce((sum, cost) => sum + cost, 0);
+        : toNumber(roundToCent(addCurrency(...Object.values(breakdown))));
 
-    const totalCost = perPieceCost * workOrder.completedQuantity;
+    const totalCost = toNumber(roundToCent(multiplyCurrency(perPieceCost, workOrder.completedQuantity)));
 
     logger.info(`CMT calculation for WO ${workOrderId}:`, {
       perPieceCost,
@@ -1110,19 +1139,22 @@ class WorkOrderService {
     });
 
     if (existingCosting) {
-      // Update with actual cost
-      // The actualCostPerPiece should factor in actual CMT
+      // Update with actual cost — decimal math through utils/currency (bug-hunt production-21)
       const currentActual = Number(existingCosting.actualCostPerPiece) || 0;
       const estimatedCmt = Number(existingCosting.cmtTotal) || 0;
 
       // New actual = (current actual - estimated CMT) + actual CMT
-      const newActualPerPiece = currentActual - estimatedCmt + cmtResult.perPieceCost;
+      const newActualPerPiece = toNumber(
+        // .toString(): subtractCurrency returns Decimal; addCurrency accepts string|number (lossless via string)
+        roundToCent(addCurrency(subtractCurrency(currentActual, estimatedCmt).toString(), cmtResult.perPieceCost))
+      );
 
       // Calculate variance
       const estimatedCost =
         Number(existingCosting.estimatedCostPerPiece) || Number(existingCosting.totalCostPerPiece) || 0;
-      const varianceAmount = newActualPerPiece - estimatedCost;
-      const variancePercent = estimatedCost > 0 ? (varianceAmount / estimatedCost) * 100 : 0;
+      const varianceAmount = toNumber(roundToCent(subtractCurrency(newActualPerPiece, estimatedCost)));
+      const variancePercent =
+        estimatedCost > 0 ? toNumber(roundToCent(divideCurrency(varianceAmount, estimatedCost).times(100))) : 0;
 
       await prisma.order_item_costing.update({
         where: { orderItemId: workOrder.orderItemId },

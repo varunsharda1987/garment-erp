@@ -7,6 +7,7 @@ import prisma from '../config/database';
 import { Prisma, order_item_costing } from '@prisma/client';
 import { NotFoundError, ValidationError, BusinessError, InternalError } from '../errors';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
+import { addCurrency, roundToCent } from '../utils/currency';
 
 // Types
 export interface RecalculateCostingDTO {
@@ -90,7 +91,13 @@ class OrderCostingServiceClass {
         include: {
           styles: {
             include: {
-              style_costing: true,
+              // Only the current approved version — a bare include returned unspecified order and
+              // could base recalculation on a superseded/unapproved sheet (bug-hunt orders-20)
+              style_costing: {
+                where: { isApproved: true, supersededById: null },
+                orderBy: { version: 'desc' as const },
+                take: 1,
+              },
               style_components: {
                 include: {
                   style_fabrics: {
@@ -170,18 +177,26 @@ class OrderCostingServiceClass {
           Number(baseCosting.otherOverheads || 0)
         : 0;
 
-      // Calculate total cost per piece
-      const subtotal =
-        fabricTotal + trimsTotal + embroideryTotal + accessoriesTotal + cmtTotal + processingTotal + overheadsTotal;
+      // Calculate total cost per piece via decimal.js — raw float math drifted vs the
+      // cost-sheet module's Decimal math (bug-hunt orders-17)
+      const subtotalDec = addCurrency(
+        fabricTotal,
+        trimsTotal,
+        embroideryTotal,
+        accessoriesTotal,
+        cmtTotal,
+        processingTotal,
+        overheadsTotal
+      );
 
       // Apply value loss and markup from base costing
       const valueLossPercent = baseCosting ? Number(baseCosting.valueLossPercent || 2) : 2;
       const markupPercent = baseCosting ? Number(baseCosting.markupPercent || 15) : 15;
 
-      const valueLossAmount = (subtotal * valueLossPercent) / 100;
-      const totalAfterValueLoss = subtotal + valueLossAmount;
-      const markupAmount = (totalAfterValueLoss * markupPercent) / 100;
-      const totalCostPerPiece = totalAfterValueLoss + markupAmount;
+      const valueLossAmountDec = subtotalDec.times(valueLossPercent).dividedBy(100);
+      const totalAfterValueLossDec = subtotalDec.plus(valueLossAmountDec);
+      const markupAmountDec = totalAfterValueLossDec.times(markupPercent).dividedBy(100);
+      const totalCostPerPiece = roundToCent(totalAfterValueLossDec.plus(markupAmountDec)).toNumber();
 
       // Calculate selling price and margin if base costing has it
       let sellingPricePerPiece = null;
@@ -436,7 +451,12 @@ class OrderCostingServiceClass {
       include: {
         styles: {
           include: {
-            style_costing: true,
+            // Current approved version only (bug-hunt orders-20)
+            style_costing: {
+              where: { isApproved: true, supersededById: null },
+              orderBy: { version: 'desc' as const },
+              take: 1,
+            },
           },
         },
         order_item_costing: true,

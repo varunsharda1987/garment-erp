@@ -15,6 +15,7 @@ import prisma from '../config/database';
 import { COMPANY_CONFIG } from '../config/company.config';
 import { ValidationError } from '../errors';
 import { logDebug, logError, logWarn } from '../utils/logger';
+import { roundToCent, percentOf, addCurrency, toCurrency } from '../utils/currency';
 import type {
   LineItemGSTResult,
   POGSTTotals,
@@ -234,6 +235,7 @@ class GSTServiceClass {
       unitPrice,
     });
 
+    // decimal.js math per bug-hunt financial-gst-13 (raw float * / toFixed drifted paise)
     let cgstRate = 0,
       cgstAmount = 0;
     let sgstRate = 0,
@@ -243,26 +245,26 @@ class GSTServiceClass {
 
     if (isInterstate) {
       igstRate = gstRate;
-      igstAmount = parseFloat(((lineTotal * gstRate) / 100).toFixed(2));
+      igstAmount = roundToCent(percentOf(lineTotal, gstRate)).toNumber();
     } else {
       cgstRate = gstRate / 2;
       sgstRate = gstRate / 2;
-      cgstAmount = parseFloat(((lineTotal * cgstRate) / 100).toFixed(2));
-      sgstAmount = parseFloat(((lineTotal * sgstRate) / 100).toFixed(2));
+      cgstAmount = roundToCent(percentOf(lineTotal, cgstRate)).toNumber();
+      sgstAmount = roundToCent(percentOf(lineTotal, sgstRate)).toNumber();
     }
 
-    const taxAmount = cgstAmount + sgstAmount + igstAmount;
+    const taxAmount = roundToCent(addCurrency(cgstAmount, sgstAmount, igstAmount)).toNumber();
 
     return {
       hsnCode: hsnSacCode || null,
       gstRate,
-      cgstRate: parseFloat(cgstRate.toFixed(2)),
+      cgstRate: roundToCent(cgstRate).toNumber(),
       cgstAmount,
-      sgstRate: parseFloat(sgstRate.toFixed(2)),
+      sgstRate: roundToCent(sgstRate).toNumber(),
       sgstAmount,
-      igstRate: parseFloat(igstRate.toFixed(2)),
+      igstRate: roundToCent(igstRate).toNumber(),
       igstAmount,
-      taxAmount: parseFloat(taxAmount.toFixed(2)),
+      taxAmount,
     };
   }
 
@@ -270,31 +272,31 @@ class GSTServiceClass {
    * Aggregate item-level GST into PO/invoice header totals
    */
   calculateTotals(items: Array<{ lineTotal: number } & LineItemGSTResult>): POGSTTotals {
-    // Accumulate using plain numbers but round only at the end (not per-item)
-    // to minimize rounding drift across many line items
-    let subtotal = 0;
-    let totalCgst = 0;
-    let totalSgst = 0;
-    let totalIgst = 0;
+    // Header totals are the EXACT decimal.js sum of the already-rounded per-line amounts that
+    // get stored on the item rows, so header always reconciles with sum(items) to the paise
+    // (bug-hunt financial-gst-13: float += accumulation drifted vs the stored line values).
+    let subtotal = toCurrency(0);
+    let totalCgst = toCurrency(0);
+    let totalSgst = toCurrency(0);
+    let totalIgst = toCurrency(0);
 
     for (const item of items) {
-      subtotal += item.lineTotal;
-      totalCgst += item.cgstAmount;
-      totalSgst += item.sgstAmount;
-      totalIgst += item.igstAmount;
+      subtotal = subtotal.plus(toCurrency(item.lineTotal));
+      totalCgst = totalCgst.plus(toCurrency(item.cgstAmount));
+      totalSgst = totalSgst.plus(toCurrency(item.sgstAmount));
+      totalIgst = totalIgst.plus(toCurrency(item.igstAmount));
     }
 
-    // Round to 2 decimal places only at the header level
-    const roundedCgst = parseFloat(totalCgst.toFixed(2));
-    const roundedSgst = parseFloat(totalSgst.toFixed(2));
-    const roundedIgst = parseFloat(totalIgst.toFixed(2));
+    const roundedCgst = roundToCent(totalCgst);
+    const roundedSgst = roundToCent(totalSgst);
+    const roundedIgst = roundToCent(totalIgst);
 
     return {
-      subtotal: parseFloat(subtotal.toFixed(2)),
-      totalCgst: roundedCgst,
-      totalSgst: roundedSgst,
-      totalIgst: roundedIgst,
-      totalTax: parseFloat((roundedCgst + roundedSgst + roundedIgst).toFixed(2)),
+      subtotal: roundToCent(subtotal).toNumber(),
+      totalCgst: roundedCgst.toNumber(),
+      totalSgst: roundedSgst.toNumber(),
+      totalIgst: roundedIgst.toNumber(),
+      totalTax: roundToCent(roundedCgst.plus(roundedSgst).plus(roundedIgst)).toNumber(),
     };
   }
 
@@ -346,13 +348,33 @@ class GSTServiceClass {
         };
       }
 
-      // Cannot determine — assume intrastate (safer for tax purposes)
+      // Cannot determine (supplier has no GST/state data configured) — assume intrastate
       logDebug(`Could not determine supplier state for ${supplierId}, defaulting to intrastate`);
       return { isInterstate: false, supplierStateCode: null };
     } catch (error) {
+      // bug-hunt financial-gst-14: a DB/lookup FAILURE must not silently classify the supply
+      // as intrastate (wrong tax head on statutory documents) — propagate instead.
       logError('Error determining interstate status:', error);
-      return { isInterstate: false, supplierStateCode: null };
+      throw error;
     }
+  }
+
+  /**
+   * Single interstate authority for state-ID based classification (bug-hunt financial-gst-14).
+   * Compares the place-of-supply state row's stateCode against COMPANY_CONFIG.stateCode — the
+   * same source isInterstatePO/isInterstateSale use — instead of comparing raw state UUIDs
+   * against the COMPANY_STATE_ID env var. Lookup failures propagate; they must not default
+   * the tax classification to intrastate.
+   */
+  async isInterstateByStateId(placeOfSupplyStateId: string): Promise<boolean> {
+    const state = await prisma.indian_states.findUnique({
+      where: { id: placeOfSupplyStateId },
+      select: { stateCode: true },
+    });
+    if (!state) {
+      throw new ValidationError('Place-of-supply state not found — cannot determine GST classification');
+    }
+    return state.stateCode !== COMPANY_CONFIG.stateCode;
   }
 
   /**
@@ -375,12 +397,13 @@ class GSTServiceClass {
         };
       }
 
-      // Cannot determine — assume intrastate
+      // Cannot determine (customer has no billing state configured) — assume intrastate
       logDebug(`Could not determine customer state for ${customerId}, defaulting to intrastate`);
       return { isInterstate: false, supplierStateCode: null };
     } catch (error) {
+      // bug-hunt financial-gst-14: propagate lookup failures instead of silently intrastate
       logError('Error determining interstate sale status:', error);
-      return { isInterstate: false, supplierStateCode: null };
+      throw error;
     }
   }
 

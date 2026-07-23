@@ -23,6 +23,7 @@ import prisma from '../config/database'; // Use singleton to avoid connection po
 import { logInfo, logError } from '../utils/logger';
 import { generateAtomicGRNNumber } from '../utils/atomicCodeGenerator';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { addCurrency, multiplyCurrency, roundToCent } from '../utils/currency';
 import {
   validateSourceMismatchOverride,
   executeSourceMismatchCleanup,
@@ -91,8 +92,9 @@ class GRNService {
         );
       }
 
-      // Validate accepted + rejected = received
-      if (item.acceptedQuantity + item.rejectedQuantity !== item.receivedQuantity) {
+      // Validate accepted + rejected = received (epsilon compare — bug-hunt procurement-8:
+      // strict float equality rejected legitimate decimal receipts like 10.1 + 0.2 vs 10.3)
+      if (Math.abs(item.acceptedQuantity + item.rejectedQuantity - item.receivedQuantity) > 0.001) {
         throw new Error(
           `Accepted (${item.acceptedQuantity}) + Rejected (${item.rejectedQuantity}) must equal Received (${item.receivedQuantity})`
         );
@@ -641,7 +643,8 @@ class GRNService {
               : jobWorkOrder.fabricStockLot?.purchaseCost
                 ? Number(jobWorkOrder.fabricStockLot.purchaseCost)
                 : 0;
-            const totalCostPerMeter = processingRate + sourceCost;
+            // Decimal math for stock valuation (bug-hunt procurement-22)
+            const totalCostPerMeter = roundToCent(addCurrency(processingRate, sourceCost)).toNumber();
             const qualityGrade = processingQC?.qualityGrade || jobWorkOrder.qualityGrade || 'A';
             const processType = jobWorkOrder.processType;
             const fabricFinishType = processType === 'PRINTING' ? 'PRINTED' : 'DYED';
@@ -707,8 +710,8 @@ class GRNService {
                   status: 'AVAILABLE',
                   stockType: 'PLANNED_STOCK',
                   fabricFinishType: fabricFinishType,
-                  weightedAvgCost: totalCostPerMeter * 0.5,
-                  purchaseCost: totalCostPerMeter * 0.5,
+                  weightedAvgCost: roundToCent(multiplyCurrency(totalCostPerMeter, 0.5)).toNumber(),
+                  purchaseCost: roundToCent(multiplyCurrency(totalCostPerMeter, 0.5)).toNumber(),
                   qualityGrade: 'B',
                   defectMeters: defectMetersNum,
                   receivedDate: jobWorkOrder.receivedDate || new Date(),
@@ -775,20 +778,37 @@ class GRNService {
               data: { status: 'STOCK_UPDATED' },
             });
 
-            // Update PO status to RECEIVED and items receivedQuantity
-            await tx.purchase_orders.update({
-              where: { id: po.id },
-              data: { status: 'RECEIVED' },
+            // Flip the PO to RECEIVED via a guarded updateMany (bug-hunt procurement-20).
+            // RECEIVED-with-shrinkage is intentional for PROCESSING POs (received meters < ordered
+            // is normal mill shrinkage), but only flip from receivable statuses.
+            await tx.purchase_orders.updateMany({
+              where: {
+                id: po.id,
+                status: {
+                  in: [
+                    PurchaseOrderStatus.SENT,
+                    PurchaseOrderStatus.ACKNOWLEDGED,
+                    PurchaseOrderStatus.PARTIALLY_RECEIVED,
+                  ],
+                },
+              },
+              data: { status: PurchaseOrderStatus.RECEIVED },
             });
 
-            const poItems = await tx.purchase_order_items.findMany({
-              where: { poId: po.id },
-            });
-            if (poItems.length > 0) {
-              await tx.purchase_order_items.update({
-                where: { id: poItems[0].id },
-                data: { receivedQuantity: qtyReceived },
+            // Per-item receivedQuantity was already incremented by poItemId at createGRN (bug-hunt
+            // procurement-20: this branch used to ASSIGN the job's total meters onto poItems[0]
+            // only, clobbering those increments and ignoring any other PO items). Only the
+            // degenerate case of a processing GRN created with no item rows still records here.
+            if (!grn.grn_items || grn.grn_items.length === 0) {
+              const firstPoItem = await tx.purchase_order_items.findFirst({
+                where: { poId: po.id },
               });
+              if (firstPoItem) {
+                await tx.purchase_order_items.update({
+                  where: { id: firstPoItem.id },
+                  data: { receivedQuantity: { increment: qtyReceived } },
+                });
+              }
             }
 
             logInfo(`PROCESSING PO approved via GRN - fabric_stock created`, {
@@ -829,7 +849,7 @@ class GRNService {
             // Get unit price from PO item for stock valuation
             const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
 
-            const totalValue = acceptedQty * unitPrice;
+            const totalValue = roundToCent(multiplyCurrency(acceptedQty, unitPrice)).toNumber();
 
             // Create stock movement record (audit trail - always created)
             await tx.stock_movements.create({
@@ -919,7 +939,12 @@ class GRNService {
                 referenceId: grn.id,
                 referenceNumber: grn.grnNumber,
                 rate: item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0,
-                value: rejectedQty * (item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0),
+                value: roundToCent(
+                  multiplyCurrency(
+                    rejectedQty,
+                    item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0
+                  )
+                ).toNumber(),
                 remarks: `Rejected during GRN ${grn.grnNumber} — pending supplier return/credit`,
                 performedById: userId,
                 movementDate: new Date(),
@@ -1133,7 +1158,7 @@ class GRNService {
                 ratePerUnit: actualRate,
                 quantityPurchased: acceptedQty,
                 width: finishedWidth,
-                totalCost: acceptedQty * actualRate,
+                totalCost: roundToCent(multiplyCurrency(acceptedQty, actualRate)).toNumber(),
                 receivedDate: grn.receivingDate || new Date(),
                 status: 'COMPLETED',
                 createdById: userId,

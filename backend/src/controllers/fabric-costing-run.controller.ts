@@ -10,6 +10,21 @@ import { CadPurpose } from '@prisma/client';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 /**
+ * costing-18: derive run totals at read time from the loaded fabricCads. The stored
+ * totalFabricCost/isComplete/fabricCount columns are only refreshed by the optional
+ * recalculate endpoint, so edits made via fabric-costing save would otherwise show stale totals.
+ */
+function computeRunTotals(fabricCads: Array<{ cadAverage: unknown; totalCostPerMeter: unknown }>) {
+  const totalFabricCost = fabricCads.reduce((sum, cad) => {
+    const avg = cad.cadAverage ? Number(cad.cadAverage) : 0;
+    const rate = cad.totalCostPerMeter ? Number(cad.totalCostPerMeter) : 0;
+    return sum + avg * rate;
+  }, 0);
+  const isComplete = fabricCads.every((c) => c.totalCostPerMeter !== null && c.cadAverage !== null);
+  return { totalFabricCost, isComplete, fabricCount: fabricCads.length };
+}
+
+/**
  * GET /api/fabric-costing-runs/style/:styleId
  * Get all costing runs for a style, optionally filtered by purpose
  */
@@ -51,9 +66,10 @@ export async function getRunsByStyle(req: Request, res: Response) {
     orderBy: { runNumber: 'desc' },
   });
 
-  // Transform to include per-garment costs
+  // Transform to include per-garment costs (totals derived from line items, costing-18)
   const result = runs.map((run) => ({
     ...run,
+    ...computeRunTotals(run.fabricCads),
     fabrics: run.fabricCads.map((cad) => ({
       ...cad,
       costPerGarment:
@@ -129,9 +145,10 @@ export async function getRunById(req: Request, res: Response) {
     throw new NotFoundError('Costing run', runId);
   }
 
-  // Transform to include per-garment costs
+  // Transform to include per-garment costs (totals derived from line items, costing-18)
   const result = {
     ...run,
+    ...computeRunTotals(run.fabricCads),
     fabrics: run.fabricCads.map((cad) => ({
       ...cad,
       costPerGarment:

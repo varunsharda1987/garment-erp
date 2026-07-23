@@ -36,7 +36,7 @@ export default function LaceStockList() {
     page: 1,
     limit: 20,
     total: 0,
-    pages: 0,
+    totalPages: 0, // backend key is totalPages (bug-hunt orders-13)
   });
 
   // Filters
@@ -381,7 +381,7 @@ export default function LaceStockList() {
       </Card>
 
       {/* Pagination */}
-      {pagination.pages > 1 && (
+      {pagination.totalPages > 1 && (
         <div className="flex justify-center gap-2 mt-6">
           <Button
             variant="outline"
@@ -392,12 +392,12 @@ export default function LaceStockList() {
             Previous
           </Button>
           <span className="px-4 py-2 text-sm text-muted-foreground">
-            Page {pagination.page} of {pagination.pages}
+            Page {pagination.page} of {pagination.totalPages}
           </span>
           <Button
             variant="outline"
             size="sm"
-            disabled={pagination.page === pagination.pages}
+            disabled={pagination.page === pagination.totalPages}
             onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
           >
             Next

@@ -51,11 +51,20 @@ export const generateCostSheetSchema = z.object({
  * Approve Cost Sheet
  * PATCH /api/style-costing/:id/approve
  */
-export const approveCostSheetSchema = z.object({
-  approved: z.boolean(),
-  remarks: z.string().max(500).optional(),
-  rejectionReason: z.string().max(500).optional(),
-});
+export const approveCostSheetSchema = z
+  .object({
+    // Primary contract (bug-hunt costing-22): matches style-costing-approval.controller.ts —
+    // validateBody strips unknown keys, so action/rejectionNotes MUST be declared here
+    action: z.enum(['approve', 'reject', 'revoke']).optional(),
+    rejectionNotes: z.string().max(500).optional(),
+    // Legacy boolean contract (frontend costSheet.service.ts still sends `approved`)
+    approved: z.boolean().optional(),
+    remarks: z.string().max(500).optional(),
+    rejectionReason: z.string().max(500).optional(),
+  })
+  .refine((data) => data.action !== undefined || typeof data.approved === 'boolean', {
+    message: 'Either action or approved is required',
+  });
 
 /**
  * Create Cost Sheet Version

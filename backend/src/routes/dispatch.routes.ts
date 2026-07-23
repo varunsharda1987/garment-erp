@@ -8,6 +8,7 @@ import {
   deliveryNoteActionSchema,
   createASNSchema,
   asnQuerySchema,
+  asnActionSchema,
   assignTransportSchema,
   recordPODSchema,
   approveASNSchema,
@@ -93,7 +94,9 @@ router.post('/asn', validateBody(createASNSchema), asyncHandler(createASN));
 router.delete('/asn/:id', validateParams(idParamSchema), asyncHandler(deleteASN));
 
 // Workflow actions
-router.post('/asn/:id/apply', validateParams(idParamSchema), validateBody(approveASNSchema), asyncHandler(applyASN));
+// apply reads no body fields — it must not share approveASNSchema, whose appointmentDate is now
+// required for the approve action (bug-hunt dispatch-7/dispatch-14).
+router.post('/asn/:id/apply', validateParams(idParamSchema), validateBody(asnActionSchema), asyncHandler(applyASN));
 router.post(
   '/asn/:id/approve',
   validateParams(idParamSchema),

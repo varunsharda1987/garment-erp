@@ -195,8 +195,8 @@ export const markAsSentSchema = z
  */
 export const recordReceiptSchema = z.object({
   receivedDate: z.coerce.date().optional(),
-  receivedBy: z.string().max(200).optional(),
-  condition: z.string().max(200).optional(),
+  // receivedBy/condition removed: the controller never persisted them and samples has no
+  // such columns — advertising them was silent data loss (bug-hunt samples-embroidery-19)
   remarks: z.string().max(500).optional(),
 });
 

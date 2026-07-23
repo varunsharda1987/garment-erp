@@ -29,12 +29,10 @@ export const SaleOrderStatusEnum = z.enum([
  */
 const saleOrderItemSchema = z.object({
   styleId: z.string().uuid('Invalid style ID'),
-  variantId: z.string().uuid('Invalid variant ID').optional(),
-  skuId: z.string().uuid('Invalid SKU ID').optional(),
+  colorId: z.string().uuid('Invalid color ID').nullable().optional(),
+  sizeId: z.string().uuid('Invalid size ID'),
   quantity: z.number().int().positive('Quantity must be positive'),
-  rate: z.number().nonnegative('Rate cannot be negative'),
-  discount: z.number().min(0).max(100).optional().default(0),
-  taxRate: z.number().min(0).max(100).optional(),
+  unitPrice: z.number().nonnegative('Unit price cannot be negative'),
   remarks: z.string().max(500).optional(),
 });
 
@@ -44,6 +42,12 @@ const saleOrderItemSchema = z.object({
  */
 export const createSaleOrderSchema = z.object({
   customerId: z.string().uuid('Invalid customer ID'),
+  // Bare 'YYYY-MM-DD' (the frontend's <input type="date">) and full ISO must both pass —
+  // the controller does new Date(expectedShipDate) either way.
+  expectedShipDate: z
+    .string()
+    .refine((v) => !Number.isNaN(Date.parse(v)), 'Invalid date')
+    .optional(),
   orderDate: z.string().datetime().optional(),
   deliveryDate: z.string().datetime().optional(),
   paymentTerms: z.string().max(100).optional(),
@@ -58,6 +62,10 @@ export const createSaleOrderSchema = z.object({
  */
 export const updateSaleOrderSchema = z.object({
   customerId: z.string().uuid('Invalid customer ID').optional(),
+  expectedShipDate: z
+    .string()
+    .refine((v) => !Number.isNaN(Date.parse(v)), 'Invalid date')
+    .optional(),
   orderDate: z.string().datetime().optional().nullable(),
   deliveryDate: z.string().datetime().optional().nullable(),
   paymentTerms: z.string().max(100).optional().nullable(),

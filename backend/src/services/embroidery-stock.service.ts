@@ -10,6 +10,9 @@ import { ChallanType, Unit } from '@prisma/client';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { createChallan } from './challan.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+// Money math via decimal.js helpers — raw float divide/multiply drifted the stock ledger
+// value column a paisa per receipt (bug-hunt samples-embroidery-12)
+import { toCurrency, divideCurrency, multiplyCurrency, roundToCent } from '../utils/currency';
 
 // ============================================
 // Types
@@ -119,9 +122,10 @@ class EmbroideryStockService {
       });
 
       // 5. Create stock transaction for the deduction
-      const costPerUnit = parseFloat(sourceStock.weightedAvgCost.toString());
-      const totalValue = data.quantitySent * costPerUnit;
-      const balanceAfterValue = (availableQty - data.quantitySent) * costPerUnit;
+      const totalValue = roundToCent(multiplyCurrency(data.quantitySent, sourceStock.weightedAvgCost.toString()));
+      const balanceAfterValue = roundToCent(
+        multiplyCurrency(availableQty - data.quantitySent, sourceStock.weightedAvgCost.toString())
+      );
 
       await tx.fabric_stock_transaction.create({
         data: {
@@ -131,9 +135,9 @@ class EmbroideryStockService {
           referenceType: 'EMBROIDERY_SEND_OUT',
           costPerUnit: sourceStock.weightedAvgCost,
           weightedAvgCost: sourceStock.weightedAvgCost,
-          totalValue: new Decimal(totalValue),
+          totalValue: new Decimal(totalValue.toString()),
           balanceAfter: new Decimal(availableQty - data.quantitySent),
-          valueAfter: new Decimal(balanceAfterValue),
+          valueAfter: new Decimal(balanceAfterValue.toString()),
           notes: `Sent for embroidery: ${embroidery.designName}`,
           createdById: data.createdById,
         },
@@ -220,6 +224,12 @@ class EmbroideryStockService {
       quantityReceived: data.quantityReceived,
     });
 
+    // Explicit guard: quantityReceived must be a positive number — a 0/negative/NaN value
+    // would corrupt per-meter cost derivation below (bug-hunt samples-embroidery-12)
+    if (!Number.isFinite(data.quantityReceived) || data.quantityReceived <= 0) {
+      throw new Error('quantityReceived must be greater than 0');
+    }
+
     return await prisma.$transaction(async (tx) => {
       // 1. Get send-out record
       const sendOut = await tx.embroidery_send_out.findUnique({
@@ -243,12 +253,12 @@ class EmbroideryStockService {
       const sourceStock = sendOut.sourceFabricStock;
       const embroidery = sendOut.embroidery;
 
-      // 2. Calculate costs
-      const fabricCostPerMeter = parseFloat(sourceStock.weightedAvgCost.toString());
+      // 2. Calculate costs (decimal.js — guarded divide, no float recombination)
+      const fabricCostPerMeter = toCurrency(sourceStock.weightedAvgCost.toString());
       const embroideryCostPerMeter = data.actualCost
-        ? data.actualCost / data.quantityReceived
-        : parseFloat(sendOut.agreedRate.toString());
-      const totalCostPerMeter = fabricCostPerMeter + embroideryCostPerMeter;
+        ? divideCurrency(data.actualCost, data.quantityReceived)
+        : toCurrency(sendOut.agreedRate.toString());
+      const totalCostPerMeter = roundToCent(fabricCostPerMeter.plus(embroideryCostPerMeter));
 
       // 3. Create new embroidered fabric stock
       const embroideredStock = await tx.fabric_stock.create({
@@ -266,8 +276,8 @@ class EmbroideryStockService {
           originOrderId: sendOut.forOrderId || sourceStock.originOrderId,
           status: 'AVAILABLE',
           stockType: 'PLANNED_STOCK', // Embroidered fabric (embroideryId links to embroidery_master)
-          weightedAvgCost: totalCostPerMeter,
-          purchaseCost: totalCostPerMeter,
+          weightedAvgCost: new Decimal(totalCostPerMeter.toString()),
+          purchaseCost: new Decimal(totalCostPerMeter.toString()),
           qualityGrade: data.qualityGrade || 'A',
           warehouseLocation: data.warehouseLocation,
           receivedDate: data.actualReturnDate,
@@ -280,7 +290,7 @@ class EmbroideryStockService {
       });
 
       // 4. Create stock transaction for the receipt
-      const receiptTotalValue = data.quantityReceived * totalCostPerMeter;
+      const receiptTotalValue = roundToCent(totalCostPerMeter.times(data.quantityReceived));
 
       await tx.fabric_stock_transaction.create({
         data: {
@@ -289,11 +299,11 @@ class EmbroideryStockService {
           quantity: new Decimal(data.quantityReceived),
           referenceType: 'EMBROIDERY_SEND_OUT',
           referenceId: sendOut.id,
-          costPerUnit: new Decimal(totalCostPerMeter),
-          weightedAvgCost: new Decimal(totalCostPerMeter),
-          totalValue: new Decimal(receiptTotalValue),
+          costPerUnit: new Decimal(totalCostPerMeter.toString()),
+          weightedAvgCost: new Decimal(totalCostPerMeter.toString()),
+          totalValue: new Decimal(receiptTotalValue.toString()),
           balanceAfter: new Decimal(data.quantityReceived),
-          valueAfter: new Decimal(receiptTotalValue),
+          valueAfter: new Decimal(receiptTotalValue.toString()),
           notes: `Received from embroidery: ${embroidery.designName}`,
           createdById: data.createdById,
         },
@@ -316,7 +326,8 @@ class EmbroideryStockService {
           quantityDamaged: data.quantityDamaged || 0,
           receivedCutableWidth: data.receivedWidth,
           actualReturnDate: data.actualReturnDate,
-          actualCost: data.actualCost || data.quantityReceived * embroideryCostPerMeter,
+          actualCost:
+            data.actualCost ?? Number(roundToCent(embroideryCostPerMeter.times(data.quantityReceived)).toString()),
           invoiceNumber: data.invoiceNumber,
           invoiceDate: data.invoiceDate,
           status: newStatus,
@@ -490,11 +501,11 @@ class EmbroideryStockService {
         },
       });
 
-      // Create reversal transaction
-      const costPerUnit = parseFloat(sourceStock.weightedAvgCost.toString());
-      const cancelTotalValue = quantitySent * costPerUnit;
-      const balanceAfter = parseFloat(sourceStock.quantityAvailable.toString());
-      const valueAfter = balanceAfter * costPerUnit;
+      // Create reversal transaction (decimal.js — bug-hunt samples-embroidery-12)
+      const cancelTotalValue = roundToCent(multiplyCurrency(quantitySent, sourceStock.weightedAvgCost.toString()));
+      const valueAfter = roundToCent(
+        multiplyCurrency(sourceStock.quantityAvailable.toString(), sourceStock.weightedAvgCost.toString())
+      );
 
       await tx.fabric_stock_transaction.create({
         data: {
@@ -505,9 +516,9 @@ class EmbroideryStockService {
           referenceId: sendOut.id,
           costPerUnit: sourceStock.weightedAvgCost,
           weightedAvgCost: sourceStock.weightedAvgCost,
-          totalValue: new Decimal(cancelTotalValue),
+          totalValue: new Decimal(cancelTotalValue.toString()),
           balanceAfter: sourceStock.quantityAvailable,
-          valueAfter: new Decimal(valueAfter),
+          valueAfter: new Decimal(valueAfter.toString()),
           notes: `Embroidery cancelled: ${reason}`,
           createdById: userId,
         },

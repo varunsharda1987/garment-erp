@@ -76,12 +76,16 @@ export const chartOfAccountQuerySchema = z.object({
   limit: z
     .string()
     .optional()
-    .default('10')
+    // Default aligned with the controller (bug-hunt financial-gst-18: schema said 10, controller used 50)
+    .default('50')
     .transform((val) => parseInt(val, 10))
     .pipe(z.number().int().positive().max(1000, 'Limit must not exceed 1000')),
   search: z.string().trim().optional(),
   accountType: AccountTypeEnum.optional(),
   accountGroup: AccountGroupEnum.optional(),
+  // 'null' (literal) filters for root accounts with no parent (bug-hunt financial-gst-18:
+  // the controller read this filter but the schema never declared it)
+  parentAccountId: z.union([z.literal('null'), z.string().uuid('Invalid parent account ID format')]).optional(),
   isActive: z
     .string()
     .optional()

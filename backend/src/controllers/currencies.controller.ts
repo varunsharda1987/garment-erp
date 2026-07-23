@@ -20,23 +20,27 @@ export const createCurrency = async (req: Request, res: Response): Promise<void>
     throw new ConflictError('Currency code already exists');
   }
 
-  // If setting as base currency, unset existing base
-  if (isBaseCurrency) {
-    await prisma.currencies.updateMany({
-      where: { isBaseCurrency: true },
-      data: { isBaseCurrency: false },
-    });
-  }
+  // Base-currency switch must be atomic (bug-hunt financial-gst-16): unsetting the old base and
+  // creating the new one in separate statements could leave the system with ZERO base currency
+  // if the create failed (e.g. a code race slipping past the pre-check).
+  const currency = await prisma.$transaction(async (tx) => {
+    if (isBaseCurrency) {
+      await tx.currencies.updateMany({
+        where: { isBaseCurrency: true },
+        data: { isBaseCurrency: false },
+      });
+    }
 
-  const currency = await prisma.currencies.create({
-    data: {
-      currencyCode: currencyCode.toUpperCase(),
-      currencyName,
-      currencySymbol,
-      isBaseCurrency: isBaseCurrency || false,
-      decimalPlaces: decimalPlaces || 2,
-      isActive: true,
-    },
+    return tx.currencies.create({
+      data: {
+        currencyCode: currencyCode.toUpperCase(),
+        currencyName,
+        currencySymbol,
+        isBaseCurrency: isBaseCurrency || false,
+        decimalPlaces: decimalPlaces || 2,
+        isActive: true,
+      },
+    });
   });
 
   res.status(201).json({
@@ -123,22 +127,24 @@ export const updateCurrency = async (req: Request, res: Response): Promise<void>
     throw new NotFoundError('Currency', code);
   }
 
-  // If setting as base currency, unset existing base
-  if (isBaseCurrency && !existingCurrency.isBaseCurrency) {
-    await prisma.currencies.updateMany({
-      where: { isBaseCurrency: true },
-      data: { isBaseCurrency: false },
-    });
-  }
+  // Atomic base-currency switch (bug-hunt financial-gst-16) — see createCurrency
+  const currency = await prisma.$transaction(async (tx) => {
+    if (isBaseCurrency && !existingCurrency.isBaseCurrency) {
+      await tx.currencies.updateMany({
+        where: { isBaseCurrency: true },
+        data: { isBaseCurrency: false },
+      });
+    }
 
-  const currency = await prisma.currencies.update({
-    where: { currencyCode: code.toUpperCase() },
-    data: {
-      currencyName,
-      currencySymbol,
-      isBaseCurrency,
-      decimalPlaces,
-    },
+    return tx.currencies.update({
+      where: { currencyCode: code.toUpperCase() },
+      data: {
+        currencyName,
+        currencySymbol,
+        isBaseCurrency,
+        decimalPlaces,
+      },
+    });
   });
 
   res.json({

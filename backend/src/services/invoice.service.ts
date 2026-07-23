@@ -11,7 +11,8 @@ import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { gstService } from './gst.service';
-import { roundToCent } from '../utils/currency';
+import { roundToCent, multiplyCurrency, addCurrency } from '../utils/currency';
+import { generateAtomicInvoiceNumber } from '../utils/atomicCodeGenerator';
 
 // ============================================
 // Types
@@ -162,35 +163,13 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
   }
 
   /**
-   * Generate next invoice number
-   * Format: INV-YYMM-0001
+   * Generate next invoice number (INV2607-0001, ...).
+   * bug-hunt financial-gst-11: the old read-max-then-create ran outside any lock, so two
+   * concurrent month-start invoices minted the same number and one 500'd on the unique
+   * index. The atomic sequence UPSERT cannot collide.
    */
   async generateInvoiceNumber(): Promise<string> {
-    const now = new Date();
-    const year = now.getFullYear().toString().slice(-2); // Last 2 digits
-    const month = (now.getMonth() + 1).toString().padStart(2, '0');
-    const prefix = `INV-${year}${month}-`;
-
-    // Find the latest invoice for this month
-    const latestInvoice = await this.model.findFirst({
-      where: {
-        invoiceNumber: {
-          startsWith: prefix,
-        },
-      },
-      orderBy: { createdAt: 'desc' as const },
-    });
-
-    let nextNumber = 1;
-    if (latestInvoice) {
-      // Extract number from INV-YYMM-NNNN
-      const match = latestInvoice.invoiceNumber.match(/INV-\d{4}-(\d+)/);
-      if (match) {
-        nextNumber = parseInt(match[1], 10) + 1;
-      }
-    }
-
-    return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+    return generateAtomicInvoiceNumber();
   }
 
   /**
@@ -253,13 +232,6 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         throw new NotFoundError('Order not found');
       }
 
-      // Get company's state ID from environment variable
-      const COMPANY_STATE_ID = process.env.COMPANY_STATE_ID;
-
-      if (!COMPANY_STATE_ID) {
-        throw new ValidationError('COMPANY_STATE_ID environment variable is not set');
-      }
-
       // Determine place of supply (use provided or default to customer's billing state)
       const placeOfSupplyId = data.placeOfSupplyId || customer.billingStateId;
 
@@ -267,8 +239,10 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         throw new ValidationError('Customer must have a billing state or provide place of supply for GST calculation');
       }
 
-      // Determine interstate status
-      const isInterstate = COMPANY_STATE_ID !== placeOfSupplyId;
+      // Determine interstate status via the single gstService authority (COMPANY_CONFIG.stateCode),
+      // not the COMPANY_STATE_ID env-var UUID comparison (bug-hunt financial-gst-14: two config
+      // sources classified the same counterparty differently across documents)
+      const isInterstate = await gstService.isInterstateByStateId(placeOfSupplyId);
 
       // Generate invoice number
       const invoiceNumber = await this.generateInvoiceNumber();
@@ -279,11 +253,6 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
 
       if (data.items && data.items.length > 0) {
         // ===== Per-item GST calculation =====
-        let subtotal = 0;
-        let headerCgst = 0;
-        let headerSgst = 0;
-        let headerIgst = 0;
-
         const itemsToCreate: Array<{
           id: string;
           invoiceId: string;
@@ -305,8 +274,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         }> = [];
 
         for (const item of data.items) {
-          const totalPrice = item.quantity * item.unitPrice;
-          subtotal += totalPrice;
+          const totalPrice = roundToCent(multiplyCurrency(item.quantity, item.unitPrice)).toNumber();
 
           // Get HSN code: from item, or from style's hsnCode
           let hsnCode = item.hsnCode || null;
@@ -324,10 +292,6 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
             isInterstate,
             unitPrice: item.unitPrice,
           });
-
-          headerCgst += gst.cgstAmount;
-          headerSgst += gst.sgstAmount;
-          headerIgst += gst.igstAmount;
 
           itemsToCreate.push({
             id: randomUUID(),
@@ -350,8 +314,28 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
           });
         }
 
-        const totalTax = headerCgst + headerSgst + headerIgst;
-        const totalAmount = subtotal + totalTax;
+        // Header totals via the shared decimal.js aggregation of the stored per-line amounts
+        // (bug-hunt financial-gst-13: raw float += accumulation drifted paise vs the items)
+        const totals = gstService.calculateTotals(
+          itemsToCreate.map((item) => ({
+            lineTotal: item.totalPrice,
+            hsnCode: item.hsnCode,
+            gstRate: item.gstRate,
+            cgstRate: item.cgstRate,
+            cgstAmount: item.cgstAmount,
+            sgstRate: item.sgstRate,
+            sgstAmount: item.sgstAmount,
+            igstRate: item.igstRate,
+            igstAmount: item.igstAmount,
+            taxAmount: item.taxAmount,
+          }))
+        );
+        const subtotal = totals.subtotal;
+        const headerCgst = totals.totalCgst;
+        const headerSgst = totals.totalSgst;
+        const headerIgst = totals.totalIgst;
+        const totalTax = totals.totalTax;
+        const totalAmount = roundToCent(addCurrency(subtotal, totalTax)).toNumber();
         const invoiceId = randomUUID();
 
         // Create invoice + items in transaction
@@ -403,12 +387,20 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         return invoice!;
       } else {
         // ===== Header-level GST calculation (backward compatible) =====
-        // Base rate 5% for garments ≤₹2,500; per-item calculation (above) handles price slab properly
+        // Base rate 5% for garments ≤₹2,500; per-item calculation (above) handles price slab properly.
+        // Computed through the shared calculateLineItemGST path (single GST + interstate authority).
         const taxRate = data.taxRate || 5;
-        const gstCalc = await gstService.calculateGST(data.subtotal, taxRate, COMPANY_STATE_ID, placeOfSupplyId);
+        const gstCalc = await gstService.calculateLineItemGST({
+          lineTotal: data.subtotal,
+          gstRateOverride: taxRate,
+          isInterstate,
+        });
 
-        const taxAmount = data.taxAmount !== undefined ? data.taxAmount : gstCalc.totalTax;
-        const totalAmount = data.totalAmount !== undefined ? data.totalAmount : data.subtotal + taxAmount;
+        // bug-hunt financial-gst-9: client-supplied taxAmount/totalAmount are IGNORED — the stored
+        // cgst/sgst/igst are always server-computed, so trusting client figures persisted invoices
+        // where taxAmount != cgst+sgst+igst and balanceAmount seeded from the inconsistent total.
+        const taxAmount = gstCalc.taxAmount;
+        const totalAmount = roundToCent(addCurrency(data.subtotal, taxAmount)).toNumber();
         const balanceAmount = totalAmount;
 
         const invoice = await this.model.create({
@@ -426,13 +418,13 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
             paidAmount: 0,
             balanceAmount,
             placeOfSupplyId,
-            cgstAmount: gstCalc.cgst,
-            sgstAmount: gstCalc.sgst,
-            igstAmount: gstCalc.igst,
+            cgstAmount: gstCalc.cgstAmount,
+            sgstAmount: gstCalc.sgstAmount,
+            igstAmount: gstCalc.igstAmount,
             cgstRate: gstCalc.cgstRate,
             sgstRate: gstCalc.sgstRate,
             igstRate: gstCalc.igstRate,
-            isInterstate: gstCalc.isInterstate,
+            isInterstate,
             remarks: data.remarks,
             createdById: data.createdById,
           },
@@ -440,10 +432,10 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         });
 
         logInfo(`Invoice created: ${invoiceNumber}`, {
-          isInterstate: gstCalc.isInterstate,
-          cgst: gstCalc.cgst,
-          sgst: gstCalc.sgst,
-          igst: gstCalc.igst,
+          isInterstate,
+          cgst: gstCalc.cgstAmount,
+          sgst: gstCalc.sgstAmount,
+          igst: gstCalc.igstAmount,
         });
         return invoice;
       }
@@ -681,14 +673,34 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
       // other (bug-hunt T1/F4).
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       return await this.prisma.$transaction(async (tx) => {
-        // Duplicate guard (inside the tx to shrink the race window)
-        const recentDuplicate = await tx.payments.findFirst({
-          where: { invoiceId: data.invoiceId, amount: data.amount, createdAt: { gte: oneDayAgo } },
-        });
-        if (recentDuplicate) {
-          throw new BusinessError(
-            `Possible duplicate payment detected. A payment of ₹${data.amount} for this invoice was already recorded at ${recentDuplicate.createdAt.toISOString()}. If this is intentional, please use a different amount or contact admin.`
-          );
+        // Duplicate guard (inside the tx to shrink the race window).
+        // bug-hunt financial-gst-12: key on the natural key (referenceNumber) when present —
+        // the same UTR/cheque on this invoice is a duplicate REGARDLESS of when it was keyed in,
+        // while two equal-amount payments with different references are legitimate installments.
+        // The amount+24h heuristic only applies to payments without any reference.
+        if (data.referenceNumber) {
+          const sameReference = await tx.payments.findFirst({
+            where: { invoiceId: data.invoiceId, referenceNumber: data.referenceNumber },
+          });
+          if (sameReference) {
+            throw new BusinessError(
+              `Duplicate payment detected. Reference number "${data.referenceNumber}" was already recorded for this invoice at ${sameReference.createdAt.toISOString()}.`
+            );
+          }
+        } else {
+          const recentDuplicate = await tx.payments.findFirst({
+            where: {
+              invoiceId: data.invoiceId,
+              amount: data.amount,
+              referenceNumber: null,
+              createdAt: { gte: oneDayAgo },
+            },
+          });
+          if (recentDuplicate) {
+            throw new BusinessError(
+              `Possible duplicate payment detected. A payment of ₹${data.amount} for this invoice was already recorded at ${recentDuplicate.createdAt.toISOString()}. If this is intentional, please add a payment reference number or contact admin.`
+            );
+          }
         }
 
         // Create the payment

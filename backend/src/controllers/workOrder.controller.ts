@@ -11,12 +11,31 @@ import { logInfo, logWarn, logDebug } from '../utils/logger';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 import { updateCostSheetActuals } from '../services/costSheet.service';
 import { NotFoundError, UnauthorizedError, ValidationError, ConflictError, BusinessError } from '../errors';
-import { PrismaClient, ChallanType, Unit } from '@prisma/client';
+import { ChallanType, Unit } from '@prisma/client';
 import { getDerivedOnHandMap } from '../services/helpers/derived-stock.helper';
 import { buildCuttingChartData } from './cutting.controller';
-import { createChallan, issueChallan } from '../services/challan.service';
+import { createChallan, issueChallan, cancelChallan } from '../services/challan.service';
+// Shared prisma singleton — a private `new PrismaClient()` opened a second connection pool
+// (bug-hunt production-26)
+import prisma from '../config/database';
 
-const prisma = new PrismaClient();
+/**
+ * Issue a freshly created challan; if issuing fails, cancel the just-created DRAFT challan so it
+ * doesn't linger as an orphan (bug-hunt production-26 — createChallan+issueChallan are two separate
+ * service transactions).
+ */
+async function issueChallanOrCleanup(challanId: string, userId: string) {
+  try {
+    return await issueChallan(challanId, userId);
+  } catch (err) {
+    try {
+      await cancelChallan(challanId); // DRAFT-only guarded flip — safe compensation
+    } catch (cleanupErr) {
+      logWarn('Failed to cancel orphan DRAFT challan after issue failure', { challanId, cleanupErr });
+    }
+    throw err;
+  }
+}
 
 /**
  * @route GET /api/work-orders
@@ -138,6 +157,9 @@ export const updateWorkOrder = async (req: Request, res: Response) => {
   // ==========================================
   // PHASE 2C: Auto-update CMT actuals when work order is completed
   // ==========================================
+  // Failures are surfaced in the response instead of being silently swallowed — a swallowed failure
+  // left order_item_costing on estimates with no signal (bug-hunt production-21).
+  let cmtUpdateWarning: string | undefined;
   if (updateData.status === OrderStatus.COMPLETED && workOrder.styleId) {
     try {
       // Calculate and update actual CMT costs
@@ -159,9 +181,14 @@ export const updateWorkOrder = async (req: Request, res: Response) => {
           workOrderId: id,
           styleId: workOrder.styleId,
         });
+        cmtUpdateWarning =
+          'Work order completed, but no approved cost sheet was found — actual CMT costs were not updated.';
       }
     } catch (error) {
       logWarn('Failed to auto-update CMT actuals from work order', error);
+      cmtUpdateWarning =
+        'Work order completed, but updating actual CMT costs failed — order item costing still reflects estimates. ' +
+        (error instanceof Error ? error.message : '');
     }
   }
   // ==========================================
@@ -170,6 +197,7 @@ export const updateWorkOrder = async (req: Request, res: Response) => {
     success: true,
     data: workOrder,
     message: 'Work order updated successfully',
+    ...(cmtUpdateWarning ? { warning: cmtUpdateWarning } : {}),
   });
 };
 
@@ -199,10 +227,11 @@ export const addProductionTracking = async (req: Request, res: Response) => {
     throw new UnauthorizedError('User not authenticated');
   }
 
+  // Body validated by addProductionTrackingSchema at the route (bug-hunt production-16)
   const trackingData: ProductionTrackingDTO = {
     workOrderId: id,
     productionStage: req.body.productionStage as ProductionStage,
-    quantityCompleted: parseInt(req.body.quantityCompleted),
+    quantityCompleted: req.body.quantityCompleted,
     remarks: req.body.remarks,
     updatedById: userId,
   };
@@ -318,37 +347,48 @@ export const pushToCutting = async (req: Request, res: Response) => {
     throw new UnauthorizedError('User not authenticated');
   }
 
-  // Material availability check is now informational — partial cutting is allowed.
-  // The cutting chart shows per-fabric stock analysis and max cuttable quantity.
-  // Users can proceed to cutting with whatever stock is available.
-
-  // Update work order status to IN_PRODUCTION and set actual start date
-  const updatedWorkOrder = await workOrderService.updateWorkOrder(id, {
-    status: OrderStatus.IN_PRODUCTION,
-    actualStartDate: new Date(),
-  });
-
-  // Add tracking entry for cutting stage
-  await workOrderService.addProductionTracking({
-    workOrderId: id,
-    productionStage: ProductionStage.IN_CUTTING,
-    quantityCompleted: 0,
-    remarks: adminOverride
-      ? `Pushed to cutting - OVERRIDE: ${overrideReason}`
-      : 'Pushed to cutting - materials verified',
-    updatedById: userId,
-  });
-
-  // Log override to audit table if used
-  if (adminOverride && overrideReason) {
-    await productionBlockingValidationService.logOverride({
-      blockType: 'STAGE_TRANSITION',
-      workOrderId: id,
-      toStage: ProductionStage.IN_CUTTING,
-      overrideReason,
-      overriddenById: userId,
-    });
+  // Validate the stage transition BEFORE any write — the old flow flipped the WO to IN_PRODUCTION
+  // first and only then hit the blocking validation inside addProductionTracking, leaving a
+  // half-applied state on block; it also never forwarded adminOverride (bug-hunt production-15).
+  const validation = await productionBlockingValidationService.validateStageTransition(
+    id,
+    ProductionStage.IN_CUTTING,
+    adminOverride
+  );
+  if (validation.isBlocked) {
+    throw new BusinessError(
+      `Cannot push to cutting: ${validation.blockers.map((b: { message: string }) => b.message).join('; ')}`
+    );
   }
+
+  // Status flip + tracking insert in ONE transaction (addProductionTracking joins via outerTx and
+  // logs the admin override itself when the flag is passed).
+  await prisma.$transaction(async (tx) => {
+    await tx.work_orders.update({
+      where: { id },
+      data: {
+        status: OrderStatus.IN_PRODUCTION,
+        actualStartDate: new Date(),
+      },
+    });
+
+    await workOrderService.addProductionTracking(
+      {
+        workOrderId: id,
+        productionStage: ProductionStage.IN_CUTTING,
+        quantityCompleted: 0,
+        remarks: adminOverride
+          ? `Pushed to cutting - OVERRIDE: ${overrideReason}`
+          : 'Pushed to cutting - materials verified',
+        updatedById: userId,
+      },
+      adminOverride,
+      overrideReason,
+      tx
+    );
+  });
+
+  const updatedWorkOrder = await workOrderService.getWorkOrderById(id);
 
   logInfo('Work order pushed to cutting', { workOrderId: id, userId, adminOverride });
 
@@ -552,7 +592,7 @@ export const issueFabric = async (req: Request, res: Response) => {
   });
 
   // Immediately issue the challan — deducts from fabric_stock.quantityAvailable
-  const issuedChallan = await issueChallan(challan.id, userId);
+  const issuedChallan = await issueChallanOrCleanup(challan.id, userId);
 
   logInfo('Fabric issued to cutting via INTERNAL challan', {
     workOrderId: id,
@@ -760,7 +800,7 @@ async function issueMaterials(
     })),
   });
 
-  const issuedChallan = await issueChallan(challan.id, userId);
+  const issuedChallan = await issueChallanOrCleanup(challan.id, userId);
 
   logInfo(`Materials issued to ${toName} via INTERNAL challan`, {
     workOrderId,
@@ -961,7 +1001,7 @@ export const issueThread = async (req: Request, res: Response) => {
   });
 
   // Immediately issue the challan — deducts from thread_stock.quantityAvailable
-  const issuedChallan = await issueChallan(challan.id, userId);
+  const issuedChallan = await issueChallanOrCleanup(challan.id, userId);
 
   logInfo('Thread issued to stitching via INTERNAL challan', {
     workOrderId: id,

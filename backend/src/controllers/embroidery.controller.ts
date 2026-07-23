@@ -15,7 +15,6 @@ const serializeEmbroidery = (embroidery: any) => {
     ...embroidery,
     repeatWidth: embroidery.repeatWidth ? Number(embroidery.repeatWidth) : null,
     repeatHeight: embroidery.repeatHeight ? Number(embroidery.repeatHeight) : null,
-    minFabricWidth: embroidery.minFabricWidth ? Number(embroidery.minFabricWidth) : null,
     cutableWidth: embroidery.cutableWidth ? Number(embroidery.cutableWidth) : null,
     costPerMeter: embroidery.costPerMeter ? Number(embroidery.costPerMeter) : null,
   };
@@ -70,7 +69,6 @@ export const createEmbroidery = async (req: Request, res: Response) => {
     threadColors,
     repeatWidth,
     repeatHeight,
-    minFabricWidth,
     cutableWidth,
     usableWidthAfter, // Frontend sends this
     costPerMeter,
@@ -294,7 +292,6 @@ export const updateEmbroidery = async (req: Request, res: Response) => {
     threadColors,
     repeatWidth,
     repeatHeight,
-    minFabricWidth,
     cutableWidth,
     costPerMeter,
     supplierId,
@@ -332,9 +329,10 @@ export const updateEmbroidery = async (req: Request, res: Response) => {
   if (threadColors !== undefined) updateData.threadColors = threadColors ? parseInt(threadColors, 10) : null;
   if (repeatWidth !== undefined) updateData.repeatWidth = repeatWidth ? parseFloat(repeatWidth) : null;
   if (repeatHeight !== undefined) updateData.repeatHeight = repeatHeight ? parseFloat(repeatHeight) : null;
-  if (minFabricWidth !== undefined) updateData.minFabricWidth = minFabricWidth ? parseFloat(minFabricWidth) : null;
-  if (cutableWidth !== undefined) updateData.cutableWidth = parseFloat(cutableWidth);
-  if (costPerMeter !== undefined) updateData.costPerMeter = parseFloat(costPerMeter);
+  // Null guards: parseFloat(null) is NaN → Prisma Decimal 500 (bug-hunt samples-embroidery-18).
+  // cutableWidth is a required column, so a null from the client is ignored rather than written.
+  if (cutableWidth !== undefined && cutableWidth !== null) updateData.cutableWidth = parseFloat(cutableWidth);
+  if (costPerMeter !== undefined) updateData.costPerMeter = costPerMeter === null ? null : parseFloat(costPerMeter);
   if (supplierId !== undefined) updateData.supplierId = supplierId || null;
   if (leadTimeDays !== undefined) updateData.leadTimeDays = leadTimeDays ? parseInt(leadTimeDays, 10) : null;
   if (isActive !== undefined) updateData.isActive = isActive;

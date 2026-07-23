@@ -1,4 +1,4 @@
-import { ProductionStage, SampleType, SampleStatus, TestResult } from '@prisma/client';
+import { Prisma, ProductionStage, SampleType, SampleStatus, TestResult } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
@@ -96,9 +96,21 @@ class ProductionBlockingValidationService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // No FIT sample exists - no block
+    // No FIT sample exists — BLOCK. Previously this returned not-blocked, letting a style
+    // bypass the FIT gate entirely by never creating the sample, contradicting
+    // checkApprovalGate/validatePPSampleCreation which require an APPROVED sample
+    // (bug-hunt samples-embroidery-14). Admin override remains available.
     if (!fitSample) {
-      return { isBlocked: false, blockers: [] };
+      return {
+        isBlocked: true,
+        blockers: [
+          {
+            type: 'FIT_SAMPLE_NOT_APPROVED',
+            message: `No FIT Sample exists for this style. An approved FIT Sample is required before ${targetStage}.`,
+            severity: 'CRITICAL',
+          },
+        ],
+      };
     }
 
     // Check if approved
@@ -148,9 +160,21 @@ class ProductionBlockingValidationService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // No SIZE_SET sample exists - no block
+    // No SIZE_SET sample exists — BLOCK. Same invariant as checkApprovalGate
+    // (canCreateWorkOrder requires an approved Size Set sample); returning not-blocked here
+    // let cutting proceed for styles that simply never created the sample
+    // (bug-hunt samples-embroidery-14). Admin override remains available.
     if (!sizeSetSample) {
-      return { isBlocked: false, blockers: [] };
+      return {
+        isBlocked: true,
+        blockers: [
+          {
+            type: 'SIZE_SET_SAMPLE_NOT_APPROVED',
+            message: `No Size Set Sample exists for this style. An approved Size Set Sample is required before ${targetStage}.`,
+            severity: 'CRITICAL',
+          },
+        ],
+      };
     }
 
     // Check if approved
@@ -744,9 +768,16 @@ class ProductionBlockingValidationService {
 
   /**
    * Log admin override to audit table
+   * Accepts an optional tx so callers can make the override log atomic with the
+   * action it audits (bug-hunt samples-embroidery-11).
    */
-  async logOverride(data: OverrideLogData): Promise<void> {
-    await prisma.stage_transition_overrides.create({
+  async logOverride(data: OverrideLogData, tx?: Prisma.TransactionClient): Promise<void> {
+    const db = tx ?? prisma;
+    // toStage is a required column; SAMPLE_CREATION overrides have no real stage transition,
+    // so use ORDER_RECEIVED as a documented sentinel instead of throwing on undefined
+    // (bug-hunt samples-embroidery-11 — proper fix is a nullable-toStage migration).
+    const toStage: ProductionStage = data.toStage ?? 'ORDER_RECEIVED';
+    await db.stage_transition_overrides.create({
       data: {
         id: randomUUID(),
         blockType: data.blockType,
@@ -754,7 +785,7 @@ class ProductionBlockingValidationService {
         orderItemId: data.orderItemId,
         sampleId: data.sampleId,
         fromStage: data.fromStage,
-        toStage: data.toStage!, // toStage is required when logging an override
+        toStage,
         blockedSampleType: data.blockedSampleType,
         prerequisiteSampleType: data.prerequisiteSampleType,
         overrideReason: data.overrideReason,

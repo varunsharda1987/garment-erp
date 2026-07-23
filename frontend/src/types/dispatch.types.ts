@@ -289,12 +289,22 @@ export interface ApproveASNRequest {
   approvedQty?: number;
 }
 
+// Matches backend createDeliveryNoteSchema (backend/src/schemas/dispatch.schema.ts):
+// items are REQUIRED (min 1) with styleId/colorId/sizeId all mandatory; cartonIds optional.
+export interface CreateDeliveryNoteItemInput {
+  styleId: string;
+  colorId: string;
+  sizeId: string;
+  quantity: number;
+}
+
 export interface CreateDeliveryNoteRequest {
   orderId: string;
   customerId: string;
   deliveryDate?: string;
   asnId?: string;
-  cartonIds: string[];
+  items: CreateDeliveryNoteItemInput[];
+  cartonIds?: string[];
   remarks?: string;
 }
 

@@ -32,26 +32,31 @@ async function generateSampleNumber(sampleType: string, styleCode?: string, vers
   const date = new Date();
   const yearMonth = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`;
 
-  // Find existing samples of this type for this style (count only active samples to prevent conflicts)
-  // Note: For sample numbering, we count only active samples to avoid code conflicts when deleted samples exist.
-  // This is safer for sample codes which are more complex (type-based) vs simple sequential numbers.
-  const existingCount = await prisma.samples.count({
-    where: {
-      sampleType: sampleType as any,
-      sampleNumber: {
-        startsWith: `${typePrefix}-`,
-      },
-      isActive: true,
-    },
-  });
-
-  const seq = String(existingCount + 1).padStart(4, '0');
-
   if (sampleType === 'FIT_SAMPLE') {
     return `${typePrefix}-${styleRef}-v${version}`;
   }
 
-  return `${typePrefix}-${yearMonth}-${seq}`;
+  // Derive the sequence from the MAX existing number for this month, not a row count:
+  // count+1 re-minted already-used numbers after a hard delete or under concurrency
+  // (bug-hunt samples-embroidery-10). Full fix also needs @@unique on samples.sampleNumber
+  // (schema migration — flagged separately, not done here).
+  const monthPrefix = `${typePrefix}-${yearMonth}-`;
+  const latest = await prisma.samples.findFirst({
+    where: {
+      sampleType: sampleType as any,
+      sampleNumber: { startsWith: monthPrefix },
+    },
+    orderBy: { sampleNumber: 'desc' },
+    select: { sampleNumber: true },
+  });
+
+  let nextSeq = 1;
+  const match = latest?.sampleNumber.match(/-(\d{4})$/);
+  if (match && match[1]) {
+    nextSeq = parseInt(match[1], 10) + 1;
+  }
+
+  return `${monthPrefix}${String(nextSeq).padStart(4, '0')}`;
 }
 
 /**
@@ -145,120 +150,132 @@ export const createSample = async (req: Request, res: Response) => {
     }
   }
 
-  // Determine version for FIT samples
+  // Determine version for FIT samples — max(version)+1, not count+1, so a deleted
+  // intermediate version can never be re-minted (bug-hunt samples-embroidery-10)
   let version = 1;
   if (sampleType === 'FIT_SAMPLE' && styleId) {
-    const existingFitSamples = await prisma.samples.count({
+    const maxVersion = await prisma.samples.aggregate({
       where: {
         styleId,
         sampleType: 'FIT_SAMPLE',
       },
+      _max: { version: true },
     });
-    version = existingFitSamples + 1;
+    version = (maxVersion._max.version || 0) + 1;
   }
 
   // Generate sample number
   const sampleNumber = await generateSampleNumber(sampleType, style?.styleCode, version);
 
-  // Create sample with nested data
-  const sample = await prisma.samples.create({
-    data: {
-      id: randomUUID(),
-      sampleNumber,
-      customerId,
-      styleId: styleId || null,
-      sampleType,
-      requestDate: requestDate ? new Date(requestDate) : new Date(),
-      requiredDate: new Date(requiredDate),
-      status: 'REQUESTED',
-      remarks: remarks || null,
-      createdById: userId,
-      version,
-      linkedDispatchId: linkedDispatchId || null,
-      productionLot: productionLot || null,
-      sentTo: sentTo || null,
-      purpose: purpose || null,
-      // Create nested measurements if provided
-      measurements: measurements?.length
-        ? {
-            createMany: {
-              data: measurements.map((m: any) => ({
-                id: randomUUID(),
-                sizeId: m.sizeId || null,
-                measurementPoint: m.measurementPoint,
-                specValue: m.specValue,
-                actualValue: m.actualValue || null,
-                tolerance: m.tolerance || 0.5,
-              })),
-            },
-          }
-        : undefined,
-      // Create nested colorways if provided (PP samples)
-      colorways: colorways?.length
-        ? {
-            createMany: {
-              data: colorways.map((c: any) => ({
-                id: randomUUID(),
-                colorId: c.colorId,
-                sizeId: c.sizeId || null,
-                fabricLot: c.fabricLot || null,
-                qtySent: c.qtySent || 1,
-                status: 'PENDING',
-              })),
-            },
-          }
-        : undefined,
-      // Create nested size sets if provided (Size Set samples)
-      sizeSets: sizeSets?.length
-        ? {
-            createMany: {
-              data: sizeSets.map((s: any) => ({
-                id: randomUUID(),
-                sizeId: s.sizeId,
-                colorId: s.colorId,
-                qty: s.qty || 1,
-                status: 'PENDING',
-              })),
-            },
-          }
-        : undefined,
-    },
-    include: {
-      customers: { select: { id: true, code: true, name: true } },
-      styles: { select: { id: true, styleCode: true, styleName: true } },
-      users: { select: { id: true, firstName: true, lastName: true, email: true } },
-      measurements: {
-        include: {
-          size: { select: { id: true, sizeName: true, sizeCode: true } },
+  // Create sample + override audit log atomically: previously logOverride ran after the
+  // create, outside any transaction, and threw — committing the sample while losing the
+  // mandatory audit record (bug-hunt samples-embroidery-11)
+  const sample = await prisma.$transaction(async (txClient) => {
+    const created = await txClient.samples.create({
+      data: {
+        id: randomUUID(),
+        sampleNumber,
+        customerId,
+        styleId: styleId || null,
+        sampleType,
+        requestDate: requestDate ? new Date(requestDate) : new Date(),
+        requiredDate: new Date(requiredDate),
+        status: 'REQUESTED',
+        remarks: remarks || null,
+        createdById: userId,
+        version,
+        linkedDispatchId: linkedDispatchId || null,
+        productionLot: productionLot || null,
+        sentTo: sentTo || null,
+        purpose: purpose || null,
+        // Create nested measurements if provided
+        measurements: measurements?.length
+          ? {
+              createMany: {
+                data: measurements.map((m: any) => ({
+                  id: randomUUID(),
+                  sizeId: m.sizeId || null,
+                  measurementPoint: m.measurementPoint,
+                  specValue: m.specValue,
+                  actualValue: m.actualValue || null,
+                  tolerance: m.tolerance || 0.5,
+                })),
+              },
+            }
+          : undefined,
+        // Create nested colorways if provided (PP samples)
+        colorways: colorways?.length
+          ? {
+              createMany: {
+                data: colorways.map((c: any) => ({
+                  id: randomUUID(),
+                  colorId: c.colorId,
+                  sizeId: c.sizeId || null,
+                  fabricLot: c.fabricLot || null,
+                  qtySent: c.qtySent || 1,
+                  status: 'PENDING',
+                })),
+              },
+            }
+          : undefined,
+        // Create nested size sets if provided (Size Set samples)
+        sizeSets: sizeSets?.length
+          ? {
+              createMany: {
+                data: sizeSets.map((s: any) => ({
+                  id: randomUUID(),
+                  sizeId: s.sizeId,
+                  colorId: s.colorId,
+                  qty: s.qty || 1,
+                  status: 'PENDING',
+                })),
+              },
+            }
+          : undefined,
+      },
+      include: {
+        customers: { select: { id: true, code: true, name: true } },
+        styles: { select: { id: true, styleCode: true, styleName: true } },
+        users: { select: { id: true, firstName: true, lastName: true, email: true } },
+        measurements: {
+          include: {
+            size: { select: { id: true, sizeName: true, sizeCode: true } },
+          },
+        },
+        colorways: {
+          include: {
+            color: { select: { id: true, colorName: true, colorCode: true } },
+            size: { select: { id: true, sizeName: true, sizeCode: true } },
+          },
+        },
+        sizeSets: {
+          include: {
+            size: { select: { id: true, sizeName: true, sizeCode: true } },
+            color: { select: { id: true, colorName: true, colorCode: true } },
+          },
         },
       },
-      colorways: {
-        include: {
-          color: { select: { id: true, colorName: true, colorCode: true } },
-          size: { select: { id: true, sizeName: true, sizeCode: true } },
-        },
-      },
-      sizeSets: {
-        include: {
-          size: { select: { id: true, sizeName: true, sizeCode: true } },
-          color: { select: { id: true, colorName: true, colorCode: true } },
-        },
-      },
-    },
-  });
-
-  // Log admin override if used
-  if (adminOverride && styleId) {
-    const { productionBlockingValidationService } = await import('../services/productionBlockingValidation.service');
-    await productionBlockingValidationService.logOverride({
-      blockType: 'SAMPLE_CREATION',
-      sampleId: sample.id,
-      blockedSampleType: sampleType,
-      prerequisiteSampleType: sampleType === 'PP_SAMPLE' ? 'FIT_SAMPLE' : 'PP_SAMPLE',
-      overrideReason: overrideReason || 'No reason provided',
-      overriddenById: userId,
     });
-  }
+
+    // Log admin override if used — on the same tx, so the sample is not committed
+    // without its audit record (bug-hunt samples-embroidery-11)
+    if (adminOverride && styleId) {
+      const { productionBlockingValidationService } = await import('../services/productionBlockingValidation.service');
+      await productionBlockingValidationService.logOverride(
+        {
+          blockType: 'SAMPLE_CREATION',
+          sampleId: created.id,
+          blockedSampleType: sampleType,
+          prerequisiteSampleType: sampleType === 'PP_SAMPLE' ? 'FIT_SAMPLE' : 'PP_SAMPLE',
+          overrideReason: overrideReason || 'No reason provided',
+          overriddenById: userId,
+        },
+        txClient
+      );
+    }
+
+    return created;
+  });
 
   logInfo('Sample created', { sampleNumber, sampleType });
 
@@ -353,8 +370,9 @@ export const getAllSamples = async (req: Request, res: Response) => {
     }
   }
 
-  // Pending approval filter
-  if (pendingApproval === 'true') {
+  // Pending approval filter — validateQuery transforms 'true' to boolean true, so compare
+  // against the boolean (string compare silently disabled the filter; bug-hunt samples-embroidery-8)
+  if ((pendingApproval as unknown) === true || pendingApproval === 'true') {
     where.status = { in: ['SUBMITTED', 'SENT', 'FEEDBACK_PENDING'] };
   }
 
@@ -958,6 +976,9 @@ export const createRevision = async (req: Request, res: Response) => {
     throw new UnauthorizedError('User not authenticated');
   }
   const { id } = req.params;
+  // Persist the schema-advertised revision fields instead of silently dropping them
+  // (bug-hunt samples-embroidery-19)
+  const { remarks, changesToMake } = req.body;
 
   // Get original sample
   const original = await prisma.samples.findUnique({
@@ -976,15 +997,16 @@ export const createRevision = async (req: Request, res: Response) => {
     throw new ValidationError('Revisions are only for FIT samples');
   }
 
-  // Get next version number
-  const existingVersions = await prisma.samples.count({
+  // Get next version number — max(version)+1, not count+1 (bug-hunt samples-embroidery-10)
+  const maxVersion = await prisma.samples.aggregate({
     where: {
       styleId: original.styleId,
       sampleType: 'FIT_SAMPLE',
     },
+    _max: { version: true },
   });
 
-  const newVersion = existingVersions + 1;
+  const newVersion = (maxVersion._max.version || 0) + 1;
   const sampleNumber = await generateSampleNumber('FIT_SAMPLE', original.styles?.styleCode, newVersion);
 
   // Create new sample with copied measurements
@@ -998,7 +1020,8 @@ export const createRevision = async (req: Request, res: Response) => {
       requestDate: new Date(),
       requiredDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
       status: 'REQUESTED',
-      remarks: `Revision of ${original.sampleNumber}`,
+      remarks: remarks || `Revision of ${original.sampleNumber}`,
+      nextAction: changesToMake || null,
       createdById: userId,
       version: newVersion,
       // Copy measurements

@@ -6,6 +6,9 @@ import { Prisma } from '@prisma/client';
 import { logInfo, logWarn } from '../utils/logger';
 import { orderService } from '../services/order.service';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
+import { generateAtomicOrderNumber } from '../utils/atomicCodeGenerator';
+import { multiplyCurrency, roundToCent, Decimal } from '../utils/currency';
+import type { OrderQueryInput } from '../schemas/order.schema';
 
 // ============================================
 // Types for Order Controller
@@ -25,6 +28,27 @@ interface OrderItem {
   itemDescription?: string;
   remarks?: string;
   breakup: OrderItemBreakup[];
+}
+
+/**
+ * Merge duplicate (colorId, sizeId) breakup lines, normalising empty colorId to null.
+ * Postgres treats NULL colorId as distinct in the (orderItemId, colorId, sizeId) unique index,
+ * so size-only orders could otherwise insert duplicate rows that double-count sizes downstream
+ * (bug-hunt orders-16 — server-side half; the partial unique index needs a migration).
+ */
+function dedupeBreakup(breakup: OrderItemBreakup[]): OrderItemBreakup[] {
+  const merged = new Map<string, OrderItemBreakup>();
+  for (const b of breakup) {
+    const colorId = b.colorId && b.colorId !== '' ? b.colorId : null;
+    const key = `${colorId ?? 'NULL'}|${b.sizeId}`;
+    const existing = merged.get(key);
+    if (existing) {
+      existing.quantity += b.quantity;
+    } else {
+      merged.set(key, { colorId, sizeId: b.sizeId, quantity: b.quantity });
+    }
+  }
+  return [...merged.values()];
 }
 
 /**
@@ -134,29 +158,32 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
   // All validations passed -> Proceed with order creation
   logInfo('[createOrder] All cost sheet validations passed. Proceeding with order creation...');
 
-  // Generate order number
-  const orderNumber = await generateOrderNumber();
+  // Generate order number atomically — the old local findFirst+parseInt generator raced under
+  // concurrent creates and collided on the orderNumber unique (bug-hunt orders-5)
+  const orderNumber = await generateAtomicOrderNumber();
 
-  // Calculate totals
+  // Calculate totals (decimal.js — raw float sums drifted at paise level, bug-hunt orders-17)
   let totalQuantity = 0;
-  let totalAmount = 0;
+  let totalAmountDec = new Decimal(0);
 
   const orderItemsData = (items as OrderItem[]).map((item) => {
+    const breakup = dedupeBreakup(item.breakup || []);
     // Use breakup sum if available, otherwise use direct totalQuantity
-    const breakupQty = item.breakup.reduce((sum: number, b) => sum + b.quantity, 0);
+    const breakupQty = breakup.reduce((sum: number, b) => sum + b.quantity, 0);
     const itemTotalQty = breakupQty > 0 ? breakupQty : item.totalQuantity || 0;
     // Handle empty/undefined unitPrice - default to 0 for orders without pricing
     const parsedUnitPrice = parseFloat(String(item.unitPrice)) || 0;
-    const itemTotal = itemTotalQty * parsedUnitPrice;
+    const itemTotalDec = roundToCent(multiplyCurrency(itemTotalQty, parsedUnitPrice));
+    const itemTotal = itemTotalDec.toNumber();
 
     totalQuantity += itemTotalQty;
-    totalAmount += itemTotal;
+    totalAmountDec = totalAmountDec.plus(itemTotalDec);
 
     logInfo(
       '[createOrder] Processing item:',
       JSON.stringify({
         styleId: item.styleId,
-        breakupCount: item.breakup?.length,
+        breakupCount: breakup.length,
         itemTotalQty,
         parsedUnitPrice,
         itemTotal,
@@ -173,9 +200,9 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : null,
       remarks: item.remarks || null,
       order_item_breakup: {
-        create: item.breakup.map((b) => ({
+        create: breakup.map((b) => ({
           id: randomUUID(),
-          colorId: b.colorId && b.colorId !== '' ? b.colorId : null, // Handle empty or null colorId
+          colorId: b.colorId, // Already normalised (empty → null) by dedupeBreakup
           sizeId: b.sizeId,
           quantity: b.quantity,
         })),
@@ -192,7 +219,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       expectedDeliveryDate: new Date(expectedDeliveryDate),
       priority: priority || 'MEDIUM',
       totalQuantity,
-      totalAmount,
+      totalAmount: roundToCent(totalAmountDec).toNumber(),
       paymentTerms,
       shippingAddress,
       remarks,
@@ -247,6 +274,8 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
   // for accurate pricing and variance tracking later
   // =====================================================
   const costingSnapshots: string[] = [];
+  // Snapshot failures are surfaced in the response instead of being silently swallowed (bug-hunt orders-7)
+  const costingFailures: { orderItemId: string; styleId: string; reason: string }[] = [];
 
   for (const orderItem of order.order_items) {
     try {
@@ -317,11 +346,21 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         );
       } else {
         logWarn(`[createOrder] No approved cost sheet found for style ${orderItem.styleId}`);
+        costingFailures.push({
+          orderItemId: orderItem.id,
+          styleId: orderItem.styleId,
+          reason: 'No approved cost sheet found for style',
+        });
       }
     } catch (snapshotError) {
-      // Don't fail the order if snapshot fails - just log warning
-      // This is intentional business logic: snapshot is best-effort
+      // Don't fail the order if snapshot fails — but report it so the caller can retry
+      // instead of silently losing the variance baseline (bug-hunt orders-7)
       logWarn(`[createOrder] Failed to create cost sheet snapshot for order item ${orderItem.id}:`, snapshotError);
+      costingFailures.push({
+        orderItemId: orderItem.id,
+        styleId: orderItem.styleId,
+        reason: snapshotError instanceof Error ? snapshotError.message : 'Snapshot creation failed',
+      });
     }
   }
 
@@ -331,6 +370,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
     costingInfo: {
       snapshotsCreated: costingSnapshots.length,
       totalItems: order.order_items.length,
+      failures: costingFailures.length > 0 ? costingFailures : undefined,
     },
   });
 };
@@ -340,10 +380,21 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
  * GET /api/orders
  */
 export const getAllOrders = async (req: Request, res: Response): Promise<void> => {
-  const { page = '1', limit = '10', search = '', customerId, status, priority, fromDate, toDate } = req.query;
+  // Read from the Zod-validated query so fromDate/toDate are real Dates — the schema previously
+  // validated startDate/endDate that nobody sent, letting garbage dates through raw (bug-hunt orders-12)
+  const {
+    page = 1,
+    limit = 10,
+    search = '',
+    customerId,
+    status,
+    priority,
+    fromDate,
+    toDate,
+  } = (req.validatedQuery || req.query) as unknown as OrderQueryInput;
 
-  const pageNum = parseInt(page as string);
-  const limitNum = parseInt(limit as string);
+  const pageNum = Number(page);
+  const limitNum = Number(limit);
   const skip = (pageNum - 1) * limitNum;
 
   // Build where clause
@@ -358,24 +409,24 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
   }
 
   if (customerId) {
-    where.customerId = customerId as string;
+    where.customerId = customerId;
   }
 
   if (status) {
-    where.status = status as 'PENDING' | 'IN_PRODUCTION' | 'COMPLETED' | 'DISPATCHED' | 'CANCELLED';
+    where.status = status;
   }
 
   if (priority) {
-    where.priority = priority as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+    where.priority = priority;
   }
 
   if (fromDate || toDate) {
     where.orderDate = {};
     if (fromDate) {
-      where.orderDate.gte = new Date(fromDate as string);
+      where.orderDate.gte = fromDate;
     }
     if (toDate) {
-      where.orderDate.lte = new Date(toDate as string);
+      where.orderDate.lte = toDate;
     }
   }
 
@@ -687,17 +738,8 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
  */
 export const updateOrder = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const {
-    customerId,
-    orderDate,
-    expectedDeliveryDate,
-    priority,
-    paymentTerms,
-    shippingAddress,
-    remarks,
-    items,
-    totalQuantity,
-  } = req.body;
+  const { customerId, orderDate, expectedDeliveryDate, priority, paymentTerms, shippingAddress, remarks, items } =
+    req.body;
 
   // Build order-level update data
   const updateData: Record<string, unknown> = {
@@ -734,16 +776,18 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
   // If items are provided, recalculate totals and replace order items
   if (items && Array.isArray(items) && items.length > 0) {
     let calcTotalQuantity = 0;
-    let calcTotalAmount = 0;
+    // decimal.js accumulation — raw float sums drifted at paise level (bug-hunt orders-17)
+    let calcTotalAmountDec = new Decimal(0);
 
     const orderItemsData = (items as OrderItem[]).map((item) => {
-      const breakupQty = item.breakup.reduce((sum: number, b) => sum + b.quantity, 0);
+      const breakup = dedupeBreakup(item.breakup || []); // bug-hunt orders-16
+      const breakupQty = breakup.reduce((sum: number, b) => sum + b.quantity, 0);
       const itemTotalQty = breakupQty > 0 ? breakupQty : item.totalQuantity || 0;
       const parsedUnitPrice = parseFloat(String(item.unitPrice)) || 0;
-      const itemTotal = itemTotalQty * parsedUnitPrice;
+      const itemTotalDec = roundToCent(multiplyCurrency(itemTotalQty, parsedUnitPrice));
 
       calcTotalQuantity += itemTotalQty;
-      calcTotalAmount += itemTotal;
+      calcTotalAmountDec = calcTotalAmountDec.plus(itemTotalDec);
 
       return {
         id: randomUUID(),
@@ -751,13 +795,13 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
         itemDescription: item.itemDescription || null,
         totalQuantity: itemTotalQty,
         unitPrice: parsedUnitPrice,
-        totalPrice: itemTotal,
+        totalPrice: itemTotalDec.toNumber(),
         deliveryDate: item.deliveryDate ? new Date(item.deliveryDate) : null,
         remarks: item.remarks || null,
         order_item_breakup: {
-          create: item.breakup.map((b) => ({
+          create: breakup.map((b) => ({
             id: randomUUID(),
-            colorId: b.colorId && b.colorId !== '' ? b.colorId : null,
+            colorId: b.colorId,
             sizeId: b.sizeId,
             quantity: b.quantity,
           })),
@@ -766,7 +810,7 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
     });
 
     updateData.totalQuantity = calcTotalQuantity;
-    updateData.totalAmount = calcTotalAmount;
+    updateData.totalAmount = roundToCent(calcTotalAmountDec).toNumber();
 
     // Delete existing order items and breakup, then create new ones
     await prisma.order_item_breakup.deleteMany({
@@ -825,9 +869,15 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
         logInfo(`[updateOrder] Synced work order ${wo.workOrderNumber} with updated order items`);
       }
     }
-  } else if (totalQuantity !== undefined) {
-    // Just update total quantity without changing items
-    updateData.totalQuantity = totalQuantity;
+  } else {
+    // Never trust client-supplied header totals: always recompute totalQuantity/totalAmount from
+    // SUM(order_items) so the stored aggregates (which feed statistics) cannot drift (bug-hunt orders-6)
+    const agg = await prisma.order_items.aggregate({
+      where: { orderId: id },
+      _sum: { totalQuantity: true, totalPrice: true },
+    });
+    updateData.totalQuantity = agg._sum.totalQuantity ?? 0;
+    updateData.totalAmount = agg._sum.totalPrice ?? 0;
   }
 
   const order = await prisma.orders.update({
@@ -1120,32 +1170,3 @@ export const getOrderStatisticsByCustomer = async (req: Request, res: Response):
     totals,
   });
 };
-
-/**
- * Generate unique order number
- */
-async function generateOrderNumber(): Promise<string> {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-
-  // Find the last order number for this month
-  const lastOrder = await prisma.orders.findFirst({
-    where: {
-      orderNumber: {
-        startsWith: `ORD${year}${month}`,
-      },
-    },
-    orderBy: {
-      orderNumber: 'desc',
-    },
-  });
-
-  let sequence = 1;
-  if (lastOrder) {
-    const lastSequence = parseInt(lastOrder.orderNumber.slice(-4));
-    sequence = lastSequence + 1;
-  }
-
-  return `ORD${year}${month}${String(sequence).padStart(4, '0')}`;
-}

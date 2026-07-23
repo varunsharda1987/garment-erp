@@ -11,7 +11,7 @@
 
 import prisma from '../config/database';
 import { ServiceRequirementStatus, RequirementSource, ServiceType, POCategory, POSource, Unit } from '@prisma/client';
-import { generateCode } from '../utils/code-generator';
+import { generateAtomicPONumberInTx } from '../utils/atomicCodeGenerator';
 import { logDebug, logInfo, logError } from '../utils/logger';
 import { NotFoundError, BusinessError } from '../errors';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -1006,8 +1006,9 @@ export async function generateServicePO(data: {
 
   // Create PO with items in a transaction
   const result = await prisma.$transaction(async (tx) => {
-    // Generate PO number
-    const poNumber = await generateCode('PO', 'purchase_orders', 'poNumber');
+    // Atomic PO number inside the creating tx (bug-hunt procurement-9: generateCode was
+    // read-max+1 on a separate PrismaClient with a silent timestamp fallback)
+    const poNumber = await generateAtomicPONumberInTx(tx);
 
     // Determine PO category from first service type
     const firstServiceType = requirements[0].serviceType;
@@ -1099,14 +1100,24 @@ export async function generateServicePO(data: {
           },
         });
 
-        // Update requirement status
-        await tx.work_order_service_requirements.update({
-          where: { id: req.id },
+        // Guarded status flip (bug-hunt procurement-16): statuses were read OUTSIDE this tx, so
+        // two concurrent generations could both pass the PENDING filter and double-procure.
+        // Re-checking inside the tx makes the loser abort instead.
+        const flip = await tx.work_order_service_requirements.updateMany({
+          where: {
+            id: req.id,
+            status: { in: [ServiceRequirementStatus.PENDING, ServiceRequirementStatus.IN_PROGRESS] },
+          },
           data: {
             status: ServiceRequirementStatus.PO_GENERATED,
             purchaseOrderId: po.id,
           },
         });
+        if (flip.count === 0) {
+          throw new BusinessError(
+            `Service requirement ${req.id} was already covered by another PO (concurrent generation)`
+          );
+        }
 
         linkedCount++;
       }

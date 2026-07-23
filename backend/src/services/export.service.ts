@@ -309,18 +309,28 @@ class ExportService {
 
       // Subtotal
       doc.text('Subtotal', col1, yPos);
-      doc.text(`₹${Number(invoice.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, {
-        width: 100,
-        align: 'right',
-      });
+      doc.text(
+        `₹${Number(invoice.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        col2,
+        yPos,
+        {
+          width: 100,
+          align: 'right',
+        }
+      );
       yPos += 20;
 
       // Tax
       doc.text('Tax', col1, yPos);
-      doc.text(`₹${Number(invoice.taxAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, {
-        width: 100,
-        align: 'right',
-      });
+      doc.text(
+        `₹${Number(invoice.taxAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        col2,
+        yPos,
+        {
+          width: 100,
+          align: 'right',
+        }
+      );
       yPos += 20;
 
       doc
@@ -332,10 +342,15 @@ class ExportService {
       // Total
       doc.fontSize(12).font('Helvetica-Bold');
       doc.text('Total Amount', col1, yPos);
-      doc.text(`₹${Number(invoice.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, {
-        width: 100,
-        align: 'right',
-      });
+      doc.text(
+        `₹${Number(invoice.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        col2,
+        yPos,
+        {
+          width: 100,
+          align: 'right',
+        }
+      );
       yPos += 30;
 
       // Payment status
@@ -345,19 +360,29 @@ class ExportService {
       yPos += 20;
 
       doc.text('Paid Amount', col1, yPos);
-      doc.text(`₹${Number(invoice.paidAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, {
-        width: 100,
-        align: 'right',
-      });
+      doc.text(
+        `₹${Number(invoice.paidAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        col2,
+        yPos,
+        {
+          width: 100,
+          align: 'right',
+        }
+      );
       yPos += 20;
 
       doc.text('Balance Due', col1, yPos);
       doc
         .font('Helvetica-Bold')
-        .text(`₹${Number(invoice.balanceAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col2, yPos, {
-          width: 100,
-          align: 'right',
-        });
+        .text(
+          `₹${Number(invoice.balanceAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          col2,
+          yPos,
+          {
+            width: 100,
+            align: 'right',
+          }
+        );
 
       // Remarks
       if (invoice.remarks) {
@@ -454,8 +479,16 @@ class ExportService {
           doc.text(styleName, col1, yPos, { width: 140 });
           doc.text(item.description || '', col2, yPos, { width: 110, ellipsis: true });
           doc.text(item.totalQuantity.toLocaleString(), col3, yPos);
-          doc.text(`₹${Number(item.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col4, yPos);
-          doc.text(`₹${Number(item.totalPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, col5, yPos);
+          doc.text(
+            `₹${Number(item.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            col4,
+            yPos
+          );
+          doc.text(
+            `₹${Number(item.totalPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            col5,
+            yPos
+          );
 
           yPos += 25;
         });
@@ -470,7 +503,7 @@ class ExportService {
         doc.fontSize(11).font('Helvetica-Bold');
         doc.text('Total Amount:', col4, yPos);
         doc.text(
-          `₹${Number(quotation.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          `₹${Number(quotation.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           col5,
           yPos
         );

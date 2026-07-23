@@ -72,14 +72,29 @@ export const createAccount = async (req: Request, res: Response): Promise<void> 
  * GET /api/chart-of-accounts
  */
 export const getAllAccounts = async (req: Request, res: Response): Promise<void> => {
-  const { page = '1', limit = '50', search = '', accountType, accountGroup, parentAccountId } = req.query;
+  // bug-hunt financial-gst-18: honor the validated query contract — isActive/sortBy/sortOrder
+  // were validated by chartOfAccountQuerySchema but hardcoded here, making inactive accounts
+  // unreachable through the list endpoint.
+  const {
+    page = '1',
+    limit = '50',
+    search = '',
+    accountType,
+    accountGroup,
+    parentAccountId,
+    isActive,
+    sortBy = 'accountCode',
+    sortOrder = 'asc',
+  } = req.query;
 
   const pageNum = parseInt(page as string);
   const limitNum = parseInt(limit as string);
   const skip = (pageNum - 1) * limitNum;
 
-  // Build where clause
-  const where: Prisma.chart_of_accountsWhereInput = { isActive: true };
+  // Build where clause (isActive defaults to true when not supplied, preserving prior behavior;
+  // ?isActive=false now genuinely returns the soft-deleted accounts)
+  const isActiveFilter = isActive === undefined ? true : (isActive as unknown) === true || isActive === 'true';
+  const where: Prisma.chart_of_accountsWhereInput = { isActive: isActiveFilter };
 
   if (search) {
     where.OR = [
@@ -105,7 +120,7 @@ export const getAllAccounts = async (req: Request, res: Response): Promise<void>
       where,
       skip,
       take: limitNum,
-      orderBy: { accountCode: 'asc' },
+      orderBy: { [sortBy as string]: sortOrder as 'asc' | 'desc' },
       include: {
         parentAccount: {
           select: {

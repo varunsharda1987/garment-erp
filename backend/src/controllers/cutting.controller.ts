@@ -3,7 +3,7 @@ import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import { Prisma, Unit } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { transformCuttingBatch, generateBatchNumber, batchIncludeOptions } from './cutting.utils';
+import { transformCuttingBatch, generateBatchNumber, batchIncludeOptions, dedupeSkuRows } from './cutting.utils';
 import { syncBomFabricId } from '../services/order-bom.service';
 import { calculateCadAverage } from './cad-planning.utils';
 import { createChallan, issueChallan, createFabricReturnChallan } from '../services/challan.service';
@@ -196,8 +196,11 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
       remarks,
       createdById: userId,
       skuOutputs: {
-        create:
-          skuOutputs?.map((sku: any) => ({
+        // Deduped by (colorId, sizeId) — NULL-color duplicates double-count totals (bug-hunt production-18)
+        create: dedupeSkuRows(
+          // as any[]: req.body is untyped, and a bare `any` receiver makes the generic collapse to its
+          // constraint, losing the quantity fields at the Prisma boundary
+          ((skuOutputs || []) as any[]).map((sku: any) => ({
             colorId: sku.colorId || null,
             sizeId: sku.sizeId,
             orderQty: sku.orderQty || sku.plannedQty,
@@ -207,7 +210,9 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
             cutQty: 0,
             rejectedQty: 0,
             goodPcs: 0,
-          })) || [],
+          })),
+          ['orderQty', 'extraAllowed', 'maxCuttable', 'toCut']
+        ),
       },
     },
     include: batchIncludeOptions,
@@ -893,15 +898,19 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
     throw new ValidationError('Can only generate transfer slip for completed batches');
   }
 
-  // Generate slip number
+  // Generate slip number — max-based, not count-based: slipNumber is @unique, so a deleted slip
+  // plus count+1 regenerated an existing number → P2002 (bug-hunt production-17)
   const today = new Date();
   const datePrefix = `TS-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
-  const existingSlips = await prisma.transfer_slips.count({
+  const lastSlip = await prisma.transfer_slips.findFirst({
     where: {
       slipNumber: { startsWith: datePrefix },
     },
+    orderBy: { slipNumber: 'desc' },
+    select: { slipNumber: true },
   });
-  const slipNumber = `${datePrefix}-${(existingSlips + 1).toString().padStart(4, '0')}`;
+  const lastSeq = lastSlip ? parseInt(lastSlip.slipNumber.slice(-4), 10) || 0 : 0;
+  const slipNumber = `${datePrefix}-${(lastSeq + 1).toString().padStart(4, '0')}`;
 
   // Calculate total quantity
   const totalGoodPieces = batch.skuOutputs.reduce((sum: number, sku) => sum + sku.goodPcs, 0);
@@ -934,13 +943,18 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
       cuttingBatchId: id,
       preparedById: userId,
       skuBreakdown: {
-        create: batch.skuOutputs
-          .filter((sku) => sku.goodPcs > 0)
-          .map((sku) => ({
-            colorId: sku.colorId,
-            sizeId: sku.sizeId,
-            quantity: sku.goodPcs,
-          })),
+        // Deduped: legacy duplicate NULL-color batch SKUs would otherwise violate/duplicate
+        // transfer_slip_skus rows (bug-hunt production-18)
+        create: dedupeSkuRows(
+          batch.skuOutputs
+            .filter((sku) => sku.goodPcs > 0)
+            .map((sku) => ({
+              colorId: sku.colorId,
+              sizeId: sku.sizeId,
+              quantity: sku.goodPcs,
+            })),
+          ['quantity']
+        ),
       },
     },
   });

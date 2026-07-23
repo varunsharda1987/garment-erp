@@ -531,7 +531,7 @@ class ExternalProcessService {
     tx: any,
     styleId: string,
     processType: ExternalProcessType,
-    action: 'SEND' | 'RECEIVE',
+    action: 'SEND' | 'RECEIVE' | 'CANCEL',
     quantity: number
   ) {
     if (!styleId || quantity <= 0) return;
@@ -545,29 +545,40 @@ class ExternalProcessService {
 
       const updateData: any = {};
 
+      // CANCEL restores pieces to the ORIGIN stage (the stage SEND took them from), not the next
+      // stage like RECEIVE does — cancelling used to push pieces forward (bug-hunt production-12).
       if (processType === 'SMOCKING') {
         if (action === 'SEND') {
           updateData.piecesInSmocking = { increment: quantity };
           updateData.piecesInCutting = { decrement: Math.min(quantity, tracking.piecesInCutting) };
-        } else {
+        } else if (action === 'RECEIVE') {
           updateData.piecesInSmocking = { decrement: Math.min(quantity, tracking.piecesInSmocking) };
           updateData.piecesInStitching = { increment: quantity };
+        } else {
+          updateData.piecesInSmocking = { decrement: Math.min(quantity, tracking.piecesInSmocking) };
+          updateData.piecesInCutting = { increment: quantity };
         }
       } else if (processType === 'HANDWORK') {
         if (action === 'SEND') {
           updateData.piecesInHandwork = { increment: quantity };
           updateData.piecesInStitching = { decrement: Math.min(quantity, tracking.piecesInStitching) };
-        } else {
+        } else if (action === 'RECEIVE') {
           updateData.piecesInHandwork = { decrement: Math.min(quantity, tracking.piecesInHandwork) };
           updateData.piecesInFinishing = { increment: quantity };
+        } else {
+          updateData.piecesInHandwork = { decrement: Math.min(quantity, tracking.piecesInHandwork) };
+          updateData.piecesInStitching = { increment: quantity };
         }
       } else if (processType === 'EMBROIDERY_PIECE') {
         if (action === 'SEND') {
           updateData.piecesInEmbroidery = { increment: quantity };
           updateData.piecesInCutting = { decrement: Math.min(quantity, tracking.piecesInCutting) };
-        } else {
+        } else if (action === 'RECEIVE') {
           updateData.piecesInEmbroidery = { decrement: Math.min(quantity, tracking.piecesInEmbroidery) };
           updateData.piecesInStitching = { increment: quantity };
+        } else {
+          updateData.piecesInEmbroidery = { decrement: Math.min(quantity, tracking.piecesInEmbroidery) };
+          updateData.piecesInCutting = { increment: quantity };
         }
       }
 
@@ -754,12 +765,13 @@ class ExternalProcessService {
         });
       }
 
-      // Reverse production tracking
+      // Reverse production tracking — CANCEL restores pieces to the origin stage; the old
+      // 'RECEIVE' action advanced them to the NEXT stage instead (bug-hunt production-12)
       await this.updateProductionTracking(
         tx,
         sendOut.styleId || '',
         sendOut.processType,
-        'RECEIVE', // Reverse = same as receive (decrement process stage, increment source stage)
+        'CANCEL',
         Math.round(parseFloat(sendOut.quantitySent.toString()))
       );
 

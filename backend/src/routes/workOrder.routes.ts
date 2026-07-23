@@ -4,7 +4,16 @@ import * as workOrderController from '../controllers/workOrder.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
-import { createWorkOrderSchema, updateWorkOrderSchema } from '../schemas/workOrder.schema';
+import {
+  createWorkOrderSchema,
+  updateWorkOrderSchema,
+  addProductionTrackingSchema,
+  splitWorkOrderSchema,
+  pushToCuttingSchema,
+  issueFabricSchema,
+  issueMaterialItemsSchema,
+  issueThreadSchema,
+} from '../schemas/workOrder.schema';
 import { idParamSchema, orderIdParamSchema } from '../schemas/common.schema';
 
 const router = express.Router();
@@ -52,13 +61,49 @@ router.get('/:id', validateParams(idParamSchema), asyncHandler(workOrderControll
 
 // POST routes
 router.post('/', validateBody(createWorkOrderSchema), asyncHandler(workOrderController.createWorkOrder));
-router.post('/:id/tracking', validateParams(idParamSchema), asyncHandler(workOrderController.addProductionTracking));
-router.post('/:id/split', validateParams(idParamSchema), asyncHandler(workOrderController.splitWorkOrder));
-router.post('/:id/push-to-cutting', validateParams(idParamSchema), asyncHandler(workOrderController.pushToCutting));
-router.post('/:id/issue-fabric', validateParams(idParamSchema), asyncHandler(workOrderController.issueFabric));
-router.post('/:id/issue-trims', validateParams(idParamSchema), asyncHandler(workOrderController.issueTrims));
-router.post('/:id/issue-packaging', validateParams(idParamSchema), asyncHandler(workOrderController.issuePackaging));
-router.post('/:id/issue-thread', validateParams(idParamSchema), asyncHandler(workOrderController.issueThread));
+// Body validation on all mutation sub-routes (bug-hunt production-16)
+router.post(
+  '/:id/tracking',
+  validateParams(idParamSchema),
+  validateBody(addProductionTrackingSchema),
+  asyncHandler(workOrderController.addProductionTracking)
+);
+router.post(
+  '/:id/split',
+  validateParams(idParamSchema),
+  validateBody(splitWorkOrderSchema),
+  asyncHandler(workOrderController.splitWorkOrder)
+);
+router.post(
+  '/:id/push-to-cutting',
+  validateParams(idParamSchema),
+  validateBody(pushToCuttingSchema),
+  asyncHandler(workOrderController.pushToCutting)
+);
+router.post(
+  '/:id/issue-fabric',
+  validateParams(idParamSchema),
+  validateBody(issueFabricSchema),
+  asyncHandler(workOrderController.issueFabric)
+);
+router.post(
+  '/:id/issue-trims',
+  validateParams(idParamSchema),
+  validateBody(issueMaterialItemsSchema),
+  asyncHandler(workOrderController.issueTrims)
+);
+router.post(
+  '/:id/issue-packaging',
+  validateParams(idParamSchema),
+  validateBody(issueMaterialItemsSchema),
+  asyncHandler(workOrderController.issuePackaging)
+);
+router.post(
+  '/:id/issue-thread',
+  validateParams(idParamSchema),
+  validateBody(issueThreadSchema),
+  asyncHandler(workOrderController.issueThread)
+);
 
 // PUT routes
 router.put(

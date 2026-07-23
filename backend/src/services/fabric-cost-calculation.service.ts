@@ -324,7 +324,8 @@ async function getReadyFabricCost(fabricId: string, quantityNeeded: number, fabr
     procurementDate = latestProcurement.purchaseDate ? new Date(latestProcurement.purchaseDate).toISOString() : null;
     lastUpdated = latestProcurement.updatedAt ? new Date(latestProcurement.updatedAt).toISOString() : null;
     details = `Latest procurement: ₹${cost}/m from ${supplierName}`;
-  } else if (fabric.costPerMeter) {
+  } else if (fabric.costPerMeter != null && Number(fabric.costPerMeter) > 0) {
+    // costing-24: Decimal(0) is truthy — treat a zero master rate as "no rate", matching the greige branch
     cost = Number(fabric.costPerMeter);
     rateSource = 'FABRIC_MASTER';
     lastUpdated = fabric.updatedAt ? new Date(fabric.updatedAt).toISOString() : null;

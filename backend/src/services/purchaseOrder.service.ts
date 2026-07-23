@@ -17,6 +17,7 @@ import {
   PurchaseOrderFilters,
 } from '../types/purchaseOrder.types';
 import { generateAtomicPONumber } from '../utils/atomicCodeGenerator';
+import { addCurrency, roundToCent } from '../utils/currency';
 import { validateTransition } from '../utils/stateMachine';
 
 class PurchaseOrderService {
@@ -36,10 +37,12 @@ class PurchaseOrderService {
   }
 
   /**
-   * Recalculate PO total from items
+   * Recalculate PO total from items.
+   * Accepts an optional transaction client so item writes + header recompute can be atomic
+   * (bug-hunt procurement-19).
    */
-  private async recalculatePOTotal(poId: string): Promise<void> {
-    const items = await prisma.purchase_order_items.findMany({
+  private async recalculatePOTotal(poId: string, tx: Prisma.TransactionClient | typeof prisma = prisma): Promise<void> {
+    const items = await tx.purchase_order_items.findMany({
       where: { poId },
     });
 
@@ -62,7 +65,7 @@ class PurchaseOrderService {
     const totalTax = totalCgst.add(totalSgst).add(totalIgst);
     const totalAmount = subtotal.add(totalTax);
 
-    await prisma.purchase_orders.update({
+    await tx.purchase_orders.update({
       where: { id: poId },
       data: {
         subtotal: subtotal.toDecimalPlaces(2),
@@ -159,6 +162,9 @@ class PurchaseOrderService {
           igstAmount: gst.igstAmount,
           taxAmount: gst.taxAmount,
           remarks: item.remarks || null,
+          // bug-hunt procurement-18: create path silently dropped fold length that
+          // update/add-item paths already persist
+          foldLengthCm: item.foldLengthCm ?? null,
         };
       })
     );
@@ -477,17 +483,18 @@ class PurchaseOrderService {
             });
           }
 
-          // Update PO header with GST totals
-          const totalTax = poTotalCgst + poTotalSgst + poTotalIgst;
+          // Update PO header with GST totals, rounded to 2dp like the create path
+          // (bug-hunt procurement-22: unrounded float sums persisted paise-level dust)
+          const totalTax = roundToCent(addCurrency(poTotalCgst, poTotalSgst, poTotalIgst)).toNumber();
           await tx.purchase_orders.update({
             where: { id },
             data: {
-              subtotal,
-              totalCgst: poTotalCgst,
-              totalSgst: poTotalSgst,
-              totalIgst: poTotalIgst,
+              subtotal: roundToCent(subtotal).toNumber(),
+              totalCgst: roundToCent(poTotalCgst).toNumber(),
+              totalSgst: roundToCent(poTotalSgst).toNumber(),
+              totalIgst: roundToCent(poTotalIgst).toNumber(),
               totalTax,
-              totalAmount: subtotal + totalTax,
+              totalAmount: roundToCent(addCurrency(subtotal, totalTax)).toNumber(),
               isInterstate,
             },
           });
@@ -574,45 +581,50 @@ class PurchaseOrderService {
       unitPrice: item.unitPrice,
     });
 
-    const newItem = await prisma.purchase_order_items.create({
-      data: {
-        id: randomUUID(),
-        poId,
-        materialId: item.materialId || null,
-        serviceType: (item.serviceType as ServiceType) || null,
-        serviceDescription: item.serviceDescription || null,
-        orderedQuantity: item.orderedQuantity,
-        receivedQuantity: 0,
-        unit: item.unit,
-        unitPrice: item.unitPrice,
-        totalPrice,
-        hsnCode: gst.hsnCode,
-        gstRate: gst.gstRate,
-        cgstRate: gst.cgstRate,
-        cgstAmount: gst.cgstAmount,
-        sgstRate: gst.sgstRate,
-        sgstAmount: gst.sgstAmount,
-        igstRate: gst.igstRate,
-        igstAmount: gst.igstAmount,
-        taxAmount: gst.taxAmount,
-        remarks: item.remarks || null,
-        foldLengthCm: item.foldLengthCm ?? null,
-      },
-      include: {
-        materials: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            materialType: true,
-            unit: true,
+    // Item write + header recompute atomically (bug-hunt procurement-19)
+    const newItem = await prisma.$transaction(async (tx) => {
+      const created = await tx.purchase_order_items.create({
+        data: {
+          id: randomUUID(),
+          poId,
+          materialId: item.materialId || null,
+          serviceType: (item.serviceType as ServiceType) || null,
+          serviceDescription: item.serviceDescription || null,
+          orderedQuantity: item.orderedQuantity,
+          receivedQuantity: 0,
+          unit: item.unit,
+          unitPrice: item.unitPrice,
+          totalPrice,
+          hsnCode: gst.hsnCode,
+          gstRate: gst.gstRate,
+          cgstRate: gst.cgstRate,
+          cgstAmount: gst.cgstAmount,
+          sgstRate: gst.sgstRate,
+          sgstAmount: gst.sgstAmount,
+          igstRate: gst.igstRate,
+          igstAmount: gst.igstAmount,
+          taxAmount: gst.taxAmount,
+          remarks: item.remarks || null,
+          foldLengthCm: item.foldLengthCm ?? null,
+        },
+        include: {
+          materials: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              materialType: true,
+              unit: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    // Recalculate PO total (now includes GST)
-    await this.recalculatePOTotal(poId);
+      // Recalculate PO total (now includes GST)
+      await this.recalculatePOTotal(poId, tx);
+
+      return created;
+    });
 
     return newItem;
   }
@@ -662,38 +674,43 @@ class PurchaseOrderService {
       unitPrice,
     });
 
-    const updatedItem = await prisma.purchase_order_items.update({
-      where: { id: itemId },
-      data: {
-        orderedQuantity: data.orderedQuantity,
-        unit: data.unit,
-        unitPrice: data.unitPrice,
-        totalPrice,
-        gstRate: gst.gstRate,
-        cgstRate: gst.cgstRate,
-        cgstAmount: gst.cgstAmount,
-        sgstRate: gst.sgstRate,
-        sgstAmount: gst.sgstAmount,
-        igstRate: gst.igstRate,
-        igstAmount: gst.igstAmount,
-        taxAmount: gst.taxAmount,
-        remarks: data.remarks,
-      },
-      include: {
-        materials: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            materialType: true,
-            unit: true,
+    // Item write + header recompute atomically (bug-hunt procurement-19)
+    const updatedItem = await prisma.$transaction(async (tx) => {
+      const updated = await tx.purchase_order_items.update({
+        where: { id: itemId },
+        data: {
+          orderedQuantity: data.orderedQuantity,
+          unit: data.unit,
+          unitPrice: data.unitPrice,
+          totalPrice,
+          gstRate: gst.gstRate,
+          cgstRate: gst.cgstRate,
+          cgstAmount: gst.cgstAmount,
+          sgstRate: gst.sgstRate,
+          sgstAmount: gst.sgstAmount,
+          igstRate: gst.igstRate,
+          igstAmount: gst.igstAmount,
+          taxAmount: gst.taxAmount,
+          remarks: data.remarks,
+        },
+        include: {
+          materials: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              materialType: true,
+              unit: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    // Recalculate PO total
-    await this.recalculatePOTotal(poId);
+      // Recalculate PO total
+      await this.recalculatePOTotal(poId, tx);
+
+      return updated;
+    });
 
     return updatedItem;
   }
@@ -722,12 +739,15 @@ class PurchaseOrderService {
       throw new Error('Purchase order item not found');
     }
 
-    await prisma.purchase_order_items.delete({
-      where: { id: itemId },
-    });
+    // Item delete + header recompute atomically (bug-hunt procurement-19)
+    await prisma.$transaction(async (tx) => {
+      await tx.purchase_order_items.delete({
+        where: { id: itemId },
+      });
 
-    // Recalculate PO total
-    await this.recalculatePOTotal(poId);
+      // Recalculate PO total
+      await this.recalculatePOTotal(poId, tx);
+    });
 
     return { message: 'Item removed successfully' };
   }

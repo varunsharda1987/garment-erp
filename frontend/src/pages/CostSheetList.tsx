@@ -88,7 +88,7 @@ const CostSheetList = () => {
         approved: approvedFilter,
       });
       setCostSheets(response.data);
-      setTotalPages(response.pagination.pages);
+      setTotalPages(response.pagination.totalPages); // backend key is totalPages (bug-hunt orders-13)
       setTotalItems(response.pagination.total);
     } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to fetch cost sheets', false);

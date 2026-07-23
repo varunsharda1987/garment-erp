@@ -95,7 +95,7 @@ export default function OrderList() {
         priority: priorityFilter !== 'all' ? priorityFilter : undefined,
       });
       setOrders(response.data);
-      setTotalPages(response.pagination.pages);
+      setTotalPages(response.pagination.totalPages); // backend key is totalPages (bug-hunt orders-13)
       setTotalOrders(response.pagination.total);
     } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load orders', false);

@@ -278,7 +278,7 @@ export default function TaxMasterList() {
             </TableBody>
           </Table>
 
-          {pagination && pagination.pages > 1 && (
+          {pagination && pagination.totalPages > 1 && (
             <div className="flex items-center justify-between mt-4">
               <p className="text-sm text-muted-foreground">
                 Showing {(pagination.page - 1) * pagination.limit + 1}-
@@ -291,7 +291,7 @@ export default function TaxMasterList() {
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={page >= pagination.pages}
+                  disabled={page >= pagination.totalPages}
                   onClick={() => setPage((p) => p + 1)}
                 >
                   Next

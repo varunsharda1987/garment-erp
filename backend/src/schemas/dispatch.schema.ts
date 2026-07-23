@@ -36,13 +36,16 @@ export const ASNStatusEnum = z.enum(['PENDING', 'APPLIED', 'APPROVED', 'REJECTED
 const deliveryNoteItemSchema = z.object({
   orderId: z.string().uuid('Invalid order ID').optional(),
   orderItemId: z.string().uuid('Invalid order item ID').optional(),
-  styleId: z.string().uuid('Invalid style ID').optional(),
+  // styleId/colorId/sizeId are REQUIRED: delivery_note_items has all three as non-nullable columns,
+  // so an item missing any of them rolled back the whole create with an opaque Prisma 500 instead of
+  // a field-level 400 (bug-hunt dispatch-7).
+  styleId: z.string().uuid('Invalid style ID'),
   variantId: z.string().uuid('Invalid variant ID').optional(),
   skuId: z.string().uuid('Invalid SKU ID').optional(),
   // The controller writes colorId/sizeId onto delivery_note_items; without them here validateBody
   // stripped them and the insert failed (bug-hunt F5 — delivery-note creation 500'd).
-  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional(),
-  sizeId: z.string().uuid('Invalid size ID').optional(),
+  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }),
+  sizeId: z.string().uuid('Invalid size ID'),
   quantity: z.number().positive('Quantity must be positive'),
   cartonCount: z.number().int().nonnegative().optional(),
   grossWeight: z.number().nonnegative().optional(),
@@ -68,6 +71,9 @@ export const createDeliveryNoteSchema = z
     deliveryAddress: z.string().max(500).optional(),
     remarks: z.string().max(500).optional(),
     items: z.array(deliveryNoteItemSchema).min(1, 'At least one item is required'),
+    // Packed cartons covered by this note — linked as dispatch_cartons rows so dispatching the note
+    // can flip them to DISPATCHED (bug-hunt dispatch-9).
+    cartonIds: z.array(z.string().uuid('Invalid carton ID')).optional(),
   })
   .passthrough();
 
@@ -159,11 +165,14 @@ const asnSkuSchema = z.object({
  */
 export const createASNSchema = z
   .object({
-    // Controller fields (simple dispatch application)
-    orderId: z.string().uuid('Invalid order ID').optional(),
-    plannedDispatchQty: z.number().int().nonnegative().optional(),
-    cartonsPlanned: z.number().int().nonnegative().optional(),
-    requestedShipDate: z.coerce.date().optional(),
+    // Controller fields (simple dispatch application). orderId/plannedDispatchQty/cartonsPlanned/
+    // requestedShipDate are REQUIRED: asn_applications has them as non-nullable columns and the
+    // controller does new Date(requestedShipDate) unconditionally — optional here meant an omission
+    // became an Invalid-Date/Prisma 500 instead of a 400 (bug-hunt dispatch-7).
+    orderId: z.string().uuid('Invalid order ID'),
+    plannedDispatchQty: z.number().int().nonnegative(),
+    cartonsPlanned: z.number().int().nonnegative(),
+    requestedShipDate: z.coerce.date(),
     skus: z.array(asnSkuSchema).optional(), // Simple SKU breakdown
 
     // EDI fields (optional for future EDI integration)
@@ -263,13 +272,16 @@ export const assignTransportSchema = z
  */
 export const recordPODSchema = z
   .object({
-    deliveryDate: z.coerce.date().optional(),
+    // deliveryDate/receivedBy/deliveryStatus are REQUIRED: dispatch_pods has all three non-nullable
+    // and the controller does new Date(deliveryDate) unconditionally — optional here turned an
+    // omission into an Invalid-Date/Prisma 500 instead of a 400 (bug-hunt dispatch-7).
+    deliveryDate: z.coerce.date(),
     deliveryTime: z.string().max(10).optional(),
-    receivedBy: z.string().max(100).optional(),
+    receivedBy: z.string().min(1, 'Receiver name is required').max(100),
     designation: z.string().max(100).optional(),
     customerSignOff: z.boolean().optional(),
     podDocumentUrl: z.string().max(500).optional(),
-    deliveryStatus: z.enum(['DELIVERED', 'PARTIAL', 'REJECTED']).optional(),
+    deliveryStatus: z.enum(['DELIVERED', 'PARTIAL', 'REJECTED']),
     shortageQty: z.number().int().nonnegative().optional(),
     rejectionReason: z.string().max(500).optional(),
     customerGrnNumber: z.string().max(50).optional(),
@@ -284,7 +296,9 @@ export const recordPODSchema = z
  */
 export const approveASNSchema = z
   .object({
-    appointmentDate: z.coerce.date().optional(),
+    // Required: the controller does new Date(appointmentDate) unconditionally (bug-hunt dispatch-7).
+    // NOTE: the /asn/:id/apply route must NOT use this schema — apply sends no body (dispatch-14).
+    appointmentDate: z.coerce.date(),
     appointmentTime: z.string().max(10).optional(),
     buyerRefNumber: z.string().max(50).optional(),
     approvedQty: z.number().int().nonnegative().optional(),

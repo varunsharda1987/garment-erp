@@ -387,6 +387,7 @@ export const FinishingDetail = lazy(() => import('../pages/FinishingDetail'));
 // Dispatch (Manufacturing - Final Step)
 // ============================================================================
 export const DispatchList = lazy(() => import('../pages/DispatchList'));
+export const DispatchDeliveryNoteForm = lazy(() => import('../pages/DispatchDeliveryNoteForm'));
 export const DispatchPODForm = lazy(() => import('../pages/DispatchPODForm'));
 
 // ============================================================================

@@ -4,6 +4,7 @@ import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
+import { dedupeSkuRows } from './cutting.utils';
 
 // ============================================
 // Helper Functions
@@ -264,20 +265,25 @@ export const createFinishingIssue = async (req: Request, res: Response) => {
             }
           : undefined,
       skuBreakdown: {
-        create: skuBreakdown.map((sku: any) => {
-          const availableQty = sku.availableQty ?? sku.issuedQty;
-          if (availableQty === undefined || availableQty === null) {
-            throw new Error(
-              `Available quantity is required for SKU (color: ${sku.colorId}, size: ${sku.sizeId}). Must come from stitching output.`
-            );
-          }
-          return {
-            colorId: sku.colorId,
-            sizeId: sku.sizeId,
-            availableQty: Number(availableQty),
-            issuedQty: Number(sku.issuedQty ?? availableQty),
-          };
-        }),
+        // Deduped by (colorId, sizeId) — NULL-color duplicates double-count totals (bug-hunt production-18)
+        create: dedupeSkuRows(
+          // as any[]: bare `any` receiver collapses the generic to its constraint (loses qty fields)
+          ((skuBreakdown || []) as any[]).map((sku: any) => {
+            const availableQty = sku.availableQty ?? sku.issuedQty;
+            if (availableQty === undefined || availableQty === null) {
+              throw new ValidationError(
+                `Available quantity is required for SKU (color: ${sku.colorId}, size: ${sku.sizeId}). Must come from stitching output.`
+              );
+            }
+            return {
+              colorId: sku.colorId ?? null,
+              sizeId: sku.sizeId,
+              availableQty: Number(availableQty),
+              issuedQty: Number(sku.issuedQty ?? availableQty),
+            };
+          }),
+          ['availableQty', 'issuedQty']
+        ),
       },
     },
     include: issueIncludeOptions,
@@ -379,11 +385,12 @@ export const deleteFinishingIssue = async (req: Request, res: Response) => {
 // Receive from stitching
 export const receiveFromStitching = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { transferSlipId } = req.body;
+  const { transferSlipId, receivedQty, remarks } = req.body;
+  const userId = req.user?.userId;
 
   const existing = await prisma.finishing_issues.findUnique({
     where: { id },
-    select: { status: true },
+    select: { status: true, workOrderId: true },
   });
 
   if (!existing) {
@@ -400,12 +407,32 @@ export const receiveFromStitching = async (req: Request, res: Response) => {
     include: issueIncludeOptions,
   });
 
-  // Update transfer slip status
+  // Update transfer slip status and persist the received quantity as a stage receipt — the
+  // schema-required receivedQty used to be silently discarded, making short receipts
+  // indistinguishable from full ones (bug-hunt production-14).
   if (transferSlipId) {
-    await prisma.transfer_slips.update({
+    const slip = await prisma.transfer_slips.update({
       where: { id: transferSlipId },
-      data: { status: 'RECEIVED', receivedDate: new Date() },
+      data: { status: 'RECEIVED', receivedDate: new Date(), receivedById: userId ?? undefined },
     });
+
+    if (receivedQty != null && userId) {
+      const hasDeviation = receivedQty !== slip.totalGoodPieces;
+      await prisma.stage_receipts.create({
+        data: {
+          workOrderId: existing.workOrderId,
+          stage: 'FINISHING',
+          transferSlipId,
+          receivedDate: new Date(),
+          receivedById: userId,
+          hasDeviation,
+          deviationReason: hasDeviation
+            ? `Received ${receivedQty} of ${slip.totalGoodPieces} pieces on slip ${slip.slipNumber}`
+            : null,
+          remarks,
+        },
+      });
+    }
   }
 
   res.json({ data: transformFinishingIssue(issue) });

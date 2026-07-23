@@ -185,3 +185,27 @@ wrong GST; ASN/DN 500s). F2 ~11 — **our materials uniqueness fix is only 9 of 
   `stock_settings.valuationRate`; repoint valuation readers as one atomic set; retire the 5 writers + guardrail)
   → Stage D (cleanup). Reminder: PM2 runs compiled `dist/`, so every backend repoint needs `npm run build` +
   `pm2 reload garment-erp-api` to go live.
+
+---
+
+## 🧹 2026-07-23 — Pending-items wave 1 (post-backlog cleanup)
+
+**Commit e7b92e96** — deferred DB constraints, all pre-verified (0 violating rows) + negative-tested in rollback txns:
+- `order_item_breakup` partial unique `(orderItemId, sizeId) WHERE colorId IS NULL` (NULL-color rows escaped the composite unique)
+- `po_source_links`: 4 partial uniques (one link per PO-item+source) + CHECK ≤1 polymorphic source FK
+- `style_costing_trim_items`: CHECK ≤1 of the 24 master FKs (costing-19 DB half)
+
+**Commit 74c141a8** — 9 PLAUSIBLE backlog items (5 parallel agents + central gate), catalogue filter, WO completion gap:
+- orders-19 (atomic quotation numbers — format now `QT2607-0001`, was `QT-2607-0001`), orders-21, production-22,
+  costing-16 (+ deleted dead cost-sheet-versioning.service.ts), costing-19 Zod refine, costing-20,
+  dispatch-8 (dead client methods), dispatch-14 (verified already fixed), samples-embroidery-15 (guarded decrement)
+- Catalogue size filter: was dead (matched a field hard-set to undefined → any size selection emptied results);
+  now styles list includes lean `size_options`, exact token matching (fixes S⊂XS), chips from live data
+- **Upgraded find (item F):** finishing completion inserted READY_TO_SHIP tracking WITHOUT the WO rollup — finishing-driven
+  completion never flipped WOs to COMPLETED. Extracted `recomputeWorkOrderCompletion` (same-tx, row-locked), wired both
+  paths, CMT actuals auto-push post-commit, `completedQuantity` removed from UpdateWorkOrderDTO, zero-qty WO guard.
+- Gate: backend+frontend builds clean, guardrails `--all` pass (generator baseline 37→36), PM2 deployed, auth smoke green
+  (styles carry sizeOptions; embroidery send-out reachable & validating; ASN apply validates).
+
+**Remaining queue:** D (36 count-based generators → sequences), E (detectors #2/#4/#7), G (delivery-note page feedback
++ ?asnId prefill), H (user decisions: quotation number format OK? api.ts keep/revert; error.middleware.ts WIP).

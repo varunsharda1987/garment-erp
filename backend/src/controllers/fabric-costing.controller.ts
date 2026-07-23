@@ -1323,6 +1323,8 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
     groupedByComponent[componentKey].push({
       id: option.id,
       purpose: option.purpose, // Include purpose in response for mode-aware filtering
+      isLocked: option.isLocked || false, // Locked PRODUCTION records (parity with GET /options)
+      componentName: option.componentName || null, // Parity with frontend CostingOption type
       fabricId: option.fabricId,
       styleFabricId: option.styleFabricId,
       hasEmbroidery: option.styleFabric?.hasEmbroidery || false,

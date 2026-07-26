@@ -75,7 +75,11 @@ async function ensureMaterialForFabric(fabricId: string): Promise<{ id: string }
           },
         });
       } catch (err) {
-        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
+        if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
+          throw err;
+        }
+        // P2002: supplier link already exists — idempotent, safe to ignore
+        logWarn(`[MRP] Supplier link already exists (P2002), skipping: ${(err as Error).message}`);
       }
     }
 
@@ -126,7 +130,11 @@ async function ensureMaterialForLace(laceId: string): Promise<{ id: string } | n
           },
         });
       } catch (err) {
-        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
+        if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
+          throw err;
+        }
+        // P2002: supplier link already exists — idempotent, safe to ignore
+        logWarn(`[MRP] Supplier link already exists (P2002), skipping: ${(err as Error).message}`);
       }
     }
 
@@ -177,7 +185,11 @@ async function ensureMaterialForGreige(greigeId: string): Promise<{ id: string }
           },
         });
       } catch (err) {
-        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
+        if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
+          throw err;
+        }
+        // P2002: supplier link already exists — idempotent, safe to ignore
+        logWarn(`[MRP] Supplier link already exists (P2002), skipping: ${(err as Error).message}`);
       }
     }
 
@@ -228,7 +240,11 @@ async function ensureMaterialForThread(threadId: string): Promise<{ id: string }
           },
         });
       } catch (err) {
-        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
+        if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
+          throw err;
+        }
+        // P2002: supplier link already exists — idempotent, safe to ignore
+        logWarn(`[MRP] Supplier link already exists (P2002), skipping: ${(err as Error).message}`);
       }
     }
 
@@ -279,7 +295,11 @@ async function ensureMaterialForButton(buttonId: string): Promise<{ id: string }
           },
         });
       } catch (err) {
-        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
+        if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
+          throw err;
+        }
+        // P2002: supplier link already exists — idempotent, safe to ignore
+        logWarn(`[MRP] Supplier link already exists (P2002), skipping: ${(err as Error).message}`);
       }
     }
 
@@ -330,7 +350,11 @@ async function ensureMaterialForZipper(zipperId: string): Promise<{ id: string }
           },
         });
       } catch (err) {
-        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
+        if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
+          throw err;
+        }
+        // P2002: supplier link already exists — idempotent, safe to ignore
+        logWarn(`[MRP] Supplier link already exists (P2002), skipping: ${(err as Error).message}`);
       }
     }
 
@@ -381,7 +405,11 @@ async function ensureMaterialForElastic(elasticId: string): Promise<{ id: string
           },
         });
       } catch (err) {
-        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
+        if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
+          throw err;
+        }
+        // P2002: supplier link already exists — idempotent, safe to ignore
+        logWarn(`[MRP] Supplier link already exists (P2002), skipping: ${(err as Error).message}`);
       }
     }
 
@@ -432,7 +460,11 @@ async function ensureMaterialForLabel(labelId: string): Promise<{ id: string } |
           },
         });
       } catch (err) {
-        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
+        if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
+          throw err;
+        }
+        // P2002: supplier link already exists — idempotent, safe to ignore
+        logWarn(`[MRP] Supplier link already exists (P2002), skipping: ${(err as Error).message}`);
       }
     }
 
@@ -483,7 +515,11 @@ async function ensureMaterialForPackaging(packagingId: string): Promise<{ id: st
           },
         });
       } catch (err) {
-        logWarn(`[MRP] Non-fatal: Failed to link material-supplier: ${(err as Error).message}`);
+        if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
+          throw err;
+        }
+        // P2002: supplier link already exists — idempotent, safe to ignore
+        logWarn(`[MRP] Supplier link already exists (P2002), skipping: ${(err as Error).message}`);
       }
     }
 

@@ -604,15 +604,9 @@ export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
     errors: [] as Array<{ row: number; error: string }>,
   };
 
-  // Get current count for code generation
-  const currentCount = await prisma.greige_master.count();
-
   for (let i = 0; i < greiges.length; i++) {
     try {
       const greige = greiges[i];
-
-      // Auto-generate greige code
-      const greigeCode = `GRG-${String(currentCount + i + 1).padStart(4, '0')}`;
 
       // Validate required fields
       if (!greige.greigeName || !greige.composition || !greige.greigeWidth || !greige.defaultCutableWidth) {
@@ -623,6 +617,10 @@ export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
         });
         continue;
       }
+
+      // Auto-generate greige code from the shared atomic 'GRG' sequence (same series as single
+      // create / getNextGreigeCode) — the old count()-based numbering raced and duplicated codes
+      const greigeCode = await generateCode('GRG', 'greige_master', 'greigeCode');
 
       // Create greige master
       await prisma.greige_master.create({
@@ -653,6 +651,7 @@ export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
 
       results.created++;
     } catch (error: unknown) {
+      // allow-swallow — per-row bulk-import reporter: single-table create, the failure is surfaced in errors[]
       results.failed++;
       results.errors.push({
         row: i + 2,

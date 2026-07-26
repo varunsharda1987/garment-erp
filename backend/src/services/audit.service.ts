@@ -69,7 +69,7 @@ export async function createAuditLog(options: AuditLogOptions): Promise<void> {
     });
     logDebug(`Audit log created: ${options.action} ${options.entityType} ${options.entityId}`);
   } catch (error) {
-    // Don't fail the main operation if audit logging fails
+    // allow-swallow — audit logging is best-effort; it must never fail the main business operation
     logError('Failed to create audit log:', error);
   }
 }

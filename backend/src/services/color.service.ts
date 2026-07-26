@@ -314,6 +314,7 @@ class ColorServiceClass extends BaseService<ColorMaster, CreateColorInput, Updat
 
         result.success++;
       } catch (error) {
+        // allow-swallow — per-row bulk-import reporter: single-table create, the failure is surfaced in result.errors[]
         result.failed++;
         result.errors.push({
           row: rowNumber,

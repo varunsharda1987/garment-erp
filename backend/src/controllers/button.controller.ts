@@ -614,38 +614,41 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
         continue;
       }
 
-      // Create button using Prisma
-      const buttonRecord = await prisma.button_master.create({
-        data: {
-          buttonCode,
-          buttonName: row.buttonName,
-          supplierCode: row.supplierCode ?? null,
-          buyerCode: row.buyerCode ?? null,
-          size: row.size ?? null,
-          holes: row.holes != null ? parseInt(row.holes) : null,
-          color: row.color ?? null,
-          material: row.material ?? null,
-          shape: row.shape ?? null,
-          pricePerPiece: row.pricePerPiece != null ? parseFloat(row.pricePerPiece) : null,
-          pricePerGross: row.pricePerGross != null ? parseFloat(row.pricePerGross) : null,
-          description: row.description || null,
-          isActive: true,
-        },
-      });
+      // Create button + material atomically so a failure cannot leave a master without its materials record
+      const buttonRecord = await prisma.$transaction(async (tx) => {
+        const created = await tx.button_master.create({
+          data: {
+            buttonCode,
+            buttonName: row.buttonName,
+            supplierCode: row.supplierCode ?? null,
+            buyerCode: row.buyerCode ?? null,
+            size: row.size ?? null,
+            holes: row.holes != null ? parseInt(row.holes) : null,
+            color: row.color ?? null,
+            material: row.material ?? null,
+            shape: row.shape ?? null,
+            pricePerPiece: row.pricePerPiece != null ? parseFloat(row.pricePerPiece) : null,
+            pricePerGross: row.pricePerGross != null ? parseFloat(row.pricePerGross) : null,
+            description: row.description || null,
+            isActive: true,
+          },
+        });
 
-      // Create material
-      const materialId = `mat-${buttonCode.toLowerCase()}`;
-      await prisma.materials.create({
-        data: {
-          id: materialId,
-          code: buttonCode,
-          name: row.buttonName,
-          materialType: 'BUTTON',
-          buttonId: buttonRecord.id,
-          categoryId: buttonCategory.id,
-          unit: 'PIECE',
-          isActive: true,
-        },
+        // Create material
+        await tx.materials.create({
+          data: {
+            id: `mat-${buttonCode.toLowerCase()}`,
+            code: buttonCode,
+            name: row.buttonName,
+            materialType: 'BUTTON',
+            buttonId: created.id,
+            categoryId: buttonCategory.id,
+            unit: 'PIECE',
+            isActive: true,
+          },
+        });
+
+        return created;
       });
 
       // Create stock if requested - using specialized button_stock table
@@ -675,6 +678,7 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
         stockCreated,
       });
     } catch (error: any) {
+      // allow-swallow — per-row bulk-import reporter: row writes are atomic ($transaction) and the failure is surfaced in results[]
       results.push({
         success: false,
         row: i + 1,

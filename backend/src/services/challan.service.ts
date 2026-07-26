@@ -272,7 +272,7 @@ export async function issueChallan(id: string, userId?: string) {
             where: { id: item.fabricStockId },
             data: {
               quantityAvailable: new Prisma.Decimal(newAvailable),
-              quantityConsumed: new Prisma.Decimal(Number(fabricStock.quantityConsumed) + qty),
+              quantityConsumed: { increment: qty },
               lastConsumedDate: new Date(),
               status: newAvailable <= 0 ? 'EXHAUSTED' : 'AVAILABLE',
             },
@@ -300,7 +300,7 @@ export async function issueChallan(id: string, userId?: string) {
             where: { id: item.laceStockId },
             data: {
               quantityAvailable: new Prisma.Decimal(newAvailable),
-              quantityConsumed: new Prisma.Decimal(Number(laceStock.quantityConsumed) + qty),
+              quantityConsumed: { increment: qty },
               lastConsumedDate: new Date(),
               status: newAvailable <= 0 ? 'ISSUED' : 'AVAILABLE',
             },
@@ -351,7 +351,7 @@ export async function issueChallan(id: string, userId?: string) {
             where: { id: item.threadStockId },
             data: {
               quantityAvailable: new Prisma.Decimal(newAvailable),
-              quantityConsumed: new Prisma.Decimal(Number(threadStock.quantityConsumed) + qty),
+              quantityConsumed: { increment: qty },
               metersAvailable: newMeters !== null ? new Prisma.Decimal(newMeters) : null,
               boxesAvailable: newBoxes !== null ? new Prisma.Decimal(newBoxes) : null,
               lastConsumedDate: new Date(),

@@ -20,19 +20,20 @@ export const TCSStatusEnum = z.enum(['PENDING', 'COLLECTED', 'DEPOSITED', 'FILED
 /**
  * Create TCS Record
  * POST /api/tcs
+ *
+ * Fields match the tcs_entries Prisma model, tcsService.create, and the
+ * frontend CreateTCSRequest (frontend/src/types/tcs.types.ts).
  */
 export const createTCSSchema = z.object({
-  customerId: z.string().uuid('Invalid customer ID').optional(),
   invoiceId: z.string().uuid('Invalid invoice ID').optional(),
-  collectionDate: z.string().datetime().optional(),
-  grossAmount: z.number().positive('Gross amount must be positive'),
+  customerName: z.string().min(1, 'Customer name is required').max(200),
+  tcsSection: z.string().min(1, 'TCS section is required').max(20),
   tcsRate: z.number().min(0).max(100, 'TCS rate must be between 0 and 100'),
+  saleAmount: z.number().positive('Sale amount must be positive'),
   tcsAmount: z.number().nonnegative('TCS amount must be non-negative'),
-  netAmount: z.number().positive('Net amount must be positive'),
-  panNumber: z.string().max(20).optional(),
-  tanNumber: z.string().max(20).optional(),
-  challanNumber: z.string().max(50).optional(),
-  challanDate: z.string().datetime().optional(),
+  collectionDate: z.string().min(1, 'Collection date is required'),
+  financialYear: z.string().min(1, 'Financial year is required').max(10),
+  quarter: z.number().int().min(1).max(4),
   remarks: z.string().max(500).optional(),
 });
 
@@ -41,17 +42,15 @@ export const createTCSSchema = z.object({
  * PUT /api/tcs/:id
  */
 export const updateTCSSchema = z.object({
-  customerId: z.string().uuid('Invalid customer ID').optional().nullable(),
   invoiceId: z.string().uuid('Invalid invoice ID').optional().nullable(),
-  collectionDate: z.string().datetime().optional().nullable(),
-  grossAmount: z.number().positive().optional(),
+  customerName: z.string().min(1).max(200).optional(),
+  tcsSection: z.string().min(1).max(20).optional(),
   tcsRate: z.number().min(0).max(100).optional(),
+  saleAmount: z.number().positive().optional(),
   tcsAmount: z.number().nonnegative().optional(),
-  netAmount: z.number().positive().optional(),
-  panNumber: z.string().max(20).optional().nullable(),
-  tanNumber: z.string().max(20).optional().nullable(),
-  challanNumber: z.string().max(50).optional().nullable(),
-  challanDate: z.string().datetime().optional().nullable(),
+  collectionDate: z.string().min(1).optional(),
+  financialYear: z.string().min(1).max(10).optional(),
+  quarter: z.number().int().min(1).max(4).optional(),
   remarks: z.string().max(500).optional().nullable(),
 });
 

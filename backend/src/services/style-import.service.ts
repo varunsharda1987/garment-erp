@@ -687,19 +687,22 @@ export class StyleImportService {
       // Create fabrics
       let fabricSequence = 1;
       for (const row of uniqueFabrics.values()) {
-        try {
-          // Get greige by name or create generic greige
-          const csvRow = row as unknown as Record<string, unknown>;
-          const fabricDesc = row.fabricDescription || 'Default Fabric';
-          const greigeName = (csvRow.greigeName as string) || fabricDesc;
-          const greigeId = await this.lookupOrCreateGreige(greigeName, userId);
+        // Get greige by name or create generic greige
+        const csvRow = row as unknown as Record<string, unknown>;
+        const fabricDesc = row.fabricDescription || 'Default Fabric';
+        const greigeName = (csvRow.greigeName as string) || fabricDesc;
+        const greigeId = await this.lookupOrCreateGreige(greigeName, userId);
 
-          // Generate fabric code
-          const fabricCode = this.generateFabricCode(styleCode, componentName, fabricSequence);
-          const fabricName = this.generateFabricName(fabricDesc, styleCode, componentName);
+        // Generate fabric code
+        const fabricCode = this.generateFabricCode(styleCode, componentName, fabricSequence);
+        const fabricName = this.generateFabricName(fabricDesc, styleCode, componentName);
 
+        // Create fabric + CAD entry + component link atomically so a mid-row failure cannot
+        // leave an orphaned fabric_master; errors propagate to the per-style handler in
+        // importStylesFromCSV, which surfaces them in the import errors[]
+        const cadCreated = await prisma.$transaction(async (tx) => {
           // Create fabric
-          const fabric = await prisma.fabric_master.create({
+          const fabric = await tx.fabric_master.create({
             data: {
               id: `${fabricCode}-${Date.now()}`,
               fabricCode,
@@ -714,17 +717,16 @@ export class StyleImportService {
               createdAt: new Date(),
             },
           });
-          fabricsCreated++;
-          fabricSequence++;
 
           // Create CAD entry
+          let createdCadEntry = false;
           if (row.fabricWidth) {
             const cadVariancePercent =
               row.cadAverage && row.lastProductionAverage
                 ? ((row.lastProductionAverage - row.cadAverage) / row.cadAverage) * 100
                 : null;
 
-            await prisma.fabric_width_cad.create({
+            await tx.fabric_width_cad.create({
               data: {
                 id: `${fabric.id}-CAD-${Date.now()}`,
                 fabricId: fabric.id,
@@ -738,11 +740,11 @@ export class StyleImportService {
                 createdAt: new Date(),
               },
             });
-            cadEntriesCreated++;
+            createdCadEntry = true;
           }
 
           // Link fabric to component via style_fabrics
-          await prisma.style_fabrics.create({
+          await tx.style_fabrics.create({
             data: {
               id: `${component.id}-${fabric.id}-${Date.now()}`,
               componentId: component.id,
@@ -751,10 +753,13 @@ export class StyleImportService {
               quantityNeeded: row.cadAverage ? new Prisma.Decimal(row.cadAverage) : null,
             },
           });
-        } catch (error: unknown) {
-          logError(`Error creating fabric for ${componentName}:`, error);
-          // Continue with next fabric
-        }
+
+          return createdCadEntry;
+        });
+
+        fabricsCreated++;
+        fabricSequence++;
+        if (cadCreated) cadEntriesCreated++;
       }
     }
 

@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import { dedupeSkuRows } from './cutting.utils';
 import workOrderService from '../services/workOrder.service';
+import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 
 // ============================================
 // Helper Functions
@@ -81,19 +82,85 @@ const transformFinishingIssue = (issue: any) => ({
   dailyOutputs: issue.dailyOutputs || [],
 });
 
+/** Highest numeric suffix among codes shaped `${prefix}-<digits>` (the dash keeps the scope exact). */
+const maxNumericSuffix = (codes: Array<string | null>, prefix: string): number => {
+  let max = 0;
+  for (const code of codes) {
+    if (!code || !code.startsWith(`${prefix}-`)) continue;
+    const suffix = code.slice(prefix.length + 1);
+    if (/^\d+$/.test(suffix)) max = Math.max(max, parseInt(suffix, 10));
+  }
+  return max;
+};
+
+/**
+ * Lazily seed the atomic sequence for a per-scope compound prefix (e.g. `FI-WO2607-0001`,
+ * `TS-20260726`). Static seeding (scripts/seed-code-sequences.ts) is impossible for prefixes
+ * that embed a work-order/date scope, so before first use in a scope: if code_sequences has no
+ * row for the prefix but rows already exist in the target table, initialize the sequence with
+ * their max numeric suffix (idempotent GREATEST upsert, mirroring the seed script).
+ */
+const seedScopedSequenceIfMissing = async (prefix: string, findMaxSuffix: () => Promise<number>): Promise<void> => {
+  const existing = await prisma.$queryRaw<Array<{ found: number }>>(
+    Prisma.sql`SELECT 1 AS found FROM code_sequences WHERE prefix = ${prefix} LIMIT 1`
+  );
+  if (existing.length > 0) return;
+  const max = await findMaxSuffix();
+  if (max <= 0) return;
+  await prisma.$executeRaw(
+    Prisma.sql`
+      INSERT INTO code_sequences (id, prefix, "lastValue", "updatedAt")
+      VALUES (gen_random_uuid(), ${prefix}, ${max}, NOW())
+      ON CONFLICT (prefix) DO UPDATE SET
+        "lastValue" = GREATEST(code_sequences."lastValue", ${max}),
+        "updatedAt" = NOW()
+    `
+  );
+};
+
+/** True when err is a Prisma P2002 unique violation whose target involves the given column. */
+const isUniqueViolationOn = (err: unknown, column: string): boolean => {
+  const e = err as { code?: string; meta?: { target?: unknown } } | null;
+  if (!e || e.code !== 'P2002') return false;
+  const target = e.meta?.target;
+  const text = Array.isArray(target) ? target.join(',') : String(target ?? '');
+  return text.includes(column);
+};
+
+// Atomic per-work-order sequence; visible format preserved: FI-{workOrderNumber}-NNN
 const generateIssueNumber = async (workOrderNumber: string): Promise<string> => {
   const prefix = `FI-${workOrderNumber}`;
-
-  const existingCount = await prisma.finishing_issues.count({
-    where: {
-      issueNumber: {
-        startsWith: prefix,
-      },
-    },
+  await seedScopedSequenceIfMissing(prefix, async () => {
+    const rows = await prisma.finishing_issues.findMany({
+      where: { issueNumber: { startsWith: `${prefix}-` } },
+      select: { issueNumber: true },
+    });
+    return maxNumericSuffix(
+      rows.map((r) => r.issueNumber),
+      prefix
+    );
   });
+  return generateAtomicMasterCode(prefix, 3);
+};
 
-  const seq = (existingCount + 1).toString().padStart(3, '0');
-  return `${prefix}-${seq}`;
+/**
+ * Next transfer-slip number from the atomic per-day sequence; visible format preserved:
+ * TS-YYYYMMDD-NNNN. cutting-issue.controller.ts writes the same transfer_slips.slipNumber
+ * series and MUST use this same `TS-<date>` sequence key so the series can't collide.
+ */
+const generateTransferSlipNumber = async (date: Date): Promise<string> => {
+  const prefix = `TS-${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getDate().toString().padStart(2, '0')}`;
+  await seedScopedSequenceIfMissing(prefix, async () => {
+    const rows = await prisma.transfer_slips.findMany({
+      where: { slipNumber: { startsWith: `${prefix}-` } },
+      select: { slipNumber: true },
+    });
+    return maxNumericSuffix(
+      rows.map((r) => r.slipNumber),
+      prefix
+    );
+  });
+  return generateAtomicMasterCode(prefix, 4);
 };
 
 // Include options for finishing issue queries
@@ -307,6 +374,7 @@ export const createFinishingIssue = async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
+    // allow-swallow — pure timeline production_tracking entry; must not fail the already-created finishing issue
     logger.error('Failed to create production_tracking for finishing:', err);
   }
 
@@ -592,6 +660,9 @@ export const completeFinishingIssue = async (req: Request, res: Response) => {
   // Auto-create production_tracking: READY_TO_SHIP, and roll the WO's completedQuantity/status up
   // in the same transaction — this path previously inserted the tracking row without the rollup,
   // so finishing-driven completion never flipped the WO to COMPLETED (review nit, item F).
+  // A rollup failure is surfaced as a response warning (pattern: cmtUpdateWarning in
+  // workOrder.controller.ts) instead of being silently swallowed.
+  let completionWarning: string | undefined;
   try {
     const userId = req.user?.userId;
     if (issue.workOrderId && userId) {
@@ -615,14 +686,23 @@ export const completeFinishingIssue = async (req: Request, res: Response) => {
           await workOrderService.updateActualCMTCosts(workOrderId);
         } catch (err) {
           logger.warn(`CMT actuals auto-update failed after finishing-driven completion of WO ${workOrderId}:`, err);
+          completionWarning =
+            'Finishing issue completed, but updating actual CMT costs failed — order item costing still reflects estimates. ' +
+            (err instanceof Error ? err.message : '');
         }
       }
     }
   } catch (err) {
     logger.error('Failed to create production_tracking for finishing completion:', err);
+    completionWarning =
+      'Finishing issue completed, but the production-tracking entry / work-order completion rollup failed — the work order may not reflect this completion. ' +
+      (err instanceof Error ? err.message : '');
   }
 
-  res.json({ data: transformFinishingIssue(issue) });
+  res.json({
+    data: transformFinishingIssue(issue),
+    ...(completionWarning ? { warning: completionWarning } : {}),
+  });
   // end completeFinishingIssue
 };
 
@@ -655,15 +735,8 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
     throw new ValidationError('Can only generate transfer slip for completed issues');
   }
 
-  // Generate slip number
+  // Slip number comes from the atomic per-day TS sequence (generated per attempt, below)
   const today = new Date();
-  const datePrefix = `TS-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
-  const existingSlips = await prisma.transfer_slips.count({
-    where: {
-      slipNumber: { startsWith: datePrefix },
-    },
-  });
-  const slipNumber = `${datePrefix}-${(existingSlips + 1).toString().padStart(4, '0')}`;
 
   // Calculate finished pieces per SKU from daily outputs
   const skuFinishedQtyMap = new Map<string, { colorId: string; sizeId: string; finishedQty: number }>();
@@ -709,9 +782,8 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
   // on the global client with NO duplicate check — a double-click created a second slip and counted
   // the same good pieces into finished-goods stock twice. The partial unique index on
   // finishingIssueId (migration 20260722150000) is the hard DB backstop.
-  let transferSlip;
-  try {
-    transferSlip = await prisma.$transaction(async (tx) => {
+  const attemptCreateSlip = (slipNumber: string) =>
+    prisma.$transaction(async (tx) => {
       const existingSlip = await tx.transfer_slips.findFirst({
         where: { finishingIssueId: id },
         select: { id: true, slipNumber: true },
@@ -772,6 +844,23 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
 
       return slip;
     });
+
+  let transferSlip;
+  try {
+    transferSlip = await (async () => {
+      for (let attempt = 1; ; attempt++) {
+        const slipNumber = await generateTransferSlipNumber(today);
+        try {
+          return await attemptCreateSlip(slipNumber);
+        } catch (err) {
+          // Only a slipNumber collision (pre-atomic row in today's scope) is retried with a fresh
+          // number — the partial unique on finishingIssueId means a genuine duplicate slip and
+          // falls through to the outer P2002 handling.
+          if (isUniqueViolationOn(err, 'slipNumber') && attempt < 3) continue;
+          throw err;
+        }
+      }
+    })();
   } catch (err: any) {
     // P2002 = the partial unique index caught a concurrent duplicate (or a slip-number collision)
     if (err?.code === 'P2002') {

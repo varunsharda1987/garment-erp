@@ -479,38 +479,41 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
         continue;
       }
 
-      // Create zipper using Prisma
-      const zipperRecord = await prisma.zipper_master.create({
-        data: {
-          zipperCode,
-          zipperName: row.zipperName,
-          supplierCode: row.supplierCode || null,
-          buyerCode: row.buyerCode || null,
-          length: row.length ? parseFloat(row.length) : null,
-          teethType: row.teethType || null,
-          color: row.color || null,
-          brand: row.brand || null,
-          sliderType: row.sliderType || null,
-          tapeWidth: row.tapeWidth ? parseFloat(row.tapeWidth) : null,
-          pricePerPiece: row.pricePerPiece ? parseFloat(row.pricePerPiece) : null,
-          description: row.description || null,
-          isActive: true,
-        },
-      });
+      // Create zipper + material atomically so a failure cannot leave a master without its materials record
+      const zipperRecord = await prisma.$transaction(async (tx) => {
+        const created = await tx.zipper_master.create({
+          data: {
+            zipperCode,
+            zipperName: row.zipperName,
+            supplierCode: row.supplierCode || null,
+            buyerCode: row.buyerCode || null,
+            length: row.length ? parseFloat(row.length) : null,
+            teethType: row.teethType || null,
+            color: row.color || null,
+            brand: row.brand || null,
+            sliderType: row.sliderType || null,
+            tapeWidth: row.tapeWidth ? parseFloat(row.tapeWidth) : null,
+            pricePerPiece: row.pricePerPiece ? parseFloat(row.pricePerPiece) : null,
+            description: row.description || null,
+            isActive: true,
+          },
+        });
 
-      // Create material
-      const materialId = `mat-${zipperCode.toLowerCase()}`;
-      await prisma.materials.create({
-        data: {
-          id: materialId,
-          code: zipperCode,
-          name: row.zipperName,
-          materialType: 'ZIPPER',
-          zipperId: zipperRecord.id,
-          categoryId: zipperCategory.id,
-          unit: 'PIECE',
-          isActive: true,
-        },
+        // Create material
+        await tx.materials.create({
+          data: {
+            id: `mat-${zipperCode.toLowerCase()}`,
+            code: zipperCode,
+            name: row.zipperName,
+            materialType: 'ZIPPER',
+            zipperId: created.id,
+            categoryId: zipperCategory.id,
+            unit: 'PIECE',
+            isActive: true,
+          },
+        });
+
+        return created;
       });
 
       // Create stock if requested - using specialized zipper_stock table
@@ -540,6 +543,7 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
         stockCreated,
       });
     } catch (error: any) {
+      // allow-swallow — per-row bulk-import reporter: row writes are atomic ($transaction) and the failure is surfaced in results[]
       results.push({
         success: false,
         row: i + 1,

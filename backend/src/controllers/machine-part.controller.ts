@@ -457,36 +457,39 @@ export const bulkImportMachineParts = async (req: Request, res: Response) => {
         continue;
       }
 
-      // Create machine part using Prisma
-      const partRecord = await prisma.machine_part_master.create({
-        data: {
-          partCode,
-          partName: row.partName,
-          partNumber: row.partNumber || null,
-          category: row.category || null,
-          machine: row.machine || null,
-          brand: row.brand || null,
-          model: row.model || null,
-          specifications: row.specifications || null,
-          pricePerUnit: row.pricePerUnit ? parseFloat(row.pricePerUnit) : null,
-          description: row.description || null,
-          isActive: true,
-        },
-      });
+      // Create machine part + material atomically so a failure cannot leave a master without its materials record
+      const partRecord = await prisma.$transaction(async (tx) => {
+        const created = await tx.machine_part_master.create({
+          data: {
+            partCode,
+            partName: row.partName,
+            partNumber: row.partNumber || null,
+            category: row.category || null,
+            machine: row.machine || null,
+            brand: row.brand || null,
+            model: row.model || null,
+            specifications: row.specifications || null,
+            pricePerUnit: row.pricePerUnit ? parseFloat(row.pricePerUnit) : null,
+            description: row.description || null,
+            isActive: true,
+          },
+        });
 
-      // Create material
-      const materialId = `mat-${partCode.toLowerCase()}`;
-      await prisma.materials.create({
-        data: {
-          id: materialId,
-          code: partCode,
-          name: row.partName,
-          materialType: 'MACHINE_PART',
-          machinePartId: partRecord.id,
-          categoryId: machinePartCategory.id,
-          unit: 'PIECE',
-          isActive: true,
-        },
+        // Create material
+        await tx.materials.create({
+          data: {
+            id: `mat-${partCode.toLowerCase()}`,
+            code: partCode,
+            name: row.partName,
+            materialType: 'MACHINE_PART',
+            machinePartId: created.id,
+            categoryId: machinePartCategory.id,
+            unit: 'PIECE',
+            isActive: true,
+          },
+        });
+
+        return created;
       });
 
       // Create stock if requested - using specialized machine_part_stock table
@@ -516,6 +519,7 @@ export const bulkImportMachineParts = async (req: Request, res: Response) => {
         stockCreated,
       });
     } catch (error: any) {
+      // allow-swallow — per-row bulk-import reporter: row writes are atomic ($transaction) and the failure is surfaced in results[]
       results.push({
         success: false,
         row: i + 1,

@@ -260,6 +260,7 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
+    // allow-swallow — pure timeline production_tracking entry; must not fail the already-created cutting batch
     logInfo(
       `Warning: Auto production_tracking failed for cutting batch ${batch.batchNumber}: ${(err as Error).message}`
     );

@@ -118,7 +118,7 @@ class ProcessingStageService {
             },
           });
         } catch (err) {
-          // Non-critical: don't fail stage creation if tracking fails
+          // allow-swallow — pure timeline production_tracking entry; must not fail the created processing stage
           logger.error('Failed to create production_tracking for processing stage:', err);
         }
       }

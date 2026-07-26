@@ -246,25 +246,6 @@ class ExternalProcessService {
         });
       }
 
-      // 10. Update style-level production tracking (piece counts)
-      await this.updateProductionTracking(
-        tx,
-        data.styleId || workOrder.styleId,
-        data.processType,
-        'SEND',
-        Math.round(data.quantitySent)
-      );
-
-      // 11. Create production_tracking record (updates currentStage on dashboard)
-      await this.createProductionTrackingRecord(
-        tx,
-        data.workOrderId,
-        data.processType,
-        'SEND',
-        Math.round(data.quantitySent),
-        data.createdById
-      );
-
       logInfo('External process send-out created', {
         id: sendOut.id,
         batchNumber,
@@ -318,8 +299,27 @@ class ExternalProcessService {
         sendOutId: sendOut.id,
       });
 
-      return { sendOut, supplierName: supplier.name };
+      return { sendOut, supplierName: supplier.name, trackingStyleId: data.styleId || workOrder.styleId };
     });
+
+    // Dashboard rollups run POST-COMMIT on the global client: a swallowed failure inside a
+    // Postgres transaction aborts it (25P02) and poisons every later statement, so "best-effort
+    // inside the tx" was never actually best-effort (cleanup-74 review NIT).
+    await this.updateProductionTracking(
+      prisma,
+      result.trackingStyleId,
+      data.processType,
+      'SEND',
+      Math.round(data.quantitySent)
+    );
+    await this.createProductionTrackingRecord(
+      prisma,
+      data.workOrderId,
+      data.processType,
+      'SEND',
+      Math.round(data.quantitySent),
+      data.createdById
+    );
 
     return result.sendOut;
   }
@@ -365,7 +365,7 @@ class ExternalProcessService {
             data: {
               receivedQty: sku.receivedQty,
               damagedQty: sku.damagedQty,
-              goodQty: sku.receivedQty - sku.damagedQty,
+              goodQty: sku.receivedQty - sku.damagedQty, // allow-assign — derived absolute, not read-modify-write
             },
           });
         }
@@ -423,26 +423,50 @@ class ExternalProcessService {
         });
       }
 
-      // 8. Update style-level production tracking (piece counts)
-      await this.updateProductionTracking(
-        tx,
-        sendOut.styleId || '',
-        sendOut.processType,
-        'RECEIVE',
-        Math.round(quantityGood)
+      // 8. Create the INWARD job-work challan INSIDE the same transaction — receiving material back
+      // without a challan leaves the goods-movement ledger disagreeing with the send-out (same
+      // split-ledger disease as the outward challan, F4 #13), so a challan failure rolls the
+      // receive back instead of being silently swallowed.
+      const itemType = this.getChallanItemType(sendOut.processType, sendOut.sourceType);
+      const processLabel = sendOut.processType.replace('_', ' ').toLowerCase();
+
+      const challan = await createChallan(
+        {
+          challanType: ChallanType.INWARD,
+          challanDate: data.actualReturnDate,
+          orderId: sendOut.orderId || undefined,
+          productionRunId: sendOut.workOrderId,
+          purchaseOrderId: sendOut.purchaseOrderId || undefined,
+          fromType: 'VENDOR',
+          fromId: sendOut.supplierId,
+          fromName: sendOut.supplier?.name || 'Vendor',
+          toType: 'WAREHOUSE',
+          toName: sendOut.processType === 'HANDWORK' ? 'Finishing Floor' : 'Stitching Floor',
+          unit: sendOut.unit,
+          remarks: `${processLabel} receive: ${sendOut.batchNumber} (${data.quantityReceived} ${sendOut.unit})`,
+          issuedById: data.createdById,
+          items: [
+            {
+              itemType,
+              quantity: data.quantityReceived,
+              unit: sendOut.unit,
+              description: `Received from ${processLabel} — Batch ${sendOut.batchNumber}`,
+              serviceRequirementId: sendOut.serviceRequirementId || undefined,
+            },
+          ],
+        },
+        tx
       );
 
-      // 9. Create production_tracking record (updates currentStage on dashboard)
-      if (newStatus === 'RECEIVED') {
-        await this.createProductionTrackingRecord(
-          tx,
-          sendOut.workOrderId,
-          sendOut.processType,
-          'RECEIVE',
-          Math.round(quantityGood),
-          data.createdById
-        );
-      }
+      await tx.external_process_send_outs.update({
+        where: { id: data.sendOutId },
+        data: { inwardChallanId: challan.id },
+      });
+
+      logInfo('Created external process inward challan', {
+        challanId: challan.id,
+        sendOutId: data.sendOutId,
+      });
 
       logInfo('External process material received', {
         sendOutId: sendOut.id,
@@ -452,51 +476,34 @@ class ExternalProcessService {
         quantityDamaged,
       });
 
-      return { updatedSendOut, supplierName: sendOut.supplier?.name };
+      return {
+        updatedSendOut,
+        supplierName: sendOut.supplier?.name,
+        trackingStyleId: sendOut.styleId || '',
+        trackingWorkOrderId: sendOut.workOrderId,
+        trackingProcessType: sendOut.processType,
+        trackingNewStatus: newStatus,
+        trackingQuantityGood: quantityGood,
+      };
     });
 
-    // Create INWARD challan outside transaction (non-critical)
-    try {
-      const sendOut = result.updatedSendOut;
-      const itemType = this.getChallanItemType(sendOut.processType, sendOut.sourceType);
-      const processLabel = sendOut.processType.replace('_', ' ').toLowerCase();
-
-      const challan = await createChallan({
-        challanType: ChallanType.INWARD,
-        challanDate: data.actualReturnDate,
-        orderId: sendOut.orderId || undefined,
-        productionRunId: sendOut.workOrderId,
-        purchaseOrderId: sendOut.purchaseOrderId || undefined,
-        fromType: 'VENDOR',
-        fromId: sendOut.supplierId,
-        fromName: result.supplierName || 'Vendor',
-        toType: 'WAREHOUSE',
-        toName: sendOut.processType === 'HANDWORK' ? 'Finishing Floor' : 'Stitching Floor',
-        unit: sendOut.unit,
-        remarks: `${processLabel} receive: ${sendOut.batchNumber} (${data.quantityReceived} ${sendOut.unit})`,
-        issuedById: data.createdById,
-        items: [
-          {
-            itemType,
-            quantity: data.quantityReceived,
-            unit: sendOut.unit,
-            description: `Received from ${processLabel} — Batch ${sendOut.batchNumber}`,
-            serviceRequirementId: sendOut.serviceRequirementId || undefined,
-          },
-        ],
-      });
-
-      await prisma.external_process_send_outs.update({
-        where: { id: data.sendOutId },
-        data: { inwardChallanId: challan.id },
-      });
-
-      logInfo('Created external process inward challan', {
-        challanId: challan.id,
-        sendOutId: data.sendOutId,
-      });
-    } catch (challanErr) {
-      logError('Failed to create external process inward challan (non-critical)', challanErr);
+    // Dashboard rollups POST-COMMIT (see createSendOut — swallowing inside a Postgres tx aborts it).
+    await this.updateProductionTracking(
+      prisma,
+      result.trackingStyleId,
+      result.trackingProcessType,
+      'RECEIVE',
+      Math.round(result.trackingQuantityGood)
+    );
+    if (result.trackingNewStatus === 'RECEIVED') {
+      await this.createProductionTrackingRecord(
+        prisma,
+        result.trackingWorkOrderId,
+        result.trackingProcessType,
+        'RECEIVE',
+        Math.round(result.trackingQuantityGood),
+        data.createdById
+      );
     }
 
     return result.updatedSendOut;
@@ -567,6 +574,8 @@ class ExternalProcessService {
         });
       }
     } catch (err) {
+      // allow-swallow — style-level dashboard piece counts (timeline rollup), called POST-COMMIT
+      // on the global client; the send/receive/cancel itself has already committed
       logError('Failed to update production tracking (non-critical)', err);
     }
   }
@@ -622,6 +631,8 @@ class ExternalProcessService {
       });
       logDebug('Created production_tracking record', { workOrderId, stage, quantity });
     } catch (err) {
+      // allow-swallow — pure timeline production_tracking entry (dashboard currentStage), called
+      // POST-COMMIT on the global client; the send/receive itself has already committed
       logError('Failed to create production_tracking record (non-critical)', err);
     }
   }
@@ -723,7 +734,7 @@ class ExternalProcessService {
    * Cancel a send-out — reverses stock deductions and updates tracking
    */
   async cancelSendOut(id: string, reason: string, userId: string) {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       const sendOut = await tx.external_process_send_outs.findUnique({
         where: { id },
         include: { supplier: { select: { name: true } } },
@@ -742,16 +753,6 @@ class ExternalProcessService {
           data: { quantityAvailable: { increment: qty } },
         });
       }
-
-      // Reverse production tracking — CANCEL restores pieces to the origin stage; the old
-      // 'RECEIVE' action advanced them to the NEXT stage instead (bug-hunt production-12)
-      await this.updateProductionTracking(
-        tx,
-        sendOut.styleId || '',
-        sendOut.processType,
-        'CANCEL',
-        Math.round(parseFloat(sendOut.quantitySent.toString()))
-      );
 
       // Update service requirement back to PENDING
       if (sendOut.serviceRequirementId) {
@@ -779,8 +780,26 @@ class ExternalProcessService {
         reason,
       });
 
-      return updated;
+      return {
+        updated,
+        trackingStyleId: sendOut.styleId || '',
+        trackingProcessType: sendOut.processType,
+        trackingQuantity: Math.round(parseFloat(sendOut.quantitySent.toString())),
+      };
     });
+
+    // Reverse production tracking POST-COMMIT — CANCEL restores pieces to the origin stage; the old
+    // 'RECEIVE' action advanced them to the NEXT stage instead (bug-hunt production-12). Outside the
+    // tx because a swallowed failure inside a Postgres tx aborts it (25P02).
+    await this.updateProductionTracking(
+      prisma,
+      result.trackingStyleId,
+      result.trackingProcessType,
+      'CANCEL',
+      result.trackingQuantity
+    );
+
+    return result.updated;
   }
 
   /**

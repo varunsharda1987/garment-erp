@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import logger from '../utils/logger';
 import prisma from '../config/database';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../errors';
@@ -226,8 +227,13 @@ export const bulkCreateLookups = async (req: Request, res: Response) => {
       });
       results.push({ success: true, value: value, id: lookup.id });
     } catch (err: unknown) {
-      // Keep per-item error handling - this is a bulk operation where individual items may fail
-      results.push({ success: false, value: value, error: err instanceof Error ? err.message : 'Unknown error' });
+      // Idempotency: a concurrent seed may have created the same value between the upsert's
+      // read and write (P2002). Record it and continue; any other error must propagate.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        results.push({ success: false, value: value, error: 'Duplicate value already exists' });
+        continue;
+      }
+      throw err;
     }
   }
 

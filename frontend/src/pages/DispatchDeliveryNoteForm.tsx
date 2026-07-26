@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Combobox } from '@/components/ui/combobox';
 import type { ComboboxOption } from '@/components/ui/combobox';
-import { deliveryNoteService } from '@/services/dispatch.service';
+import { deliveryNoteService, asnService } from '@/services/dispatch.service';
 import { getAllOrders, getOrderById } from '@/services/order.service';
 import { customerService } from '@/services/customer.service';
 import { styleService } from '@/services/style.service';
@@ -62,9 +62,11 @@ const newRow = (partial?: Partial<ItemRow>): ItemRow => ({
 export default function DispatchDeliveryNoteForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  // TODO(v2): the ASN "Create Delivery Note" action passes ?asnId=... — pre-load the ASN's
-  // order + SKUs and send asnId in the payload. v1 intentionally ignores it (safe to be present).
-  void searchParams.get('asnId');
+  // The ASN "Create Delivery Note" action passes ?asnId=... — we pre-load the ASN's order,
+  // prefill quantities from its SKU plan, and send asnId in the payload.
+  const asnId = searchParams.get('asnId');
+  const [asnNumber, setAsnNumber] = useState<string | null>(null);
+  const asnLoadedRef = useRef(false);
 
   // Lookups
   const [orders, setOrders] = useState<Order[]>([]);
@@ -197,6 +199,46 @@ export default function DispatchDeliveryNoteForm() {
     }
   };
 
+  // ----- ASN prefill: ?asnId=... loads the ASN's order and narrows rows to its shipment plan -----
+
+  useEffect(() => {
+    if (!asnId || asnLoadedRef.current) return;
+    asnLoadedRef.current = true;
+    (async () => {
+      try {
+        const asn = await asnService.getById(asnId);
+        setAsnNumber(asn.asnNumber);
+        if (asn.orderId) {
+          await handleOrderSelect(asn.orderId);
+          const skus = asn.skus || [];
+          if (skus.length > 0) {
+            // The order prefill just queued full-order rows; narrow them to the ASN's plan:
+            // match by color+size, take plannedQty. Rows outside the plan are dropped (the
+            // user can re-add any row before saving). If nothing matches, keep the order rows.
+            setItems((prev) => {
+              const used = new Set<number>();
+              const mapped: ItemRow[] = [];
+              for (const sku of skus) {
+                const idx = prev.findIndex(
+                  (r, i) => !used.has(i) && r.colorId === sku.colorId && r.sizeId === sku.sizeId
+                );
+                if (idx >= 0) {
+                  used.add(idx);
+                  mapped.push({ ...prev[idx], quantity: String(sku.plannedQty) });
+                }
+              }
+              return mapped.length > 0 ? mapped : prev;
+            });
+          }
+          setRemarks((prev) => prev || `Against ASN ${asn.asnNumber}`);
+        }
+      } catch (err) {
+        handleApiError(err, 'Failed to load ASN for prefill');
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [asnId]);
+
   // ----- Item row helpers -----
 
   const updateItem = (tempId: string, patch: Partial<ItemRow>) => {
@@ -260,6 +302,7 @@ export default function DispatchDeliveryNoteForm() {
       orderId,
       customerId,
       deliveryDate,
+      asnId: asnId || undefined,
       remarks: remarks.trim() || undefined,
       items: items
         .filter((r) => r.styleId && r.colorId && r.sizeId && parseInt(r.quantity) > 0)
@@ -308,7 +351,10 @@ export default function DispatchDeliveryNoteForm() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-display font-medium">Create Delivery Note</h1>
+          <h1 className="text-2xl font-display font-medium flex items-center gap-3">
+            Create Delivery Note
+            {asnNumber && <Badge variant="secondary">Against ASN {asnNumber}</Badge>}
+          </h1>
           <p className="text-muted-foreground">Dispatch finished goods against a customer order</p>
         </div>
       </div>

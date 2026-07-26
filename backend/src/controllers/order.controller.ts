@@ -353,6 +353,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
         });
       }
     } catch (snapshotError) {
+      // allow-swallow — failure is surfaced to the caller via costingInfo.failures in the response (T2)
       // Don't fail the order if snapshot fails — but report it so the caller can retry
       // instead of silently losing the variance baseline (bug-hunt orders-7)
       logWarn(`[createOrder] Failed to create cost sheet snapshot for order item ${orderItem.id}:`, snapshotError);
@@ -704,6 +705,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
           `[updateOrderStatus] Cloned ${clonedCount} COSTING CAD rows to RAW_MATERIAL_CALCULATION for style ${orderItem.styleId}`
         );
       } catch (rawMatError) {
+        // allow-swallow — per-item failure is surfaced to the caller via rawMaterialCalculation.results in the response (T2)
         // Per-item error handling - don't fail the whole status update
         logWarn(
           `[updateOrderStatus] Failed to create RAW_MATERIAL_CALCULATION CAD for style ${orderItem.styleId}:`,
@@ -713,7 +715,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
           styleId: orderItem.styleId,
           clonedCount: 0,
           skipped: true,
-          reason: 'Error during cloning',
+          reason: `Error during cloning: ${rawMatError instanceof Error ? rawMatError.message : String(rawMatError)}`,
         });
       }
     }

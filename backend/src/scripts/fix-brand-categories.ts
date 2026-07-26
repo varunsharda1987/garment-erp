@@ -54,6 +54,7 @@ async function fixBrandCategories() {
           console.log(`   ✅ Created ${categories.length} separate entries\n`);
           fixedCount++;
         } catch (error: unknown) {
+          // allow-swallow — one-off fix script: per-row errors are counted and reported in the summary
           console.error(`   ❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}\n`);
           errorCount++;
         }

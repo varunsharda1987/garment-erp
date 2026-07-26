@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { generateCode } from '../utils/code-generator';
-import { NotFoundError, ValidationError } from '../errors';
+import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { logWarn } from '../utils/logger';
 
 /**
@@ -321,7 +321,6 @@ export const createGenericTrim = async (req: Request, res: Response) => {
     throw new ValidationError(`Invalid trim type: ${trimType}`);
   }
 
-  const model = getPrismaModel(config.model);
   const { [config.nameField]: name, ...otherData } = req.body;
 
   // Generate code
@@ -348,52 +347,57 @@ export const createGenericTrim = async (req: Request, res: Response) => {
   // Get user ID from auth (optional)
   const userId = req.user?.userId || null;
 
-  // Create the item
-  const item = await model.create({
-    data: {
-      [config.codeField]: code,
-      [config.nameField]: finalName.trim(),
-      ...otherData,
-      createdById: userId,
-      isActive: true,
-    },
-    include: {
-      supplier: {
-        select: {
-          id: true,
-          code: true,
-          name: true,
-        },
-      },
-    },
-  });
-
-  // Create corresponding material entry (same pattern as button.controller.ts)
+  // Resolve the materials category up-front so the master + materials pair can be created atomically
   const fkField = TRIM_TYPE_FK_MAP[trimType];
+  let category: { id: string } | null = null;
   if (fkField) {
-    try {
-      const category = await prisma.material_categories.findFirst({
-        where: { name: config.categoryName },
-      });
-      if (category) {
-        const materialId = `mat-${code.toLowerCase()}`;
-        await prisma.materials.create({
-          data: {
-            id: materialId,
-            code: code,
-            name: finalName.trim(),
-            materialType: config.materialType as any,
-            [fkField]: item.id,
-            categoryId: category.id,
-            unit: config.defaultUnit as any,
-            isActive: true,
-          },
-        });
-      }
-    } catch (err) {
-      logWarn(`Failed to create materials entry for ${config.displayName} ${code}: ${err}`);
+    category = await prisma.material_categories.findFirst({
+      where: { name: config.categoryName },
+    });
+    if (!category) {
+      throw new BusinessError(`Material category '${config.categoryName}' not found. Please run Phase 1 migration.`);
     }
   }
+
+  // Create the item + its material entry atomically (same pattern as button.controller.ts) so a
+  // failure cannot leave a master without its materials record
+  const item = await prisma.$transaction(async (tx) => {
+    const created = await (tx as any)[config.model].create({
+      data: {
+        [config.codeField]: code,
+        [config.nameField]: finalName.trim(),
+        ...otherData,
+        createdById: userId,
+        isActive: true,
+      },
+      include: {
+        supplier: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (fkField && category) {
+      await tx.materials.create({
+        data: {
+          id: `mat-${code.toLowerCase()}`,
+          code: code,
+          name: finalName.trim(),
+          materialType: config.materialType as any,
+          [fkField]: created.id,
+          categoryId: category.id,
+          unit: config.defaultUnit as any,
+          isActive: true,
+        },
+      });
+    }
+
+    return created;
+  });
 
   res.status(201).json({
     data: item,

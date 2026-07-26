@@ -60,7 +60,7 @@ export async function cleanupTestData() {
       },
     });
   } catch (error) {
-    // Ignore cleanup errors
+    // allow-swallow — test-data cleanup is best-effort; a failed cleanup must not fail the test run
   }
 }
 

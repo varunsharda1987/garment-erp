@@ -425,9 +425,12 @@ function decimalCompare(relFiles) {
 // table with retry-on-P2002.
 function countNumbering(relFiles) {
   const out = [];
-  // Definitions only (async/function keyword right before the name): matching CALL sites
-  // false-positived whenever unrelated pagination count()/findFirst followed within ~50 lines.
-  const fnRe = /(?:async\s+function\s+|function\s+|async\s+)(generate\w*(?:Number|Code)\w*)\s*\(/g;
+  // Definitions only (matching CALL sites false-positived whenever unrelated pagination
+  // count()/findFirst followed within ~50 lines). Covers method (`async name(`), function
+  // (`function name(`), and const-arrow (`const name = async (`) forms — the arrow form
+  // hid finishing's FI- generator from the original sweep.
+  const fnRe =
+    /(?:async\s+function\s+|function\s+|async\s+|(?:const|let)\s+)(generate\w*(?:Number|Code)\w*)\s*(?:=\s*(?:async\s*)?)?\(/g;
   for (const rel of relFiles) {
     if (!/\.(ts)$/.test(rel)) continue;
     const content = readCode(rel);
@@ -452,6 +455,26 @@ function countNumbering(relFiles) {
           detail: `${m[1]}() derives the next number from count()/findFirst-max — racy duplicates + wedges at padded limits; use a sequence table with retry-on-P2002`,
         });
       }
+    }
+    // Inline count-numbering (no named generator at all): `.count(...)` whose result feeds
+    // `x + 1` and a padStart within a short window — the transfer-slip TS-YYYYMMDD pattern.
+    const inlineRe = /\.count\s*\(/g;
+    let n = 0;
+    let im;
+    while ((im = inlineRe.exec(content))) {
+      const win = content.slice(im.index, im.index + 500);
+      if (!/\w+\s*\+\s*1\b/.test(win) || !/padStart\s*\(/.test(win)) continue;
+      if (/allow-count-numbering/.test(win) || /generateAtomic/.test(win)) continue;
+      // Skip if this .count( sits inside a named generate* body (already reported above).
+      const before = content.slice(Math.max(0, im.index - 3000), im.index);
+      if (/(?:function\s+|async\s+|(?:const|let)\s+)generate\w*(?:Number|Code)\w*\s*(?:=\s*(?:async\s*)?)?\([^)]*\)[^{]*\{[^]*$/.test(before)) continue;
+      n++;
+      out.push({
+        key: `${rel} :: inline-count-numbering #${n}`,
+        file: rel,
+        line: lineOf(content, im.index),
+        detail: `inline count()+1+padStart numbering — racy duplicates; route through the atomic sequence helper`,
+      });
     }
   }
   return out;
@@ -588,8 +611,13 @@ function assignNotIncrement(relFiles) {
         if (expr.startsWith('{')) continue; // { increment: ... } / { set: ... } forms
         if (!/[+\-]/.test(expr)) continue; // only flag visible read-modify arithmetic
         if (/^-?\d+(?:\.\d+)?$/.test(expr)) continue; // literal (incl. negative) is deliberate
-        if (/allow-assign/.test(expr)) continue; // opt-out
         const abs = m.index + m[0].length - 1 + dataM.index + dataM[0].length - 1 + f.index;
+        // Opt-out: `// allow-assign` anywhere on the field's line or the line above it.
+        const lineStart = content.lastIndexOf('\n', abs) + 1;
+        let lineEnd = content.indexOf('\n', abs);
+        if (lineEnd === -1) lineEnd = content.length;
+        const prevLineStart = content.lastIndexOf('\n', Math.max(0, lineStart - 2)) + 1;
+        if (/allow-assign/.test(content.slice(prevLineStart, lineEnd))) continue;
         out.push({
           key: `${rel} :: ${m[1]}.${m[2]} :: ${f[1]}:${expr.replace(/\s+/g, '')}`,
           file: rel,

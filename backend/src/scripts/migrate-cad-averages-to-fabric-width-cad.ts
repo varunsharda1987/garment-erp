@@ -183,6 +183,7 @@ async function main() {
         newFabricWidthCadId: newFabricWidthCad.id,
       });
     } catch (error) {
+      // allow-swallow — one-off migration script: per-record errors are counted and written to the migration log
       console.error(`   ❌ ERROR migrating record ${cadAvg.id}:`, error);
       errors++;
       migrationLog.push({

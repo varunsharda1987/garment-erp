@@ -3,7 +3,7 @@
  * Business logic for DB-based permission management with caching and audit trail
  */
 
-import { UserRole } from '@prisma/client';
+import { Prisma, UserRole } from '@prisma/client';
 import prisma from '../config/database';
 import { logError, logInfo, logDebug } from '../utils/logger';
 import { cachedQuery, deleteFromCache, invalidateByPattern } from '../lib/cache';
@@ -93,7 +93,10 @@ class PermissionServiceClass {
             },
           });
         } catch (err) {
-          logError(`Failed to seed definition for ${permKey}`, err instanceof Error ? err : new Error(String(err)));
+          if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
+            throw err;
+          }
+          // P2002: definition already exists (concurrent seed) — safe to ignore
         }
       }
     }
@@ -124,7 +127,11 @@ class PermissionServiceClass {
             skipped++;
           }
         } catch (err) {
-          logError(`Failed to seed permission ${role}:${permKey}`, err instanceof Error ? err : new Error(String(err)));
+          if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
+            throw err;
+          }
+          // P2002: permission already exists (concurrent seed) — count as skipped
+          skipped++;
         }
       }
     }

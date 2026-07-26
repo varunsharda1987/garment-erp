@@ -3433,6 +3433,10 @@ export async function updateCADTableRow(req: Request, res: Response) {
     cadAverage !== null && updatedCad.greigeId !== null && updatedCad.cutableWidth !== null;
 
   let autoCalculatedCost: { totalCostPerMeter: number | null; costInputMode: string | null } | null = null;
+  // Failures of the auto-costing / variance side-effects are surfaced as a response
+  // warning instead of being silently swallowed (bug-hunt cleanup-74, T2)
+  let costingWarning: string | undefined;
+  let varianceWarning: string | undefined;
 
   if (shouldAutoTriggerCosting) {
     try {
@@ -3519,8 +3523,11 @@ export async function updateCADTableRow(req: Request, res: Response) {
         }
       }
     } catch (costingError) {
-      // Don't fail the CAD save if costing calculation fails
+      // allow-swallow — CAD save must not fail on the costing enrichment; failure is surfaced via the response warning field (T2)
       logger.error('Auto-trigger fabric costing failed (non-critical):', costingError);
+      costingWarning =
+        'CAD row saved, but auto fabric costing failed — greige cost was not updated. ' +
+        (costingError instanceof Error ? costingError.message : '');
     }
   }
 
@@ -3636,8 +3643,11 @@ export async function updateCADTableRow(req: Request, res: Response) {
         }
       }
     } catch (varianceError) {
-      // Don't fail the CAD save if variance calculation fails
+      // allow-swallow — CAD save must not fail on the variance rollup; failure is surfaced via the response warning field (T2)
       logger.error('PRODUCTION variance calculation failed (non-critical):', varianceError);
+      varianceWarning =
+        'CAD row saved, but production variance calculation failed — variance approval status was not updated. ' +
+        (varianceError instanceof Error ? varianceError.message : '');
     }
   }
 
@@ -3697,6 +3707,10 @@ export async function updateCADTableRow(req: Request, res: Response) {
       : autoCalculatedCost
         ? 'CAD row updated and fabric costing auto-calculated'
         : 'CAD row updated successfully',
+    // Optional (additive) warning when a non-blocking side-effect failed
+    ...(costingWarning || varianceWarning
+      ? { warning: [costingWarning, varianceWarning].filter(Boolean).join(' ') }
+      : {}),
   });
 }
 

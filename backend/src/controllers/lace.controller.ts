@@ -872,37 +872,40 @@ export const bulkImportLace = async (req: Request, res: Response) => {
         continue;
       }
 
-      // Create lace using Prisma
-      const laceRecord = await prisma.lace_master.create({
-        data: {
-          laceCode,
-          laceName: row.laceName,
-          supplierCode: row.supplierCode || null,
-          buyerCode: row.buyerCode || null,
-          width: row.width ? parseFloat(row.width) : null,
-          design: row.design || null,
-          color: row.color || null,
-          composition: row.composition || null,
-          laceType: row.laceType || null,
-          pricePerMeter: row.pricePerMeter ? parseFloat(row.pricePerMeter) : null,
-          description: row.description || null,
-          isActive: true,
-        },
-      });
+      // Create lace + material atomically so a failure cannot leave a master without its materials record
+      const laceRecord = await prisma.$transaction(async (tx) => {
+        const created = await tx.lace_master.create({
+          data: {
+            laceCode,
+            laceName: row.laceName,
+            supplierCode: row.supplierCode || null,
+            buyerCode: row.buyerCode || null,
+            width: row.width ? parseFloat(row.width) : null,
+            design: row.design || null,
+            color: row.color || null,
+            composition: row.composition || null,
+            laceType: row.laceType || null,
+            pricePerMeter: row.pricePerMeter ? parseFloat(row.pricePerMeter) : null,
+            description: row.description || null,
+            isActive: true,
+          },
+        });
 
-      // Create material
-      const materialId = `mat-${laceCode.toLowerCase()}`;
-      await prisma.materials.create({
-        data: {
-          id: materialId,
-          code: laceCode,
-          name: row.laceName,
-          materialType: 'LACE',
-          laceId: laceRecord.id,
-          categoryId: laceCategory.id,
-          unit: 'METER',
-          isActive: true,
-        },
+        // Create material
+        await tx.materials.create({
+          data: {
+            id: `mat-${laceCode.toLowerCase()}`,
+            code: laceCode,
+            name: row.laceName,
+            materialType: 'LACE',
+            laceId: created.id,
+            categoryId: laceCategory.id,
+            unit: 'METER',
+            isActive: true,
+          },
+        });
+
+        return created;
       });
 
       // Create stock if requested - using specialized lace_stock table
@@ -929,7 +932,7 @@ export const bulkImportLace = async (req: Request, res: Response) => {
         stockCreated,
       });
     } catch (error: any) {
-      // Per-row error collection - keep inner try-catch for bulk operations
+      // allow-swallow — per-row bulk-import reporter: row writes are atomic ($transaction) and the failure is surfaced in results[]
       results.push({
         success: false,
         row: i + 1,

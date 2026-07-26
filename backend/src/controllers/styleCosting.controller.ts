@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../config/database';
-import { logInfo, logWarn } from '../utils/logger';
+import { logInfo } from '../utils/logger';
 import { UnauthorizedError, NotFoundError, ValidationError, BusinessError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
 import { processorRateValidationService } from '../services/processor-rate-validation.service';
@@ -138,8 +138,10 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
   // Generate unique ID for cost sheet
   const costSheetId = `CS-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
-  // Create cost sheet
-  const costSheet = await prisma.style_costing.create({
+  // Create cost sheet — executed atomically with the item-table populations in the
+  // $transaction below, so a failed item population rolls back the whole save and
+  // propagates instead of silently persisting a sheet with empty item tables (costing-19)
+  const createCostSheetOp = prisma.style_costing.create({
     data: {
       id: costSheetId,
       styleId: validatedData.styleId,
@@ -244,174 +246,171 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
     },
   });
 
-  // Populate style_costing_fabric_items from fabric_width_cad (follows lace pattern)
-  try {
-    const cadRows = await prisma.fabric_width_cad.findMany({
-      where: { costingStyleId: validatedData.styleId },
-      include: {
-        fabric: { select: { id: true, fabricName: true, greigeId: true } },
-        greige: { select: { id: true, greigeName: true } },
-        batchGroupColor: { select: { colorName: true } },
-      },
-      orderBy: { updatedAt: 'desc' },
+  // Build relational item rows so they are written in the SAME transaction as the cost
+  // sheet itself (bug-hunt costing-19: these populations previously ran after the create
+  // inside swallowed try/catch blocks — a failure silently produced a cost sheet whose
+  // item tables were empty).
+
+  // style_costing_fabric_items from fabric_width_cad (follows lace pattern)
+  const cadRows = await prisma.fabric_width_cad.findMany({
+    where: { costingStyleId: validatedData.styleId },
+    include: {
+      fabric: { select: { id: true, fabricName: true, greigeId: true } },
+      greige: { select: { id: true, greigeName: true } },
+      batchGroupColor: { select: { colorName: true } },
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  const seenComponents = new Set<string>();
+  const fabricItemsToCreate: any[] = [];
+
+  for (const cad of cadRows) {
+    const key = cad.componentName || cad.styleFabricId || cad.id;
+    if (seenComponents.has(key)) continue;
+    seenComponents.add(key);
+
+    // Match to fabricDetails JSON by index for rate/average
+    const idx = fabricItemsToCreate.length;
+    const jsonFabric = validatedData.fabricDetails[idx];
+    if (!jsonFabric) continue;
+
+    const cadAvg = jsonFabric.fabricAverage || 0;
+    const cadRate = jsonFabric.fabricRate || 0;
+    const wastage =
+      cad.cadWastagePercent != null
+        ? Number(cad.cadWastagePercent)
+        : await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
+    const effectiveCad = cadAvg * (1 + wastage / 100);
+
+    fabricItemsToCreate.push({
+      costingId: costSheetId,
+      fabricCADId: cad.id,
+      fabricId: cad.fabricId || null,
+      greigeId: cad.greigeId || cad.fabric?.greigeId || null,
+      fabricName: jsonFabric.fabricName || cad.fabric?.fabricName || cad.greige?.greigeName || 'Unknown Fabric',
+      colorName: cad.batchGroupColor?.colorName || null,
+      width: cad.cutableWidth,
+      cadMeters: cadAvg,
+      cadWastagePercent: wastage,
+      effectiveCad,
+      costPerMeter: cadRate,
+      totalCost: effectiveCad * cadRate,
+      sourcingStrategy: cad.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
+      processorId: cad.processorId || null,
+      greigeCost: cad.greigeCostPerMeter || null,
+      processingCost: cad.processingPricePerMeter || null,
     });
-
-    const seenComponents = new Set<string>();
-    const fabricItemsToCreate: any[] = [];
-
-    for (const cad of cadRows) {
-      const key = cad.componentName || cad.styleFabricId || cad.id;
-      if (seenComponents.has(key)) continue;
-      seenComponents.add(key);
-
-      // Match to fabricDetails JSON by index for rate/average
-      const idx = fabricItemsToCreate.length;
-      const jsonFabric = validatedData.fabricDetails[idx];
-      if (!jsonFabric) continue;
-
-      const cadAvg = jsonFabric.fabricAverage || 0;
-      const cadRate = jsonFabric.fabricRate || 0;
-      const wastage =
-        cad.cadWastagePercent != null
-          ? Number(cad.cadWastagePercent)
-          : await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
-      const effectiveCad = cadAvg * (1 + wastage / 100);
-
-      fabricItemsToCreate.push({
-        costingId: costSheetId,
-        fabricCADId: cad.id,
-        fabricId: cad.fabricId || null,
-        greigeId: cad.greigeId || cad.fabric?.greigeId || null,
-        fabricName: jsonFabric.fabricName || cad.fabric?.fabricName || cad.greige?.greigeName || 'Unknown Fabric',
-        colorName: cad.batchGroupColor?.colorName || null,
-        width: cad.cutableWidth,
-        cadMeters: cadAvg,
-        cadWastagePercent: wastage,
-        effectiveCad,
-        costPerMeter: cadRate,
-        totalCost: effectiveCad * cadRate,
-        sourcingStrategy: cad.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
-        processorId: cad.processorId || null,
-        greigeCost: cad.greigeCostPerMeter || null,
-        processingCost: cad.processingPricePerMeter || null,
-      });
-    }
-
-    if (fabricItemsToCreate.length > 0) {
-      await prisma.style_costing_fabric_items.createMany({ data: fabricItemsToCreate });
-      logInfo(`Created ${fabricItemsToCreate.length} fabric items for cost sheet ${costSheetId}`);
-    }
-  } catch (fabricItemError) {
-    logWarn('Failed to populate fabric items (non-blocking):', fabricItemError);
   }
 
-  // Populate style_costing_trim_items from trimsDetails JSON (relational source of truth)
-  try {
-    if (validatedData.trimsDetails && validatedData.trimsDetails.length > 0) {
-      const trimItemsToCreate = validatedData.trimsDetails.map((trim) => ({
-        costingId: costSheetId,
-        trimName: trim.trimName,
-        trimQuantity: trim.trimQuantity,
-        trimRate: trim.trimRate,
-        trimTotal: trim.trimTotal,
-        unit: trim.unit || null,
-        isNotApplicable: trim.isNotApplicable || false,
-        materialType: trim.materialType || null,
-        bomId: trim.bomId || null,
-        // All 23 FK fields - only one will be populated based on materialType
-        materialId: trim.materialId || null,
-        threadId: trim.threadId || null,
-        buttonId: trim.buttonId || null,
-        zipperId: trim.zipperId || null,
-        elasticId: trim.elasticId || null,
-        labelId: trim.labelId || null,
-        packagingId: trim.packagingId || null,
-        hookEyeId: trim.hookEyeId || null,
-        snapButtonId: trim.snapButtonId || null,
-        buckleId: trim.buckleId || null,
-        beltId: trim.beltId || null,
-        velcroId: trim.velcroId || null,
-        drawstringId: trim.drawstringId || null,
-        ribbonId: trim.ribbonId || null,
-        sequinId: trim.sequinId || null,
-        beadId: trim.beadId || null,
-        motifId: trim.motifId || null,
-        interliningId: trim.interliningId || null,
-        paddingId: trim.paddingId || null,
-        otherFastenerId: trim.otherFastenerId || null,
-        otherTapeId: trim.otherTapeId || null,
-        otherDecorativeId: trim.otherDecorativeId || null,
-        otherFunctionalId: trim.otherFunctionalId || null,
-        // Generic fallback for NEW material types
-        masterId: trim.masterId || null,
-      }));
-      await prisma.style_costing_trim_items.createMany({ data: trimItemsToCreate });
-      logInfo(`Created ${trimItemsToCreate.length} trim items for cost sheet ${costSheetId}`);
-    }
-  } catch (trimItemError) {
-    logWarn('Failed to populate trim items (non-blocking):', trimItemError);
+  // style_costing_trim_items from trimsDetails JSON (relational source of truth)
+  const trimItemsToCreate = (validatedData.trimsDetails || []).map((trim) => ({
+    costingId: costSheetId,
+    trimName: trim.trimName,
+    trimQuantity: trim.trimQuantity,
+    trimRate: trim.trimRate,
+    trimTotal: trim.trimTotal,
+    unit: trim.unit || null,
+    isNotApplicable: trim.isNotApplicable || false,
+    materialType: trim.materialType || null,
+    bomId: trim.bomId || null,
+    // All 23 FK fields - only one will be populated based on materialType
+    materialId: trim.materialId || null,
+    threadId: trim.threadId || null,
+    buttonId: trim.buttonId || null,
+    zipperId: trim.zipperId || null,
+    elasticId: trim.elasticId || null,
+    labelId: trim.labelId || null,
+    packagingId: trim.packagingId || null,
+    hookEyeId: trim.hookEyeId || null,
+    snapButtonId: trim.snapButtonId || null,
+    buckleId: trim.buckleId || null,
+    beltId: trim.beltId || null,
+    velcroId: trim.velcroId || null,
+    drawstringId: trim.drawstringId || null,
+    ribbonId: trim.ribbonId || null,
+    sequinId: trim.sequinId || null,
+    beadId: trim.beadId || null,
+    motifId: trim.motifId || null,
+    interliningId: trim.interliningId || null,
+    paddingId: trim.paddingId || null,
+    otherFastenerId: trim.otherFastenerId || null,
+    otherTapeId: trim.otherTapeId || null,
+    otherDecorativeId: trim.otherDecorativeId || null,
+    otherFunctionalId: trim.otherFunctionalId || null,
+    // Generic fallback for NEW material types
+    masterId: trim.masterId || null,
+  }));
+
+  // style_costing_accessory_items from accessoriesDetails JSON (relational source of truth)
+  const accessoryItemsToCreate = (validatedData.accessoriesDetails || []).map((acc) => ({
+    costingId: costSheetId,
+    accessoryName: acc.accessoryName,
+    accessoryQuantity: acc.accessoryQuantity,
+    accessoryRate: acc.accessoryRate,
+    accessoryTotal: acc.accessoryTotal,
+    isNotApplicable: acc.isNotApplicable || false,
+    materialType: acc.materialType || null,
+    materialId: acc.materialId || null,
+    labelId: acc.labelId || null,
+    packagingId: acc.packagingId || null,
+    // Generic fallback for NEW accessory types
+    masterId: acc.masterId || null,
+  }));
+
+  // style_costing_lace_items from laceDetails JSON (if provided via main form)
+  const laceItemsToCreate = (validatedData.laceDetails || []).map((lace) => ({
+    costingId: costSheetId,
+    laceId: lace.laceId || '', // Required field
+    laceName: lace.laceName,
+    colorName: null,
+    width: lace.laceWidth || null,
+    quantityPerGarment: lace.laceAverage || 0,
+    wastagePercent: lace.wastagePercent ?? 0, // From input or rate card - no hardcoded default
+    effectiveQuantity: (lace.laceAverage || 0) * (1 + (lace.wastagePercent ?? 0) / 100),
+    sourcingStrategy: lace.sourcingStrategy || 'READY_LACE',
+    greigeCost: lace.greigeCost || null,
+    processingCost: lace.processingCost || null,
+    readyLaceCost: lace.laceRate || null,
+    stockCost: null,
+    costPerMeter: lace.laceRate || 0,
+    totalCost: lace.laceTotal || 0,
+    greigeLaceId: lace.greigeLaceId || null,
+    processorId: lace.processorId || null,
+    rateCardId: lace.rateCardId || null,
+    stockLotId: null,
+    procurementId: null,
+    labDipId: null,
+    labDipStatus: null,
+    isManualOverride: false,
+    overrideReason: null,
+    notes: null,
+  }));
+
+  const itemOps: Prisma.PrismaPromise<unknown>[] = [];
+  if (fabricItemsToCreate.length > 0) {
+    itemOps.push(prisma.style_costing_fabric_items.createMany({ data: fabricItemsToCreate }));
+  }
+  if (trimItemsToCreate.length > 0) {
+    itemOps.push(prisma.style_costing_trim_items.createMany({ data: trimItemsToCreate }));
+  }
+  if (accessoryItemsToCreate.length > 0) {
+    itemOps.push(prisma.style_costing_accessory_items.createMany({ data: accessoryItemsToCreate }));
+  }
+  if (laceItemsToCreate.length > 0) {
+    itemOps.push(prisma.style_costing_lace_items.createMany({ data: laceItemsToCreate }));
   }
 
-  // Populate style_costing_accessory_items from accessoriesDetails JSON (relational source of truth)
-  try {
-    if (validatedData.accessoriesDetails && validatedData.accessoriesDetails.length > 0) {
-      const accessoryItemsToCreate = validatedData.accessoriesDetails.map((acc) => ({
-        costingId: costSheetId,
-        accessoryName: acc.accessoryName,
-        accessoryQuantity: acc.accessoryQuantity,
-        accessoryRate: acc.accessoryRate,
-        accessoryTotal: acc.accessoryTotal,
-        isNotApplicable: acc.isNotApplicable || false,
-        materialType: acc.materialType || null,
-        materialId: acc.materialId || null,
-        labelId: acc.labelId || null,
-        packagingId: acc.packagingId || null,
-        // Generic fallback for NEW accessory types
-        masterId: acc.masterId || null,
-      }));
-      await prisma.style_costing_accessory_items.createMany({ data: accessoryItemsToCreate });
-      logInfo(`Created ${accessoryItemsToCreate.length} accessory items for cost sheet ${costSheetId}`);
-    }
-  } catch (accessoryItemError) {
-    logWarn('Failed to populate accessory items (non-blocking):', accessoryItemError);
-  }
+  // Atomic write: the cost sheet and all its item tables succeed or fail together
+  const [costSheet] = (await prisma.$transaction([createCostSheetOp, ...itemOps])) as [
+    Awaited<typeof createCostSheetOp>,
+    ...unknown[],
+  ];
 
-  // Populate style_costing_lace_items from laceDetails JSON (if provided via main form)
-  try {
-    if (validatedData.laceDetails && validatedData.laceDetails.length > 0) {
-      const laceItemsToCreate = validatedData.laceDetails.map((lace) => ({
-        costingId: costSheetId,
-        laceId: lace.laceId || '', // Required field
-        laceName: lace.laceName,
-        colorName: null,
-        width: lace.laceWidth || null,
-        quantityPerGarment: lace.laceAverage || 0,
-        wastagePercent: lace.wastagePercent ?? 0, // From input or rate card - no hardcoded default
-        effectiveQuantity: (lace.laceAverage || 0) * (1 + (lace.wastagePercent ?? 0) / 100),
-        sourcingStrategy: lace.sourcingStrategy || 'READY_LACE',
-        greigeCost: lace.greigeCost || null,
-        processingCost: lace.processingCost || null,
-        readyLaceCost: lace.laceRate || null,
-        stockCost: null,
-        costPerMeter: lace.laceRate || 0,
-        totalCost: lace.laceTotal || 0,
-        greigeLaceId: lace.greigeLaceId || null,
-        processorId: lace.processorId || null,
-        rateCardId: lace.rateCardId || null,
-        stockLotId: null,
-        procurementId: null,
-        labDipId: null,
-        labDipStatus: null,
-        isManualOverride: false,
-        overrideReason: null,
-        notes: null,
-      }));
-      await prisma.style_costing_lace_items.createMany({ data: laceItemsToCreate });
-      logInfo(`Created ${laceItemsToCreate.length} lace items for cost sheet ${costSheetId}`);
-    }
-  } catch (laceItemError) {
-    logWarn('Failed to populate lace items (non-blocking):', laceItemError);
-  }
+  logInfo(
+    `Created cost sheet ${costSheetId} with ${fabricItemsToCreate.length} fabric, ${trimItemsToCreate.length} trim, ` +
+      `${accessoryItemsToCreate.length} accessory, ${laceItemsToCreate.length} lace items`
+  );
 
   res.status(201).json({
     success: true,
@@ -853,7 +852,10 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     ...(validatedData.closedCostNotes !== undefined && { closedCostNotes: validatedData.closedCostNotes }),
   };
 
-  const updatedCostSheet = await prisma.style_costing.update({
+  // Update cost sheet — executed atomically with the item-table re-populations in the
+  // $transaction below (bug-hunt costing-19: a failure after a deleteMany previously
+  // left the sheet with EMPTY item tables, silently)
+  const updateCostSheetOp = prisma.style_costing.update({
     where: { id },
     data: updateData,
     include: {
@@ -876,196 +878,178 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     },
   });
 
-  // Re-populate style_costing_fabric_items from fabric_width_cad on update
-  try {
-    const styleId = existingCostSheet.styleId;
-    // Delete old fabric items
-    await prisma.style_costing_fabric_items.deleteMany({ where: { costingId: id } });
+  // Build the replacement item rows up-front so the sheet update and every item-table
+  // re-population run in ONE transaction below (bug-hunt costing-19: a failure after a
+  // deleteMany previously left the sheet with EMPTY item tables, silently).
+  // fabricDetails / trimsDetails / accessoriesDetails computed above already carry the
+  // "validatedData or existing sheet" fallback these blocks previously re-derived.
 
-    const cadRows = await prisma.fabric_width_cad.findMany({
-      where: { costingStyleId: styleId },
-      include: {
-        fabric: { select: { id: true, fabricName: true, greigeId: true } },
-        greige: { select: { id: true, greigeName: true } },
-        batchGroupColor: { select: { colorName: true } },
-      },
-      orderBy: { updatedAt: 'desc' },
+  // style_costing_fabric_items are rebuilt from fabric_width_cad
+  const cadRows = await prisma.fabric_width_cad.findMany({
+    where: { costingStyleId: existingCostSheet.styleId },
+    include: {
+      fabric: { select: { id: true, fabricName: true, greigeId: true } },
+      greige: { select: { id: true, greigeName: true } },
+      batchGroupColor: { select: { colorName: true } },
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  const seenComponents = new Set<string>();
+  const fabricItemsToCreate: any[] = [];
+
+  for (const cad of cadRows) {
+    const key = cad.componentName || cad.styleFabricId || cad.id;
+    if (seenComponents.has(key)) continue;
+    seenComponents.add(key);
+
+    const idx = fabricItemsToCreate.length;
+    const jsonFabric = fabricDetails[idx];
+    if (!jsonFabric) continue;
+
+    const cadAvg = jsonFabric.fabricAverage || 0;
+    const cadRate = jsonFabric.fabricRate || 0;
+    const wastage =
+      cad.cadWastagePercent != null
+        ? Number(cad.cadWastagePercent)
+        : await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
+    const effectiveCad = cadAvg * (1 + wastage / 100);
+
+    fabricItemsToCreate.push({
+      costingId: id,
+      fabricCADId: cad.id,
+      fabricId: cad.fabricId || null,
+      greigeId: cad.greigeId || cad.fabric?.greigeId || null,
+      fabricName: jsonFabric.fabricName || cad.fabric?.fabricName || cad.greige?.greigeName || 'Unknown Fabric',
+      colorName: cad.batchGroupColor?.colorName || null,
+      width: cad.cutableWidth,
+      cadMeters: cadAvg,
+      cadWastagePercent: wastage,
+      effectiveCad,
+      costPerMeter: cadRate,
+      totalCost: effectiveCad * cadRate,
+      sourcingStrategy: cad.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
+      processorId: cad.processorId || null,
+      greigeCost: cad.greigeCostPerMeter || null,
+      processingCost: cad.processingPricePerMeter || null,
     });
-
-    const currentFabricDetails =
-      validatedData.fabricDetails ||
-      parseJsonArray(existingCostSheet.fabricDetails, FabricDetailSchema, 'fabricDetails');
-    const seenComponents = new Set<string>();
-    const fabricItemsToCreate: any[] = [];
-
-    for (const cad of cadRows) {
-      const key = cad.componentName || cad.styleFabricId || cad.id;
-      if (seenComponents.has(key)) continue;
-      seenComponents.add(key);
-
-      const idx = fabricItemsToCreate.length;
-      const jsonFabric = currentFabricDetails[idx];
-      if (!jsonFabric) continue;
-
-      const cadAvg = jsonFabric.fabricAverage || 0;
-      const cadRate = jsonFabric.fabricRate || 0;
-      const wastage =
-        cad.cadWastagePercent != null
-          ? Number(cad.cadWastagePercent)
-          : await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
-      const effectiveCad = cadAvg * (1 + wastage / 100);
-
-      fabricItemsToCreate.push({
-        costingId: id,
-        fabricCADId: cad.id,
-        fabricId: cad.fabricId || null,
-        greigeId: cad.greigeId || cad.fabric?.greigeId || null,
-        fabricName: jsonFabric.fabricName || cad.fabric?.fabricName || cad.greige?.greigeName || 'Unknown Fabric',
-        colorName: cad.batchGroupColor?.colorName || null,
-        width: cad.cutableWidth,
-        cadMeters: cadAvg,
-        cadWastagePercent: wastage,
-        effectiveCad,
-        costPerMeter: cadRate,
-        totalCost: effectiveCad * cadRate,
-        sourcingStrategy: cad.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
-        processorId: cad.processorId || null,
-        greigeCost: cad.greigeCostPerMeter || null,
-        processingCost: cad.processingPricePerMeter || null,
-      });
-    }
-
-    if (fabricItemsToCreate.length > 0) {
-      await prisma.style_costing_fabric_items.createMany({ data: fabricItemsToCreate });
-      logInfo(`Re-created ${fabricItemsToCreate.length} fabric items for cost sheet ${id}`);
-    }
-  } catch (fabricItemError) {
-    logWarn('Failed to re-populate fabric items on update (non-blocking):', fabricItemError);
   }
 
-  // Re-populate style_costing_trim_items from trimsDetails JSON
-  try {
-    // Delete existing trim items
-    await prisma.style_costing_trim_items.deleteMany({ where: { costingId: id } });
+  // style_costing_trim_items are rebuilt from trimsDetails JSON
+  const trimItemsToCreate = (trimsDetails || []).map((trim: any) => ({
+    costingId: id,
+    trimName: trim.trimName,
+    trimQuantity: trim.trimQuantity,
+    trimRate: trim.trimRate,
+    trimTotal: trim.trimTotal,
+    unit: trim.unit || null,
+    isNotApplicable: trim.isNotApplicable || false,
+    materialType: trim.materialType || null,
+    bomId: trim.bomId || null,
+    materialId: trim.materialId || null,
+    threadId: trim.threadId || null,
+    buttonId: trim.buttonId || null,
+    zipperId: trim.zipperId || null,
+    elasticId: trim.elasticId || null,
+    labelId: trim.labelId || null,
+    packagingId: trim.packagingId || null,
+    hookEyeId: trim.hookEyeId || null,
+    snapButtonId: trim.snapButtonId || null,
+    buckleId: trim.buckleId || null,
+    beltId: trim.beltId || null,
+    velcroId: trim.velcroId || null,
+    drawstringId: trim.drawstringId || null,
+    ribbonId: trim.ribbonId || null,
+    sequinId: trim.sequinId || null,
+    beadId: trim.beadId || null,
+    motifId: trim.motifId || null,
+    interliningId: trim.interliningId || null,
+    paddingId: trim.paddingId || null,
+    otherFastenerId: trim.otherFastenerId || null,
+    otherTapeId: trim.otherTapeId || null,
+    otherDecorativeId: trim.otherDecorativeId || null,
+    otherFunctionalId: trim.otherFunctionalId || null,
+    // Generic fallback for NEW material types
+    masterId: trim.masterId || null,
+  }));
 
-    const currentTrimsDetails =
-      validatedData.trimsDetails || parseJsonArray(existingCostSheet.trimsDetails, TrimDetailSchema, 'trimsDetails');
+  // style_costing_accessory_items are rebuilt from accessoriesDetails JSON
+  const accessoryItemsToCreate = (accessoriesDetails || []).map((acc: any) => ({
+    costingId: id,
+    accessoryName: acc.accessoryName,
+    accessoryQuantity: acc.accessoryQuantity,
+    accessoryRate: acc.accessoryRate,
+    accessoryTotal: acc.accessoryTotal,
+    isNotApplicable: acc.isNotApplicable || false,
+    materialType: acc.materialType || null,
+    materialId: acc.materialId || null,
+    labelId: acc.labelId || null,
+    packagingId: acc.packagingId || null,
+    // Generic fallback for NEW accessory types
+    masterId: acc.masterId || null,
+  }));
 
-    if (currentTrimsDetails && currentTrimsDetails.length > 0) {
-      const trimItemsToCreate = currentTrimsDetails.map((trim: any) => ({
-        costingId: id,
-        trimName: trim.trimName,
-        trimQuantity: trim.trimQuantity,
-        trimRate: trim.trimRate,
-        trimTotal: trim.trimTotal,
-        unit: trim.unit || null,
-        isNotApplicable: trim.isNotApplicable || false,
-        materialType: trim.materialType || null,
-        bomId: trim.bomId || null,
-        materialId: trim.materialId || null,
-        threadId: trim.threadId || null,
-        buttonId: trim.buttonId || null,
-        zipperId: trim.zipperId || null,
-        elasticId: trim.elasticId || null,
-        labelId: trim.labelId || null,
-        packagingId: trim.packagingId || null,
-        hookEyeId: trim.hookEyeId || null,
-        snapButtonId: trim.snapButtonId || null,
-        buckleId: trim.buckleId || null,
-        beltId: trim.beltId || null,
-        velcroId: trim.velcroId || null,
-        drawstringId: trim.drawstringId || null,
-        ribbonId: trim.ribbonId || null,
-        sequinId: trim.sequinId || null,
-        beadId: trim.beadId || null,
-        motifId: trim.motifId || null,
-        interliningId: trim.interliningId || null,
-        paddingId: trim.paddingId || null,
-        otherFastenerId: trim.otherFastenerId || null,
-        otherTapeId: trim.otherTapeId || null,
-        otherDecorativeId: trim.otherDecorativeId || null,
-        otherFunctionalId: trim.otherFunctionalId || null,
-        // Generic fallback for NEW material types
-        masterId: trim.masterId || null,
-      }));
-      await prisma.style_costing_trim_items.createMany({ data: trimItemsToCreate });
-      logInfo(`Re-created ${trimItemsToCreate.length} trim items for cost sheet ${id}`);
-    }
-  } catch (trimItemError) {
-    logWarn('Failed to re-populate trim items on update (non-blocking):', trimItemError);
-  }
+  // style_costing_lace_items are only rebuilt when laceDetails is explicitly provided
+  const laceItemsToCreate =
+    validatedData.laceDetails && validatedData.laceDetails.length > 0
+      ? validatedData.laceDetails.map((lace: any) => ({
+          costingId: id,
+          laceId: lace.laceId || '',
+          laceName: lace.laceName,
+          colorName: null,
+          width: lace.laceWidth || null,
+          quantityPerGarment: lace.laceAverage || 0,
+          wastagePercent: lace.wastagePercent ?? 0, // From input or rate card - no hardcoded default
+          effectiveQuantity: (lace.laceAverage || 0) * (1 + (lace.wastagePercent ?? 0) / 100),
+          sourcingStrategy: lace.sourcingStrategy || 'READY_LACE',
+          greigeCost: lace.greigeCost || null,
+          processingCost: lace.processingCost || null,
+          readyLaceCost: lace.laceRate || null,
+          stockCost: null,
+          costPerMeter: lace.laceRate || 0,
+          totalCost: lace.laceTotal || 0,
+          greigeLaceId: lace.greigeLaceId || null,
+          processorId: lace.processorId || null,
+          rateCardId: lace.rateCardId || null,
+          stockLotId: null,
+          procurementId: null,
+          labDipId: null,
+          labDipStatus: null,
+          isManualOverride: false,
+          overrideReason: null,
+          notes: null,
+        }))
+      : null;
 
-  // Re-populate style_costing_accessory_items from accessoriesDetails JSON
-  try {
-    // Delete existing accessory items
-    await prisma.style_costing_accessory_items.deleteMany({ where: { costingId: id } });
+  const itemOps: Prisma.PrismaPromise<unknown>[] = [
+    prisma.style_costing_fabric_items.deleteMany({ where: { costingId: id } }),
+    ...(fabricItemsToCreate.length > 0
+      ? [prisma.style_costing_fabric_items.createMany({ data: fabricItemsToCreate })]
+      : []),
+    prisma.style_costing_trim_items.deleteMany({ where: { costingId: id } }),
+    ...(trimItemsToCreate.length > 0 ? [prisma.style_costing_trim_items.createMany({ data: trimItemsToCreate })] : []),
+    prisma.style_costing_accessory_items.deleteMany({ where: { costingId: id } }),
+    ...(accessoryItemsToCreate.length > 0
+      ? [prisma.style_costing_accessory_items.createMany({ data: accessoryItemsToCreate })]
+      : []),
+    ...(laceItemsToCreate
+      ? [
+          prisma.style_costing_lace_items.deleteMany({ where: { costingId: id } }),
+          prisma.style_costing_lace_items.createMany({ data: laceItemsToCreate }),
+        ]
+      : []),
+  ];
 
-    const currentAccessoriesDetails =
-      validatedData.accessoriesDetails ||
-      parseJsonArray(existingCostSheet.accessoriesDetails, AccessoryDetailSchema, 'accessoriesDetails');
+  // Atomic write: the sheet update and every item-table re-population succeed or fail together
+  const [updatedCostSheet] = (await prisma.$transaction([updateCostSheetOp, ...itemOps])) as [
+    Awaited<typeof updateCostSheetOp>,
+    ...unknown[],
+  ];
 
-    if (currentAccessoriesDetails && currentAccessoriesDetails.length > 0) {
-      const accessoryItemsToCreate = currentAccessoriesDetails.map((acc: any) => ({
-        costingId: id,
-        accessoryName: acc.accessoryName,
-        accessoryQuantity: acc.accessoryQuantity,
-        accessoryRate: acc.accessoryRate,
-        accessoryTotal: acc.accessoryTotal,
-        isNotApplicable: acc.isNotApplicable || false,
-        materialType: acc.materialType || null,
-        materialId: acc.materialId || null,
-        labelId: acc.labelId || null,
-        packagingId: acc.packagingId || null,
-        // Generic fallback for NEW accessory types
-        masterId: acc.masterId || null,
-      }));
-      await prisma.style_costing_accessory_items.createMany({ data: accessoryItemsToCreate });
-      logInfo(`Re-created ${accessoryItemsToCreate.length} accessory items for cost sheet ${id}`);
-    }
-  } catch (accessoryItemError) {
-    logWarn('Failed to re-populate accessory items on update (non-blocking):', accessoryItemError);
-  }
-
-  // Re-populate style_costing_lace_items from laceDetails JSON (if provided)
-  try {
-    // Only re-create lace items if laceDetails was explicitly provided in update
-    if (validatedData.laceDetails && validatedData.laceDetails.length > 0) {
-      // Delete existing lace items
-      await prisma.style_costing_lace_items.deleteMany({ where: { costingId: id } });
-
-      const laceItemsToCreate = validatedData.laceDetails.map((lace: any) => ({
-        costingId: id,
-        laceId: lace.laceId || '',
-        laceName: lace.laceName,
-        colorName: null,
-        width: lace.laceWidth || null,
-        quantityPerGarment: lace.laceAverage || 0,
-        wastagePercent: lace.wastagePercent ?? 0, // From input or rate card - no hardcoded default
-        effectiveQuantity: (lace.laceAverage || 0) * (1 + (lace.wastagePercent ?? 0) / 100),
-        sourcingStrategy: lace.sourcingStrategy || 'READY_LACE',
-        greigeCost: lace.greigeCost || null,
-        processingCost: lace.processingCost || null,
-        readyLaceCost: lace.laceRate || null,
-        stockCost: null,
-        costPerMeter: lace.laceRate || 0,
-        totalCost: lace.laceTotal || 0,
-        greigeLaceId: lace.greigeLaceId || null,
-        processorId: lace.processorId || null,
-        rateCardId: lace.rateCardId || null,
-        stockLotId: null,
-        procurementId: null,
-        labDipId: null,
-        labDipStatus: null,
-        isManualOverride: false,
-        overrideReason: null,
-        notes: null,
-      }));
-      await prisma.style_costing_lace_items.createMany({ data: laceItemsToCreate });
-      logInfo(`Re-created ${laceItemsToCreate.length} lace items for cost sheet ${id}`);
-    }
-  } catch (laceItemError) {
-    logWarn('Failed to re-populate lace items on update (non-blocking):', laceItemError);
-  }
+  logInfo(
+    `Updated cost sheet ${id} with ${fabricItemsToCreate.length} fabric, ${trimItemsToCreate.length} trim, ` +
+      `${accessoryItemsToCreate.length} accessory${laceItemsToCreate ? `, ${laceItemsToCreate.length} lace` : ''} items`
+  );
 
   res.json({
     success: true,

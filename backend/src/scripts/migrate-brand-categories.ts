@@ -114,6 +114,7 @@ async function migrateBrandCategories() {
           skippedCount++;
         }
       } catch (error: unknown) {
+        // allow-swallow — one-off migration script: per-customer errors are counted and reported in the summary
         console.error(`❌ Error migrating ${customer.name}:`, error instanceof Error ? error.message : 'Unknown error');
         errorCount++;
       }

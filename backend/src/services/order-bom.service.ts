@@ -1206,7 +1206,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         }
       }
     } catch (processError) {
-      // Non-blocking: log but don't fail BOM creation
+      // allow-swallow — style_processes auto-population is style-level enrichment, not BOM contents; BOM stays consistent if it fails
       logError('Failed to auto-create style_processes:', processError);
     }
 

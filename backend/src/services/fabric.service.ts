@@ -833,6 +833,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
           results.created++;
         }
       } catch (error) {
+        // allow-swallow — per-row bulk-import error, counted in results.failed and surfaced in results.errors
         results.failed++;
         results.errors.push({
           row: i + 2,

@@ -1133,7 +1133,7 @@ export async function generateServicePO(data: {
         totalSgst: poTotalSgst,
         totalIgst: poTotalIgst,
         totalTax,
-        totalAmount: subtotal + totalTax,
+        totalAmount: subtotal + totalTax, // allow-assign — derived absolute, not read-modify-write
         isInterstate,
       },
     });

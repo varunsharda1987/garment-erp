@@ -124,6 +124,7 @@ async function migrateCustomerCodes() {
           logInfo(`Updated ${successCount}/${updates.length} customers...`);
         }
       } catch (error: unknown) {
+        // allow-swallow — one-off migration script: per-customer errors are counted and reported in the summary
         errorCount++;
         logError(`Failed to update customer ${update.oldCode}:`, error);
       }

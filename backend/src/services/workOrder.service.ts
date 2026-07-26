@@ -226,7 +226,7 @@ class WorkOrderService {
         },
       });
     } catch (err) {
-      // Non-critical — don't fail work order creation
+      // allow-swallow — pure timeline ORDER_RECEIVED production_tracking entry; must not fail work order creation
       logger.error('Failed to create initial production_tracking:', err);
     }
 
@@ -986,13 +986,17 @@ class WorkOrderService {
         }
       }
 
-      // 3. Update original work order total quantity
-      await tx.work_orders.update({
-        where: { id: workOrderId },
+      // 3. Update original work order total quantity — guarded atomic decrement (not a stale
+      // read-minus-write) so a concurrent split cannot drive the remainder to zero or below
+      const reduced = await tx.work_orders.updateMany({
+        where: { id: workOrderId, totalQuantity: { gt: totalSplitQty } },
         data: {
-          totalQuantity: originalWorkOrder.totalQuantity - totalSplitQty,
+          totalQuantity: { decrement: totalSplitQty },
         },
       });
+      if (reduced.count === 0) {
+        throw new Error('Cannot split entire quantity - some must remain in original');
+      }
 
       return newWorkOrder;
     });

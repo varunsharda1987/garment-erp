@@ -406,16 +406,23 @@ class GreigeStockService {
       }
 
       const available = Number(stock.quantityAvailable);
-      if (quantity > available) {
+
+      // Guarded atomic reserve: the availability check and the decrement happen in ONE statement,
+      // so two concurrent reservations cannot both pass a stale check and oversell the lot.
+      const reserveResult = await prisma.greige_stock.updateMany({
+        where: { id: stockId, quantityAvailable: { gte: quantity } },
+        data: {
+          quantityAvailable: { decrement: quantity },
+          quantityReserved: { increment: quantity },
+        },
+      });
+
+      if (reserveResult.count === 0) {
         throw new Error(`Insufficient stock. Available: ${available}, Requested: ${quantity}`);
       }
 
-      const updatedStock = await prisma.greige_stock.update({
+      const updatedStock = await prisma.greige_stock.findUnique({
         where: { id: stockId },
-        data: {
-          quantityAvailable: new Prisma.Decimal(available - quantity),
-          quantityReserved: new Prisma.Decimal(Number(stock.quantityReserved) + quantity),
-        },
         include: {
           greige: {
             select: {
@@ -592,6 +599,7 @@ class GreigeStockService {
       logDebug(`Updated aging days for ${stocks.length} greige stock records`);
     } catch (error: unknown) {
       logError('Error updating aging days:', error);
+      throw new Error(`Failed to update aging days: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -836,24 +844,30 @@ class GreigeStockService {
     }
 
     const available = Number(stock.quantityAvailable);
-    if (sentQuantity > available) {
-      throw new Error(`Cannot consume ${sentQuantity}. Only ${available} meters available at processor.`);
-    }
 
     // Calculate shrinkage
     const shrinkageQuantity = sentQuantity - receivedQuantity;
     const shrinkagePercent = sentQuantity > 0 ? (shrinkageQuantity / sentQuantity) * 100 : 0;
 
-    // Consume the sent quantity from processor's stock
+    // Consume the sent quantity from processor's stock.
+    // Guarded atomic decrement: the availability check and the write happen in ONE statement,
+    // so a concurrent consumption cannot pass a stale check and drive the balance negative.
     const newAvailable = available - sentQuantity;
-    await prisma.greige_stock.update({
-      where: { id: stockId },
+    const consumeResult = await prisma.greige_stock.updateMany({
+      where: { id: stockId, quantityAvailable: { gte: sentQuantity } },
       data: {
-        quantityAvailable: new Prisma.Decimal(newAvailable),
-        quantityConsumed: new Prisma.Decimal(Number(stock.quantityConsumed) + sentQuantity),
+        quantityAvailable: { decrement: sentQuantity },
+        quantityConsumed: { increment: sentQuantity },
         lastConsumedDate: new Date(),
-        status: newAvailable <= 0 ? 'EXHAUSTED' : 'AVAILABLE',
       },
+    });
+    if (consumeResult.count === 0) {
+      throw new Error(`Cannot consume ${sentQuantity}. Only ${available} meters available at processor.`);
+    }
+    // Mark exhausted based on the ACTUAL stored balance (not the pre-read snapshot)
+    await prisma.greige_stock.updateMany({
+      where: { id: stockId, quantityAvailable: { lte: 0 } },
+      data: { status: 'EXHAUSTED' },
     });
 
     // Create audit trail
@@ -938,20 +952,26 @@ class GreigeStockService {
     }
 
     const available = Number(stock.quantityAvailable);
-    if (receivedQuantity > available) {
+
+    // Consume the received quantity from processor's stock.
+    // Guarded atomic decrement: the availability check and the write happen in ONE statement,
+    // so a concurrent receipt cannot pass a stale check and drive the balance negative.
+    const remainingAtProcessor = available - receivedQuantity;
+    const receiveResult = await prisma.greige_stock.updateMany({
+      where: { id: stockId, quantityAvailable: { gte: receivedQuantity } },
+      data: {
+        quantityAvailable: { decrement: receivedQuantity },
+        quantityConsumed: { increment: receivedQuantity },
+        lastConsumedDate: new Date(),
+      },
+    });
+    if (receiveResult.count === 0) {
       throw new Error(`Cannot receive ${receivedQuantity}. Only ${available} meters available at processor.`);
     }
-
-    // Consume the received quantity from processor's stock
-    const remainingAtProcessor = available - receivedQuantity;
-    await prisma.greige_stock.update({
-      where: { id: stockId },
-      data: {
-        quantityAvailable: new Prisma.Decimal(remainingAtProcessor),
-        quantityConsumed: new Prisma.Decimal(Number(stock.quantityConsumed) + receivedQuantity),
-        lastConsumedDate: new Date(),
-        status: remainingAtProcessor <= 0 ? 'EXHAUSTED' : 'AVAILABLE',
-      },
+    // Mark exhausted based on the ACTUAL stored balance (not the pre-read snapshot)
+    await prisma.greige_stock.updateMany({
+      where: { id: stockId, quantityAvailable: { lte: 0 } },
+      data: { status: 'EXHAUSTED' },
     });
 
     // Create audit trail

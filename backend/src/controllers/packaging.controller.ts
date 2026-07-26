@@ -608,51 +608,54 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
         continue;
       }
 
-      // Create packaging
-      await prisma.$executeRaw`
-        INSERT INTO "packaging_master" (
-          "id", "packagingCode", "packagingName", "supplierCode", "buyerCode",
-          "packagingType", "size", "material", "thickness", "printDetails", "pricePerPiece", "pricePerHundred",
-          "description", "isActive", "createdAt", "updatedAt"
-        ) VALUES (
-          gen_random_uuid()::text,
-          ${packagingCode},
-          ${row.packagingName},
-          ${row.supplierCode || null},
-          ${row.buyerCode || null},
-          ${row.packagingType || null},
-          ${row.size || null},
-          ${row.material || null},
-          ${row.thickness || null},
-          ${row.printDetails || null},
-          ${row.pricePerPiece || null},
-          ${row.pricePerHundred || null},
-          ${row.description || null},
-          true,
-          CURRENT_TIMESTAMP,
-          CURRENT_TIMESTAMP
-        )
-      `;
+      // Create packaging + material atomically so a failure cannot leave a master without its materials record
+      const packagingId = await prisma.$transaction(async (tx) => {
+        // Create packaging
+        await tx.$executeRaw`
+          INSERT INTO "packaging_master" (
+            "id", "packagingCode", "packagingName", "supplierCode", "buyerCode",
+            "packagingType", "size", "material", "thickness", "printDetails", "pricePerPiece", "pricePerHundred",
+            "description", "isActive", "createdAt", "updatedAt"
+          ) VALUES (
+            gen_random_uuid()::text,
+            ${packagingCode},
+            ${row.packagingName},
+            ${row.supplierCode || null},
+            ${row.buyerCode || null},
+            ${row.packagingType || null},
+            ${row.size || null},
+            ${row.material || null},
+            ${row.thickness || null},
+            ${row.printDetails || null},
+            ${row.pricePerPiece || null},
+            ${row.pricePerHundred || null},
+            ${row.description || null},
+            true,
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+          )
+        `;
 
-      // Get created packaging ID
-      const created = await prisma.$queryRaw<PackagingMasterRecord[]>`
-        SELECT "id" FROM "packaging_master" WHERE "packagingCode" = ${packagingCode} LIMIT 1
-      `;
+        // Get created packaging ID
+        const created = await tx.$queryRaw<PackagingMasterRecord[]>`
+          SELECT "id" FROM "packaging_master" WHERE "packagingCode" = ${packagingCode} LIMIT 1
+        `;
 
-      const packagingId = created[0].id;
+        // Create material
+        await tx.materials.create({
+          data: {
+            id: `mat-${packagingCode.toLowerCase()}`,
+            code: packagingCode,
+            name: row.packagingName,
+            materialType: 'PACKAGING',
+            packagingId: created[0].id,
+            categoryId: packagingCategory.id,
+            unit: 'PIECE',
+            isActive: true,
+          } as Prisma.materialsUncheckedCreateInput,
+        });
 
-      // Create material
-      await prisma.materials.create({
-        data: {
-          id: `mat-${packagingCode.toLowerCase()}`,
-          code: packagingCode,
-          name: row.packagingName,
-          materialType: 'PACKAGING',
-          packagingId,
-          categoryId: packagingCategory.id,
-          unit: 'PIECE',
-          isActive: true,
-        } as Prisma.materialsUncheckedCreateInput,
+        return created[0].id;
       });
 
       // Create stock if requested - using specialized packaging_stock table
@@ -692,6 +695,7 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
         stockCreated,
       });
     } catch (error: unknown) {
+      // allow-swallow — per-row bulk-import reporter: row writes are atomic ($transaction) and the failure is surfaced in results[]
       results.push({
         success: false,
         row: i + 1,

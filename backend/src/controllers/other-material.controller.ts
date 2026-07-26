@@ -435,33 +435,36 @@ export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
         continue;
       }
 
-      // Create other material using Prisma
-      const materialRecord = await prisma.other_material_master.create({
-        data: {
-          materialCode,
-          materialName: row.materialName,
-          category: row.category || null,
-          unit: row.unit || 'PIECE',
-          specifications: row.specifications || null,
-          pricePerUnit: row.pricePerUnit ? parseFloat(row.pricePerUnit) : null,
-          description: row.description || null,
-          isActive: true,
-        },
-      });
+      // Create other material + material atomically so a failure cannot leave a master without its materials record
+      const materialRecord = await prisma.$transaction(async (tx) => {
+        const created = await tx.other_material_master.create({
+          data: {
+            materialCode,
+            materialName: row.materialName,
+            category: row.category || null,
+            unit: row.unit || 'PIECE',
+            specifications: row.specifications || null,
+            pricePerUnit: row.pricePerUnit ? parseFloat(row.pricePerUnit) : null,
+            description: row.description || null,
+            isActive: true,
+          },
+        });
 
-      // Create material
-      const materialId = `mat-${materialCode.toLowerCase()}`;
-      await prisma.materials.create({
-        data: {
-          id: materialId,
-          code: materialCode,
-          name: row.materialName,
-          materialType: 'OTHER',
-          otherMaterialId: materialRecord.id,
-          categoryId: otherMaterialCategory.id,
-          unit: row.unit || 'PIECE',
-          isActive: true,
-        },
+        // Create material
+        await tx.materials.create({
+          data: {
+            id: `mat-${materialCode.toLowerCase()}`,
+            code: materialCode,
+            name: row.materialName,
+            materialType: 'OTHER',
+            otherMaterialId: created.id,
+            categoryId: otherMaterialCategory.id,
+            unit: row.unit || 'PIECE',
+            isActive: true,
+          },
+        });
+
+        return created;
       });
 
       // Create stock if requested - using specialized other_material_stock table
@@ -490,6 +493,7 @@ export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
         stockCreated,
       });
     } catch (error: any) {
+      // allow-swallow — per-row bulk-import reporter: row writes are atomic ($transaction) and the failure is surfaced in results[]
       results.push({
         success: false,
         row: i + 1,

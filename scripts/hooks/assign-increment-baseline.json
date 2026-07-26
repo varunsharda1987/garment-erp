@@ -1,14 +1,1 @@
-[
-  "backend/src/controllers/dispatch.controller.ts :: delivery_note_fg_allocations.update :: quantity:a.quantity-restore",
-  "backend/src/services/challan.service.ts :: fabric_stock.update :: quantityConsumed:newPrisma.Decimal(Number(fabricStock.quantityConsumed)+qty)",
-  "backend/src/services/challan.service.ts :: lace_stock.update :: quantityConsumed:newPrisma.Decimal(Number(laceStock.quantityConsumed)+qty)",
-  "backend/src/services/challan.service.ts :: thread_stock.update :: quantityConsumed:newPrisma.Decimal(Number(threadStock.quantityConsumed)+qty)",
-  "backend/src/services/external-process.service.ts :: external_process_send_out_skus.update :: goodQty:sku.receivedQty-sku.damagedQty",
-  "backend/src/services/greige-stock.service.ts :: greige_stock.update :: quantityAvailable:newPrisma.Decimal(available-quantity)",
-  "backend/src/services/greige-stock.service.ts :: greige_stock.update :: quantityConsumed:newPrisma.Decimal(Number(stock.quantityConsumed)+receivedQuantity)",
-  "backend/src/services/greige-stock.service.ts :: greige_stock.update :: quantityConsumed:newPrisma.Decimal(Number(stock.quantityConsumed)+sentQuantity)",
-  "backend/src/services/greige-stock.service.ts :: greige_stock.update :: quantityReserved:newPrisma.Decimal(Number(stock.quantityReserved)+quantity)",
-  "backend/src/services/grn.service.ts :: greige_stock.update :: quantityConsumed:Number(processorGreigeStock.quantityConsumed)+qtyToConsume",
-  "backend/src/services/work-order-service-requirement.service.ts :: purchase_orders.update :: totalAmount:subtotal+totalTax",
-  "backend/src/services/workOrder.service.ts :: work_orders.update :: totalQuantity:originalWorkOrder.totalQuantity-totalSplitQty"
-]
+[]

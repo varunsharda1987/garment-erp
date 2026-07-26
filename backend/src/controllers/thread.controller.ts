@@ -636,39 +636,42 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
         rowPiecesPerBox = row.packagingType === 'CONE' ? 6 : row.packagingType === 'TUBE' ? 10 : null;
       }
 
-      // Create thread using Prisma
-      const threadRecord = await prisma.thread_master.create({
-        data: {
-          threadCode,
-          threadName: row.threadName,
-          brand: row.brand || null,
-          packagingType: row.packagingType || null,
-          piecesPerBox: rowPiecesPerBox || null,
-          metersPerUnit: row.metersPerUnit ? parseFloat(row.metersPerUnit) : null,
-          color: row.color || null,
-          colorCode: row.colorCode || null,
-          coneSize: row.coneSize || null,
-          pricePerCone: row.pricePerCone ? parseFloat(row.pricePerCone) : null,
-          supplierCode: row.supplierCode || null,
-          buyerCode: row.buyerCode || null,
-          description: row.description || null,
-          isActive: true,
-        },
-      });
+      // Create thread + material atomically so a failure cannot leave a master without its materials record
+      const threadRecord = await prisma.$transaction(async (tx) => {
+        const created = await tx.thread_master.create({
+          data: {
+            threadCode,
+            threadName: row.threadName,
+            brand: row.brand || null,
+            packagingType: row.packagingType || null,
+            piecesPerBox: rowPiecesPerBox || null,
+            metersPerUnit: row.metersPerUnit ? parseFloat(row.metersPerUnit) : null,
+            color: row.color || null,
+            colorCode: row.colorCode || null,
+            coneSize: row.coneSize || null,
+            pricePerCone: row.pricePerCone ? parseFloat(row.pricePerCone) : null,
+            supplierCode: row.supplierCode || null,
+            buyerCode: row.buyerCode || null,
+            description: row.description || null,
+            isActive: true,
+          },
+        });
 
-      // Create material
-      const materialId = `mat-${threadCode.toLowerCase()}`;
-      await prisma.materials.create({
-        data: {
-          id: materialId,
-          code: threadCode,
-          name: row.threadName,
-          materialType: 'THREAD',
-          threadId: threadRecord.id,
-          categoryId: threadCategory.id,
-          unit: 'CONE',
-          isActive: true,
-        },
+        // Create material
+        await tx.materials.create({
+          data: {
+            id: `mat-${threadCode.toLowerCase()}`,
+            code: threadCode,
+            name: row.threadName,
+            materialType: 'THREAD',
+            threadId: created.id,
+            categoryId: threadCategory.id,
+            unit: 'CONE',
+            isActive: true,
+          },
+        });
+
+        return created;
       });
 
       // Create stock if requested - using specialized thread_stock table
@@ -697,6 +700,7 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
         stockCreated,
       });
     } catch (error: any) {
+      // allow-swallow — per-row bulk-import reporter: row writes are atomic ($transaction) and the failure is surfaced in results[]
       results.push({
         success: false,
         row: i + 1,

@@ -965,6 +965,7 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
         results.created++;
       }
     } catch (error: unknown) {
+      // allow-swallow — per-row bulk-import error, counted in results.failed and surfaced in results.errors
       results.failed++;
       results.errors.push({
         row: i + 2,

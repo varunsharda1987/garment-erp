@@ -5,8 +5,49 @@ import { Prisma, Unit } from '@prisma/client';
 import { createChallan } from '../services/challan.service';
 import greigeStockService from '../services/greige-stock.service';
 import { generateUnifiedPONumber } from '../utils/po-number-generator';
+import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { randomUUID } from 'crypto';
 import logger from '../utils/logger';
+
+// ============================================
+// Atomic scoped numbering helpers
+// ============================================
+
+/** Highest numeric suffix among codes shaped `${prefix}-<digits>` (the dash keeps the scope exact). */
+const maxNumericSuffix = (codes: Array<string | null>, prefix: string): number => {
+  let max = 0;
+  for (const code of codes) {
+    if (!code || !code.startsWith(`${prefix}-`)) continue;
+    const suffix = code.slice(prefix.length + 1);
+    if (/^\d+$/.test(suffix)) max = Math.max(max, parseInt(suffix, 10));
+  }
+  return max;
+};
+
+/**
+ * Lazily seed the atomic sequence for a per-scope compound prefix (e.g. `LDP-{styleCode}`).
+ * Static seeding (scripts/seed-code-sequences.ts) is impossible for prefixes that embed a style
+ * scope, so before first use in a scope: if code_sequences has no row for the prefix but rows
+ * already exist in the target table, initialize the sequence with their max numeric suffix
+ * (idempotent GREATEST upsert, mirroring the seed script).
+ */
+const seedScopedSequenceIfMissing = async (prefix: string, findMaxSuffix: () => Promise<number>): Promise<void> => {
+  const existing = await prisma.$queryRaw<Array<{ found: number }>>(
+    Prisma.sql`SELECT 1 AS found FROM code_sequences WHERE prefix = ${prefix} LIMIT 1`
+  );
+  if (existing.length > 0) return;
+  const max = await findMaxSuffix();
+  if (max <= 0) return;
+  await prisma.$executeRaw(
+    Prisma.sql`
+      INSERT INTO code_sequences (id, prefix, "lastValue", "updatedAt")
+      VALUES (gen_random_uuid(), ${prefix}, ${max}, NOW())
+      ON CONFLICT (prefix) DO UPDATE SET
+        "lastValue" = GREATEST(code_sequences."lastValue", ${max}),
+        "updatedAt" = NOW()
+    `
+  );
+};
 
 // Helper to transform relations for response
 const transformLabDip = (item: any) => ({
@@ -155,21 +196,22 @@ const jobWorkOrderInclude = {
 // LAB DIP ENDPOINTS
 // ============================================
 
-// Generate lab dip number
+// Generate lab dip number — atomic per-style sequence; visible format preserved:
+// {LDP|LDD}-{styleCode}-NNN. dyeing.controller.ts writes the same lab_dips.labDipNumber column
+// and uses this identical `${processPrefix}-${styleCode}` key scheme, so series can't collide.
 const generateLabDipNumber = async (processType: string, styleCode: string): Promise<string> => {
-  const prefix = processType === 'PRINTING' ? 'LDP' : 'LDD';
-
-  // Count existing lab dips for this style
-  const count = await prisma.lab_dips.count({
-    where: {
-      processType,
-      labDipNumber: {
-        startsWith: `${prefix}-${styleCode}-`,
-      },
-    },
+  const prefix = `${processType === 'PRINTING' ? 'LDP' : 'LDD'}-${styleCode}`;
+  await seedScopedSequenceIfMissing(prefix, async () => {
+    const rows = await prisma.lab_dips.findMany({
+      where: { labDipNumber: { startsWith: `${prefix}-` } },
+      select: { labDipNumber: true },
+    });
+    return maxNumericSuffix(
+      rows.map((r) => r.labDipNumber),
+      prefix
+    );
   });
-
-  return `${prefix}-${styleCode}-${(count + 1).toString().padStart(3, '0')}`;
+  return generateAtomicMasterCode(prefix, 3);
 };
 
 // Get all lab dips
@@ -557,21 +599,22 @@ export const searchLabDips = async (req: Request, res: Response, _next: NextFunc
 // JOB WORK ORDER (PRINT JOB) ENDPOINTS
 // ============================================
 
-// Generate job work number
+// Generate job work number — atomic per-style sequence; visible format preserved:
+// {PJ|DJ}-{styleCode}-NNN. dyeing.controller.ts writes the same job_work_orders.jobWorkNumber
+// column and uses this identical `${processPrefix}-${styleCode}` key scheme.
 const generateJobWorkNumber = async (processType: string, styleCode: string): Promise<string> => {
-  const prefix = processType === 'PRINTING' ? 'PJ' : 'DJ';
-
-  // Count existing job work orders for this style
-  const count = await prisma.job_work_orders.count({
-    where: {
-      processType,
-      jobWorkNumber: {
-        startsWith: `${prefix}-${styleCode}-`,
-      },
-    },
+  const prefix = `${processType === 'PRINTING' ? 'PJ' : 'DJ'}-${styleCode}`;
+  await seedScopedSequenceIfMissing(prefix, async () => {
+    const rows = await prisma.job_work_orders.findMany({
+      where: { jobWorkNumber: { startsWith: `${prefix}-` } },
+      select: { jobWorkNumber: true },
+    });
+    return maxNumericSuffix(
+      rows.map((r) => r.jobWorkNumber),
+      prefix
+    );
   });
-
-  return `${prefix}-${styleCode}-${(count + 1).toString().padStart(3, '0')}`;
+  return generateAtomicMasterCode(prefix, 3);
 };
 
 // Get all print jobs

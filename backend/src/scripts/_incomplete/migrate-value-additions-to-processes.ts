@@ -88,6 +88,7 @@ async function migrateValueAdditionsToProcesses() {
         migrated++;
         console.log(`✅ Migrated ${processType} for style ${addition.styles.styleCode}`);
       } catch (error) {
+        // allow-swallow — one-off migration script: per-addition errors are counted and reported in the summary
         errors++;
         console.error(`❌ Error migrating addition ${addition.id}:`, error);
       }

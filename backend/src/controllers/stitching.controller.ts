@@ -398,6 +398,7 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
+    // allow-swallow — pure timeline production_tracking entry; must not fail the already-created stitching issue
     logger.error('Failed to create production_tracking for stitching:', err);
   }
 

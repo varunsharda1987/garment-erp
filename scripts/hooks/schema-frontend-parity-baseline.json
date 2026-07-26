@@ -1,4 +1,1 @@
-[
-  "backend/src/schemas/tcs.schema.ts :: createTCSSchema.grossAmount :: missing-in CreateTCSRequest",
-  "backend/src/schemas/tcs.schema.ts :: createTCSSchema.netAmount :: missing-in CreateTCSRequest"
-]
+[]

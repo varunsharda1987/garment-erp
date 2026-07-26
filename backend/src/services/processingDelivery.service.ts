@@ -179,7 +179,7 @@ class ProcessingDeliveryService {
           });
         }
       } catch (err) {
-        // Non-critical: don't fail delivery if tracking fails
+        // allow-swallow — pure timeline production_tracking entry; must not fail the recorded delivery
         logger.error('Failed to create production_tracking for delivery:', err);
       }
     }

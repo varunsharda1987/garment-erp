@@ -475,37 +475,40 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
         continue;
       }
 
-      // Create elastic using Prisma
-      const elasticRecord = await prisma.elastic_master.create({
-        data: {
-          elasticCode,
-          elasticName: row.elasticName,
-          supplierCode: row.supplierCode || null,
-          buyerCode: row.buyerCode || null,
-          width: row.width ? parseFloat(row.width) : null,
-          stretchPercent: row.stretchPercent ? parseFloat(row.stretchPercent) : null,
-          color: row.color || null,
-          composition: row.composition || null,
-          elasticType: row.elasticType || null,
-          pricePerMeter: row.pricePerMeter ? parseFloat(row.pricePerMeter) : null,
-          description: row.description || null,
-          isActive: true,
-        },
-      });
+      // Create elastic + material atomically so a failure cannot leave a master without its materials record
+      const elasticRecord = await prisma.$transaction(async (tx) => {
+        const created = await tx.elastic_master.create({
+          data: {
+            elasticCode,
+            elasticName: row.elasticName,
+            supplierCode: row.supplierCode || null,
+            buyerCode: row.buyerCode || null,
+            width: row.width ? parseFloat(row.width) : null,
+            stretchPercent: row.stretchPercent ? parseFloat(row.stretchPercent) : null,
+            color: row.color || null,
+            composition: row.composition || null,
+            elasticType: row.elasticType || null,
+            pricePerMeter: row.pricePerMeter ? parseFloat(row.pricePerMeter) : null,
+            description: row.description || null,
+            isActive: true,
+          },
+        });
 
-      // Create material
-      const materialId = `mat-${elasticCode.toLowerCase()}`;
-      await prisma.materials.create({
-        data: {
-          id: materialId,
-          code: elasticCode,
-          name: row.elasticName,
-          materialType: 'ELASTIC',
-          elasticId: elasticRecord.id,
-          categoryId: elasticCategory.id,
-          unit: 'METER',
-          isActive: true,
-        },
+        // Create material
+        await tx.materials.create({
+          data: {
+            id: `mat-${elasticCode.toLowerCase()}`,
+            code: elasticCode,
+            name: row.elasticName,
+            materialType: 'ELASTIC',
+            elasticId: created.id,
+            categoryId: elasticCategory.id,
+            unit: 'METER',
+            isActive: true,
+          },
+        });
+
+        return created;
       });
 
       // Create stock if requested - using specialized elastic_stock table
@@ -535,6 +538,7 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
         stockCreated,
       });
     } catch (error: any) {
+      // allow-swallow — per-row bulk-import reporter: row writes are atomic ($transaction) and the failure is surfaced in results[]
       results.push({
         success: false,
         row: i + 1,

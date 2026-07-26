@@ -743,7 +743,7 @@ class GRNService {
                     where: { id: processorGreigeStock.id },
                     data: {
                       quantityAvailable: newAvailable,
-                      quantityConsumed: Number(processorGreigeStock.quantityConsumed) + qtyToConsume,
+                      quantityConsumed: { increment: qtyToConsume },
                       lastConsumedDate: new Date(),
                       status: newAvailable <= 0 ? 'EXHAUSTED' : 'AVAILABLE',
                     },

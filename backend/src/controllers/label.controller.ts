@@ -815,39 +815,42 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
         continue;
       }
 
-      // Create label using Prisma
-      const labelRecord = await prisma.label_master.create({
-        data: {
-          labelCode,
-          labelName: row.labelName,
-          supplierCode: row.supplierCode || null,
-          buyerCode: row.buyerCode || null,
-          labelType: row.labelType || null,
-          size: row.size || null,
-          content: row.content || null,
-          printMethod: row.printMethod || null,
-          material: row.material || null,
-          color: row.color || null,
-          pricePerPiece: row.pricePerPiece ? parseFloat(row.pricePerPiece) : null,
-          pricePerHundred: row.pricePerHundred ? parseFloat(row.pricePerHundred) : null,
-          description: row.description || null,
-          isActive: true,
-        },
-      });
+      // Create label + material atomically so a failure cannot leave a master without its materials record
+      const labelRecord = await prisma.$transaction(async (tx) => {
+        const created = await tx.label_master.create({
+          data: {
+            labelCode,
+            labelName: row.labelName,
+            supplierCode: row.supplierCode || null,
+            buyerCode: row.buyerCode || null,
+            labelType: row.labelType || null,
+            size: row.size || null,
+            content: row.content || null,
+            printMethod: row.printMethod || null,
+            material: row.material || null,
+            color: row.color || null,
+            pricePerPiece: row.pricePerPiece ? parseFloat(row.pricePerPiece) : null,
+            pricePerHundred: row.pricePerHundred ? parseFloat(row.pricePerHundred) : null,
+            description: row.description || null,
+            isActive: true,
+          },
+        });
 
-      // Create material
-      const materialId = `mat-${labelCode.toLowerCase()}`;
-      await prisma.materials.create({
-        data: {
-          id: materialId,
-          code: labelCode,
-          name: row.labelName,
-          materialType: 'LABEL',
-          labelId: labelRecord.id,
-          categoryId: labelCategory.id,
-          unit: 'PIECE',
-          isActive: true,
-        },
+        // Create material
+        await tx.materials.create({
+          data: {
+            id: `mat-${labelCode.toLowerCase()}`,
+            code: labelCode,
+            name: row.labelName,
+            materialType: 'LABEL',
+            labelId: created.id,
+            categoryId: labelCategory.id,
+            unit: 'PIECE',
+            isActive: true,
+          },
+        });
+
+        return created;
       });
 
       // Create stock if requested - using specialized label_stock table
@@ -877,6 +880,7 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
         stockCreated,
       });
     } catch (error: any) {
+      // allow-swallow — per-row bulk-import reporter: row writes are atomic ($transaction) and the failure is surfaced in results[]
       results.push({
         success: false,
         row: i + 1,

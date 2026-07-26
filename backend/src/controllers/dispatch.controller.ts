@@ -4,6 +4,7 @@ import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import crypto from 'crypto';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
+import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 
 // ============================================
 // Helper Functions
@@ -105,33 +106,82 @@ const transformASN = (asn: any) => ({
   })),
 });
 
+/** Highest numeric suffix among codes shaped `${prefix}-<digits>` (the dash keeps the scope exact). */
+const maxNumericSuffix = (codes: Array<string | null>, prefix: string): number => {
+  let max = 0;
+  for (const code of codes) {
+    if (!code || !code.startsWith(`${prefix}-`)) continue;
+    const suffix = code.slice(prefix.length + 1);
+    if (/^\d+$/.test(suffix)) max = Math.max(max, parseInt(suffix, 10));
+  }
+  return max;
+};
+
+/**
+ * Lazily seed the atomic sequence for a per-scope compound prefix (e.g. `DN-20260726`,
+ * `ASN-ORD...`). Static seeding (scripts/seed-code-sequences.ts) is impossible for prefixes
+ * that embed a date/order scope, so before first use in a scope: if code_sequences has no row
+ * for the prefix but rows already exist in the target table, initialize the sequence with their
+ * max numeric suffix (idempotent GREATEST upsert, mirroring the seed script).
+ */
+const seedScopedSequenceIfMissing = async (prefix: string, findMaxSuffix: () => Promise<number>): Promise<void> => {
+  const existing = await prisma.$queryRaw<Array<{ found: number }>>(
+    Prisma.sql`SELECT 1 AS found FROM code_sequences WHERE prefix = ${prefix} LIMIT 1`
+  );
+  if (existing.length > 0) return;
+  const max = await findMaxSuffix();
+  if (max <= 0) return;
+  await prisma.$executeRaw(
+    Prisma.sql`
+      INSERT INTO code_sequences (id, prefix, "lastValue", "updatedAt")
+      VALUES (gen_random_uuid(), ${prefix}, ${max}, NOW())
+      ON CONFLICT (prefix) DO UPDATE SET
+        "lastValue" = GREATEST(code_sequences."lastValue", ${max}),
+        "updatedAt" = NOW()
+    `
+  );
+};
+
+/** True when err is a Prisma P2002 unique violation whose target involves the given column. */
+const isUniqueViolationOn = (err: unknown, column: string): boolean => {
+  const e = err as { code?: string; meta?: { target?: unknown } } | null;
+  if (!e || e.code !== 'P2002') return false;
+  const target = e.meta?.target;
+  const text = Array.isArray(target) ? target.join(',') : String(target ?? '');
+  return text.includes(column);
+};
+
 const generateDeliveryNumber = async (): Promise<string> => {
   const today = new Date();
   const prefix = `DN-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
-
-  const existingCount = await prisma.delivery_notes.count({
-    where: {
-      deliveryNumber: {
-        startsWith: prefix,
-      },
-    },
+  await seedScopedSequenceIfMissing(prefix, async () => {
+    const rows = await prisma.delivery_notes.findMany({
+      where: { deliveryNumber: { startsWith: `${prefix}-` } },
+      select: { deliveryNumber: true },
+    });
+    return maxNumericSuffix(
+      rows.map((r) => r.deliveryNumber),
+      prefix
+    );
   });
-
-  return `${prefix}-${(existingCount + 1).toString().padStart(4, '0')}`;
+  // Atomic per-day sequence (race-prone count() replaced); visible format preserved: DN-YYYYMMDD-NNNN
+  return generateAtomicMasterCode(prefix, 4);
 };
 
 const generateASNNumber = async (orderNumber: string): Promise<string> => {
   const prefix = `ASN-${orderNumber}`;
-
-  const existingCount = await prisma.asn_applications.count({
-    where: {
-      asnNumber: {
-        startsWith: prefix,
-      },
-    },
+  await seedScopedSequenceIfMissing(prefix, async () => {
+    const rows = await prisma.asn_applications.findMany({
+      where: { asnNumber: { startsWith: `${prefix}-` } },
+      select: { asnNumber: true },
+    });
+    return maxNumericSuffix(
+      rows.map((r) => r.asnNumber),
+      prefix
+    );
   });
-
-  return `${prefix}-${(existingCount + 1).toString().padStart(3, '0')}`;
+  // Atomic per-order sequence; visible format preserved: ASN-{orderNumber}-NNN
+  return generateAtomicMasterCode(prefix, 3);
 };
 
 // Include options
@@ -260,164 +310,163 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
   }
   const { orderId, customerId, deliveryDate, remarks, items, cartonIds } = req.body;
 
-  const deliveryNumber = await generateDeliveryNumber();
-
   // Note creation + FG deductions run in ONE transaction with guarded atomic decrements (bug-hunt
   // dispatch-1). The old code was off-transaction read-modify-write: concurrent notes lost deductions,
   // a SKU split across locations was skipped entirely, and a missing colorId deducted ANY color's stock
   // (finished_goods_stock.colorId is required, so `colorId: undefined` dropped the filter).
   // Shortfalls no longer vanish silently: what exists is deducted, the gap is flagged in the response.
-  const fgShortfalls: Array<{
+  type FgShortfall = {
     styleId: string;
     colorId: string | null;
     sizeId: string;
     requested: number;
     deducted: number;
-  }> = [];
+  };
 
   // Records of exactly which FG rows this note deducts (and how much) — written with the note so a
   // later delete can restore stock precisely (bug-hunt dispatch-2).
-  const fgAllocations: Array<{ fgStockId: string; quantity: number }> = [];
+  type FgAllocation = { fgStockId: string; quantity: number };
 
-  const note = await prisma.$transaction(
-    async (tx) => {
-      // Over-dispatch validation runs INSIDE the tx with the order row locked — the old pre-tx
-      // check-then-insert raced (two concurrent notes both passed, then both inserted), and it only
-      // compared ORDER-TOTAL quantities, so one SKU could absorb another SKU's allowance
-      // (bug-hunt dispatch-3). Per-SKU caps come from order_item_breakup where it exists.
-      if (orderId && items?.length > 0) {
-        await tx.$queryRaw`SELECT id FROM orders WHERE id = ${orderId} FOR UPDATE`;
-        const order = await tx.orders.findUnique({
-          where: { id: orderId },
-          include: { order_items: { include: { order_item_breakup: true } } },
-        });
-
-        if (order) {
-          const existingDeliveryItems = await tx.delivery_note_items.findMany({
-            where: { delivery_notes: { orderId } },
-            select: { styleId: true, colorId: true, sizeId: true, quantity: true },
+  const attemptCreateNote = (deliveryNumber: string, fgShortfalls: FgShortfall[], fgAllocations: FgAllocation[]) =>
+    prisma.$transaction(
+      async (tx) => {
+        // Over-dispatch validation runs INSIDE the tx with the order row locked — the old pre-tx
+        // check-then-insert raced (two concurrent notes both passed, then both inserted), and it only
+        // compared ORDER-TOTAL quantities, so one SKU could absorb another SKU's allowance
+        // (bug-hunt dispatch-3). Per-SKU caps come from order_item_breakup where it exists.
+        if (orderId && items?.length > 0) {
+          await tx.$queryRaw`SELECT id FROM orders WHERE id = ${orderId} FOR UPDATE`;
+          const order = await tx.orders.findUnique({
+            where: { id: orderId },
+            include: { order_items: { include: { order_item_breakup: true } } },
           });
 
-          const skuKey = (styleId?: string | null, colorId?: string | null, sizeId?: string | null) =>
-            `${styleId || ''}-${colorId || ''}-${sizeId || ''}`;
+          if (order) {
+            const existingDeliveryItems = await tx.delivery_note_items.findMany({
+              where: { delivery_notes: { orderId } },
+              select: { styleId: true, colorId: true, sizeId: true, quantity: true },
+            });
 
-          const dispatchedMap = new Map<string, number>();
-          for (const di of existingDeliveryItems) {
-            const key = skuKey(di.styleId, di.colorId, di.sizeId);
-            dispatchedMap.set(key, (dispatchedMap.get(key) || 0) + di.quantity);
-          }
+            const skuKey = (styleId?: string | null, colorId?: string | null, sizeId?: string | null) =>
+              `${styleId || ''}-${colorId || ''}-${sizeId || ''}`;
 
-          // Ordered per SKU (style+color+size) from the order item breakups
-          const orderedMap = new Map<string, number>();
-          let hasBreakup = false;
-          for (const oi of order.order_items) {
-            for (const b of oi.order_item_breakup) {
-              hasBreakup = true;
-              const key = skuKey(oi.styleId, b.colorId, b.sizeId);
-              orderedMap.set(key, (orderedMap.get(key) || 0) + b.quantity);
+            const dispatchedMap = new Map<string, number>();
+            for (const di of existingDeliveryItems) {
+              const key = skuKey(di.styleId, di.colorId, di.sizeId);
+              dispatchedMap.set(key, (dispatchedMap.get(key) || 0) + di.quantity);
             }
-          }
 
-          if (hasBreakup) {
-            for (const item of items) {
-              if (!item.styleId || !item.sizeId || !item.quantity) continue;
-              const key = skuKey(item.styleId, item.colorId, item.sizeId);
-              const ordered = orderedMap.get(key) ?? 0;
-              const already = dispatchedMap.get(key) ?? 0;
-              if (already + item.quantity > ordered) {
-                throw new ValidationError(
-                  `Dispatch exceeds ordered quantity for this SKU (style/color/size): ordered ${ordered}, ` +
-                    `already dispatched ${already}, requested ${item.quantity}`
-                );
+            // Ordered per SKU (style+color+size) from the order item breakups
+            const orderedMap = new Map<string, number>();
+            let hasBreakup = false;
+            for (const oi of order.order_items) {
+              for (const b of oi.order_item_breakup) {
+                hasBreakup = true;
+                const key = skuKey(oi.styleId, b.colorId, b.sizeId);
+                orderedMap.set(key, (orderedMap.get(key) || 0) + b.quantity);
               }
             }
-          }
 
-          // Net out goods the customer did NOT keep (bug-hunt dispatch-12): REJECTED PODs return the
-          // whole note; PARTIAL PODs return shortageQty. Without this, returned goods permanently ate
-          // the order's dispatch allowance and the redelivery was blocked. Header-level shortage has no
-          // per-SKU detail, so netting applies to the order-total backstop only — the per-SKU caps above
-          // stay conservative (may block a redelivery of a heavily-shorted SKU early; safe direction).
-          const podNotes = await tx.delivery_notes.findMany({
-            where: { orderId },
-            select: {
-              delivery_notes_ext: { select: { pod: { select: { deliveryStatus: true, shortageQty: true } } } },
-              delivery_note_items: { select: { quantity: true } },
-            },
-          });
-          let returnedQty = 0;
-          for (const n of podNotes) {
-            const pod = n.delivery_notes_ext?.pod;
-            if (!pod) continue;
-            if (pod.deliveryStatus === 'REJECTED') {
-              returnedQty += n.delivery_note_items.reduce((s, i) => s + i.quantity, 0);
-            } else {
-              returnedQty += Number(pod.shortageQty || 0);
+            if (hasBreakup) {
+              for (const item of items) {
+                if (!item.styleId || !item.sizeId || !item.quantity) continue;
+                const key = skuKey(item.styleId, item.colorId, item.sizeId);
+                const ordered = orderedMap.get(key) ?? 0;
+                const already = dispatchedMap.get(key) ?? 0;
+                if (already + item.quantity > ordered) {
+                  throw new ValidationError(
+                    `Dispatch exceeds ordered quantity for this SKU (style/color/size): ordered ${ordered}, ` +
+                      `already dispatched ${already}, requested ${item.quantity}`
+                  );
+                }
+              }
+            }
+
+            // Net out goods the customer did NOT keep (bug-hunt dispatch-12): REJECTED PODs return the
+            // whole note; PARTIAL PODs return shortageQty. Without this, returned goods permanently ate
+            // the order's dispatch allowance and the redelivery was blocked. Header-level shortage has no
+            // per-SKU detail, so netting applies to the order-total backstop only — the per-SKU caps above
+            // stay conservative (may block a redelivery of a heavily-shorted SKU early; safe direction).
+            const podNotes = await tx.delivery_notes.findMany({
+              where: { orderId },
+              select: {
+                delivery_notes_ext: { select: { pod: { select: { deliveryStatus: true, shortageQty: true } } } },
+                delivery_note_items: { select: { quantity: true } },
+              },
+            });
+            let returnedQty = 0;
+            for (const n of podNotes) {
+              const pod = n.delivery_notes_ext?.pod;
+              if (!pod) continue;
+              if (pod.deliveryStatus === 'REJECTED') {
+                returnedQty += n.delivery_note_items.reduce((s, i) => s + i.quantity, 0);
+              } else {
+                returnedQty += Number(pod.shortageQty || 0);
+              }
+            }
+
+            // Order-total backstop (also covers legacy orders without SKU breakups)
+            const totalOrdered = order.order_items.reduce((sum, oi) => sum + oi.totalQuantity, 0);
+            const totalAlreadyDispatched =
+              Array.from(dispatchedMap.values()).reduce((sum, qty) => sum + qty, 0) - returnedQty;
+            const totalNewDispatch = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
+            if (totalAlreadyDispatched + totalNewDispatch > totalOrdered) {
+              throw new ValidationError(
+                `Dispatch quantity (${totalNewDispatch}) would exceed order limit. ` +
+                  `Ordered: ${totalOrdered}, already dispatched (net of returns): ${totalAlreadyDispatched}, ` +
+                  `remaining: ${totalOrdered - totalAlreadyDispatched}`
+              );
             }
           }
-
-          // Order-total backstop (also covers legacy orders without SKU breakups)
-          const totalOrdered = order.order_items.reduce((sum, oi) => sum + oi.totalQuantity, 0);
-          const totalAlreadyDispatched =
-            Array.from(dispatchedMap.values()).reduce((sum, qty) => sum + qty, 0) - returnedQty;
-          const totalNewDispatch = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
-          if (totalAlreadyDispatched + totalNewDispatch > totalOrdered) {
-            throw new ValidationError(
-              `Dispatch quantity (${totalNewDispatch}) would exceed order limit. ` +
-                `Ordered: ${totalOrdered}, already dispatched (net of returns): ${totalAlreadyDispatched}, ` +
-                `remaining: ${totalOrdered - totalAlreadyDispatched}`
-            );
-          }
         }
-      }
 
-      const created = await tx.delivery_notes.create({
-        data: {
-          id: crypto.randomUUID(),
-          deliveryNumber,
-          orderId,
-          customerId,
-          deliveryDate: deliveryDate ? new Date(deliveryDate) : new Date(),
-          status: 'PENDING',
-          remarks,
-          createdById: userId,
-          delivery_note_items:
-            items?.length > 0
-              ? {
-                  create: items.map((item: any) => ({
-                    id: crypto.randomUUID(),
-                    styleId: item.styleId,
-                    colorId: item.colorId,
-                    sizeId: item.sizeId,
-                    quantity: item.quantity,
-                  })),
-                }
-              : undefined,
-        },
-        include: deliveryNoteIncludeOptions,
-      });
+        const created = await tx.delivery_notes.create({
+          data: {
+            id: crypto.randomUUID(),
+            deliveryNumber,
+            orderId,
+            customerId,
+            deliveryDate: deliveryDate ? new Date(deliveryDate) : new Date(),
+            status: 'PENDING',
+            remarks,
+            createdById: userId,
+            delivery_note_items:
+              items?.length > 0
+                ? {
+                    create: items.map((item: any) => ({
+                      id: crypto.randomUUID(),
+                      styleId: item.styleId,
+                      colorId: item.colorId,
+                      sizeId: item.sizeId,
+                      quantity: item.quantity,
+                    })),
+                  }
+                : undefined,
+          },
+          include: deliveryNoteIncludeOptions,
+        });
 
-      if (items?.length > 0) {
-        for (const item of items) {
-          if (!item.styleId || !item.sizeId || !item.quantity) continue;
-          let remaining: number = item.quantity;
+        if (items?.length > 0) {
+          for (const item of items) {
+            if (!item.styleId || !item.sizeId || !item.quantity) continue;
+            let remaining: number = item.quantity;
 
-          // Exact-SKU rows only. Without a colorId we cannot know WHICH color's stock left the warehouse,
-          // so nothing is deducted and the full quantity is flagged (never deduct a different SKU).
-          if (item.colorId) {
-            // Deterministic order (quantity desc, id asc) so concurrent notes lock rows in the same
-            // sequence — avoids lock-order deadlocks between notes covering the same SKU.
-            const rows = await tx.finished_goods_stock.findMany({
-              where: { styleId: item.styleId, colorId: item.colorId, sizeId: item.sizeId, quantity: { gt: 0 } },
-              orderBy: [{ quantity: 'desc' }, { id: 'asc' }],
-              select: { id: true },
-            });
-            for (const row of rows) {
-              if (remaining <= 0) break;
-              // Atomic take-min under a row lock: takes whatever the row STILL has (up to remaining) even
-              // if a concurrent note consumed part of it after our findMany — the snapshot-based
-              // "decrement exactly N or skip" version under-deducted in that race (review finding).
-              const taken: Array<{ taken: number }> = await tx.$queryRaw`
+            // Exact-SKU rows only. Without a colorId we cannot know WHICH color's stock left the warehouse,
+            // so nothing is deducted and the full quantity is flagged (never deduct a different SKU).
+            if (item.colorId) {
+              // Deterministic order (quantity desc, id asc) so concurrent notes lock rows in the same
+              // sequence — avoids lock-order deadlocks between notes covering the same SKU.
+              const rows = await tx.finished_goods_stock.findMany({
+                where: { styleId: item.styleId, colorId: item.colorId, sizeId: item.sizeId, quantity: { gt: 0 } },
+                orderBy: [{ quantity: 'desc' }, { id: 'asc' }],
+                select: { id: true },
+              });
+              for (const row of rows) {
+                if (remaining <= 0) break;
+                // Atomic take-min under a row lock: takes whatever the row STILL has (up to remaining) even
+                // if a concurrent note consumed part of it after our findMany — the snapshot-based
+                // "decrement exactly N or skip" version under-deducted in that race (review finding).
+                const taken: Array<{ taken: number }> = await tx.$queryRaw`
               WITH before AS (
                 SELECT quantity FROM finished_goods_stock WHERE id = ${row.id} FOR UPDATE
               )
@@ -427,69 +476,88 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
               FROM before
               WHERE f.id = ${row.id} AND f.quantity > 0
               RETURNING LEAST(before.quantity, CAST(${remaining} AS int)) AS taken`;
-              if (taken.length > 0) {
-                const took = Number(taken[0].taken);
-                remaining -= took;
-                if (took > 0) fgAllocations.push({ fgStockId: row.id, quantity: took });
+                if (taken.length > 0) {
+                  const took = Number(taken[0].taken);
+                  remaining -= took;
+                  if (took > 0) fgAllocations.push({ fgStockId: row.id, quantity: took });
+                }
               }
             }
+
+            if (remaining > 0) {
+              fgShortfalls.push({
+                styleId: item.styleId,
+                colorId: item.colorId ?? null,
+                sizeId: item.sizeId,
+                requested: item.quantity,
+                deducted: item.quantity - remaining,
+              });
+            }
           }
+        }
 
-          if (remaining > 0) {
-            fgShortfalls.push({
-              styleId: item.styleId,
-              colorId: item.colorId ?? null,
-              sizeId: item.sizeId,
-              requested: item.quantity,
-              deducted: item.quantity - remaining,
-            });
+        // Link the packed cartons this note covers (dispatch_cartons rows) so dispatching the note can
+        // flip them to DISPATCHED — previously nothing ever linked or dispatched cartons, so they stayed
+        // "available" forever and dispatchedPieces was always 0 (bug-hunt dispatch-9).
+        if (cartonIds?.length > 0) {
+          const uniqueCartonIds: string[] = [...new Set<string>(cartonIds)];
+          const cartons = await tx.carton_packings.findMany({
+            where: { id: { in: uniqueCartonIds } },
+            select: { id: true, cartonNumber: true, status: true, dispatchItems: { select: { id: true } } },
+          });
+          if (cartons.length !== uniqueCartonIds.length) {
+            throw new ValidationError('One or more selected cartons do not exist');
           }
+          const unavailable = cartons.filter((c) => c.status !== 'PACKED' || c.dispatchItems.length > 0);
+          if (unavailable.length > 0) {
+            throw new ValidationError(
+              `Carton(s) not available for dispatch (not PACKED or already on a delivery note): ` +
+                unavailable.map((c) => c.cartonNumber).join(', ')
+            );
+          }
+          const ext = await tx.delivery_notes_ext.create({
+            data: { deliveryNoteId: created.id, totalCartons: uniqueCartonIds.length },
+          });
+          await tx.dispatch_cartons.createMany({
+            data: uniqueCartonIds.map((cartonId) => ({ deliveryNoteExtId: ext.id, cartonId })),
+          });
         }
-      }
 
-      // Link the packed cartons this note covers (dispatch_cartons rows) so dispatching the note can
-      // flip them to DISPATCHED — previously nothing ever linked or dispatched cartons, so they stayed
-      // "available" forever and dispatchedPieces was always 0 (bug-hunt dispatch-9).
-      if (cartonIds?.length > 0) {
-        const uniqueCartonIds: string[] = [...new Set<string>(cartonIds)];
-        const cartons = await tx.carton_packings.findMany({
-          where: { id: { in: uniqueCartonIds } },
-          select: { id: true, cartonNumber: true, status: true, dispatchItems: { select: { id: true } } },
-        });
-        if (cartons.length !== uniqueCartonIds.length) {
-          throw new ValidationError('One or more selected cartons do not exist');
+        // Persist the exact deductions so deleting this (PENDING) note can restore them precisely.
+        if (fgAllocations.length > 0) {
+          await tx.delivery_note_fg_allocations.createMany({
+            data: fgAllocations.map((a) => ({
+              id: crypto.randomUUID(),
+              deliveryNoteId: created.id,
+              fgStockId: a.fgStockId,
+              quantity: a.quantity,
+            })),
+          });
         }
-        const unavailable = cartons.filter((c) => c.status !== 'PACKED' || c.dispatchItems.length > 0);
-        if (unavailable.length > 0) {
-          throw new ValidationError(
-            `Carton(s) not available for dispatch (not PACKED or already on a delivery note): ` +
-              unavailable.map((c) => c.cartonNumber).join(', ')
-          );
-        }
-        const ext = await tx.delivery_notes_ext.create({
-          data: { deliveryNoteId: created.id, totalCartons: uniqueCartonIds.length },
-        });
-        await tx.dispatch_cartons.createMany({
-          data: uniqueCartonIds.map((cartonId) => ({ deliveryNoteExtId: ext.id, cartonId })),
-        });
-      }
 
-      // Persist the exact deductions so deleting this (PENDING) note can restore them precisely.
-      if (fgAllocations.length > 0) {
-        await tx.delivery_note_fg_allocations.createMany({
-          data: fgAllocations.map((a) => ({
-            id: crypto.randomUUID(),
-            deliveryNoteId: created.id,
-            fgStockId: a.fgStockId,
-            quantity: a.quantity,
-          })),
-        });
-      }
+        return created;
+      },
+      { timeout: 15000, maxWait: 5000 }
+    ); // headroom over Prisma's 5s default: per-item row-locked allocation on large notes
 
-      return created;
-    },
-    { timeout: 15000, maxWait: 5000 }
-  ); // headroom over Prisma's 5s default: per-item row-locked allocation on large notes
+  // deliveryNumber is UNIQUE — if a pre-atomic row in today's scope still collides with the freshly
+  // seeded sequence, retry the whole attempt with the next atomic number. Arrays are re-created per
+  // attempt so a retried transaction can never double-count shortfalls/allocations.
+  const createNoteWithFreshNumber = async () => {
+    for (let attempt = 1; ; attempt++) {
+      const deliveryNumber = await generateDeliveryNumber();
+      const fgShortfalls: FgShortfall[] = [];
+      const fgAllocations: FgAllocation[] = [];
+      try {
+        const note = await attemptCreateNote(deliveryNumber, fgShortfalls, fgAllocations);
+        return { note, deliveryNumber, fgShortfalls };
+      } catch (err) {
+        if (isUniqueViolationOn(err, 'deliveryNumber') && attempt < 3) continue;
+        throw err;
+      }
+    }
+  };
+  const { note, deliveryNumber, fgShortfalls } = await createNoteWithFreshNumber();
 
   if (fgShortfalls.length > 0) {
     logWarn(`Delivery note ${deliveryNumber} created with FG stock shortfalls (dispatched more than on-hand FG)`, {
@@ -518,6 +586,7 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
         });
       }
     } catch (err) {
+      // allow-swallow — pure timeline SHIPPED production_tracking entries; must not fail the already-created delivery note
       logger.error('Failed to create production_tracking for dispatch:', err);
     }
   }
@@ -857,7 +926,7 @@ export const recordPOD = async (req: Request, res: Response) => {
         });
         await tx.delivery_note_fg_allocations.update({
           where: { id: a.id },
-          data: { quantity: a.quantity - restore },
+          data: { quantity: { decrement: restore } },
         });
         remaining -= restore;
         restored += restore;

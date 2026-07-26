@@ -6,9 +6,10 @@
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { greige_master, Prisma } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError, BusinessError } from '../errors';
-import { logInfo, logError, logDebug } from '../utils/logger';
+import { logInfo, logDebug } from '../utils/logger';
 import { SearchFilter } from '../types/prisma.types';
 import { materialService } from './material.service';
+import { generateCode } from '../utils/code-generator';
 
 // ============================================
 // Types
@@ -155,71 +156,77 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
       }
     }
 
-    const greige = await this.prisma.greige_master.create({
-      data: {
-        greigeCode: data.greigeCode,
-        greigeName: data.greigeName,
-        yarnCount: data.yarnCount || null,
-        construction: data.construction || null,
-        composition: data.composition,
-        weaveType: data.weaveType || null,
-        greigeWidth: data.greigeWidth,
-        defaultCutableWidth: data.defaultCutableWidth || null,
-        expectedFinishedWidthMin: data.expectedFinishedWidthMin || null,
-        expectedFinishedWidthMax: data.expectedFinishedWidthMax || null,
-        averageShrinkagePercent: data.averageShrinkagePercent ?? null,
-        gsmRange: data.gsmRange || null,
-        description: data.description || null,
-        notes: data.notes || null,
-        isActive: data.isActive ?? true,
-        createdById: userId,
-        suppliers: data.suppliers
-          ? {
-              create: data.suppliers.map((s) => ({
-                supplierId: s.supplierId,
-                isPreferred: s.isPreferred || false,
-                isActive: s.isActive !== undefined ? s.isActive : true,
-                notes: s.notes || null,
-              })),
-            }
-          : undefined,
-      },
-      include: {
-        suppliers: {
-          include: {
-            supplier: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                contactPerson: true,
-                email: true,
-                phone: true,
-                isActive: true,
+    // Create greige + materials record atomically so a failure cannot leave a master
+    // without its materials record (split-ledger)
+    const greige = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.greige_master.create({
+        data: {
+          greigeCode: data.greigeCode,
+          greigeName: data.greigeName,
+          yarnCount: data.yarnCount || null,
+          construction: data.construction || null,
+          composition: data.composition,
+          weaveType: data.weaveType || null,
+          greigeWidth: data.greigeWidth,
+          defaultCutableWidth: data.defaultCutableWidth || null,
+          expectedFinishedWidthMin: data.expectedFinishedWidthMin || null,
+          expectedFinishedWidthMax: data.expectedFinishedWidthMax || null,
+          averageShrinkagePercent: data.averageShrinkagePercent ?? null,
+          gsmRange: data.gsmRange || null,
+          description: data.description || null,
+          notes: data.notes || null,
+          isActive: data.isActive ?? true,
+          createdById: userId,
+          suppliers: data.suppliers
+            ? {
+                create: data.suppliers.map((s) => ({
+                  supplierId: s.supplierId,
+                  isPreferred: s.isPreferred || false,
+                  isActive: s.isActive !== undefined ? s.isActive : true,
+                  notes: s.notes || null,
+                })),
+              }
+            : undefined,
+        },
+        include: {
+          suppliers: {
+            include: {
+              supplier: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  contactPerson: true,
+                  email: true,
+                  phone: true,
+                  isActive: true,
+                },
               },
             },
           },
-        },
-        createdBy: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+          createdBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
           },
         },
-      },
+      });
+
+      // Auto-create corresponding materials record with same ID — same transaction, so a
+      // failure rolls back the greige master instead of leaving the two tables inconsistent
+      await materialService.createFromMaster(
+        { id: created.id, code: data.greigeCode, name: data.greigeName },
+        'GREIGE',
+        tx
+      );
+
+      return created;
     });
 
     logInfo('Greige master created successfully', { id: greige.id, greigeCode: data.greigeCode });
-
-    // Auto-create corresponding materials record with same ID
-    try {
-      await materialService.createFromMaster({ id: greige.id, code: data.greigeCode, name: data.greigeName }, 'GREIGE');
-    } catch (err) {
-      // Log but don't fail - greige creation succeeded
-      logError('Failed to auto-create materials record for greige', err);
-    }
 
     return this.serializeGreige(greige) as greige_master;
   }
@@ -644,17 +651,9 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
       errors: [],
     };
 
-    // Get current count for code generation (only count active records to prevent conflicts)
-    const currentCount = await this.prisma.greige_master.count({
-      where: { isActive: true },
-    });
-
     for (let i = 0; i < greiges.length; i++) {
       try {
         const greige = greiges[i];
-
-        // Auto-generate greige code
-        const greigeCode = `GRG-${String(currentCount + i + 1).padStart(4, '0')}`;
 
         // Validate required fields
         if (!greige.greigeName || !greige.composition || !greige.greigeWidth) {
@@ -665,6 +664,10 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
           });
           continue;
         }
+
+        // Auto-generate greige code from the shared atomic 'GRG' sequence (same series as single
+        // create / getNextGreigeCode) — the old count()-based numbering raced and duplicated codes
+        const greigeCode = await generateCode('GRG', 'greige_master', 'greigeCode');
 
         // Create greige master
         await this.prisma.greige_master.create({
@@ -695,6 +698,7 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
 
         results.created++;
       } catch (error: unknown) {
+        // allow-swallow — per-row bulk-import reporter: single-table create, the failure is surfaced in errors[]
         results.failed++;
         results.errors.push({
           row: i + 2,

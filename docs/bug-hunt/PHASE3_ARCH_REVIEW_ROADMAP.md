@@ -98,9 +98,12 @@
 > GSTR-3B ITC now from ACCEPTED GRN receipts pro-rated, carry-forward no longer clamped), dispatch-12
 > (REJECTED/PARTIAL PODs restore FG stock + net the dispatch cap).
 > **Every one of the original 145 audit findings is now fixed, verified-and-queued, or closed.**
-> ⏳ Open queue (verified, prioritized): 69 CONFIRMED/PLAUSIBLE MEDIUMs + 19 LOWs in BACKLOG_VERIFICATION.json
-> (each with a one-sentence fix); T3-F sequence-table numbering (41 generators); §5 detectors #2/#4/#7;
-> review NITs; delivery-note create page (product pass).
+> ~~⏳ Open queue: 69 CONFIRMED/PLAUSIBLE MEDIUMs + 19 LOWs...~~ **STALE — all subsequently closed:**
+> the usability wave (2026-07-23) burned the CONFIRMED MEDIUMs/LOWs; the 9 PLAUSIBLEs + 2 deferred
+> migrations landed 2026-07-23 (74c141a8/e7b92e96); T3-F numbering fully closed incl. 11 detector-blind
+> stragglers (c7b2d9e1, 92ae9d85); §5 detectors #2/#4/#7 live with their cleanup lists driven to ZERO
+> (92ae9d85); delivery-note page shipped + ASN prefill. As of 2026-07-26 the audit queue is EMPTY —
+> remaining risk lives only in the grandfathered ratchet baselines (fix-when-touched) and real-use feedback.
 
 *Synthesized from 57 verified CRITICAL/HIGH findings + 60 unverified MEDIUM/LOW backlog items across 7 modules (orders, procurement, production, costing, financial-gst, dispatch, samples-embroidery). Every claim cites a finding id. Static code audit only — live-DB drift magnitudes unmeasured except where noted.*
 

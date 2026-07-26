@@ -2,6 +2,7 @@
 import logger from '../utils/logger';
 import { Prisma, ProductionStage } from '@prisma/client';
 import prisma from '../config/database';
+import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { randomUUID } from 'crypto';
 
 export interface CreateProcessingDeliveryDTO {
@@ -37,31 +38,10 @@ export interface ProcessingDeliveryFilters {
 
 class ProcessingDeliveryService {
   /**
-   * Generate unique delivery number
+   * Generate unique delivery number (DEL2607-0001) — atomic monthly series.
    */
   async generateDeliveryNumber(): Promise<string> {
-    const year = new Date().getFullYear().toString().slice(-2);
-    const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
-
-    // Get the latest delivery for this month
-    const latestDelivery = await prisma.processing_delivery.findFirst({
-      where: {
-        deliveryNumber: {
-          startsWith: `DEL${year}${month}`,
-        },
-      },
-      orderBy: {
-        deliveryNumber: 'desc',
-      },
-    });
-
-    let sequence = 1;
-    if (latestDelivery) {
-      const lastSequence = parseInt(latestDelivery.deliveryNumber.slice(-4));
-      sequence = lastSequence + 1;
-    }
-
-    return `DEL${year}${month}-${sequence.toString().padStart(4, '0')}`;
+    return generateAtomicDocNumber('DEL');
   }
 
   /**

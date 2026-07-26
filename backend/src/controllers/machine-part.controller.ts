@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { generateCode, generateBatchCodes } from '../utils/code-generator';
+import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 
@@ -429,7 +429,7 @@ export const bulkImportMachineParts = async (req: Request, res: Response) => {
   }
 
   // Pre-generate all part codes
-  const codes = await generateBatchCodes('PART', 'machine_part_master', 'partCode', data.length);
+  const codes = await allocateBatchCodes('PART', 'machine_part_master', 'partCode', data.length);
 
   // Get default warehouse if creating stock
   let defaultWarehouse: any = null;

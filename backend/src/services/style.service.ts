@@ -24,6 +24,7 @@ import {
   StyleTrimInput,
 } from '../types/style.types';
 import { generateSKU, checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } from '../utils/sku-generator';
+import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 
 // ============================================
 // Generic Trim FK Mapping
@@ -166,38 +167,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
   }
 
   /**
-   * Generate internal style code in format STY-YYYYMM-XXXX
-   * e.g., STY-202506-0001, STY-202506-0002, etc.
+   * Generate internal style code (STY2607-0001).
+   * Atomic sequence shared with style-import.service — both write styles.internalCode,
+   * so both MUST use the same 'STY' prefix.
    */
   private async generateInternalCode(): Promise<string> {
-    const now = new Date();
-    const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const prefix = `STY-${yearMonth}-`;
-
-    // Find the highest existing code for this month
-    const lastStyle = await this.prisma.styles.findFirst({
-      where: {
-        internalCode: {
-          startsWith: prefix,
-        },
-      },
-      orderBy: {
-        internalCode: 'desc',
-      },
-      select: {
-        internalCode: true,
-      },
-    });
-
-    let nextNumber = 1;
-    if (lastStyle?.internalCode) {
-      const lastNumber = parseInt(lastStyle.internalCode.replace(prefix, ''), 10);
-      if (!isNaN(lastNumber)) {
-        nextNumber = lastNumber + 1;
-      }
-    }
-
-    return `${prefix}${String(nextNumber).padStart(4, '0')}`;
+    return generateAtomicDocNumber('STY');
   }
 
   /**

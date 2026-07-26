@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { generateCode, generateBatchCodes } from '../utils/code-generator';
+import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 
@@ -586,7 +586,7 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
   }
 
   // Pre-generate all button codes
-  const codes = await generateBatchCodes('BTN', 'button_master', 'buttonCode', data.length);
+  const codes = await allocateBatchCodes('BTN', 'button_master', 'buttonCode', data.length);
 
   // Get default warehouse if creating stock
   let defaultWarehouse: any = null;

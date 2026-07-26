@@ -1,6 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { Prisma } from '@prisma/client';
+import { generateAtomicPONumber, generateAtomicPONumberInTx } from './atomicCodeGenerator';
 
 /**
  * Unified PO Number Generator
@@ -8,13 +7,11 @@ const prisma = new PrismaClient();
  * Single source of truth for generating purchase order numbers.
  * Format: PO{YY}{MM}-{NNNN} (e.g., PO2602-0001)
  *
- * This consolidates the 3 different implementations that existed:
- * 1. purchaseOrder.service.ts - generatePONumber() method
- * 2. costSheetPOGeneration.service.ts - generatePONumber() function
- * 3. generateCode('PO', ...) utility
- *
- * Uses database transaction to prevent race conditions and ensure
- * unique sequential numbers within each month.
+ * Thin wrappers over the atomic sequence generator (code_sequences UPSERT),
+ * so every PO-number producer (purchaseOrder.service, costSheetPOGeneration,
+ * unified-po-creation, dyeing/printing controllers, MRP) shares one
+ * collision-free series. The old findFirst-max+1 bodies raced under
+ * concurrency and minted duplicate PO numbers.
  */
 
 /**
@@ -22,44 +19,9 @@ const prisma = new PrismaClient();
  * Format: PO{YY}{MM}-{NNNN}
  *
  * @returns Promise<string> - Generated PO number (e.g., PO2602-0001)
- *
- * @example
- * const poNumber = await generateUnifiedPONumber();
- * // Returns: "PO2602-0023" (for Feb 2026, sequence 23)
  */
 export async function generateUnifiedPONumber(): Promise<string> {
-  const now = new Date();
-  const year = now.getFullYear().toString().slice(-2); // Last 2 digits (e.g., "26")
-  const month = (now.getMonth() + 1).toString().padStart(2, '0'); // 2-digit month (e.g., "02")
-  const prefix = `PO${year}${month}`; // e.g., "PO2602"
-
-  // Use transaction to ensure atomicity and prevent race conditions
-  return await prisma.$transaction(async (tx) => {
-    // Find the last PO number with the current month prefix
-    const lastPO = await tx.purchase_orders.findFirst({
-      where: {
-        poNumber: { startsWith: prefix },
-      },
-      orderBy: { poNumber: 'desc' },
-      select: { poNumber: true },
-    });
-
-    let sequence = 1;
-
-    if (lastPO?.poNumber) {
-      // Extract sequence number from format PO{YYMM}-{NNNN}
-      const parts = lastPO.poNumber.split('-');
-      if (parts.length === 2) {
-        const lastSequence = parseInt(parts[1], 10);
-        if (!isNaN(lastSequence)) {
-          sequence = lastSequence + 1;
-        }
-      }
-    }
-
-    // Format: PO2602-0001
-    return `${prefix}-${sequence.toString().padStart(4, '0')}`;
-  });
+  return generateAtomicPONumber();
 }
 
 /**
@@ -69,36 +31,8 @@ export async function generateUnifiedPONumber(): Promise<string> {
  * @param tx - Prisma transaction client
  * @returns Promise<string> - Generated PO number
  */
-export async function generateUnifiedPONumberInTransaction(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
-): Promise<string> {
-  const now = new Date();
-  const year = now.getFullYear().toString().slice(-2);
-  const month = (now.getMonth() + 1).toString().padStart(2, '0');
-  const prefix = `PO${year}${month}`;
-
-  // Find the last PO number with the current month prefix
-  const lastPO = await tx.purchase_orders.findFirst({
-    where: {
-      poNumber: { startsWith: prefix },
-    },
-    orderBy: { poNumber: 'desc' },
-    select: { poNumber: true },
-  });
-
-  let sequence = 1;
-
-  if (lastPO?.poNumber) {
-    const parts = lastPO.poNumber.split('-');
-    if (parts.length === 2) {
-      const lastSequence = parseInt(parts[1], 10);
-      if (!isNaN(lastSequence)) {
-        sequence = lastSequence + 1;
-      }
-    }
-  }
-
-  return `${prefix}-${sequence.toString().padStart(4, '0')}`;
+export async function generateUnifiedPONumberInTransaction(tx: Prisma.TransactionClient): Promise<string> {
+  return generateAtomicPONumberInTx(tx);
 }
 
 /**
@@ -135,95 +69,4 @@ export function parsePONumber(poNumber: string): {
   const sequence = parseInt(poNumber.slice(7), 10); // 1
 
   return { yearMonth, year, month, sequence };
-}
-
-/**
- * Generate a batch of PO numbers for bulk operations
- * Useful when creating multiple POs in one transaction
- *
- * @param count - Number of PO numbers to generate
- * @returns Promise<string[]> - Array of sequential PO numbers
- */
-export async function generateBatchPONumbers(count: number): Promise<string[]> {
-  if (count <= 0) return [];
-
-  const now = new Date();
-  const year = now.getFullYear().toString().slice(-2);
-  const month = (now.getMonth() + 1).toString().padStart(2, '0');
-  const prefix = `PO${year}${month}`;
-
-  return await prisma.$transaction(async (tx) => {
-    const lastPO = await tx.purchase_orders.findFirst({
-      where: {
-        poNumber: { startsWith: prefix },
-      },
-      orderBy: { poNumber: 'desc' },
-      select: { poNumber: true },
-    });
-
-    let startSequence = 1;
-
-    if (lastPO?.poNumber) {
-      const parts = lastPO.poNumber.split('-');
-      if (parts.length === 2) {
-        const lastSequence = parseInt(parts[1], 10);
-        if (!isNaN(lastSequence)) {
-          startSequence = lastSequence + 1;
-        }
-      }
-    }
-
-    const poNumbers: string[] = [];
-    for (let i = 0; i < count; i++) {
-      poNumbers.push(`${prefix}-${(startSequence + i).toString().padStart(4, '0')}`);
-    }
-
-    return poNumbers;
-  });
-}
-
-/**
- * Generate batch PO numbers within an existing transaction
- *
- * @param tx - Prisma transaction client
- * @param count - Number of PO numbers to generate
- * @returns Promise<string[]> - Array of sequential PO numbers
- */
-export async function generateBatchPONumbersInTransaction(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
-  count: number
-): Promise<string[]> {
-  if (count <= 0) return [];
-
-  const now = new Date();
-  const year = now.getFullYear().toString().slice(-2);
-  const month = (now.getMonth() + 1).toString().padStart(2, '0');
-  const prefix = `PO${year}${month}`;
-
-  const lastPO = await tx.purchase_orders.findFirst({
-    where: {
-      poNumber: { startsWith: prefix },
-    },
-    orderBy: { poNumber: 'desc' },
-    select: { poNumber: true },
-  });
-
-  let startSequence = 1;
-
-  if (lastPO?.poNumber) {
-    const parts = lastPO.poNumber.split('-');
-    if (parts.length === 2) {
-      const lastSequence = parseInt(parts[1], 10);
-      if (!isNaN(lastSequence)) {
-        startSequence = lastSequence + 1;
-      }
-    }
-  }
-
-  const poNumbers: string[] = [];
-  for (let i = 0; i < count; i++) {
-    poNumbers.push(`${prefix}-${(startSequence + i).toString().padStart(4, '0')}`);
-  }
-
-  return poNumbers;
 }

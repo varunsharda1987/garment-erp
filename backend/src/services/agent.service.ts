@@ -8,6 +8,7 @@ import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from '
 import { NotFoundError, ConflictError } from '../errors';
 import { logError, logInfo, logDebug } from '../utils/logger';
 import { SearchFilter, OrderByClause } from '../types/prisma.types';
+import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 
 /**
  * Agent type definition
@@ -114,21 +115,7 @@ class AgentServiceClass extends BaseService<Agent, CreateAgentInput, UpdateAgent
    * Generate next agent code (AGT-001, AGT-002, etc.)
    */
   private async generateNextCode(): Promise<string> {
-    const lastAgent = await prisma.agents.findFirst({
-      where: {
-        code: { startsWith: 'AGT-' },
-      },
-      orderBy: { code: 'desc' },
-      select: { code: true },
-    });
-
-    if (!lastAgent) {
-      return 'AGT-001';
-    }
-
-    const lastNumber = parseInt(lastAgent.code.replace('AGT-', ''), 10);
-    const nextNumber = lastNumber + 1;
-    return `AGT-${nextNumber.toString().padStart(3, '0')}`;
+    return generateAtomicMasterCode('AGT', 3);
   }
 
   /**

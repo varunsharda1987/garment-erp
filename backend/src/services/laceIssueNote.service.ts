@@ -8,6 +8,7 @@
  */
 
 import prisma from '../config/database';
+import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { logInfo, logError, logDebug } from '../utils/logger';
 
 // ============================================
@@ -55,27 +56,10 @@ export interface LaceIssueNoteFilters {
 // ============================================
 
 /**
- * Generate unique issue note number
+ * Generate unique issue note number (LIS2607-0001) — atomic monthly series.
  */
 async function generateIssueNumber(): Promise<string> {
-  const now = new Date();
-  const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const prefix = `LIS${yearMonth.slice(2)}`;
-
-  const lastNote = await prisma.lace_issue_note.findFirst({
-    where: {
-      issueNumber: { startsWith: prefix },
-    },
-    orderBy: { issueNumber: 'desc' },
-  });
-
-  let sequence = 1;
-  if (lastNote) {
-    const lastSequence = parseInt(lastNote.issueNumber.slice(-4)) || 0;
-    sequence = lastSequence + 1;
-  }
-
-  return `${prefix}-${String(sequence).padStart(4, '0')}`;
+  return generateAtomicDocNumber('LIS');
 }
 
 /**

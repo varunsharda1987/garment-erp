@@ -1,5 +1,6 @@
 import { MaterialType, Prisma } from '@prisma/client';
 import prisma from '../config/database';
+import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import {
   CreateMaterialMasterDto,
   UpdateMaterialMasterDto,
@@ -221,23 +222,9 @@ export async function countByType(materialType: MaterialType) {
 async function generateMaterialCode(materialType: MaterialType): Promise<string> {
   const prefix = getMaterialTypePrefix(materialType);
 
-  const maxCode = await prisma.material_master.findFirst({
-    where: {
-      materialType: materialType,
-      code: { startsWith: prefix },
-    },
-    orderBy: { code: 'desc' },
-    select: { code: true },
-  });
-
-  if (!maxCode) {
-    return `${prefix}001`;
-  }
-
-  const currentNumber = parseInt(maxCode.code.replace(prefix, ''));
-  const nextNumber = currentNumber + 1;
-
-  return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+  // Atomic per-prefix sequence; strip the helper's dash to keep the BTN001 format
+  const code = await generateAtomicMasterCode(prefix, 3);
+  return code.replace(`${prefix}-`, prefix);
 }
 
 function getMaterialTypePrefix(materialType: MaterialType): string {

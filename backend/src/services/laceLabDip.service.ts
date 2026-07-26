@@ -10,7 +10,7 @@
  */
 
 import prisma from '../config/database';
-import { generateCode } from '../utils/code-generator';
+import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { LaceLabDipStatus } from '@prisma/client';
 
 export interface CreateLabDipInput {
@@ -62,8 +62,8 @@ export async function createLaceLabDip(input: CreateLabDipInput, userId: string)
     throw new Error('Processor not found or is not a dyeing processor');
   }
 
-  // Generate lab dip number
-  const labDipNumber = await generateCode('LD-LACE', 'lace_lab_dip', 'labDipNumber');
+  // Generate lab dip number (atomic sequence, format LD-LACE-0001)
+  const labDipNumber = await generateAtomicMasterCode('LD-LACE', 4);
 
   const labDip = await prisma.lace_lab_dip.create({
     data: {

@@ -1,79 +1,27 @@
-import { PrismaClient, Prisma } from '@prisma/client';
-import logger from './logger';
-
-const prisma = new PrismaClient();
-
-/**
- * Validate table and column names to prevent SQL injection
- * Only allow alphanumeric characters and underscores
- */
-function validateIdentifier(identifier: string): boolean {
-  return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(identifier);
-}
+import { generateAtomicMasterCode } from './atomicCodeGenerator';
 
 /**
  * Generate next sequential code for any entity type
+ *
+ * Delegates to the atomic code_sequences UPSERT (see atomicCodeGenerator.ts); the old
+ * table-max lookup was racy under concurrent creates. The visible format is unchanged
+ * (e.g. 'LACE-0001') and sequences are seeded from each table's current max code.
+ * The sequence is keyed by prefix alone, so every caller writing the same code column
+ * (single create AND bulk import) shares one collision-free series.
+ *
  * @param prefix - Code prefix (e.g., 'LACE', 'BTN', 'THR', 'STY')
- * @param tableName - Database table name (e.g., 'lace_master', 'button_master')
- * @param codeField - Column name for the code field (e.g., 'laceCode', 'buttonCode')
+ * @param _tableName - Database table name (unused; kept for call-site compatibility)
+ * @param _codeField - Column name for the code field (unused; kept for call-site compatibility)
  * @param padding - Number of digits for padding (default: 4)
  * @returns Promise<string> - Generated code (e.g., 'LACE-0001')
  */
 export async function generateCode(
   prefix: string,
-  tableName: string,
-  codeField: string,
+  _tableName: string,
+  _codeField: string,
   padding: number = 4
 ): Promise<string> {
-  try {
-    // Validate table and column names to prevent SQL injection
-    if (!validateIdentifier(tableName)) {
-      throw new Error(`Invalid table name: ${tableName}`);
-    }
-    if (!validateIdentifier(codeField)) {
-      throw new Error(`Invalid column name: ${codeField}`);
-    }
-
-    // Get the last code from the database by querying the specific table
-    // Using raw query since we need dynamic table and column names
-    // Table and column names use Prisma.raw() since they cannot be parameterized
-    // The prefix pattern is safely parameterized
-    const result = await prisma.$queryRaw<Array<{ [key: string]: string }>>`
-      SELECT ${Prisma.raw(`"${codeField}"`)}
-      FROM ${Prisma.raw(`"${tableName}"`)}
-      WHERE ${Prisma.raw(`"${codeField}"`)} LIKE ${prefix + '-%'}
-      ORDER BY ${Prisma.raw(`"${codeField}"`)} DESC
-      LIMIT 1
-    `;
-
-    let nextNumber = 1;
-
-    if (result && result.length > 0) {
-      const lastCode = result[0][codeField];
-
-      if (lastCode) {
-        // Extract number from code (e.g., 'LACE-0005' -> '0005' -> 5)
-        const match = lastCode.match(new RegExp(`${prefix}-(\\d+)$`));
-
-        if (match && match[1]) {
-          const lastNumber = parseInt(match[1], 10);
-          nextNumber = lastNumber + 1;
-        }
-      }
-    }
-
-    // Pad the number with leading zeros
-    const paddedNumber = nextNumber.toString().padStart(padding, '0');
-
-    // Return formatted code
-    return `${prefix}-${paddedNumber}`;
-  } catch (error) {
-    logger.error(`Error generating code for ${tableName}:`, error);
-
-    // Fallback: return a code with timestamp to ensure uniqueness
-    const timestamp = Date.now().toString().slice(-padding);
-    return `${prefix}-${timestamp}`;
-  }
+  return generateAtomicMasterCode(prefix, padding);
 }
 
 /**
@@ -109,36 +57,25 @@ export function extractCodeNumber(code: string, prefix: string): number | null {
 }
 
 /**
- * Generate batch of codes
- * Useful for bulk import to pre-generate all codes at once
+ * Allocate a batch of codes
+ * Useful for bulk import to pre-generate all codes at once. Draws each code from the
+ * same atomic sequence used by single creates, so pre-generated bulk-import codes can
+ * never collide with codes minted concurrently elsewhere.
  * @param prefix - Code prefix
- * @param tableName - Database table name
- * @param codeField - Column name for the code field
- * @param count - Number of codes to generate
+ * @param tableName - Database table name (unused; kept for call-site compatibility)
+ * @param codeField - Column name for the code field (unused; kept for call-site compatibility)
+ * @param count - Number of codes to allocate
  * @returns Promise<string[]> - Array of generated codes
  */
-export async function generateBatchCodes(
+export async function allocateBatchCodes(
   prefix: string,
   tableName: string,
   codeField: string,
   count: number
 ): Promise<string[]> {
   const codes: string[] = [];
-
-  // Get the starting code
-  const firstCode = await generateCode(prefix, tableName, codeField);
-  const startNumber = extractCodeNumber(firstCode, prefix);
-
-  if (startNumber === null) {
-    throw new Error(`Invalid code format: ${firstCode}`);
-  }
-
-  // Generate batch
   for (let i = 0; i < count; i++) {
-    const number = startNumber + i;
-    const paddedNumber = number.toString().padStart(4, '0');
-    codes.push(`${prefix}-${paddedNumber}`);
+    codes.push(await generateCode(prefix, tableName, codeField));
   }
-
   return codes;
 }

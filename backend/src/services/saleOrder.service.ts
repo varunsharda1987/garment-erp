@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { Prisma, SaleOrderStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 
 interface SOCreateInput {
   customerId: string;
@@ -41,23 +42,8 @@ interface SOQueryParams {
 
 export class SaleOrderService {
   private async generateSONumber(): Promise<string> {
-    const now = new Date();
-    const yy = now.getFullYear().toString().slice(-2);
-    const mm = (now.getMonth() + 1).toString().padStart(2, '0');
-    const prefix = `SO-${yy}${mm}-`;
-
-    const lastSO = await prisma.sale_orders.findFirst({
-      where: { saleOrderNumber: { startsWith: prefix } },
-      orderBy: { saleOrderNumber: 'desc' },
-      select: { saleOrderNumber: true },
-    });
-
-    if (!lastSO) {
-      return `${prefix}0001`;
-    }
-
-    const lastNumber = parseInt(lastSO.saleOrderNumber.replace(prefix, ''), 10);
-    return `${prefix}${(lastNumber + 1).toString().padStart(4, '0')}`;
+    // Atomic sequence (SO2607-0001) — the old findFirst+parse+increment raced under concurrency
+    return generateAtomicDocNumber('SO');
   }
 
   async create(data: SOCreateInput) {

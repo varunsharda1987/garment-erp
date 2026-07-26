@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { Prisma, StockProductionOrderStatus, Priority, OrderStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 
 interface SPOCreateInput {
   styleId: string;
@@ -41,23 +42,8 @@ interface SPOQueryParams {
 
 export class StockProductionOrderService {
   private async generateSPONumber(): Promise<string> {
-    const now = new Date();
-    const yy = now.getFullYear().toString().slice(-2);
-    const mm = (now.getMonth() + 1).toString().padStart(2, '0');
-    const prefix = `SPO-${yy}${mm}-`;
-
-    const lastSPO = await prisma.stock_production_orders.findFirst({
-      where: { spoNumber: { startsWith: prefix } },
-      orderBy: { spoNumber: 'desc' },
-      select: { spoNumber: true },
-    });
-
-    if (!lastSPO) {
-      return `${prefix}0001`;
-    }
-
-    const lastNumber = parseInt(lastSPO.spoNumber.replace(prefix, ''), 10);
-    return `${prefix}${(lastNumber + 1).toString().padStart(4, '0')}`;
+    // Atomic sequence (SPO2607-0001) — the old findFirst+parse+increment raced under concurrency
+    return generateAtomicDocNumber('SPO');
   }
 
   async create(data: SPOCreateInput) {
@@ -401,22 +387,9 @@ export class StockProductionOrderService {
   }
 
   private async generateWorkOrderNumber(): Promise<string> {
-    const year = new Date().getFullYear().toString().slice(-2);
-    const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
-    const prefix = `WO${year}${month}`;
-
-    const lastWorkOrder = await prisma.work_orders.findFirst({
-      where: { workOrderNumber: { startsWith: prefix } },
-      orderBy: { workOrderNumber: 'desc' },
-    });
-
-    let sequence = 1;
-    if (lastWorkOrder) {
-      const lastSequence = parseInt(lastWorkOrder.workOrderNumber.slice(-4));
-      sequence = lastSequence + 1;
-    }
-
-    return `${prefix}${sequence.toString().padStart(4, '0')}`;
+    // Atomic sequence (WO2607-0001) shared with workOrder.service — both write
+    // work_orders.workOrderNumber, so both MUST use the same 'WO' prefix
+    return generateAtomicDocNumber('WO');
   }
 }
 

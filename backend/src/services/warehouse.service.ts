@@ -2,6 +2,7 @@
 import { WarehouseType, Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { getDerivedValuation } from './helpers/derived-stock.helper';
+import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 
 export interface CreateWarehouseDTO {
   warehouseCode: string;
@@ -344,51 +345,29 @@ class WarehouseService {
    */
   async generateWarehouseCode(warehouseType: WarehouseType): Promise<string> {
     const prefix = this.getWarehouseTypePrefix(warehouseType);
-
-    const lastWarehouse = await prisma.warehouses.findFirst({
-      where: {
-        warehouseCode: {
-          startsWith: prefix,
-        },
-      },
-      orderBy: {
-        warehouseCode: 'desc',
-      },
-      select: {
-        warehouseCode: true,
-      },
-    });
-
-    let nextNumber = 1;
-    if (lastWarehouse) {
-      const lastNumber = parseInt(lastWarehouse.warehouseCode.replace(prefix, ''));
-      if (!isNaN(lastNumber)) {
-        nextNumber = lastNumber + 1;
-      }
-    }
-
-    return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+    // Atomic sequence; the helper appends "-NNNN" so codes stay e.g. WH-RM-0001
+    return generateAtomicMasterCode(prefix, 4);
   }
 
   /**
-   * Get warehouse type prefix for code generation
+   * Get warehouse type prefix for code generation (helper appends the trailing dash)
    */
   private getWarehouseTypePrefix(type: WarehouseType): string {
     switch (type) {
       case 'RAW_MATERIAL':
-        return 'WH-RM-';
+        return 'WH-RM';
       case 'FINISHED_GOODS':
-        return 'WH-FG-';
+        return 'WH-FG';
       case 'WORK_IN_PROGRESS':
-        return 'WH-WIP-';
+        return 'WH-WIP';
       case 'GENERAL':
-        return 'WH-GEN-';
+        return 'WH-GEN';
       case 'TRANSIT':
-        return 'WH-TRN-';
+        return 'WH-TRN';
       case 'JOB_WORK':
-        return 'WH-JW-';
+        return 'WH-JW';
       default:
-        return 'WH-';
+        return 'WH';
     }
   }
 }

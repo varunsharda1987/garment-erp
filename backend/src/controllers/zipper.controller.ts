@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { generateCode, generateBatchCodes } from '../utils/code-generator';
+import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 
@@ -451,7 +451,7 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
   }
 
   // Pre-generate all codes
-  const codes = await generateBatchCodes('ZIP', 'zipper_master', 'zipperCode', data.length);
+  const codes = await allocateBatchCodes('ZIP', 'zipper_master', 'zipperCode', data.length);
 
   // Get default warehouse if creating stock
   let defaultWarehouse: any = null;

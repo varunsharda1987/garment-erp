@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
+import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 
 interface AgencyCreateInput {
   name: string;
@@ -31,27 +32,7 @@ export class AgencyService {
    * Generate next agency code (AGY-001, AGY-002, etc.)
    */
   private async generateCode(): Promise<string> {
-    const lastAgency = await prisma.agencies.findFirst({
-      where: {
-        code: {
-          startsWith: 'AGY-',
-        },
-      },
-      orderBy: {
-        code: 'desc',
-      },
-      select: {
-        code: true,
-      },
-    });
-
-    if (!lastAgency) {
-      return 'AGY-001';
-    }
-
-    const lastNumber = parseInt(lastAgency.code.replace('AGY-', ''), 10);
-    const nextNumber = lastNumber + 1;
-    return `AGY-${nextNumber.toString().padStart(3, '0')}`;
+    return generateAtomicMasterCode('AGY', 3);
   }
 
   /**

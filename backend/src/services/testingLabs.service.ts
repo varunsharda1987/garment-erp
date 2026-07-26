@@ -6,24 +6,6 @@ import { AppError, NotFoundError, ConflictError, InternalError } from '../errors
 
 class TestingLabsService {
   /**
-   * Generate the next lab code (LAB-001, LAB-002, etc.)
-   */
-  private async generateLabCode(): Promise<string> {
-    const lastLab = await prisma.testing_labs.findFirst({
-      orderBy: { labCode: 'desc' },
-      select: { labCode: true },
-    });
-
-    if (!lastLab) {
-      return 'LAB-001';
-    }
-
-    const lastNumber = parseInt(lastLab.labCode.split('-')[1] || '0', 10);
-    const nextNumber = lastNumber + 1;
-    return `LAB-${nextNumber.toString().padStart(3, '0')}`;
-  }
-
-  /**
    * Create a new testing lab
    */
   async createLab(data: CreateTestingLabInput, userId: string): Promise<any> {

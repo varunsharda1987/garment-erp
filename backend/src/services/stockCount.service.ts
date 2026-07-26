@@ -4,6 +4,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import prisma from '../config/database';
 import stockMovementService from './stockMovement.service';
 import stockLevelService from './stockLevel.service';
+import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 
 export interface CreateStockCountDTO {
   warehouseId: string;
@@ -49,8 +50,17 @@ class StockCountService {
    */
   async createStockCount(data: CreateStockCountDTO) {
     return await prisma.$transaction(async (tx) => {
+      // Validate warehouse exists (the count number no longer embeds the warehouse code)
+      const warehouse = await tx.warehouses.findUnique({
+        where: { id: data.warehouseId },
+        select: { id: true },
+      });
+      if (!warehouse) {
+        throw new Error('Warehouse not found');
+      }
+
       // Generate count number
-      const countNumber = await this.generateCountNumber(data.warehouseId);
+      const countNumber = await this.generateCountNumber(tx);
 
       // Create stock count header
       const stockCount = await tx.stock_counts.create({
@@ -479,47 +489,12 @@ class StockCountService {
   }
 
   /**
-   * Generate stock count number
+   * Generate stock count number (SC2607-0001).
+   * Atomic sequence — the old findFirst+parse+increment raced under concurrency.
+   * Pass the caller's transaction client so the bump commits/rolls back with it.
    */
-  private async generateCountNumber(warehouseId: string): Promise<string> {
-    const warehouse = await prisma.warehouses.findUnique({
-      where: { id: warehouseId },
-      select: { warehouseCode: true },
-    });
-
-    if (!warehouse) {
-      throw new Error('Warehouse not found');
-    }
-
-    const today = new Date();
-    const year = today.getFullYear().toString().slice(-2);
-    const month = (today.getMonth() + 1).toString().padStart(2, '0');
-
-    const prefix = `SC-${warehouse.warehouseCode}-${year}${month}-`;
-
-    const lastCount = await prisma.stock_counts.findFirst({
-      where: {
-        countNumber: {
-          startsWith: prefix,
-        },
-      },
-      orderBy: {
-        countNumber: 'desc',
-      },
-      select: {
-        countNumber: true,
-      },
-    });
-
-    let nextNumber = 1;
-    if (lastCount) {
-      const lastNumber = parseInt(lastCount.countNumber.replace(prefix, ''));
-      if (!isNaN(lastNumber)) {
-        nextNumber = lastNumber + 1;
-      }
-    }
-
-    return `${prefix}${nextNumber.toString().padStart(4, '0')}`;
+  private async generateCountNumber(tx?: Prisma.TransactionClient): Promise<string> {
+    return generateAtomicDocNumber('SC', tx);
   }
 
   /**

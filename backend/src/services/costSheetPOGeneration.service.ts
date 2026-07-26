@@ -5,6 +5,7 @@
 
 import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
+import { generateAtomicPONumber } from '../utils/atomicCodeGenerator';
 import { randomUUID } from 'crypto';
 import { PurchaseOrderStatus, POCategory as PrismaPOCategory, POSource, Unit } from '@prisma/client';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
@@ -39,27 +40,11 @@ import {
 // ============================================
 
 /**
- * Generate unique PO number
+ * Generate unique PO number (PO2607-0001) — delegates to the shared atomic PO
+ * series so cost-sheet POs cannot collide with POs minted by other services.
  */
 async function generatePONumber(): Promise<string> {
-  const now = new Date();
-  const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const prefix = `PO${yearMonth.slice(2)}`;
-
-  const lastPO = await prisma.purchase_orders.findFirst({
-    where: {
-      poNumber: { startsWith: prefix },
-    },
-    orderBy: { poNumber: 'desc' },
-  });
-
-  let sequence = 1;
-  if (lastPO) {
-    const lastSequence = parseInt(lastPO.poNumber.slice(-4)) || 0;
-    sequence = lastSequence + 1;
-  }
-
-  return `${prefix}-${String(sequence).padStart(4, '0')}`;
+  return generateAtomicPONumber();
 }
 
 /**

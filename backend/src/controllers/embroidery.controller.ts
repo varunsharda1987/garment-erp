@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
+import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { logInfo } from '../utils/logger';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 
@@ -22,38 +23,13 @@ const serializeEmbroidery = (embroidery: any) => {
 
 /**
  * Generate embroidery code in format EMB-YYYYMM-XXXX
+ * Uses the atomic code_sequences UPSERT (keyed per month) instead of the old
+ * table-max lookup, which was racy under concurrent creates.
  */
-async function generateEmbroideryCode(): Promise<string> {
+async function nextEmbroideryCode(): Promise<string> {
   const now = new Date();
   const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const prefix = `EMB-${yearMonth}`;
-
-  // Get the last code for this month
-  const lastEmbroidery = await prisma.embroidery_master.findFirst({
-    where: {
-      embroideryCode: {
-        startsWith: prefix,
-      },
-    },
-    orderBy: {
-      embroideryCode: 'desc',
-    },
-    select: {
-      embroideryCode: true,
-    },
-  });
-
-  let nextNumber = 1;
-
-  if (lastEmbroidery?.embroideryCode) {
-    // Extract the number part: EMB-202512-0001 -> 0001 -> 1
-    const match = lastEmbroidery.embroideryCode.match(/-(\d{4})$/);
-    if (match && match[1]) {
-      nextNumber = parseInt(match[1], 10) + 1;
-    }
-  }
-
-  return `${prefix}-${String(nextNumber).padStart(4, '0')}`;
+  return generateAtomicMasterCode(`EMB-${yearMonth}`, 4);
 }
 
 /**
@@ -102,7 +78,7 @@ export const createEmbroidery = async (req: Request, res: Response) => {
   }
 
   // Generate embroidery code
-  const embroideryCode = await generateEmbroideryCode();
+  const embroideryCode = await nextEmbroideryCode();
 
   // Create embroidery record
   const embroidery = await prisma.embroidery_master.create({

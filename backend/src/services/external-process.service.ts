@@ -16,6 +16,7 @@ import {
 } from '@prisma/client';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { createChallan } from './challan.service';
+import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { randomUUID } from 'crypto';
 
 // ============================================
@@ -88,39 +89,16 @@ export interface SendOutFilters {
 
 class ExternalProcessService {
   /**
-   * Generate batch number with prefix based on process type
-   * SM-YYMM-001, HW-YYMM-001, EP-YYMM-001
+   * Generate batch number with prefix based on process type.
+   * Atomic monthly series per prefix: SM2607-0001, HW2607-0001, EP2607-0001.
    */
-  private async generateBatchNumber(processType: ExternalProcessType, tx?: any): Promise<string> {
-    const client = tx || prisma;
+  private async generateBatchNumber(processType: ExternalProcessType, tx?: Prisma.TransactionClient): Promise<string> {
     const prefixMap: Record<ExternalProcessType, string> = {
       SMOCKING: 'SM',
       HANDWORK: 'HW',
       EMBROIDERY_PIECE: 'EP',
     };
-    const prefix = prefixMap[processType];
-    const now = new Date();
-    const yymm = `${now.getFullYear().toString().slice(-2)}${(now.getMonth() + 1).toString().padStart(2, '0')}`;
-    const batchPrefix = `${prefix}-${yymm}`;
-
-    const lastRecord = await client.external_process_send_outs.findFirst({
-      where: { batchNumber: { startsWith: batchPrefix } },
-      orderBy: { batchNumber: 'desc' },
-      select: { batchNumber: true },
-    });
-
-    let sequence = 1;
-    if (lastRecord?.batchNumber) {
-      const parts = lastRecord.batchNumber.split('-');
-      if (parts.length === 3) {
-        const lastSeq = parseInt(parts[2], 10);
-        if (!isNaN(lastSeq)) {
-          sequence = lastSeq + 1;
-        }
-      }
-    }
-
-    return `${batchPrefix}-${sequence.toString().padStart(3, '0')}`;
+    return generateAtomicDocNumber(prefixMap[processType], tx);
   }
 
   /**

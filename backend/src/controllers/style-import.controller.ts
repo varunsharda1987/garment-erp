@@ -254,7 +254,7 @@ class StyleImportController {
       ['InternalCategory', 'Your internal category for organization'],
       [''],
       ['AUTO-GENERATED FIELDS:'],
-      ['InternalCode', 'System generates: STY-YYYYMM-XXXX'],
+      ['InternalCode', 'System generates: STYYYMM-XXXX (e.g., STY2607-0001)'],
       ['SKU', 'System generates: {StyleCode}{Size} (e.g., COS009S)'],
       ['Barcode', 'Same as SKU'],
       [''],

@@ -10,31 +10,17 @@ import {
   GarmentPhysicalTestQueryOptions,
 } from '../types/testing.types';
 import { AppError, NotFoundError, ValidationError, InternalError } from '../errors';
+import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 
 class GarmentPhysicalTestsService {
   /**
-   * Generate the next test number (GPT-WO001-001)
+   * Generate the next test number (GPT-WO001-001).
+   * Uses one shared atomic 'GPT' sequence so numbers are race-safe and unique
+   * across all work orders (the suffix no longer restarts per work order).
    */
   private async generateTestNumber(workOrderNumber?: string): Promise<string> {
-    const prefix = workOrderNumber ? `GPT-${workOrderNumber}` : 'GPT';
-
-    const lastTest = await prisma.garment_physical_tests.findFirst({
-      where: {
-        testNumber: {
-          startsWith: prefix,
-        },
-      },
-      orderBy: { testNumber: 'desc' },
-      select: { testNumber: true },
-    });
-
-    if (!lastTest) {
-      return `${prefix}-001`;
-    }
-
-    const lastNumber = parseInt(lastTest.testNumber.split('-').pop() || '0', 10);
-    const nextNumber = lastNumber + 1;
-    return `${prefix}-${nextNumber.toString().padStart(3, '0')}`;
+    const code = await generateAtomicMasterCode('GPT', 3);
+    return workOrderNumber ? code.replace('GPT-', `GPT-${workOrderNumber}-`) : code;
   }
 
   /**

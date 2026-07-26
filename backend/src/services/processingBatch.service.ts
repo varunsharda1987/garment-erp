@@ -1,6 +1,7 @@
 // Processing Batch Service - Manage job work processing batches
 import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
+import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { divideCurrency, roundToCent, toNumber } from '../utils/currency';
 
 export interface CreateProcessingBatchDTO {
@@ -40,31 +41,10 @@ export interface ProcessingBatchFilters {
 
 class ProcessingBatchService {
   /**
-   * Generate unique batch number
+   * Generate unique batch number (PB2607-0001) — atomic monthly series.
    */
   async generateBatchNumber(): Promise<string> {
-    const year = new Date().getFullYear().toString().slice(-2);
-    const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
-
-    // Get the latest batch for this month
-    const latestBatch = await prisma.processing_batch.findFirst({
-      where: {
-        batchNumber: {
-          startsWith: `PB${year}${month}`,
-        },
-      },
-      orderBy: {
-        batchNumber: 'desc',
-      },
-    });
-
-    let sequence = 1;
-    if (latestBatch) {
-      const lastSequence = parseInt(latestBatch.batchNumber.slice(-4));
-      sequence = lastSequence + 1;
-    }
-
-    return `PB${year}${month}-${sequence.toString().padStart(4, '0')}`;
+    return generateAtomicDocNumber('PB');
   }
 
   /**

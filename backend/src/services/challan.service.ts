@@ -2,6 +2,7 @@ import { ChallanType, ChallanStatus, Prisma, MovementType, Unit } from '@prisma/
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
+import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { logWarn } from '../utils/logger';
 import greigeStockService from './greige-stock.service';
 import fabricStockService from './fabric-stock.service';
@@ -89,47 +90,10 @@ export interface ReceiveChallanInput {
 // ============================================
 
 async function generateChallanNumber(tx?: Prisma.TransactionClient): Promise<string> {
-  const client = tx || prisma;
-  const now = new Date();
-  const year = now.getFullYear().toString().slice(-2);
-  const month = (now.getMonth() + 1).toString().padStart(2, '0');
-  const prefix = `CH${year}${month}`;
-
-  // Existing max for this prefix — used only to SEED/floor the atomic counter so it never
-  // re-issues a number already present from the pre-counter era.
-  const lastChallan = await client.challans.findFirst({
-    where: { challanNumber: { startsWith: prefix } },
-    orderBy: { challanNumber: 'desc' },
-    select: { challanNumber: true },
-  });
-
-  let lastSequence = 0;
-  if (lastChallan?.challanNumber) {
-    const parts = lastChallan.challanNumber.split('-');
-    if (parts.length === 2) {
-      const parsed = parseInt(parts[1], 10);
-      if (!isNaN(parsed)) {
-        lastSequence = parsed;
-      }
-    }
-  }
-
-  // Atomic upsert on code_sequences (bug-hunt procurement-15): the previous read-max+1 raced
-  // under concurrency and the loser hit P2002 on challans.challanNumber @unique. The ON CONFLICT
-  // increment is race-safe; GREATEST floors it at the observed max so seeding is automatic.
-  const rows = await client.$queryRaw<Array<{ lastValue: number }>>(
-    Prisma.sql`
-      INSERT INTO code_sequences (id, prefix, "lastValue", "updatedAt")
-      VALUES (gen_random_uuid(), ${prefix}, ${lastSequence + 1}, NOW())
-      ON CONFLICT (prefix) DO UPDATE SET
-        "lastValue" = GREATEST(code_sequences."lastValue" + 1, ${lastSequence + 1}),
-        "updatedAt" = NOW()
-      RETURNING "lastValue"
-    `
-  );
-  const sequence = rows[0].lastValue;
-
-  return `${prefix}-${sequence.toString().padStart(4, '0')}`;
+  // Delegates to the shared atomic sequence generator (code_sequences UPSERT, bug-hunt
+  // procurement-15) under the same CH{yy}{mm} key the previous inline implementation
+  // maintained, so the visible format and the running series continue unbroken.
+  return generateAtomicDocNumber('CH', tx);
 }
 
 // ============================================

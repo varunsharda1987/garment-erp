@@ -11,6 +11,7 @@ import {
   roundToCent,
   toNumber,
 } from '../utils/currency';
+import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 
 // Completion stages: the finishing flow's packing-complete writes READY_TO_SHIP (with real issued
 // quantities) and nothing in the shipped UI writes PACKING — keying on PACKING alone left the
@@ -86,33 +87,11 @@ class WorkOrderService {
    * Generate unique work order number
    */
   private async generateWorkOrderNumber(tx?: Prisma.TransactionClient): Promise<string> {
-    // Accepts the caller's transaction client — splitWorkOrder used to call this via the GLOBAL
-    // prisma client from inside its $transaction, escaping tx isolation (bug-hunt production-17).
-    const db = tx ?? prisma;
-    const year = new Date().getFullYear().toString().slice(-2);
-    const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
-
-    // Find the last work order number for this month (including deleted WOs to avoid gaps in sequence)
-    // Note: We include deleted work orders to maintain sequential numbering without gaps.
-    // This prevents confusion in auditing and maintains continuous numbering like WO2511-0001, WO2511-0002, etc.
-    const lastWorkOrder = await db.work_orders.findFirst({
-      where: {
-        workOrderNumber: {
-          startsWith: `WO${year}${month}`,
-        },
-      },
-      orderBy: {
-        workOrderNumber: 'desc',
-      },
-    });
-
-    let sequence = 1;
-    if (lastWorkOrder) {
-      const lastSequence = parseInt(lastWorkOrder.workOrderNumber.slice(-4));
-      sequence = lastSequence + 1;
-    }
-
-    return `WO${year}${month}${sequence.toString().padStart(4, '0')}`;
+    // Atomic sequence (WO2607-0001) shared with stockProductionOrder.service — both write
+    // work_orders.workOrderNumber, so both MUST use the same 'WO' prefix.
+    // Accepts the caller's transaction client so splitWorkOrder's number is generated
+    // inside its own $transaction (bug-hunt production-17).
+    return generateAtomicDocNumber('WO', tx);
   }
 
   /**

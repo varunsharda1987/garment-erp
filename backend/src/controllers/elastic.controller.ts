@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { generateCode, generateBatchCodes } from '../utils/code-generator';
+import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 
@@ -447,7 +447,7 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
   }
 
   // Pre-generate all codes
-  const codes = await generateBatchCodes('ELA', 'elastic_master', 'elasticCode', data.length);
+  const codes = await allocateBatchCodes('ELA', 'elastic_master', 'elasticCode', data.length);
 
   // Get default warehouse if creating stock
   let defaultWarehouse: any = null;

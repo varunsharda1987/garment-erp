@@ -12,7 +12,7 @@ import {
   POCategory,
   PurchaseOrderStatus,
 } from '@prisma/client';
-import { generateAtomicPONumberInTx } from '../utils/atomicCodeGenerator';
+import { generateAtomicDocNumber, generateAtomicPONumberInTx } from '../utils/atomicCodeGenerator';
 import { roundToCent } from '../utils/currency';
 import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
@@ -614,28 +614,10 @@ function determinePOCategoryFromMaterials(materials: Array<{ materialType: strin
 }
 
 /**
- * Generate a unique requirement number
+ * Generate a unique requirement number (MR2607-0001) — atomic monthly series.
  */
-async function generateRequirementNumber(): Promise<string> {
-  const today = new Date();
-  const datePrefix = today.toISOString().slice(0, 10).replace(/-/g, '');
-  const prefix = `MR-${datePrefix}`;
-
-  // Find the last requirement number with this prefix
-  const lastRequirement = await prisma.material_requirements.findFirst({
-    where: {
-      requirementNumber: { startsWith: prefix },
-    },
-    orderBy: { requirementNumber: 'desc' },
-  });
-
-  let sequence = 1;
-  if (lastRequirement) {
-    const lastSequence = parseInt(lastRequirement.requirementNumber.split('-').pop() || '0', 10);
-    sequence = lastSequence + 1;
-  }
-
-  return `${prefix}-${sequence.toString().padStart(4, '0')}`;
+async function generateRequirementNumber(tx?: Prisma.TransactionClient): Promise<string> {
+  return generateAtomicDocNumber('MR', tx);
 }
 
 /**
@@ -1269,21 +1251,9 @@ export async function calculateRequirementsFromOrder(
   const materialReqs = calculatedRequirements.filter((req) => req.requirementType === 'MATERIAL');
   const processingReqs = calculatedRequirements.filter((req) => req.requirementType === 'PROCESSING');
 
-  // Pre-calculate starting sequence OUTSIDE the transaction to avoid duplicate requirementNumbers.
-  // Inside a transaction, uncommitted writes are invisible to subsequent queries, so calling
-  // generateRequirementNumber() in a loop always returns the same number.
-  const today = new Date();
-  const mrDatePrefix = `MR-${today.toISOString().slice(0, 10).replace(/-/g, '')}`;
-  const lastMrReq = await prisma.material_requirements.findFirst({
-    where: { requirementNumber: { startsWith: mrDatePrefix } },
-    orderBy: { requirementNumber: 'desc' },
-    select: { requirementNumber: true },
-  });
-  let mrSequence = lastMrReq ? parseInt(lastMrReq.requirementNumber.split('-').pop() || '0', 10) : 0;
-  const nextMrNumber = () => {
-    mrSequence++;
-    return `${mrDatePrefix}-${mrSequence.toString().padStart(4, '0')}`;
-  };
+  // Requirement numbers come from the atomic sequence generator (code_sequences UPSERT),
+  // which safely hands out distinct numbers even when called repeatedly inside the
+  // transaction below — each call increments the same counter row on this connection.
 
   const { created, updated, savedRequirements } = await prisma.$transaction(
     async (tx) => {
@@ -1329,7 +1299,7 @@ export async function calculateRequirementsFromOrder(
           });
           updated++;
         } else {
-          const requirementNumber = nextMrNumber();
+          const requirementNumber = await generateRequirementNumber(tx);
           saved = await tx.material_requirements.create({
             data: {
               requirementNumber,
@@ -1411,7 +1381,7 @@ export async function calculateRequirementsFromOrder(
           });
           updated++;
         } else {
-          const requirementNumber = nextMrNumber();
+          const requirementNumber = await generateRequirementNumber(tx);
           saved = await tx.material_requirements.create({
             data: {
               requirementNumber,

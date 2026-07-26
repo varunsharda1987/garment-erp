@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
-import { generateCode, generateBatchCodes } from '../utils/code-generator';
+import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { logDebug } from '../utils/logger';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
@@ -589,7 +589,7 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
   }
 
   // Pre-generate all codes
-  const codes = await generateBatchCodes('PKG', 'packaging_master', 'packagingCode', data.length);
+  const codes = await allocateBatchCodes('PKG', 'packaging_master', 'packagingCode', data.length);
 
   const results: BulkImportResult[] = [];
 

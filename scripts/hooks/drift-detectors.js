@@ -58,6 +58,16 @@ function blankComments(src) {
       continue;
     }
     if (ch === '/' && nx === '/') {
+      // Preserve line comments carrying detector opt-out markers (allow-*, no-body) verbatim —
+      // blanking them made every documented opt-out unmatchable (latent guardrail bug).
+      let eol = src.indexOf('\n', i);
+      if (eol === -1) eol = src.length;
+      const comment = src.slice(i, eol);
+      if (/allow-[a-z-]+|no-body/.test(comment)) {
+        out += comment;
+        i = eol - 1;
+        continue;
+      }
       out += '  ';
       i++;
       mode = 'line';
@@ -415,7 +425,9 @@ function decimalCompare(relFiles) {
 // table with retry-on-P2002.
 function countNumbering(relFiles) {
   const out = [];
-  const fnRe = /(?:async\s+)?(generate\w*(?:Number|Code)\w*)\s*\(/g;
+  // Definitions only (async/function keyword right before the name): matching CALL sites
+  // false-positived whenever unrelated pagination count()/findFirst followed within ~50 lines.
+  const fnRe = /(?:async\s+function\s+|function\s+|async\s+)(generate\w*(?:Number|Code)\w*)\s*\(/g;
   for (const rel of relFiles) {
     if (!/\.(ts)$/.test(rel)) continue;
     const content = readCode(rel);
@@ -423,15 +435,242 @@ function countNumbering(relFiles) {
     fnRe.lastIndex = 0;
     let m;
     while ((m = fnRe.exec(content))) {
-      // examine the ~50 lines after the generator's definition
-      const slice = content.slice(m.index, m.index + 2500);
-      if (/allow-count-numbering/.test(slice.slice(0, 200))) continue; // opt-out near the signature
+      if (/^generateAtomic/.test(m[1])) continue; // the atomic helpers ARE the fix
+      // Examine only the generator's own brace-balanced body (fallback: ~50 lines) so
+      // count()/findFirst in unrelated code later in the file can't false-positive.
+      const params = sliceBalanced(content, m.index + m[0].length - 1);
+      const bodyOpen = content.indexOf('{', m.index + m[0].length - 1 + params.length);
+      const slice =
+        bodyOpen === -1 ? content.slice(m.index, m.index + 2500) : sliceBalancedBraces(content, bodyOpen);
+      if (/allow-count-numbering/.test(content.slice(m.index, m.index + 200))) continue; // opt-out near the signature
+      if (/generateAtomic/.test(slice)) continue; // migrated: delegates to the atomic sequence helper
       if (/\.count\s*\(/.test(slice) || /findFirst\s*\([\s\S]{0,300}?orderBy/.test(slice)) {
         out.push({
           key: `${rel} :: ${m[1]}`,
           file: rel,
           line: lineOf(content, m.index),
           detail: `${m[1]}() derives the next number from count()/findFirst-max — racy duplicates + wedges at padded limits; use a sequence table with retry-on-P2002`,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+/** Brace-balanced variant of sliceBalanced: from an index pointing at '{', return "{...}". */
+function sliceBalancedBraces(content, openIdx) {
+  let depth = 0;
+  let str = null;
+  let line = false;
+  let block = false;
+  for (let i = openIdx; i < content.length; i++) {
+    const ch = content[i];
+    const nx = content[i + 1];
+    if (line) {
+      if (ch === '\n') line = false;
+      continue;
+    }
+    if (block) {
+      if (ch === '*' && nx === '/') {
+        block = false;
+        i++;
+      }
+      continue;
+    }
+    if (str) {
+      if (ch === '\\') i++;
+      else if (ch === str) str = null;
+      continue;
+    }
+    if (ch === '/' && nx === '/') {
+      line = true;
+      i++;
+      continue;
+    }
+    if (ch === '/' && nx === '*') {
+      block = true;
+      i++;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      str = ch;
+      continue;
+    }
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return content.slice(openIdx, i + 1);
+    }
+  }
+  return content.slice(openIdx);
+}
+
+// C5 — a try block containing a Prisma write whose catch only logs (or is empty). The write's
+// failure vanishes: caller proceeds as if it committed (the ledger-drift bug class — GRN stock
+// sync, tracking auto-creates). A catch around a write must rethrow, respond, or set a surfaced
+// flag; pure logging is a silent data-loss path. Opt-out: `// allow-swallow` inside the catch.
+function swallowedWriteErrors(relFiles) {
+  const out = [];
+  const writeRe = /\b(?:tx|prisma|this\.prisma)\.(\w+)\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\s*\(/;
+  const tryRe = /\btry\s*\{/g;
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/backend\/src\/.*\.ts$/.test(norm) || /\.test\.ts$/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    tryRe.lastIndex = 0;
+    let m;
+    const seen = new Map(); // dedupe key collisions deterministically by occurrence order
+    while ((m = tryRe.exec(content))) {
+      const tryOpen = m.index + m[0].length - 1;
+      const tryBody = sliceBalancedBraces(content, tryOpen);
+      const w = tryBody.match(writeRe);
+      if (!w || w[1].startsWith('$')) continue;
+      const afterTry = content.slice(tryOpen + tryBody.length);
+      const catchM = afterTry.match(/^\s*catch\s*(?:\(\s*[^)]*\))?\s*\{/);
+      if (!catchM) continue;
+      const catchOpen = tryOpen + tryBody.length + catchM[0].length - 1;
+      const catchInner = sliceBalancedBraces(content, catchOpen).slice(1, -1);
+      if (/allow-swallow/.test(catchInner)) continue; // opt-out
+      // A catch that rethrows, responds, returns, forwards, or records the failure into a
+      // surfaced variable is fine — only pure logging (or emptiness) is a swallow. Logging
+      // calls are masked first so their argument text can't fake a meaningful action.
+      const masked = catchInner.replace(
+        /\b(?:logger\s*\.\s*\w+|console\s*\.\s*\w+|logError|logWarn|logInfo|logDebug)\s*\(/g,
+        '__LOG__('
+      );
+      const withoutLogArgs = masked.replace(/__LOG__\((?:[^()]|\([^()]*\))*\)/g, '__LOG__');
+      const meaningful = /\bthrow\b|\bres\.\w+|\breturn\b|\bnext\s*\(|[\w.\]]\s*=[^=]/.test(withoutLogArgs);
+      if (meaningful) continue;
+      let key = `${rel} :: swallow :: ${w[1]}.${w[2]}`;
+      const n = (seen.get(key) || 0) + 1;
+      seen.set(key, n);
+      if (n > 1) key += ` #${n}`;
+      out.push({
+        key,
+        file: rel,
+        line: lineOf(content, m.index),
+        detail: `catch around ${w[1]}.${w[2]}() only logs — the write's failure is silent (drift). Rethrow, respond, surface a flag, or mark \`// allow-swallow\` if truly best-effort`,
+      });
+    }
+  }
+  return out;
+}
+
+// C6 — a quantity/balance-ish field ASSIGNED an arithmetic expression inside prisma update data.
+// `qty: current + delta` is the read-modify-write lost-update pattern (two concurrent requests both
+// read, both write, one delta vanishes). Use `{ increment: delta }` / `{ decrement: ... }`, or hold
+// a row lock (a `FOR UPDATE` in the preceding ~1500 chars suppresses the flag). Plain-variable
+// assignments (derived totals) don't match — only visible +/- arithmetic. Opt-out: `// allow-assign`.
+function assignNotIncrement(relFiles) {
+  const out = [];
+  const callRe = /\b(?:tx|prisma|this\.prisma)\.(\w+)\.(update|updateMany|upsert)\s*\(/g;
+  const FIELD = /(\w*(?:[Qq]uantity|[Qq]ty|[Bb]alance|[Ss]tock(?:Value)?|[Aa]mount|[Mm]eters)\w*)\s*:\s*([^,\n}]+)/g;
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/backend\/src\/.*\.ts$/.test(norm) || /\.test\.ts$/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    callRe.lastIndex = 0;
+    let m;
+    while ((m = callRe.exec(content))) {
+      if (m[1].startsWith('$')) continue;
+      // Row-locked recomputes assign absolutes safely — a FOR UPDATE shortly before is the tell.
+      if (/FOR UPDATE/.test(content.slice(Math.max(0, m.index - 1500), m.index))) continue;
+      const call = sliceBalanced(content, m.index + m[0].length - 1);
+      const dataM = call.match(/\bdata\s*:\s*\{/);
+      if (!dataM) continue;
+      const dataBody = sliceBalancedBraces(call, dataM.index + dataM[0].length - 1);
+      FIELD.lastIndex = 0;
+      let f;
+      while ((f = FIELD.exec(dataBody))) {
+        const expr = f[2].trim();
+        if (expr.startsWith('{')) continue; // { increment: ... } / { set: ... } forms
+        if (!/[+\-]/.test(expr)) continue; // only flag visible read-modify arithmetic
+        if (/^-?\d+(?:\.\d+)?$/.test(expr)) continue; // literal (incl. negative) is deliberate
+        if (/allow-assign/.test(expr)) continue; // opt-out
+        const abs = m.index + m[0].length - 1 + dataM.index + dataM[0].length - 1 + f.index;
+        out.push({
+          key: `${rel} :: ${m[1]}.${m[2]} :: ${f[1]}:${expr.replace(/\s+/g, '')}`,
+          file: rel,
+          line: lineOf(content, abs),
+          detail: `${m[1]}.${m[2]} assigns ${f[1]} an arithmetic value ("${expr}") — lost-update race; use { increment/decrement } or hold a FOR UPDATE row lock (or mark \`// allow-assign\`)`,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+// C7 — schema↔frontend payload parity: a REQUIRED field in a backend create-schema that the paired
+// frontend request type doesn't declare. The frontend compiles a payload the API will 400 (or the
+// page "saves" and the API rejects it — Phase-3's dead-write-endpoint class). Convention-paired:
+// backend/src/schemas/<mod>.schema.ts × frontend/src/types/<mod>.types.ts, createXSchema × CreateXRequest.
+// Pairs that don't both exist are skipped. Opt-out: `// allow-parity` on the interface line.
+function parseZodObjectFields(objBody) {
+  const inner = objBody.slice(1, -1);
+  const fields = [];
+  let depth = 0;
+  let start = 0;
+  const entries = [];
+  for (let i = 0; i < inner.length; i++) {
+    const ch = inner[i];
+    if (ch === '{' || ch === '(' || ch === '[') depth++;
+    else if (ch === '}' || ch === ')' || ch === ']') depth--;
+    else if (ch === ',' && depth === 0) {
+      entries.push(inner.slice(start, i));
+      start = i + 1;
+    }
+  }
+  entries.push(inner.slice(start));
+  for (const e of entries) {
+    const nm = e.match(/^\s*(\w+)\s*:/);
+    if (!nm) continue;
+    const required = !/\.optional\s*\(|\.default\s*\(|\.nullish\s*\(|\.catch\s*\(/.test(e);
+    fields.push({ name: nm[1], required });
+  }
+  return fields;
+}
+
+function schemaFrontendParity(relFiles) {
+  const out = [];
+  const changed = new Set(relFiles.map((f) => f.replace(/\\/g, '/')));
+  // run on every schema whose file OR paired type file is in scope
+  const schemaRels = [...changed].filter((f) => /^backend\/src\/schemas\/\w+\.schema\.ts$/.test(f));
+  for (const typeRel of [...changed].filter((f) => /^frontend\/src\/types\/\w+\.types\.ts$/.test(f))) {
+    const mod = typeRel.match(/(\w+)\.types\.ts$/)[1];
+    const pair = `backend/src/schemas/${mod}.schema.ts`;
+    if (!schemaRels.includes(pair) && readRel(pair) != null) schemaRels.push(pair);
+  }
+  for (const schemaRel of schemaRels) {
+    const mod = schemaRel.match(/(\w+)\.schema\.ts$/)[1];
+    const typeRel = `frontend/src/types/${mod}.types.ts`;
+    const schemaContent = readCode(schemaRel);
+    const typeContentRaw = readRel(typeRel);
+    if (!schemaContent || typeContentRaw == null) continue; // no pair — out of scope
+    const typeContent = blankComments(typeContentRaw);
+    const schemaRe = /export const (create\w*Schema)\s*=\s*z\s*\.object\s*\(\s*\{/g;
+    let m;
+    while ((m = schemaRe.exec(schemaContent))) {
+      const objBody = sliceBalancedBraces(schemaContent, m.index + m[0].length - 1);
+      const fields = parseZodObjectFields(objBody).filter((f) => f.required);
+      if (!fields.length) continue;
+      // createAgencySchema -> CreateAgencyRequest
+      const ifaceName = m[1].replace(/Schema$/, 'Request').replace(/^create/, 'Create');
+      const ifaceM = typeContent.match(new RegExp(`interface\\s+${ifaceName}\\s*(extends [^{]+)?\\{`));
+      if (!ifaceM) continue; // no paired request type — skip (interface may be named differently)
+      if (ifaceM[1]) continue; // extends — inherited fields not cheaply resolvable
+      const ifaceLine = typeContentRaw.split('\n')[lineOf(typeContent, ifaceM.index) - 1] || '';
+      if (/allow-parity/.test(ifaceLine)) continue; // opt-out
+      const ifaceBody = sliceBalancedBraces(typeContent, ifaceM.index + ifaceM[0].length - 1);
+      const ifaceFields = new Set([...ifaceBody.matchAll(/^\s*(\w+)\??\s*:/gm)].map((x) => x[1]));
+      for (const f of fields) {
+        if (ifaceFields.has(f.name)) continue;
+        out.push({
+          key: `${schemaRel} :: ${m[1]}.${f.name} :: missing-in ${ifaceName}`,
+          file: schemaRel,
+          line: lineOf(schemaContent, m.index),
+          detail: `required field "${f.name}" of ${m[1]} is absent from frontend ${ifaceName} (${typeRel}) — the typed frontend payload will be rejected by the API`,
         });
       }
     }
@@ -449,5 +688,8 @@ module.exports = {
   globalPrismaInTx,
   decimalCompare,
   countNumbering,
+  swallowedWriteErrors,
+  assignNotIncrement,
+  schemaFrontendParity,
   REPO_ROOT,
 };

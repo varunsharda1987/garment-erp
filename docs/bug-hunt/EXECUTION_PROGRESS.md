@@ -209,3 +209,40 @@ wrong GST; ASN/DN 500s). F2 ~11 — **our materials uniqueness fix is only 9 of 
 
 **Remaining queue:** D (36 count-based generators → sequences), E (detectors #2/#4/#7), G (delivery-note page feedback
 + ?asnId prefill), H (user decisions: quotation number format OK? api.ts keep/revert; error.middleware.ts WIP).
+
+---
+
+## ⏸️ 2026-07-23 — PAUSED mid-wave-2 (user request) — RESUME CHECKLIST
+
+**State:** Generator migration (item D) + 3 new guardrail detectors (item E) are CODE-COMPLETE ON DISK but
+**NOT built, NOT deployed, NOT committed**. The running backend (PM2 dist/) still runs the OLD code — the app
+is safe to use as-is. ⚠️ Do NOT rebuild/restart the backend before running the seed step below.
+
+**What's on disk (uncommitted, ~30 files):**
+- All 40 generator sites migrated to atomic `code_sequences` (4 agents, all tsc-clean individually):
+  GEN1 trim batch codes via rewritten shared `utils/code-generator.ts` (formats preserved; `generateBatchCodes`
+  renamed `allocateBatchCodes`); GEN2 master codes (AGY/AGT/CLR/material/warehouse/GPT formats preserved;
+  dead testingLabs generator deleted); GEN3 documents (SO/SC/SPO/WO/STY/samples unified format); GEN4
+  (PO delegation, SM/HW/EP/MR unified, CH/PB/DEL/LIS series continued; 2 dead PO generators deleted;
+  CN/DN/INV already atomic — baseline entries removed only).
+- `backend/scripts/seed-code-sequences.ts` — COMPLETE with all 75 seed entries (KEEPER, idempotent).
+- 3 new detectors in `scripts/hooks/drift-detectors.js` + smart-check wiring + baselines committed-ready:
+  swallowedWriteErrors (60 baselined), assignNotIncrement (12), schemaFrontendParity (2); also fixed the
+  latent opt-out-marker bug (blankComments erased `// allow-*` markers) and GEN agents hardened countNumbering.
+- `count-numbering-baseline.json` now contains ONLY the stale quotation entry (already atomic).
+
+**RESUME GATE (in this order):**
+1. `cd backend && npx ts-node scripts/seed-code-sequences.ts` — MANDATORY FIRST (master-code formats are
+   unchanged; unseeded sequences would mint colliding codes → P2002 on unique columns).
+   Note: CH2607/PB2607/DEL2607/LIS2607/EMB-202607 entries are month-pinned — if resuming AFTER July 2026,
+   they're harmless no-ops (fresh month = fresh series) EXCEPT re-check any docs created in the gap month.
+2. `cd backend && npm run build` ; `cd frontend && npm run build`
+3. `node scripts/hooks/smart-check.js --all` (count-numbering should show ~0-1 known; 3 new checks active)
+4. `pm2 reload garment-erp-api` + poll /api/health + smoke: create a master (e.g. color) to prove seeding
+   (new code continues after current max), list orders/quotations/challans.
+5. Commit (exclude backend/.env + error.middleware.ts) + push.
+
+**Known follow-ups from agent risk notes:** saleOrder format change is visible to the B2B consumer
+(SO-2607-0001 → SO2607-0001 — opaque string, but flag it); stock-count numbers no longer embed warehouse code;
+GPT test numbers now one global series; unused CHN wrapper in atomicCodeGenerator could fork the challan series
+if ever called (consider deleting); docs/SAMPLE_EMBROIDERY_GUIDE.md still shows the old embroidery generator snippet.

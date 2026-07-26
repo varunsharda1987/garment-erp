@@ -11,6 +11,7 @@ import { SearchFilter, OrderByClause } from '../types/prisma.types';
 import type { CreateColorInput, UpdateColorInput, ColorSearchInput } from '../schemas/color.schema';
 import type { ColorMaster, ColorSearchResult, ColorBulkImportResult, ColorImportRow } from '../types/color.types';
 import { COLOR_FAMILIES } from '../types/color.types';
+import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 
 /**
  * Color Service Class
@@ -53,32 +54,9 @@ class ColorServiceClass extends BaseService<ColorMaster, CreateColorInput, Updat
    * Generate unique color code (CLR001, CLR002, etc.)
    */
   private async generateColorCode(): Promise<string> {
-    const prefix = 'CLR';
-
-    // Get the latest color code
-    const lastColor = await prisma.color_master.findFirst({
-      where: {
-        colorCode: {
-          startsWith: prefix,
-        },
-      },
-      orderBy: {
-        colorCode: 'desc',
-      },
-      select: {
-        colorCode: true,
-      },
-    });
-
-    let nextNumber = 1;
-    if (lastColor?.colorCode) {
-      const currentNumber = parseInt(lastColor.colorCode.replace(prefix, ''), 10);
-      if (!isNaN(currentNumber)) {
-        nextNumber = currentNumber + 1;
-      }
-    }
-
-    return `${prefix}${nextNumber.toString().padStart(3, '0')}`;
+    // Atomic sequence; strip the helper's dash to keep the CLR001 format
+    const code = await generateAtomicMasterCode('CLR', 3);
+    return code.replace('CLR-', 'CLR');
   }
 
   /**

@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { logInfo, logDebug } from '../utils/logger';
 import { randomUUID } from 'crypto';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
+import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 
 /**
  * Sample Controller
@@ -23,40 +24,20 @@ const serializeSample = (sample: any) => {
 };
 
 /**
- * Generate sample number in format {TYPE}-{StyleCode}-{Version/Seq}
- * e.g., FIT-STY2024-0001-v1, PP-STY2024-0001-001
+ * Generate sample number.
+ * FIT samples keep the deterministic {TYPE}-{StyleCode}-v{version} format (version is
+ * already derived race-safely from max(version)+1 by the callers).
+ * All other types use an atomic per-type monthly sequence in the unified doc format,
+ * e.g. PP2607-0001, SIZESET2607-0001 (bug-hunt samples-embroidery-10).
  */
 async function generateSampleNumber(sampleType: string, styleCode?: string, version: number = 1): Promise<string> {
-  const typePrefix = sampleType.replace('_SAMPLE', '').replace('_', '-');
-  const styleRef = styleCode || 'GEN';
-  const date = new Date();
-  const yearMonth = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}`;
-
   if (sampleType === 'FIT_SAMPLE') {
-    return `${typePrefix}-${styleRef}-v${version}`;
+    const styleRef = styleCode || 'GEN';
+    return `FIT-${styleRef}-v${version}`;
   }
 
-  // Derive the sequence from the MAX existing number for this month, not a row count:
-  // count+1 re-minted already-used numbers after a hard delete or under concurrency
-  // (bug-hunt samples-embroidery-10). Full fix also needs @@unique on samples.sampleNumber
-  // (schema migration — flagged separately, not done here).
-  const monthPrefix = `${typePrefix}-${yearMonth}-`;
-  const latest = await prisma.samples.findFirst({
-    where: {
-      sampleType: sampleType as any,
-      sampleNumber: { startsWith: monthPrefix },
-    },
-    orderBy: { sampleNumber: 'desc' },
-    select: { sampleNumber: true },
-  });
-
-  let nextSeq = 1;
-  const match = latest?.sampleNumber.match(/-(\d{4})$/);
-  if (match && match[1]) {
-    nextSeq = parseInt(match[1], 10) + 1;
-  }
-
-  return `${monthPrefix}${String(nextSeq).padStart(4, '0')}`;
+  const docPrefix = sampleType.replace('_SAMPLE', '').replace(/_/g, '');
+  return generateAtomicDocNumber(docPrefix);
 }
 
 /**

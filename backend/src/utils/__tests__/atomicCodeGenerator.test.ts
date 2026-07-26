@@ -13,7 +13,7 @@ import {
   generateAtomicOrderNumber,
   generateAtomicGRNNumber,
   generateAtomicInvoiceNumber,
-  generateAtomicChallanNumber,
+  generateAtomicDocNumber,
   generateAtomicMasterCode,
 } from '../atomicCodeGenerator';
 import prisma from '../../config/database';
@@ -70,9 +70,9 @@ describe('AtomicCodeGenerator', () => {
       expect(invNumber).toMatch(pattern);
     });
 
-    it('should follow Challan number format CHNYYMM-NNNN', async () => {
-      const challanNumber = await generateAtomicChallanNumber();
-      const pattern = /^CHN\d{4}-\d{4}$/;
+    it('should follow the unified doc number format PREFIXYYMM-NNNN', async () => {
+      const challanNumber = await generateAtomicDocNumber('CH');
+      const pattern = /^CH\d{4}-\d{4}$/;
       expect(challanNumber).toMatch(pattern);
     });
   });

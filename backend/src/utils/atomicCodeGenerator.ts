@@ -143,15 +143,9 @@ export async function generateAtomicDebitNoteNumber(): Promise<string> {
   return `${prefix}-${seq.toString().padStart(4, '0')}`;
 }
 
-/** Challan number: CHN2603-0001 */
-export async function generateAtomicChallanNumber(): Promise<string> {
-  const now = new Date();
-  const year = now.getFullYear().toString().slice(-2);
-  const month = (now.getMonth() + 1).toString().padStart(2, '0');
-  const prefix = `CHN${year}${month}`;
-  const seq = await nextSequence(prefix);
-  return `${prefix}-${seq.toString().padStart(4, '0')}`;
-}
+// NOTE: no challan wrapper here on purpose — challans use generateAtomicDocNumber('CH', tx)
+// in challan.service.ts (the live series is CH{yy}{mm}-NNNN). A CHN wrapper previously existed
+// but was never the live series and would have forked challan numbering if ever called.
 
 /** Quotation number: QT2603-0001 */
 export async function generateAtomicQuotationNumber(): Promise<string> {
@@ -164,11 +158,33 @@ export async function generateAtomicQuotationNumber(): Promise<string> {
 }
 
 /**
- * Generic code generator for master data (e.g., AGY-001, BTN-001)
- * Uses static prefixes (not date-based).
+ * Generic monthly document number: `${docPrefix}${yy}${mm}-NNNN` (e.g. SO2607-0001).
+ * The unified format for ALL document types (user-approved 2026-07-23). Pass `tx` when the
+ * caller is already inside a transaction so the sequence bump commits/rolls back with it.
+ * Sequence keys are per prefix+month, so every caller using the same docPrefix (e.g. two
+ * services writing the same table) automatically shares one collision-free series.
  */
-export async function generateAtomicMasterCode(prefix: string, padding: number = 3): Promise<string> {
-  const seq = await nextSequence(prefix);
+export async function generateAtomicDocNumber(docPrefix: string, tx?: Prisma.TransactionClient): Promise<string> {
+  const now = new Date();
+  const year = now.getFullYear().toString().slice(-2);
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const prefix = `${docPrefix}${year}${month}`;
+  const seq = tx ? await nextSequenceInTx(tx, prefix) : await nextSequence(prefix);
+  return `${prefix}-${seq.toString().padStart(4, '0')}`;
+}
+
+/**
+ * Generic code generator for master data (e.g., AGY-001, BTN-001)
+ * Uses static prefixes (not date-based). The visible format (`PREFIX-NNN`) is preserved —
+ * these are entity codes users already reference — so the sequence MUST be seeded from the
+ * current max before first use (see scripts/seed-code-sequences.ts).
+ */
+export async function generateAtomicMasterCode(
+  prefix: string,
+  padding: number = 3,
+  tx?: Prisma.TransactionClient
+): Promise<string> {
+  const seq = tx ? await nextSequenceInTx(tx, prefix) : await nextSequence(prefix);
   return `${prefix}-${seq.toString().padStart(padding, '0')}`;
 }
 

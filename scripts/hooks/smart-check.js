@@ -283,6 +283,39 @@ function checkCountNumbering(tsFiles) {
   );
 }
 
+/** Check (C5): catch around a Prisma write that only logs — BLOCKING new + ratchet. */
+function checkSwallowedWriteErrors(tsFiles) {
+  console.log(`\n${c.cyan}Checking for swallowed write errors...${c.reset}`);
+  return runRatchetedCheck(
+    'swallowed write error(s) (catch only logs)',
+    detectors.swallowedWriteErrors(tsFiles),
+    'swallowed-write-baseline.json',
+    'Rethrow, respond, or surface a flag from the catch (or mark `// allow-swallow` inside it). If intentional, add the key to scripts/hooks/swallowed-write-baseline.json.'
+  );
+}
+
+/** Check (C6): quantity field assigned arithmetic in update data (lost-update race) — BLOCKING new + ratchet. */
+function checkAssignNotIncrement(tsFiles) {
+  console.log(`\n${c.cyan}Checking for assign-where-increment-expected...${c.reset}`);
+  return runRatchetedCheck(
+    'quantity assignment(s) that should be increment/decrement',
+    detectors.assignNotIncrement(tsFiles),
+    'assign-increment-baseline.json',
+    'Use { increment/decrement } or hold a FOR UPDATE row lock (or mark `// allow-assign`). If intentional, add the key to scripts/hooks/assign-increment-baseline.json.'
+  );
+}
+
+/** Check (C7): required backend schema field missing from paired frontend request type — BLOCKING new + ratchet. */
+function checkSchemaFrontendParity(files) {
+  console.log(`\n${c.cyan}Checking schema↔frontend payload parity...${c.reset}`);
+  return runRatchetedCheck(
+    'schema↔frontend parity gap(s) (required field absent from request type)',
+    detectors.schemaFrontendParity(files),
+    'schema-frontend-parity-baseline.json',
+    'Add the field to the frontend Create*Request type (or make it optional in the schema; `// allow-parity` on the interface line opts the pair out). If intentional, add the key to scripts/hooks/schema-frontend-parity-baseline.json.'
+  );
+}
+
 /**
  * Check: Type synchronization between frontend and backend
  */
@@ -638,6 +671,9 @@ function runAllModeChecks() {
   if (!checkGlobalPrismaInTx(tsFiles)) ok = false;
   if (!checkDecimalCompare(tsFiles)) ok = false;
   if (!checkCountNumbering(tsFiles)) ok = false;
+  if (!checkSwallowedWriteErrors(tsFiles)) ok = false;
+  if (!checkAssignNotIncrement(tsFiles)) ok = false;
+  if (!checkSchemaFrontendParity(tsFiles)) ok = false;
 
   // Frontend typecheck gate (CI mode only — too slow for per-commit). The frontend reached ZERO tsc
   // errors on 2026-07-23 after clearing 184 pre-existing ones (several were real display bugs: pages
@@ -727,6 +763,9 @@ function main() {
     if (!checkGlobalPrismaInTx(categories.typescript)) allPassed = false;
     if (!checkDecimalCompare(categories.typescript)) allPassed = false;
     if (!checkCountNumbering(categories.typescript)) allPassed = false;
+    if (!checkSwallowedWriteErrors(categories.typescript)) allPassed = false;
+    if (!checkAssignNotIncrement(categories.typescript)) allPassed = false;
+    if (!checkSchemaFrontendParity(categories.typescript)) allPassed = false;
   }
 
   // Type file changes → check type sync

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { generateCode, generateBatchCodes } from '../utils/code-generator';
+import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { createLaceStock } from '../services/laceStock.service';
 
@@ -844,7 +844,7 @@ export const bulkImportLace = async (req: Request, res: Response) => {
   }
 
   // Pre-generate all codes
-  const codes = await generateBatchCodes('LACE', 'lace_master', 'laceCode', data.length);
+  const codes = await allocateBatchCodes('LACE', 'lace_master', 'laceCode', data.length);
 
   // Get default warehouse if creating stock
   let defaultWarehouse: any = null;

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { getDerivedStockDetailed } from '../services/helpers/derived-stock.helper';
-import { generateCode, generateBatchCodes } from '../utils/code-generator';
+import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { threadStockService } from '../services/thread-stock.service';
 
@@ -602,7 +602,7 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
   }
 
   // Pre-generate all thread codes
-  const codes = await generateBatchCodes('THR', 'thread_master', 'threadCode', data.length);
+  const codes = await allocateBatchCodes('THR', 'thread_master', 'threadCode', data.length);
 
   // Get default warehouse if creating stock
   let defaultWarehouse: any = null;

@@ -265,3 +265,25 @@ Resumed per checklist; all steps green, pushed as **c7b2d9e1**:
 
 **Remaining:** G (delivery-note page — user feedback from real use + ?asnId prefill); detector cleanup lists
 (60 swallow / 12 assign / 2 parity — fix-when-touched); user's error.middleware.ts WIP.
+
+---
+
+## ✅ 2026-07-26 — 74-spot cleanup COMPLETE (commit 92ae9d85) — all cleanup baselines at ZERO
+
+5 fix agents + 5 adversarial reviewers (all verdicts CLEAN). Swallowed-write 60→0, assign-not-increment 12→0,
+parity 2→0, count-numbering stays 0 under a hardened detector (arrow-fn + inline forms) that exposed and
+closed 11 straggler generators (formats byte-identical, per-scope lazy seeding, P2002 retry on unique columns).
+
+**Headline finds:** (1) TCS schema was a TDS copy-paste describing nonexistent columns — every TCS create
+400'd since validation was added; rewritten to the real model, smoke-proved live. (2) Cost-sheet item
+populations were logWarn-swallowed — silent data loss on any bad save; now atomic with the sheet.
+(3) External-process dashboard rollups swallowed INSIDE Postgres txns (aborts poison the tx, 25P02) —
+moved post-commit. (4) Master+materials creates made atomic (split-ledger root cause closed at every site).
+
+Also shipped: delivery-note ?asnId prefill (order load + plan-narrowed rows + badge + payload link).
+
+**Behavior changes to watch in real use:** generic-trim create fails loudly if its material category is
+missing (was: silent no-materials-record); lookup bulk create 500s on genuine (non-duplicate) errors;
+MRP reports unresolvable materials instead of silently skipping supplier links.
+
+**Remaining:** G (delivery-note user feedback); H (user's error.middleware.ts WIP). Cleanup lists: none.

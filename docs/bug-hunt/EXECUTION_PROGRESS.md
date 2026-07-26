@@ -246,3 +246,22 @@ is safe to use as-is. ⚠️ Do NOT rebuild/restart the backend before running t
 (SO-2607-0001 → SO2607-0001 — opaque string, but flag it); stock-count numbers no longer embed warehouse code;
 GPT test numbers now one global series; unused CHN wrapper in atomicCodeGenerator could fork the challan series
 if ever called (consider deleting); docs/SAMPLE_EMBROIDERY_GUIDE.md still shows the old embroidery generator snippet.
+
+---
+
+## ✅ 2026-07-26 — RESUME GATE COMPLETE (wave 2 live)
+
+Resumed per checklist; all steps green, pushed as **c7b2d9e1**:
+1. Seed ran against live data — 19 prefixes continue existing series (CLR=194, GRG=57, LBL=20, WH-JW=8...);
+   material_master "no match" results verified correct (its rows carry sync'd dashed codes; generator format unchanged).
+2. Challan series verified continuous (live data CH2605-0009 ↔ migrated 'CH' key); unused CHN wrapper deleted
+   + 2 stray CHN sequence rows purged + unit test updated to generateAtomicDocNumber.
+3. Builds clean; smart-check --all green — **count-based numbering check now reports 0 (bug class closed, was 41)**;
+   3 new detectors active (swallowed-write 60, assign-not-increment 12, parity 2 — all baselined cleanup lists).
+4. PM2 deployed; smoke green on 8 migrated modules; END-TO-END SEEDING PROOF: created color minted **CLR195**
+   (continues after existing CLR194), then deleted.
+5. Follow-ups closed: B2B app verified display-only for saleOrderNumber (format change safe; guide annotated);
+   embroidery guide snippet updated to the atomic implementation.
+
+**Remaining:** G (delivery-note page — user feedback from real use + ?asnId prefill); detector cleanup lists
+(60 swallow / 12 assign / 2 parity — fix-when-touched); user's error.middleware.ts WIP.

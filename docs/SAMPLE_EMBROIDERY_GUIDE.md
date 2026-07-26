@@ -821,25 +821,12 @@ model embroidery_master {
 **Example:** `EMB-202512-0001`
 
 ```typescript
-async function generateEmbroideryCode(): Promise<string> {
+// Atomic since 2026-07-26: the per-month sequence comes from the code_sequences table
+// (INSERT ... ON CONFLICT ... RETURNING — race-free), not a findFirst-max scan.
+async function nextEmbroideryCode(): Promise<string> {
   const now = new Date();
   const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
-  const prefix = `EMB-${yearMonth}`;
-
-  const lastEmbroidery = await prisma.embroidery_master.findFirst({
-    where: { embroideryCode: { startsWith: prefix } },
-    orderBy: { embroideryCode: 'desc' },
-  });
-
-  let nextNumber = 1;
-  if (lastEmbroidery?.embroideryCode) {
-    const match = lastEmbroidery.embroideryCode.match(/-(\d{4})$/);
-    if (match && match[1]) {
-      nextNumber = parseInt(match[1], 10) + 1;
-    }
-  }
-
-  return `${prefix}-${String(nextNumber).padStart(4, '0')}`;
+  return generateAtomicMasterCode(`EMB-${yearMonth}`, 4); // → EMB-YYYYMM-XXXX
 }
 ```
 

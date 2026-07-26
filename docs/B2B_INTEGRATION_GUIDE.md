@@ -35,6 +35,8 @@ error. The account must stay active with access to the routes in §2.
 | `PUT /sale-orders/:id` | Re-send after PO edit | Same items shape; ERP replaces items wholesale; **DRAFT-only** |
 | `GET /sale-orders/:id` | Status read-back + background sync | Fields read in §4 |
 | `GET /production-status/by-order?styleId=&limit=` | Production progress per style | Kebab-case mount; `styleId` filters at DB level |
+| `POST /styles` | **Auto-create an unknown PO style** (since 2026-07-26) | Bare create: `{styleCode, styleName, brandName, customerName, sellingPrice?, status:'DRAFT'}` — **deliberately no `skuVariants`** (that create-time loop is non-transactional; a mid-loop SKU conflict leaves a half-created style). New style lands DRAFT for the factory to build on. |
+| `POST /styles/:id/variants` | Add the PO's sizes to a style (new or existing) | `{variants:[{size, sku, isActive:true}]}` — relies on `upsertVariants` find-or-creating `size_options` by `sizeName`. SKU convention: `STYLECODE+SIZE` uppercased/alphanumeric (the ERP UI's own convention; canonical `XXXL`, not the Tally `3XL` token). |
 
 ## 3. The push payload (what the B2B app sends)
 
@@ -62,6 +64,10 @@ POST /api/sale-orders
 so **every** API create failed 400 — including this ERP's own frontend add-items flow. The schema
 was fixed (owner-authorized, the only B2B-driven change ever made in this repo) and verified live:
 `POST` → 201 `SO-2607-0001` → read-back → `DELETE`.
+
+**Number format note (2026-07-26):** sale-order numbers now use the unified atomic format
+`SO2607-0001` (no dash after SO; collision-proof sequence). `saleOrderNumber` remains an opaque
+display string in this contract — verified the B2B app only displays it, never parses it.
 
 ## 4. What the B2B app reads back (field names matter)
 
@@ -103,6 +109,14 @@ deliveryDate, isDelayed, stageBreakdown{inCutting,inStitching,inFinishing,readyT
 7. **Style identity**: `styleCode` is the join key; colourways stay distinct styles. Renaming a
    pushed style's code doesn't break existing links (they're by id) but breaks future resolution
    of that code.
+8. **`upsertVariants` must stay ADDITIVE** (`style.service.ts` — transactional find-or-create of
+   `size_options` by sizeName + variant upsert by SKU, no deleteMany). The B2B push adds ONLY its
+   missing sizes; a destructive rewrite here would delete factory-added sizes/variants on every
+   B2B add. Its conflict error text ("SKUs already exist for other styles: …") and the create
+   endpoint's "Style code already exists" are also sniffed by the B2B app — keep them stable.
+9. **`createStyleSchema`'s minimal required set** (`styleCode` + `styleName`, with
+   `status:'DRAFT'` or `customerName` satisfying the service check) must not grow — the B2B
+   auto-create sends exactly that plus `brandName`/`customerName`/`sellingPrice`.
 
 ## 6. Traffic profile (so it isn't mistaken for abuse)
 
@@ -111,6 +125,23 @@ Factory-status modal on demand; a background sync every **15 min** (≤30 sequen
 `GET /sale-orders/:id`, ~400 ms apart, early-abort if the ERP is unreachable); production read-back
 only when the modal opens (per distinct style, 45 s budget). Don't aggressively rate-limit the
 service account.
+
+## 6b. Auto-created styles (what the factory sees)
+
+When a House-of-Kasya PO carries a style this ERP doesn't have, the B2B send **creates it** here
+(owner decision 2026-07-23): a DRAFT style named/coded from the PO line, brand Kasya/Nihsamah,
+customer "House Of Kasya Pvt Ltd", `sellingPrice` = the PO's net rate (reference only), with
+`size_options`/variants for just the PO's sizes. **It's a skeleton on purpose** — no colours (no
+API exists to create them), no components/BOM/costing/CAD. The factory team completes it like any
+other draft style. Missing sizes on EXISTING styles are likewise auto-added on send (additive).
+Two extra writes per new style (`POST /styles`, `POST /styles/:id/variants`) is the whole traffic
+cost.
+
+**Collision trap:** `styleCode` uniqueness is enforced only among ACTIVE styles, but
+`style_variants.sku` is globally unique and **soft-deleting a style keeps its SKU rows**. If a
+deactivated style still owns `COS170M`, the B2B auto-create of COS170 fails with the named-SKU
+conflict; the remedy is `DELETE /styles/:id/permanent` on the deactivated style (or freeing the
+SKUs), then retry from the B2B side.
 
 ## 7. Known ERP-side gaps the B2B app currently works around (nice-to-fix here)
 

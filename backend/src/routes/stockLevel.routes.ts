@@ -4,13 +4,8 @@ import * as stockLevelController from '../controllers/stockLevel.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
-import { updateStockLevelSchema, stockLevelQuerySchema } from '../schemas/stockLevel.schema';
-import {
-  idParamSchema,
-  warehouseIdParamSchema,
-  materialIdParamSchema,
-  materialTypeParamSchema,
-} from '../schemas/common.schema';
+import { updateStockLevelSchema, stockLevelQuerySchema, stockLevelIdParamSchema } from '../schemas/stockLevel.schema';
+import { warehouseIdParamSchema, materialIdParamSchema, materialTypeParamSchema } from '../schemas/common.schema';
 
 const router = express.Router();
 
@@ -21,8 +16,6 @@ router.use(authenticateToken);
 router.get('/', validateQuery(stockLevelQuerySchema), asyncHandler(stockLevelController.getAllStockLevels));
 router.get('/below-reorder', asyncHandler(stockLevelController.getMaterialsBelowReorderLevel));
 router.get('/valuation', asyncHandler(stockLevelController.getStockValuationReport));
-// Unified stock view endpoints (aggregated from specialized tables - single source of truth)
-router.get('/unified', asyncHandler(stockLevelController.getUnifiedStockLevels));
 router.get('/summary-by-type', asyncHandler(stockLevelController.getStockSummaryByType));
 router.get(
   '/aging/:warehouseId',
@@ -44,12 +37,14 @@ router.get(
   validateParams(warehouseIdParamSchema),
   asyncHandler(stockLevelController.getStockLevelsByWarehouse)
 );
-router.get('/:id', validateParams(idParamSchema), asyncHandler(stockLevelController.getStockLevelById));
+// :id is the synthetic composite `${materialId}_${warehouseId}` emitted by the list endpoints
+// (legacy bare-UUID row ids still pass validation and get a clear 404 from the service).
+router.get('/:id', validateParams(stockLevelIdParamSchema), asyncHandler(stockLevelController.getStockLevelById));
 
 // PUT routes
 router.put(
   '/:id',
-  validateParams(idParamSchema),
+  validateParams(stockLevelIdParamSchema),
   validateBody(updateStockLevelSchema),
   asyncHandler(stockLevelController.updateStockLevel)
 );

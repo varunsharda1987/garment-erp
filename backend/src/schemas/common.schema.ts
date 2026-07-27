@@ -119,7 +119,9 @@ export const idAndItemIdParamSchema = z.object({
 });
 
 export const materialIdParamSchema = z.object({
-  materialId: z.string().uuid('Invalid material ID'),
+  // materials.id is app-supplied: UUIDs for most, 'mat-<code>' for quick-added trims
+  // (mat-btn-0001 etc.) — UUID-strict here 400'd every trim material lookup.
+  materialId: z.string().min(1, 'Material ID is required').max(100),
 });
 
 export const customerIdParamSchema = z.object({

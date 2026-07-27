@@ -5,6 +5,7 @@ import { normalizeId, isUUID } from '../utils/id-helper';
 import { FabricFinishType } from '@prisma/client';
 import { FabricSupplierInput, FabricWhereClause, FabricUpdateData } from '../types/fabric.types';
 import { materialService } from '../services/material.service';
+import { getDerivedOnHandMap } from '../services/helpers/derived-stock.helper';
 import { ValidationError, NotFoundError } from '../errors';
 
 /**
@@ -626,23 +627,22 @@ export const deleteFabricMaster = async (req: Request, res: Response) => {
   if (dependencies?._count.job_work_orders)
     blockingDeps.push(`${dependencies._count.job_work_orders} job work order(s)`);
 
-  // For materials: check if any have actual stock usage before blocking
+  // For materials: check derived on-hand (per-lot truth) before blocking
   let materialsToDelete: string[] = [];
   if (dependencies?._count.materials) {
     const linkedMaterials = await prisma.materials.findMany({
       where: { fabricId: id },
-      select: {
-        id: true,
-        _count: { select: { stock_levels: true } },
-      },
+      select: { id: true },
     });
 
-    const materialsWithStock = linkedMaterials.filter((m) => m._count.stock_levels > 0);
+    const linkedMaterialIds = linkedMaterials.map((m) => m.id);
+    const onHandMap = await getDerivedOnHandMap(linkedMaterialIds);
+    const materialsWithStock = linkedMaterialIds.filter((materialId) => (onHandMap.get(materialId) ?? 0) > 0);
     if (materialsWithStock.length > 0) {
-      blockingDeps.push(`${materialsWithStock.length} material(s) with stock levels`);
+      blockingDeps.push(`${materialsWithStock.length} material(s) with stock on hand`);
     } else {
-      // Materials exist but have no stock - safe to cascade delete
-      materialsToDelete = linkedMaterials.map((m) => m.id);
+      // Materials exist but have no stock on hand - safe to cascade delete
+      materialsToDelete = linkedMaterialIds;
     }
   }
 
@@ -656,6 +656,14 @@ export const deleteFabricMaster = async (req: Request, res: Response) => {
   await prisma.$transaction(async (tx) => {
     // Delete unused material records first (auto-created with fabric)
     if (materialsToDelete.length > 0) {
+      // Clean up leftover zero-qty shim + settings rows first
+      // (stock_levels.materialId FK has no cascade and would block the material delete)
+      await tx.stock_levels.deleteMany({
+        where: { materialId: { in: materialsToDelete } },
+      });
+      await tx.stock_settings.deleteMany({
+        where: { materialId: { in: materialsToDelete } },
+      });
       await tx.materials.deleteMany({
         where: { id: { in: materialsToDelete } },
       });

@@ -102,25 +102,6 @@ export const stockLevelService = {
   },
 
   /**
-   * Get unified stock levels from all specialized tables (single source of truth)
-   */
-  async getUnified(filters?: {
-    warehouseId?: string;
-    materialType?: string;
-    materialId?: string;
-  }): Promise<UnifiedStockRow[]> {
-    const params = new URLSearchParams();
-    if (filters?.warehouseId) params.append('warehouseId', filters.warehouseId);
-    if (filters?.materialType) params.append('materialType', filters.materialType);
-    if (filters?.materialId) params.append('materialId', filters.materialId);
-
-    const response = await api.get<ApiResponse<UnifiedStockRow[]>>(
-      `${BASE_URL}/unified${params.toString() ? '?' + params.toString() : ''}`
-    );
-    return response.data.data || [];
-  },
-
-  /**
    * Get stock summary grouped by material type
    */
   async getSummaryByType(): Promise<StockSummaryByType[]> {
@@ -128,16 +109,6 @@ export const stockLevelService = {
     return response.data.data || [];
   },
 };
-
-export interface UnifiedStockRow {
-  materialId: string;
-  warehouseId: string | null;
-  materialType: string;
-  quantity: number;
-  unit: string;
-  lastUpdated: Date | null;
-  stockValue: number;
-}
 
 export interface StockSummaryByType {
   materialType: string;

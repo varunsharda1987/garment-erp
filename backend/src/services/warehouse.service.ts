@@ -1,7 +1,7 @@
 // Warehouse Service - Manage warehouse master data
 import { WarehouseType, Prisma } from '@prisma/client';
 import prisma from '../config/database';
-import { getDerivedValuation } from './helpers/derived-stock.helper';
+import { getDerivedStock, getDerivedValuation } from './helpers/derived-stock.helper';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 
 export interface CreateWarehouseDTO {
@@ -134,7 +134,6 @@ class WarehouseService {
         },
         _count: {
           select: {
-            stock_levels: true,
             stock_counts: true,
           },
         },
@@ -169,7 +168,6 @@ class WarehouseService {
         },
         _count: {
           select: {
-            stock_levels: true,
             stock_movements: true,
             stock_reservations: true,
             stock_counts: true,
@@ -265,29 +263,28 @@ class WarehouseService {
   async deleteWarehouse(id: string) {
     const existing = await prisma.warehouses.findUnique({
       where: { id },
-      include: {
-        _count: {
-          select: {
-            stock_levels: true,
-          },
-        },
-      },
     });
 
     if (!existing) {
       throw new Error(`Warehouse not found with ID: ${id}`);
     }
 
-    // Check if warehouse has stock
-    if (existing._count.stock_levels > 0) {
-      throw new Error('Cannot delete warehouse with existing stock levels. Please transfer stock first.');
+    // Block on derived (per-lot) truth, not the stock_levels shim, which can drift
+    const derivedRows = await getDerivedStock({ warehouseId: id });
+    if (derivedRows.some((row) => Number(row.quantity) > 0)) {
+      throw new Error('Cannot delete warehouse with stock on hand');
     }
 
-    // Soft delete
-    const warehouse = await prisma.warehouses.update({
-      where: { id },
-      data: { isActive: false },
-    });
+    // Soft delete + shim maintenance: derived on-hand is zero, so any remaining
+    // stock_levels/stock_settings rows for this warehouse are leftovers — clear them
+    const [, , warehouse] = await prisma.$transaction([
+      prisma.stock_levels.deleteMany({ where: { warehouseId: id } }),
+      prisma.stock_settings.deleteMany({ where: { warehouseId: id } }),
+      prisma.warehouses.update({
+        where: { id },
+        data: { isActive: false },
+      }),
+    ]);
 
     return warehouse;
   }

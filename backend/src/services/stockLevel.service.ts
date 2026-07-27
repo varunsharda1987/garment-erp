@@ -2,6 +2,7 @@
 import { Unit, Prisma, MaterialType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import prisma from '../config/database';
+import { AppError, NotFoundError, ValidationError } from '../errors';
 import { getDerivedStockDetailed, getDerivedValuation } from './helpers/derived-stock.helper';
 
 export interface StockLevelFilters {
@@ -12,6 +13,7 @@ export interface StockLevelFilters {
 }
 
 export interface UpdateStockLevelDTO {
+  /** Rejected — quantity is derived from the per-lot tables; use the stock adjustment flow. */
   quantity?: Decimal;
   reorderLevel?: Decimal;
   maxLevel?: Decimal;
@@ -19,53 +21,24 @@ export interface UpdateStockLevelDTO {
   valuationRate?: Decimal;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
- * Unified stock view row shape (from unified_stock_view)
+ * Parse the synthetic composite id `${materialId}_${warehouseId}` that the list endpoints emit for
+ * derived rows. Split at the LAST underscore: materialId is app-supplied (trim materials use
+ * non-UUID ids like 'mat-btn-0001', which may themselves contain underscores), while the warehouse
+ * half is always a UUID (warehouses.id is @default(uuid())).
  */
-interface UnifiedStockRow {
-  materialId: string;
-  warehouseId: string | null;
-  materialType: string;
-  quantity: number;
-  unit: string;
-  lastUpdated: Date | null;
-  stockValue: number;
+function parseCompositeStockLevelId(id: string): { materialId: string; warehouseId: string } | null {
+  const cut = id.lastIndexOf('_');
+  if (cut <= 0) return null;
+  const materialId = id.slice(0, cut);
+  const warehouseId = id.slice(cut + 1);
+  if (!UUID_RE.test(warehouseId)) return null;
+  return { materialId, warehouseId };
 }
 
 class StockLevelService {
-  /**
-   * Get stock levels from unified_stock_view (aggregated from all specialized tables)
-   * Use this for dashboards and reports - it's the true source of truth
-   */
-  async getUnifiedStockLevels(filters?: {
-    warehouseId?: string;
-    materialType?: string;
-    materialId?: string;
-  }): Promise<UnifiedStockRow[]> {
-    let query = `SELECT * FROM unified_stock_view WHERE 1=1`;
-    const params: any[] = [];
-
-    if (filters?.warehouseId) {
-      params.push(filters.warehouseId);
-      query += ` AND "warehouseId" = $${params.length}`;
-    }
-
-    if (filters?.materialType) {
-      params.push(filters.materialType);
-      query += ` AND "materialType" = $${params.length}`;
-    }
-
-    if (filters?.materialId) {
-      params.push(filters.materialId);
-      query += ` AND "materialId" = $${params.length}`;
-    }
-
-    query += ` ORDER BY "materialType", quantity DESC`;
-
-    const results = await prisma.$queryRawUnsafe<UnifiedStockRow[]>(query, ...params);
-    return results;
-  }
-
   /**
    * Get stock summary by material type from unified view
    */
@@ -100,7 +73,6 @@ class StockLevelService {
 
   /**
    * Get all stock levels with filters
-   * @deprecated Use getUnifiedStockLevels() for accurate quantities from specialized tables
    */
   async getAllStockLevels(filters?: StockLevelFilters) {
     // T2-1 Stage B: on-hand quantity + valuation now come from the DERIVED source (derived_stock_view +
@@ -116,50 +88,36 @@ class StockLevelService {
         (r) => r.materials?.code?.toLowerCase().includes(s) || r.materials?.name?.toLowerCase().includes(s)
       );
     }
-    return rows;
+    // Synthetic composite id, same scheme as the sibling by-material/by-warehouse endpoints — the
+    // frontend list keys on stock.id and the detail/update routes accept exactly this format.
+    return rows.map((r) => ({ ...r, id: `${r.materialId}_${r.warehouseId}` }));
   }
 
   /**
    * Get stock level by ID
+   * T2-1 Stage C: the list endpoints emit synthetic composite ids (`${materialId}_${warehouseId}`) for derived
+   * rows, so detail lookups parse the composite and serve the matching DERIVED row (same shape as the list rows,
+   * synthetic id included). Legacy stock_levels row ids are no longer served — the ledger is writer-internal.
    */
   async getStockLevelById(id: string) {
-    const stockLevel = await prisma.stock_levels.findUnique({
-      where: { id },
-      include: {
-        materials: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            description: true,
-            unit: true,
-            reorderLevel: true,
-            material_categories: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-        warehouses: {
-          select: {
-            id: true,
-            warehouseCode: true,
-            warehouseName: true,
-            warehouseType: true,
-            city: true,
-            state: true,
-          },
-        },
-      },
-    });
-
-    if (!stockLevel) {
-      throw new Error(`Stock level not found with ID: ${id}`);
+    const composite = parseCompositeStockLevelId(id);
+    if (!composite) {
+      throw new AppError(
+        404,
+        'NOT_FOUND',
+        `Stock level not found: '${id}' looks like a legacy stock_levels row id. Stock level ids are now composite 'materialId_warehouseId' as returned by the stock level list endpoints.`
+      );
     }
 
-    return stockLevel;
+    const row = (await getDerivedStockDetailed({ materialId: composite.materialId })).find(
+      (r) => r.warehouseId === composite.warehouseId
+    );
+
+    if (!row) {
+      throw new NotFoundError('Stock level', id);
+    }
+
+    return { ...row, id };
   }
 
   /**
@@ -228,66 +186,74 @@ class StockLevelService {
   }
 
   /**
-   * Update stock level manually (for adjustments)
+   * Update stock policy/valuation for a (material, warehouse) pair, addressed by the synthetic composite id
+   * `${materialId}_${warehouseId}` that the list endpoints emit.
+   * T2-1 Stage C: reorder/min/max policy + the admin-set WAC rate now live in stock_settings (the derived
+   * view's config source). Quantity is DERIVED from the per-lot tables and can no longer be set here — use
+   * the stock adjustment flow, which moves actual lots.
    */
   async updateStockLevel(id: string, data: UpdateStockLevelDTO) {
-    const existing = await prisma.stock_levels.findUnique({
-      where: { id },
+    if (data.quantity !== undefined) {
+      throw new ValidationError('quantity is derived from per-lot stock; use the stock adjustment flow');
+    }
+
+    const composite = parseCompositeStockLevelId(id);
+    if (!composite) {
+      throw new AppError(
+        404,
+        'NOT_FOUND',
+        `Stock level not found: '${id}' looks like a legacy stock_levels row id. Stock level ids are now composite 'materialId_warehouseId' as returned by the stock level list endpoints.`
+      );
+    }
+    const { materialId, warehouseId } = composite;
+
+    const current = (await getDerivedStockDetailed({ materialId })).find((r) => r.warehouseId === warehouseId);
+    if (!current) {
+      throw new NotFoundError('Stock level', id);
+    }
+
+    // Policy + valuation config live in stock_settings, keyed (materialId, warehouseId). Only touch the
+    // fields the caller actually sent so partial updates never clobber existing config.
+    await prisma.stock_settings.upsert({
+      where: { materialId_warehouseId: { materialId, warehouseId } },
+      update: {
+        ...(data.reorderLevel !== undefined && { reorderLevel: data.reorderLevel }),
+        ...(data.minLevel !== undefined && { minLevel: data.minLevel }),
+        ...(data.maxLevel !== undefined && { maxLevel: data.maxLevel }),
+        ...(data.valuationRate !== undefined && { valuationRate: data.valuationRate }),
+      },
+      create: {
+        materialId,
+        warehouseId,
+        reorderLevel: data.reorderLevel,
+        minLevel: data.minLevel,
+        maxLevel: data.maxLevel,
+        valuationRate: data.valuationRate,
+      },
     });
 
-    if (!existing) {
-      throw new Error(`Stock level not found with ID: ${id}`);
-    }
-
-    // Validate quantity is not negative
-    if (data.quantity !== undefined && new Decimal(data.quantity.toString()).lt(0)) {
-      throw new Error('Stock quantity cannot be negative');
-    }
-
-    // Calculate stock value if quantity or valuation rate changed
-    let stockValue = existing.stockValue;
-    const quantity = data.quantity ?? existing.quantity;
-    const valuationRate = data.valuationRate ?? existing.valuationRate;
-
-    if (data.quantity || data.valuationRate) {
-      if (valuationRate) {
-        stockValue = new Decimal(quantity.toString()).mul(valuationRate.toString());
+    // Shim maintenance (writer-internal): mirror an admin-set WAC rate into the stock_levels ledger so
+    // increaseStock's blended-WAC math (which reads shim stockValue/valuationRate) stays consistent.
+    // Shim quantity is untouched.
+    if (data.valuationRate !== undefined) {
+      const shim = await prisma.stock_levels.findUnique({
+        where: { materialId_warehouseId: { materialId, warehouseId } },
+      });
+      if (shim) {
+        await prisma.stock_levels.update({
+          where: { id: shim.id },
+          data: {
+            valuationRate: data.valuationRate,
+            stockValue: new Decimal(shim.quantity.toString()).mul(data.valuationRate.toString()),
+            lastUpdated: new Date(),
+          },
+        });
       }
     }
 
-    const stockLevel = await prisma.stock_levels.update({
-      where: { id },
-      data: {
-        quantity: data.quantity,
-        reorderLevel: data.reorderLevel,
-        maxLevel: data.maxLevel,
-        minLevel: data.minLevel,
-        valuationRate: data.valuationRate,
-        stockValue,
-        lastUpdated: new Date(),
-      },
-      include: {
-        materials: true,
-        warehouses: true,
-      },
-    });
-
-    // T2-1 dual-write: mirror the admin-set WAC rate into stock_settings (the derived view's valuation
-    // source) so derived_stock_view.valuationRate/stockValue stay live once valuation readers repoint (Stage C).
-    // Update only valuationRate so the reorder/min/max policy config Stage B relies on is never clobbered.
-    if (data.valuationRate !== undefined) {
-      await prisma.stock_settings.upsert({
-        where: { materialId_warehouseId: { materialId: existing.materialId, warehouseId: existing.warehouseId } },
-        update: { valuationRate: data.valuationRate },
-        create: {
-          materialId: existing.materialId,
-          warehouseId: existing.warehouseId,
-          valuationRate: data.valuationRate,
-        },
-      });
-    }
-
-    return stockLevel;
+    // Return the fresh derived row, shaped like the list rows (synthetic composite id included).
+    const updated = (await getDerivedStockDetailed({ materialId })).find((r) => r.warehouseId === warehouseId);
+    return { ...(updated ?? current), id };
   }
 
   /**

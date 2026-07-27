@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
+import { getDerivedOnHandMap, getDerivedStockDetailed } from '../services/helpers/derived-stock.helper';
 
 // Type for supplier input
 interface LabelSupplierInput {
@@ -352,18 +353,6 @@ export const getAllLabel = async (req: Request, res: Response) => {
               id: true,
               code: true,
               name: true,
-              stock_levels: {
-                select: {
-                  quantity: true,
-                  warehouseId: true,
-                  warehouses: {
-                    select: {
-                      warehouseCode: true,
-                      warehouseName: true,
-                    },
-                  },
-                },
-              },
             },
           },
         },
@@ -375,12 +364,32 @@ export const getAllLabel = async (req: Request, res: Response) => {
     take: limitNum,
   });
 
+  // Derived on-hand for size-variant materials (replaces the legacy stock_levels include).
+  // One batched read for the whole page; the list UI only renders per-variant totals.
+  const variantMaterialIds: string[] = Array.from(
+    new Set(
+      labelItems.flatMap((item: any) => (item.sizeVariants || []).map((v: any) => v.material?.id).filter(Boolean))
+    )
+  );
+  const onHandMap = await getDerivedOnHandMap(variantMaterialIds);
+
   // Transform to match expected format
   const transformedItems = labelItems.map((item: any) => ({
     ...item,
     materialId: item.materials[0]?.id || null,
     materialCode: item.materials[0]?.code || null,
     materials: undefined,
+    sizeVariants: (item.sizeVariants || []).map((v: any) =>
+      v.material
+        ? {
+            ...v,
+            material: {
+              ...v.material,
+              stockLevels: [{ quantity: onHandMap.get(v.material.id) ?? 0 }],
+            },
+          }
+        : v
+    ),
     // Keep labelSuppliers - serializer will rename to 'suppliers'
   }));
 
@@ -451,18 +460,6 @@ export const getLabelById = async (req: Request, res: Response) => {
               id: true,
               code: true,
               name: true,
-              stock_levels: {
-                select: {
-                  quantity: true,
-                  warehouseId: true,
-                  warehouses: {
-                    select: {
-                      warehouseCode: true,
-                      warehouseName: true,
-                    },
-                  },
-                },
-              },
             },
           },
         },
@@ -477,11 +474,45 @@ export const getLabelById = async (req: Request, res: Response) => {
 
   // Transform to match expected format
   const labelWithMaterials = label as any;
+
+  // Derived per-warehouse stock for size-variant materials (replaces the legacy stock_levels include).
+  // Per-material reads are acceptable here: a single label has only a handful of size variants.
+  const variantMaterialIds: string[] = Array.from(
+    new Set((labelWithMaterials.sizeVariants || []).map((v: any) => v.material?.id).filter(Boolean))
+  ) as string[];
+  const stockRowsByMaterial = new Map<string, any[]>();
+  await Promise.all(
+    variantMaterialIds.map(async (materialId) => {
+      const rows = await getDerivedStockDetailed({ materialId });
+      stockRowsByMaterial.set(
+        materialId,
+        rows.map((r) => ({
+          quantity: r.quantity,
+          warehouseId: r.warehouseId,
+          warehouses: r.warehouses
+            ? { warehouseCode: r.warehouses.warehouseCode, warehouseName: r.warehouses.warehouseName }
+            : null,
+        }))
+      );
+    })
+  );
+
   const transformed = {
     ...label,
     materialId: labelWithMaterials.materials?.[0]?.id || null,
     materialCode: labelWithMaterials.materials?.[0]?.code || null,
     materials: undefined,
+    sizeVariants: (labelWithMaterials.sizeVariants || []).map((v: any) =>
+      v.material
+        ? {
+            ...v,
+            material: {
+              ...v.material,
+              stockLevels: stockRowsByMaterial.get(v.material.id) || [],
+            },
+          }
+        : v
+    ),
     // Keep labelSuppliers - serializer will rename to 'suppliers'
   };
 

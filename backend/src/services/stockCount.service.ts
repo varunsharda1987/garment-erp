@@ -4,6 +4,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import prisma from '../config/database';
 import stockMovementService from './stockMovement.service';
 import stockLevelService from './stockLevel.service';
+import { getDerivedStockDetailed, getDerivedValuation, DerivedStockDetailedRow } from './helpers/derived-stock.helper';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 
 export interface CreateStockCountDTO {
@@ -49,6 +50,31 @@ class StockCountService {
    * Create a new stock count
    */
   async createStockCount(data: CreateStockCountDTO) {
+    // Get materials to count from the DERIVED per-lot source (derived_stock_view), not the
+    // stock_levels shim. The derived helpers use the global prisma client (consistent snapshot),
+    // so run the read BEFORE opening the transaction.
+    let materialsToCount: DerivedStockDetailedRow[] = [];
+
+    if (data.countType === 'FULL') {
+      // All materials with per-lot stock rows in the warehouse (includes derived qty 0 rows)
+      materialsToCount = await getDerivedStockDetailed({ warehouseId: data.warehouseId });
+    } else if (data.countType === 'PARTIAL' || data.countType === 'SPOT_CHECK') {
+      // Specific materials
+      if (!data.materialIds || data.materialIds.length === 0) {
+        throw new Error('Material IDs required for PARTIAL or SPOT_CHECK counts');
+      }
+
+      const requestedIds = new Set(data.materialIds);
+      materialsToCount = (await getDerivedStockDetailed({ warehouseId: data.warehouseId })).filter((row) =>
+        requestedIds.has(row.materialId)
+      );
+    } else if (data.countType === 'CYCLE') {
+      // ABC analysis - high-value materials
+      // Derived valuation rows are already quantity > 0, sorted by stockValue desc
+      const { rows } = await getDerivedValuation({ warehouseId: data.warehouseId });
+      materialsToCount = rows.slice(0, 50); // Top 50 high-value items
+    }
+
     return await prisma.$transaction(async (tx) => {
       // Validate warehouse exists (the count number no longer embeds the warehouse code)
       const warehouse = await tx.warehouses.findUnique({
@@ -83,52 +109,15 @@ class StockCountService {
         },
       });
 
-      // Get materials to count based on count type
-      type StockLevelWithMaterial = Prisma.stock_levelsGetPayload<{ include: { materials: true } }>;
-      let materialsToCount: StockLevelWithMaterial[] = [];
-
-      if (data.countType === 'FULL') {
-        // All materials in warehouse
-        materialsToCount = await tx.stock_levels.findMany({
-          where: { warehouseId: data.warehouseId },
-          include: { materials: true },
-        });
-      } else if (data.countType === 'PARTIAL' || data.countType === 'SPOT_CHECK') {
-        // Specific materials
-        if (!data.materialIds || data.materialIds.length === 0) {
-          throw new Error('Material IDs required for PARTIAL or SPOT_CHECK counts');
-        }
-
-        materialsToCount = await tx.stock_levels.findMany({
-          where: {
-            warehouseId: data.warehouseId,
-            materialId: { in: data.materialIds },
-          },
-          include: { materials: true },
-        });
-      } else if (data.countType === 'CYCLE') {
-        // ABC analysis - high-value materials
-        // In a real implementation, you'd have ABC classification
-        materialsToCount = await tx.stock_levels.findMany({
-          where: {
-            warehouseId: data.warehouseId,
-            stockValue: { gt: 0 },
-          },
-          include: { materials: true },
-          orderBy: { stockValue: 'desc' },
-          take: 50, // Top 50 high-value items
-        });
-      }
-
-      // Create count items
+      // Create count items (systemQuantity = derived per-lot truth)
       const countItems = await Promise.all(
-        materialsToCount.map((stockLevel) =>
+        materialsToCount.map((row) =>
           tx.stock_count_items.create({
             data: {
               stockCountId: stockCount.id,
-              materialId: stockLevel.materialId,
-              systemQuantity: stockLevel.quantity,
-              unit: stockLevel.unit,
+              materialId: row.materialId,
+              systemQuantity: row.quantity,
+              unit: row.unit as Unit,
             },
           })
         )

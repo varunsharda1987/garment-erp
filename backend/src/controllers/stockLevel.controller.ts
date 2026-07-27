@@ -90,7 +90,8 @@ export const getStockLevelsByWarehouse = async (req: Request, res: Response) => 
 
 /**
  * @route PUT /api/stock-levels/:id
- * @desc Update stock level (for manual adjustments)
+ * @desc Update stock policy/valuation (reorder/min/max + WAC rate) for a composite id `materialId_warehouseId`.
+ *       Quantity is derived from per-lot stock and is rejected here — use the stock adjustment flow.
  * @access Private (Inventory Manager only)
  */
 export const updateStockLevel = async (req: Request, res: Response) => {
@@ -172,29 +173,6 @@ export const getStockLevelsByMaterialType = async (req: Request, res: Response) 
   const { materialType } = req.params;
 
   const stockLevels = await stockLevelService.getStockLevelsByMaterialType(materialType as MaterialType);
-
-  res.json({
-    success: true,
-    data: stockLevels,
-    count: stockLevels.length,
-  });
-};
-
-/**
- * @route GET /api/stock-levels/unified
- * @desc Get unified stock levels from all specialized tables (via database VIEW)
- * @access Private
- */
-export const getUnifiedStockLevels = async (req: Request, res: Response) => {
-  const { warehouseId, materialType, materialId } = req.query;
-
-  const filters = {
-    warehouseId: warehouseId as string | undefined,
-    materialType: materialType as string | undefined,
-    materialId: materialId as string | undefined,
-  };
-
-  const stockLevels = await stockLevelService.getUnifiedStockLevels(filters);
 
   res.json({
     success: true,

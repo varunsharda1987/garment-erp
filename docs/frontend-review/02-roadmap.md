@@ -53,3 +53,22 @@ Waves 3–4 ≈ one to two sessions of parallel sweeps.
 Each wave: fix agents + adversarial verify + central gate (build/guardrails/deploy/smoke), and every fixed
 class gets a smart-check detector where one doesn't already exist (the `_count` class and the ignored-param
 class are good detector candidates).
+
+---
+
+## ✅ Wave 1 COMPLETE (2026-07-28, commit 55d69940)
+
+All 7 clusters fixed (4 parallel agent groups + 4 adversarial verifiers, all CLEAN); builds green,
+guardrails --all green, deployed, smoke-verified:
+- **1.1 Rate limiter** — production ceiling 100→5000/15min (authLimiter untouched).
+- **1.2 Expired-login** — token-403 now redirects to /login; permission-403 still rejects.
+- **1.3 Stitching+finishing receive (P0 B06-01/02)** — schema/payload aligned; pipeline unblocked.
+- **1.4 External-process family (B11-01..05)** — enums + SKU schemas aligned to Prisma/DTO; work-orders
+  repeated-status accepted. Smoke: EMBROIDERY_PIECE/SENT/repeated-status all 200 (were 400).
+- **1.5 Sale-order customer search (B09-03)** — repointed to GET /customers?search (was dead → 400).
+- **1.6 Role dashboards (B15-01..05)** — backend returns full envelope with real data; 3 roles off the
+  404-loop. Smoke: all 4 dashboards return correct shapes.
+- **1.7 /materials/new crash** — Radix empty-string SelectItem sentinel fix (+ greige edit dialog).
+
+**Not yet done:** Waves 2 (silent wrong data — _count serializer, schema-strips-input, GST reads),
+3 (dead links/handoffs), 4 (polish). Awaiting go-ahead.

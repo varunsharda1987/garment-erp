@@ -928,7 +928,8 @@
    "confidence": "high",
    "liveCheck": "suggested",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived end-to-end: production.schema.ts:257-267 requires transferSlipId z.string().uuid() and skuReceived .min(1); stitching.routes.ts:74-79 wires validateBody on POST /issues/:id/receive. StitchingDetail.tsx:118-126 sends transferSlipId:'' (fails uuid) and StitchingList.tsx:150 sends {transferSlipId:'', skuReceived:[]} (fails uuid AND min(1)) → every receive 400s. Controller confirms the gate chain: issues created as PENDING_RECEIPT (:350), receive only from PENDING_RECEIPT (:490-492), start requires RECEIVED (:563), and the controller itself treats transferSlipId as optional (`if (transferSlipId)` at :503), proving the schema is stricter than the code needs. Both UI entry points dead → issues stuck at PENDING_RECEIPT, blocking the canonical Cutting→Stitching pipeline stage. P0 holds."
+   "verifyReason": "Re-derived end-to-end: production.schema.ts:257-267 requires transferSlipId z.string().uuid() and skuReceived .min(1); stitching.routes.ts:74-79 wires validateBody on POST /issues/:id/receive. StitchingDetail.tsx:118-126 sends transferSlipId:'' (fails uuid) and StitchingList.tsx:150 sends {transferSlipId:'', skuReceived:[]} (fails uuid AND min(1)) → every receive 400s. Controller confirms the gate chain: issues created as PENDING_RECEIPT (:350), receive only from PENDING_RECEIPT (:490-492), start requires RECEIVED (:563), and the controller itself treats transferSlipId as optional (`if (transferSlipId)` at :503), proving the schema is stricter than the code needs. Both UI entry points dead → issues stuck at PENDING_RECEIPT, blocking the canonical Cutting→Stitching pipeline stage. P0 holds.",
+   "status": "FIXED-wave1"
   },
   {
    "id": "B06-02",
@@ -947,7 +948,8 @@
    "confidence": "high",
    "liveCheck": "suggested",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: receiveFromStitchingSchema (production.schema.ts:344-350) REQUIRES receivedQty int positive and transferSlipId must be uuid when present; route finishing.routes.ts:75-80 applies validateBody. FinishingDetail.tsx:115-123 sends {transferSlipId:'', skuReceived:[...]} (no receivedQty) and FinishingList.tsx:147 sends {transferSlipId:'', skuReceived:[]} — double Zod failure → 400 always. Grep confirms these are the ONLY two .receive( callers for finishing in the frontend. Controller: create sets status PENDING_RECEIPT (finishing.controller.ts:324), receive gated on PENDING_RECEIPT (:469), start requires RECEIVED (:524) — so finishing can never start from the UI. Finishing is a canonical pipeline stage (Stitching→Finishing) → P0 correct."
+   "verifyReason": "Re-derived: receiveFromStitchingSchema (production.schema.ts:344-350) REQUIRES receivedQty int positive and transferSlipId must be uuid when present; route finishing.routes.ts:75-80 applies validateBody. FinishingDetail.tsx:115-123 sends {transferSlipId:'', skuReceived:[...]} (no receivedQty) and FinishingList.tsx:147 sends {transferSlipId:'', skuReceived:[]} — double Zod failure → 400 always. Grep confirms these are the ONLY two .receive( callers for finishing in the frontend. Controller: create sets status PENDING_RECEIPT (finishing.controller.ts:324), receive gated on PENDING_RECEIPT (:469), start requires RECEIVED (:524) — so finishing can never start from the UI. Finishing is a canonical pipeline stage (Stitching→Finishing) → P0 correct.",
+   "status": "FIXED-wave1"
   },
   {
    "id": "B06-03",
@@ -1858,7 +1860,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: SaleOrderList.tsx:71 calls GET /customers/search with {search, limit}; customer.routes.ts has no /search route — GET /:id (line 55) catches the literal 'search' segment and validateParams(customerIdParamSchema) requires uuid (customer.schema.ts:293-295) -> always 400. The useQuery has no error surface, so the dropdown silently never renders results; handleCreate (SaleOrderList.tsx:115) hard-requires selectedCustomerId, so in-ERP Sale Order creation is blocked. GET /customers does support search via customerQuerySchema, confirming the proposed fix. P1 correct."
+   "verifyReason": "Re-derived: SaleOrderList.tsx:71 calls GET /customers/search with {search, limit}; customer.routes.ts has no /search route — GET /:id (line 55) catches the literal 'search' segment and validateParams(customerIdParamSchema) requires uuid (customer.schema.ts:293-295) -> always 400. The useQuery has no error surface, so the dropdown silently never renders results; handleCreate (SaleOrderList.tsx:115) hard-requires selectedCustomerId, so in-ERP Sale Order creation is blocked. GET /customers does support search via customerQuerySchema, confirming the proposed fix. P1 correct.",
+   "status": "FIXED-wave1"
   },
   {
    "id": "B09-04",
@@ -2244,7 +2247,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: externalProcess.schema.ts:37-42 sendOutSkuSchema requires sizeName (string) and quantity (int) — neither exists in any form payload; HandworkSendOut.tsx:175-181, EmbroideryPieceSendOut.tsx:182, SmockingSendOut.tsx:206-215 all send {colorId,sizeId,sentQty}; external-process.routes.ts:42-46 wires validateBody(sendOutSchema); external-process.service.ts:232-237 reads sku.sentQty/sizeId, proving the schema (not the forms) drifted from the DTO. Scope is accurate: skus is optional, and only Smocking's FABRIC_STOCK path (skus=undefined, SmockingSendOut.tsx:206-215) escapes — all Handwork (STITCHING_ISSUE with required totalQty>0 from SKU rows), all Smocking cutting-batch, and all EmbroideryPiece submissions 400. No alternative UI exists (createSendOut has exactly these 3 callers). Not the excluded 'embroidery send-out/receive' (that is EmbroideryStockSendOut/Receive, fabric-level). P0 kept: smocking on cutting batches and handwork on stitching issues sit inside the cutting→stitching→finishing leg for embellished styles — a daily production flow for this business — and it is wholly blocked."
+   "verifyReason": "Re-derived: externalProcess.schema.ts:37-42 sendOutSkuSchema requires sizeName (string) and quantity (int) — neither exists in any form payload; HandworkSendOut.tsx:175-181, EmbroideryPieceSendOut.tsx:182, SmockingSendOut.tsx:206-215 all send {colorId,sizeId,sentQty}; external-process.routes.ts:42-46 wires validateBody(sendOutSchema); external-process.service.ts:232-237 reads sku.sentQty/sizeId, proving the schema (not the forms) drifted from the DTO. Scope is accurate: skus is optional, and only Smocking's FABRIC_STOCK path (skus=undefined, SmockingSendOut.tsx:206-215) escapes — all Handwork (STITCHING_ISSUE with required totalQty>0 from SKU rows), all Smocking cutting-batch, and all EmbroideryPiece submissions 400. No alternative UI exists (createSendOut has exactly these 3 callers). Not the excluded 'embroidery send-out/receive' (that is EmbroideryStockSendOut/Receive, fabric-level). P0 kept: smocking on cutting batches and handwork on stitching issues sit inside the cutting→stitching→finishing leg for embellished styles — a daily production flow for this business — and it is wholly blocked.",
+   "status": "FIXED-wave1"
   },
   {
    "id": "B11-02",
@@ -2264,7 +2268,8 @@
    "liveCheck": "not-needed",
    "originalSeverity": "P0",
    "verified": "DOWNGRADED",
-   "verifyReason": "Bug fully confirmed: all three pages (HandworkSendOut.tsx:84, EmbroideryPieceSendOut.tsx:90, SmockingSendOut.tsx:92) send ?status=PENDING&status=IN_PROGRESS; Express parses duplicate params as an array; workOrder.routes.ts:28 has NO validateQuery, controller (workOrder.controller.ts:46-49) casts it straight through and workOrder.service.ts:242-243 assigns the array to where.status — live probe returned 400 (single status works). .catch(() => setWorkOrders([])) silently empties the step-1 dropdown, so the three send-out flows cannot start. DOWNGRADED P0→P1 per the rubric: P0 is scoped to the canonical order→dispatch pipeline (Style…Cutting→Stitching→Finishing→QC→Packing→Dispatch); handwork/smocking/embroidery-piece send-out are value-addition side flows, not pipeline stages. Silent total blockage of side flows = P1 (silent wrong data shown). Note: the embroidery send-out/receive exclusion does not cover this — the defect verifiably still exists in EmbroideryPieceSendOut.tsx:90 source today."
+   "verifyReason": "Bug fully confirmed: all three pages (HandworkSendOut.tsx:84, EmbroideryPieceSendOut.tsx:90, SmockingSendOut.tsx:92) send ?status=PENDING&status=IN_PROGRESS; Express parses duplicate params as an array; workOrder.routes.ts:28 has NO validateQuery, controller (workOrder.controller.ts:46-49) casts it straight through and workOrder.service.ts:242-243 assigns the array to where.status — live probe returned 400 (single status works). .catch(() => setWorkOrders([])) silently empties the step-1 dropdown, so the three send-out flows cannot start. DOWNGRADED P0→P1 per the rubric: P0 is scoped to the canonical order→dispatch pipeline (Style…Cutting→Stitching→Finishing→QC→Packing→Dispatch); handwork/smocking/embroidery-piece send-out are value-addition side flows, not pipeline stages. Silent total blockage of side flows = P1 (silent wrong data shown). Note: the embroidery send-out/receive exclusion does not cover this — the defect verifiably still exists in EmbroideryPieceSendOut.tsx:90 source today.",
+   "status": "FIXED-wave1"
   },
   {
    "id": "B11-03",
@@ -2284,7 +2289,8 @@
    "liveCheck": "not-needed",
    "originalSeverity": "P0",
    "verified": "DOWNGRADED",
-   "verifyReason": "Evidence fully re-verified in current source and NOT excluded: the exclusion 'embroidery send-out/receive' maps to BH-0180 in embroideryStock.schema.ts (embroidery-STOCK module, fixed per EXECUTION_PROGRESS 'embroidery send-out reachable & validating'); this finding is externalProcess.schema.ts:14-21, which still declares SMOCKING/HANDWORK/PIECE_EMBROIDERY/APPLIQUE/BEADING/OTHER while the Prisma enum ExternalProcessType (schema.prisma:9579-9583) is EMBROIDERY_PIECE|SMOCKING|HANDWORK. Routes enforce it: GET /send-outs validateQuery (external-process.routes.ts:32-36) and POST /send-out validateBody (:42-46) both 400 on 'EMBROIDERY_PIECE', which is exactly what EmbroideryPieceDashboard.tsx:53/60 and EmbroideryPieceSendOut.tsx:185 send; /dashboard has no validateQuery so summary cards render while sendOutsData?.data || [] (line 83) masks the 400 as an empty table. The whole piece-embroidery module is dead. Severity downgraded P0->P1: the rubric anchors P0 to the canonical order->dispatch pipeline (the 15 stages), and external piece-embroidery is an auxiliary tracking flow outside it — sibling smocking/handwork flows work and garments still flow cutting->stitching->finishing->dispatch. The silent-empty dashboard is classic P1 silent wrong data; create/receive failures surface as 400s."
+   "verifyReason": "Evidence fully re-verified in current source and NOT excluded: the exclusion 'embroidery send-out/receive' maps to BH-0180 in embroideryStock.schema.ts (embroidery-STOCK module, fixed per EXECUTION_PROGRESS 'embroidery send-out reachable & validating'); this finding is externalProcess.schema.ts:14-21, which still declares SMOCKING/HANDWORK/PIECE_EMBROIDERY/APPLIQUE/BEADING/OTHER while the Prisma enum ExternalProcessType (schema.prisma:9579-9583) is EMBROIDERY_PIECE|SMOCKING|HANDWORK. Routes enforce it: GET /send-outs validateQuery (external-process.routes.ts:32-36) and POST /send-out validateBody (:42-46) both 400 on 'EMBROIDERY_PIECE', which is exactly what EmbroideryPieceDashboard.tsx:53/60 and EmbroideryPieceSendOut.tsx:185 send; /dashboard has no validateQuery so summary cards render while sendOutsData?.data || [] (line 83) masks the 400 as an empty table. The whole piece-embroidery module is dead. Severity downgraded P0->P1: the rubric anchors P0 to the canonical order->dispatch pipeline (the 15 stages), and external piece-embroidery is an auxiliary tracking flow outside it — sibling smocking/handwork flows work and garments still flow cutting->stitching->finishing->dispatch. The silent-empty dashboard is classic P1 silent wrong data; create/receive failures surface as 400s.",
+   "status": "FIXED-wave1"
   },
   {
    "id": "B11-04",
@@ -2303,7 +2309,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "receiveSkuSchema (externalProcess.schema.ts:73-78) requires sizeName (z.string(), no optional) and quantityReceived per SKU and has no receivedQty/damagedQty; POST /external-process/receive validates with it (external-process.routes.ts:47). All three receive pages build skus as {sendOutSkuId, receivedQty, damagedQty} (EmbroideryPieceReceive.tsx:77-81, HandworkReceive.tsx:79-83, SmockingReceive.tsx:92-93) — missing required sizeName/quantityReceived → deterministic 400 for any send-out with a SKU breakdown, and the send-out pages do create SKU breakdowns (e.g. EmbroideryPieceSendOut.tsx:180,200). The backend service genuinely expects receivedQty/damagedQty (external-process.service.ts ReceiveDTO:65-69), confirming the schema is the odd one out. NOT the excluded 'embroidery send-out/receive': that flow is EmbroideryStockSendOut/EmbroideryStockReceive via embroideryService.receive (/embroidery endpoints, no skus array — EmbroideryStockReceive.tsx:162). Receive leg of three external-process flows broken → P1 stands."
+   "verifyReason": "receiveSkuSchema (externalProcess.schema.ts:73-78) requires sizeName (z.string(), no optional) and quantityReceived per SKU and has no receivedQty/damagedQty; POST /external-process/receive validates with it (external-process.routes.ts:47). All three receive pages build skus as {sendOutSkuId, receivedQty, damagedQty} (EmbroideryPieceReceive.tsx:77-81, HandworkReceive.tsx:79-83, SmockingReceive.tsx:92-93) — missing required sizeName/quantityReceived → deterministic 400 for any send-out with a SKU breakdown, and the send-out pages do create SKU breakdowns (e.g. EmbroideryPieceSendOut.tsx:180,200). The backend service genuinely expects receivedQty/damagedQty (external-process.service.ts ReceiveDTO:65-69), confirming the schema is the odd one out. NOT the excluded 'embroidery send-out/receive': that flow is EmbroideryStockSendOut/EmbroideryStockReceive via embroideryService.receive (/embroidery endpoints, no skus array — EmbroideryStockReceive.tsx:162). Receive leg of three external-process flows broken → P1 stands.",
+   "status": "FIXED-wave1"
   },
   {
    "id": "B11-05",
@@ -2322,7 +2329,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: SendOutStatusEnum = PENDING|PARTIAL|COMPLETED|CANCELLED (externalProcess.schema.ts:23) vs Prisma ExternalProcessStatus DRAFT|SENT|PARTIALLY_RECEIVED|RECEIVED|CANCELLED (schema.prisma:9591-9597) — pure drift; GET /send-outs uses validateQuery(externalProcessQuerySchema) (external-process.routes.ts:32-36) whose status field is the bad enum, so every UI-offered value (HandworkDashboard.tsx:217-219 SENT/PARTIALLY_RECEIVED/RECEIVED) 400s; EmbroideryPieceReceive.tsx:38 requests status:'SENT' (and processType:'EMBROIDERY_PIECE', which is ALSO absent from ExternalProcessTypeEnum — double 400) with no error surfacing → dropdown silently empty. Page is HandworkDashboard, not the excluded embroidery-stock send-out/receive pages. P1 correct (default 'all' view still works, so not P0)."
+   "verifyReason": "Re-derived: SendOutStatusEnum = PENDING|PARTIAL|COMPLETED|CANCELLED (externalProcess.schema.ts:23) vs Prisma ExternalProcessStatus DRAFT|SENT|PARTIALLY_RECEIVED|RECEIVED|CANCELLED (schema.prisma:9591-9597) — pure drift; GET /send-outs uses validateQuery(externalProcessQuerySchema) (external-process.routes.ts:32-36) whose status field is the bad enum, so every UI-offered value (HandworkDashboard.tsx:217-219 SENT/PARTIALLY_RECEIVED/RECEIVED) 400s; EmbroideryPieceReceive.tsx:38 requests status:'SENT' (and processType:'EMBROIDERY_PIECE', which is ALSO absent from ExternalProcessTypeEnum — double 400) with no error surfacing → dropdown silently empty. Page is HandworkDashboard, not the excluded embroidery-stock send-out/receive pages. P1 correct (default 'all' view still works, so not P0).",
+   "status": "FIXED-wave1"
   },
   {
    "id": "B11-06",
@@ -2875,7 +2883,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: dashboard.routes.ts:35 GET /production-stats → getProductionDashboardStats, which returns res.json({ data: { cuttingQueue, stitchingActive, finishingActive } }) flat (dashboard.controller.ts:456-484) — no stats wrapper, no activeWorkOrders, no ordersInProduction/todayDispatchTarget/overdueOrders. ProductionDashboard.tsx:57 unwraps r.data.data then reads dashboardData?.stats?.* (:60-67) and dashboardData?.activeWorkOrders (:69) → every KPI and pipeline count renders 0 (including the 3 values the backend actually computes) and the work-orders table always shows empty, presented as real data with no error. P1 (silent wrong data on a role dashboard) holds."
+   "verifyReason": "Re-derived: dashboard.routes.ts:35 GET /production-stats → getProductionDashboardStats, which returns res.json({ data: { cuttingQueue, stitchingActive, finishingActive } }) flat (dashboard.controller.ts:456-484) — no stats wrapper, no activeWorkOrders, no ordersInProduction/todayDispatchTarget/overdueOrders. ProductionDashboard.tsx:57 unwraps r.data.data then reads dashboardData?.stats?.* (:60-67) and dashboardData?.activeWorkOrders (:69) → every KPI and pipeline count renders 0 (including the 3 values the backend actually computes) and the work-orders table always shows empty, presented as real data with no error. P1 (silent wrong data on a role dashboard) holds.",
+   "status": "FIXED-wave1"
   },
   {
    "id": "B15-02",
@@ -2894,7 +2903,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: dashboard.routes.ts:36 maps GET /dashboard/accounts-stats → getAccountsDashboardStats, which returns flat {monthlyCollections, totalReceivables, totalPayables} (dashboard.controller.ts:516-522) — no stats wrapper, no recentInvoices, no agingData. AccountsDashboard.tsx:67-80 reads dashboardData?.stats?.* (all 6 KPIs → ?? 0), dashboardData?.recentInvoices (→ []), dashboardData?.agingData (→ emptyAging zeros). So even the two values the backend actually computes render as Rs.0, aging always shows zeros, recent invoices always empty, and totalPayables is never consumed. P1 correct (dashboard silently shows wrong financial data)."
+   "verifyReason": "Re-derived: dashboard.routes.ts:36 maps GET /dashboard/accounts-stats → getAccountsDashboardStats, which returns flat {monthlyCollections, totalReceivables, totalPayables} (dashboard.controller.ts:516-522) — no stats wrapper, no recentInvoices, no agingData. AccountsDashboard.tsx:67-80 reads dashboardData?.stats?.* (all 6 KPIs → ?? 0), dashboardData?.recentInvoices (→ []), dashboardData?.agingData (→ emptyAging zeros). So even the two values the backend actually computes render as Rs.0, aging always shows zeros, recent invoices always empty, and totalPayables is never consumed. P1 correct (dashboard silently shows wrong financial data).",
+   "status": "FIXED-wave1"
   },
   {
    "id": "B15-03",
@@ -2913,7 +2923,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: dashboard.routes.ts:37 maps GET /sales-stats to getSalesDashboardStats, which returns flat { stylesPendingCosting, activeOrders, totalCustomers } (dashboard.controller.ts:550-556) — no stats wrapper, no recentOrders/pendingQuotations arrays, and totalCustomers vs the frontend's activeCustomers. SalesDashboard.tsx:64-74 reads dashboardData?.stats?.* and dashboardData?.recentOrders/pendingQuotations, all with ?? 0 / ?? [] fallbacks, so every KPI renders 0 and both tables render empty with no error. P1 correct (silent wrong data on a role dashboard)."
+   "verifyReason": "Re-derived: dashboard.routes.ts:37 maps GET /sales-stats to getSalesDashboardStats, which returns flat { stylesPendingCosting, activeOrders, totalCustomers } (dashboard.controller.ts:550-556) — no stats wrapper, no recentOrders/pendingQuotations arrays, and totalCustomers vs the frontend's activeCustomers. SalesDashboard.tsx:64-74 reads dashboardData?.stats?.* and dashboardData?.recentOrders/pendingQuotations, all with ?? 0 / ?? [] fallbacks, so every KPI renders 0 and both tables render empty with no error. P1 correct (silent wrong data on a role dashboard).",
+   "status": "FIXED-wave1"
   },
   {
    "id": "B15-04",
@@ -2932,7 +2943,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "getGeneralDashboardStats (dashboard.controller.ts:401-450) returns exactly five fields: lowStockItems, pendingQuotations, outstandingInvoices, monthlyRevenue, overdueOrders — no totalOrders, activeWorkOrders, or activeCustomers anywhere in the handler. GeneralDashboard.tsx:45-53 maps apiStats?.totalOrders ?? 0 etc., so the 'Total Orders', 'Active Work Orders' and 'Active Customers' StatCards on the admin landing dashboard render a permanent 0 with no error, while the other five cards show live data — silent wrong data indistinguishable from an idle business. P1 correct."
+   "verifyReason": "getGeneralDashboardStats (dashboard.controller.ts:401-450) returns exactly five fields: lowStockItems, pendingQuotations, outstandingInvoices, monthlyRevenue, overdueOrders — no totalOrders, activeWorkOrders, or activeCustomers anywhere in the handler. GeneralDashboard.tsx:45-53 maps apiStats?.totalOrders ?? 0 etc., so the 'Total Orders', 'Active Work Orders' and 'Active Customers' StatCards on the admin landing dashboard render a permanent 0 with no error, while the other five cards show live data — silent wrong data indistinguishable from an idle business. P1 correct.",
+   "status": "FIXED-wave1"
   },
   {
    "id": "B15-05",
@@ -2951,7 +2963,8 @@
    "confidence": "high",
    "liveCheck": "suggested",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: DashboardRouter.tsx:17-19 maps INVENTORY/PURCHASE/QUALITY to /dashboard/inventory|procurement|quality; whole-frontend grep shows those paths exist ONLY in that map — App.tsx:255-261 registers just dashboard/main/admin/general/production/sales/accounts, so the redirect hits the wildcard NotFound (App.tsx:652). NotFound's only forward link is /dashboard (NotFound.tsx:20) which re-enters DashboardRouter → 404 loop; the map's fallback '/dashboard/general' (:33) never applies because the roles ARE mapped. Prisma UserRole includes INVENTORY, PURCHASE, QUALITY (schema.prisma:9078-9088), so real users land on 404 immediately after login. P1 correct (hard break for three secondary roles' entry point; not the canonical order→dispatch pipeline, so not P0)."
+   "verifyReason": "Re-derived: DashboardRouter.tsx:17-19 maps INVENTORY/PURCHASE/QUALITY to /dashboard/inventory|procurement|quality; whole-frontend grep shows those paths exist ONLY in that map — App.tsx:255-261 registers just dashboard/main/admin/general/production/sales/accounts, so the redirect hits the wildcard NotFound (App.tsx:652). NotFound's only forward link is /dashboard (NotFound.tsx:20) which re-enters DashboardRouter → 404 loop; the map's fallback '/dashboard/general' (:33) never applies because the roles ARE mapped. Prisma UserRole includes INVENTORY, PURCHASE, QUALITY (schema.prisma:9078-9088), so real users land on 404 immediately after login. P1 correct (hard break for three secondary roles' entry point; not the canonical order→dispatch pipeline, so not P0).",
+   "status": "FIXED-wave1"
   },
   {
    "id": "B15-06",

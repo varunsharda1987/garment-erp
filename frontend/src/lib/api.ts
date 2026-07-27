@@ -94,9 +94,17 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    // Handle 401 unauthorized - clear auth and redirect to login
-    // But skip for login/register endpoints (they return 401 on invalid credentials)
-    if (error.response?.status === 401) {
+    // Handle expired/invalid session - clear auth and redirect to login.
+    // A 401 is always a session problem; a 403 is only a session problem when it is a token
+    // issue: the auth middleware returns 403 { message: 'Invalid or expired token' } for an
+    // expired/malformed JWT, whereas genuine permission-denied 403s ('You do not have
+    // permission...') must still reject normally without logging the user out.
+    // Skip login/register endpoints (they return 401 on invalid credentials).
+    const status = error.response?.status;
+    const message = String(error.response?.data?.message || '').toLowerCase();
+    const isTokenForbidden = status === 403 && (message.includes('token') || message.includes('expired'));
+
+    if (status === 401 || isTokenForbidden) {
       const isAuthEndpoint =
         error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/register');
 

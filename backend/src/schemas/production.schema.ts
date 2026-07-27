@@ -255,7 +255,11 @@ export const updateStitchingIssueSchema = z.object({
  * POST /api/stitching/issues/:id/receive
  */
 export const receiveFromCuttingSchema = z.object({
-  transferSlipId: z.string().uuid('Invalid transfer slip ID'),
+  // Optional: the controller guards on `if (transferSlipId)` and the UI's quick-receive omits it.
+  // The pages must OMIT this field rather than send '' (empty string fails .uuid()).
+  transferSlipId: z.string().uuid('Invalid transfer slip ID').optional(),
+  // Optional: the controller guards on `if (skuReceived?.length && userId)`; the list-page
+  // quick-receive sends nothing while the detail page sends the received breakdown.
   skuReceived: z
     .array(
       z.object({
@@ -264,7 +268,7 @@ export const receiveFromCuttingSchema = z.object({
         receivedQty: z.number().int().nonnegative(),
       })
     )
-    .min(1, 'At least one SKU received is required'),
+    .optional(),
   remarks: z.string().max(500).optional(),
 });
 
@@ -344,7 +348,9 @@ export const updateFinishingIssueSchema = z.object({
 export const receiveFromStitchingSchema = z
   .object({
     transferSlipId: z.string().uuid('Invalid transfer slip ID').optional(),
-    receivedQty: z.number().int().positive('Quantity must be positive'),
+    // Optional: the controller guards on `if (receivedQty != null && userId)`. The detail page
+    // derives this from the SKU breakdown; the list-page quick-receive omits it entirely.
+    receivedQty: z.number().int().nonnegative().optional(),
     remarks: z.string().max(500).optional(),
   })
   .passthrough();

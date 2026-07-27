@@ -46,7 +46,8 @@ export const getAllWorkOrders = async (req: Request, res: Response) => {
   const { status, priority, warehouseId, styleId, orderId, search, startDate, endDate } = req.query;
 
   const filters = {
-    status: status as OrderStatus | undefined,
+    // status may arrive as a single value or an array (repeated ?status= params) — pass both through
+    status: status as OrderStatus | OrderStatus[] | undefined,
     priority: priority as Priority | undefined,
     warehouseId: warehouseId as string | undefined,
     styleId: styleId as string | undefined,

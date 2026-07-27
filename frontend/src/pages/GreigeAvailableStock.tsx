@@ -757,14 +757,18 @@ export default function GreigeAvailableStock() {
             <div className="space-y-2">
               <Label>Warehouse Location</Label>
               <Select
-                value={editForm.warehouseLocation ?? ''}
-                onValueChange={(v) => setEditForm({ ...editForm, warehouseLocation: v || undefined })}
+                value={editForm.warehouseLocation || '__none__'}
+                onValueChange={(v) =>
+                  // '__none__' is a Radix-safe sentinel for the empty "Select warehouse" option
+                  // (Radix SelectItem forbids value=""); map it back to undefined so the saved value is unchanged.
+                  setEditForm({ ...editForm, warehouseLocation: v === '__none__' ? undefined : v })
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select warehouse" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Select warehouse</SelectItem>
+                  <SelectItem value="__none__">Select warehouse</SelectItem>
                   {warehouses.map((wh) => (
                     <SelectItem key={wh.id} value={wh.warehouseName}>
                       {wh.warehouseCode} - {wh.warehouseName}

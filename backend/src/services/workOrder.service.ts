@@ -64,7 +64,8 @@ export interface UpdateWorkOrderDTO {
 }
 
 export interface WorkOrderFilters {
-  status?: OrderStatus;
+  // Accepts a single status or an array (repeated ?status= params from the send-out dropdowns)
+  status?: OrderStatus | OrderStatus[];
   priority?: Priority;
   warehouseId?: string;
   styleId?: string;
@@ -240,7 +241,8 @@ class WorkOrderService {
     const where: Prisma.work_ordersWhereInput = {};
 
     if (filters?.status) {
-      where.status = filters.status;
+      // Express parses a repeated ?status= param as an array — filter on any of them via { in: [...] }
+      where.status = Array.isArray(filters.status) ? { in: filters.status } : filters.status;
     }
 
     if (filters?.priority) {

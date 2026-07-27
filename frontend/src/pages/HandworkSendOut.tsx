@@ -81,7 +81,7 @@ export default function HandworkSendOut() {
   // Load work orders
   useEffect(() => {
     api
-      .get('/work-orders?status=PENDING&status=IN_PROGRESS&limit=200')
+      .get('/work-orders?status=PENDING&status=IN_PRODUCTION&limit=200')
       .then((res) => {
         const items = (res.data?.data || res.data || []).map((wo: any) => ({
           id: wo.id,

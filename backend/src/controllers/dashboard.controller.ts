@@ -402,7 +402,16 @@ export const getGeneralDashboardStats = async (req: Request, res: Response): Pro
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [lowStockItems, pendingQuotations, outstandingInvoices, monthlyRevenue, overdueOrders] = await Promise.all([
+  const [
+    lowStockItems,
+    pendingQuotations,
+    outstandingInvoices,
+    monthlyRevenue,
+    overdueOrders,
+    totalOrders,
+    activeWorkOrders,
+    activeCustomers,
+  ] = await Promise.all([
     // Low stock: materials with DERIVED on-hand < 10 (configurable threshold).
     // Reads derived_stock_view (T2-1) instead of the hand-maintained stock_levels.quantity, so
     // phantom/zero-qty ledger rows no longer inflate the count. Can't be a Prisma column filter on a
@@ -436,6 +445,19 @@ export const getGeneralDashboardStats = async (req: Request, res: Response): Pro
         status: { notIn: ['COMPLETED', 'CANCELLED', 'DISPATCHED'] },
       },
     }),
+
+    // Total orders (all-time)
+    prisma.orders.count(),
+
+    // Active work orders — pending or in production
+    prisma.work_orders.count({
+      where: { status: { in: ['PENDING', 'IN_PRODUCTION'] } },
+    }),
+
+    // Active customers
+    prisma.customers.count({
+      where: { isActive: true },
+    }),
   ]);
 
   res.json({
@@ -445,6 +467,9 @@ export const getGeneralDashboardStats = async (req: Request, res: Response): Pro
       outstandingInvoices: Number(outstandingInvoices._sum?.balanceAmount || 0),
       monthlyRevenue: Number(monthlyRevenue._sum?.totalAmount || 0),
       overdueOrders,
+      totalOrders,
+      activeWorkOrders,
+      activeCustomers,
     },
   });
 };
@@ -454,7 +479,19 @@ export const getGeneralDashboardStats = async (req: Request, res: Response): Pro
  * GET /api/dashboard/production-stats
  */
 export const getProductionDashboardStats = async (req: Request, res: Response): Promise<void> => {
-  const [cuttingQueue, stitchingActive, finishingActive] = await Promise.all([
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+  const [
+    cuttingQueue,
+    stitchingActive,
+    finishingActive,
+    ordersInProduction,
+    todayDispatchTarget,
+    overdueOrders,
+    activeWorkOrdersRaw,
+  ] = await Promise.all([
     // Cutting queue: pending work orders without active cutting batches
     prisma.work_orders.count({
       where: {
@@ -472,13 +509,66 @@ export const getProductionDashboardStats = async (req: Request, res: Response): 
     prisma.finishing_issues.count({
       where: { status: 'IN_PROGRESS' },
     }),
+
+    // Orders currently in production
+    prisma.orders.count({
+      where: { status: 'IN_PRODUCTION' },
+    }),
+
+    // Orders due for dispatch today (not yet dispatched/completed/cancelled)
+    prisma.orders.count({
+      where: {
+        expectedDeliveryDate: { gte: startOfToday, lt: endOfToday },
+        status: { notIn: ['COMPLETED', 'CANCELLED', 'DISPATCHED'] },
+      },
+    }),
+
+    // Overdue orders — past delivery date and not completed/cancelled/dispatched
+    prisma.orders.count({
+      where: {
+        expectedDeliveryDate: { lt: now },
+        status: { notIn: ['COMPLETED', 'CANCELLED', 'DISPATCHED'] },
+      },
+    }),
+
+    // Active work orders list for the table widget
+    prisma.work_orders.findMany({
+      where: { status: { in: ['PENDING', 'IN_PRODUCTION'] } },
+      orderBy: { plannedEndDate: 'asc' },
+      take: 10,
+      select: {
+        id: true,
+        workOrderNumber: true,
+        totalQuantity: true,
+        completedQuantity: true,
+        status: true,
+        plannedEndDate: true,
+        styles: { select: { styleName: true } },
+      },
+    }),
   ]);
+
+  const activeWorkOrders = activeWorkOrdersRaw.map((wo) => ({
+    id: wo.id,
+    orderNumber: wo.workOrderNumber,
+    styleName: wo.styles?.styleName ?? '',
+    totalQuantity: wo.totalQuantity,
+    completedQuantity: wo.completedQuantity,
+    status: wo.status,
+    dueDate: wo.plannedEndDate,
+  }));
 
   res.json({
     data: {
-      cuttingQueue,
-      stitchingActive,
-      finishingActive,
+      stats: {
+        ordersInProduction,
+        todayDispatchTarget,
+        cuttingQueue,
+        stitchingActive,
+        finishingActive,
+        overdueOrders,
+      },
+      activeWorkOrders,
     },
   });
 };
@@ -491,7 +581,16 @@ export const getAccountsDashboardStats = async (req: Request, res: Response): Pr
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [monthlyCollections, totalReceivables, totalPayables] = await Promise.all([
+  const [
+    monthlyCollections,
+    totalReceivables,
+    outstandingInvoices,
+    overdueAmount,
+    pendingInvoices,
+    gstPayable,
+    recentInvoicesRaw,
+    agingRaw,
+  ] = await Promise.all([
     // Monthly collections (payments received this month)
     prisma.payments.aggregate({
       where: {
@@ -500,24 +599,97 @@ export const getAccountsDashboardStats = async (req: Request, res: Response): Pr
       _sum: { amount: true },
     }),
 
-    // Total receivables (outstanding invoice balances)
+    // Total receivables (all outstanding invoice balances)
     prisma.invoices.aggregate({
       where: { status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] } },
       _sum: { balanceAmount: true },
     }),
 
-    // Total payables (active POs not fully received — approximate)
-    prisma.purchase_orders.aggregate({
-      where: { status: { in: ['DRAFT', 'SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED'] } },
-      _sum: { totalAmount: true },
+    // Outstanding invoices — balances not yet overdue
+    prisma.invoices.aggregate({
+      where: { status: { in: ['PENDING', 'PARTIALLY_PAID'] } },
+      _sum: { balanceAmount: true },
+    }),
+
+    // Overdue amount — balances on overdue invoices
+    prisma.invoices.aggregate({
+      where: { status: 'OVERDUE' },
+      _sum: { balanceAmount: true },
+    }),
+
+    // Pending invoices count (awaiting payment)
+    prisma.invoices.count({
+      where: { status: { in: ['PENDING', 'PARTIALLY_PAID'] } },
+    }),
+
+    // GST payable — output tax on invoices issued this month
+    prisma.invoices.aggregate({
+      where: { invoiceDate: { gte: startOfMonth } },
+      _sum: { taxAmount: true },
+    }),
+
+    // Recent invoices for the table widget
+    prisma.invoices.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        invoiceNumber: true,
+        totalAmount: true,
+        balanceAmount: true,
+        status: true,
+        dueDate: true,
+        customers: { select: { name: true } },
+      },
+    }),
+
+    // Outstanding invoices for receivables aging buckets
+    prisma.invoices.findMany({
+      where: {
+        status: { in: ['PENDING', 'OVERDUE', 'PARTIALLY_PAID'] },
+        balanceAmount: { gt: 0 },
+      },
+      select: { dueDate: true, balanceAmount: true },
     }),
   ]);
 
+  const recentInvoices = recentInvoicesRaw.map((inv) => ({
+    id: inv.id,
+    invoiceNumber: inv.invoiceNumber,
+    customerName: inv.customers?.name ?? '',
+    totalAmount: Number(inv.totalAmount),
+    balanceAmount: Number(inv.balanceAmount),
+    status: inv.status,
+    dueDate: inv.dueDate,
+  }));
+
+  // Build receivables aging buckets by days past due (colors match the frontend's emptyAging)
+  const agingData = [
+    { label: '0-30 Days', amount: 0, count: 0, color: 'bg-success-muted0' },
+    { label: '31-60 Days', amount: 0, count: 0, color: 'bg-warning-muted0' },
+    { label: '61-90 Days', amount: 0, count: 0, color: 'bg-primary/100' },
+    { label: '90+ Days', amount: 0, count: 0, color: 'bg-destructive/100' },
+  ];
+  const msPerDay = 1000 * 60 * 60 * 24;
+  for (const inv of agingRaw) {
+    const daysOverdue = Math.floor((now.getTime() - new Date(inv.dueDate).getTime()) / msPerDay);
+    const idx = daysOverdue > 90 ? 3 : daysOverdue > 60 ? 2 : daysOverdue > 30 ? 1 : 0;
+    agingData[idx].amount += Number(inv.balanceAmount);
+    agingData[idx].count += 1;
+  }
+
   res.json({
     data: {
-      monthlyCollections: Number(monthlyCollections._sum?.amount || 0),
-      totalReceivables: Number(totalReceivables._sum?.balanceAmount || 0),
-      totalPayables: Number(totalPayables._sum?.totalAmount || 0),
+      stats: {
+        outstandingInvoices: Number(outstandingInvoices._sum?.balanceAmount || 0),
+        overdueAmount: Number(overdueAmount._sum?.balanceAmount || 0),
+        monthlyCollections: Number(monthlyCollections._sum?.amount || 0),
+        pendingInvoices,
+        gstPayable: Number(gstPayable._sum?.taxAmount || 0),
+        totalReceivables: Number(totalReceivables._sum?.balanceAmount || 0),
+      },
+      recentInvoices,
+      agingData,
     },
   });
 };
@@ -527,7 +699,20 @@ export const getAccountsDashboardStats = async (req: Request, res: Response): Pr
  * GET /api/dashboard/sales-stats
  */
 export const getSalesDashboardStats = async (req: Request, res: Response): Promise<void> => {
-  const [stylesPendingCosting, activeOrders, totalCustomers] = await Promise.all([
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const in7Days = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7);
+
+  const [
+    stylesPendingCosting,
+    activeOrders,
+    activeCustomers,
+    pendingQuotationsCount,
+    upcomingDeliveries,
+    monthlyRevenue,
+    recentOrdersRaw,
+    pendingQuotationsRaw,
+  ] = await Promise.all([
     // Styles without approved cost sheets
     prisma.styles.count({
       where: {
@@ -545,13 +730,89 @@ export const getSalesDashboardStats = async (req: Request, res: Response): Promi
     prisma.customers.count({
       where: { isActive: true },
     }),
+
+    // Pending quotations (not yet accepted/rejected/expired)
+    prisma.quotations.count({
+      where: { status: { in: ['DRAFT', 'SENT'] } },
+    }),
+
+    // Upcoming deliveries — due within the next 7 days and still open
+    prisma.orders.count({
+      where: {
+        expectedDeliveryDate: { gte: now, lte: in7Days },
+        status: { notIn: ['COMPLETED', 'CANCELLED', 'DISPATCHED'] },
+      },
+    }),
+
+    // Monthly revenue — paid invoices this month
+    prisma.invoices.aggregate({
+      where: {
+        status: 'PAID',
+        createdAt: { gte: startOfMonth },
+      },
+      _sum: { totalAmount: true },
+    }),
+
+    // Recent orders for the table widget
+    prisma.orders.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        orderNumber: true,
+        totalAmount: true,
+        status: true,
+        expectedDeliveryDate: true,
+        customers: { select: { name: true } },
+      },
+    }),
+
+    // Pending quotations for the table widget
+    prisma.quotations.findMany({
+      where: { status: { in: ['DRAFT', 'SENT'] } },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        quotationNumber: true,
+        totalAmount: true,
+        status: true,
+        validUntil: true,
+        customers: { select: { name: true } },
+      },
+    }),
   ]);
+
+  const recentOrders = recentOrdersRaw.map((o) => ({
+    id: o.id,
+    orderNumber: o.orderNumber,
+    customerName: o.customers?.name ?? '',
+    totalAmount: Number(o.totalAmount),
+    status: o.status,
+    deliveryDate: o.expectedDeliveryDate,
+  }));
+
+  const pendingQuotations = pendingQuotationsRaw.map((q) => ({
+    id: q.id,
+    quotationNumber: q.quotationNumber,
+    customerName: q.customers?.name ?? '',
+    totalAmount: Number(q.totalAmount ?? 0),
+    status: q.status,
+    validUntil: q.validUntil,
+  }));
 
   res.json({
     data: {
-      stylesPendingCosting,
-      activeOrders,
-      totalCustomers,
+      stats: {
+        activeOrders,
+        pendingQuotations: pendingQuotationsCount,
+        activeCustomers,
+        upcomingDeliveries,
+        monthlyRevenue: Number(monthlyRevenue._sum?.totalAmount || 0),
+        stylesPendingCosting,
+      },
+      recentOrders,
+      pendingQuotations,
     },
   });
 };

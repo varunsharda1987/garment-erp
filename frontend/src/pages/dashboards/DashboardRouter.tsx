@@ -14,9 +14,9 @@ const ROLE_DASHBOARD_MAP: Record<UserRole, string> = {
   [UserRole.SALES]: '/dashboard/sales',
   [UserRole.MERCHANDISER]: '/dashboard/sales', // Same as SALES
   [UserRole.ACCOUNTS]: '/dashboard/accounts',
-  [UserRole.INVENTORY]: '/dashboard/inventory',
-  [UserRole.PURCHASE]: '/dashboard/procurement',
-  [UserRole.QUALITY]: '/dashboard/quality',
+  [UserRole.INVENTORY]: '/inventory/dashboard', // Registered inventory (stock) dashboard
+  [UserRole.PURCHASE]: '/dashboard/general', // No dedicated procurement dashboard yet
+  [UserRole.QUALITY]: '/dashboard/general', // No dedicated quality dashboard yet
   [UserRole.FACTORY_SUPERVISOR]: '/dashboard/production', // Same as Production Manager
 };
 

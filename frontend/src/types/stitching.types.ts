@@ -191,8 +191,10 @@ export interface RecordDailyOutputRequest {
 }
 
 export interface ReceiveFromCuttingRequest {
-  transferSlipId: string;
-  skuReceived: {
+  // Optional: omit rather than send '' — the backend guards on `if (transferSlipId)` and '' fails uuid validation.
+  transferSlipId?: string;
+  // Optional: the list-page quick-receive omits this; the detail page sends the received breakdown.
+  skuReceived?: {
     colorId: string;
     sizeId: string;
     receivedQty: number;

@@ -147,7 +147,9 @@ export default function StitchingList() {
   // ─── Workflow Actions ──────────────────────────
   const handleReceive = async (id: string) => {
     try {
-      await stitchingIssueService.receiveFromCutting(id, { transferSlipId: '', skuReceived: [] });
+      // Quick-receive from the list: no slip/breakdown captured here — send an empty payload so the
+      // backend simply flips PENDING_RECEIPT → RECEIVED (transferSlipId/skuReceived guards no-op).
+      await stitchingIssueService.receiveFromCutting(id, {});
       handleApiSuccess('Success', 'Items received successfully');
       fetchIssuesData();
     } catch (error) {

@@ -68,8 +68,10 @@ export default function SaleOrderList() {
     queryKey: ['customers-search', customerSearch],
     queryFn: async () => {
       const { default: api } = await import('../lib/api');
-      const response = await api.get('/customers/search', { params: { search: customerSearch, limit: 20 } });
-      return response.data;
+      // GET /customers supports ?search (customerQuerySchema); there is no /customers/search route.
+      // Response is the paginated shape { data: [...], pagination: {...} } — read .data.data.
+      const response = await api.get('/customers', { params: { search: customerSearch, limit: 20 } });
+      return response.data.data;
     },
     enabled: customerSearch.length >= 2,
   });

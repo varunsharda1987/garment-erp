@@ -112,8 +112,11 @@ export default function FinishingDetail() {
     if (!issue) return;
     try {
       setActionLoading(true);
+      // Derive receivedQty (the single total the backend reads) from the SKU breakdown, and omit
+      // transferSlipId (no slip selected here) — the backend guards on `if (transferSlipId)`.
+      const receivedQty = issue.skuBreakdown?.reduce((sum, sku) => sum + (sku.availableQty || 0), 0) || 0;
       await finishingIssueService.receive(issue.id, {
-        transferSlipId: '',
+        receivedQty,
         skuReceived:
           issue.skuBreakdown?.map((sku) => ({
             colorId: sku.colorId,

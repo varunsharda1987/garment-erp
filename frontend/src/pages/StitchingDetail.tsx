@@ -115,8 +115,8 @@ export default function StitchingDetail() {
     if (!issue) return;
     try {
       setActionLoading(true);
+      // Omit transferSlipId (no slip selected in this UI flow) — the backend guards on `if (transferSlipId)`.
       await stitchingIssueService.receiveFromCutting(issue.id, {
-        transferSlipId: '', // Backend should handle this
         skuReceived:
           issue.skuBreakdown?.map((sku) => ({
             colorId: sku.colorId,

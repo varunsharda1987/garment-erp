@@ -192,8 +192,12 @@ export interface RecordDailyOutputRequest {
 }
 
 export interface ReceiveFromStitchingRequest {
-  transferSlipId: string;
-  skuReceived: {
+  // Optional: omit rather than send '' — the backend guards on `if (transferSlipId)` and '' fails uuid validation.
+  transferSlipId?: string;
+  // The backend reads receivedQty (single total). The detail page derives it from the SKU breakdown.
+  receivedQty?: number;
+  // Optional: retained as source data for deriving receivedQty; the list-page quick-receive omits it.
+  skuReceived?: {
     colorId: string;
     sizeId: string;
     receivedQty: number;

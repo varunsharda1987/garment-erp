@@ -11,16 +11,11 @@ import { z } from 'zod';
 // Enums
 // ============================================================================
 
-export const ExternalProcessTypeEnum = z.enum([
-  'SMOCKING',
-  'HANDWORK',
-  'PIECE_EMBROIDERY',
-  'APPLIQUE',
-  'BEADING',
-  'OTHER',
-]);
+// Mirror of Prisma enum ExternalProcessType (schema.prisma:9579-9583): EMBROIDERY_PIECE | SMOCKING | HANDWORK.
+export const ExternalProcessTypeEnum = z.enum(['EMBROIDERY_PIECE', 'SMOCKING', 'HANDWORK']);
 
-export const SendOutStatusEnum = z.enum(['PENDING', 'PARTIAL', 'COMPLETED', 'CANCELLED']);
+// Mirror of Prisma enum ExternalProcessStatus (schema.prisma:9591-9597): DRAFT | SENT | PARTIALLY_RECEIVED | RECEIVED | CANCELLED.
+export const SendOutStatusEnum = z.enum(['DRAFT', 'SENT', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED']);
 
 // ============================================================================
 // EXTERNAL PROCESS SCHEMAS
@@ -33,12 +28,12 @@ export const SourceTypeEnum = z.enum(['CUTTING_BATCH', 'FABRIC_STOCK', 'STITCHIN
 
 /**
  * SKU Output for send-out
+ * Matches SendOutSkuDTO in external-process.service.ts ({ colorId?, sizeId, sentQty }).
  */
 const sendOutSkuSchema = z.object({
-  sizeId: z.string().uuid().optional(),
-  sizeName: z.string(),
   colorId: z.string().uuid().optional(),
-  quantity: z.number().int().nonnegative(),
+  sizeId: z.string().uuid(),
+  sentQty: z.number().int().positive(),
 });
 
 /**
@@ -69,12 +64,13 @@ export const sendOutSchema = z.object({
 
 /**
  * SKU for receive
+ * Matches ReceiveDTO.skus in external-process.service.ts ({ sendOutSkuId, receivedQty, damagedQty }).
  */
 const receiveSkuSchema = z.object({
-  sendOutSkuId: z.string().uuid().optional(),
-  sizeName: z.string(),
-  quantityReceived: z.number().int().nonnegative(),
-  quantityDamaged: z.number().int().nonnegative().optional(),
+  sendOutSkuId: z.string().uuid(),
+  receivedQty: z.number().int().nonnegative(),
+  // default 0 so the service's goodQty = receivedQty - damagedQty never yields NaN if a caller omits it
+  damagedQty: z.number().int().nonnegative().default(0),
 });
 
 /**

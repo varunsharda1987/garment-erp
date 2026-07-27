@@ -144,7 +144,9 @@ export default function FinishingList() {
 
   const handleReceive = async (id: string) => {
     try {
-      await finishingIssueService.receive(id, { transferSlipId: '', skuReceived: [] });
+      // Quick-receive from the list: no slip/breakdown captured here — send an empty payload so the
+      // backend simply flips PENDING_RECEIPT → RECEIVED (transferSlipId/receivedQty guards no-op).
+      await finishingIssueService.receive(id, {});
       handleApiSuccess('Success', 'Items received successfully');
       fetchData();
     } catch (error) {

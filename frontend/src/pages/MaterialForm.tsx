@@ -606,17 +606,20 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                 <div>
                   <Label htmlFor="gstRate">GST Rate (%)</Label>
                   <Select
-                    value={selectedGstRate}
+                    value={selectedGstRate || 'auto'}
                     onValueChange={(val) => {
-                      setSelectedGstRate(val);
-                      setValue('gstRate', val);
+                      // 'auto' is a Radix-safe sentinel for the empty "Auto (from HSN)" option
+                      // (Radix SelectItem forbids value=""); map it back to '' so the saved value is unchanged.
+                      const mapped = val === 'auto' ? '' : val;
+                      setSelectedGstRate(mapped);
+                      setValue('gstRate', mapped);
                     }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select GST rate" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Auto (from HSN)</SelectItem>
+                      <SelectItem value="auto">Auto (from HSN)</SelectItem>
                       <SelectItem value="0">0% (Exempt)</SelectItem>
                       <SelectItem value="5">5%</SelectItem>
                       <SelectItem value="12">12%</SelectItem>

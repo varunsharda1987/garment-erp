@@ -257,6 +257,8 @@ export default function StockLevelList() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Material Types</SelectItem>
+                  <SelectItem value="GREIGE">Greige</SelectItem>
+                  <SelectItem value="FABRIC">Fabric</SelectItem>
                   <SelectItem value="THREAD">Thread</SelectItem>
                   <SelectItem value="BUTTON">Button</SelectItem>
                   <SelectItem value="ZIPPER">Zipper</SelectItem>

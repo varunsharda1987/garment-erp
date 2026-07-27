@@ -1,0 +1,172 @@
+[
+ {
+  "id": "B02-02",
+  "page": "frontend/src/pages/LaceDetail.tsx",
+  "route": "/materials/lace/:id",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "LaceDetail.tsx:197-221 `Suppliers ({lace.laceSuppliers?.length || 0})` and `lace.laceSuppliers.map(...)`",
+   "backend": "getLaceById includes lace_suppliers (lace.controller.ts:464); serialize(): lace_suppliers→laceSuppliers→RELATION_MAPPINGS 'suppliers' (serializer.ts:320,532-535)",
+   "probe": "list probe confirms serialized key is `suppliers` — 200"
+  },
+  "expected": "Detail page shows the lace's linked suppliers",
+  "actual": "`lace.laceSuppliers` is always undefined — the Suppliers section always shows (0)/empty even when supplier links exist",
+  "fix": "Read `lace.suppliers` in LaceDetail (align lace.types.ts)",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B05-01",
+  "page": "frontend/src/pages/EmbroideryAvailableStock.tsx",
+  "route": "/embroidery-stock",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "EmbroideryAvailableStock.tsx:79-88 `api.get('/stock?status=AVAILABLE&stockType=EMBROIDERED')` wrapped in `catch { setEmbroideredStock([]) }`; lines 657-681 read stock.fabricMaster/embroidery/forStyle/embroideryId",
+   "backend": "fabric-stock.controller.ts:38 StockListQuerySchema stockType enum ['PLANNED_STOCK','EXCESS_MOQ','CROSS_STYLE_REUSE'] (no EMBROIDERED); listStock response map lines 316-368 exposes `fabric` not `fabricMaster` and no embroideryId/embroidery/forStyle keys",
+   "probe": "400 {\"field\":\"stockType\",\"message\":\"Invalid option: expected one of PLANNED_STOCK|EXCESS_MOQ|CROSS_STYLE_REUSE\"}"
+  },
+  "expected": "Embroidered Stock tab lists AVAILABLE fabric_stock rows with embroideryId set, showing fabric code/name, design, qty, cost, for-style",
+  "actual": "Request always fails 400 (invalid stockType enum), catch masks it as empty -> tab permanently shows 'No embroidered fabric stock found'; even if the call passed, the mapped response lacks every field the tab reads (embroideryId filter at line 85 would still yield [])",
+  "fix": "In listStock accept an embroidered filter (embroideryId != null), include embroidery relation, and expose fabricMaster/embroidery/forStyle/embroideryId in the map (or point the tab at /embroidery-stock/by-style style endpoints)",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B06-01",
+  "page": "frontend/src/pages/StitchingDetail.tsx",
+  "route": "/manufacturing/stitching/:id",
+  "category": "field-mismatch",
+  "severity": "P0",
+  "evidence": {
+   "frontend": "StitchingDetail.tsx:119 `transferSlipId: '', // Backend should handle this` (also StitchingList.tsx:150 sends `{ transferSlipId: '', skuReceived: [] }`)",
+   "backend": "schemas/production.schema.ts:258 `transferSlipId: z.string().uuid()` REQUIRED (+ :267 skuReceived .min(1)); routes/stitching.routes.ts:74-79 validateBody hard-400s; controllers/stitching.controller.ts:490 receive gated on PENDING_RECEIPT, :563 start requires RECEIVED, :350 issues created as PENDING_RECEIPT",
+   "probe": "n/a (POST)"
+  },
+  "expected": "'Receive from Cutting' moves a stitching issue PENDING_RECEIPT → RECEIVED so Start Stitching becomes possible",
+  "actual": "Every receive click from BOTH StitchingDetail and StitchingList sends an empty-string transferSlipId that fails uuid validation → 400 'Invalid request data'; issues are permanently stuck in PENDING_RECEIPT, blocking the canonical Cutting → Stitching pipeline in the UI",
+  "fix": "Send the real consumed transfer-slip id (issue's slips are in scope) or make transferSlipId optional in receiveFromCuttingSchema to match the controller's `if (transferSlipId)` guard, and drop the empty-array skuReceived from the list-page call",
+  "confidence": "high",
+  "liveCheck": "suggested"
+ },
+ {
+  "id": "B08-01",
+  "page": "frontend/src/pages/PurchaseOrderForm.tsx",
+  "route": "/procurement/purchase-orders/new",
+  "category": "wrong-path",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "frontend/src/services/fabricGreigeService.ts:268 `api.get(`/component-masters/${componentMasterId}/pattern-parts`)`; consumed by shared frontend/src/components/fabric/AllocateFabricToStyleModal.tsx:127 with catch{ setPatternParts([]) } at :129-131 masking the failure",
+   "backend": "backend/src/routes/componentMasters.routes.ts:27-47 has only /, /categories, /:id — no /:id/pattern-parts; the real route is mounted at /components/:componentId/pattern-parts (backend/src/routes/index.ts:235)",
+   "probe": "n/a"
+  },
+  "expected": "Selecting a style component in the Allocate-Fabric-to-Style modal loads that component's pattern parts from component_pattern_parts",
+  "actual": "GET /api/component-masters/:id/pattern-parts 404s; the catch converts it to an empty list, so pattern parts always appear empty and allocations save without pattern-part links",
+  "fix": "Change fabricGreigeService.getPatternPartsForComponent to GET /components/${componentMasterId}/pattern-parts (and confirm the response key: it reads response.data.patternParts)",
+  "confidence": "high",
+  "liveCheck": "suggested"
+ },
+ {
+  "id": "B09-01",
+  "page": "frontend/src/pages/OrderDetail.tsx",
+  "route": "/orders/:id",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "OrderDetail.tsx:232 `calculateMRPStandalone(order.id, {})` - empty body from workflow tracker's Calculate MRP button",
+   "backend": "backend/src/schemas/orderBom.schema.ts:134-137 calculateMRPStandaloneSchema requires styleId (z.string().uuid, not optional); backend/src/routes/order-bom.routes.ts:100-104 wires validateBody",
+   "probe": "n/a (POST)"
+  },
+  "expected": "Calculate MRP from Order Detail computes material requirements and navigates to /procurement/requirements",
+  "actual": "validateBody rejects the empty body -> every click returns 400 'Invalid request data' (styleId Required); MRP never runs from this page (workaround exists on OrderBOMDetail which passes styleId)",
+  "fix": "Pass styleId: order.orderItems?.[0]?.styleId in the OrderDetail handleCalculateMRP payload (mirroring OrderBOMDetail.tsx:174-176)",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B09-16",
+  "page": "frontend/src/pages/OrderDetail.tsx",
+  "route": "/orders/:id",
+  "category": "integration-gap",
+  "severity": "P3",
+  "evidence": {
+   "frontend": "OrderDetail.tsx surfaces BOM/MRP/Services/Work Orders but has zero links or panels for invoices or delivery notes (grep invoice/delivery = only date labels)",
+   "backend": "docs/MODULE_RELATIONSHIPS_GUIDE.md:1245-1249 (S8.2 Order card) Triggers: 'Invoice creation (invoices.orderId)' and 'Delivery note creation (delivery_notes.orderId)'",
+   "probe": "n/a"
+  },
+  "expected": "Order detail surfaces downstream billing/dispatch state (invoices, delivery notes) per the Order module card",
+  "actual": "The order->invoice and order->delivery-note integrations are not visible from the order page; user must find them from the invoice/dispatch modules",
+  "fix": "Add an invoices/delivery-notes summary strip (counts + links filtered by orderId) to OrderDetail",
+  "confidence": "medium",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B11-01",
+  "page": "frontend/src/pages/HandworkSendOut.tsx",
+  "route": "/manufacturing/handwork/send-out",
+  "category": "field-mismatch",
+  "severity": "P0",
+  "evidence": {
+   "frontend": "HandworkSendOut.tsx:175-181 skus map `{colorId, sizeId, sentQty}`; same at EmbroideryPieceSendOut.tsx:180-182 and SmockingSendOut.tsx:206-215",
+   "backend": "schemas/externalProcess.schema.ts:37-42 sendOutSkuSchema requires `sizeName: z.string()` and `quantity: int` (neither sent); controller/service read sku.sentQty (external-process.service.ts:232-237); validateBody at external-process.routes.ts:42-46",
+   "probe": "n/a (POST; Zod parse failure is deterministic)"
+  },
+  "expected": "POST /api/external-process/send-out accepts the SKU rows the three send-out forms build ({colorId, sizeId, sentQty})",
+  "actual": "Zod requires sizeName+quantity which no form sends, so every send-out with a SKU table (all Handwork, all Smocking cutting-batch, all EmbroideryPiece submissions — totalQty>0 requires SKU rows) returns 400 'Invalid request data'; creation of external-process send-outs is impossible from the UI",
+  "fix": "Rewrite sendOutSkuSchema to { colorId: uuid?, sizeId: uuid, sentQty: int positive } to match controller/service DTO",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B11-06",
+  "page": "frontend/src/pages/SmockingSendOut.tsx",
+  "route": "/manufacturing/smocking/send-out",
+  "category": "param-handoff",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "SmockingSendOut.tsx:115 `/purchase-orders?poCategory=SMOCKING_SERVICE&serviceWorkOrderId=${id}&limit=100`; HandworkSendOut.tsx:107 (HANDWORK_SERVICE); EmbroideryPieceSendOut.tsx:124 (EMBROIDERY_SERVICE)",
+   "backend": "purchaseOrder.controller.ts:26-32 destructures `poCategories` (plural CSV) — `poCategory` (singular) and `serviceWorkOrderId` are never read; service filter at purchaseOrder.service.ts:247-248 only uses poCategories",
+   "probe": "n/a (filters silently ignored, endpoint returns 200)"
+  },
+  "expected": "'Select Service PO' dropdown shows only service-category POs linked to the chosen work order",
+  "actual": "Both query params are silently ignored → dropdown lists the first 100 POs of ANY category/work order; a user can book a send-out against an unrelated PO (backend only validates supplier match), silently corrupting PO traceability",
+  "fix": "Send poCategories=<CATEGORY> from the three pages and add a serviceWorkOrderId filter to getAllPurchaseOrders/service",
+  "confidence": "high",
+  "liveCheck": "suggested"
+ },
+ {
+  "id": "B13-03",
+  "page": "frontend/src/pages/UserForm.tsx",
+  "route": "/users/new",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "frontend/src/pages/UserForm.tsx:63-72 posts {email,password,firstName,lastName,phone,role,department}; role options include SALES/PURCHASE/FACTORY_SUPERVISOR (lines 139-147)",
+   "backend": "backend/src/schemas/user.schema.ts:34-42 createUserSchema requires `name` (absent from payload) and UserRoleEnum (lines 14-24) lacks SALES/PURCHASE/FACTORY_SUPERVISOR present in Prisma UserRole (schema.prisma:9078-9088); controller expects firstName/lastName (user.controller.ts:103-107)",
+   "probe": "n/a"
+  },
+  "expected": "Admin 'Create User' creates the user with first/last name, department and any Prisma-valid role",
+  "actual": "validateBody always returns 400 ('name' missing; SALES/PURCHASE/FACTORY_SUPERVISOR fail the drifted enum; even schema-valid bodies would then fail the controller's firstName/lastName check) - Create User is completely broken, UI shows only 'Failed to save'",
+  "fix": "Rewrite createUserSchema to firstName/lastName/phone/role/department and align UserRoleEnum with the Prisma UserRole enum (as auth.schema.ts:38-48 already does)",
+  "confidence": "high",
+  "liveCheck": "suggested"
+ },
+ {
+  "id": "B15-01",
+  "page": "frontend/src/pages/dashboards/ProductionDashboard.tsx",
+  "route": "/dashboard/production",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "ProductionDashboard.tsx:61-69 — reads dashboardData?.stats?.cuttingQueue etc. and dashboardData?.activeWorkOrders",
+   "backend": "backend/src/controllers/dashboard.controller.ts:477-483 — res.json({ data: { cuttingQueue, stitchingActive, finishingActive } }) — flat, no stats wrapper, no activeWorkOrders",
+   "probe": "n/a (429 rate-limited; controller source definitive)"
+  },
+  "expected": "Response { stats: { ordersInProduction, todayDispatchTarget, cuttingQueue, stitchingActive, finishingActive, overdueOrders }, activeWorkOrders: [...] }",
+  "actual": "Backend returns flat { cuttingQueue, stitchingActive, finishingActive }; frontend reads .stats.* which is undefined — ALL 4 KPI cards and all 4 pipeline-stage counts render 0 (even the 3 values the backend computes), and the Active Work Orders table always shows 'No active work orders'",
+  "fix": "Wrap getProductionDashboardStats response as { stats: {...} }, add ordersInProduction/todayDispatchTarget/overdueOrders counts and an activeWorkOrders query (or repoint frontend to the flat keys and drop unbacked cards)",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ }
+]

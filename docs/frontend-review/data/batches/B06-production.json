@@ -1,0 +1,4717 @@
+{
+ "batch": "B06-production",
+ "pages": {
+  "frontend/src/pages/CuttingChart.tsx": {
+   "routes": [
+    "/manufacturing/cutting/new"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/CuttingChart.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CuttingChart.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CuttingDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CuttingForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CuttingForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CuttingList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CuttingList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/GRNDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 208,
+     "raw": "/manufacturing/cutting/${batch.id}",
+     "normalized": "/manufacturing/cutting/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingChart.tsx"
+    },
+    {
+     "line": 239,
+     "raw": "/manufacturing/cutting",
+     "normalized": "/manufacturing/cutting",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingList.tsx"
+    },
+    {
+     "line": 815,
+     "raw": "/manufacturing/cutting/${b.id}",
+     "normalized": "/manufacturing/cutting/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingChart.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 42,
+     "method": "POST",
+     "raw": "${BASE_URL}/batches",
+     "resolvedPath": "/api/cutting/batches",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cutting/batches",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 85
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 196,
+     "method": "GET",
+     "raw": "${BASE_URL}/available-work-orders",
+     "resolvedPath": "/api/cutting/available-work-orders",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cutting/available-work-orders",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 69
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 251,
+     "method": "GET",
+     "raw": "${BASE_URL}/chart-data/${workOrderId}",
+     "resolvedPath": "/api/cutting/chart-data/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cutting/chart-data/:workOrderId",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 76
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/CuttingDetail.tsx": {
+   "routes": [
+    "/manufacturing/cutting/:id"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 116,
+     "raw": "/manufacturing/cutting",
+     "normalized": "/manufacturing/cutting",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingList.tsx"
+    },
+    {
+     "line": 215,
+     "raw": "/manufacturing/cutting",
+     "normalized": "/manufacturing/cutting",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingList.tsx"
+    },
+    {
+     "line": 488,
+     "raw": "/manufacturing/cutting",
+     "normalized": "/manufacturing/cutting",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingList.tsx"
+    },
+    {
+     "line": 500,
+     "raw": "/manufacturing/cutting",
+     "normalized": "/manufacturing/cutting",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingList.tsx"
+    },
+    {
+     "line": 524,
+     "raw": "/manufacturing/cutting/new?workOrderId=${batch.workOrderId}",
+     "normalized": "/manufacturing/cutting/new",
+     "queryParams": [
+      "workOrderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingChart.tsx"
+    },
+    {
+     "line": 579,
+     "raw": "/production/work-orders/${batch.workOrderId}",
+     "normalized": "/production/work-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 36,
+     "method": "GET",
+     "raw": "${BASE_URL}/batches/${id}",
+     "resolvedPath": "/api/cutting/batches/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cutting/batches/:id",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 84
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 54,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/batches/${id}",
+     "resolvedPath": "/api/cutting/batches/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/cutting/batches/:id",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 92
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 63,
+     "method": "POST",
+     "raw": "${BASE_URL}/batches/${id}/start",
+     "resolvedPath": "/api/cutting/batches/:_/start",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cutting/batches/:id/start",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 98
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 75,
+     "method": "POST",
+     "raw": "${BASE_URL}/batches/${id}/complete",
+     "resolvedPath": "/api/cutting/batches/:_/complete",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cutting/batches/:id/complete",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 105
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 81,
+     "method": "POST",
+     "raw": "${BASE_URL}/batches/${id}/hold",
+     "resolvedPath": "/api/cutting/batches/:_/hold",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cutting/batches/:id/hold",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 111
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 87,
+     "method": "POST",
+     "raw": "${BASE_URL}/batches/${id}/resume",
+     "resolvedPath": "/api/cutting/batches/:_/resume",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cutting/batches/:id/resume",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 93,
+     "method": "POST",
+     "raw": "${BASE_URL}/batches/${id}/cancel",
+     "resolvedPath": "/api/cutting/batches/:_/cancel",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cutting/batches/:id/cancel",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 118
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 110,
+     "method": "POST",
+     "raw": "${BASE_URL}/batches/${batchId}/lays",
+     "resolvedPath": "/api/cutting/batches/:_/lays",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cutting/batches/:id/lays",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 128
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 115,
+     "method": "GET",
+     "raw": "${BASE_URL}/batches/${batchId}/lays",
+     "resolvedPath": "/api/cutting/batches/:_/lays",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cutting/batches/:id/lays",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 127
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 120,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/batches/${batchId}/lays/${layId}",
+     "resolvedPath": "/api/cutting/batches/:_/lays/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/cutting/batches/:id/lays/:layId",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 134
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 138,
+     "method": "POST",
+     "raw": "${BASE_URL}/batches/${batchId}/issue-to-stitching",
+     "resolvedPath": "/api/cutting/batches/:_/issue-to-stitching",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cutting/batches/:id/issue-to-stitching",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 138
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 152,
+     "method": "GET",
+     "raw": "${BASE_URL}/batches/${batchId}/stitching-issues",
+     "resolvedPath": "/api/cutting/batches/:_/stitching-issues",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cutting/batches/:id/stitching-issues",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 137
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 158,
+     "method": "GET",
+     "raw": "${BASE_URL}/batches/${batchId}/issued-fabric",
+     "resolvedPath": "/api/cutting/batches/:_/issued-fabric",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cutting/batches/:id/issued-fabric",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 95
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/CuttingForm.tsx": {
+   "routes": [
+    "/manufacturing/cutting/:id/edit"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 286,
+     "raw": "/manufacturing/cutting",
+     "normalized": "/manufacturing/cutting",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingList.tsx"
+    },
+    {
+     "line": 353,
+     "raw": "/manufacturing/cutting/${id}",
+     "normalized": "/manufacturing/cutting/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingChart.tsx"
+    },
+    {
+     "line": 357,
+     "raw": "/manufacturing/cutting/${batch.id}",
+     "normalized": "/manufacturing/cutting/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingChart.tsx"
+    },
+    {
+     "line": 382,
+     "raw": "/manufacturing/cutting",
+     "normalized": "/manufacturing/cutting",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingList.tsx"
+    },
+    {
+     "line": 676,
+     "raw": "/manufacturing/cutting",
+     "normalized": "/manufacturing/cutting",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/CuttingForm.tsx",
+     "hop": 0,
+     "line": 220,
+     "method": "GET",
+     "raw": "/work-orders/${workOrderId}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 36,
+     "method": "GET",
+     "raw": "${BASE_URL}/batches/${id}",
+     "resolvedPath": "/api/cutting/batches/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cutting/batches/:id",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 84
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 42,
+     "method": "POST",
+     "raw": "${BASE_URL}/batches",
+     "resolvedPath": "/api/cutting/batches",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cutting/batches",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 85
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 48,
+     "method": "PUT",
+     "raw": "${BASE_URL}/batches/${id}",
+     "resolvedPath": "/api/cutting/batches/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/cutting/batches/:id",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 86
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 196,
+     "method": "GET",
+     "raw": "${BASE_URL}/available-work-orders",
+     "resolvedPath": "/api/cutting/available-work-orders",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cutting/available-work-orders",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 69
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 228,
+     "method": "GET",
+     "raw": "${BASE_URL}/available-fabric-stock/${fabricId}",
+     "resolvedPath": "/api/cutting/available-fabric-stock/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cutting/available-fabric-stock/:fabricId",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 70
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stageValidation.service.ts",
+     "hop": 1,
+     "line": 62,
+     "method": "GET",
+     "raw": "/stage-validation/check",
+     "resolvedPath": "/api/stage-validation/check",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stage-validation/check",
+      "file": "backend/src/routes/stageTransitionValidation.routes.ts",
+      "line": 17
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stageValidation.service.ts",
+     "hop": 1,
+     "line": 80,
+     "method": "GET",
+     "raw": "/stage-validation/check-sample-creation",
+     "resolvedPath": "/api/stage-validation/check-sample-creation",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stage-validation/check-sample-creation",
+      "file": "backend/src/routes/stageTransitionValidation.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stageValidation.service.ts",
+     "hop": 1,
+     "line": 103,
+     "method": "GET",
+     "raw": "/stage-validation/override-history",
+     "resolvedPath": "/api/stage-validation/override-history",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stage-validation/override-history",
+      "file": "backend/src/routes/stageTransitionValidation.routes.ts",
+      "line": 31
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/CuttingList.tsx": {
+   "routes": [
+    "/manufacturing/cutting"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/CuttingChart.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CuttingDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CuttingDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CuttingDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CuttingDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CuttingForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CuttingForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CuttingForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/GRNDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 153,
+     "raw": "/manufacturing/cutting/new",
+     "normalized": "/manufacturing/cutting/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingChart.tsx"
+    },
+    {
+     "line": 328,
+     "raw": "/manufacturing/cutting/${batch.id}",
+     "normalized": "/manufacturing/cutting/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingChart.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 30,
+     "method": "GET",
+     "raw": "${BASE_URL}/batches",
+     "resolvedPath": "/api/cutting/batches",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cutting/batches",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 83
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 63,
+     "method": "POST",
+     "raw": "${BASE_URL}/batches/${id}/start",
+     "resolvedPath": "/api/cutting/batches/:_/start",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cutting/batches/:id/start",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 98
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 75,
+     "method": "POST",
+     "raw": "${BASE_URL}/batches/${id}/complete",
+     "resolvedPath": "/api/cutting/batches/:_/complete",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cutting/batches/:id/complete",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 105
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 99,
+     "method": "POST",
+     "raw": "${BASE_URL}/batches/${id}/generate-transfer-slip",
+     "resolvedPath": "/api/cutting/batches/:_/generate-transfer-slip",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cutting/batches/:id/generate-transfer-slip",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 124
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 170,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary",
+     "resolvedPath": "/api/cutting/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cutting/summary",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 63
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 244,
+     "method": "GET",
+     "raw": "${BASE_URL}/style-size-summary",
+     "resolvedPath": "/api/cutting/style-size-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cutting/style-size-summary",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/DyeingList.tsx": {
+   "routes": [
+    "/manufacturing/dyeing"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 421,
+     "raw": "/manufacturing/dyeing/lab-dip/${item.id}",
+     "normalized": "/manufacturing/dyeing/lab-dip/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 434,
+     "raw": "/manufacturing/dyeing/lab-dip/${item.id}/edit",
+     "normalized": "/manufacturing/dyeing/lab-dip/:_/edit",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 627,
+     "raw": "/manufacturing/dyeing/process-po/${item.id}",
+     "normalized": "/manufacturing/dyeing/process-po/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 670,
+     "raw": "/manufacturing/dyeing/process-po/${item.id}/qc",
+     "normalized": "/manufacturing/dyeing/process-po/:_/qc",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 700,
+     "raw": "/manufacturing/dyeing/process-po/${item.id}/return",
+     "normalized": "/manufacturing/dyeing/process-po/:_/return",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 741,
+     "raw": "/manufacturing/dyeing/lab-dip/new",
+     "normalized": "/manufacturing/dyeing/lab-dip/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 745,
+     "raw": "/manufacturing/dyeing/process-po/new",
+     "normalized": "/manufacturing/dyeing/process-po/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 897,
+     "raw": "/manufacturing/dyeing/lab-dip/${item.id}",
+     "normalized": "/manufacturing/dyeing/lab-dip/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 979,
+     "raw": "/manufacturing/dyeing/process-po/${item.id}",
+     "normalized": "/manufacturing/dyeing/process-po/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 33,
+     "method": "GET",
+     "raw": "/dyeing/lab-dips",
+     "resolvedPath": "/api/dyeing/lab-dips",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dyeing/lab-dips",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 114
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 41,
+     "method": "GET",
+     "raw": "/dyeing/lab-dips/${id}",
+     "resolvedPath": "/api/dyeing/lab-dips/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dyeing/lab-dips/search",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 112
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 47,
+     "method": "POST",
+     "raw": "/dyeing/lab-dips",
+     "resolvedPath": "/api/dyeing/lab-dips",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/lab-dips",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 118
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 56,
+     "method": "PUT",
+     "raw": "/dyeing/lab-dips/${id}",
+     "resolvedPath": "/api/dyeing/lab-dips/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/dyeing/lab-dips/:id",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 119
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 62,
+     "method": "DELETE",
+     "raw": "/dyeing/lab-dips/${id}",
+     "resolvedPath": "/api/dyeing/lab-dips/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/dyeing/lab-dips/:id",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 125
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 67,
+     "method": "POST",
+     "raw": "/dyeing/lab-dips/${id}/approve",
+     "resolvedPath": "/api/dyeing/lab-dips/:_/approve",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/lab-dips/:id/approve",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 128
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 73,
+     "method": "POST",
+     "raw": "/dyeing/lab-dips/${id}/reject",
+     "resolvedPath": "/api/dyeing/lab-dips/:_/reject",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/lab-dips/:id/reject",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 134
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 79,
+     "method": "POST",
+     "raw": "/dyeing/lab-dips/${id}/resubmit",
+     "resolvedPath": "/api/dyeing/lab-dips/:_/resubmit",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/lab-dips/:id/resubmit",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 140
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "GET",
+     "raw": "/dyeing/lab-dips/search",
+     "resolvedPath": "/api/dyeing/lab-dips/search",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dyeing/lab-dips/search",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 112
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 93,
+     "method": "GET",
+     "raw": "/dyeing/lab-dips/approved",
+     "resolvedPath": "/api/dyeing/lab-dips/approved",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dyeing/lab-dips/approved",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 113
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 107,
+     "method": "GET",
+     "raw": "/dyeing/jobs",
+     "resolvedPath": "/api/dyeing/jobs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dyeing/jobs",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 152
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 115,
+     "method": "GET",
+     "raw": "/dyeing/jobs/${id}",
+     "resolvedPath": "/api/dyeing/jobs/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dyeing/jobs/:id",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 155
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 121,
+     "method": "POST",
+     "raw": "/dyeing/jobs",
+     "resolvedPath": "/api/dyeing/jobs",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/jobs",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 156
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 130,
+     "method": "PUT",
+     "raw": "/dyeing/jobs/${id}",
+     "resolvedPath": "/api/dyeing/jobs/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/dyeing/jobs/:id",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 157
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 136,
+     "method": "DELETE",
+     "raw": "/dyeing/jobs/${id}",
+     "resolvedPath": "/api/dyeing/jobs/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/dyeing/jobs/:id",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 158
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 141,
+     "method": "POST",
+     "raw": "/dyeing/jobs/${id}/send",
+     "resolvedPath": "/api/dyeing/jobs/:_/send",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/jobs/:id/send",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 161
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 147,
+     "method": "POST",
+     "raw": "/dyeing/jobs/${id}/receive",
+     "resolvedPath": "/api/dyeing/jobs/:_/receive",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/jobs/:id/receive",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 167
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 153,
+     "method": "POST",
+     "raw": "/dyeing/jobs/${id}/quality-check",
+     "resolvedPath": "/api/dyeing/jobs/:_/quality-check",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/jobs/:id/quality-check",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 173
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 159,
+     "method": "POST",
+     "raw": "/dyeing/jobs/${id}/update-stock",
+     "resolvedPath": "/api/dyeing/jobs/:_/update-stock",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/jobs/:id/update-stock",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 179
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 165,
+     "method": "GET",
+     "raw": "/dyeing/jobs",
+     "resolvedPath": "/api/dyeing/jobs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dyeing/jobs",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 152
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 189,
+     "method": "GET",
+     "raw": "/dyeing/summary",
+     "resolvedPath": "/api/dyeing/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dyeing/summary",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 65
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 195,
+     "method": "GET",
+     "raw": "/dyeing/summary/style/${styleId}",
+     "resolvedPath": "/api/dyeing/summary/style/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dyeing/summary/style/:styleId",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 66
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 201,
+     "method": "GET",
+     "raw": "/dyeing/summary/processor/${processorId}",
+     "resolvedPath": "/api/dyeing/summary/processor/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dyeing/summary/processor/:processorId",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 67
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 212,
+     "method": "GET",
+     "raw": "/dyeing/process-pos",
+     "resolvedPath": "/api/dyeing/process-pos",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dyeing/process-pos",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 72
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 216,
+     "method": "GET",
+     "raw": "/dyeing/process-pos/${id}",
+     "resolvedPath": "/api/dyeing/process-pos/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dyeing/process-pos/:id",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 73
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 220,
+     "method": "POST",
+     "raw": "/dyeing/process-pos",
+     "resolvedPath": "/api/dyeing/process-pos",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/process-pos",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 74
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 224,
+     "method": "DELETE",
+     "raw": "/dyeing/process-pos/${id}",
+     "resolvedPath": "/api/dyeing/process-pos/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/dyeing/process-pos/:id",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 230,
+     "method": "POST",
+     "raw": "/dyeing/process-pos/${id}/send",
+     "resolvedPath": "/api/dyeing/process-pos/:_/send",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/process-pos/:id/send",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 76
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 234,
+     "method": "POST",
+     "raw": "/dyeing/process-pos/${id}/receive",
+     "resolvedPath": "/api/dyeing/process-pos/:_/receive",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/process-pos/:id/receive",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 82
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 238,
+     "method": "POST",
+     "raw": "/dyeing/process-pos/${id}/quality-check",
+     "resolvedPath": "/api/dyeing/process-pos/:_/quality-check",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/process-pos/:id/quality-check",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 88
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 242,
+     "method": "POST",
+     "raw": "/dyeing/process-pos/${id}/update-stock",
+     "resolvedPath": "/api/dyeing/process-pos/:_/update-stock",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/process-pos/:id/update-stock",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 94
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dyeing.service.ts",
+     "hop": 1,
+     "line": 249,
+     "method": "POST",
+     "raw": "/dyeing/process-pos/${id}/return-unprocessed",
+     "resolvedPath": "/api/dyeing/process-pos/:_/return-unprocessed",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dyeing/process-pos/:id/return-unprocessed",
+      "file": "backend/src/routes/dyeing.routes.ts",
+      "line": 100
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/FinishingDetail.tsx": {
+   "routes": [
+    "/manufacturing/finishing/:id"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 275,
+     "raw": "/manufacturing/finishing",
+     "normalized": "/manufacturing/finishing",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FinishingList.tsx"
+    },
+    {
+     "line": 289,
+     "raw": "/manufacturing/finishing",
+     "normalized": "/manufacturing/finishing",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FinishingList.tsx"
+    },
+    {
+     "line": 397,
+     "raw": "/production/work-orders/${issue.workOrderId}",
+     "normalized": "/production/work-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 42,
+     "method": "GET",
+     "raw": "${BASE_URL}/issues/${id}",
+     "resolvedPath": "/api/finishing/issues/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/finishing/issues/:id",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 64
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/receive",
+     "resolvedPath": "/api/finishing/issues/:_/receive",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/finishing/issues/:id/receive",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 75,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/start",
+     "resolvedPath": "/api/finishing/issues/:_/start",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/finishing/issues/:id/start",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 81
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 81,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/record-output",
+     "resolvedPath": "/api/finishing/issues/:_/record-output",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/finishing/issues/:id/record-output",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 82
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 86,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/move-to-packing",
+     "resolvedPath": "/api/finishing/issues/:_/move-to-packing",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/finishing/issues/:id/move-to-packing",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 88
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 92,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/complete",
+     "resolvedPath": "/api/finishing/issues/:_/complete",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/finishing/issues/:id/complete",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 89
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 98,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/generate-transfer-slip",
+     "resolvedPath": "/api/finishing/issues/:_/generate-transfer-slip",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/finishing/issues/:id/generate-transfer-slip",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 90
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/FinishingForm.tsx": {
+   "routes": [
+    "/manufacturing/finishing/new"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/FinishingForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/FinishingList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/FinishingList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/FinishingList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StitchingDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 199,
+     "raw": "/manufacturing/finishing/${result.id}",
+     "normalized": "/manufacturing/finishing/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FinishingForm.tsx"
+    },
+    {
+     "line": 219,
+     "raw": "/manufacturing/finishing",
+     "normalized": "/manufacturing/finishing",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FinishingList.tsx"
+    },
+    {
+     "line": 450,
+     "raw": "/manufacturing/finishing",
+     "normalized": "/manufacturing/finishing",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FinishingList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 48,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues",
+     "resolvedPath": "/api/finishing/issues",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/finishing/issues",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 65
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 124,
+     "method": "GET",
+     "raw": "${BASE_URL}/available-transfer-slips",
+     "resolvedPath": "/api/finishing/available-transfer-slips",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/finishing/available-transfer-slips",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 54
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 144,
+     "method": "GET",
+     "raw": "${BASE_URL}/available-managers",
+     "resolvedPath": "/api/finishing/available-managers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/finishing/available-managers",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 55
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/FinishingList.tsx": {
+   "routes": [
+    "/manufacturing/finishing"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/FinishingDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/FinishingDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/FinishingForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/FinishingForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 496,
+     "raw": "/manufacturing/finishing/new?transferSlipId=${slip.id}",
+     "normalized": "/manufacturing/finishing/new",
+     "queryParams": [
+      "transferSlipId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FinishingForm.tsx"
+    },
+    {
+     "line": 215,
+     "raw": "/manufacturing/finishing/new",
+     "normalized": "/manufacturing/finishing/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FinishingForm.tsx"
+    },
+    {
+     "line": 378,
+     "raw": "/manufacturing/finishing/${issue.id}",
+     "normalized": "/manufacturing/finishing/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FinishingForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/receive",
+     "resolvedPath": "/api/finishing/issues/:_/receive",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/finishing/issues/:id/receive",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 75,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/start",
+     "resolvedPath": "/api/finishing/issues/:_/start",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/finishing/issues/:id/start",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 81
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 86,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/move-to-packing",
+     "resolvedPath": "/api/finishing/issues/:_/move-to-packing",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/finishing/issues/:id/move-to-packing",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 88
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 92,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/complete",
+     "resolvedPath": "/api/finishing/issues/:_/complete",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/finishing/issues/:id/complete",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 89
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 98,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/generate-transfer-slip",
+     "resolvedPath": "/api/finishing/issues/:_/generate-transfer-slip",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/finishing/issues/:id/generate-transfer-slip",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 90
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 112,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary",
+     "resolvedPath": "/api/finishing/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/finishing/summary",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 124,
+     "method": "GET",
+     "raw": "${BASE_URL}/available-transfer-slips",
+     "resolvedPath": "/api/finishing/available-transfer-slips",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/finishing/available-transfer-slips",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 54
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 130,
+     "method": "GET",
+     "raw": "${BASE_URL}/style-size-summary",
+     "resolvedPath": "/api/finishing/style-size-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/finishing/style-size-summary",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 56
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/PrintingList.tsx": {
+   "routes": [
+    "/manufacturing/printing"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 409,
+     "raw": "/manufacturing/printing/lab-dip/${item.id}",
+     "normalized": "/manufacturing/printing/lab-dip/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 422,
+     "raw": "/manufacturing/printing/lab-dip/${item.id}/edit",
+     "normalized": "/manufacturing/printing/lab-dip/:_/edit",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 591,
+     "raw": "/manufacturing/printing/process-po/${item.id}",
+     "normalized": "/manufacturing/printing/process-po/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 644,
+     "raw": "/manufacturing/printing/process-po/${item.id}?action=qc",
+     "normalized": "/manufacturing/printing/process-po/:_",
+     "queryParams": [
+      "action"
+     ],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 674,
+     "raw": "/manufacturing/printing/process-po/${item.id}?action=return",
+     "normalized": "/manufacturing/printing/process-po/:_",
+     "queryParams": [
+      "action"
+     ],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 714,
+     "raw": "/manufacturing/printing/lab-dip/new",
+     "normalized": "/manufacturing/printing/lab-dip/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 718,
+     "raw": "/manufacturing/printing/process-po/new",
+     "normalized": "/manufacturing/printing/process-po/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 870,
+     "raw": "/manufacturing/printing/lab-dip/${item.id}",
+     "normalized": "/manufacturing/printing/lab-dip/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 952,
+     "raw": "/manufacturing/printing/process-po/${item.id}",
+     "normalized": "/manufacturing/printing/process-po/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 33,
+     "method": "GET",
+     "raw": "/printing/lab-dips",
+     "resolvedPath": "/api/printing/lab-dips",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/printing/lab-dips",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 114
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 41,
+     "method": "GET",
+     "raw": "/printing/lab-dips/${id}",
+     "resolvedPath": "/api/printing/lab-dips/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/printing/lab-dips/search",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 112
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 47,
+     "method": "POST",
+     "raw": "/printing/lab-dips",
+     "resolvedPath": "/api/printing/lab-dips",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/lab-dips",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 118
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 56,
+     "method": "PUT",
+     "raw": "/printing/lab-dips/${id}",
+     "resolvedPath": "/api/printing/lab-dips/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/printing/lab-dips/:id",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 119
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 62,
+     "method": "DELETE",
+     "raw": "/printing/lab-dips/${id}",
+     "resolvedPath": "/api/printing/lab-dips/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/printing/lab-dips/:id",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 125
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 67,
+     "method": "POST",
+     "raw": "/printing/lab-dips/${id}/approve",
+     "resolvedPath": "/api/printing/lab-dips/:_/approve",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/lab-dips/:id/approve",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 128
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 73,
+     "method": "POST",
+     "raw": "/printing/lab-dips/${id}/reject",
+     "resolvedPath": "/api/printing/lab-dips/:_/reject",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/lab-dips/:id/reject",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 134
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 79,
+     "method": "POST",
+     "raw": "/printing/lab-dips/${id}/resubmit",
+     "resolvedPath": "/api/printing/lab-dips/:_/resubmit",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/lab-dips/:id/resubmit",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 140
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "GET",
+     "raw": "/printing/lab-dips/search",
+     "resolvedPath": "/api/printing/lab-dips/search",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/printing/lab-dips/search",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 112
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 93,
+     "method": "GET",
+     "raw": "/printing/lab-dips/approved",
+     "resolvedPath": "/api/printing/lab-dips/approved",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/printing/lab-dips/approved",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 113
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 107,
+     "method": "GET",
+     "raw": "/printing/jobs",
+     "resolvedPath": "/api/printing/jobs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/printing/jobs",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 152
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 115,
+     "method": "GET",
+     "raw": "/printing/jobs/${id}",
+     "resolvedPath": "/api/printing/jobs/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/printing/jobs/:id",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 155
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 121,
+     "method": "POST",
+     "raw": "/printing/jobs",
+     "resolvedPath": "/api/printing/jobs",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/jobs",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 156
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 130,
+     "method": "PUT",
+     "raw": "/printing/jobs/${id}",
+     "resolvedPath": "/api/printing/jobs/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/printing/jobs/:id",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 157
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 136,
+     "method": "DELETE",
+     "raw": "/printing/jobs/${id}",
+     "resolvedPath": "/api/printing/jobs/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/printing/jobs/:id",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 163
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 141,
+     "method": "POST",
+     "raw": "/printing/jobs/${id}/send",
+     "resolvedPath": "/api/printing/jobs/:_/send",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/jobs/:id/send",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 166
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 147,
+     "method": "POST",
+     "raw": "/printing/jobs/${id}/receive",
+     "resolvedPath": "/api/printing/jobs/:_/receive",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/jobs/:id/receive",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 172
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 153,
+     "method": "POST",
+     "raw": "/printing/jobs/${id}/quality-check",
+     "resolvedPath": "/api/printing/jobs/:_/quality-check",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/jobs/:id/quality-check",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 178
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 159,
+     "method": "POST",
+     "raw": "/printing/jobs/${id}/update-stock",
+     "resolvedPath": "/api/printing/jobs/:_/update-stock",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/jobs/:id/update-stock",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 184
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 165,
+     "method": "GET",
+     "raw": "/printing/jobs",
+     "resolvedPath": "/api/printing/jobs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/printing/jobs",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 152
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 189,
+     "method": "GET",
+     "raw": "/printing/summary",
+     "resolvedPath": "/api/printing/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/printing/summary",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 65
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 195,
+     "method": "GET",
+     "raw": "/printing/summary/style/${styleId}",
+     "resolvedPath": "/api/printing/summary/style/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/printing/summary/style/:styleId",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 66
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 201,
+     "method": "GET",
+     "raw": "/printing/summary/processor/${processorId}",
+     "resolvedPath": "/api/printing/summary/processor/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/printing/summary/processor/:processorId",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 67
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 212,
+     "method": "GET",
+     "raw": "/printing/process-pos",
+     "resolvedPath": "/api/printing/process-pos",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/printing/process-pos",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 72
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 216,
+     "method": "GET",
+     "raw": "/printing/process-pos/${id}",
+     "resolvedPath": "/api/printing/process-pos/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/printing/process-pos/:id",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 73
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 220,
+     "method": "POST",
+     "raw": "/printing/process-pos",
+     "resolvedPath": "/api/printing/process-pos",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/process-pos",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 74
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 224,
+     "method": "DELETE",
+     "raw": "/printing/process-pos/${id}",
+     "resolvedPath": "/api/printing/process-pos/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/printing/process-pos/:id",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 230,
+     "method": "POST",
+     "raw": "/printing/process-pos/${id}/send",
+     "resolvedPath": "/api/printing/process-pos/:_/send",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/process-pos/:id/send",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 76
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 234,
+     "method": "POST",
+     "raw": "/printing/process-pos/${id}/receive",
+     "resolvedPath": "/api/printing/process-pos/:_/receive",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/process-pos/:id/receive",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 82
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 238,
+     "method": "POST",
+     "raw": "/printing/process-pos/${id}/quality-check",
+     "resolvedPath": "/api/printing/process-pos/:_/quality-check",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/process-pos/:id/quality-check",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 88
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 242,
+     "method": "POST",
+     "raw": "/printing/process-pos/${id}/update-stock",
+     "resolvedPath": "/api/printing/process-pos/:_/update-stock",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/process-pos/:id/update-stock",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 94
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/printing.service.ts",
+     "hop": 1,
+     "line": 249,
+     "method": "POST",
+     "raw": "/printing/process-pos/${id}/return-unprocessed",
+     "resolvedPath": "/api/printing/process-pos/:_/return-unprocessed",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/printing/process-pos/:id/return-unprocessed",
+      "file": "backend/src/routes/printing.routes.ts",
+      "line": 100
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/ProductionStatus.tsx": {
+   "routes": [
+    "/production/status"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/productionStatus.service.ts",
+     "hop": 1,
+     "line": 10,
+     "method": "GET",
+     "raw": "/production-status",
+     "resolvedPath": "/api/production-status",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/production-status",
+      "file": "backend/src/routes/productionStatus.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/orderProductionStatus.service.ts",
+     "hop": 1,
+     "line": 62,
+     "method": "PATCH",
+     "raw": "${ORDER_ITEMS_URL}/${orderItemId}/select-cad",
+     "resolvedPath": "/api/order-items/:_/select-cad",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/order-items/:id/select-cad",
+      "file": "backend/src/routes/orderItems.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/orderProductionStatus.service.ts",
+     "hop": 1,
+     "line": 70,
+     "method": "PATCH",
+     "raw": "${ORDER_ITEMS_URL}/${orderItemId}/inheritance",
+     "resolvedPath": "/api/order-items/:_/inheritance",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/order-items/:id/inheritance",
+      "file": "backend/src/routes/orderItems.routes.ts",
+      "line": 41
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/orderProductionStatus.service.ts",
+     "hop": 1,
+     "line": 89,
+     "method": "POST",
+     "raw": "${ORDER_ITEMS_URL}/${orderItemId}/recalculate-costing",
+     "resolvedPath": "/api/order-items/:_/recalculate-costing",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/order-items/:id/recalculate-costing",
+      "file": "backend/src/routes/orderItems.routes.ts",
+      "line": 55
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stageValidation.service.ts",
+     "hop": 3,
+     "line": 62,
+     "method": "GET",
+     "raw": "/stage-validation/check",
+     "resolvedPath": "/api/stage-validation/check",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stage-validation/check",
+      "file": "backend/src/routes/stageTransitionValidation.routes.ts",
+      "line": 17
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stageValidation.service.ts",
+     "hop": 3,
+     "line": 80,
+     "method": "GET",
+     "raw": "/stage-validation/check-sample-creation",
+     "resolvedPath": "/api/stage-validation/check-sample-creation",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stage-validation/check-sample-creation",
+      "file": "backend/src/routes/stageTransitionValidation.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stageValidation.service.ts",
+     "hop": 3,
+     "line": 103,
+     "method": "GET",
+     "raw": "/stage-validation/override-history",
+     "resolvedPath": "/api/stage-validation/override-history",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stage-validation/override-history",
+      "file": "backend/src/routes/stageTransitionValidation.routes.ts",
+      "line": 31
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 42,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/work-orders",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/order/${orderId}",
+     "resolvedPath": "/api/work-orders/order/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 69,
+     "method": "POST",
+     "raw": "/work-orders",
+     "resolvedPath": "/api/work-orders",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 63
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 78,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 109
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 87,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 120
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 94,
+     "method": "POST",
+     "raw": "${BASE_URL}/${workOrderId}/tracking",
+     "resolvedPath": "/api/work-orders/:_/tracking",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/tracking",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 65
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 103,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/${id}/approve",
+     "resolvedPath": "/api/work-orders/:_/approve",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/work-orders/:id/approve",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 112,
+     "method": "GET",
+     "raw": "${BASE_URL}/dashboard/summary",
+     "resolvedPath": "/api/work-orders/dashboard/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/dashboard/summary",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 25
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 122,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/split",
+     "resolvedPath": "/api/work-orders/:_/split",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/split",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 71
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 144,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/material-readiness",
+     "resolvedPath": "/api/work-orders/:_/material-readiness",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 153,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/push-to-cutting",
+     "resolvedPath": "/api/work-orders/:_/push-to-cutting",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/push-to-cutting",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 77
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 162,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/fabric-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/fabric-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 169,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-fabric",
+     "resolvedPath": "/api/work-orders/:_/issue-fabric",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-fabric",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 83
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 174,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/trim-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/trim-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 181,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-trims",
+     "resolvedPath": "/api/work-orders/:_/issue-trims",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-trims",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 89
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 186,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/packaging-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/packaging-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 193,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-packaging",
+     "resolvedPath": "/api/work-orders/:_/issue-packaging",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-packaging",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 95
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 198,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/thread-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/thread-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 205,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-thread",
+     "resolvedPath": "/api/work-orders/:_/issue-thread",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-thread",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 101
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 3,
+     "line": 210,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/wip-summary",
+     "resolvedPath": "/api/work-orders/:_/wip-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StitchingDetail.tsx": {
+   "routes": [
+    "/manufacturing/stitching/:id"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 280,
+     "raw": "/manufacturing/stitching",
+     "normalized": "/manufacturing/stitching",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StitchingList.tsx"
+    },
+    {
+     "line": 293,
+     "raw": "/manufacturing/stitching",
+     "normalized": "/manufacturing/stitching",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StitchingList.tsx"
+    },
+    {
+     "line": 491,
+     "raw": "/manufacturing/finishing/new",
+     "normalized": "/manufacturing/finishing/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FinishingForm.tsx"
+    },
+    {
+     "line": 571,
+     "raw": "/production/work-orders/${issue.workOrderId}",
+     "normalized": "/production/work-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 32,
+     "method": "GET",
+     "raw": "${BASE_URL}/issues/${id}",
+     "resolvedPath": "/api/stitching/issues/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stitching/issues/:id",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 63
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 59,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/receive",
+     "resolvedPath": "/api/stitching/issues/:_/receive",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stitching/issues/:id/receive",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 74
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 65,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/start",
+     "resolvedPath": "/api/stitching/issues/:_/start",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stitching/issues/:id/start",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 80
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 71,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/daily-output",
+     "resolvedPath": "/api/stitching/issues/:_/daily-output",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stitching/issues/:id/daily-output",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 81
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 77,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/complete",
+     "resolvedPath": "/api/stitching/issues/:_/complete",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stitching/issues/:id/complete",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 87
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 83,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/reopen",
+     "resolvedPath": "/api/stitching/issues/:_/reopen",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stitching/issues/:id/reopen",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 88
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 89,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/generate-transfer-slip",
+     "resolvedPath": "/api/stitching/issues/:_/generate-transfer-slip",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stitching/issues/:id/generate-transfer-slip",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 89
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StitchingForm.tsx": {
+   "routes": [
+    "/manufacturing/stitching/new"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/StitchingForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StitchingList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StitchingList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StitchingList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 257,
+     "raw": "/manufacturing/stitching/${result.id}",
+     "normalized": "/manufacturing/stitching/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StitchingForm.tsx"
+    },
+    {
+     "line": 281,
+     "raw": "/manufacturing/stitching",
+     "normalized": "/manufacturing/stitching",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StitchingList.tsx"
+    },
+    {
+     "line": 530,
+     "raw": "/manufacturing/stitching",
+     "normalized": "/manufacturing/stitching",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StitchingList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 38,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues",
+     "resolvedPath": "/api/stitching/issues",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stitching/issues",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 64
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 121,
+     "method": "GET",
+     "raw": "${BASE_URL}/pending-transfer-slips",
+     "resolvedPath": "/api/stitching/pending-transfer-slips",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stitching/pending-transfer-slips",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 54
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 135,
+     "method": "GET",
+     "raw": "${BASE_URL}/available-managers",
+     "resolvedPath": "/api/stitching/available-managers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stitching/available-managers",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 55
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StitchingList.tsx": {
+   "routes": [
+    "/manufacturing/stitching"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/StitchingDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StitchingDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StitchingForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StitchingForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 499,
+     "raw": "/manufacturing/stitching/new?slipId=${slip.id}",
+     "normalized": "/manufacturing/stitching/new",
+     "queryParams": [
+      "slipId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StitchingForm.tsx"
+    },
+    {
+     "line": 208,
+     "raw": "/manufacturing/stitching/new",
+     "normalized": "/manufacturing/stitching/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StitchingForm.tsx"
+    },
+    {
+     "line": 378,
+     "raw": "/manufacturing/stitching/${issue.id}",
+     "normalized": "/manufacturing/stitching/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StitchingForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "${BASE_URL}/issues",
+     "resolvedPath": "/api/stitching/issues",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stitching/issues",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 62
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 59,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/receive",
+     "resolvedPath": "/api/stitching/issues/:_/receive",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stitching/issues/:id/receive",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 74
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 65,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/start",
+     "resolvedPath": "/api/stitching/issues/:_/start",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stitching/issues/:id/start",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 80
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 77,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/complete",
+     "resolvedPath": "/api/stitching/issues/:_/complete",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stitching/issues/:id/complete",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 87
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 89,
+     "method": "POST",
+     "raw": "${BASE_URL}/issues/${id}/generate-transfer-slip",
+     "resolvedPath": "/api/stitching/issues/:_/generate-transfer-slip",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stitching/issues/:id/generate-transfer-slip",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 89
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 103,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary",
+     "resolvedPath": "/api/stitching/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stitching/summary",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 121,
+     "method": "GET",
+     "raw": "${BASE_URL}/pending-transfer-slips",
+     "resolvedPath": "/api/stitching/pending-transfer-slips",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stitching/pending-transfer-slips",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 54
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 127,
+     "method": "GET",
+     "raw": "${BASE_URL}/style-size-summary",
+     "resolvedPath": "/api/stitching/style-size-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stitching/style-size-summary",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 53
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/WorkOrderDetail.tsx": {
+   "routes": [
+    "/production/work-orders/:id"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 236,
+     "raw": "/manufacturing/cutting/new?workOrderId=${id}",
+     "normalized": "/manufacturing/cutting/new",
+     "queryParams": [
+      "workOrderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingChart.tsx"
+    },
+    {
+     "line": 264,
+     "raw": "/manufacturing/cutting/new?workOrderId=${id}",
+     "normalized": "/manufacturing/cutting/new",
+     "queryParams": [
+      "workOrderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingChart.tsx"
+    },
+    {
+     "line": 333,
+     "raw": "/production/work-orders",
+     "normalized": "/production/work-orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WorkOrderList.tsx"
+    },
+    {
+     "line": 347,
+     "raw": "/production/work-orders",
+     "normalized": "/production/work-orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WorkOrderList.tsx"
+    },
+    {
+     "line": 361,
+     "raw": "/production/work-orders",
+     "normalized": "/production/work-orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WorkOrderList.tsx"
+    },
+    {
+     "line": 401,
+     "raw": "/production/work-orders/${id}/edit",
+     "normalized": "/production/work-orders/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WorkOrderForm.tsx"
+    },
+    {
+     "line": 424,
+     "raw": "/production/work-orders/${workOrder.parentRun!.id}",
+     "normalized": "/production/work-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": null
+    },
+    {
+     "line": 613,
+     "raw": "/procurement/requirements?tab=outsourced&workOrderId=${id}",
+     "normalized": "/procurement/requirements",
+     "queryParams": [
+      "tab",
+      "workOrderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/UnifiedRequirementsPage.tsx"
+    },
+    {
+     "line": 709,
+     "raw": "/service-requirements/list?workOrderId=${id}&status=PENDING",
+     "normalized": "/service-requirements/list",
+     "queryParams": [
+      "workOrderId",
+      "status"
+     ],
+     "matchedRoute": true,
+     "targetPage": null
+    },
+    {
+     "line": 721,
+     "raw": "/service-requirements/list?workOrderId=${id}&status=PENDING",
+     "normalized": "/service-requirements/list",
+     "queryParams": [
+      "workOrderId",
+      "status"
+     ],
+     "matchedRoute": true,
+     "targetPage": null
+    },
+    {
+     "line": 805,
+     "raw": "/manufacturing/cutting/new?workOrderId=${id}",
+     "normalized": "/manufacturing/cutting/new",
+     "queryParams": [
+      "workOrderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingChart.tsx"
+    },
+    {
+     "line": 845,
+     "raw": "/manufacturing/stitching/new?workOrderId=${id}",
+     "normalized": "/manufacturing/stitching/new",
+     "queryParams": [
+      "workOrderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StitchingForm.tsx"
+    },
+    {
+     "line": 890,
+     "raw": "/manufacturing/finishing/new?workOrderId=${id}",
+     "normalized": "/manufacturing/finishing/new",
+     "queryParams": [
+      "workOrderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FinishingForm.tsx"
+    },
+    {
+     "line": 923,
+     "raw": "/orders/${workOrder.orderId}",
+     "normalized": "/orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    },
+    {
+     "line": 1103,
+     "raw": "/production/work-orders/${child.id}",
+     "normalized": "/production/work-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": null
+    },
+    {
+     "line": 1138,
+     "raw": "/manufacturing/challans?productionRunId=${id}",
+     "normalized": "/manufacturing/challans",
+     "queryParams": [
+      "productionRunId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/ChallanList.tsx"
+    },
+    {
+     "line": 1146,
+     "raw": "/manufacturing/challans/new?productionRunId=${id}",
+     "normalized": "/manufacturing/challans/new",
+     "queryParams": [
+      "productionRunId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/ChallanForm.tsx"
+    },
+    {
+     "line": 812,
+     "raw": "/manufacturing/cutting?workOrderId=${id}",
+     "normalized": "/manufacturing/cutting",
+     "queryParams": [
+      "workOrderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CuttingList.tsx"
+    },
+    {
+     "line": 852,
+     "raw": "/manufacturing/stitching?workOrderId=${id}",
+     "normalized": "/manufacturing/stitching",
+     "queryParams": [
+      "workOrderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StitchingList.tsx"
+    },
+    {
+     "line": 897,
+     "raw": "/manufacturing/finishing?workOrderId=${id}",
+     "normalized": "/manufacturing/finishing",
+     "queryParams": [
+      "workOrderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FinishingList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 42,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/work-orders",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/order/${orderId}",
+     "resolvedPath": "/api/work-orders/order/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "POST",
+     "raw": "/work-orders",
+     "resolvedPath": "/api/work-orders",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 63
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 78,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 109
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 87,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 120
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "POST",
+     "raw": "${BASE_URL}/${workOrderId}/tracking",
+     "resolvedPath": "/api/work-orders/:_/tracking",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/tracking",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 65
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 103,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/${id}/approve",
+     "resolvedPath": "/api/work-orders/:_/approve",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/work-orders/:id/approve",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 112,
+     "method": "GET",
+     "raw": "${BASE_URL}/dashboard/summary",
+     "resolvedPath": "/api/work-orders/dashboard/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/dashboard/summary",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 25
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 122,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/split",
+     "resolvedPath": "/api/work-orders/:_/split",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/split",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 71
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 144,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/material-readiness",
+     "resolvedPath": "/api/work-orders/:_/material-readiness",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 153,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/push-to-cutting",
+     "resolvedPath": "/api/work-orders/:_/push-to-cutting",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/push-to-cutting",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 77
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 162,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/fabric-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/fabric-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 169,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-fabric",
+     "resolvedPath": "/api/work-orders/:_/issue-fabric",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-fabric",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 83
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 174,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/trim-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/trim-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 181,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-trims",
+     "resolvedPath": "/api/work-orders/:_/issue-trims",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-trims",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 89
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 186,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/packaging-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/packaging-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 193,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-packaging",
+     "resolvedPath": "/api/work-orders/:_/issue-packaging",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-packaging",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 95
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 198,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/thread-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/thread-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 205,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-thread",
+     "resolvedPath": "/api/work-orders/:_/issue-thread",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-thread",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 101
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 210,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/wip-summary",
+     "resolvedPath": "/api/work-orders/:_/wip-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 30,
+     "method": "GET",
+     "raw": "${BASE_URL}/batches",
+     "resolvedPath": "/api/cutting/batches",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cutting/batches",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 83
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/cutting.service.ts",
+     "hop": 1,
+     "line": 36,
+     "method": "GET",
+     "raw": "${BASE_URL}/batches/${id}",
+     "resolvedPath": "/api/cutting/batches/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cutting/batches/:id",
+      "file": "backend/src/routes/cutting.routes.ts",
+      "line": 84
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "${BASE_URL}/issues",
+     "resolvedPath": "/api/stitching/issues",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stitching/issues",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 62
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stitching.service.ts",
+     "hop": 1,
+     "line": 32,
+     "method": "GET",
+     "raw": "${BASE_URL}/issues/${id}",
+     "resolvedPath": "/api/stitching/issues/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stitching/issues/:id",
+      "file": "backend/src/routes/stitching.routes.ts",
+      "line": 63
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/finishing.service.ts",
+     "hop": 1,
+     "line": 42,
+     "method": "GET",
+     "raw": "${BASE_URL}/issues/${id}",
+     "resolvedPath": "/api/finishing/issues/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/finishing/issues/:id",
+      "file": "backend/src/routes/finishing.routes.ts",
+      "line": 64
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/serviceRequirement.service.ts",
+     "hop": 1,
+     "line": 45,
+     "method": "POST",
+     "raw": "/work-orders/${workOrderId}/calculate-services",
+     "resolvedPath": "/api/work-orders/:_/calculate-services",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:workOrderId/calculate-services",
+      "file": "backend/src/routes/service-requirement.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/serviceRequirement.service.ts",
+     "hop": 1,
+     "line": 148,
+     "method": "GET",
+     "raw": "/work-orders/${workOrderId}/service-requirements/summary",
+     "resolvedPath": "/api/work-orders/:_/service-requirements/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/:workOrderId/service-requirements/summary",
+      "file": "backend/src/routes/service-requirement.routes.ts",
+      "line": 69
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/WorkOrderForm.tsx": {
+   "routes": [
+    "/production/work-orders/:id/edit"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 57,
+     "raw": "/production/work-orders",
+     "normalized": "/production/work-orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WorkOrderList.tsx"
+    },
+    {
+     "line": 108,
+     "raw": "/production/work-orders/${id}",
+     "normalized": "/production/work-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": null
+    },
+    {
+     "line": 131,
+     "raw": "/production/work-orders",
+     "normalized": "/production/work-orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WorkOrderList.tsx"
+    },
+    {
+     "line": 149,
+     "raw": "/production/work-orders/${id}",
+     "normalized": "/production/work-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": null
+    },
+    {
+     "line": 160,
+     "raw": "/production/work-orders/${id}",
+     "normalized": "/production/work-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": null
+    },
+    {
+     "line": 192,
+     "raw": "/orders/${workOrder.orderId}",
+     "normalized": "/orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    },
+    {
+     "line": 339,
+     "raw": "/production/work-orders/${id}",
+     "normalized": "/production/work-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 42,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/work-orders",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/order/${orderId}",
+     "resolvedPath": "/api/work-orders/order/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "POST",
+     "raw": "/work-orders",
+     "resolvedPath": "/api/work-orders",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 63
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 78,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 109
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 87,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 120
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "POST",
+     "raw": "${BASE_URL}/${workOrderId}/tracking",
+     "resolvedPath": "/api/work-orders/:_/tracking",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/tracking",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 65
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 103,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/${id}/approve",
+     "resolvedPath": "/api/work-orders/:_/approve",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/work-orders/:id/approve",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 112,
+     "method": "GET",
+     "raw": "${BASE_URL}/dashboard/summary",
+     "resolvedPath": "/api/work-orders/dashboard/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/dashboard/summary",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 25
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 122,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/split",
+     "resolvedPath": "/api/work-orders/:_/split",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/split",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 71
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 144,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/material-readiness",
+     "resolvedPath": "/api/work-orders/:_/material-readiness",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 153,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/push-to-cutting",
+     "resolvedPath": "/api/work-orders/:_/push-to-cutting",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/push-to-cutting",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 77
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 162,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/fabric-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/fabric-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 169,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-fabric",
+     "resolvedPath": "/api/work-orders/:_/issue-fabric",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-fabric",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 83
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 174,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/trim-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/trim-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 181,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-trims",
+     "resolvedPath": "/api/work-orders/:_/issue-trims",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-trims",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 89
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 186,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/packaging-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/packaging-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 193,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-packaging",
+     "resolvedPath": "/api/work-orders/:_/issue-packaging",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-packaging",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 95
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 198,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/thread-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/thread-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 205,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-thread",
+     "resolvedPath": "/api/work-orders/:_/issue-thread",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-thread",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 101
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 210,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/wip-summary",
+     "resolvedPath": "/api/work-orders/:_/wip-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 22
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 34,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "${BASE_URL}/code/${code}",
+     "resolvedPath": "/api/warehouses/code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/code/:warehouseCode",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${type}",
+     "resolvedPath": "/api/warehouses/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "${BASE_URL}/generate-code/${type}",
+     "resolvedPath": "/api/warehouses/generate-code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/generate-code/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/stock-summary",
+     "resolvedPath": "/api/warehouses/:_/stock-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 76,
+     "method": "POST",
+     "raw": "/warehouses",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 57
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/WorkOrderList.tsx": {
+   "routes": [
+    "/production/work-orders"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/Dashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/GeneralDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/ProductionDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/ProductionDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderBOMDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderForm.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 213,
+     "raw": "/production/work-orders/${wo.id}",
+     "normalized": "/production/work-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": null
+    },
+    {
+     "line": 224,
+     "raw": "/production/work-orders/${wo.id}/edit",
+     "normalized": "/production/work-orders/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WorkOrderForm.tsx"
+    },
+    {
+     "line": 238,
+     "raw": "/dashboard",
+     "normalized": "/dashboard",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/dashboards/DashboardRouter.tsx"
+    },
+    {
+     "line": 313,
+     "raw": "/production/work-orders/${wo.id}",
+     "normalized": "/production/work-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 42,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/work-orders",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/order/${orderId}",
+     "resolvedPath": "/api/work-orders/order/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "POST",
+     "raw": "/work-orders",
+     "resolvedPath": "/api/work-orders",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 63
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 78,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 109
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 87,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 120
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "POST",
+     "raw": "${BASE_URL}/${workOrderId}/tracking",
+     "resolvedPath": "/api/work-orders/:_/tracking",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/tracking",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 65
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 103,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/${id}/approve",
+     "resolvedPath": "/api/work-orders/:_/approve",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/work-orders/:id/approve",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 112,
+     "method": "GET",
+     "raw": "${BASE_URL}/dashboard/summary",
+     "resolvedPath": "/api/work-orders/dashboard/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/dashboard/summary",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 25
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 122,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/split",
+     "resolvedPath": "/api/work-orders/:_/split",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/split",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 71
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 144,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/material-readiness",
+     "resolvedPath": "/api/work-orders/:_/material-readiness",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 153,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/push-to-cutting",
+     "resolvedPath": "/api/work-orders/:_/push-to-cutting",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/push-to-cutting",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 77
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 162,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/fabric-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/fabric-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 169,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-fabric",
+     "resolvedPath": "/api/work-orders/:_/issue-fabric",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-fabric",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 83
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 174,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/trim-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/trim-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 181,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-trims",
+     "resolvedPath": "/api/work-orders/:_/issue-trims",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-trims",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 89
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 186,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/packaging-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/packaging-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 193,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-packaging",
+     "resolvedPath": "/api/work-orders/:_/issue-packaging",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-packaging",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 95
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 198,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/thread-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/thread-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 205,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-thread",
+     "resolvedPath": "/api/work-orders/:_/issue-thread",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-thread",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 101
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 210,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/wip-summary",
+     "resolvedPath": "/api/work-orders/:_/wip-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    }
+   ]
+  }
+ },
+ "unresolvedCalls": []
+}

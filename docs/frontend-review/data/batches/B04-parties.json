@@ -1,0 +1,2516 @@
+{
+ "batch": "B04-parties",
+ "pages": {
+  "frontend/src/pages/AgencyList.tsx": {
+   "routes": [
+    "/agencies"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/agency.service.ts",
+     "hop": 1,
+     "line": 22,
+     "method": "GET",
+     "raw": "/agencies",
+     "resolvedPath": "/api/agencies",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/agencies",
+      "file": "backend/src/routes/agency.routes.ts",
+      "line": 18
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agency.service.ts",
+     "hop": 1,
+     "line": 54,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/agencies/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/agencies/:id",
+      "file": "backend/src/routes/agency.routes.ts",
+      "line": 27
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/AgentList.tsx": {
+   "routes": [
+    "/agents"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/agent.service.ts",
+     "hop": 1,
+     "line": 30,
+     "method": "GET",
+     "raw": "/agents",
+     "resolvedPath": "/api/agents",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/agents",
+      "file": "backend/src/routes/agent.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agent.service.ts",
+     "hop": 1,
+     "line": 62,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/agents/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/agents/:id",
+      "file": "backend/src/routes/agent.routes.ts",
+      "line": 59
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agency.service.ts",
+     "hop": 3,
+     "line": 22,
+     "method": "GET",
+     "raw": "/agencies",
+     "resolvedPath": "/api/agencies",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/agencies",
+      "file": "backend/src/routes/agency.routes.ts",
+      "line": 18
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agency.service.ts",
+     "hop": 3,
+     "line": 30,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/agencies/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/agencies/search",
+      "file": "backend/src/routes/agency.routes.ts",
+      "line": 15
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agency.service.ts",
+     "hop": 3,
+     "line": 38,
+     "method": "GET",
+     "raw": "${BASE_URL}/search",
+     "resolvedPath": "/api/agencies/search",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/agencies/search",
+      "file": "backend/src/routes/agency.routes.ts",
+      "line": 15
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agency.service.ts",
+     "hop": 3,
+     "line": 46,
+     "method": "POST",
+     "raw": "/agencies",
+     "resolvedPath": "/api/agencies",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/agencies",
+      "file": "backend/src/routes/agency.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agency.service.ts",
+     "hop": 3,
+     "line": 54,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/agencies/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/agencies/:id",
+      "file": "backend/src/routes/agency.routes.ts",
+      "line": 27
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agency.service.ts",
+     "hop": 3,
+     "line": 62,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/agencies/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/agencies/:id",
+      "file": "backend/src/routes/agency.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/CustomerDetail.tsx": {
+   "routes": [
+    "/customers/:id"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 136,
+     "raw": "/customers",
+     "normalized": "/customers",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerList.tsx"
+    },
+    {
+     "line": 146,
+     "raw": "/customers",
+     "normalized": "/customers",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerList.tsx"
+    },
+    {
+     "line": 160,
+     "raw": "/customers",
+     "normalized": "/customers",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerList.tsx"
+    },
+    {
+     "line": 165,
+     "raw": "/customers/${customer.id}/edit",
+     "normalized": "/customers/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 31,
+     "method": "GET",
+     "raw": "/customers/${id}",
+     "resolvedPath": "/api/customers/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers/:id",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 55
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 3,
+     "line": 24,
+     "method": "GET",
+     "raw": "/materials/label",
+     "resolvedPath": "/api/materials/label",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/label",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 3,
+     "line": 34,
+     "method": "GET",
+     "raw": "/materials/label/${id}",
+     "resolvedPath": "/api/materials/label/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/label/template",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 3,
+     "line": 49,
+     "method": "POST",
+     "raw": "/materials/label",
+     "resolvedPath": "/api/materials/label",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/label",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 3,
+     "line": 64,
+     "method": "PUT",
+     "raw": "/materials/label/${id}",
+     "resolvedPath": "/api/materials/label/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/label/:id",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 3,
+     "line": 72,
+     "method": "DELETE",
+     "raw": "/materials/label/${id}",
+     "resolvedPath": "/api/materials/label/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/label/:id",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 3,
+     "line": 79,
+     "method": "POST",
+     "raw": "/materials/label/bulk-import",
+     "resolvedPath": "/api/materials/label/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/label/bulk-import",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 3,
+     "line": 87,
+     "method": "GET",
+     "raw": "/materials/label/template",
+     "resolvedPath": "/api/materials/label/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/label/template",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 3,
+     "line": 23,
+     "method": "GET",
+     "raw": "/materials/packaging",
+     "resolvedPath": "/api/materials/packaging",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/packaging",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 3,
+     "line": 33,
+     "method": "GET",
+     "raw": "/materials/packaging/${id}",
+     "resolvedPath": "/api/materials/packaging/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/packaging/template",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 3,
+     "line": 49,
+     "method": "POST",
+     "raw": "/materials/packaging",
+     "resolvedPath": "/api/materials/packaging",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/packaging",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 3,
+     "line": 65,
+     "method": "PUT",
+     "raw": "/materials/packaging/${id}",
+     "resolvedPath": "/api/materials/packaging/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/packaging/:id",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 3,
+     "line": 73,
+     "method": "DELETE",
+     "raw": "/materials/packaging/${id}",
+     "resolvedPath": "/api/materials/packaging/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/packaging/:id",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 73
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 3,
+     "line": 83,
+     "method": "POST",
+     "raw": "/materials/packaging/bulk-import",
+     "resolvedPath": "/api/materials/packaging/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/packaging/bulk-import",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 80
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 3,
+     "line": 94,
+     "method": "GET",
+     "raw": "/materials/packaging/template",
+     "resolvedPath": "/api/materials/packaging/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/packaging/template",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/CustomerForm.tsx": {
+   "routes": [
+    "/customers/new",
+    "/customers/:id/edit"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/CustomerDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CustomerList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CustomerList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CustomerList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CustomerList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CustomerList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 655,
+     "raw": "/customers",
+     "normalized": "/customers",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerList.tsx"
+    },
+    {
+     "line": 677,
+     "raw": "/customers",
+     "normalized": "/customers",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerList.tsx"
+    },
+    {
+     "line": 1294,
+     "raw": "/customers",
+     "normalized": "/customers",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "/customers?${queryParams.toString()}",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 31,
+     "method": "GET",
+     "raw": "/customers/${id}",
+     "resolvedPath": "/api/customers/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers/:id",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 55
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 36,
+     "method": "POST",
+     "raw": "/customers",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 41,
+     "method": "PUT",
+     "raw": "/customers/${id}",
+     "resolvedPath": "/api/customers/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/customers/:id",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 62
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 28,
+     "method": "GET",
+     "raw": "/testing-labs",
+     "resolvedPath": "/api/testing-labs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/testing-labs",
+      "file": "backend/src/routes/testingLabs.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 65,
+     "method": "GET",
+     "raw": "/test-templates",
+     "resolvedPath": "/api/test-templates",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/test-templates",
+      "file": "backend/src/routes/testTemplates.routes.ts",
+      "line": 26
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 97,
+     "method": "GET",
+     "raw": "/fabric-physical-tests",
+     "resolvedPath": "/api/fabric-physical-tests",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 148,
+     "method": "GET",
+     "raw": "/garment-physical-tests",
+     "resolvedPath": "/api/garment-physical-tests",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/garment-physical-tests",
+      "file": "backend/src/routes/garmentPhysicalTests.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/productCategory.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "GET",
+     "raw": "/product-categories/main",
+     "resolvedPath": "/api/product-categories/main",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/product-categories/main",
+      "file": "backend/src/routes/productCategory.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/productCategory.service.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "GET",
+     "raw": "/product-categories/${parentId}/children",
+     "resolvedPath": "/api/product-categories/:_/children",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/product-categories/level/:level",
+      "file": "backend/src/routes/productCategory.routes.ts",
+      "line": 67
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customerSizePreset.service.ts",
+     "hop": 2,
+     "line": 13,
+     "method": "GET",
+     "raw": "/customers/${customerId}/size-category-presets",
+     "resolvedPath": "/api/customers/:_/size-category-presets",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers/:customerId/size-category-presets",
+      "file": "backend/src/routes/customer-size-presets.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customerSizePreset.service.ts",
+     "hop": 2,
+     "line": 21,
+     "method": "GET",
+     "raw": "/customers/${customerId}/size-category-presets/default",
+     "resolvedPath": "/api/customers/:_/size-category-presets/default",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers/:customerId/size-category-presets/default",
+      "file": "backend/src/routes/customer-size-presets.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customerSizePreset.service.ts",
+     "hop": 2,
+     "line": 29,
+     "method": "GET",
+     "raw": "/customers/${customerId}/size-category-presets/${presetId}",
+     "resolvedPath": "/api/customers/:_/size-category-presets/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers/:customerId/size-category-presets/default",
+      "file": "backend/src/routes/customer-size-presets.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customerSizePreset.service.ts",
+     "hop": 2,
+     "line": 40,
+     "method": "POST",
+     "raw": "/customers/${customerId}/size-category-presets",
+     "resolvedPath": "/api/customers/:_/size-category-presets",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/customers/:customerId/size-category-presets",
+      "file": "backend/src/routes/customer-size-presets.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customerSizePreset.service.ts",
+     "hop": 2,
+     "line": 52,
+     "method": "PUT",
+     "raw": "/customers/${customerId}/size-category-presets/${presetId}",
+     "resolvedPath": "/api/customers/:_/size-category-presets/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/customers/:customerId/size-category-presets/:presetId",
+      "file": "backend/src/routes/customer-size-presets.routes.ts",
+      "line": 51
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customerSizePreset.service.ts",
+     "hop": 2,
+     "line": 60,
+     "method": "DELETE",
+     "raw": "/customers/${customerId}/size-category-presets/${presetId}",
+     "resolvedPath": "/api/customers/:_/size-category-presets/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/customers/:customerId/size-category-presets/:presetId",
+      "file": "backend/src/routes/customer-size-presets.routes.ts",
+      "line": 58
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customerSizePreset.service.ts",
+     "hop": 2,
+     "line": 67,
+     "method": "POST",
+     "raw": "/customers/${customerId}/size-category-presets/${presetId}/set-default",
+     "resolvedPath": "/api/customers/:_/size-category-presets/:_/set-default",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/customers/:customerId/size-category-presets/:presetId/set-default",
+      "file": "backend/src/routes/customer-size-presets.routes.ts",
+      "line": 65
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customerSizePreset.service.ts",
+     "hop": 2,
+     "line": 79,
+     "method": "POST",
+     "raw": "/customers/${customerId}/size-category-presets/${presetId}/clone",
+     "resolvedPath": "/api/customers/:_/size-category-presets/:_/clone",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/customers/:customerId/size-category-presets/:presetId/clone",
+      "file": "backend/src/routes/customer-size-presets.routes.ts",
+      "line": 72
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/sizeCategory.service.ts",
+     "hop": 2,
+     "line": 19,
+     "method": "GET",
+     "raw": "/size-categories",
+     "resolvedPath": "/api/size-categories",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/size-categories",
+      "file": "backend/src/routes/size-category.routes.ts",
+      "line": 21
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/sizeCategory.service.ts",
+     "hop": 2,
+     "line": 24,
+     "method": "GET",
+     "raw": "/size-categories/${id}",
+     "resolvedPath": "/api/size-categories/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/size-categories/:id",
+      "file": "backend/src/routes/size-category.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/sizeCategory.service.ts",
+     "hop": 2,
+     "line": 29,
+     "method": "POST",
+     "raw": "/size-categories",
+     "resolvedPath": "/api/size-categories",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/size-categories",
+      "file": "backend/src/routes/size-category.routes.ts",
+      "line": 27
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/sizeCategory.service.ts",
+     "hop": 2,
+     "line": 34,
+     "method": "PUT",
+     "raw": "/size-categories/${id}",
+     "resolvedPath": "/api/size-categories/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/size-categories/:id",
+      "file": "backend/src/routes/size-category.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/sizeCategory.service.ts",
+     "hop": 2,
+     "line": 39,
+     "method": "DELETE",
+     "raw": "/size-categories/${id}",
+     "resolvedPath": "/api/size-categories/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/size-categories/:id",
+      "file": "backend/src/routes/size-category.routes.ts",
+      "line": 38
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/components/StateSelector.tsx",
+     "hop": 2,
+     "line": 49,
+     "method": "GET",
+     "raw": "/locations/states?${params.toString()}",
+     "resolvedPath": "/api/locations/states",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/locations/states",
+      "file": "backend/src/routes/location.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/components/CitySelector.tsx",
+     "hop": 2,
+     "line": 74,
+     "method": "GET",
+     "raw": "/locations/cities?${params.toString()}",
+     "resolvedPath": "/api/locations/cities",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/locations/cities",
+      "file": "backend/src/routes/location.routes.ts",
+      "line": 136
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agent.service.ts",
+     "hop": 2,
+     "line": 30,
+     "method": "GET",
+     "raw": "/agents",
+     "resolvedPath": "/api/agents",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/agents",
+      "file": "backend/src/routes/agent.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agent.service.ts",
+     "hop": 2,
+     "line": 38,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/agents/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/agents/search",
+      "file": "backend/src/routes/agent.routes.ts",
+      "line": 31
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agent.service.ts",
+     "hop": 2,
+     "line": 46,
+     "method": "GET",
+     "raw": "${BASE_URL}/search",
+     "resolvedPath": "/api/agents/search",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/agents/search",
+      "file": "backend/src/routes/agent.routes.ts",
+      "line": 31
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agent.service.ts",
+     "hop": 2,
+     "line": 54,
+     "method": "POST",
+     "raw": "/agents",
+     "resolvedPath": "/api/agents",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/agents",
+      "file": "backend/src/routes/agent.routes.ts",
+      "line": 38
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agent.service.ts",
+     "hop": 2,
+     "line": 62,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/agents/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/agents/:id",
+      "file": "backend/src/routes/agent.routes.ts",
+      "line": 59
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agent.service.ts",
+     "hop": 2,
+     "line": 70,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/agents/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/agents/:id",
+      "file": "backend/src/routes/agent.routes.ts",
+      "line": 66
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agency.service.ts",
+     "hop": 2,
+     "line": 22,
+     "method": "GET",
+     "raw": "/agencies",
+     "resolvedPath": "/api/agencies",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/agencies",
+      "file": "backend/src/routes/agency.routes.ts",
+      "line": 18
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agency.service.ts",
+     "hop": 2,
+     "line": 30,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/agencies/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/agencies/search",
+      "file": "backend/src/routes/agency.routes.ts",
+      "line": 15
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agency.service.ts",
+     "hop": 2,
+     "line": 38,
+     "method": "GET",
+     "raw": "${BASE_URL}/search",
+     "resolvedPath": "/api/agencies/search",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/agencies/search",
+      "file": "backend/src/routes/agency.routes.ts",
+      "line": 15
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agency.service.ts",
+     "hop": 2,
+     "line": 46,
+     "method": "POST",
+     "raw": "/agencies",
+     "resolvedPath": "/api/agencies",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/agencies",
+      "file": "backend/src/routes/agency.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agency.service.ts",
+     "hop": 2,
+     "line": 54,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/agencies/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/agencies/:id",
+      "file": "backend/src/routes/agency.routes.ts",
+      "line": 27
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/agency.service.ts",
+     "hop": 2,
+     "line": 62,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/agencies/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/agencies/:id",
+      "file": "backend/src/routes/agency.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 3,
+     "line": 24,
+     "method": "GET",
+     "raw": "/materials/label",
+     "resolvedPath": "/api/materials/label",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/label",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 3,
+     "line": 34,
+     "method": "GET",
+     "raw": "/materials/label/${id}",
+     "resolvedPath": "/api/materials/label/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/label/template",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 3,
+     "line": 49,
+     "method": "POST",
+     "raw": "/materials/label",
+     "resolvedPath": "/api/materials/label",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/label",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 3,
+     "line": 64,
+     "method": "PUT",
+     "raw": "/materials/label/${id}",
+     "resolvedPath": "/api/materials/label/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/label/:id",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 3,
+     "line": 72,
+     "method": "DELETE",
+     "raw": "/materials/label/${id}",
+     "resolvedPath": "/api/materials/label/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/label/:id",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 3,
+     "line": 79,
+     "method": "POST",
+     "raw": "/materials/label/bulk-import",
+     "resolvedPath": "/api/materials/label/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/label/bulk-import",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 3,
+     "line": 87,
+     "method": "GET",
+     "raw": "/materials/label/template",
+     "resolvedPath": "/api/materials/label/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/label/template",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 3,
+     "line": 23,
+     "method": "GET",
+     "raw": "/materials/packaging",
+     "resolvedPath": "/api/materials/packaging",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/packaging",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 3,
+     "line": 33,
+     "method": "GET",
+     "raw": "/materials/packaging/${id}",
+     "resolvedPath": "/api/materials/packaging/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/packaging/template",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 3,
+     "line": 49,
+     "method": "POST",
+     "raw": "/materials/packaging",
+     "resolvedPath": "/api/materials/packaging",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/packaging",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 3,
+     "line": 65,
+     "method": "PUT",
+     "raw": "/materials/packaging/${id}",
+     "resolvedPath": "/api/materials/packaging/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/packaging/:id",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 3,
+     "line": 73,
+     "method": "DELETE",
+     "raw": "/materials/packaging/${id}",
+     "resolvedPath": "/api/materials/packaging/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/packaging/:id",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 73
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 3,
+     "line": 83,
+     "method": "POST",
+     "raw": "/materials/packaging/bulk-import",
+     "resolvedPath": "/api/materials/packaging/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/packaging/bulk-import",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 80
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 3,
+     "line": 94,
+     "method": "GET",
+     "raw": "/materials/packaging/template",
+     "resolvedPath": "/api/materials/packaging/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/packaging/template",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/CustomerList.tsx": {
+   "routes": [
+    "/customers"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/CustomerDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CustomerDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CustomerDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CustomerForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CustomerForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CustomerForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/Dashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/GeneralDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/SalesDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 252,
+     "raw": "/customers/${customer.id}",
+     "normalized": "/customers/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerForm.tsx"
+    },
+    {
+     "line": 264,
+     "raw": "/customers/${customer.id}/edit",
+     "normalized": "/customers/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerForm.tsx"
+    },
+    {
+     "line": 303,
+     "raw": "/customers/new",
+     "normalized": "/customers/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerForm.tsx"
+    },
+    {
+     "line": 351,
+     "raw": "/customers/new",
+     "normalized": "/customers/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerForm.tsx"
+    },
+    {
+     "line": 361,
+     "raw": "/customers/${customer.id}",
+     "normalized": "/customers/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "/customers?${queryParams.toString()}",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 46,
+     "method": "DELETE",
+     "raw": "/customers/${id}",
+     "resolvedPath": "/api/customers/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/customers/:id",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 50,
+     "method": "GET",
+     "raw": "/customers/${id}/can-deactivate",
+     "resolvedPath": "/api/customers/:_/can-deactivate",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers/:id/can-deactivate",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 82
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/export.service.ts",
+     "hop": 2,
+     "line": 13,
+     "method": "POST",
+     "raw": "/export/${module}",
+     "resolvedPath": "/api/export/:_",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/export/:module",
+      "file": "backend/src/routes/export.routes.ts",
+      "line": 20
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 15,
+     "method": "POST",
+     "raw": "/import/${module}/preview",
+     "resolvedPath": "/api/import/:_/preview",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/import/:module/preview",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 18
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 38,
+     "method": "POST",
+     "raw": "/import/${module}/execute",
+     "resolvedPath": "/api/import/:_/execute",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/import/:module/execute",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 71,
+     "method": "GET",
+     "raw": "/import/${module}/template",
+     "resolvedPath": "/api/import/:_/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/import/:module/template",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/SupplierDetail.tsx": {
+   "routes": [
+    "/suppliers/:id"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 98,
+     "raw": "/suppliers",
+     "normalized": "/suppliers",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SupplierList.tsx"
+    },
+    {
+     "line": 108,
+     "raw": "/suppliers",
+     "normalized": "/suppliers",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SupplierList.tsx"
+    },
+    {
+     "line": 122,
+     "raw": "/suppliers",
+     "normalized": "/suppliers",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SupplierList.tsx"
+    },
+    {
+     "line": 127,
+     "raw": "/suppliers/${supplier.id}/edit",
+     "normalized": "/suppliers/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SupplierForm.tsx"
+    }
+   ],
+   "calls": []
+  },
+  "frontend/src/pages/SupplierForm.tsx": {
+   "routes": [
+    "/suppliers/new",
+    "/suppliers/:id/edit"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/SupplierDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SupplierList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SupplierList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SupplierList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SupplierList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SupplierList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 55,
+     "method": "GET",
+     "raw": "${API_PREFIX}/greige/${id}",
+     "resolvedPath": "/api/fabric-management/greige/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/greige/statistics",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 61,
+     "method": "POST",
+     "raw": "${API_PREFIX}/greige",
+     "resolvedPath": "/api/fabric-management/greige",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-management/greige",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 82
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 67,
+     "method": "PUT",
+     "raw": "${API_PREFIX}/greige/${id}",
+     "resolvedPath": "/api/fabric-management/greige/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/fabric-management/greige/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 90
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 73,
+     "method": "DELETE",
+     "raw": "${API_PREFIX}/greige/${id}",
+     "resolvedPath": "/api/fabric-management/greige/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/fabric-management/greige/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 99
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 79,
+     "method": "GET",
+     "raw": "${API_PREFIX}/greige/statistics",
+     "resolvedPath": "/api/fabric-management/greige/statistics",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/greige/statistics",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 95,
+     "method": "GET",
+     "raw": "/greige/processors-with-stock",
+     "resolvedPath": "/api/greige/processors-with-stock",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/greige/processors-with-stock",
+      "file": "backend/src/routes/greige-stock.routes.ts",
+      "line": 113
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 128,
+     "method": "GET",
+     "raw": "/greige/processor-stock/${processorId}",
+     "resolvedPath": "/api/greige/processor-stock/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/greige/processor-stock/:processorId",
+      "file": "backend/src/routes/greige-stock.routes.ts",
+      "line": 124
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 183,
+     "method": "GET",
+     "raw": "${API_PREFIX}/fabric/${id}",
+     "resolvedPath": "/api/fabric-management/fabric/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/fabric/statistics",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 119
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 189,
+     "method": "GET",
+     "raw": "${API_PREFIX}/fabric/by-greige/${greigeId}",
+     "resolvedPath": "/api/fabric-management/fabric/by-greige/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/fabric/:id/pricing-history",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 131
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 195,
+     "method": "POST",
+     "raw": "${API_PREFIX}/fabric",
+     "resolvedPath": "/api/fabric-management/fabric",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-management/fabric",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 155
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 201,
+     "method": "PUT",
+     "raw": "${API_PREFIX}/fabric/${id}",
+     "resolvedPath": "/api/fabric-management/fabric/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/fabric-management/fabric/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 163
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 207,
+     "method": "DELETE",
+     "raw": "${API_PREFIX}/fabric/${id}",
+     "resolvedPath": "/api/fabric-management/fabric/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/fabric-management/fabric/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 172
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 213,
+     "method": "GET",
+     "raw": "${API_PREFIX}/fabric/statistics",
+     "resolvedPath": "/api/fabric-management/fabric/statistics",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/fabric/statistics",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 119
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 219,
+     "method": "GET",
+     "raw": "${API_PREFIX}/fabric/generic-names?isActive=${isActive}",
+     "resolvedPath": "/api/fabric-management/fabric/generic-names",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/fabric/generic-names",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 122
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 231,
+     "method": "GET",
+     "raw": "${API_PREFIX}/fabric/${fabricId}/style-allocations",
+     "resolvedPath": "/api/fabric-management/fabric/:_/style-allocations",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/fabric/by-greige/:greigeId",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 139
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 239,
+     "method": "POST",
+     "raw": "${API_PREFIX}/fabric/${fabricId}/allocate-to-style",
+     "resolvedPath": "/api/fabric-management/fabric/:_/allocate-to-style",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-management/fabric/:id/allocate-to-style",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 200
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 248,
+     "method": "DELETE",
+     "raw": "${API_PREFIX}/fabric/${fabricId}/style-allocations/${styleFabricId}",
+     "resolvedPath": "/api/fabric-management/fabric/:_/style-allocations/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/fabric-management/fabric/:id/style-allocations/:styleFabricId",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 209
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 256,
+     "method": "PUT",
+     "raw": "${API_PREFIX}/fabric/${fabricId}/allocations/${allocationId}/pattern-parts",
+     "resolvedPath": "/api/fabric-management/fabric/:_/allocations/:_/pattern-parts",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/fabric-management/fabric/:id/allocations/:allocationId/pattern-parts",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 217
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 261,
+     "method": "GET",
+     "raw": "/styles?limit=200&isActive=true",
+     "resolvedPath": "/api/styles",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 112
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 267,
+     "method": "GET",
+     "raw": "/component-masters/${componentMasterId}/pattern-parts",
+     "resolvedPath": "/api/component-masters/:_/pattern-parts",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 281,
+     "method": "GET",
+     "raw": "/cad-planning/${styleId}/components/${componentId}/pattern-parts",
+     "resolvedPath": "/api/cad-planning/:_/components/:_/pattern-parts",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cad-planning/:styleId/components/:componentId/pattern-parts",
+      "file": "backend/src/routes/cad-planning.routes.ts",
+      "line": 574
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 299,
+     "method": "GET",
+     "raw": "/pattern-parts?isActive=true&limit=200",
+     "resolvedPath": "/api/pattern-parts",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/pattern-parts",
+      "file": "backend/src/routes/patternPart.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 319,
+     "method": "GET",
+     "raw": "${API_PREFIX}/cad/fabric/${fabricId}",
+     "resolvedPath": "/api/fabric-management/cad/fabric/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/cad/fabric/:fabricId",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 241
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 325,
+     "method": "GET",
+     "raw": "${API_PREFIX}/cad/${id}",
+     "resolvedPath": "/api/fabric-management/cad/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/cad/statistics",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 230
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 331,
+     "method": "POST",
+     "raw": "${API_PREFIX}/cad",
+     "resolvedPath": "/api/fabric-management/cad",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-management/cad",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 252
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 337,
+     "method": "PUT",
+     "raw": "${API_PREFIX}/cad/${id}",
+     "resolvedPath": "/api/fabric-management/cad/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/fabric-management/cad/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 255
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 343,
+     "method": "PATCH",
+     "raw": "${API_PREFIX}/cad/${id}/set-preferred",
+     "resolvedPath": "/api/fabric-management/cad/:_/set-preferred",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/fabric-management/cad/:id/set-preferred",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 264
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 349,
+     "method": "DELETE",
+     "raw": "${API_PREFIX}/cad/${id}",
+     "resolvedPath": "/api/fabric-management/cad/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/fabric-management/cad/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 273
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 355,
+     "method": "GET",
+     "raw": "${API_PREFIX}/cad/comparison/${fabricId}?orderQuantity=${orderQuantity}",
+     "resolvedPath": "/api/fabric-management/cad/comparison/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/cad/comparison/:fabricId",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 233
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 2,
+     "line": 363,
+     "method": "GET",
+     "raw": "${API_PREFIX}/cad/statistics",
+     "resolvedPath": "/api/fabric-management/cad/statistics",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/cad/statistics",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 230
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/SupplierList.tsx": {
+   "routes": [
+    "/suppliers"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/Dashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SupplierDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SupplierDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SupplierDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 241,
+     "raw": "/suppliers/${supplier.id}",
+     "normalized": "/suppliers/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SupplierForm.tsx"
+    },
+    {
+     "line": 251,
+     "raw": "/suppliers/${supplier.id}/edit?page=${currentPage}",
+     "normalized": "/suppliers/:_/edit",
+     "queryParams": [
+      "page"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SupplierForm.tsx"
+    },
+    {
+     "line": 287,
+     "raw": "/suppliers/new",
+     "normalized": "/suppliers/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SupplierForm.tsx"
+    },
+    {
+     "line": 336,
+     "raw": "/suppliers/${supplier.id}",
+     "normalized": "/suppliers/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SupplierForm.tsx"
+    },
+    {
+     "line": 345,
+     "raw": "/suppliers/new",
+     "normalized": "/suppliers/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SupplierForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/export.service.ts",
+     "hop": 2,
+     "line": 13,
+     "method": "POST",
+     "raw": "/export/${module}",
+     "resolvedPath": "/api/export/:_",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/export/:module",
+      "file": "backend/src/routes/export.routes.ts",
+      "line": 20
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 15,
+     "method": "POST",
+     "raw": "/import/${module}/preview",
+     "resolvedPath": "/api/import/:_/preview",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/import/:module/preview",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 18
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 38,
+     "method": "POST",
+     "raw": "/import/${module}/execute",
+     "resolvedPath": "/api/import/:_/execute",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/import/:module/execute",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 71,
+     "method": "GET",
+     "raw": "/import/${module}/template",
+     "resolvedPath": "/api/import/:_/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/import/:module/template",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/WarehouseForm.tsx": {
+   "routes": [
+    "/inventory/warehouses/new",
+    "/inventory/warehouses/:id/edit"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/WarehouseList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WarehouseList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WarehouseList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WarehouseList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WarehouseList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 146,
+     "raw": "/inventory/warehouses",
+     "normalized": "/inventory/warehouses",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WarehouseList.tsx"
+    },
+    {
+     "line": 337,
+     "raw": "/inventory/warehouses",
+     "normalized": "/inventory/warehouses",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WarehouseList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 22
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 34,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "${BASE_URL}/code/${code}",
+     "resolvedPath": "/api/warehouses/code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/code/:warehouseCode",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${type}",
+     "resolvedPath": "/api/warehouses/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "${BASE_URL}/generate-code/${type}",
+     "resolvedPath": "/api/warehouses/generate-code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/generate-code/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/stock-summary",
+     "resolvedPath": "/api/warehouses/:_/stock-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 76,
+     "method": "POST",
+     "raw": "/warehouses",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 57
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/WarehouseList.tsx": {
+   "routes": [
+    "/inventory/warehouses"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/StockDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WarehouseForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WarehouseForm.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 157,
+     "raw": "/inventory/warehouses/${wh.id}",
+     "normalized": "/inventory/warehouses/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WarehouseForm.tsx"
+    },
+    {
+     "line": 167,
+     "raw": "/inventory/warehouses/${wh.id}/edit",
+     "normalized": "/inventory/warehouses/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WarehouseForm.tsx"
+    },
+    {
+     "line": 190,
+     "raw": "/inventory/warehouses/new",
+     "normalized": "/inventory/warehouses/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WarehouseForm.tsx"
+    },
+    {
+     "line": 254,
+     "raw": "/inventory/warehouses/new",
+     "normalized": "/inventory/warehouses/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WarehouseForm.tsx"
+    },
+    {
+     "line": 256,
+     "raw": "/inventory/warehouses/${wh.id}",
+     "normalized": "/inventory/warehouses/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WarehouseForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 22
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 34,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "${BASE_URL}/code/${code}",
+     "resolvedPath": "/api/warehouses/code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/code/:warehouseCode",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${type}",
+     "resolvedPath": "/api/warehouses/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "${BASE_URL}/generate-code/${type}",
+     "resolvedPath": "/api/warehouses/generate-code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/generate-code/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/stock-summary",
+     "resolvedPath": "/api/warehouses/:_/stock-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 76,
+     "method": "POST",
+     "raw": "/warehouses",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 57
+     },
+     "tags": []
+    }
+   ]
+  }
+ },
+ "unresolvedCalls": []
+}

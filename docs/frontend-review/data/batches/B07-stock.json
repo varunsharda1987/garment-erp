@@ -1,0 +1,4540 @@
+{
+ "batch": "B07-stock",
+ "pages": {
+  "frontend/src/pages/FabricUsageReport.tsx": {
+   "routes": [
+    "/reports/fabric-usage"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/FabricList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/FabricUsageReport.tsx",
+     "hop": 0,
+     "line": 49,
+     "method": "GET",
+     "raw": "/fabric-management/fabric",
+     "resolvedPath": "/api/fabric-management/fabric",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/fabric",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 111
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style-stock.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "GET",
+     "raw": "/styles/fabrics/${fabricId}/styles",
+     "resolvedPath": "/api/styles/fabrics/:_/styles",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/fabrics/:fabricId/styles",
+      "file": "backend/src/routes/style-import.routes.ts",
+      "line": 146
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style-stock.service.ts",
+     "hop": 1,
+     "line": 77,
+     "method": "GET",
+     "raw": "/styles/fabrics/${fabricId}/stock-history",
+     "resolvedPath": "/api/styles/fabrics/:_/stock-history",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/fabrics/:fabricId/stock-history",
+      "file": "backend/src/routes/style-import.routes.ts",
+      "line": 156
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/LaceStockDetail.tsx": {
+   "routes": [
+    "/lace-stock/:id"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/LaceStockList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/LaceStockList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 227,
+     "raw": "/lace-stock",
+     "normalized": "/lace-stock",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/LaceStockList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/laceStock.service.ts",
+     "hop": 1,
+     "line": 44,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/lace-stock/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/lace-stock/:id",
+      "file": "backend/src/routes/laceStock.routes.ts",
+      "line": 128
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/laceStock.service.ts",
+     "hop": 1,
+     "line": 84,
+     "method": "POST",
+     "raw": "${BASE_URL}/${stockId}/transfer",
+     "resolvedPath": "/api/lace-stock/:_/transfer",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/lace-stock/:id/transfer",
+      "file": "backend/src/routes/laceStock.routes.ts",
+      "line": 156
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/laceStock.service.ts",
+     "hop": 1,
+     "line": 100,
+     "method": "POST",
+     "raw": "${BASE_URL}/${stockId}/return",
+     "resolvedPath": "/api/lace-stock/:_/return",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/laceStock.service.ts",
+     "hop": 1,
+     "line": 108,
+     "method": "GET",
+     "raw": "${BASE_URL}/${stockId}/allocations",
+     "resolvedPath": "/api/lace-stock/:_/allocations",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/lace-stock/available/:laceId",
+      "file": "backend/src/routes/laceStock.routes.ts",
+      "line": 121
+     },
+     "tags": [
+      "shadow-risk"
+     ]
+    },
+    {
+     "origin": "frontend/src/services/laceStock.service.ts",
+     "hop": 1,
+     "line": 116,
+     "method": "GET",
+     "raw": "${BASE_URL}/${stockId}/transactions",
+     "resolvedPath": "/api/lace-stock/:_/transactions",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/lace-stock/available/:laceId",
+      "file": "backend/src/routes/laceStock.routes.ts",
+      "line": 121
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/laceStock.service.ts",
+     "hop": 1,
+     "line": 173,
+     "method": "POST",
+     "raw": "${BASE_URL}/${stockId}/downgrade",
+     "resolvedPath": "/api/lace-stock/:_/downgrade",
+     "matchedRoute": null,
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/LaceStockList.tsx": {
+   "routes": [
+    "/lace-stock"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/LaceStockDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 144,
+     "raw": "/lace-stock/aging-report",
+     "normalized": "/lace-stock/aging-report",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/LaceStockDetail.tsx"
+    },
+    {
+     "line": 356,
+     "raw": "/lace-stock/${stock.id}",
+     "normalized": "/lace-stock/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/LaceStockDetail.tsx"
+    },
+    {
+     "line": 365,
+     "raw": "/lace-stock/${stock.id}/transfer",
+     "normalized": "/lace-stock/:_/transfer",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/laceStock.service.ts",
+     "hop": 1,
+     "line": 34,
+     "method": "GET",
+     "raw": "/lace-stock",
+     "resolvedPath": "/api/lace-stock",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/lace-stock",
+      "file": "backend/src/routes/laceStock.routes.ts",
+      "line": 113
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StockAdjustmentForm.tsx": {
+   "routes": [
+    "/inventory/movements/adjustment"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/StockMovementList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 116,
+     "raw": "/inventory/movements",
+     "normalized": "/inventory/movements",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockMovementList.tsx"
+    },
+    {
+     "line": 298,
+     "raw": "/inventory/movements",
+     "normalized": "/inventory/movements",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockMovementList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 29,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 39,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-movements/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/unified",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 58,
+     "method": "GET",
+     "raw": "${BASE_URL}/material/${materialId}/history${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements/material/:_/history",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/material/:materialId/history",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary/${warehouseId}?startDate=${startDate}&endDate=${endDate}",
+     "resolvedPath": "/api/stock-movements/summary/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/summary/:warehouseId",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 87,
+     "method": "GET",
+     "raw": "${BASE_URL}/ledger/${materialId}/${warehouseId}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements/ledger/:_/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/ledger/:materialId/:warehouseId",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 41
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 97,
+     "method": "POST",
+     "raw": "${BASE_URL}/stock-in",
+     "resolvedPath": "/api/stock-movements/stock-in",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/stock-in",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 123,
+     "method": "POST",
+     "raw": "${BASE_URL}/bulk-stock-in",
+     "resolvedPath": "/api/stock-movements/bulk-stock-in",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/bulk-stock-in",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 50
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 134,
+     "method": "POST",
+     "raw": "${BASE_URL}/stock-out",
+     "resolvedPath": "/api/stock-movements/stock-out",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/stock-out",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 55
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 145,
+     "method": "POST",
+     "raw": "${BASE_URL}/transfer",
+     "resolvedPath": "/api/stock-movements/transfer",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/transfer",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 56
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 157,
+     "method": "POST",
+     "raw": "${BASE_URL}/adjustment",
+     "resolvedPath": "/api/stock-movements/adjustment",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/adjustment",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 171,
+     "method": "POST",
+     "raw": "${BASE_URL}/processor-return",
+     "resolvedPath": "/api/stock-movements/processor-return",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/processor-return",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 66
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 207,
+     "method": "GET",
+     "raw": "${BASE_URL}/unified${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements/unified",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/unified",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 22
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 34,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "${BASE_URL}/code/${code}",
+     "resolvedPath": "/api/warehouses/code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/code/:warehouseCode",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${type}",
+     "resolvedPath": "/api/warehouses/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "${BASE_URL}/generate-code/${type}",
+     "resolvedPath": "/api/warehouses/generate-code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/generate-code/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/stock-summary",
+     "resolvedPath": "/api/warehouses/:_/stock-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 76,
+     "method": "POST",
+     "raw": "/warehouses",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 57
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 25,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-levels",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 16
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 35,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-levels/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/below-reorder",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 17
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 44,
+     "method": "GET",
+     "raw": "${BASE_URL}/material/${materialId}",
+     "resolvedPath": "/api/stock-levels/material/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/material/:materialId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/warehouse/${warehouseId}",
+     "resolvedPath": "/api/stock-levels/warehouse/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/warehouse/:warehouseId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/below-reorder${params}",
+     "resolvedPath": "/api/stock-levels/below-reorder:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/:id",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 42
+     },
+     "tags": [
+      "shadow-risk"
+     ]
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "GET",
+     "raw": "${BASE_URL}/aging/${warehouseId}",
+     "resolvedPath": "/api/stock-levels/aging/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/aging/:warehouseId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 20
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 81,
+     "method": "GET",
+     "raw": "${BASE_URL}/valuation${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-levels/valuation",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/valuation",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 18
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 91,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-levels/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/stock-levels/:id",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 100,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${materialType}",
+     "resolvedPath": "/api/stock-levels/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/by-type/:materialType",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 25
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 108,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary-by-type",
+     "resolvedPath": "/api/stock-levels/summary-by-type",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/summary-by-type",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 19
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StockCountForm.tsx": {
+   "routes": [
+    "/inventory/stock-counts/new"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/StockCountForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockCountList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockCountList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockCountList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockCountList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 96,
+     "raw": "/inventory/stock-counts/${count.id}",
+     "normalized": "/inventory/stock-counts/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockCountForm.tsx"
+    },
+    {
+     "line": 250,
+     "raw": "/inventory/stock-counts",
+     "normalized": "/inventory/stock-counts",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockCountList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 28,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-counts",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-counts",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 15
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 38,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-counts/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-counts/:id",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 22
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 47,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/variance",
+     "resolvedPath": "/api/stock-counts/:_/variance",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-counts/summary/:warehouseId",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 16
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 59,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary/${warehouseId}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-counts/summary/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-counts/summary/:warehouseId",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 16
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 77,
+     "method": "POST",
+     "raw": "/stock-counts",
+     "resolvedPath": "/api/stock-counts",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-counts",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 25
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 86,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/start",
+     "resolvedPath": "/api/stock-counts/:_/start",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-counts/:id/start",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 26
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 95,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${countId}/items/${itemId}",
+     "resolvedPath": "/api/stock-counts/:_/items/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/stock-counts/:countId/items/:itemId",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 104,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/verify",
+     "resolvedPath": "/api/stock-counts/:_/verify",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-counts/:id/verify",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 27
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 113,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/approve",
+     "resolvedPath": "/api/stock-counts/:_/approve",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-counts/:id/approve",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 127,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/cancel",
+     "resolvedPath": "/api/stock-counts/:_/cancel",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-counts/:id/cancel",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 22
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 34,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "${BASE_URL}/code/${code}",
+     "resolvedPath": "/api/warehouses/code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/code/:warehouseCode",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${type}",
+     "resolvedPath": "/api/warehouses/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "${BASE_URL}/generate-code/${type}",
+     "resolvedPath": "/api/warehouses/generate-code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/generate-code/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/stock-summary",
+     "resolvedPath": "/api/warehouses/:_/stock-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 76,
+     "method": "POST",
+     "raw": "/warehouses",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 57
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 25,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-levels",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 16
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 35,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-levels/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/below-reorder",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 17
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 44,
+     "method": "GET",
+     "raw": "${BASE_URL}/material/${materialId}",
+     "resolvedPath": "/api/stock-levels/material/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/material/:materialId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/warehouse/${warehouseId}",
+     "resolvedPath": "/api/stock-levels/warehouse/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/warehouse/:warehouseId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/below-reorder${params}",
+     "resolvedPath": "/api/stock-levels/below-reorder:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/:id",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 42
+     },
+     "tags": [
+      "shadow-risk"
+     ]
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "GET",
+     "raw": "${BASE_URL}/aging/${warehouseId}",
+     "resolvedPath": "/api/stock-levels/aging/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/aging/:warehouseId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 20
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 81,
+     "method": "GET",
+     "raw": "${BASE_URL}/valuation${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-levels/valuation",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/valuation",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 18
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 91,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-levels/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/stock-levels/:id",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 100,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${materialType}",
+     "resolvedPath": "/api/stock-levels/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/by-type/:materialType",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 25
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 108,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary-by-type",
+     "resolvedPath": "/api/stock-levels/summary-by-type",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/summary-by-type",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 19
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StockCountList.tsx": {
+   "routes": [
+    "/inventory/stock-counts"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/StockCountForm.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 159,
+     "raw": "/inventory/stock-counts/${count.id}",
+     "normalized": "/inventory/stock-counts/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockCountForm.tsx"
+    },
+    {
+     "line": 172,
+     "raw": "/inventory/stock-counts/new",
+     "normalized": "/inventory/stock-counts/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockCountForm.tsx"
+    },
+    {
+     "line": 234,
+     "raw": "/inventory/stock-counts/new",
+     "normalized": "/inventory/stock-counts/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockCountForm.tsx"
+    },
+    {
+     "line": 236,
+     "raw": "/inventory/stock-counts/${count.id}",
+     "normalized": "/inventory/stock-counts/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockCountForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 28,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-counts",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-counts",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 15
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 38,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-counts/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-counts/:id",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 22
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 47,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/variance",
+     "resolvedPath": "/api/stock-counts/:_/variance",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-counts/summary/:warehouseId",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 16
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 59,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary/${warehouseId}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-counts/summary/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-counts/summary/:warehouseId",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 16
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 77,
+     "method": "POST",
+     "raw": "/stock-counts",
+     "resolvedPath": "/api/stock-counts",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-counts",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 25
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 86,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/start",
+     "resolvedPath": "/api/stock-counts/:_/start",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-counts/:id/start",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 26
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 95,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${countId}/items/${itemId}",
+     "resolvedPath": "/api/stock-counts/:_/items/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/stock-counts/:countId/items/:itemId",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 104,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/verify",
+     "resolvedPath": "/api/stock-counts/:_/verify",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-counts/:id/verify",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 27
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 113,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/approve",
+     "resolvedPath": "/api/stock-counts/:_/approve",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-counts/:id/approve",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockCount.service.ts",
+     "hop": 1,
+     "line": 127,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/cancel",
+     "resolvedPath": "/api/stock-counts/:_/cancel",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-counts/:id/cancel",
+      "file": "backend/src/routes/stockCount.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StockDashboard.tsx": {
+   "routes": [
+    "/inventory/dashboard"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/Dashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 95,
+     "raw": "/inventory/reports",
+     "normalized": "/inventory/reports",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 99,
+     "raw": "/inventory/movements/new",
+     "normalized": "/inventory/movements/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 148,
+     "raw": "/inventory/warehouses",
+     "normalized": "/inventory/warehouses",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WarehouseList.tsx"
+    },
+    {
+     "line": 161,
+     "raw": "/fabric-stock",
+     "normalized": "/fabric-stock",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricAvailableStock.tsx"
+    },
+    {
+     "line": 207,
+     "raw": "/greige-stock",
+     "normalized": "/greige-stock",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/GreigeAvailableStock.tsx"
+    },
+    {
+     "line": 239,
+     "raw": "/inventory/stock-levels",
+     "normalized": "/inventory/stock-levels",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockLevelList.tsx"
+    },
+    {
+     "line": 365,
+     "raw": "/inventory/stock-levels",
+     "normalized": "/inventory/stock-levels",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockLevelList.tsx"
+    },
+    {
+     "line": 381,
+     "raw": "/inventory/movements/stock-in",
+     "normalized": "/inventory/movements/stock-in",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockInForm.tsx"
+    },
+    {
+     "line": 387,
+     "raw": "/inventory/movements/stock-out",
+     "normalized": "/inventory/movements/stock-out",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockOutForm.tsx"
+    },
+    {
+     "line": 391,
+     "raw": "/inventory/movements/transfer",
+     "normalized": "/inventory/movements/transfer",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockTransferForm.tsx"
+    },
+    {
+     "line": 394,
+     "raw": "/inventory/stock-counts/new",
+     "normalized": "/inventory/stock-counts/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockCountForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 22
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 34,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "${BASE_URL}/code/${code}",
+     "resolvedPath": "/api/warehouses/code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/code/:warehouseCode",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${type}",
+     "resolvedPath": "/api/warehouses/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "${BASE_URL}/generate-code/${type}",
+     "resolvedPath": "/api/warehouses/generate-code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/generate-code/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/stock-summary",
+     "resolvedPath": "/api/warehouses/:_/stock-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 76,
+     "method": "POST",
+     "raw": "/warehouses",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 57
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 25,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-levels",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 16
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 35,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-levels/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/below-reorder",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 17
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 44,
+     "method": "GET",
+     "raw": "${BASE_URL}/material/${materialId}",
+     "resolvedPath": "/api/stock-levels/material/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/material/:materialId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/warehouse/${warehouseId}",
+     "resolvedPath": "/api/stock-levels/warehouse/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/warehouse/:warehouseId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/below-reorder${params}",
+     "resolvedPath": "/api/stock-levels/below-reorder:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/:id",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 42
+     },
+     "tags": [
+      "shadow-risk"
+     ]
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "GET",
+     "raw": "${BASE_URL}/aging/${warehouseId}",
+     "resolvedPath": "/api/stock-levels/aging/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/aging/:warehouseId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 20
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 81,
+     "method": "GET",
+     "raw": "${BASE_URL}/valuation${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-levels/valuation",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/valuation",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 18
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 91,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-levels/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/stock-levels/:id",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 100,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${materialType}",
+     "resolvedPath": "/api/stock-levels/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/by-type/:materialType",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 25
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 108,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary-by-type",
+     "resolvedPath": "/api/stock-levels/summary-by-type",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/summary-by-type",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 19
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricStock.service.ts",
+     "hop": 1,
+     "line": 48,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary",
+     "resolvedPath": "/api/stock/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock/summary",
+      "file": "backend/src/routes/fabric-stock.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricStock.service.ts",
+     "hop": 1,
+     "line": 57,
+     "method": "GET",
+     "raw": "${BASE_URL}?fabricId=${fabricId}&limit=10&status=AVAILABLE",
+     "resolvedPath": "/api/stock",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock",
+      "file": "backend/src/routes/fabric-stock.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricStock.service.ts",
+     "hop": 1,
+     "line": 80,
+     "method": "GET",
+     "raw": "${BASE_URL}?${queryParams.toString()}",
+     "resolvedPath": "/api/stock",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock",
+      "file": "backend/src/routes/fabric-stock.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/greigeStock.service.ts",
+     "hop": 1,
+     "line": 44,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary",
+     "resolvedPath": "/api/greige/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/greige/summary",
+      "file": "backend/src/routes/greige-stock.routes.ts",
+      "line": 74
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/greigeStock.service.ts",
+     "hop": 1,
+     "line": 75,
+     "method": "GET",
+     "raw": "${BASE_URL}/stock-entries/${greigeId}",
+     "resolvedPath": "/api/greige/stock-entries/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/greige/stock-entries/:greigeId",
+      "file": "backend/src/routes/greige-stock.routes.ts",
+      "line": 62
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/greigeStock.service.ts",
+     "hop": 1,
+     "line": 83,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/stock/${stockId}",
+     "resolvedPath": "/api/greige/stock/:_",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/greige/stock/:stockId",
+      "file": "backend/src/routes/greige-stock.routes.ts",
+      "line": 85
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/greigeStock.service.ts",
+     "hop": 1,
+     "line": 91,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/stock/${stockId}",
+     "resolvedPath": "/api/greige/stock/:_",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/greigeStock.service.ts",
+     "hop": 1,
+     "line": 101,
+     "method": "POST",
+     "raw": "${BASE_URL}/stock/${stockId}/adjust",
+     "resolvedPath": "/api/greige/stock/:_/adjust",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/greige/stock/:stockId/adjust",
+      "file": "backend/src/routes/greige-stock.routes.ts",
+      "line": 99
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StockInForm.tsx": {
+   "routes": [
+    "/inventory/movements/stock-in"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/StockDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockMovementList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 645,
+     "raw": "/inventory/movements",
+     "normalized": "/inventory/movements",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockMovementList.tsx"
+    },
+    {
+     "line": 720,
+     "raw": "/inventory/movements",
+     "normalized": "/inventory/movements",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockMovementList.tsx"
+    },
+    {
+     "line": 1411,
+     "raw": "/inventory/movements",
+     "normalized": "/inventory/movements",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockMovementList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 29,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 39,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-movements/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/unified",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 58,
+     "method": "GET",
+     "raw": "${BASE_URL}/material/${materialId}/history${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements/material/:_/history",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/material/:materialId/history",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary/${warehouseId}?startDate=${startDate}&endDate=${endDate}",
+     "resolvedPath": "/api/stock-movements/summary/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/summary/:warehouseId",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 87,
+     "method": "GET",
+     "raw": "${BASE_URL}/ledger/${materialId}/${warehouseId}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements/ledger/:_/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/ledger/:materialId/:warehouseId",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 41
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 97,
+     "method": "POST",
+     "raw": "${BASE_URL}/stock-in",
+     "resolvedPath": "/api/stock-movements/stock-in",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/stock-in",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 123,
+     "method": "POST",
+     "raw": "${BASE_URL}/bulk-stock-in",
+     "resolvedPath": "/api/stock-movements/bulk-stock-in",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/bulk-stock-in",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 50
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 134,
+     "method": "POST",
+     "raw": "${BASE_URL}/stock-out",
+     "resolvedPath": "/api/stock-movements/stock-out",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/stock-out",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 55
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 145,
+     "method": "POST",
+     "raw": "${BASE_URL}/transfer",
+     "resolvedPath": "/api/stock-movements/transfer",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/transfer",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 56
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 157,
+     "method": "POST",
+     "raw": "${BASE_URL}/adjustment",
+     "resolvedPath": "/api/stock-movements/adjustment",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/adjustment",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 171,
+     "method": "POST",
+     "raw": "${BASE_URL}/processor-return",
+     "resolvedPath": "/api/stock-movements/processor-return",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/processor-return",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 66
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 207,
+     "method": "GET",
+     "raw": "${BASE_URL}/unified${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements/unified",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/unified",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 22
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 34,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "${BASE_URL}/code/${code}",
+     "resolvedPath": "/api/warehouses/code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/code/:warehouseCode",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${type}",
+     "resolvedPath": "/api/warehouses/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "${BASE_URL}/generate-code/${type}",
+     "resolvedPath": "/api/warehouses/generate-code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/generate-code/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/stock-summary",
+     "resolvedPath": "/api/warehouses/:_/stock-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 76,
+     "method": "POST",
+     "raw": "/warehouses",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 57
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/material.service.ts",
+     "hop": 1,
+     "line": 27,
+     "method": "GET",
+     "raw": "/materials",
+     "resolvedPath": "/api/materials",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials",
+      "file": "backend/src/routes/material.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 55,
+     "method": "GET",
+     "raw": "${API_PREFIX}/greige/${id}",
+     "resolvedPath": "/api/fabric-management/greige/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/greige/statistics",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "POST",
+     "raw": "${API_PREFIX}/greige",
+     "resolvedPath": "/api/fabric-management/greige",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-management/greige",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 82
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 67,
+     "method": "PUT",
+     "raw": "${API_PREFIX}/greige/${id}",
+     "resolvedPath": "/api/fabric-management/greige/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/fabric-management/greige/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 90
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 73,
+     "method": "DELETE",
+     "raw": "${API_PREFIX}/greige/${id}",
+     "resolvedPath": "/api/fabric-management/greige/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/fabric-management/greige/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 99
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 79,
+     "method": "GET",
+     "raw": "${API_PREFIX}/greige/statistics",
+     "resolvedPath": "/api/fabric-management/greige/statistics",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/greige/statistics",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 95,
+     "method": "GET",
+     "raw": "/greige/processors-with-stock",
+     "resolvedPath": "/api/greige/processors-with-stock",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/greige/processors-with-stock",
+      "file": "backend/src/routes/greige-stock.routes.ts",
+      "line": 113
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 128,
+     "method": "GET",
+     "raw": "/greige/processor-stock/${processorId}",
+     "resolvedPath": "/api/greige/processor-stock/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/greige/processor-stock/:processorId",
+      "file": "backend/src/routes/greige-stock.routes.ts",
+      "line": 124
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 183,
+     "method": "GET",
+     "raw": "${API_PREFIX}/fabric/${id}",
+     "resolvedPath": "/api/fabric-management/fabric/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/fabric/statistics",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 119
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 189,
+     "method": "GET",
+     "raw": "${API_PREFIX}/fabric/by-greige/${greigeId}",
+     "resolvedPath": "/api/fabric-management/fabric/by-greige/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/fabric/:id/pricing-history",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 131
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 195,
+     "method": "POST",
+     "raw": "${API_PREFIX}/fabric",
+     "resolvedPath": "/api/fabric-management/fabric",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-management/fabric",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 155
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 201,
+     "method": "PUT",
+     "raw": "${API_PREFIX}/fabric/${id}",
+     "resolvedPath": "/api/fabric-management/fabric/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/fabric-management/fabric/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 163
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 207,
+     "method": "DELETE",
+     "raw": "${API_PREFIX}/fabric/${id}",
+     "resolvedPath": "/api/fabric-management/fabric/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/fabric-management/fabric/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 172
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 213,
+     "method": "GET",
+     "raw": "${API_PREFIX}/fabric/statistics",
+     "resolvedPath": "/api/fabric-management/fabric/statistics",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/fabric/statistics",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 119
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 219,
+     "method": "GET",
+     "raw": "${API_PREFIX}/fabric/generic-names?isActive=${isActive}",
+     "resolvedPath": "/api/fabric-management/fabric/generic-names",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/fabric/generic-names",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 122
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 231,
+     "method": "GET",
+     "raw": "${API_PREFIX}/fabric/${fabricId}/style-allocations",
+     "resolvedPath": "/api/fabric-management/fabric/:_/style-allocations",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/fabric/by-greige/:greigeId",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 139
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 239,
+     "method": "POST",
+     "raw": "${API_PREFIX}/fabric/${fabricId}/allocate-to-style",
+     "resolvedPath": "/api/fabric-management/fabric/:_/allocate-to-style",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-management/fabric/:id/allocate-to-style",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 200
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 248,
+     "method": "DELETE",
+     "raw": "${API_PREFIX}/fabric/${fabricId}/style-allocations/${styleFabricId}",
+     "resolvedPath": "/api/fabric-management/fabric/:_/style-allocations/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/fabric-management/fabric/:id/style-allocations/:styleFabricId",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 209
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 256,
+     "method": "PUT",
+     "raw": "${API_PREFIX}/fabric/${fabricId}/allocations/${allocationId}/pattern-parts",
+     "resolvedPath": "/api/fabric-management/fabric/:_/allocations/:_/pattern-parts",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/fabric-management/fabric/:id/allocations/:allocationId/pattern-parts",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 217
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 261,
+     "method": "GET",
+     "raw": "/styles?limit=200&isActive=true",
+     "resolvedPath": "/api/styles",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 112
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 267,
+     "method": "GET",
+     "raw": "/component-masters/${componentMasterId}/pattern-parts",
+     "resolvedPath": "/api/component-masters/:_/pattern-parts",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 281,
+     "method": "GET",
+     "raw": "/cad-planning/${styleId}/components/${componentId}/pattern-parts",
+     "resolvedPath": "/api/cad-planning/:_/components/:_/pattern-parts",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cad-planning/:styleId/components/:componentId/pattern-parts",
+      "file": "backend/src/routes/cad-planning.routes.ts",
+      "line": 574
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 299,
+     "method": "GET",
+     "raw": "/pattern-parts?isActive=true&limit=200",
+     "resolvedPath": "/api/pattern-parts",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/pattern-parts",
+      "file": "backend/src/routes/patternPart.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 319,
+     "method": "GET",
+     "raw": "${API_PREFIX}/cad/fabric/${fabricId}",
+     "resolvedPath": "/api/fabric-management/cad/fabric/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/cad/fabric/:fabricId",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 241
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 325,
+     "method": "GET",
+     "raw": "${API_PREFIX}/cad/${id}",
+     "resolvedPath": "/api/fabric-management/cad/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/cad/statistics",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 230
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 331,
+     "method": "POST",
+     "raw": "${API_PREFIX}/cad",
+     "resolvedPath": "/api/fabric-management/cad",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-management/cad",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 252
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 337,
+     "method": "PUT",
+     "raw": "${API_PREFIX}/cad/${id}",
+     "resolvedPath": "/api/fabric-management/cad/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/fabric-management/cad/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 255
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 343,
+     "method": "PATCH",
+     "raw": "${API_PREFIX}/cad/${id}/set-preferred",
+     "resolvedPath": "/api/fabric-management/cad/:_/set-preferred",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/fabric-management/cad/:id/set-preferred",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 264
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 349,
+     "method": "DELETE",
+     "raw": "${API_PREFIX}/cad/${id}",
+     "resolvedPath": "/api/fabric-management/cad/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/fabric-management/cad/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 273
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 355,
+     "method": "GET",
+     "raw": "${API_PREFIX}/cad/comparison/${fabricId}?orderQuantity=${orderQuantity}",
+     "resolvedPath": "/api/fabric-management/cad/comparison/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/cad/comparison/:fabricId",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 233
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricGreigeService.ts",
+     "hop": 1,
+     "line": 363,
+     "method": "GET",
+     "raw": "${API_PREFIX}/cad/statistics",
+     "resolvedPath": "/api/fabric-management/cad/statistics",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/cad/statistics",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 230
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "GET",
+     "raw": "/materials/lace",
+     "resolvedPath": "/api/materials/lace",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 1,
+     "line": 22,
+     "method": "GET",
+     "raw": "/materials/button",
+     "resolvedPath": "/api/materials/button",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/button",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 1,
+     "line": 22,
+     "method": "GET",
+     "raw": "/materials/thread",
+     "resolvedPath": "/api/materials/thread",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/thread",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 87
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 1,
+     "line": 22,
+     "method": "GET",
+     "raw": "/materials/zipper",
+     "resolvedPath": "/api/materials/zipper",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/zipper",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 1,
+     "line": 22,
+     "method": "GET",
+     "raw": "/materials/elastic",
+     "resolvedPath": "/api/materials/elastic",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/elastic",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "GET",
+     "raw": "/materials/label",
+     "resolvedPath": "/api/materials/label",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/label",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 1,
+     "line": 23,
+     "method": "GET",
+     "raw": "/materials/packaging",
+     "resolvedPath": "/api/materials/packaging",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/packaging",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StockLevelList.tsx": {
+   "routes": [
+    "/inventory/stock-levels"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/GeneralDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 25,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-levels",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 16
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 35,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-levels/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/below-reorder",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 17
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 44,
+     "method": "GET",
+     "raw": "${BASE_URL}/material/${materialId}",
+     "resolvedPath": "/api/stock-levels/material/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/material/:materialId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/warehouse/${warehouseId}",
+     "resolvedPath": "/api/stock-levels/warehouse/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/warehouse/:warehouseId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/below-reorder${params}",
+     "resolvedPath": "/api/stock-levels/below-reorder:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/:id",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 42
+     },
+     "tags": [
+      "shadow-risk"
+     ]
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "GET",
+     "raw": "${BASE_URL}/aging/${warehouseId}",
+     "resolvedPath": "/api/stock-levels/aging/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/aging/:warehouseId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 20
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 81,
+     "method": "GET",
+     "raw": "${BASE_URL}/valuation${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-levels/valuation",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/valuation",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 18
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 91,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-levels/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/stock-levels/:id",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 100,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${materialType}",
+     "resolvedPath": "/api/stock-levels/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/by-type/:materialType",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 25
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 108,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary-by-type",
+     "resolvedPath": "/api/stock-levels/summary-by-type",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/summary-by-type",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 19
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 22
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 34,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "${BASE_URL}/code/${code}",
+     "resolvedPath": "/api/warehouses/code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/code/:warehouseCode",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${type}",
+     "resolvedPath": "/api/warehouses/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "${BASE_URL}/generate-code/${type}",
+     "resolvedPath": "/api/warehouses/generate-code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/generate-code/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/stock-summary",
+     "resolvedPath": "/api/warehouses/:_/stock-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 76,
+     "method": "POST",
+     "raw": "/warehouses",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 57
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StockMovementList.tsx": {
+   "routes": [
+    "/inventory/movements"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/StockAdjustmentForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockAdjustmentForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockInForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockInForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockInForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockOutForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockTransferForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockTransferForm.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 254,
+     "raw": "/inventory/movements/stock-in",
+     "normalized": "/inventory/movements/stock-in",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockInForm.tsx"
+    },
+    {
+     "line": 257,
+     "raw": "/inventory/movements/stock-out",
+     "normalized": "/inventory/movements/stock-out",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockOutForm.tsx"
+    },
+    {
+     "line": 260,
+     "raw": "/inventory/movements/transfer",
+     "normalized": "/inventory/movements/transfer",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockTransferForm.tsx"
+    },
+    {
+     "line": 261,
+     "raw": "/inventory/movements/adjustment",
+     "normalized": "/inventory/movements/adjustment",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockAdjustmentForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 29,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 39,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-movements/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/unified",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 58,
+     "method": "GET",
+     "raw": "${BASE_URL}/material/${materialId}/history${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements/material/:_/history",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/material/:materialId/history",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary/${warehouseId}?startDate=${startDate}&endDate=${endDate}",
+     "resolvedPath": "/api/stock-movements/summary/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/summary/:warehouseId",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 87,
+     "method": "GET",
+     "raw": "${BASE_URL}/ledger/${materialId}/${warehouseId}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements/ledger/:_/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/ledger/:materialId/:warehouseId",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 41
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 97,
+     "method": "POST",
+     "raw": "${BASE_URL}/stock-in",
+     "resolvedPath": "/api/stock-movements/stock-in",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/stock-in",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 123,
+     "method": "POST",
+     "raw": "${BASE_URL}/bulk-stock-in",
+     "resolvedPath": "/api/stock-movements/bulk-stock-in",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/bulk-stock-in",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 50
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 134,
+     "method": "POST",
+     "raw": "${BASE_URL}/stock-out",
+     "resolvedPath": "/api/stock-movements/stock-out",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/stock-out",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 55
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 145,
+     "method": "POST",
+     "raw": "${BASE_URL}/transfer",
+     "resolvedPath": "/api/stock-movements/transfer",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/transfer",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 56
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 157,
+     "method": "POST",
+     "raw": "${BASE_URL}/adjustment",
+     "resolvedPath": "/api/stock-movements/adjustment",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/adjustment",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 171,
+     "method": "POST",
+     "raw": "${BASE_URL}/processor-return",
+     "resolvedPath": "/api/stock-movements/processor-return",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/processor-return",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 66
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 207,
+     "method": "GET",
+     "raw": "${BASE_URL}/unified${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements/unified",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/unified",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StockOutForm.tsx": {
+   "routes": [
+    "/inventory/movements/stock-out"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/StockDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockMovementList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 578,
+     "raw": "/manufacturing/challans",
+     "normalized": "/manufacturing/challans",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/ChallanList.tsx"
+    },
+    {
+     "line": 1043,
+     "raw": "/inventory/movements",
+     "normalized": "/inventory/movements",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockMovementList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "${BASE_URL}?${params.toString()}",
+     "resolvedPath": "/api/challans",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/challans",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 32,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/challans/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/challans/stats",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 38,
+     "method": "POST",
+     "raw": "/challans",
+     "resolvedPath": "/api/challans",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/challans",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 34
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 44,
+     "method": "POST",
+     "raw": "${BASE_URL}/quick-issue",
+     "resolvedPath": "/api/challans/quick-issue",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/challans/quick-issue",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 50,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}/issue",
+     "resolvedPath": "/api/challans/:_/issue",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/challans/:id/issue",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 56,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}/receive",
+     "resolvedPath": "/api/challans/:_/receive",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/challans/:id/receive",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 62,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}/cancel",
+     "resolvedPath": "/api/challans/:_/cancel",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/challans/:id/cancel",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 38
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 74,
+     "method": "GET",
+     "raw": "${BASE_URL}/stats?${params.toString()}",
+     "resolvedPath": "/api/challans/stats",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/challans/stats",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 97,
+     "method": "GET",
+     "raw": "/po-rates/resolve?${searchParams.toString()}",
+     "resolvedPath": "/api/po-rates/resolve",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/po-rates/resolve",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 41
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 109,
+     "method": "POST",
+     "raw": "/production-runs/${id}/split",
+     "resolvedPath": "/api/production-runs/:_/split",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/production-runs/:id/split",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 22
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 34,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "${BASE_URL}/code/${code}",
+     "resolvedPath": "/api/warehouses/code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/code/:warehouseCode",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${type}",
+     "resolvedPath": "/api/warehouses/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "${BASE_URL}/generate-code/${type}",
+     "resolvedPath": "/api/warehouses/generate-code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/generate-code/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/stock-summary",
+     "resolvedPath": "/api/warehouses/:_/stock-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 76,
+     "method": "POST",
+     "raw": "/warehouses",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 57
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 25,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-levels",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 16
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 35,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-levels/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/below-reorder",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 17
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 44,
+     "method": "GET",
+     "raw": "${BASE_URL}/material/${materialId}",
+     "resolvedPath": "/api/stock-levels/material/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/material/:materialId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/warehouse/${warehouseId}",
+     "resolvedPath": "/api/stock-levels/warehouse/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/warehouse/:warehouseId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/below-reorder${params}",
+     "resolvedPath": "/api/stock-levels/below-reorder:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/:id",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 42
+     },
+     "tags": [
+      "shadow-risk"
+     ]
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "GET",
+     "raw": "${BASE_URL}/aging/${warehouseId}",
+     "resolvedPath": "/api/stock-levels/aging/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/aging/:warehouseId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 20
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 81,
+     "method": "GET",
+     "raw": "${BASE_URL}/valuation${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-levels/valuation",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/valuation",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 18
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 91,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-levels/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/stock-levels/:id",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 100,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${materialType}",
+     "resolvedPath": "/api/stock-levels/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/by-type/:materialType",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 25
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 108,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary-by-type",
+     "resolvedPath": "/api/stock-levels/summary-by-type",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/summary-by-type",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 19
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricStock.service.ts",
+     "hop": 1,
+     "line": 48,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary",
+     "resolvedPath": "/api/stock/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock/summary",
+      "file": "backend/src/routes/fabric-stock.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricStock.service.ts",
+     "hop": 1,
+     "line": 57,
+     "method": "GET",
+     "raw": "${BASE_URL}?fabricId=${fabricId}&limit=10&status=AVAILABLE",
+     "resolvedPath": "/api/stock",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock",
+      "file": "backend/src/routes/fabric-stock.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricStock.service.ts",
+     "hop": 1,
+     "line": 80,
+     "method": "GET",
+     "raw": "${BASE_URL}?${queryParams.toString()}",
+     "resolvedPath": "/api/stock",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock",
+      "file": "backend/src/routes/fabric-stock.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/greigeStock.service.ts",
+     "hop": 1,
+     "line": 44,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary",
+     "resolvedPath": "/api/greige/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/greige/summary",
+      "file": "backend/src/routes/greige-stock.routes.ts",
+      "line": 74
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/greigeStock.service.ts",
+     "hop": 1,
+     "line": 75,
+     "method": "GET",
+     "raw": "${BASE_URL}/stock-entries/${greigeId}",
+     "resolvedPath": "/api/greige/stock-entries/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/greige/stock-entries/:greigeId",
+      "file": "backend/src/routes/greige-stock.routes.ts",
+      "line": 62
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/greigeStock.service.ts",
+     "hop": 1,
+     "line": 83,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/stock/${stockId}",
+     "resolvedPath": "/api/greige/stock/:_",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/greige/stock/:stockId",
+      "file": "backend/src/routes/greige-stock.routes.ts",
+      "line": 85
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/greigeStock.service.ts",
+     "hop": 1,
+     "line": 91,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/stock/${stockId}",
+     "resolvedPath": "/api/greige/stock/:_",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/greigeStock.service.ts",
+     "hop": 1,
+     "line": 101,
+     "method": "POST",
+     "raw": "${BASE_URL}/stock/${stockId}/adjust",
+     "resolvedPath": "/api/greige/stock/:_/adjust",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/greige/stock/:stockId/adjust",
+      "file": "backend/src/routes/greige-stock.routes.ts",
+      "line": 99
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StockTransferForm.tsx": {
+   "routes": [
+    "/inventory/movements/transfer"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/StockDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockMovementList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 114,
+     "raw": "/inventory/movements",
+     "normalized": "/inventory/movements",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockMovementList.tsx"
+    },
+    {
+     "line": 289,
+     "raw": "/inventory/movements",
+     "normalized": "/inventory/movements",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockMovementList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 29,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 39,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-movements/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/unified",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 58,
+     "method": "GET",
+     "raw": "${BASE_URL}/material/${materialId}/history${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements/material/:_/history",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/material/:materialId/history",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary/${warehouseId}?startDate=${startDate}&endDate=${endDate}",
+     "resolvedPath": "/api/stock-movements/summary/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/summary/:warehouseId",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 87,
+     "method": "GET",
+     "raw": "${BASE_URL}/ledger/${materialId}/${warehouseId}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements/ledger/:_/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/ledger/:materialId/:warehouseId",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 41
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 97,
+     "method": "POST",
+     "raw": "${BASE_URL}/stock-in",
+     "resolvedPath": "/api/stock-movements/stock-in",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/stock-in",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 123,
+     "method": "POST",
+     "raw": "${BASE_URL}/bulk-stock-in",
+     "resolvedPath": "/api/stock-movements/bulk-stock-in",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/bulk-stock-in",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 50
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 134,
+     "method": "POST",
+     "raw": "${BASE_URL}/stock-out",
+     "resolvedPath": "/api/stock-movements/stock-out",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/stock-out",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 55
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 145,
+     "method": "POST",
+     "raw": "${BASE_URL}/transfer",
+     "resolvedPath": "/api/stock-movements/transfer",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/transfer",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 56
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 157,
+     "method": "POST",
+     "raw": "${BASE_URL}/adjustment",
+     "resolvedPath": "/api/stock-movements/adjustment",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/adjustment",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 171,
+     "method": "POST",
+     "raw": "${BASE_URL}/processor-return",
+     "resolvedPath": "/api/stock-movements/processor-return",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-movements/processor-return",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 66
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockMovement.service.ts",
+     "hop": 1,
+     "line": 207,
+     "method": "GET",
+     "raw": "${BASE_URL}/unified${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-movements/unified",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-movements/unified",
+      "file": "backend/src/routes/stockMovement.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 22
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 34,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "${BASE_URL}/code/${code}",
+     "resolvedPath": "/api/warehouses/code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/code/:warehouseCode",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${type}",
+     "resolvedPath": "/api/warehouses/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "${BASE_URL}/generate-code/${type}",
+     "resolvedPath": "/api/warehouses/generate-code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/generate-code/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/stock-summary",
+     "resolvedPath": "/api/warehouses/:_/stock-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/warehouses/by-type/:warehouseType",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 76,
+     "method": "POST",
+     "raw": "/warehouses",
+     "resolvedPath": "/api/warehouses",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/warehouses",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/warehouse.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/warehouses/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/warehouses/:id",
+      "file": "backend/src/routes/warehouse.routes.ts",
+      "line": 57
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 25,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-levels",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 16
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 35,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-levels/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/below-reorder",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 17
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 44,
+     "method": "GET",
+     "raw": "${BASE_URL}/material/${materialId}",
+     "resolvedPath": "/api/stock-levels/material/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/material/:materialId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/warehouse/${warehouseId}",
+     "resolvedPath": "/api/stock-levels/warehouse/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/warehouse/:warehouseId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/below-reorder${params}",
+     "resolvedPath": "/api/stock-levels/below-reorder:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/:id",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 42
+     },
+     "tags": [
+      "shadow-risk"
+     ]
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "GET",
+     "raw": "${BASE_URL}/aging/${warehouseId}",
+     "resolvedPath": "/api/stock-levels/aging/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/aging/:warehouseId",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 20
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 81,
+     "method": "GET",
+     "raw": "${BASE_URL}/valuation${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/stock-levels/valuation",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/valuation",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 18
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 91,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-levels/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/stock-levels/:id",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 100,
+     "method": "GET",
+     "raw": "${BASE_URL}/by-type/${materialType}",
+     "resolvedPath": "/api/stock-levels/by-type/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/by-type/:materialType",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 25
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockLevel.service.ts",
+     "hop": 1,
+     "line": 108,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary-by-type",
+     "resolvedPath": "/api/stock-levels/summary-by-type",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-levels/summary-by-type",
+      "file": "backend/src/routes/stockLevel.routes.ts",
+      "line": 19
+     },
+     "tags": []
+    }
+   ]
+  }
+ },
+ "unresolvedCalls": []
+}

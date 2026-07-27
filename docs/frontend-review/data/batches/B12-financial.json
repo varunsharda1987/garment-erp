@@ -1,0 +1,1037 @@
+{
+ "batch": "B12-financial",
+ "pages": {
+  "frontend/src/pages/ChartOfAccountsList.tsx": {
+   "routes": [
+    "/chart-of-accounts"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/Dashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 109,
+     "raw": "/chart-of-accounts/${account.id}/edit",
+     "normalized": "/chart-of-accounts/:_/edit",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 128,
+     "raw": "/dashboard",
+     "normalized": "/dashboard",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/dashboards/DashboardRouter.tsx"
+    },
+    {
+     "line": 137,
+     "raw": "/chart-of-accounts/new",
+     "normalized": "/chart-of-accounts/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 169,
+     "raw": "/chart-of-accounts/new",
+     "normalized": "/chart-of-accounts/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/chartOfAccounts.service.ts",
+     "hop": 1,
+     "line": 18,
+     "method": "GET",
+     "raw": "${BASE_URL}/hierarchy",
+     "resolvedPath": "/api/chart-of-accounts/hierarchy",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/chart-of-accounts/hierarchy",
+      "file": "backend/src/routes/chartOfAccounts.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/chartOfAccounts.service.ts",
+     "hop": 1,
+     "line": 42,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/chart-of-accounts/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/chart-of-accounts/:id",
+      "file": "backend/src/routes/chartOfAccounts.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/export.service.ts",
+     "hop": 2,
+     "line": 13,
+     "method": "POST",
+     "raw": "/export/${module}",
+     "resolvedPath": "/api/export/:_",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/export/:module",
+      "file": "backend/src/routes/export.routes.ts",
+      "line": 20
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 15,
+     "method": "POST",
+     "raw": "/import/${module}/preview",
+     "resolvedPath": "/api/import/:_/preview",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/import/:module/preview",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 18
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 38,
+     "method": "POST",
+     "raw": "/import/${module}/execute",
+     "resolvedPath": "/api/import/:_/execute",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/import/:module/execute",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 71,
+     "method": "GET",
+     "raw": "/import/${module}/template",
+     "resolvedPath": "/api/import/:_/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/import/:module/template",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/CreditNoteList.tsx": {
+   "routes": [
+    "/credit-notes"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 269,
+     "raw": "/credit-notes/${cn.id}",
+     "normalized": "/credit-notes/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 296,
+     "raw": "/credit-notes/${cn.id}",
+     "normalized": "/credit-notes/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/CreditNoteList.tsx",
+     "hop": 0,
+     "line": 453,
+     "method": "GET",
+     "raw": "/invoices",
+     "resolvedPath": "/api/invoices",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/invoices",
+      "file": "backend/src/routes/invoice.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/creditNote.service.ts",
+     "hop": 1,
+     "line": 13,
+     "method": "GET",
+     "raw": "/credit-notes",
+     "resolvedPath": "/api/credit-notes",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/credit-notes",
+      "file": "backend/src/routes/creditNote.routes.ts",
+      "line": 15
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/creditNote.service.ts",
+     "hop": 1,
+     "line": 18,
+     "method": "GET",
+     "raw": "${BASE_PATH}/${id}",
+     "resolvedPath": "/api/credit-notes/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/credit-notes/:id",
+      "file": "backend/src/routes/creditNote.routes.ts",
+      "line": 22
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/creditNote.service.ts",
+     "hop": 1,
+     "line": 23,
+     "method": "POST",
+     "raw": "/credit-notes",
+     "resolvedPath": "/api/credit-notes",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/credit-notes",
+      "file": "backend/src/routes/creditNote.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/creditNote.service.ts",
+     "hop": 1,
+     "line": 28,
+     "method": "PUT",
+     "raw": "${BASE_PATH}/${id}/approve",
+     "resolvedPath": "/api/credit-notes/:_/approve",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/credit-notes/:id/approve",
+      "file": "backend/src/routes/creditNote.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/creditNote.service.ts",
+     "hop": 1,
+     "line": 33,
+     "method": "PUT",
+     "raw": "${BASE_PATH}/${id}/cancel",
+     "resolvedPath": "/api/credit-notes/:_/cancel",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/credit-notes/:id/cancel",
+      "file": "backend/src/routes/creditNote.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/creditNote.service.ts",
+     "hop": 1,
+     "line": 38,
+     "method": "DELETE",
+     "raw": "${BASE_PATH}/${id}",
+     "resolvedPath": "/api/credit-notes/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/credit-notes/:id",
+      "file": "backend/src/routes/creditNote.routes.ts",
+      "line": 50
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/DebitNoteList.tsx": {
+   "routes": [
+    "/debit-notes"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/DebitNoteList.tsx",
+     "hop": 0,
+     "line": 168,
+     "method": "GET",
+     "raw": "/suppliers/search",
+     "resolvedPath": "/api/suppliers/search",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/suppliers/:id",
+      "file": "backend/src/routes/supplier.routes.ts",
+      "line": 45
+     },
+     "tags": [
+      "shadow-risk"
+     ]
+    },
+    {
+     "origin": "frontend/src/pages/DebitNoteList.tsx",
+     "hop": 0,
+     "line": 194,
+     "method": "GET",
+     "raw": "/purchase-orders",
+     "resolvedPath": "/api/purchase-orders",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/purchase-orders",
+      "file": "backend/src/routes/purchaseOrder.routes.ts",
+      "line": 58
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/debitNote.service.ts",
+     "hop": 1,
+     "line": 13,
+     "method": "GET",
+     "raw": "/debit-notes",
+     "resolvedPath": "/api/debit-notes",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/debit-notes",
+      "file": "backend/src/routes/debitNote.routes.ts",
+      "line": 15
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/debitNote.service.ts",
+     "hop": 1,
+     "line": 18,
+     "method": "GET",
+     "raw": "${BASE_PATH}/${id}",
+     "resolvedPath": "/api/debit-notes/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/debit-notes/:id",
+      "file": "backend/src/routes/debitNote.routes.ts",
+      "line": 22
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/debitNote.service.ts",
+     "hop": 1,
+     "line": 23,
+     "method": "POST",
+     "raw": "/debit-notes",
+     "resolvedPath": "/api/debit-notes",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/debit-notes",
+      "file": "backend/src/routes/debitNote.routes.ts",
+      "line": 25
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/debitNote.service.ts",
+     "hop": 1,
+     "line": 28,
+     "method": "PUT",
+     "raw": "${BASE_PATH}/${id}/approve",
+     "resolvedPath": "/api/debit-notes/:_/approve",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/debit-notes/:id/approve",
+      "file": "backend/src/routes/debitNote.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/debitNote.service.ts",
+     "hop": 1,
+     "line": 33,
+     "method": "PUT",
+     "raw": "${BASE_PATH}/${id}/cancel",
+     "resolvedPath": "/api/debit-notes/:_/cancel",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/debit-notes/:id/cancel",
+      "file": "backend/src/routes/debitNote.routes.ts",
+      "line": 39
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/debitNote.service.ts",
+     "hop": 1,
+     "line": 38,
+     "method": "DELETE",
+     "raw": "${BASE_PATH}/${id}",
+     "resolvedPath": "/api/debit-notes/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/debit-notes/:id",
+      "file": "backend/src/routes/debitNote.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/GSTReports.tsx": {
+   "routes": [
+    "/gst-reports"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/GSTReports.tsx",
+     "hop": 0,
+     "line": 165,
+     "method": "GET",
+     "raw": "/gst-reports/gstr1",
+     "resolvedPath": "/api/gst-reports/gstr1",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/gst-reports/gstr1",
+      "file": "backend/src/routes/gstReport.routes.ts",
+      "line": 11
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/pages/GSTReports.tsx",
+     "hop": 0,
+     "line": 170,
+     "method": "GET",
+     "raw": "/gst-reports/gstr3b",
+     "resolvedPath": "/api/gst-reports/gstr3b",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/gst-reports/gstr3b",
+      "file": "backend/src/routes/gstReport.routes.ts",
+      "line": 12
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/HSNSACMasterList.tsx": {
+   "routes": [
+    "/hsn-sac-masters"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/hsnSacMaster.service.ts",
+     "hop": 1,
+     "line": 23,
+     "method": "GET",
+     "raw": "/hsn-sac-masters",
+     "resolvedPath": "/api/hsn-sac-masters",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/hsn-sac-masters",
+      "file": "backend/src/routes/hsnSacMaster.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/hsnSacMaster.service.ts",
+     "hop": 1,
+     "line": 75,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/hsn-sac-masters/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/hsn-sac-masters/:id",
+      "file": "backend/src/routes/hsnSacMaster.routes.ts",
+      "line": 57
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/InvoiceDetail.tsx": {
+   "routes": [
+    "/invoices/:id"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 58,
+     "raw": "/invoices",
+     "normalized": "/invoices",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceList.tsx"
+    },
+    {
+     "line": 113,
+     "raw": "/invoices",
+     "normalized": "/invoices",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceList.tsx"
+    },
+    {
+     "line": 177,
+     "raw": "/invoices",
+     "normalized": "/invoices",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceList.tsx"
+    },
+    {
+     "line": 207,
+     "raw": "/invoices/${id}/edit",
+     "normalized": "/invoices/:_/edit",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/invoice.service.ts",
+     "hop": 1,
+     "line": 32,
+     "method": "GET",
+     "raw": "${INVOICE_API_PATH}/${id}",
+     "resolvedPath": "/api/invoices/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/invoices/summary",
+      "file": "backend/src/routes/invoice.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/invoice.service.ts",
+     "hop": 1,
+     "line": 56,
+     "method": "DELETE",
+     "raw": "${INVOICE_API_PATH}/${id}",
+     "resolvedPath": "/api/invoices/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/invoices/:id",
+      "file": "backend/src/routes/invoice.routes.ts",
+      "line": 88
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/invoice.service.ts",
+     "hop": 1,
+     "line": 63,
+     "method": "POST",
+     "raw": "${INVOICE_API_PATH}/${invoiceId}/payments",
+     "resolvedPath": "/api/invoices/:_/payments",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/invoices/:id/payments",
+      "file": "backend/src/routes/invoice.routes.ts",
+      "line": 95
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/InvoiceForm.tsx": {
+   "routes": [
+    "/invoices/new"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/dashboards/AccountsDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/InvoiceList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/InvoiceList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/InvoiceList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/InvoiceList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 120,
+     "raw": "/invoices",
+     "normalized": "/invoices",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceList.tsx"
+    },
+    {
+     "line": 225,
+     "raw": "/invoices",
+     "normalized": "/invoices",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceList.tsx"
+    },
+    {
+     "line": 237,
+     "raw": "/invoices",
+     "normalized": "/invoices",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceList.tsx"
+    },
+    {
+     "line": 454,
+     "raw": "/invoices",
+     "normalized": "/invoices",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "/customers?${queryParams.toString()}",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/order.service.ts",
+     "hop": 1,
+     "line": 25,
+     "method": "GET",
+     "raw": "/orders",
+     "resolvedPath": "/api/orders",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/orders",
+      "file": "backend/src/routes/order.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/order.service.ts",
+     "hop": 1,
+     "line": 48,
+     "method": "GET",
+     "raw": "/orders/${id}",
+     "resolvedPath": "/api/orders/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/orders/:id",
+      "file": "backend/src/routes/order.routes.ts",
+      "line": 38
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/invoice.service.ts",
+     "hop": 1,
+     "line": 32,
+     "method": "GET",
+     "raw": "${INVOICE_API_PATH}/${id}",
+     "resolvedPath": "/api/invoices/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/invoices/summary",
+      "file": "backend/src/routes/invoice.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/invoice.service.ts",
+     "hop": 1,
+     "line": 40,
+     "method": "POST",
+     "raw": "/invoices",
+     "resolvedPath": "/api/invoices",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/invoices",
+      "file": "backend/src/routes/invoice.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/invoice.service.ts",
+     "hop": 1,
+     "line": 48,
+     "method": "PUT",
+     "raw": "${INVOICE_API_PATH}/${id}",
+     "resolvedPath": "/api/invoices/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/invoices/:id",
+      "file": "backend/src/routes/invoice.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/InvoiceList.tsx": {
+   "routes": [
+    "/invoices"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/AccountsDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/AccountsDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/GeneralDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/InvoiceDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/InvoiceDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/InvoiceDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/InvoiceForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/InvoiceForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/InvoiceForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/InvoiceForm.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 159,
+     "raw": "/invoices/${invoice.id}",
+     "normalized": "/invoices/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceForm.tsx"
+    },
+    {
+     "line": 238,
+     "raw": "/invoices/${invoice.id}",
+     "normalized": "/invoices/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceForm.tsx"
+    },
+    {
+     "line": 274,
+     "raw": "/invoices/new",
+     "normalized": "/invoices/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceForm.tsx"
+    },
+    {
+     "line": 373,
+     "raw": "/invoices/${invoice.id}",
+     "normalized": "/invoices/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/invoice.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "GET",
+     "raw": "/invoices",
+     "resolvedPath": "/api/invoices",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/invoices",
+      "file": "backend/src/routes/invoice.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/invoice.service.ts",
+     "hop": 1,
+     "line": 56,
+     "method": "DELETE",
+     "raw": "${INVOICE_API_PATH}/${id}",
+     "resolvedPath": "/api/invoices/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/invoices/:id",
+      "file": "backend/src/routes/invoice.routes.ts",
+      "line": 88
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/invoice.service.ts",
+     "hop": 1,
+     "line": 75,
+     "method": "GET",
+     "raw": "${INVOICE_API_PATH}/summary",
+     "resolvedPath": "/api/invoices/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/invoices/summary",
+      "file": "backend/src/routes/invoice.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "/customers?${queryParams.toString()}",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/TaxMasterList.tsx": {
+   "routes": [
+    "/tax-masters"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/taxMaster.service.ts",
+     "hop": 1,
+     "line": 21,
+     "method": "GET",
+     "raw": "/tax-masters",
+     "resolvedPath": "/api/tax-masters",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/tax-masters",
+      "file": "backend/src/routes/taxMasters.routes.ts",
+      "line": 26
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/taxMaster.service.ts",
+     "hop": 1,
+     "line": 53,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/tax-masters/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/tax-masters/:id",
+      "file": "backend/src/routes/taxMasters.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/TCSList.tsx": {
+   "routes": [
+    "/tcs"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/tcs.service.ts",
+     "hop": 1,
+     "line": 15,
+     "method": "GET",
+     "raw": "/tcs",
+     "resolvedPath": "/api/tcs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/tcs",
+      "file": "backend/src/routes/tcs.routes.ts",
+      "line": 15
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/tcs.service.ts",
+     "hop": 1,
+     "line": 47,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}/status",
+     "resolvedPath": "/api/tcs/:_/status",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/tcs/:id/status",
+      "file": "backend/src/routes/tcs.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/TDSList.tsx": {
+   "routes": [
+    "/tds"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/tds.service.ts",
+     "hop": 1,
+     "line": 15,
+     "method": "GET",
+     "raw": "/tds",
+     "resolvedPath": "/api/tds",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/tds",
+      "file": "backend/src/routes/tds.routes.ts",
+      "line": 15
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/tds.service.ts",
+     "hop": 1,
+     "line": 47,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}/status",
+     "resolvedPath": "/api/tds/:_/status",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/tds/:id/status",
+      "file": "backend/src/routes/tds.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    }
+   ]
+  }
+ },
+ "unresolvedCalls": []
+}

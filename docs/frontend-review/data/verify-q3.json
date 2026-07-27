@@ -1,0 +1,172 @@
+[
+ {
+  "id": "B01-01",
+  "page": "frontend/src/pages/FabricForm.tsx",
+  "route": "/fabric/new, /fabric/:id/edit",
+  "category": "wrong-path",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "frontend/src/services/fabricGreigeService.ts:268 `api.get(`/component-masters/${componentMasterId}/pattern-parts`)` called from components/fabric/AllocateFabricToStyleModal.tsx:127; catch at :129-131 does setPatternParts([])",
+   "backend": "no-route: only /api/components/:componentId/pattern-parts exists (backend/src/routes/index.ts:235 + componentPatternPart.routes.ts:14); controller returns {success,data} (patternPart.controller.ts:174-177) while frontend reads response.data.patternParts (fabricGreigeService.ts:267-270)",
+   "probe": "404 on /api/component-masters/:id/pattern-parts; 200 on /api/components/:id/pattern-parts"
+  },
+  "expected": "Selecting a component in the Allocate-Fabric-to-Style modal lists that component's pattern parts for selection",
+  "actual": "Call 404s (wrong prefix /component-masters vs /components); catch masks it so the pattern-part list is always empty; even with the path fixed, reading .patternParts instead of .data yields []",
+  "fix": "Change fabricGreigeService.getPatternPartsForComponent to GET /components/${componentMasterId}/pattern-parts and read response.data.data",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B05-02",
+  "page": "frontend/src/pages/StyleFormRedesigned.tsx",
+  "route": "/styles/:id/edit",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "StyleFormRedesigned.tsx:1125 `const skuVariantsData = (styleData.variants || [])` but API key is styleVariants; state defaults to DEFAULT_SIZES (line 392-399); save always sends skuVariants with auto-generated SKUs (lines 2029-2032, 2160)",
+   "backend": "serializer.ts:239 `styleVariants: 'styleVariants'` (never emits 'variants'); style.service.ts:1055-1071 update does style_variants.deleteMany + recreate whenever skuVariants present",
+   "probe": "GET /api/styles/:id -> 'has variants key: False | has styleVariants key: True'"
+  },
+  "expected": "Edit mode loads the style's saved SKU variants; saving preserves them",
+  "actual": "Variants never load (undefined key), form shows default size rows with blank SKUs; on save the backend deletes the real variants and recreates auto-generated `styleCode+size` ones - custom SKUs/barcodes/sizes are silently destroyed on every edit-save",
+  "fix": "Read styleData.styleVariants (or add serializer mapping styleVariants -> variants) so edit mode round-trips existing variants",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B06-02",
+  "page": "frontend/src/pages/FinishingDetail.tsx",
+  "route": "/manufacturing/finishing/:id",
+  "category": "field-mismatch",
+  "severity": "P0",
+  "evidence": {
+   "frontend": "FinishingDetail.tsx:115-122 sends `{ transferSlipId: '', skuReceived: [...] }` with NO receivedQty (FinishingList.tsx:147 sends `{ transferSlipId: '', skuReceived: [] }`)",
+   "backend": "schemas/production.schema.ts:344-350 receiveFromStitchingSchema REQUIRES `receivedQty: z.number().int().positive()` and transferSlipId must be uuid when present; routes/finishing.routes.ts:75-80 validateBody; finishing.controller.ts:324 issues created PENDING_RECEIPT, :469 receive gated on PENDING_RECEIPT",
+   "probe": "n/a (POST)"
+  },
+  "expected": "'Receive from Stitching' moves a finishing issue PENDING_RECEIPT → RECEIVED so finishing can start",
+  "actual": "Both FinishingDetail and FinishingList receive calls fail Zod validation twice over (missing receivedQty, non-uuid empty transferSlipId) → 400 every time; finishing issues stuck in PENDING_RECEIPT, blocking Stitching → Finishing progression in the UI",
+  "fix": "Send receivedQty (sum of skuReceived) and omit the empty transferSlipId, or realign receiveFromStitchingSchema with the skuReceived payload shape the pages actually send",
+  "confidence": "high",
+  "liveCheck": "suggested"
+ },
+ {
+  "id": "B08-02",
+  "page": "frontend/src/pages/UnifiedRequirementsPage.tsx",
+  "route": "/procurement/requirements",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "frontend/src/pages/UnifiedRequirementsPage.tsx:471-477 maps greige list with `name: g.genericName || g.name || g.code, code: g.code`; rendered as `{g.name} ({g.code})` at :954-957",
+   "backend": "GET /api/fabric-management/greige returns raw greige_master rows (backend/src/controllers/greige.controller.ts:133 serializeGreige spreads fields) whose fields are greigeCode/greigeName/genericGreigeName (backend/prisma/schema.prisma:4025-4026) — no name/code/genericName",
+   "probe": "n/a"
+  },
+  "expected": "Convert-to-Greige-Processing dialog shows greige options like 'Cotton Voile (GRG-0012)'",
+  "actual": "Every option in the Greige Fabric dropdown renders 'undefined (undefined)' — the FABRIC→greige+processing conversion flow is unusable by label",
+  "fix": "Map g.genericGreigeName || g.greigeName for name and g.greigeCode for code in openConvertGreigeDialog",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B09-02",
+  "page": "frontend/src/pages/OrderDetail.tsx",
+  "route": "/orders/:id",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "OrderDetail.tsx:817-819 reads `breakup.colors?.colorName` and `breakup.sizes?.sizeName` in the Quantity Breakup table; frontend/src/types/order.types.ts:97-104 declares colors?/sizes?",
+   "backend": "backend/src/controllers/order.controller.ts:520-525 includes color_options/size_options which serialize to colorOptions/sizeOptions; backend/src/utils/serializer.ts:236-238 explicitly REMOVED the colorOptions->colors / sizeOptions->sizes mappings",
+   "probe": "n/a"
+  },
+  "expected": "Breakup rows show the actual color and size names",
+  "actual": "colors/sizes are always undefined -> every breakup row shows 'N/A' for Color and Size (silent wrong data on the daily order view)",
+  "fix": "Change OrderDetail (and order.types.ts OrderItemBreakup) to read breakup.colorOptions/breakup.sizeOptions",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B12-01",
+  "page": "frontend/src/pages/DebitNoteList.tsx",
+  "route": "/debit-notes",
+  "category": "wrong-path",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "frontend/src/pages/DebitNoteList.tsx:168 `api.get('/suppliers/search', { params: { q: supplierSearch, limit: 20 } })`; line 173 `catch { // ignore abort errors }` swallows ALL errors",
+   "backend": "backend/src/routes/supplier.routes.ts has NO /search route — request falls into line 45 `router.get('/:id', validateParams(supplierIdParamSchema))` where supplier.schema.ts:211-213 requires `id: z.string().uuid()` → 400 for id='search'",
+   "probe": "n/a (probe declined by user; route absence confirmed by reading the full route file)"
+  },
+  "expected": "Typing 2+ chars in the supplier search populates a dropdown of matching suppliers so a debit note can be created",
+  "actual": "Every search request returns 400 (invalid UUID param), the catch swallows it, supplierOptions stays [] — the dropdown never shows results, no supplier can be selected, and the Create Debit Note submit stays disabled (line 711 requires selectedSupplier). The entire debit-note creation flow is silently dead.",
+  "fix": "Change DebitNoteList.tsx:168 to `api.get('/suppliers', { params: { search: supplierSearch, limit: 20 } })` (getAllSuppliers at supplier.routes.ts:38 supports search) and unwrap `res.data` accordingly",
+  "confidence": "high",
+  "liveCheck": "suggested"
+ },
+ {
+  "id": "B11-02",
+  "page": "frontend/src/pages/HandworkSendOut.tsx",
+  "route": "/manufacturing/handwork/send-out",
+  "category": "field-mismatch",
+  "severity": "P0",
+  "evidence": {
+   "frontend": "HandworkSendOut.tsx:84 `api.get('/work-orders?status=PENDING&status=IN_PROGRESS&limit=200')` with `.catch(() => setWorkOrders([]))` (:97); identical at EmbroideryPieceSendOut.tsx:90 and SmockingSendOut.tsx:92",
+   "backend": "workOrder.controller.ts:46-49 casts `status` to single OrderStatus; workOrder.service.ts:243 `where.status = filters.status` — Express parses the duplicate param as an array, which Prisma rejects",
+   "probe": "400 on GET /api/work-orders?status=PENDING&status=IN_PROGRESS (200 with single status)"
+  },
+  "expected": "Step-1 work-order dropdown lists PENDING + IN_PROGRESS work orders on all three send-out pages",
+  "actual": "Request 400s, error swallowed by .catch → dropdown silently empty → Handwork/Smocking/EmbroideryPiece send-out flows cannot even start",
+  "fix": "Support repeated status params (where.status = { in: [...] }) in workOrder controller/service, or have the pages send a comma/single status the backend accepts",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B11-07",
+  "page": "frontend/src/pages/SampleForm.tsx",
+  "route": "/samples/:id/edit",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "SampleForm.tsx:306-308 edit path calls updateMeasurements(id, measurements) with items {measurementPoint, specValue, tolerance, sizeId?}",
+   "backend": "schemas/sample.schema.ts:153-161 updateMeasurementsSchema requires `measurementPointId: uuid` (+targetValue) — but sample.controller.ts:712-738 reads m.measurementPoint/m.specValue/m.tolerance, matching the frontend; validateBody 400s every real payload (sample.routes.ts:117-122)",
+   "probe": "n/a (PUT; Zod parse failure is deterministic)"
+  },
+  "expected": "Editing a sample re-saves its measurement specs via PUT /api/samples/:id/measurements",
+  "actual": "The schema validates a payload shape neither the frontend nor the controller uses → editing any sample that has measurements always fails with 'Failed to save sample' (after requiredDate/remarks were already saved — partial write)",
+  "fix": "Rewrite updateMeasurementsSchema to { measurements: [{ sizeId? , measurementPoint: string, specValue: number, actualValue?, tolerance? }] }",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B13-04",
+  "page": "frontend/src/pages/Settings.tsx",
+  "route": "/settings",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "frontend/src/services/system-settings.service.ts:15 PUT /system-settings/:key sends {value, dataType} with no category (Settings.tsx:291)",
+   "backend": "backend/src/schemas/systemSettings.schema.ts:36 `category: ...optional().default('OTHER')` injects OTHER; system-settings.service.ts:185 update branch `...(input.category && { category })` overwrites the row; getDefaults (lines 154-157) filters category='DEFAULTS'",
+   "probe": "n/a"
+  },
+  "expected": "Saving a wastage default updates its value and keeps it in the DEFAULTS category so it still appears in /system-settings/defaults",
+  "actual": "First save flips the setting's category from DEFAULTS to OTHER; it then vanishes from getDefaults, so the Settings card shows blank inputs on next load and any consumer of /system-settings/defaults silently loses the key (getNumber-by-key consumers unaffected)",
+  "fix": "Remove the .default('OTHER') from upsertSystemSettingSchema (or don't overwrite category on update when not explicitly sent)",
+  "confidence": "high",
+  "liveCheck": "suggested"
+ },
+ {
+  "id": "B15-02",
+  "page": "frontend/src/pages/dashboards/AccountsDashboard.tsx",
+  "route": "/dashboard/accounts",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "AccountsDashboard.tsx:71-80 — reads dashboardData?.stats?.outstandingInvoices etc., dashboardData?.recentInvoices, dashboardData?.agingData",
+   "backend": "backend/src/controllers/dashboard.controller.ts:516-522 — res.json({ data: { monthlyCollections, totalReceivables, totalPayables } }) — flat, no stats wrapper, no recentInvoices/agingData",
+   "probe": "n/a (429 rate-limited; controller source definitive)"
+  },
+  "expected": "Response { stats: { outstandingInvoices, overdueAmount, monthlyCollections, pendingInvoices, gstPayable, totalReceivables }, recentInvoices: [...], agingData: [...] }",
+  "actual": "All 6 KPI values render Rs.0 (monthlyCollections/totalReceivables are computed but invisible behind the missing stats wrapper), Receivables Aging always shows the emptyAging zeros, Recent Invoices table always 'No invoices found'; backend's totalPayables is never read by anyone",
+  "fix": "Return { stats: {...}, recentInvoices, agingData } from getAccountsDashboardStats with the 3 missing stat fields, or repoint frontend to flat keys and remove unbacked widgets",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ }
+]

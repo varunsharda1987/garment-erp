@@ -1,0 +1,55 @@
+# Frontend Integration Review — Fix Roadmap
+
+Ranked by: root-cause leverage (one fix clearing many findings) → pipeline centrality → effort.
+Waves are sized to be executed as parallel agent groups with a central gate (build → guardrails →
+deploy → smoke), same machinery as the bug-hunt. **No fixes have been applied yet — this is the plan.**
+
+## Wave 1 — Unblock daily use (the 3 P0s + the environment + module-killers)
+
+| # | Cluster | Findings | Fix shape |
+|---|---|---|---|
+| 1.1 | **Rate limiter / environment** | sweep `criticalEnvironmentFindings` | Exempt authenticated users or raise the limit dramatically (100/15min vs pages firing 12–92 XHRs); reconcile pm2 env (`production`) with `backend/.env` (`development`) deliberately; investigate the double mid-sweep restart |
+| 1.2 | **Expired-login handling** | sweep | 401/403 → redirect to /login (api client interceptor) instead of rendering empty pages |
+| 1.3 | **Stitching + finishing receive (P0)** | B06-01, B06-02 | Align receive payloads with schemas (transferSlipId, receivedQty) — both callers of each |
+| 1.4 | **External-process module family** | B11-01..05 + sweep 400s | One schema alignment: `externalProcess.schema.ts` enums to Prisma truth (EMBROIDERY_PIECE; ExternalProcessStatus), receive SKU schema to the service DTO (receivedQty/damagedQty), repeated-`status` query param handling; revives handwork + smocking + piece-embroidery send/receive/dashboards |
+| 1.5 | **Sale-order creation blocked** | B09-03 | Point customer search at `GET /customers?search=` (route exists) or add `/customers/search`; unblocks in-ERP sale orders |
+| 1.6 | **Role dashboards + 404 loop** | B15-01..05 | One coordinated fix: wrap/complete the 4 dashboard stats endpoints to the envelope the pages read; point INVENTORY/PURCHASE/QUALITY redirects at real routes |
+| 1.7 | **/materials/new crash** | sweep | Fix the empty-string Radix Select value |
+
+## Wave 2 — Stop silent wrong data (P1 clusters)
+
+| # | Cluster | Findings | Fix shape |
+|---|---|---|---|
+| 2.1 | **Serializer `_count` stripping (systemic)** | B03-01, B04-01, B04-06, B09-01 + every `_count` reader | Preserve `_count` in serializer (or emit `count` consistently) + sweep frontend readers; one fix, ~dozen pages |
+| 2.2 | **Schema-strips-your-input family** | B05-03, B05-04, B13-02 (user edits incl. password), B09-05 (SPO items), B15-01 (settings), B02-01 (lace supplier wipe), B11-08 (sample-edit colorways), B10-07 (challan dates → 500) | Align each Zod schema with what the form sends / controller reads (the repo's schema-alignment guardrail now catches NEW ones; these are the pre-guardrail backlog) |
+| 2.3 | **GST report reads** | B12-02, B12-03 | GSTR-1: read `.totals` (fix crash); GSTR-3B: read the nested outwardSupplies/inputTaxCredit shapes — statutory screens must not show ₹0 |
+| 2.4 | **Remaining P1 field-mismatches** | B01-01, B02-02, B05-01/02/05, B07-01, B08-01/02, B10-01, B12-01, B13-01, B15-… | Per-finding one-liners in [01-findings.md](01-findings.md); includes deciding fabric-physical-tests (build the missing backend OR park the frontend behind a "coming soon" flag — currently silent zeros) |
+
+## Wave 3 — Dead links & handoffs (P2, 74 findings)
+
+- Dead navigation targets (30) — register/repoint routes (e.g. Add-CAD button, credit-note detail, chart-of-accounts form).
+- Ignored link parameters (19) — target pages read the query params their callers send (`?status=`, `?orderId=`…), the KPI-card drill-down promise.
+- Missing lace-stock endpoints (allocations/return/downgrade), pattern-parts path, cost-sheet reject route, pagination truncations (fabric stock 20-row cap), and the rest per findings doc.
+
+## Wave 4 — Polish (P3, 53 findings)
+
+- Hardcoded fake KPIs (87% efficiency, 78% collection rate, 68% conversion — fabricated constants rendering as live metrics): remove or compute.
+- Orphan pages (10): keep-or-delete decisions (4 superseded requirement dashboards, TemplateManager, deprecated PO-generation page, debug page…).
+- Cosmetic: invalid Tailwind classes, duplicate React keys, HTML nesting warnings, disabled stubs.
+
+## Appendix — enhancements surfaced (not defects)
+
+- Integration gaps worth building (8): costing→quotation wiring (pipeline stage 4→5 has no UI bridge),
+  transport-assignment UI (backend exists, no page calls it), polybag/carton packing UI (endpoints + guide
+  mandate exist, no UI), invoice→order navigation, order-detail costing panel.
+- P4 unbuilt (recorded): per known-unbuilt list.
+- Perf notes: /mood-boards fires 92 XHRs per load (N+1); stock-in form 26.
+
+## Suggested execution
+
+Wave 1 ≈ one focused session (7 clusters, mostly single-file/schema edits + one env decision).
+Wave 2 ≈ one session (2.1/2.2 are agent-parallelizable groups with disjoint files).
+Waves 3–4 ≈ one to two sessions of parallel sweeps.
+Each wave: fix agents + adversarial verify + central gate (build/guardrails/deploy/smoke), and every fixed
+class gets a smart-check detector where one doesn't already exist (the `_count` class and the ignored-param
+class are good detector candidates).

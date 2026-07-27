@@ -1,0 +1,172 @@
+[
+ {
+  "id": "B04-01",
+  "page": "frontend/src/pages/AgencyList.tsx",
+  "route": "/agencies",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "AgencyList.tsx:192 `{agency._count?.agents || 0}`; AgentList.tsx:200 `{agent._count?.customers || 0}`; CustomerList.tsx:232 and SupplierList.tsx:222 `_count && ...`",
+   "backend": "backend/src/utils/serializer.ts:133-141 humps.camelizeKeys renames `_count`->`count` (process option only preserves UUID keys); RELATION_MAPPINGS also remaps inner keys (agents probe shows count:{customer:0} for _count.customers)",
+   "probe": "GET /api/agencies?limit=1 returns \"count\":{\"agents\":2}; GET /api/agents?limit=1 returns \"count\":{\"customer\":0} - no `_count` key anywhere"
+  },
+  "expected": "List pages show real related-record counts (Agents / Customers / Orders / Quotations / Invoices / POs)",
+  "actual": "Serializer strips the underscore, so every `_count` read is undefined: AgencyList and AgentList display hard-coded 0, CustomerList and SupplierList Stats columns render blank - regardless of actual data",
+  "fix": "Special-case `_count` in serializer.ts toCamelCase (preserve key verbatim and skip RELATION_MAPPINGS inside it), or repoint all frontend reads to `count` with backend key names",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B05-04",
+  "page": "frontend/src/pages/MaterialForm.tsx",
+  "route": "/materials/new",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "MaterialForm.tsx:499-553 per-supplier inputs Supplier Price / Lead Time / MOQ / MOQ Unit; payload line 266 `suppliers: materialSuppliers`",
+   "backend": "schemas/material.schema.ts:11-16 materialSupplierSchema = {supplierId,isPreferred,isActive,notes} only (default Zod strip on nested objects); material.controller.ts:13-23,74-78 SupplierInput expects and writes supplierPrice/leadTimeDays/moq/moqUnit/isPrimary (columns exist, schema.prisma material_suppliers:2787-2791)",
+   "probe": "n/a"
+  },
+  "expected": "Supplier price, lead time, MOQ, MOQ unit save with the material-supplier link",
+  "actual": "Nested Zod schema silently strips supplierPrice/leadTimeDays/moq/moqUnit/isPrimary on both create and update -> fields always saved NULL and reload empty in edit mode",
+  "fix": "Extend materialSupplierSchema with supplierPrice/leadTimeDays/moq/moqUnit/isPrimary (nullable optionals)",
+  "confidence": "high",
+  "liveCheck": "suggested"
+ },
+ {
+  "id": "B07-01",
+  "page": "frontend/src/pages/LaceStockDetail.tsx",
+  "route": "/lace-stock/:id",
+  "category": "dead-endpoint",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "frontend/src/pages/LaceStockDetail.tsx:75-88 — Promise.all([getLaceStockById, getStockAllocations, getStockTransactions]) with single catch; service laceStock.service.ts:108 GET `${BASE_URL}/${stockId}/allocations`",
+   "backend": "backend/src/routes/laceStock.routes.ts — no GET /:id/allocations route (only /:id, /:id/transactions, /available/:laceId)",
+   "probe": "404 (GET /api/lace-stock/<uuid>/allocations); sibling /transactions probe returned 200"
+  },
+  "expected": "Detail page loads stock + allocations + transactions",
+  "actual": "getStockAllocations 404s inside Promise.all, the shared catch fires, stock stays null and the page renders 'Stock not found' for EVERY valid stock — the whole detail page is broken",
+  "fix": "Read allocations from the getLaceStockById response (backend service already includes allocations, laceStock.service.ts:213-232) or add the GET /:id/allocations route",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B10-06",
+  "page": "frontend/src/pages/DispatchList.tsx",
+  "route": "/manufacturing/dispatch",
+  "category": "integration-gap",
+  "severity": "P2",
+  "evidence": {
+   "frontend": "dispatch.service.ts:86-88 assignTransport is defined but grep shows no page calls it and no page references 'assign-transport'; DispatchDeliveryNoteForm has no transport fields; DispatchPODForm.tsx:200 transport section renders only if deliveryNote.vehicleNumber is set",
+   "backend": "dispatch.routes.ts:67-72 POST /delivery-notes/:id/assign-transport exists (controller upserts dispatch_transports + note fields in one txn) but is unreachable from the UI",
+   "probe": "n/a"
+  },
+  "expected": "MODULE_RELATIONSHIPS_GUIDE §8.13: dispatch_transports is a primary dispatch table (dispatch_transports.deliveryNoteExtId FK) — transport should be assignable before dispatch",
+  "actual": "No UI ever assigns transport, so dispatch_transports stays empty and the POD form's transport info block never renders for UI-created delivery notes",
+  "fix": "Add an 'Assign Transport' action/dialog on the DN row (PENDING status) calling deliveryNoteService.assignTransport",
+  "confidence": "medium",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B09-04",
+  "page": "frontend/src/pages/StockProductionOrderList.tsx",
+  "route": "/stock-production-orders",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "StockProductionOrderList.tsx:138-144 create dialog sends { styleId, totalQuantity, targetDate?, remarks?, items: [] }",
+   "backend": "backend/src/schemas/stockProductionOrder.schema.ts:31-40 createSPOSchema requires `quantity` (absent -> Zod 400) and has no items/totalQuantity/targetDate (stripped by validation.middleware.ts:28); controller stockProductionOrder.controller.ts:52-57 additionally throws if items is empty",
+   "probe": "n/a (POST)"
+  },
+  "expected": "New Stock Production Order dialog creates a DRAFT SPO and navigates to its detail page",
+  "actual": "Every create attempt fails 400 ('quantity Required'); even if quantity were sent, the schema strips items and the controller then rejects with 'At least one item required' - SPO creation from the UI is impossible",
+  "fix": "Rewrite createSPOSchema to match the controller/frontend contract: { styleId, totalQuantity, targetDate?, priority?, remarks?, items: [{colorId?, sizeId, quantity}] } (allow empty items to match the deferred-items UX, and relax the controller check)",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B12-03",
+  "page": "frontend/src/pages/GSTReports.tsx",
+  "route": "/gst-reports",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "frontend/src/pages/GSTReports.tsx:459-468 reads `gstr3bData.outwardSupplies.taxableValue/.cgst/.sgst/.igst`; 496-498, 528, 538, 548, 564-566 read `gstr3bData.inputTaxCredit.cgst/.sgst/.igst`",
+   "backend": "backend/src/services/gstReport.service.ts:335-348 returns `outwardSupplies: { taxable: {taxableValue,cgst,sgst,igst}, exempt, nilRated }` and `inputTaxCredit: { fromPurchases: {cgst,sgst,igst} }` — one nesting level deeper than the page reads",
+   "probe": "n/a"
+  },
+  "expected": "GSTR-3B tab shows real Outward Supplies taxable value/tax and ITC figures in sections 3.1, 4 and the Output Tax / ITC columns of section 6",
+  "actual": "All Outward Supplies and Input Tax Credit cells render '₹0.00' (formatCurrency(undefined), frontend/src/lib/currency.ts:34-36) while Net Payable (netTaxPayable.* which DOES match) shows real numbers — an internally inconsistent statutory summary that looks plausible and is silently wrong",
+  "fix": "Read `gstr3bData.outwardSupplies.taxable.*` and `gstr3bData.inputTaxCredit.fromPurchases.*` in GSTReports.tsx (update the local GSTR3BSummary interface to the backend shape)",
+  "confidence": "high",
+  "liveCheck": "suggested"
+ },
+ {
+  "id": "B11-04",
+  "page": "frontend/src/pages/HandworkReceive.tsx",
+  "route": "/manufacturing/handwork/receive/:id",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "HandworkReceive/EmbroideryPieceReceive.tsx:77-81 skus map `{sendOutSkuId, receivedQty, damagedQty}`; SmockingReceive same pattern",
+   "backend": "schemas/externalProcess.schema.ts:73-78 receiveSkuSchema requires `sizeName` + `quantityReceived` (neither sent) and lacks receivedQty/damagedQty which the controller/service read (external-process.service.ts:361-371); validateBody at external-process.routes.ts:47",
+   "probe": "n/a (POST; Zod parse failure is deterministic)"
+  },
+  "expected": "POST /api/external-process/receive accepts the per-SKU receipt rows the receive pages build",
+  "actual": "Any receive of a send-out that has a SKU breakdown (all UI-created ones) returns 400 'Invalid request data' — the receive leg of Handwork/Smocking/EmbroideryPiece is broken (error alert shown, nothing saved)",
+  "fix": "Rewrite receiveSkuSchema to { sendOutSkuId: uuid, receivedQty: int nonneg, damagedQty: int nonneg? }",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B13-01",
+  "page": "frontend/src/pages/FabricPhysicalTests.tsx",
+  "route": "/fabric-physical-tests",
+  "category": "dead-endpoint",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "frontend/src/services/testing.service.ts:97 `api.get('/fabric-physical-tests', { params })` (plus POST/PUT/retest/approve/DELETE lines 102-137); page consumes at FabricPhysicalTests.tsx:34",
+   "backend": "no-route: no fabricPhysicalTests route/controller/service file exists; backend/src/routes/index.ts mounts only garment-physical-tests (line 372); only Zod schemas (backend/src/schemas/testing.schemas.ts:165) and types exist",
+   "probe": "429 (rate-limited; static evidence conclusive)"
+  },
+  "expected": "GET /api/fabric-physical-tests returns paginated FPT list; §8.12 Quality module card lists fabric_physical_tests with Fabric Master/Procurement/Stock/Testing Lab connections (MODULE_RELATIONSHIPS_GUIDE.md:1584-1592)",
+  "actual": "Entire /api/fabric-physical-tests backend is absent: the FPT list always 404s (error toast + permanent 'No tests found'), and TestingDashboard.tsx:54,69-77 swallows the failure with .catch(() => total 0) so FPT stat cards silently show 0",
+  "fix": "Build fabricPhysicalTests service/controller/routes (schemas already exist in testing.schemas.ts) and mount at /fabric-physical-tests in routes/index.ts",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B14-06",
+  "page": "frontend/src/pages/MoodBoardDetail.tsx",
+  "route": "/mood-boards/new",
+  "category": "field-mismatch",
+  "severity": "P2",
+  "evidence": {
+   "frontend": "frontend/src/pages/MoodBoardDetail.tsx:124 `setItems(created.items)` after create; first add then runs `setItems((prev) => [...prev, newItem])` (line 185)",
+   "backend": "backend/src/services/mood-board.service.ts:65-94 create() includes only season/createdBy/_count - no items array; controller returns it as-is (mood-board.controller.ts:42-45)",
+   "probe": "n/a (POST)"
+  },
+  "expected": "items initialized to [] after creating a board so images/text/color items can be added immediately",
+  "actual": "items state becomes undefined on a freshly created board (URL is history.replaceState'd, so no refetch); the first addItem spreads undefined -> TypeError, breaking item adds until a full page reload",
+  "fix": "Frontend: `setItems(created.items ?? [])` at MoodBoardDetail.tsx:124 (or backend: include items: true in create response)",
+  "confidence": "medium",
+  "liveCheck": "suggested"
+ },
+ {
+  "id": "B15-04",
+  "page": "frontend/src/pages/dashboards/GeneralDashboard.tsx",
+  "route": "/dashboard/admin",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "GeneralDashboard.tsx:45-49 — reads apiStats?.totalOrders, apiStats?.activeWorkOrders, apiStats?.activeCustomers (flat, correct shape)",
+   "backend": "backend/src/controllers/dashboard.controller.ts:441-449 — data contains only lowStockItems, pendingQuotations, outstandingInvoices, monthlyRevenue, overdueOrders",
+   "probe": "n/a (429 rate-limited; controller source definitive)"
+  },
+  "expected": "general-stats returns all 8 DashboardStats fields including totalOrders, activeWorkOrders, activeCustomers",
+  "actual": "totalOrders, activeWorkOrders and activeCustomers are never returned, so the 'Total Orders', 'Active Work Orders' and 'Active Customers' StatCards on the admin landing dashboard permanently show 0 while the other 5 cards show real data — indistinguishable from a genuinely idle business",
+  "fix": "Add orders.count, work_orders.count(active) and customers.count(isActive) to the getGeneralDashboardStats Promise.all and response",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ }
+]

@@ -1,0 +1,172 @@
+[
+ {
+  "id": "B03-01",
+  "page": "frontend/src/pages/ComponentGroupMaster.tsx",
+  "route": "/component-groups",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "frontend/src/pages/ComponentGroupMaster.tsx:269 — `<Badge>{group._count?.components || 0}</Badge>`",
+   "backend": "backend/src/services/componentGroup.service.ts:68-72 includes `_count.select.components`, but backend/src/utils/serializer.ts camelize converts key `_count` → `count` (no RELATION_MAPPINGS entry for _count)",
+   "probe": "200 — GET /api/component-groups?limit=1 returns \"count\":{\"components\":7} (no _count key)"
+  },
+  "expected": "Components column shows the real number of component masters in each group (e.g. 7 for TOP)",
+  "actual": "`group._count` is always undefined after serialization, so the Components column shows 0 for every group",
+  "fix": "Read `group.count?.components` in ComponentGroupMaster.tsx (and align ComponentGroup type in frontend/src/types/componentGroup.types.ts)",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B05-03",
+  "page": "frontend/src/pages/MaterialMasterForm.tsx",
+  "route": "/material-master/new",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "MaterialMasterForm.tsx:26-41,209-287 collects pricePerUnit/pricePerMeter/pricePerPiece/pricePerKg/pricePerGross (+currencyId in DTO) and submits via materialMasterService.create/update",
+   "backend": "schemas/materialMaster.schema.ts:57-95 create/update schemas define only `price` (a field nothing reads) and none of the pricePer* fields or currencyId -> validateBody (validation.middleware.ts:28 req.body = schema.parse) strips them; material-master.service.ts:94-100,136-142 writes data.pricePerMeter etc. (columns exist, schema.prisma:33-39)",
+   "probe": "n/a (POST/PUT not probed)"
+  },
+  "expected": "The whole Pricing card (5 price fields) and currency persist on create/update",
+  "actual": "Zod strips all pricePer* + currencyId before the controller -> materials always saved with NULL prices; MaterialMasterList price column shows '-' for anything created via this form",
+  "fix": "Add pricePerUnit/pricePerMeter/pricePerPiece/pricePerKg/pricePerGross/currencyId to createMaterialSchema and updateMaterialSchema in materialMaster.schema.ts (and drop unused `price`)",
+  "confidence": "high",
+  "liveCheck": "suggested"
+ },
+ {
+  "id": "B06-12",
+  "page": "frontend/src/pages/FinishingDetail.tsx",
+  "route": "/manufacturing/finishing/:id",
+  "category": "integration-gap",
+  "severity": "P2",
+  "evidence": {
+   "frontend": "grep 'polybag-entry|carton-packing' across frontend/src → 0 matches; FinishingDetail/FinishingList expose only receive/start/record-output/move-to-packing/complete/transfer-slip actions",
+   "backend": "routes/finishing.routes.ts:93-104 POST /issues/:id/polybag-entry and /issues/:id/carton-packing exist with controllers; dispatch.service.ts:181-193 consumes GET /dispatch/available-cartons which depends on carton_packings rows",
+   "probe": "n/a"
+  },
+  "expected": "§8.10 Finishing Module card: finishing 'Triggers: Polybag entry (polybag_entries.finishingIssueId), Carton packing (carton_packings.finishingIssueId)' — the QC→Packing→Dispatch pipeline stage needs a UI to record packing",
+  "actual": "No page or dialog anywhere calls the polybag/carton endpoints, so packing can never be recorded from the UI and dispatch's 'available cartons' picker has no data source",
+  "fix": "Add polybag-entry / carton-packing actions (dialogs) to FinishingDetail for issues in PACKING status",
+  "confidence": "medium",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B10-01",
+  "page": "frontend/src/pages/DispatchList.tsx",
+  "route": "/manufacturing/dispatch",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "DispatchList.tsx:328 `{dn.ext?.cartons?.length || 0}` and :331 `dn.ext?.pod?.customerGrnNumber` read from the LIST query",
+   "backend": "dispatch.controller.ts:274 list uses deliveryNoteIncludeOptions (lines 188-199, no delivery_notes_ext) so transformDeliveryNote:60 returns ext:null for every list row; additionally the ext transform (lines 60-66) only exposes {id,pod,transport} — `cartons` is never returned by ANY endpoint",
+   "probe": "n/a"
+  },
+  "expected": "Delivery-notes table shows carton count and the customer GRN number/date recorded via POD",
+  "actual": "Cartons column is always 0 and Customer GRN column is always '-' for every row: list response has ext:null (no ext include), and even the detail endpoint's ext object omits the cartons relation",
+  "fix": "Use deliveryNoteExtendedIncludeOptions (plus cartons include) in getAllDeliveryNotes and add `cartons` to the ext object in transformDeliveryNote",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B09-03",
+  "page": "frontend/src/pages/SaleOrderList.tsx",
+  "route": "/sale-orders",
+  "category": "dead-endpoint",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "SaleOrderList.tsx:71 `api.get('/customers/search', { params: { search, limit: 20 } })` in the New Sale Order dialog",
+   "backend": "backend/src/routes/customer.routes.ts has no /search route; GET /:id at line 55 catches it with validateParams(customerIdParamSchema) = uuid (customer.schema.ts:293-295)",
+   "probe": "400 {'field':'id','message':'Invalid customer ID format'}"
+  },
+  "expected": "Typing 2+ chars lists matching customers so a Sale Order can be created",
+  "actual": "Request always 400s ('search' fails uuid validation); useQuery error is not surfaced, the dropdown simply never appears -> a customer can never be selected and in-ERP Sale Order creation is blocked",
+  "fix": "Call GET /customers?search=...&limit=20 (customerQuerySchema supports search) and read response.data.data, or add a /customers/search route before /:id",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B12-02",
+  "page": "frontend/src/pages/GSTReports.tsx",
+  "route": "/gst-reports",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "frontend/src/pages/GSTReports.tsx:259 `String(gstr1Data.summary.totalInvoices)` (no optional chaining); rows read `row.gstin`(292), `row.cgst/sgst/igst`(297-299,335-337,414-416), `row.totalValue`(300), `row.noteNumber/noteDate/value`(374-377)",
+   "backend": "backend/src/services/gstReport.service.ts:261-268 returns `{ period, b2b, b2cs, cdnr, hsnSummary, totals }` — key is `totals` not `summary`; entries use `customerGstin`, `cgstAmount/sgstAmount/igstAmount`, `invoiceValue`, `creditNoteNumber`, `creditNoteDate`, `noteValue` (lines 146-199, interfaces 18-56)",
+   "probe": "n/a"
+  },
+  "expected": "Clicking Generate on GSTR-1 renders summary cards and B2B/B2CS/CDNR/HSN tables with real tax figures",
+  "actual": "`gstr1Data.summary` is undefined → TypeError on render, crashing the GSTR-1 tab immediately after generation. Even if the summary key were fixed, every tax column (gstin, cgst, sgst, igst, totalValue, noteNumber, noteDate, value) reads names the backend never sends → formatCurrency(undefined) = '₹0.00' on a statutory report",
+  "fix": "Align GSTReports.tsx GSTR-1 interfaces/reads to the backend shape (summary→totals; gstin→customerGstin; cgst→cgstAmount etc.; totalValue→invoiceValue; noteNumber→creditNoteNumber; noteDate→creditNoteDate; value→noteValue) or add a mapping layer in the fetch handler",
+  "confidence": "high",
+  "liveCheck": "suggested"
+ },
+ {
+  "id": "B11-03",
+  "page": "frontend/src/pages/EmbroideryPieceDashboard.tsx",
+  "route": "/embroidery-stock/pieces",
+  "category": "field-mismatch",
+  "severity": "P0",
+  "evidence": {
+   "frontend": "EmbroideryPieceDashboard.tsx:56-66 getSendOuts({processType:'EMBROIDERY_PIECE',...}); :83 `sendOuts = sendOutsData?.data || []` renders 'No embroidery piece send-outs found' on error; EmbroideryPieceSendOut.tsx:185 posts processType:'EMBROIDERY_PIECE'",
+   "backend": "schemas/externalProcess.schema.ts:14-21 ExternalProcessTypeEnum has 'PIECE_EMBROIDERY'/'APPLIQUE'/'BEADING'/'OTHER' — Prisma enum (schema.prisma:9579-9583) is EMBROIDERY_PIECE|SMOCKING|HANDWORK; enum enforced by validateQuery (routes:32-36) and validateBody (routes:42-46)",
+   "probe": "400 on GET /api/external-process/send-outs?processType=EMBROIDERY_PIECE (200 for HANDWORK); 200 on /dashboard?processType=EMBROIDERY_PIECE (no validateQuery) so summary cards render while the table is permanently empty"
+  },
+  "expected": "Embroidery piece-tracking module lists, creates, and receives EMBROIDERY_PIECE send-outs",
+  "actual": "'EMBROIDERY_PIECE' fails the Zod enum: the dashboard table always shows empty (silent 400 behind live-looking summary cards), the receive page's pending dropdown 400s, and POST /send-out 400s — the whole piece-embroidery module is dead",
+  "fix": "Align ExternalProcessTypeEnum with the Prisma enum: z.enum(['EMBROIDERY_PIECE','SMOCKING','HANDWORK'])",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B11-08",
+  "page": "frontend/src/pages/SampleForm.tsx",
+  "route": "/samples/:id/edit",
+  "category": "dead-ui",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "SampleForm.tsx:300-309 edit branch only calls updateSample(requiredDate, remarks) + updateMeasurements; colorway/size-set editors stay fully interactive in edit mode (:637-802) and their state is never sent",
+   "backend": "backend/src/routes/sample.routes.ts has no /:id/colorways or /:id/size-sets routes (grep: no matches), so there is nothing to call either",
+   "probe": "n/a"
+  },
+  "expected": "Editing a PP sample's colorways or a Size-Set sample's entries persists the changes",
+  "actual": "User edits colorways/size-sets, clicks Update, gets 'Sample updated' success toast — changes are silently discarded (never sent, and no backend route exists to receive them)",
+  "fix": "Persist colorways/sizeSets on edit (accept them in PUT /api/samples/:id like createSample does, and send them from createOrUpdateSample) or disable those editors in edit mode",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B14-01",
+  "page": "frontend/src/pages/CostSheetDetail.tsx",
+  "route": "/cost-sheets/:id",
+  "category": "dead-endpoint",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "frontend/src/services/costSheet.service.ts:115 `api.patch(`${BASE_URL}/${id}/reject`, { rejectionNotes })` - invoked by Reject dialogs at CostSheetDetail.tsx:128 and CostSheetList.tsx:207",
+   "backend": "backend/src/routes/styleCosting.routes.ts has no /:id/reject route; rejection is only reachable via PATCH /:id/approve (line 160) with body {action:'reject', rejectionNotes} (style-costing-approval.controller.ts:39-47). Legacy approved=false maps to PENDING, not REJECTED (controller line 55)",
+   "probe": "n/a (PATCH cannot be GET-probed)"
+  },
+  "expected": "Reject button sets approvalStatus=REJECTED with rejection notes",
+  "actual": "PATCH /api/style-costing/:id/reject 404s every time; the REJECTED state is unreachable from the UI on both pages, so the rejection-notes banners (CostSheetDetail.tsx:318, CostSheetList.tsx:407) can never be populated",
+  "fix": "In costSheet.service.ts rejectCostSheet, call PATCH `${BASE_URL}/${id}/approve` with body { action: 'reject', rejectionNotes }",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B15-03",
+  "page": "frontend/src/pages/dashboards/SalesDashboard.tsx",
+  "route": "/dashboard/sales",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "SalesDashboard.tsx:64-74 — reads dashboardData?.stats?.activeOrders etc., dashboardData?.recentOrders, dashboardData?.pendingQuotations",
+   "backend": "backend/src/controllers/dashboard.controller.ts:550-556 — res.json({ data: { stylesPendingCosting, activeOrders, totalCustomers } }) — flat, no stats wrapper, no table arrays; key is totalCustomers but frontend expects activeCustomers",
+   "probe": "n/a (429 rate-limited; controller source definitive)"
+  },
+  "expected": "Response { stats: { activeOrders, pendingQuotations, activeCustomers, upcomingDeliveries, monthlyRevenue, stylesPendingCosting }, recentOrders: [...], pendingQuotations: [...] }",
+  "actual": "All 6 KPIs render 0 (the 3 computed values hidden behind missing stats wrapper; totalCustomers also misnamed vs activeCustomers), Recent Orders and Pending Quotations tables always empty",
+  "fix": "Return { stats: {...}, recentOrders, pendingQuotations } from getSalesDashboardStats, rename totalCustomers to activeCustomers, and add pendingQuotations/upcomingDeliveries/monthlyRevenue counts",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ }
+]

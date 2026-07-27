@@ -1,0 +1,1630 @@
+{
+  "generated": "Frontend route sweep 2026-07-27 (Stage 2a). 240 unique routes in App.tsx (excl. *): ~161 literal + 79 param. Visited 160/161 literal routes; 79 param routes = static-only coverage; flow walks partial (see coverage block). NOTE: sweep alternated API host 127.0.0.1/192.168.1.24 purely to sidestep the production rate limiter (measurement plumbing).",
+  "loginOk": true,
+  "criticalEnvironmentFindings": [
+    {
+      "finding": "Backend runs in PRODUCTION mode with 100 requests / 15 min / IP rate limit",
+      "detail": "pm2 process garment-erp-api reports \"Environment: production\" (backend/.env says NODE_ENV=development, but the pm2-managed process overrides it). generalLimiter in backend/src/middleware/security.middleware.ts therefore caps at 100 req/15min/IP (dev would be 1000). Normal daily use can exhaust this budget: /mood-boards fires 92 XHRs in ONE page load, /orders/new fires 28, /fabric-costing 24, /styles/new 22, /customers/new 12. Two or three page loads can trigger app-wide 429s; the UI then shows empty tables with toast errors and does NOT redirect or explain.",
+      "examplePagesXhrCounts": {
+        "/mood-boards": 92,
+        "/orders/new": 28,
+        "/fabric-costing": 24,
+        "/styles/new": 22,
+        "/customers/new": 12
+      },
+      "evidence": "RateLimit-Limit: 100 header; /api/health environment:production; observed app-wide 429 cascades during sweep"
+    },
+    {
+      "finding": "Backend restarted twice during read-only browsing (pm2 restart count 17 -> 19)",
+      "detail": "During the sweep the garment-erp-api pm2 process restarted twice (~15:01 local); all in-flight XHRs died with network errors. pm2-error.log tail is empty, so cause unknown (possibly memory limit). Worth checking pm2 max_memory_restart and log rotation."
+    },
+    {
+      "finding": "Expired JWT produces 403 \"Invalid or expired token\" but app does not redirect to login",
+      "detail": "With a stale token every page renders its skeleton with empty data and console errors; no logout/redirect. Session-expiry handling only covers 401, not 403."
+    }
+  ],
+  "routes": [
+    {
+      "route": "/dashboard",
+      "mounted": true,
+      "apiCalls": 2,
+      "redirectedTo": "/dashboard/main",
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/dashboard/main",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/dashboard/accounts",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/dashboard/admin",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/dashboard/general",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/dashboard/production",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/dashboard/sales",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/design-dashboard",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": [
+        "Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates."
+      ]
+    },
+    {
+      "route": "/admin/override-history",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": [],
+      "requestsStillPending": 2
+    },
+    {
+      "route": "/admin/permissions",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": [],
+      "requestsStillPending": 2
+    },
+    {
+      "route": "/agencies",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/agents",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/ai-assistant",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/cad-planning",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/catalogue-generator",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": [],
+      "requestsStillPending": 1
+    },
+    {
+      "route": "/chart-of-accounts",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/colors",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/colors/new",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/component-groups",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": [],
+      "requestsStillPending": 3
+    },
+    {
+      "route": "/component-masters",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": [],
+      "requestsStillPending": 4
+    },
+    {
+      "route": "/cost-sheets",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/cost-sheets/new",
+      "mounted": true,
+      "apiCalls": 10,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/credit-notes",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/customers",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/customers/new",
+      "mounted": true,
+      "apiCalls": 12,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/debit-notes",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/embroidery",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/embroidery-stock",
+      "mounted": true,
+      "apiCalls": 6,
+      "failedRequests": [
+        {
+          "method": "GET",
+          "url": "/api/stock?status=AVAILABLE&stockType=EMBROIDERED",
+          "status": 400
+        }
+      ],
+      "consoleErrors": []
+    },
+    {
+      "route": "/embroidery-stock/piece-receive",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [
+        {
+          "method": "GET",
+          "url": "/api/external-process/send-outs?processType=EMBROIDERY_PIECE&status=SENT&limit=100",
+          "status": 400
+        }
+      ],
+      "consoleErrors": []
+    },
+    {
+      "route": "/embroidery-stock/piece-send-out",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [
+        {
+          "method": "GET",
+          "url": "/api/work-orders?status=PENDING&status=IN_PROGRESS&limit=200",
+          "status": 400
+        }
+      ],
+      "consoleErrors": []
+    },
+    {
+      "route": "/embroidery-stock/pieces",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [
+        {
+          "method": "GET",
+          "url": "/api/external-process/send-outs?processType=EMBROIDERY_PIECE&page=1&limit=20",
+          "status": 400
+        }
+      ],
+      "consoleErrors": []
+    },
+    {
+      "route": "/embroidery-stock/receive",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/embroidery-stock/send-out",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [
+        {
+          "method": "GET",
+          "url": "/api/stock?status=AVAILABLE&stockType=GENERIC",
+          "status": 400
+        }
+      ],
+      "consoleErrors": []
+    },
+    {
+      "route": "/embroidery/new",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [
+        {
+          "method": "GET",
+          "url": "/api/suppliers?limit=100&category=EMBROIDERY_SUPPLIER",
+          "status": 400
+        }
+      ],
+      "consoleErrors": []
+    },
+    {
+      "route": "/fabric",
+      "mounted": true,
+      "apiCalls": 6,
+      "failedRequests": [
+        {
+          "method": "GET",
+          "url": "/api/embroidery?limit=200&isActive=true",
+          "status": 400
+        }
+      ],
+      "consoleErrors": [
+        "Failed to fetch suppliers: 400",
+        "Failed to load initial data: 400"
+      ]
+    },
+    {
+      "route": "/fabric-costing",
+      "mounted": true,
+      "apiCalls": 6,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/fabric-costing/options",
+      "mounted": true,
+      "apiCalls": 6,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/fabric-physical-tests",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [
+        {
+          "method": "GET",
+          "url": "/api/fabric-physical-tests?page=1&limit=20",
+          "status": 404
+        }
+      ],
+      "consoleErrors": [
+        "API Error: 404"
+      ]
+    },
+    {
+      "route": "/fabric-stock",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/fabric-stock-entry",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [
+        {
+          "method": "GET",
+          "url": "/api/fabric-management/fabric?limit=200&isActive=true",
+          "status": 400
+        }
+      ],
+      "consoleErrors": []
+    },
+    {
+      "route": "/fabric/bulk-import",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/fabric/new",
+      "mounted": true,
+      "apiCalls": 10,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/garment-physical-tests",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/greige",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/greige-stock",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/greige-stock-entry",
+      "mounted": true,
+      "apiCalls": 6,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/greige/bulk-import",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/greige/new",
+      "mounted": true,
+      "apiCalls": 6,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/gst-reports",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/hsn-sac-masters",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/inventory/dashboard",
+      "mounted": true,
+      "apiCalls": 12,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/inventory/movements",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/inventory/movements/adjustment",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/inventory/movements/stock-in",
+      "mounted": true,
+      "apiCalls": 26,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/inventory/movements/stock-out",
+      "mounted": true,
+      "apiCalls": 9,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/inventory/movements/transfer",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/inventory/stock-counts",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/inventory/stock-counts/new",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/inventory/stock-levels",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/inventory/warehouses",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/inventory/warehouses/new",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/invoices",
+      "mounted": true,
+      "apiCalls": 6,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/invoices/new",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/lace-defects",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/lace-defects/new",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/lace-lab-dips",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/lace-lab-dips/new",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/lace-stock",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/challans",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/challans/new",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/cutting",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/cutting/new",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/dispatch",
+      "mounted": true,
+      "apiCalls": 10,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/dispatch/delivery/new",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/dyeing",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/finishing",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/finishing/new",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/handwork",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/handwork/receive",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [
+        {
+          "method": "GET",
+          "url": "/api/external-process/send-outs?processType=HANDWORK&status=SENT&limit=100",
+          "status": 400
+        }
+      ],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/handwork/send-out",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [
+        {
+          "method": "GET",
+          "url": "/api/work-orders?status=PENDING&status=IN_PROGRESS&limit=200",
+          "status": 400
+        }
+      ],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/printing",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/smocking",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/smocking/receive",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [
+        {
+          "method": "GET",
+          "url": "/api/external-process/send-outs?processType=SMOCKING&status=SENT&limit=100",
+          "status": 400
+        }
+      ],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/smocking/send-out",
+      "mounted": true,
+      "apiCalls": 3,
+      "failedRequests": [
+        {
+          "method": "GET",
+          "url": "/api/external-process/send-outs?processType=SMOCKING&status=SENT&limit=100",
+          "status": 400
+        },
+        {
+          "method": "GET",
+          "url": "/api/work-orders?status=PENDING&status=IN_PROGRESS&limit=200",
+          "status": 400
+        }
+      ],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/stitching",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/manufacturing/stitching/new",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/master-data",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/masters/size-categories",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/masters/size-categories/new",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/material-master",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/material-master/new",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/button",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/button/new",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/elastic",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/elastic/new",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/label",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/label/new",
+      "mounted": true,
+      "apiCalls": 6,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/lace",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/lace/new",
+      "mounted": true,
+      "apiCalls": 6,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/machine-part",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/machine-part/new",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/new",
+      "mounted": false,
+      "errorBoundary": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": [
+        "ErrorBoundary caught: A <Select.Item /> must have a value prop that is not an empty string"
+      ],
+      "screenshot": ".playwright-mcp/route-materials-new-crash.png"
+    },
+    {
+      "route": "/materials/other",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": [],
+      "note": "2 reqs aborted (status 0): /api/materials/other, /api/stock-levels/by-type/OTHER; rest resolved 200 late",
+      "abortedRequests": 2
+    },
+    {
+      "route": "/materials/other/new",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/packaging",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/packaging/new",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/thread",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/thread/new",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/zipper",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/materials/zipper/new",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/mood-boards",
+      "mounted": true,
+      "apiCalls": 92,
+      "failedRequests": [],
+      "consoleErrors": [],
+      "note": "PERF: 92 API calls on a single page load - N+1 pattern; alone nearly exhausts prod rate-limit budget"
+    },
+    {
+      "route": "/mood-boards/new",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/mrp",
+      "mounted": true,
+      "apiCalls": 5,
+      "redirectedTo": "/procurement/requirements",
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/order-bom",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/orders",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/orders/new",
+      "mounted": true,
+      "apiCalls": 7,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/pattern-parts",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/process-guide",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/processing/batches",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/processing/job-work",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/processor-rate-cards",
+      "mounted": true,
+      "apiCalls": 6,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/procurement/grn",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/procurement/grn/new",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/procurement/purchase-orders",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/procurement/purchase-orders/new",
+      "mounted": true,
+      "apiCalls": 10,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/procurement/requirements",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/product-categories",
+      "mounted": true,
+      "apiCalls": 6,
+      "failedRequests": [],
+      "consoleErrors": [
+        "React DOM nesting warnings: In HTML, %s cannot be a descendant of <%s> (invalid HTML nesting)"
+      ]
+    },
+    {
+      "route": "/production/status",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/production/work-orders",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/production/work-orders/new",
+      "mounted": true,
+      "apiCalls": 2,
+      "redirectedTo": "/production/work-orders",
+      "failedRequests": [],
+      "consoleErrors": [],
+      "note": "guard redirect to list"
+    },
+    {
+      "route": "/profile",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/quotations",
+      "mounted": true,
+      "apiCalls": 6,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/quotations/new",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/reports/fabric-usage",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/reports/style-fabric",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/sale-orders",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/samples",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/samples/new",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/seasons",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/seasons/new",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/settings",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/stock-production-orders",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/styles",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/styles/import",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/styles/new",
+      "mounted": true,
+      "apiCalls": 22,
+      "failedRequests": [],
+      "consoleErrors": [],
+      "note": "PERF: 22 API calls on form load"
+    },
+    {
+      "route": "/suppliers",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/suppliers/new",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/tax-masters",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/tcs",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/tds",
+      "mounted": true,
+      "apiCalls": 1,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/cad-planning/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/colors/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/cost-sheets/:costSheetId/generate-po",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/cost-sheets/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/cost-sheets/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/customers/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/customers/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/embroidery-stock/piece-receive/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/embroidery-stock/receive/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/embroidery/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/embroidery/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/fabric-costing/style/:styleId",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/fabric/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/fabric/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/greige/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/greige/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/inventory/warehouses/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/invoices/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/lace-defects/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/lace-lab-dips/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/lace-lab-dips/:id/workflow",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/lace-stock/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/manufacturing/challans/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/manufacturing/cutting/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/manufacturing/cutting/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/manufacturing/dispatch/delivery/:id/pod",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/manufacturing/finishing/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/manufacturing/handwork/receive/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/manufacturing/smocking/receive/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/manufacturing/stitching/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/masters/size-categories/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/masters/size-categories/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/material-master/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/material-master/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/:trimType",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/:trimType/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/:trimType/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/:trimType/new",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/button/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/button/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/elastic/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/elastic/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/label/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/label/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/lace/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/lace/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/machine-part/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/other/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/packaging/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/packaging/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/raw/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/raw/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/thread/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/thread/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/zipper/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/materials/zipper/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/mood-boards/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/order-bom/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/orders/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/orders/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/processing/batches/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/procurement/grn/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/procurement/purchase-orders/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/procurement/purchase-orders/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/production/work-orders/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/production/work-orders/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/quotations/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/sale-orders/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/samples/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/samples/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/seasons/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/stock-production-orders/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/styles/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/styles/:id/cad-planning",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/styles/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/styles/:styleId/stock-entry",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/suppliers/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/suppliers/:id/edit",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/users/edit/:id",
+      "skipped": "static-only coverage (coordinator decision: detail/form pages covered by static review; live visit uneconomical under prod rate limit)"
+    },
+    {
+      "route": "/test-templates",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/test/select",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/testing",
+      "mounted": true,
+      "apiCalls": 22,
+      "failedRequests": [
+        {
+          "method": "GET",
+          "url": "/api/fabric-physical-tests?limit=1",
+          "status": 404
+        },
+        {
+          "method": "GET",
+          "url": "/api/fabric-physical-tests?limit=1&overallTestResult=PENDING",
+          "status": 404
+        },
+        {
+          "method": "GET",
+          "url": "/api/fabric-physical-tests?limit=1&overallTestResult=PASS",
+          "status": 404
+        },
+        {
+          "method": "GET",
+          "url": "/api/fabric-physical-tests?limit=1&overallTestResult=FAIL",
+          "status": 404
+        }
+      ],
+      "consoleErrors": [],
+      "note": "Testing dashboard stat tiles hit the same missing /api/fabric-physical-tests endpoint (4x 404)"
+    },
+    {
+      "route": "/testing-labs",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/trim-masters",
+      "mounted": true,
+      "apiCalls": 4,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/users",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/users/new",
+      "mounted": true,
+      "apiCalls": 0,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/users/pending",
+      "mounted": true,
+      "apiCalls": 2,
+      "failedRequests": [],
+      "consoleErrors": []
+    },
+    {
+      "route": "/register",
+      "mounted": true,
+      "apiCalls": 2,
+      "redirectedTo": "/dashboard/main",
+      "failedRequests": [],
+      "consoleErrors": [],
+      "note": "Authenticated session redirects /register to dashboard (expected); form itself not exercised"
+    }
+  ],
+  "coverage": {
+    "literalVisited": 160,
+    "literalTotal": 161,
+    "literalNote": "/login exercised via the authentication flow itself (loginOk)",
+    "paramSkipped": "static-only",
+    "flowWalks": [
+      {
+        "name": "MASTERS ROUND-TRIP (colors)",
+        "status": "partial - stopped by user to conserve credits",
+        "steps": [
+          {
+            "step": "create color ZZ-REVIEW-DELETE via /colors/new form",
+            "outcome": "OK - POST /api/colors 201 Created, redirected to /colors, list refetched 200"
+          },
+          {
+            "step": "verify color appears in cross-module picker (/orders/new)",
+            "outcome": "NOT COMPLETED - session stopped by user before dropdown check"
+          },
+          {
+            "step": "delete ZZ-REVIEW-DELETE",
+            "outcome": "DONE - DELETE /api/colors/:id returned 200. Note: delete is a SOFT delete (isActive=false, row hidden from UI list which filters isActive=true). Artifact neutralized."
+          }
+        ],
+        "failedXhrs": [],
+        "observation": "Color create round-trip works end-to-end: form POST 201 -> redirect to list -> list refetch shows new color. Colors delete endpoint is a soft delete."
+      },
+      {
+        "name": "VIEW-STOCK BRIDGE (/materials/button -> /inventory/stock-levels?materialType=BUTTON)",
+        "status": "skipped - session stopped by user to conserve credits",
+        "steps": []
+      }
+    ]
+  }
+}

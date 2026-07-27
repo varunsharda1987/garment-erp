@@ -1,0 +1,1135 @@
+{
+ "batch": "B10-dispatch-misc",
+ "pages": {
+  "frontend/src/pages/AIAssistant.tsx": {
+   "routes": [
+    "/ai-assistant"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/conversation.service.ts",
+     "hop": 1,
+     "line": 107,
+     "method": "GET",
+     "raw": "/conversations/${id}",
+     "resolvedPath": "/api/conversations/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/conversations/:id",
+      "file": "backend/src/routes/conversation.routes.ts",
+      "line": 86
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/conversation.service.ts",
+     "hop": 1,
+     "line": 133,
+     "method": "POST",
+     "raw": "/ai/chat/persistent",
+     "resolvedPath": "/api/ai/chat/persistent",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/ai/chat/persistent",
+      "file": "backend/src/routes/ai.routes.ts",
+      "line": 198
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/conversation.service.ts",
+     "hop": 1,
+     "line": 156,
+     "method": "GET",
+     "raw": "/ai/suggestions",
+     "resolvedPath": "/api/ai/suggestions",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/ai/suggestions",
+      "file": "backend/src/routes/ai.routes.ts",
+      "line": 389
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/conversation.service.ts",
+     "hop": 1,
+     "line": 172,
+     "method": "GET",
+     "raw": "/ai/status",
+     "resolvedPath": "/api/ai/status",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/ai/status",
+      "file": "backend/src/routes/ai.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/ChallanDetail.tsx": {
+   "routes": [
+    "/manufacturing/challans/:id"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 90,
+     "raw": "/manufacturing/challans",
+     "normalized": "/manufacturing/challans",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/ChallanList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "${BASE_URL}?${params.toString()}",
+     "resolvedPath": "/api/challans",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/challans",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 32,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/challans/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/challans/stats",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 38,
+     "method": "POST",
+     "raw": "/challans",
+     "resolvedPath": "/api/challans",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/challans",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 34
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 44,
+     "method": "POST",
+     "raw": "${BASE_URL}/quick-issue",
+     "resolvedPath": "/api/challans/quick-issue",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/challans/quick-issue",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 50,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}/issue",
+     "resolvedPath": "/api/challans/:_/issue",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/challans/:id/issue",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 56,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}/receive",
+     "resolvedPath": "/api/challans/:_/receive",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/challans/:id/receive",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 62,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}/cancel",
+     "resolvedPath": "/api/challans/:_/cancel",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/challans/:id/cancel",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 38
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 74,
+     "method": "GET",
+     "raw": "${BASE_URL}/stats?${params.toString()}",
+     "resolvedPath": "/api/challans/stats",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/challans/stats",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 97,
+     "method": "GET",
+     "raw": "/po-rates/resolve?${searchParams.toString()}",
+     "resolvedPath": "/api/po-rates/resolve",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/po-rates/resolve",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 41
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 109,
+     "method": "POST",
+     "raw": "/production-runs/${id}/split",
+     "resolvedPath": "/api/production-runs/:_/split",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/production-runs/:id/split",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/ChallanForm.tsx": {
+   "routes": [
+    "/manufacturing/challans/new"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/ChallanForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/ChallanList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/ChallanList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/ChallanList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 84,
+     "raw": "/manufacturing/challans/${challan.id}",
+     "normalized": "/manufacturing/challans/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/ChallanForm.tsx"
+    },
+    {
+     "line": 101,
+     "raw": "/manufacturing/challans",
+     "normalized": "/manufacturing/challans",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/ChallanList.tsx"
+    },
+    {
+     "line": 336,
+     "raw": "/manufacturing/challans",
+     "normalized": "/manufacturing/challans",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/ChallanList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "${BASE_URL}?${params.toString()}",
+     "resolvedPath": "/api/challans",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/challans",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 32,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/challans/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/challans/stats",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 38,
+     "method": "POST",
+     "raw": "/challans",
+     "resolvedPath": "/api/challans",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/challans",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 34
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 44,
+     "method": "POST",
+     "raw": "${BASE_URL}/quick-issue",
+     "resolvedPath": "/api/challans/quick-issue",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/challans/quick-issue",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 50,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}/issue",
+     "resolvedPath": "/api/challans/:_/issue",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/challans/:id/issue",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 56,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}/receive",
+     "resolvedPath": "/api/challans/:_/receive",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/challans/:id/receive",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 62,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}/cancel",
+     "resolvedPath": "/api/challans/:_/cancel",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/challans/:id/cancel",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 38
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 74,
+     "method": "GET",
+     "raw": "${BASE_URL}/stats?${params.toString()}",
+     "resolvedPath": "/api/challans/stats",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/challans/stats",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 97,
+     "method": "GET",
+     "raw": "/po-rates/resolve?${searchParams.toString()}",
+     "resolvedPath": "/api/po-rates/resolve",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/po-rates/resolve",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 41
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 109,
+     "method": "POST",
+     "raw": "/production-runs/${id}/split",
+     "resolvedPath": "/api/production-runs/:_/split",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/production-runs/:id/split",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/ChallanList.tsx": {
+   "routes": [
+    "/manufacturing/challans"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/ChallanDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/ChallanForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/ChallanForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockOutForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 60,
+     "raw": "/manufacturing/challans/${challan.id}",
+     "normalized": "/manufacturing/challans/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/ChallanForm.tsx"
+    },
+    {
+     "line": 130,
+     "raw": "/manufacturing/challans/${challan.id}",
+     "normalized": "/manufacturing/challans/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/ChallanForm.tsx"
+    },
+    {
+     "line": 147,
+     "raw": "/manufacturing/challans/new",
+     "normalized": "/manufacturing/challans/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/ChallanForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "${BASE_URL}?${params.toString()}",
+     "resolvedPath": "/api/challans",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/challans",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 32,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/challans/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/challans/stats",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 38,
+     "method": "POST",
+     "raw": "/challans",
+     "resolvedPath": "/api/challans",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/challans",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 34
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 44,
+     "method": "POST",
+     "raw": "${BASE_URL}/quick-issue",
+     "resolvedPath": "/api/challans/quick-issue",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/challans/quick-issue",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 50,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}/issue",
+     "resolvedPath": "/api/challans/:_/issue",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/challans/:id/issue",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 56,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}/receive",
+     "resolvedPath": "/api/challans/:_/receive",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/challans/:id/receive",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 62,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}/cancel",
+     "resolvedPath": "/api/challans/:_/cancel",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/challans/:id/cancel",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 38
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 74,
+     "method": "GET",
+     "raw": "${BASE_URL}/stats?${params.toString()}",
+     "resolvedPath": "/api/challans/stats",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/challans/stats",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 97,
+     "method": "GET",
+     "raw": "/po-rates/resolve?${searchParams.toString()}",
+     "resolvedPath": "/api/po-rates/resolve",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/po-rates/resolve",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 41
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/challan.service.ts",
+     "hop": 1,
+     "line": 109,
+     "method": "POST",
+     "raw": "/production-runs/${id}/split",
+     "resolvedPath": "/api/production-runs/:_/split",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/production-runs/:id/split",
+      "file": "backend/src/routes/challan.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/DispatchDeliveryNoteForm.tsx": {
+   "routes": [
+    "/manufacturing/dispatch/delivery/new"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/DispatchList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DispatchList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DispatchList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 336,
+     "raw": "/manufacturing/dispatch",
+     "normalized": "/manufacturing/dispatch",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/DispatchList.tsx"
+    },
+    {
+     "line": 350,
+     "raw": "/manufacturing/dispatch",
+     "normalized": "/manufacturing/dispatch",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/DispatchList.tsx"
+    },
+    {
+     "line": 566,
+     "raw": "/manufacturing/dispatch",
+     "normalized": "/manufacturing/dispatch",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/DispatchList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/dispatch.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "${BASE_URL}/delivery-notes/${id}",
+     "resolvedPath": "/api/dispatch/delivery-notes/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dispatch/delivery-notes/:id",
+      "file": "backend/src/routes/dispatch.routes.ts",
+      "line": 62
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dispatch.service.ts",
+     "hop": 1,
+     "line": 62,
+     "method": "POST",
+     "raw": "${BASE_URL}/delivery-notes",
+     "resolvedPath": "/api/dispatch/delivery-notes",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dispatch/delivery-notes",
+      "file": "backend/src/routes/dispatch.routes.ts",
+      "line": 63
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dispatch.service.ts",
+     "hop": 1,
+     "line": 125,
+     "method": "GET",
+     "raw": "${BASE_URL}/asn/${id}",
+     "resolvedPath": "/api/dispatch/asn/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dispatch/asn/:id",
+      "file": "backend/src/routes/dispatch.routes.ts",
+      "line": 92
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dispatch.service.ts",
+     "hop": 1,
+     "line": 131,
+     "method": "POST",
+     "raw": "${BASE_URL}/asn",
+     "resolvedPath": "/api/dispatch/asn",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dispatch/asn",
+      "file": "backend/src/routes/dispatch.routes.ts",
+      "line": 93
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/order.service.ts",
+     "hop": 1,
+     "line": 25,
+     "method": "GET",
+     "raw": "/orders",
+     "resolvedPath": "/api/orders",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/orders",
+      "file": "backend/src/routes/order.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/order.service.ts",
+     "hop": 1,
+     "line": 48,
+     "method": "GET",
+     "raw": "/orders/${id}",
+     "resolvedPath": "/api/orders/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/orders/:id",
+      "file": "backend/src/routes/order.routes.ts",
+      "line": 38
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "/customers?${queryParams.toString()}",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "/styles/${id}",
+     "resolvedPath": "/api/styles/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/drafts",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/DispatchList.tsx": {
+   "routes": [
+    "/manufacturing/dispatch"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/ProductionDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DispatchDeliveryNoteForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DispatchDeliveryNoteForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DispatchDeliveryNoteForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DispatchPODForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DispatchPODForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DispatchPODForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DispatchPODForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DispatchPODForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DispatchPODForm.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 185,
+     "raw": "/manufacturing/dispatch/asn/new",
+     "normalized": "/manufacturing/dispatch/asn/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 191,
+     "raw": "/manufacturing/dispatch/delivery/new",
+     "normalized": "/manufacturing/dispatch/delivery/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/DispatchDeliveryNoteForm.tsx"
+    },
+    {
+     "line": 347,
+     "raw": "/manufacturing/dispatch/delivery/${dn.id}",
+     "normalized": "/manufacturing/dispatch/delivery/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/DispatchDeliveryNoteForm.tsx"
+    },
+    {
+     "line": 363,
+     "raw": "/manufacturing/dispatch/delivery/${dn.id}/pod",
+     "normalized": "/manufacturing/dispatch/delivery/:_/pod",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/DispatchPODForm.tsx"
+    },
+    {
+     "line": 488,
+     "raw": "/manufacturing/dispatch/asn/${asn.id}",
+     "normalized": "/manufacturing/dispatch/asn/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 504,
+     "raw": "/manufacturing/dispatch/delivery/new?asnId=${asn.id}",
+     "normalized": "/manufacturing/dispatch/delivery/new",
+     "queryParams": [
+      "asnId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/DispatchDeliveryNoteForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/dispatch.service.ts",
+     "hop": 1,
+     "line": 92,
+     "method": "POST",
+     "raw": "${BASE_URL}/delivery-notes/${id}/dispatch",
+     "resolvedPath": "/api/dispatch/delivery-notes/:_/dispatch",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dispatch/delivery-notes/:id/dispatch",
+      "file": "backend/src/routes/dispatch.routes.ts",
+      "line": 73
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dispatch.service.ts",
+     "hop": 1,
+     "line": 137,
+     "method": "POST",
+     "raw": "${BASE_URL}/asn/${id}/apply",
+     "resolvedPath": "/api/dispatch/asn/:_/apply",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dispatch/asn/:id/apply",
+      "file": "backend/src/routes/dispatch.routes.ts",
+      "line": 99
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dispatch.service.ts",
+     "hop": 1,
+     "line": 176,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary",
+     "resolvedPath": "/api/dispatch/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dispatch/summary",
+      "file": "backend/src/routes/dispatch.routes.ts",
+      "line": 52
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/DispatchPODForm.tsx": {
+   "routes": [
+    "/manufacturing/dispatch/delivery/:id/pod"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/DispatchList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 59,
+     "raw": "/manufacturing/dispatch",
+     "normalized": "/manufacturing/dispatch",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/DispatchList.tsx"
+    },
+    {
+     "line": 65,
+     "raw": "/manufacturing/dispatch",
+     "normalized": "/manufacturing/dispatch",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/DispatchList.tsx"
+    },
+    {
+     "line": 70,
+     "raw": "/manufacturing/dispatch",
+     "normalized": "/manufacturing/dispatch",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/DispatchList.tsx"
+    },
+    {
+     "line": 124,
+     "raw": "/manufacturing/dispatch",
+     "normalized": "/manufacturing/dispatch",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/DispatchList.tsx"
+    },
+    {
+     "line": 156,
+     "raw": "/manufacturing/dispatch",
+     "normalized": "/manufacturing/dispatch",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/DispatchList.tsx"
+    },
+    {
+     "line": 425,
+     "raw": "/manufacturing/dispatch",
+     "normalized": "/manufacturing/dispatch",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/DispatchList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/dispatch.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "${BASE_URL}/delivery-notes/${id}",
+     "resolvedPath": "/api/dispatch/delivery-notes/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dispatch/delivery-notes/:id",
+      "file": "backend/src/routes/dispatch.routes.ts",
+      "line": 62
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dispatch.service.ts",
+     "hop": 1,
+     "line": 98,
+     "method": "POST",
+     "raw": "${BASE_URL}/delivery-notes/${id}/record-pod",
+     "resolvedPath": "/api/dispatch/delivery-notes/:_/record-pod",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/dispatch/delivery-notes/:id/record-pod",
+      "file": "backend/src/routes/dispatch.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/dispatch.service.ts",
+     "hop": 1,
+     "line": 125,
+     "method": "GET",
+     "raw": "${BASE_URL}/asn/${id}",
+     "resolvedPath": "/api/dispatch/asn/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dispatch/asn/:id",
+      "file": "backend/src/routes/dispatch.routes.ts",
+      "line": 92
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/NotFound.tsx": {
+   "routes": [
+    "*"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 20,
+     "raw": "/dashboard",
+     "normalized": "/dashboard",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/dashboards/DashboardRouter.tsx"
+    }
+   ],
+   "calls": []
+  },
+  "frontend/src/pages/ProcessGuidePage.tsx": {
+   "routes": [
+    "/process-guide"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [],
+   "calls": []
+  },
+  "frontend/src/pages/SelectTest.tsx": {
+   "routes": [
+    "/test/select"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [],
+   "calls": []
+  }
+ },
+ "unresolvedCalls": []
+}

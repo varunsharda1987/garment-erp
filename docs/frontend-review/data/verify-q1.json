@@ -1,0 +1,189 @@
+[
+ {
+  "id": "B02-01",
+  "page": "frontend/src/pages/LaceForm.tsx",
+  "route": "/materials/lace/:id/edit",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "LaceForm.tsx:111-121 `if (lace.laceSuppliers && ...) setSuppliers(...)` — API key is `suppliers` (serializer RELATION_MAPPINGS serializer.ts:320 maps laceSuppliers→'suppliers'), so existing suppliers never load; onSubmit line 178 always sends `suppliers: validSuppliers` ([] when none loaded)",
+   "backend": "lace.controller.ts:621-637 updateLace: `if (suppliers !== undefined && Array.isArray(suppliers))` → lace_suppliers.deleteMany then createMany only if length>0; updateLaceSchema (trimMasters.schema.ts:400,413) passes `suppliers` through",
+   "probe": "GET /api/materials/lace?limit=2 returns key \"suppliers\":[] (not laceSuppliers) — 200"
+  },
+  "expected": "Edit form pre-loads the lace's existing supplier links and preserves them on save",
+  "actual": "Supplier links never load into the form; saving any edit sends suppliers:[] which delete-and-recreates to nothing — ALL supplier links for that lace are silently wiped on every edit save",
+  "fix": "Read `lace.suppliers` (serialized key) in LaceForm (and update lace.types.ts:105), or only send `suppliers` when the user touched the supplier section",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B04-02",
+  "page": "frontend/src/pages/SupplierForm.tsx",
+  "route": "/suppliers/:id/edit",
+  "category": "dead-endpoint",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "frontend/src/services/fabricGreigeService.ts:268 `api.get(`/component-masters/${componentMasterId}/pattern-parts`)`; consumer AllocateFabricToStyleModal.tsx:127-131 `catch { setPatternParts([]) }` masks the 404 as an empty list",
+   "backend": "backend/src/routes/componentMasters.routes.ts has no `/:id/pattern-parts` route (only /, /categories, /:id); pattern-part routes are mounted at index.ts:235 under `/components/:componentId/pattern-parts`",
+   "probe": "404 on GET /api/component-masters/<uuid>/pattern-parts"
+  },
+  "expected": "Selecting a component in the fabric->style allocation modal lists that component's pattern parts",
+  "actual": "Call 404s, catch swallows it, modal always shows an empty pattern-part list (silent wrong data)",
+  "fix": "Change fabricGreigeService.getPatternPartsForComponent to call /components/:componentId/pattern-parts (existing mount) or add the route under component-masters",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B05-05",
+  "page": "frontend/src/pages/EmbroideryList.tsx",
+  "route": "/embroidery",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "EmbroideryList.tsx:144 `item.usableWidthAfter ? ... : '-'`; EmbroideryDetail.tsx:199 `{embroidery.usableWidthAfter}\"`; EmbroideryForm.tsx:106 setValue('usableWidthAfter', embroidery.usableWidthAfter...) then onSubmit line 135 blocks save when empty",
+   "backend": "embroidery.controller.ts:14-22 serializeEmbroidery returns cutableWidth only; schema.prisma embroidery_master:2166 has cutableWidth, no usableWidthAfter column; API never emits usableWidthAfter",
+   "probe": "n/a"
+  },
+  "expected": "Usable width after embroidery (the CAD-planning cuttable width) displays in list/detail and pre-fills the edit form",
+  "actual": "usableWidthAfter is always undefined: list column always '-', detail's flagship 'Usable Width After Embroidery' renders blank, and edit mode loads the REQUIRED field empty so every edit-save is blocked until the user re-types the width",
+  "fix": "Add `usableWidthAfter: cutableWidth` alias in serializeEmbroidery (or switch the three pages to read cutableWidth)",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B07-15",
+  "page": "frontend/src/pages/StockInForm.tsx",
+  "route": "/inventory/movements/stock-in",
+  "category": "dead-endpoint",
+  "severity": "P2",
+  "evidence": {
+   "frontend": "frontend/src/services/fabricGreigeService.ts:266-271 getPatternPartsForComponent → GET /component-masters/${id}/pattern-parts; sole caller frontend/src/components/fabric/AllocateFabricToStyleModal.tsx:127 with catch{ setPatternParts([]) } masking",
+   "backend": "backend/src/routes/componentMasters.routes.ts:27-47 — routes are only /, /categories, /:id (GET/PUT/DELETE); no /:id/pattern-parts",
+   "probe": "404 (GET /api/component-masters/<uuid>/pattern-parts)"
+  },
+  "expected": "Component pattern parts load for allocation selection",
+  "actual": "Endpoint absent → always 404, swallowed by catch → pattern-part list silently always empty in AllocateFabricToStyleModal (real user path is FabricForm, attributed to this batch at hop 1 — reported once per dedupe rule)",
+  "fix": "Add GET /component-masters/:id/pattern-parts (component_pattern_parts lookup) or fall back to getCADPatternPartsForComponent/getAllPatternParts in the modal",
+  "confidence": "medium",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B10-07",
+  "page": "frontend/src/pages/ChallanForm.tsx",
+  "route": "/manufacturing/challans/new",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "ChallanForm.tsx:135-139 `<Input type=\"date\" value={form.challanDate...}` sends 'YYYY-MM-DD' strings for challanDate/expectedDate",
+   "backend": "schemas/challan.schema.ts:39,54 `challanDate: z.string().optional()` passes the raw string; challan.controller.ts:25-27 spreads req.body; services/challan.service.ts:116,132 hands the date-only string to prisma.challans.create on DateTime columns — Prisma rejects date-only strings (expects ISO-8601 DateTime), so the create 500s whenever a date is picked",
+   "probe": "n/a"
+  },
+  "expected": "Picking a Challan Date / Expected Date and submitting creates the challan",
+  "actual": "PrismaClientValidationError → 500 whenever either date input is filled; creation only works when the fields are left empty (challanDate falls back to new Date())",
+  "fix": "Change challanDate/expectedDate to z.coerce.date() in createChallanSchema (matches the repo's datetime-schema guardrail)",
+  "confidence": "medium",
+  "liveCheck": "suggested"
+ },
+ {
+  "id": "B09-05",
+  "page": "frontend/src/pages/StockProductionOrderDetail.tsx",
+  "route": "/stock-production-orders/:id",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "StockProductionOrderDetail.tsx:121-124 and 149-152 updateSPO(id, { items, totalQuantity }) for Add Item / Remove Item",
+   "backend": "backend/src/schemas/stockProductionOrder.schema.ts:46-55 updateSPOSchema has neither items nor totalQuantity (has quantity/sizeBreakdown/colorBreakdown instead); validation.middleware.ts:28 replaces req.body with the stripped parse result; controller update (stockProductionOrder.controller.ts:72-85) then passes items=undefined so service `if (data.items)` skips everything",
+   "probe": "n/a (PUT)"
+  },
+  "expected": "Add Item appends a size/color breakup row so the SPO can be approved and work orders generated",
+  "actual": "Zod silently strips items/totalQuantity -> update is a no-op that still returns 200; toast says 'Item added' but the table stays empty; Approve requires items.length>0 (line 197) so the entire SPO->WO flow is dead. Secondary: the 'No specific color' option sends colorId='none' (line 116 `newItemColorId || null` does not map the sentinel) which will fail uuid validation once the schema is fixed",
+  "fix": "Add items[]/totalQuantity/targetDate to updateSPOSchema (matching SPOUpdateInput) and map the 'none' color sentinel to null in the page",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B12-07",
+  "page": "frontend/src/pages/InvoiceDetail.tsx",
+  "route": "/invoices/:id",
+  "category": "integration-gap",
+  "severity": "P3",
+  "evidence": {
+   "frontend": "frontend/src/pages/InvoiceDetail.tsx:311 renders `invoice.orders?.orderNumber` as plain text; no Link/navigate to the order anywhere on the page",
+   "backend": "docs/MODULE_RELATIONSHIPS_GUIDE.md §8.14 Invoice Module: 'Integrates With: Orders (via invoices.orderId) — Invoice for order' and 'Triggered By: Delivery note dispatch' (lines 1665, 1686) — neither the linked order nor any delivery-note linkage is navigable from the invoice pages",
+   "probe": "n/a"
+  },
+  "expected": "Per §8.14, the invoice detail should surface its order integration as a navigable link (and ideally the triggering dispatch/delivery note)",
+  "actual": "Order number is dead text; the user must manually search the Orders list to follow the invoice's primary upstream relationship",
+  "fix": "Wrap orderNumber in a link to `/orders/${invoice.orderId}` on InvoiceDetail (and the Order column in InvoiceList)",
+  "confidence": "medium",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B11-05",
+  "page": "frontend/src/pages/HandworkDashboard.tsx",
+  "route": "/manufacturing/handwork",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "HandworkDashboard (≈:231 filter Select offers SENT/PARTIALLY_RECEIVED/RECEIVED); receive pages request status:'SENT' for the pending dropdown (EmbroideryPieceReceive.tsx:38)",
+   "backend": "schemas/externalProcess.schema.ts:23 SendOutStatusEnum = PENDING|PARTIAL|COMPLETED|CANCELLED vs Prisma ExternalProcessStatus DRAFT|SENT|PARTIALLY_RECEIVED|RECEIVED|CANCELLED (schema.prisma:9591-9597)",
+   "probe": "400 on GET /api/external-process/send-outs?processType=HANDWORK&status=SENT"
+  },
+  "expected": "Status filter values the UI offers (SENT/PARTIALLY_RECEIVED/RECEIVED) are accepted by GET /send-outs",
+  "actual": "Selecting any status except CANCELLED 400s → Handwork/Smocking dashboards show a silently empty table; all three receive pages' 'select pending send-out' dropdown (status=SENT) is always empty",
+  "fix": "Align SendOutStatusEnum with Prisma: z.enum(['DRAFT','SENT','PARTIALLY_RECEIVED','RECEIVED','CANCELLED'])",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B13-02",
+  "page": "frontend/src/pages/UserForm.tsx",
+  "route": "/users/edit/:id",
+  "category": "field-mismatch",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "frontend/src/pages/UserForm.tsx:74-82 sends {firstName,lastName,phone,department,password} via PUT /users/:id; Profile.tsx:47-54 sends the same for self-profile",
+   "backend": "backend/src/schemas/user.schema.ts:48-54 updateUserSchema only allows email/name/phone/avatar/isActive; validation.middleware.ts:28 replaces req.body with parsed value, so user.controller.ts:168 destructures firstName/lastName/department/password that are always undefined",
+   "probe": "n/a"
+  },
+  "expected": "Editing a user (or own profile) saves firstName, lastName, department and optional new password",
+  "actual": "Zod silently strips firstName/lastName/department/password; only email and phone persist while a success toast is shown - silent data loss on UserForm edit and Profile save",
+  "fix": "Replace updateUserSchema fields with firstName/lastName/phone/department/password/isActive to match user.controller.ts:168",
+  "confidence": "high",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B14-08",
+  "page": "frontend/src/pages/CostSheetDetail.tsx",
+  "route": "/cost-sheets/:id",
+  "category": "integration-gap",
+  "severity": "P3",
+  "evidence": {
+   "frontend": "frontend/src/pages/CostSheetDetail.tsx:298-311 - approved cost sheet actions are 'Generate Order BOM' and 'Create Order' (/orders/new) only; zero 'quotation' references in CostSheetDetail/CostSheetList/costSheet.service, and QuotationForm.tsx has no costSheet/style_costing consumption (grep verified)",
+   "backend": "n/a",
+   "probe": "n/a"
+  },
+  "expected": "MODULE_RELATIONSHIPS_GUIDE.md SS9 pipeline (lines 851, 878-880): stage 4 'Costing & Pricing' feeds stage 5 'Quotation Approval' (quotations built from approved cost) before stage 6 Order Entry",
+  "actual": "Costing UI jumps straight from approved cost sheet to Order creation; the quotation stage is not wired from costing (no Create Quotation action, no cost-sheet pull in QuotationForm)",
+  "fix": "Add a 'Create Quotation' action on approved cost sheets passing costSheetId/styleId and read those params in QuotationForm",
+  "confidence": "medium",
+  "liveCheck": "not-needed"
+ },
+ {
+  "id": "B15-05",
+  "page": "frontend/src/pages/dashboards/DashboardRouter.tsx",
+  "route": "/dashboard",
+  "category": "dead-nav",
+  "severity": "P1",
+  "evidence": {
+   "frontend": "DashboardRouter.tsx:17-19 — [UserRole.INVENTORY]: '/dashboard/inventory', [UserRole.PURCHASE]: '/dashboard/procurement', [UserRole.QUALITY]: '/dashboard/quality'",
+   "backend": "frontend/src/App.tsx:255-261 — only /dashboard, /dashboard/main, /dashboard/admin, /dashboard/general, /dashboard/production, /dashboard/sales, /dashboard/accounts are registered; no inventory/procurement/quality dashboard routes exist anywhere in App.tsx",
+   "probe": "n/a (frontend route table is definitive)"
+  },
+  "expected": "Every role in ROLE_DASHBOARD_MAP redirects to a registered dashboard route",
+  "actual": "Users with INVENTORY, PURCHASE or QUALITY roles are redirected to unregistered routes and hit NotFound immediately after login; NotFound's only 'Dashboard' escape (NotFound.tsx:20, Link to /dashboard) loops straight back into the same 404. Ironically the map's own fallback '/dashboard/general' (line 33) would have worked if these roles were simply absent from the map",
+  "fix": "Point the 3 roles at existing pages (e.g. INVENTORY -> '/inventory/dashboard', PURCHASE/QUALITY -> '/dashboard/general') or register the three routes",
+  "confidence": "high",
+  "liveCheck": "suggested"
+ }
+]

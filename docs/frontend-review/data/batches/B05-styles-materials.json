@@ -1,0 +1,3252 @@
+{
+ "batch": "B05-styles-materials",
+ "pages": {
+  "frontend/src/pages/EmbroideryAvailableStock.tsx": {
+   "routes": [
+    "/embroidery-stock"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryStockReceive.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryStockReceive.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryStockReceive.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryStockReceive.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryStockSendOut.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryStockSendOut.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryStockSendOut.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryStockSendOut.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 275,
+     "raw": "/fabric",
+     "normalized": "/fabric",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricList.tsx"
+    },
+    {
+     "line": 294,
+     "raw": "/embroidery-stock/receive",
+     "normalized": "/embroidery-stock/receive",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryStockReceive.tsx"
+    },
+    {
+     "line": 298,
+     "raw": "/embroidery-stock/send-out",
+     "normalized": "/embroidery-stock/send-out",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryStockSendOut.tsx"
+    },
+    {
+     "line": 439,
+     "raw": "/embroidery-stock/send-out",
+     "normalized": "/embroidery-stock/send-out",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryStockSendOut.tsx"
+    },
+    {
+     "line": 511,
+     "raw": "/embroidery-stock/receive/${so.id}",
+     "normalized": "/embroidery-stock/receive/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryStockReceive.tsx"
+    },
+    {
+     "line": 262,
+     "raw": "/",
+     "normalized": "/",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 266,
+     "raw": "/fabric",
+     "normalized": "/fabric",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricList.tsx"
+    },
+    {
+     "line": 585,
+     "raw": "/embroidery-stock/send-out",
+     "normalized": "/embroidery-stock/send-out",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryStockSendOut.tsx"
+    },
+    {
+     "line": 681,
+     "raw": "/styles/${stock.forStyle.id}",
+     "normalized": "/styles/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/EmbroideryAvailableStock.tsx",
+     "hop": 0,
+     "line": 79,
+     "method": "GET",
+     "raw": "/stock?status=AVAILABLE&stockType=EMBROIDERED",
+     "resolvedPath": "/api/stock",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock",
+      "file": "backend/src/routes/fabric-stock.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 1,
+     "line": 119,
+     "method": "GET",
+     "raw": "/embroidery-stock/send-outs?${queryParams.toString()}",
+     "resolvedPath": "/api/embroidery-stock/send-outs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery-stock/send-outs",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 1,
+     "line": 187,
+     "method": "GET",
+     "raw": "/embroidery-stock/pending-embroidery?${qp.toString()}",
+     "resolvedPath": "/api/embroidery-stock/pending-embroidery",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery-stock/pending-embroidery",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 50
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/EmbroideryDetail.tsx": {
+   "routes": [
+    "/embroidery/:id"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 79,
+     "raw": "/embroidery",
+     "normalized": "/embroidery",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryList.tsx"
+    },
+    {
+     "line": 89,
+     "raw": "/embroidery",
+     "normalized": "/embroidery",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryList.tsx"
+    },
+    {
+     "line": 103,
+     "raw": "/embroidery",
+     "normalized": "/embroidery",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryList.tsx"
+    },
+    {
+     "line": 108,
+     "raw": "/embroidery/${embroidery.id}/edit",
+     "normalized": "/embroidery/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryForm.tsx"
+    },
+    {
+     "line": 289,
+     "raw": "/styles/${usage.styleId}",
+     "normalized": "/styles/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 1,
+     "line": 46,
+     "method": "GET",
+     "raw": "/embroidery/${id}",
+     "resolvedPath": "/api/embroidery/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery/search",
+      "file": "backend/src/routes/embroidery.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/EmbroideryForm.tsx": {
+   "routes": [
+    "/embroidery/new",
+    "/embroidery/:id/edit"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/EmbroideryDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 168,
+     "raw": "/embroidery",
+     "normalized": "/embroidery",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryList.tsx"
+    },
+    {
+     "line": 192,
+     "raw": "/embroidery",
+     "normalized": "/embroidery",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryList.tsx"
+    },
+    {
+     "line": 445,
+     "raw": "/embroidery",
+     "normalized": "/embroidery",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 1,
+     "line": 46,
+     "method": "GET",
+     "raw": "/embroidery/${id}",
+     "resolvedPath": "/api/embroidery/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery/search",
+      "file": "backend/src/routes/embroidery.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 1,
+     "line": 55,
+     "method": "POST",
+     "raw": "/embroidery",
+     "resolvedPath": "/api/embroidery",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/embroidery",
+      "file": "backend/src/routes/embroidery.routes.ts",
+      "line": 26
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 1,
+     "line": 63,
+     "method": "PUT",
+     "raw": "/embroidery/${id}",
+     "resolvedPath": "/api/embroidery/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/embroidery/:id",
+      "file": "backend/src/routes/embroidery.routes.ts",
+      "line": 56
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/EmbroideryList.tsx": {
+   "routes": [
+    "/embroidery"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryForm.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 183,
+     "raw": "/embroidery/${item.id}",
+     "normalized": "/embroidery/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryForm.tsx"
+    },
+    {
+     "line": 193,
+     "raw": "/embroidery/${item.id}/edit",
+     "normalized": "/embroidery/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryForm.tsx"
+    },
+    {
+     "line": 223,
+     "raw": "/embroidery/new",
+     "normalized": "/embroidery/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryForm.tsx"
+    },
+    {
+     "line": 259,
+     "raw": "/embroidery/${item.id}",
+     "normalized": "/embroidery/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 1,
+     "line": 38,
+     "method": "GET",
+     "raw": "/embroidery?${queryParams.toString()}",
+     "resolvedPath": "/api/embroidery",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery",
+      "file": "backend/src/routes/embroidery.routes.ts",
+      "line": 34
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 1,
+     "line": 71,
+     "method": "DELETE",
+     "raw": "/embroidery/${id}",
+     "resolvedPath": "/api/embroidery/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/embroidery/:id",
+      "file": "backend/src/routes/embroidery.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/MaterialDetail.tsx": {
+   "routes": [
+    "/materials/raw/:id"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/MaterialList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 61,
+     "raw": "/materials",
+     "normalized": "/materials",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialList.tsx"
+    },
+    {
+     "line": 71,
+     "raw": "/materials",
+     "normalized": "/materials",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialList.tsx"
+    },
+    {
+     "line": 85,
+     "raw": "/materials",
+     "normalized": "/materials",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialList.tsx"
+    },
+    {
+     "line": 90,
+     "raw": "/materials/raw/${material.id}/edit",
+     "normalized": "/materials/raw/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/material.service.ts",
+     "hop": 1,
+     "line": 37,
+     "method": "GET",
+     "raw": "/materials/${id}",
+     "resolvedPath": "/api/materials/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/MaterialForm.tsx": {
+   "routes": [
+    "/materials/new",
+    "/materials/raw/:id/edit"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/GenericTrimForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/GenericTrimForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/GenericTrimForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/GenericTrimForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/GenericTrimList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MaterialDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MaterialList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 285,
+     "raw": "/materials",
+     "normalized": "/materials",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialList.tsx"
+    },
+    {
+     "line": 661,
+     "raw": "/materials",
+     "normalized": "/materials",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/material.service.ts",
+     "hop": 1,
+     "line": 37,
+     "method": "GET",
+     "raw": "/materials/${id}",
+     "resolvedPath": "/api/materials/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/material.service.ts",
+     "hop": 1,
+     "line": 45,
+     "method": "POST",
+     "raw": "/materials",
+     "resolvedPath": "/api/materials",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials",
+      "file": "backend/src/routes/material.routes.ts",
+      "line": 54
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/material.service.ts",
+     "hop": 1,
+     "line": 53,
+     "method": "PUT",
+     "raw": "/materials/${id}",
+     "resolvedPath": "/api/materials/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/:id",
+      "file": "backend/src/routes/material.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/hsnSacMaster.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "${BASE_URL}/search",
+     "resolvedPath": "/api/hsn-sac-masters/search",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/hsn-sac-masters/search",
+      "file": "backend/src/routes/hsnSacMaster.routes.ts",
+      "line": 19
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/MaterialList.tsx": {
+   "routes": [
+    "/materials"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/MaterialDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MaterialDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MaterialDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MaterialForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MaterialForm.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 172,
+     "raw": "/materials/raw/${material.id}/edit",
+     "normalized": "/materials/raw/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialForm.tsx"
+    },
+    {
+     "line": 254,
+     "raw": "/materials/raw/${material.id}",
+     "normalized": "/materials/raw/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialDetail.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/material.service.ts",
+     "hop": 1,
+     "line": 27,
+     "method": "GET",
+     "raw": "/materials",
+     "resolvedPath": "/api/materials",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials",
+      "file": "backend/src/routes/material.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/material.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "DELETE",
+     "raw": "/materials/${id}",
+     "resolvedPath": "/api/materials/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/:id",
+      "file": "backend/src/routes/material.routes.ts",
+      "line": 87
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/material.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "/materials/categories",
+     "resolvedPath": "/api/materials/categories",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/categories",
+      "file": "backend/src/routes/material.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/export.service.ts",
+     "hop": 2,
+     "line": 13,
+     "method": "POST",
+     "raw": "/export/${module}",
+     "resolvedPath": "/api/export/:_",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/export/:module",
+      "file": "backend/src/routes/export.routes.ts",
+      "line": 20
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 15,
+     "method": "POST",
+     "raw": "/import/${module}/preview",
+     "resolvedPath": "/api/import/:_/preview",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/import/:module/preview",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 18
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 38,
+     "method": "POST",
+     "raw": "/import/${module}/execute",
+     "resolvedPath": "/api/import/:_/execute",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/import/:module/execute",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 71,
+     "method": "GET",
+     "raw": "/import/${module}/template",
+     "resolvedPath": "/api/import/:_/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/import/:module/template",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/MaterialMasterForm.tsx": {
+   "routes": [
+    "/material-master/new",
+    "/material-master/:id/edit"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/MaterialMasterList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MaterialMasterList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MaterialMasterList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 94,
+     "raw": "/material-master",
+     "normalized": "/material-master",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialMasterList.tsx"
+    },
+    {
+     "line": 121,
+     "raw": "/material-master",
+     "normalized": "/material-master",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialMasterList.tsx"
+    },
+    {
+     "line": 334,
+     "raw": "/material-master",
+     "normalized": "/material-master",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialMasterList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/materialMaster.service.ts",
+     "hop": 1,
+     "line": 51,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/material-master/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/material-master/types",
+      "file": "backend/src/routes/material-master.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/materialMaster.service.ts",
+     "hop": 1,
+     "line": 59,
+     "method": "POST",
+     "raw": "/material-master",
+     "resolvedPath": "/api/material-master",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/material-master",
+      "file": "backend/src/routes/material-master.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/materialMaster.service.ts",
+     "hop": 1,
+     "line": 67,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/material-master/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/material-master/:id",
+      "file": "backend/src/routes/material-master.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/MaterialMasterList.tsx": {
+   "routes": [
+    "/material-master",
+    "/material-master/:id"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/Dashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MaterialMasterForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MaterialMasterForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MaterialMasterForm.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 130,
+     "raw": "/material-master/new",
+     "normalized": "/material-master/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialMasterForm.tsx"
+    },
+    {
+     "line": 306,
+     "raw": "/material-master/${material.id}",
+     "normalized": "/material-master/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialMasterForm.tsx"
+    },
+    {
+     "line": 314,
+     "raw": "/material-master/${material.id}/edit",
+     "normalized": "/material-master/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialMasterForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/materialMaster.service.ts",
+     "hop": 1,
+     "line": 75,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/material-master/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/material-master/:id",
+      "file": "backend/src/routes/material-master.routes.ts",
+      "line": 56
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StyleBulkImport.tsx": {
+   "routes": [
+    "/styles/import"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/StyleFabricReport.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 260,
+     "raw": "/styles",
+     "normalized": "/styles",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleList.tsx"
+    },
+    {
+     "line": 384,
+     "raw": "/styles",
+     "normalized": "/styles",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/style-import.service.ts",
+     "hop": 1,
+     "line": 29,
+     "method": "POST",
+     "raw": "/styles/import",
+     "resolvedPath": "/api/styles/import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/styles/import",
+      "file": "backend/src/routes/style-import.routes.ts",
+      "line": 51
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style-import.service.ts",
+     "hop": 1,
+     "line": 58,
+     "method": "GET",
+     "raw": "/styles/import/template",
+     "resolvedPath": "/api/styles/import/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/import/template",
+      "file": "backend/src/routes/style-import.routes.ts",
+      "line": 63
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StyleDetail.tsx": {
+   "routes": [
+    "/styles/:id"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/SampleDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 133,
+     "raw": "/styles",
+     "normalized": "/styles",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleList.tsx"
+    },
+    {
+     "line": 153,
+     "raw": "/styles",
+     "normalized": "/styles",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleList.tsx"
+    },
+    {
+     "line": 156,
+     "raw": "/styles/${style.id}/edit",
+     "normalized": "/styles/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 288,
+     "raw": "/orders/new?styleId=${style.id}",
+     "normalized": "/orders/new",
+     "queryParams": [
+      "styleId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    },
+    {
+     "line": 291,
+     "raw": "/styles/${style.id}/costing",
+     "normalized": "/styles/:_/costing",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/StyleDetail.tsx",
+     "hop": 0,
+     "line": 59,
+     "method": "GET",
+     "raw": "/styles/${styleId}/actual-consumption",
+     "resolvedPath": "/api/styles/:_/actual-consumption",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/drafts/:id",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 86
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "/styles/${id}",
+     "resolvedPath": "/api/styles/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/drafts",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 216,
+     "method": "PUT",
+     "raw": "/styles/${_id}/production-stage",
+     "resolvedPath": "/api/styles/:_/production-stage",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/styles/components/:id",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 281
+     },
+     "tags": [
+      "shadow-risk"
+     ]
+    },
+    {
+     "origin": "frontend/src/services/style-stock.service.ts",
+     "hop": 1,
+     "line": 51,
+     "method": "GET",
+     "raw": "/styles/${styleId}/stock",
+     "resolvedPath": "/api/styles/:_/stock",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/drafts/:id",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 86
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StyleFormRedesigned.tsx": {
+   "routes": [
+    "/styles/new",
+    "/styles/:id/edit"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/DesignDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DesignDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DesignDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DesignDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DesignDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryAvailableStock.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleFabricReport.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleFormRedesigned.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleStockEntry.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 2180,
+     "raw": "/styles",
+     "normalized": "/styles",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleList.tsx"
+    },
+    {
+     "line": 2212,
+     "raw": "/styles",
+     "normalized": "/styles",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleList.tsx"
+    },
+    {
+     "line": 2252,
+     "raw": "/styles/${deletedStyleInfo.id}/edit",
+     "normalized": "/styles/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 2266,
+     "raw": "/styles",
+     "normalized": "/styles",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/StyleFormRedesigned.tsx",
+     "hop": 0,
+     "line": 203,
+     "method": "GET",
+     "raw": "/fabric-management/fabric",
+     "resolvedPath": "/api/fabric-management/fabric",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-management/fabric",
+      "file": "backend/src/routes/fabric-greige.routes.ts",
+      "line": 111
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "/styles/${id}",
+     "resolvedPath": "/api/styles/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/drafts",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 79,
+     "method": "POST",
+     "raw": "/styles",
+     "resolvedPath": "/api/styles",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/styles",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 67
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 87,
+     "method": "PUT",
+     "raw": "/styles/${id}",
+     "resolvedPath": "/api/styles/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/styles/:id",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 134
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 117,
+     "method": "POST",
+     "raw": "/styles/${id}/restore",
+     "resolvedPath": "/api/styles/:_/restore",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/styles/:id/restore",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 241
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 140,
+     "method": "POST",
+     "raw": "/styles/${id}/image",
+     "resolvedPath": "/api/styles/:_/image",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/styles/:id/image",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 173
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 204,
+     "method": "POST",
+     "raw": "/styles/${id}/publish",
+     "resolvedPath": "/api/styles/:_/publish",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/styles/:id/publish",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 198
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "/customers?${queryParams.toString()}",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 31,
+     "method": "GET",
+     "raw": "/customers/${id}",
+     "resolvedPath": "/api/customers/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers/:id",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 55
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 56,
+     "method": "GET",
+     "raw": "/customers/${customerId}/accessory-presets?_t=${Date.now()}",
+     "resolvedPath": "/api/customers/:_/accessory-presets",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers/:id/accessory-presets",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 94
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customerSizePreset.service.ts",
+     "hop": 1,
+     "line": 13,
+     "method": "GET",
+     "raw": "/customers/${customerId}/size-category-presets",
+     "resolvedPath": "/api/customers/:_/size-category-presets",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers/:customerId/size-category-presets",
+      "file": "backend/src/routes/customer-size-presets.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/componentMaster.service.ts",
+     "hop": 1,
+     "line": 21,
+     "method": "GET",
+     "raw": "/component-masters",
+     "resolvedPath": "/api/component-masters",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/component-masters",
+      "file": "backend/src/routes/componentMasters.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/componentMaster.service.ts",
+     "hop": 1,
+     "line": 65,
+     "method": "GET",
+     "raw": "/component-masters/categories",
+     "resolvedPath": "/api/component-masters/categories",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/component-masters/categories",
+      "file": "backend/src/routes/componentMasters.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/productCategory.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "GET",
+     "raw": "/product-categories/main",
+     "resolvedPath": "/api/product-categories/main",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/product-categories/main",
+      "file": "backend/src/routes/productCategory.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/productCategory.service.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "GET",
+     "raw": "/product-categories/${parentId}/children",
+     "resolvedPath": "/api/product-categories/:_/children",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/product-categories/level/:level",
+      "file": "backend/src/routes/productCategory.routes.ts",
+      "line": 67
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/productCategory.service.ts",
+     "hop": 1,
+     "line": 93,
+     "method": "GET",
+     "raw": "/product-categories/${id}/path",
+     "resolvedPath": "/api/product-categories/:_/path",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/product-categories/level/:level",
+      "file": "backend/src/routes/productCategory.routes.ts",
+      "line": 67
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/productCategory.service.ts",
+     "hop": 1,
+     "line": 153,
+     "method": "GET",
+     "raw": "/product-categories/${categoryId}/suggested-components",
+     "resolvedPath": "/api/product-categories/:_/suggested-components",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/product-categories/level/:level",
+      "file": "backend/src/routes/productCategory.routes.ts",
+      "line": 67
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/componentGroup.service.ts",
+     "hop": 1,
+     "line": 23,
+     "method": "GET",
+     "raw": "/component-groups",
+     "resolvedPath": "/api/component-groups",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/component-groups",
+      "file": "backend/src/routes/componentGroup.routes.ts",
+      "line": 33
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/componentGroup.service.ts",
+     "hop": 1,
+     "line": 31,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/component-groups/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/component-groups/:id",
+      "file": "backend/src/routes/componentGroup.routes.ts",
+      "line": 50
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/componentGroup.service.ts",
+     "hop": 1,
+     "line": 39,
+     "method": "GET",
+     "raw": "${BASE_URL}/code/${code}",
+     "resolvedPath": "/api/component-groups/code/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/component-groups/code/:code",
+      "file": "backend/src/routes/componentGroup.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/componentGroup.service.ts",
+     "hop": 1,
+     "line": 47,
+     "method": "POST",
+     "raw": "/component-groups",
+     "resolvedPath": "/api/component-groups",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/component-groups",
+      "file": "backend/src/routes/componentGroup.routes.ts",
+      "line": 19
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/componentGroup.service.ts",
+     "hop": 1,
+     "line": 55,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/component-groups/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/component-groups/:id",
+      "file": "backend/src/routes/componentGroup.routes.ts",
+      "line": 57
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/componentGroup.service.ts",
+     "hop": 1,
+     "line": 63,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/component-groups/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/component-groups/:id",
+      "file": "backend/src/routes/componentGroup.routes.ts",
+      "line": 65
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/componentGroup.service.ts",
+     "hop": 1,
+     "line": 70,
+     "method": "POST",
+     "raw": "${BASE_URL}/reorder",
+     "resolvedPath": "/api/component-groups/reorder",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/component-groups/reorder",
+      "file": "backend/src/routes/componentGroup.routes.ts",
+      "line": 26
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/componentGroup.service.ts",
+     "hop": 1,
+     "line": 77,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/components",
+     "resolvedPath": "/api/component-groups/:_/components",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/component-groups/code/:code",
+      "file": "backend/src/routes/componentGroup.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 38,
+     "method": "GET",
+     "raw": "/embroidery?${queryParams.toString()}",
+     "resolvedPath": "/api/embroidery",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery",
+      "file": "backend/src/routes/embroidery.routes.ts",
+      "line": 34
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 46,
+     "method": "GET",
+     "raw": "/embroidery/${id}",
+     "resolvedPath": "/api/embroidery/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery/search",
+      "file": "backend/src/routes/embroidery.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 55,
+     "method": "POST",
+     "raw": "/embroidery",
+     "resolvedPath": "/api/embroidery",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/embroidery",
+      "file": "backend/src/routes/embroidery.routes.ts",
+      "line": 26
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 63,
+     "method": "PUT",
+     "raw": "/embroidery/${id}",
+     "resolvedPath": "/api/embroidery/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/embroidery/:id",
+      "file": "backend/src/routes/embroidery.routes.ts",
+      "line": 56
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 71,
+     "method": "DELETE",
+     "raw": "/embroidery/${id}",
+     "resolvedPath": "/api/embroidery/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/embroidery/:id",
+      "file": "backend/src/routes/embroidery.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 82,
+     "method": "GET",
+     "raw": "/embroidery/search?${queryParams.toString()}",
+     "resolvedPath": "/api/embroidery/search",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery/search",
+      "file": "backend/src/routes/embroidery.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 94,
+     "method": "POST",
+     "raw": "/embroidery-stock/send-out",
+     "resolvedPath": "/api/embroidery-stock/send-out",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/embroidery-stock/send-out",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 102,
+     "method": "POST",
+     "raw": "/embroidery-stock/receive",
+     "resolvedPath": "/api/embroidery-stock/receive",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/embroidery-stock/receive",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 119,
+     "method": "GET",
+     "raw": "/embroidery-stock/send-outs?${queryParams.toString()}",
+     "resolvedPath": "/api/embroidery-stock/send-outs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery-stock/send-outs",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 129,
+     "method": "GET",
+     "raw": "/embroidery-stock/send-outs/${id}",
+     "resolvedPath": "/api/embroidery-stock/send-outs/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery-stock/send-outs/:id",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 41
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 137,
+     "method": "POST",
+     "raw": "/embroidery-stock/send-outs/${id}/cancel",
+     "resolvedPath": "/api/embroidery-stock/send-outs/:_/cancel",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/embroidery-stock/send-outs/:id/cancel",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 147,
+     "method": "GET",
+     "raw": "/embroidery-stock/by-style/${styleId}",
+     "resolvedPath": "/api/embroidery-stock/by-style/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery-stock/by-style/:styleId",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 51
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 157,
+     "method": "GET",
+     "raw": "/embroidery-stock/by-embroidery/${embroideryId}",
+     "resolvedPath": "/api/embroidery-stock/by-embroidery/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery-stock/by-embroidery/:embroideryId",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 52
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 167,
+     "method": "GET",
+     "raw": "/embroidery-stock/pending",
+     "resolvedPath": "/api/embroidery-stock/pending",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery-stock/pending",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 53
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 175,
+     "method": "GET",
+     "raw": "/embroidery-stock/summary",
+     "resolvedPath": "/api/embroidery-stock/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery-stock/summary",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 54
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 2,
+     "line": 187,
+     "method": "GET",
+     "raw": "/embroidery-stock/pending-embroidery?${qp.toString()}",
+     "resolvedPath": "/api/embroidery-stock/pending-embroidery",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery-stock/pending-embroidery",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 50
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 2,
+     "line": 35,
+     "method": "GET",
+     "raw": "/colors",
+     "resolvedPath": "/api/colors",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/colors",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 2,
+     "line": 43,
+     "method": "GET",
+     "raw": "${API_PREFIX}/${id}",
+     "resolvedPath": "/api/colors/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/colors/search",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 2,
+     "line": 52,
+     "method": "POST",
+     "raw": "/colors",
+     "resolvedPath": "/api/colors",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/colors",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 2,
+     "line": 61,
+     "method": "PUT",
+     "raw": "${API_PREFIX}/${id}",
+     "resolvedPath": "/api/colors/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/colors/:id",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 89
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 2,
+     "line": 70,
+     "method": "DELETE",
+     "raw": "${API_PREFIX}/${id}",
+     "resolvedPath": "/api/colors/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/colors/:id",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 96
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 2,
+     "line": 77,
+     "method": "GET",
+     "raw": "${API_PREFIX}/search",
+     "resolvedPath": "/api/colors/search",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/colors/search",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 2,
+     "line": 85,
+     "method": "GET",
+     "raw": "${API_PREFIX}/families",
+     "resolvedPath": "/api/colors/families",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/colors/families",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 2,
+     "line": 94,
+     "method": "POST",
+     "raw": "${API_PREFIX}/bulk-import",
+     "resolvedPath": "/api/colors/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/colors/bulk-import",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 2,
+     "line": 102,
+     "method": "GET",
+     "raw": "${API_PREFIX}/template",
+     "resolvedPath": "/api/colors/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/colors/template",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 54
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/season.service.ts",
+     "hop": 2,
+     "line": 26,
+     "method": "GET",
+     "raw": "/seasons",
+     "resolvedPath": "/api/seasons",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/seasons",
+      "file": "backend/src/routes/season.routes.ts",
+      "line": 66
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/season.service.ts",
+     "hop": 2,
+     "line": 34,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/seasons/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/seasons/search",
+      "file": "backend/src/routes/season.routes.ts",
+      "line": 38
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/season.service.ts",
+     "hop": 2,
+     "line": 42,
+     "method": "GET",
+     "raw": "${BASE_URL}/search",
+     "resolvedPath": "/api/seasons/search",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/seasons/search",
+      "file": "backend/src/routes/season.routes.ts",
+      "line": 38
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/season.service.ts",
+     "hop": 2,
+     "line": 50,
+     "method": "GET",
+     "raw": "${BASE_URL}/types",
+     "resolvedPath": "/api/seasons/types",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/seasons/types",
+      "file": "backend/src/routes/season.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/season.service.ts",
+     "hop": 2,
+     "line": 58,
+     "method": "POST",
+     "raw": "/seasons",
+     "resolvedPath": "/api/seasons",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/seasons",
+      "file": "backend/src/routes/season.routes.ts",
+      "line": 59
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/season.service.ts",
+     "hop": 2,
+     "line": 66,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/seasons/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/seasons/:id",
+      "file": "backend/src/routes/season.routes.ts",
+      "line": 80
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/season.service.ts",
+     "hop": 2,
+     "line": 74,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/seasons/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/seasons/:id",
+      "file": "backend/src/routes/season.routes.ts",
+      "line": 87
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/season.service.ts",
+     "hop": 2,
+     "line": 81,
+     "method": "POST",
+     "raw": "${BASE_URL}/generate",
+     "resolvedPath": "/api/seasons/generate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/seasons/generate",
+      "file": "backend/src/routes/season.routes.ts",
+      "line": 52
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 2,
+     "line": 22,
+     "method": "GET",
+     "raw": "/materials/button",
+     "resolvedPath": "/api/materials/button",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/button",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 2,
+     "line": 32,
+     "method": "GET",
+     "raw": "/materials/button/${id}",
+     "resolvedPath": "/api/materials/button/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/button/template",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 2,
+     "line": 49,
+     "method": "POST",
+     "raw": "/materials/button",
+     "resolvedPath": "/api/materials/button",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/button",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 2,
+     "line": 66,
+     "method": "PUT",
+     "raw": "/materials/button/${id}",
+     "resolvedPath": "/api/materials/button/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/button/:id",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 2,
+     "line": 74,
+     "method": "DELETE",
+     "raw": "/materials/button/${id}",
+     "resolvedPath": "/api/materials/button/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/button/:id",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 73
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 2,
+     "line": 81,
+     "method": "POST",
+     "raw": "/materials/button/bulk-import",
+     "resolvedPath": "/api/materials/button/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/button/bulk-import",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 80
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 2,
+     "line": 89,
+     "method": "GET",
+     "raw": "/materials/button/template",
+     "resolvedPath": "/api/materials/button/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/button/template",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 22,
+     "method": "GET",
+     "raw": "/materials/thread",
+     "resolvedPath": "/api/materials/thread",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/thread",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 87
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 32,
+     "method": "GET",
+     "raw": "/materials/thread/${id}",
+     "resolvedPath": "/api/materials/thread/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/thread/template",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 39
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 47,
+     "method": "POST",
+     "raw": "/materials/thread",
+     "resolvedPath": "/api/materials/thread",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/thread",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 62,
+     "method": "PUT",
+     "raw": "/materials/thread/${id}",
+     "resolvedPath": "/api/materials/thread/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/thread/:id",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 105
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 70,
+     "method": "DELETE",
+     "raw": "/materials/thread/${id}",
+     "resolvedPath": "/api/materials/thread/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/thread/:id",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 77,
+     "method": "POST",
+     "raw": "/materials/thread/bulk-import",
+     "resolvedPath": "/api/materials/thread/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/thread/bulk-import",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 85,
+     "method": "GET",
+     "raw": "/materials/thread/template",
+     "resolvedPath": "/api/materials/thread/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/thread/template",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 39
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 2,
+     "line": 22,
+     "method": "GET",
+     "raw": "/materials/zipper",
+     "resolvedPath": "/api/materials/zipper",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/zipper",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 2,
+     "line": 32,
+     "method": "GET",
+     "raw": "/materials/zipper/${id}",
+     "resolvedPath": "/api/materials/zipper/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/zipper/template",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 2,
+     "line": 48,
+     "method": "POST",
+     "raw": "/materials/zipper",
+     "resolvedPath": "/api/materials/zipper",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/zipper",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 2,
+     "line": 64,
+     "method": "PUT",
+     "raw": "/materials/zipper/${id}",
+     "resolvedPath": "/api/materials/zipper/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/zipper/:id",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 2,
+     "line": 72,
+     "method": "DELETE",
+     "raw": "/materials/zipper/${id}",
+     "resolvedPath": "/api/materials/zipper/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/zipper/:id",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 73
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 2,
+     "line": 79,
+     "method": "POST",
+     "raw": "/materials/zipper/bulk-import",
+     "resolvedPath": "/api/materials/zipper/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/zipper/bulk-import",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 80
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 2,
+     "line": 87,
+     "method": "GET",
+     "raw": "/materials/zipper/template",
+     "resolvedPath": "/api/materials/zipper/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/zipper/template",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 2,
+     "line": 22,
+     "method": "GET",
+     "raw": "/materials/elastic",
+     "resolvedPath": "/api/materials/elastic",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/elastic",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 2,
+     "line": 32,
+     "method": "GET",
+     "raw": "/materials/elastic/${id}",
+     "resolvedPath": "/api/materials/elastic/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/elastic/template",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 2,
+     "line": 48,
+     "method": "POST",
+     "raw": "/materials/elastic",
+     "resolvedPath": "/api/materials/elastic",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/elastic",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 2,
+     "line": 64,
+     "method": "PUT",
+     "raw": "/materials/elastic/${id}",
+     "resolvedPath": "/api/materials/elastic/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/elastic/:id",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 2,
+     "line": 72,
+     "method": "DELETE",
+     "raw": "/materials/elastic/${id}",
+     "resolvedPath": "/api/materials/elastic/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/elastic/:id",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 73
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 2,
+     "line": 79,
+     "method": "POST",
+     "raw": "/materials/elastic/bulk-import",
+     "resolvedPath": "/api/materials/elastic/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/elastic/bulk-import",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 80
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 2,
+     "line": 90,
+     "method": "GET",
+     "raw": "/materials/elastic/template",
+     "resolvedPath": "/api/materials/elastic/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/elastic/template",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 24,
+     "method": "GET",
+     "raw": "/materials/lace",
+     "resolvedPath": "/api/materials/lace",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 34,
+     "method": "GET",
+     "raw": "/materials/lace/${id}",
+     "resolvedPath": "/api/materials/lace/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace/greige",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 52
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 62,
+     "method": "POST",
+     "raw": "/materials/lace",
+     "resolvedPath": "/api/materials/lace",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/lace",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 90,
+     "method": "PUT",
+     "raw": "/materials/lace/${id}",
+     "resolvedPath": "/api/materials/lace/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/lace/:id",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 89
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 98,
+     "method": "DELETE",
+     "raw": "/materials/lace/${id}",
+     "resolvedPath": "/api/materials/lace/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/lace/:id",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 96
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 105,
+     "method": "POST",
+     "raw": "/materials/lace/bulk-import",
+     "resolvedPath": "/api/materials/lace/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/lace/bulk-import",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 103
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 113,
+     "method": "GET",
+     "raw": "/materials/lace/template",
+     "resolvedPath": "/api/materials/lace/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace/template",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 125,
+     "method": "GET",
+     "raw": "/materials/lace/greige",
+     "resolvedPath": "/api/materials/lace/greige",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace/greige",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 52
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 140,
+     "method": "GET",
+     "raw": "/materials/lace/finished",
+     "resolvedPath": "/api/materials/lace/finished",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace/finished",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 150,
+     "method": "GET",
+     "raw": "/materials/lace/for-costing",
+     "resolvedPath": "/api/materials/lace/for-costing",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace/for-costing",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/genericTrim.service.ts",
+     "hop": 2,
+     "line": 29,
+     "method": "GET",
+     "raw": "${BASE_URL}/${trimType}",
+     "resolvedPath": "/api/generic-trims/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/generic-trims/configs",
+      "file": "backend/src/routes/generic-trim.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/genericTrim.service.ts",
+     "hop": 2,
+     "line": 37,
+     "method": "GET",
+     "raw": "${BASE_URL}/${trimType}/${id}",
+     "resolvedPath": "/api/generic-trims/:_/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/generic-trims/:trimType/:id",
+      "file": "backend/src/routes/generic-trim.routes.ts",
+      "line": 59
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/genericTrim.service.ts",
+     "hop": 2,
+     "line": 48,
+     "method": "POST",
+     "raw": "${BASE_URL}/${trimType}",
+     "resolvedPath": "/api/generic-trims/:_",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/generic-trims/:trimType",
+      "file": "backend/src/routes/generic-trim.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/genericTrim.service.ts",
+     "hop": 2,
+     "line": 60,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${trimType}/${id}",
+     "resolvedPath": "/api/generic-trims/:_/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/generic-trims/:trimType/:id",
+      "file": "backend/src/routes/generic-trim.routes.ts",
+      "line": 66
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/genericTrim.service.ts",
+     "hop": 2,
+     "line": 68,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${trimType}/${id}",
+     "resolvedPath": "/api/generic-trims/:_/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/generic-trims/:trimType/:id",
+      "file": "backend/src/routes/generic-trim.routes.ts",
+      "line": 72
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/genericTrim.service.ts",
+     "hop": 2,
+     "line": 76,
+     "method": "GET",
+     "raw": "${BASE_URL}/configs",
+     "resolvedPath": "/api/generic-trims/configs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/generic-trims/configs",
+      "file": "backend/src/routes/generic-trim.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/genericTrim.service.ts",
+     "hop": 2,
+     "line": 84,
+     "method": "GET",
+     "raw": "${BASE_URL}/counts",
+     "resolvedPath": "/api/generic-trims/counts",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/generic-trims/counts",
+      "file": "backend/src/routes/generic-trim.routes.ts",
+      "line": 50
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 2,
+     "line": 24,
+     "method": "GET",
+     "raw": "/materials/label",
+     "resolvedPath": "/api/materials/label",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/label",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 2,
+     "line": 34,
+     "method": "GET",
+     "raw": "/materials/label/${id}",
+     "resolvedPath": "/api/materials/label/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/label/template",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 2,
+     "line": 49,
+     "method": "POST",
+     "raw": "/materials/label",
+     "resolvedPath": "/api/materials/label",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/label",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 2,
+     "line": 64,
+     "method": "PUT",
+     "raw": "/materials/label/${id}",
+     "resolvedPath": "/api/materials/label/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/label/:id",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 2,
+     "line": 72,
+     "method": "DELETE",
+     "raw": "/materials/label/${id}",
+     "resolvedPath": "/api/materials/label/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/label/:id",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 2,
+     "line": 79,
+     "method": "POST",
+     "raw": "/materials/label/bulk-import",
+     "resolvedPath": "/api/materials/label/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/label/bulk-import",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 2,
+     "line": 87,
+     "method": "GET",
+     "raw": "/materials/label/template",
+     "resolvedPath": "/api/materials/label/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/label/template",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 2,
+     "line": 23,
+     "method": "GET",
+     "raw": "/materials/packaging",
+     "resolvedPath": "/api/materials/packaging",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/packaging",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 2,
+     "line": 33,
+     "method": "GET",
+     "raw": "/materials/packaging/${id}",
+     "resolvedPath": "/api/materials/packaging/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/packaging/template",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 2,
+     "line": 49,
+     "method": "POST",
+     "raw": "/materials/packaging",
+     "resolvedPath": "/api/materials/packaging",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/packaging",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 2,
+     "line": 65,
+     "method": "PUT",
+     "raw": "/materials/packaging/${id}",
+     "resolvedPath": "/api/materials/packaging/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/packaging/:id",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 2,
+     "line": 73,
+     "method": "DELETE",
+     "raw": "/materials/packaging/${id}",
+     "resolvedPath": "/api/materials/packaging/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/packaging/:id",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 73
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 2,
+     "line": 83,
+     "method": "POST",
+     "raw": "/materials/packaging/bulk-import",
+     "resolvedPath": "/api/materials/packaging/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/packaging/bulk-import",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 80
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 2,
+     "line": 94,
+     "method": "GET",
+     "raw": "/materials/packaging/template",
+     "resolvedPath": "/api/materials/packaging/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/packaging/template",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StyleList.tsx": {
+   "routes": [
+    "/styles"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/Dashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/DesignDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleBulkImport.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleBulkImport.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleFormRedesigned.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleFormRedesigned.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleFormRedesigned.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleStockEntry.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 476,
+     "raw": "/styles/${style.id}",
+     "normalized": "/styles/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 487,
+     "raw": "/styles/${style.id}/edit",
+     "normalized": "/styles/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 526,
+     "raw": "/styles/${style.id}",
+     "normalized": "/styles/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 537,
+     "raw": "/styles/${style.id}/edit",
+     "normalized": "/styles/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 711,
+     "raw": "/styles/import",
+     "normalized": "/styles/import",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleBulkImport.tsx"
+    },
+    {
+     "line": 714,
+     "raw": "/reports/style-fabric",
+     "normalized": "/reports/style-fabric",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFabricReport.tsx"
+    },
+    {
+     "line": 717,
+     "raw": "/styles/new",
+     "normalized": "/styles/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 779,
+     "raw": "/styles",
+     "normalized": "/styles",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleList.tsx"
+    },
+    {
+     "line": 801,
+     "raw": "/styles/new",
+     "normalized": "/styles/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 811,
+     "raw": "/styles/${style.id}",
+     "normalized": "/styles/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 844,
+     "raw": "/styles/new",
+     "normalized": "/styles/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 854,
+     "raw": "/styles/${style.id}",
+     "normalized": "/styles/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 95,
+     "method": "DELETE",
+     "raw": "/styles/${id}",
+     "resolvedPath": "/api/styles/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/styles/:id",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 147
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 102,
+     "method": "GET",
+     "raw": "/styles/${id}/can-deactivate",
+     "resolvedPath": "/api/styles/:_/can-deactivate",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/drafts/:id",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 86
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 110,
+     "method": "DELETE",
+     "raw": "/styles/${id}/permanent",
+     "resolvedPath": "/api/styles/:_/permanent",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/styles/drafts/:id",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 93
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 117,
+     "method": "POST",
+     "raw": "/styles/${id}/restore",
+     "resolvedPath": "/api/styles/:_/restore",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/styles/:id/restore",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 241
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 204,
+     "method": "POST",
+     "raw": "/styles/${id}/publish",
+     "resolvedPath": "/api/styles/:_/publish",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/styles/:id/publish",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 198
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/export.service.ts",
+     "hop": 2,
+     "line": 13,
+     "method": "POST",
+     "raw": "/export/${module}",
+     "resolvedPath": "/api/export/:_",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/export/:module",
+      "file": "backend/src/routes/export.routes.ts",
+      "line": 20
+     },
+     "tags": []
+    }
+   ]
+  }
+ },
+ "unresolvedCalls": []
+}

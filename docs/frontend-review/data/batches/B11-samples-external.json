@@ -1,0 +1,1422 @@
+{
+ "batch": "B11-samples-external",
+ "pages": {
+  "frontend/src/pages/EmbroideryPieceDashboard.tsx": {
+   "routes": [
+    "/embroidery-stock/pieces"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryPieceReceive.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryPieceReceive.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryPieceReceive.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryPieceSendOut.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryPieceSendOut.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryPieceSendOut.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 98,
+     "raw": "/embroidery-stock/piece-send-out",
+     "normalized": "/embroidery-stock/piece-send-out",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryPieceSendOut.tsx"
+    },
+    {
+     "line": 257,
+     "raw": "/embroidery-stock/piece-receive/${s.id}",
+     "normalized": "/embroidery-stock/piece-receive/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryPieceReceive.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 53,
+     "method": "GET",
+     "raw": "${BASE_URL}/send-outs?${queryParams.toString()}",
+     "resolvedPath": "/api/external-process/send-outs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/external-process/send-outs",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "POST",
+     "raw": "${BASE_URL}/send-outs/${id}/cancel",
+     "resolvedPath": "/api/external-process/send-outs/:_/cancel",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/external-process/send-outs/:id/cancel",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 77,
+     "method": "GET",
+     "raw": "${BASE_URL}/dashboard?processType=${processType}",
+     "resolvedPath": "/api/external-process/dashboard",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/external-process/dashboard",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/EmbroideryPieceReceive.tsx": {
+   "routes": [
+    "/embroidery-stock/piece-receive",
+    "/embroidery-stock/piece-receive/:id"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/EmbroideryPieceDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 65,
+     "raw": "/embroidery-stock/pieces",
+     "normalized": "/embroidery-stock/pieces",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryPieceDashboard.tsx"
+    },
+    {
+     "line": 99,
+     "raw": "/embroidery-stock/pieces",
+     "normalized": "/embroidery-stock/pieces",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryPieceDashboard.tsx"
+    },
+    {
+     "line": 286,
+     "raw": "/embroidery-stock/pieces",
+     "normalized": "/embroidery-stock/pieces",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryPieceDashboard.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 32,
+     "method": "POST",
+     "raw": "${BASE_URL}/receive",
+     "resolvedPath": "/api/external-process/receive",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/external-process/receive",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 53,
+     "method": "GET",
+     "raw": "${BASE_URL}/send-outs?${queryParams.toString()}",
+     "resolvedPath": "/api/external-process/send-outs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/external-process/send-outs",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/send-outs/${id}",
+     "resolvedPath": "/api/external-process/send-outs/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/external-process/send-outs/:id",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/EmbroideryPieceSendOut.tsx": {
+   "routes": [
+    "/embroidery-stock/piece-send-out"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/EmbroideryPieceDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 168,
+     "raw": "/embroidery-stock/pieces",
+     "normalized": "/embroidery-stock/pieces",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryPieceDashboard.tsx"
+    },
+    {
+     "line": 207,
+     "raw": "/embroidery-stock/pieces",
+     "normalized": "/embroidery-stock/pieces",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryPieceDashboard.tsx"
+    },
+    {
+     "line": 409,
+     "raw": "/embroidery-stock/pieces",
+     "normalized": "/embroidery-stock/pieces",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryPieceDashboard.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "POST",
+     "raw": "${BASE_URL}/send-out",
+     "resolvedPath": "/api/external-process/send-out",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/external-process/send-out",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 1,
+     "line": 82,
+     "method": "GET",
+     "raw": "/embroidery/search?${queryParams.toString()}",
+     "resolvedPath": "/api/embroidery/search",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery/search",
+      "file": "backend/src/routes/embroidery.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/EmbroideryStockReceive.tsx": {
+   "routes": [
+    "/embroidery-stock/receive",
+    "/embroidery-stock/receive/:id"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/EmbroideryAvailableStock.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryAvailableStock.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 168,
+     "raw": "/embroidery-stock",
+     "normalized": "/embroidery-stock",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryAvailableStock.tsx"
+    },
+    {
+     "line": 222,
+     "raw": "/embroidery-stock",
+     "normalized": "/embroidery-stock",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryAvailableStock.tsx"
+    },
+    {
+     "line": 566,
+     "raw": "/embroidery-stock",
+     "normalized": "/embroidery-stock",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryAvailableStock.tsx"
+    },
+    {
+     "line": 205,
+     "raw": "/",
+     "normalized": "/",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 209,
+     "raw": "/fabric",
+     "normalized": "/fabric",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricList.tsx"
+    },
+    {
+     "line": 213,
+     "raw": "/embroidery-stock",
+     "normalized": "/embroidery-stock",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryAvailableStock.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 1,
+     "line": 102,
+     "method": "POST",
+     "raw": "/embroidery-stock/receive",
+     "resolvedPath": "/api/embroidery-stock/receive",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/embroidery-stock/receive",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 1,
+     "line": 119,
+     "method": "GET",
+     "raw": "/embroidery-stock/send-outs?${queryParams.toString()}",
+     "resolvedPath": "/api/embroidery-stock/send-outs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery-stock/send-outs",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 1,
+     "line": 129,
+     "method": "GET",
+     "raw": "/embroidery-stock/send-outs/${id}",
+     "resolvedPath": "/api/embroidery-stock/send-outs/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery-stock/send-outs/:id",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 41
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/EmbroideryStockSendOut.tsx": {
+   "routes": [
+    "/embroidery-stock/send-out"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/EmbroideryAvailableStock.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryAvailableStock.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/EmbroideryAvailableStock.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 214,
+     "raw": "/embroidery-stock",
+     "normalized": "/embroidery-stock",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryAvailableStock.tsx"
+    },
+    {
+     "line": 255,
+     "raw": "/embroidery-stock",
+     "normalized": "/embroidery-stock",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryAvailableStock.tsx"
+    },
+    {
+     "line": 622,
+     "raw": "/embroidery-stock",
+     "normalized": "/embroidery-stock",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryAvailableStock.tsx"
+    },
+    {
+     "line": 238,
+     "raw": "/",
+     "normalized": "/",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 242,
+     "raw": "/fabric",
+     "normalized": "/fabric",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricList.tsx"
+    },
+    {
+     "line": 246,
+     "raw": "/embroidery-stock",
+     "normalized": "/embroidery-stock",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/EmbroideryAvailableStock.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/EmbroideryStockSendOut.tsx",
+     "hop": 0,
+     "line": 94,
+     "method": "GET",
+     "raw": "/stock?status=AVAILABLE&stockType=GENERIC",
+     "resolvedPath": "/api/stock",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock",
+      "file": "backend/src/routes/fabric-stock.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 1,
+     "line": 38,
+     "method": "GET",
+     "raw": "/embroidery?${queryParams.toString()}",
+     "resolvedPath": "/api/embroidery",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/embroidery",
+      "file": "backend/src/routes/embroidery.routes.ts",
+      "line": 34
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/embroidery.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "POST",
+     "raw": "/embroidery-stock/send-out",
+     "resolvedPath": "/api/embroidery-stock/send-out",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/embroidery-stock/send-out",
+      "file": "backend/src/routes/embroidery-stock.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/HandworkDashboard.tsx": {
+   "routes": [
+    "/manufacturing/handwork"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/HandworkReceive.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/HandworkReceive.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/HandworkReceive.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/HandworkSendOut.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/HandworkSendOut.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/HandworkSendOut.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 98,
+     "raw": "/manufacturing/handwork/send-out",
+     "normalized": "/manufacturing/handwork/send-out",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/HandworkSendOut.tsx"
+    },
+    {
+     "line": 293,
+     "raw": "/manufacturing/handwork/receive/${s.id}",
+     "normalized": "/manufacturing/handwork/receive/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/HandworkReceive.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 53,
+     "method": "GET",
+     "raw": "${BASE_URL}/send-outs?${queryParams.toString()}",
+     "resolvedPath": "/api/external-process/send-outs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/external-process/send-outs",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "POST",
+     "raw": "${BASE_URL}/send-outs/${id}/cancel",
+     "resolvedPath": "/api/external-process/send-outs/:_/cancel",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/external-process/send-outs/:id/cancel",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 77,
+     "method": "GET",
+     "raw": "${BASE_URL}/dashboard?processType=${processType}",
+     "resolvedPath": "/api/external-process/dashboard",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/external-process/dashboard",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/HandworkReceive.tsx": {
+   "routes": [
+    "/manufacturing/handwork/receive",
+    "/manufacturing/handwork/receive/:id"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/HandworkDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 65,
+     "raw": "/manufacturing/handwork",
+     "normalized": "/manufacturing/handwork",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/HandworkDashboard.tsx"
+    },
+    {
+     "line": 103,
+     "raw": "/manufacturing/handwork",
+     "normalized": "/manufacturing/handwork",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/HandworkDashboard.tsx"
+    },
+    {
+     "line": 297,
+     "raw": "/manufacturing/handwork",
+     "normalized": "/manufacturing/handwork",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/HandworkDashboard.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 32,
+     "method": "POST",
+     "raw": "${BASE_URL}/receive",
+     "resolvedPath": "/api/external-process/receive",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/external-process/receive",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 53,
+     "method": "GET",
+     "raw": "${BASE_URL}/send-outs?${queryParams.toString()}",
+     "resolvedPath": "/api/external-process/send-outs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/external-process/send-outs",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/send-outs/${id}",
+     "resolvedPath": "/api/external-process/send-outs/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/external-process/send-outs/:id",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/HandworkSendOut.tsx": {
+   "routes": [
+    "/manufacturing/handwork/send-out"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/HandworkDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 153,
+     "raw": "/manufacturing/handwork",
+     "normalized": "/manufacturing/handwork",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/HandworkDashboard.tsx"
+    },
+    {
+     "line": 205,
+     "raw": "/manufacturing/handwork",
+     "normalized": "/manufacturing/handwork",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/HandworkDashboard.tsx"
+    },
+    {
+     "line": 403,
+     "raw": "/manufacturing/handwork",
+     "normalized": "/manufacturing/handwork",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/HandworkDashboard.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "POST",
+     "raw": "${BASE_URL}/send-out",
+     "resolvedPath": "/api/external-process/send-out",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/external-process/send-out",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/SampleDetail.tsx": {
+   "routes": [
+    "/samples/:id"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 140,
+     "raw": "/samples/${revision.id}",
+     "normalized": "/samples/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SampleForm.tsx"
+    },
+    {
+     "line": 168,
+     "raw": "/samples",
+     "normalized": "/samples",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SampleList.tsx"
+    },
+    {
+     "line": 184,
+     "raw": "/samples",
+     "normalized": "/samples",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SampleList.tsx"
+    },
+    {
+     "line": 246,
+     "raw": "/samples/${id}/edit",
+     "normalized": "/samples/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SampleForm.tsx"
+    },
+    {
+     "line": 271,
+     "raw": "/styles/${sample.style?.id}",
+     "normalized": "/styles/${sample.style",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleDetail.tsx"
+    },
+    {
+     "line": 574,
+     "raw": "/samples/${rel.id}",
+     "normalized": "/samples/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SampleForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/sample.service.ts",
+     "hop": 1,
+     "line": 63,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/samples/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/samples/summary",
+      "file": "backend/src/routes/sample.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/sample.service.ts",
+     "hop": 1,
+     "line": 87,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/${id}/status",
+     "resolvedPath": "/api/samples/:_/status",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/samples/:id/status",
+      "file": "backend/src/routes/sample.routes.ts",
+      "line": 98
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/sample.service.ts",
+     "hop": 1,
+     "line": 180,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/send",
+     "resolvedPath": "/api/samples/:_/send",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/samples/:id/send",
+      "file": "backend/src/routes/sample.routes.ts",
+      "line": 141
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/sample.service.ts",
+     "hop": 1,
+     "line": 204,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/feedback",
+     "resolvedPath": "/api/samples/:_/feedback",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/samples/:id/feedback",
+      "file": "backend/src/routes/sample.routes.ts",
+      "line": 160
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/sample.service.ts",
+     "hop": 1,
+     "line": 212,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/revision",
+     "resolvedPath": "/api/samples/:_/revision",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/samples/:id/revision",
+      "file": "backend/src/routes/sample.routes.ts",
+      "line": 172
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/SampleForm.tsx": {
+   "routes": [
+    "/samples/new",
+    "/samples/:id/edit"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/SampleDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SampleDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SampleDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SampleForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SampleList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SampleList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SampleList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SampleList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 211,
+     "raw": "/samples",
+     "normalized": "/samples",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SampleList.tsx"
+    },
+    {
+     "line": 317,
+     "raw": "/samples/${sample.id}",
+     "normalized": "/samples/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SampleForm.tsx"
+    },
+    {
+     "line": 387,
+     "raw": "/samples",
+     "normalized": "/samples",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SampleList.tsx"
+    },
+    {
+     "line": 818,
+     "raw": "/samples",
+     "normalized": "/samples",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SampleList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/SampleForm.tsx",
+     "hop": 0,
+     "line": 130,
+     "method": "GET",
+     "raw": "/customers?limit=1000&isActive=true",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/pages/SampleForm.tsx",
+     "hop": 0,
+     "line": 141,
+     "method": "GET",
+     "raw": "/styles?limit=1000&search=${encodeURIComponent(customer?.name || '')}&status=ACTIVE",
+     "resolvedPath": "/api/styles",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 112
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/sample.service.ts",
+     "hop": 1,
+     "line": 63,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/samples/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/samples/summary",
+      "file": "backend/src/routes/sample.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/sample.service.ts",
+     "hop": 1,
+     "line": 71,
+     "method": "POST",
+     "raw": "/samples",
+     "resolvedPath": "/api/samples",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/samples",
+      "file": "backend/src/routes/sample.routes.ts",
+      "line": 69
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/sample.service.ts",
+     "hop": 1,
+     "line": 79,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/samples/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/samples/:id",
+      "file": "backend/src/routes/sample.routes.ts",
+      "line": 91
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/sample.service.ts",
+     "hop": 1,
+     "line": 106,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${sampleId}/measurements",
+     "resolvedPath": "/api/samples/:_/measurements",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/samples/:id/measurements",
+      "file": "backend/src/routes/sample.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "/styles/${id}",
+     "resolvedPath": "/api/styles/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/drafts",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stageValidation.service.ts",
+     "hop": 1,
+     "line": 62,
+     "method": "GET",
+     "raw": "/stage-validation/check",
+     "resolvedPath": "/api/stage-validation/check",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stage-validation/check",
+      "file": "backend/src/routes/stageTransitionValidation.routes.ts",
+      "line": 17
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stageValidation.service.ts",
+     "hop": 1,
+     "line": 80,
+     "method": "GET",
+     "raw": "/stage-validation/check-sample-creation",
+     "resolvedPath": "/api/stage-validation/check-sample-creation",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stage-validation/check-sample-creation",
+      "file": "backend/src/routes/stageTransitionValidation.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stageValidation.service.ts",
+     "hop": 1,
+     "line": 103,
+     "method": "GET",
+     "raw": "/stage-validation/override-history",
+     "resolvedPath": "/api/stage-validation/override-history",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stage-validation/override-history",
+      "file": "backend/src/routes/stageTransitionValidation.routes.ts",
+      "line": 31
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/SampleList.tsx": {
+   "routes": [
+    "/samples"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/SampleDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SampleDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SampleForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SampleForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SampleForm.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 228,
+     "raw": "/samples/${item.id}",
+     "normalized": "/samples/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SampleForm.tsx"
+    },
+    {
+     "line": 239,
+     "raw": "/samples/${item.id}/edit",
+     "normalized": "/samples/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SampleForm.tsx"
+    },
+    {
+     "line": 275,
+     "raw": "/samples/new",
+     "normalized": "/samples/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SampleForm.tsx"
+    },
+    {
+     "line": 420,
+     "raw": "/samples/${sample.id}",
+     "normalized": "/samples/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SampleForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/sample.service.ts",
+     "hop": 1,
+     "line": 95,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/samples/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/samples/:id",
+      "file": "backend/src/routes/sample.routes.ts",
+      "line": 110
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/SmockingDashboard.tsx": {
+   "routes": [
+    "/manufacturing/smocking"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/SmockingReceive.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SmockingReceive.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SmockingReceive.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SmockingSendOut.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SmockingSendOut.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SmockingSendOut.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 101,
+     "raw": "/manufacturing/smocking/send-out",
+     "normalized": "/manufacturing/smocking/send-out",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SmockingSendOut.tsx"
+    },
+    {
+     "line": 302,
+     "raw": "/manufacturing/smocking/receive/${s.id}",
+     "normalized": "/manufacturing/smocking/receive/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SmockingReceive.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 53,
+     "method": "GET",
+     "raw": "${BASE_URL}/send-outs?${queryParams.toString()}",
+     "resolvedPath": "/api/external-process/send-outs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/external-process/send-outs",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "POST",
+     "raw": "${BASE_URL}/send-outs/${id}/cancel",
+     "resolvedPath": "/api/external-process/send-outs/:_/cancel",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/external-process/send-outs/:id/cancel",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 77,
+     "method": "GET",
+     "raw": "${BASE_URL}/dashboard?processType=${processType}",
+     "resolvedPath": "/api/external-process/dashboard",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/external-process/dashboard",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/SmockingReceive.tsx": {
+   "routes": [
+    "/manufacturing/smocking/receive",
+    "/manufacturing/smocking/receive/:id"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/SmockingDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 70,
+     "raw": "/manufacturing/smocking",
+     "normalized": "/manufacturing/smocking",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SmockingDashboard.tsx"
+    },
+    {
+     "line": 116,
+     "raw": "/manufacturing/smocking",
+     "normalized": "/manufacturing/smocking",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SmockingDashboard.tsx"
+    },
+    {
+     "line": 338,
+     "raw": "/manufacturing/smocking",
+     "normalized": "/manufacturing/smocking",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SmockingDashboard.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 32,
+     "method": "POST",
+     "raw": "${BASE_URL}/receive",
+     "resolvedPath": "/api/external-process/receive",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/external-process/receive",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 53,
+     "method": "GET",
+     "raw": "${BASE_URL}/send-outs?${queryParams.toString()}",
+     "resolvedPath": "/api/external-process/send-outs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/external-process/send-outs",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/send-outs/${id}",
+     "resolvedPath": "/api/external-process/send-outs/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/external-process/send-outs/:id",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/SmockingSendOut.tsx": {
+   "routes": [
+    "/manufacturing/smocking/send-out"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/SmockingDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 191,
+     "raw": "/manufacturing/smocking",
+     "normalized": "/manufacturing/smocking",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SmockingDashboard.tsx"
+    },
+    {
+     "line": 240,
+     "raw": "/manufacturing/smocking",
+     "normalized": "/manufacturing/smocking",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SmockingDashboard.tsx"
+    },
+    {
+     "line": 481,
+     "raw": "/manufacturing/smocking",
+     "normalized": "/manufacturing/smocking",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SmockingDashboard.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/external-process.service.ts",
+     "hop": 1,
+     "line": 24,
+     "method": "POST",
+     "raw": "${BASE_URL}/send-out",
+     "resolvedPath": "/api/external-process/send-out",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/external-process/send-out",
+      "file": "backend/src/routes/external-process.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    }
+   ]
+  }
+ },
+ "unresolvedCalls": []
+}

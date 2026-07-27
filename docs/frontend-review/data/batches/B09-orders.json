@@ -1,0 +1,2152 @@
+{
+ "batch": "B09-orders",
+ "pages": {
+  "frontend/src/pages/OrderBOMDetail.tsx": {
+   "routes": [
+    "/order-bom/:id"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/OrderBOMDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderBOMList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 70,
+     "raw": "/order-bom",
+     "normalized": "/order-bom",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderBOMList.tsx"
+    },
+    {
+     "line": 163,
+     "raw": "/order-bom/${newBom.id}",
+     "normalized": "/order-bom/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderBOMDetail.tsx"
+    },
+    {
+     "line": 303,
+     "raw": "/order-bom",
+     "normalized": "/order-bom",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderBOMList.tsx"
+    },
+    {
+     "line": 318,
+     "raw": "/order-bom",
+     "normalized": "/order-bom",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderBOMList.tsx"
+    },
+    {
+     "line": 348,
+     "raw": "/procurement/requirements?tab=material&orderId=${bom.orderId}",
+     "normalized": "/procurement/requirements",
+     "queryParams": [
+      "tab",
+      "orderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/UnifiedRequirementsPage.tsx"
+    },
+    {
+     "line": 356,
+     "raw": "/procurement/requirements?tab=outsourced&orderId=${bom.orderId}",
+     "normalized": "/procurement/requirements",
+     "queryParams": [
+      "tab",
+      "orderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/UnifiedRequirementsPage.tsx"
+    },
+    {
+     "line": 381,
+     "raw": "/procurement/requirements?tab=material&orderId=${bom.orderId}",
+     "normalized": "/procurement/requirements",
+     "queryParams": [
+      "tab",
+      "orderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/UnifiedRequirementsPage.tsx"
+    },
+    {
+     "line": 389,
+     "raw": "/procurement/requirements?tab=outsourced&orderId=${bom.orderId}",
+     "normalized": "/procurement/requirements",
+     "queryParams": [
+      "tab",
+      "orderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/UnifiedRequirementsPage.tsx"
+    },
+    {
+     "line": 412,
+     "raw": "/procurement/requirements?tab=material&orderId=${bom.orderId}",
+     "normalized": "/procurement/requirements",
+     "queryParams": [
+      "tab",
+      "orderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/UnifiedRequirementsPage.tsx"
+    },
+    {
+     "line": 440,
+     "raw": "/procurement/requirements?tab=material&orderId=${bom.orderId}",
+     "normalized": "/procurement/requirements",
+     "queryParams": [
+      "tab",
+      "orderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/UnifiedRequirementsPage.tsx"
+    },
+    {
+     "line": 447,
+     "raw": "/production/work-orders?orderId=${bom.orderId}",
+     "normalized": "/production/work-orders",
+     "queryParams": [
+      "orderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WorkOrderList.tsx"
+    },
+    {
+     "line": 495,
+     "raw": "/cost-sheets/${bom.sourceCostSheetId}",
+     "normalized": "/cost-sheets/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/orderBom.service.ts",
+     "hop": 1,
+     "line": 37,
+     "method": "POST",
+     "raw": "/orders/${orderId}/bom",
+     "resolvedPath": "/api/orders/:_/bom",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/orders/:orderId/bom",
+      "file": "backend/src/routes/order-bom.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/orderBom.service.ts",
+     "hop": 1,
+     "line": 76,
+     "method": "PUT",
+     "raw": "/orders/${orderId}/bom?${params.toString()}",
+     "resolvedPath": "/api/orders/:_/bom",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/orders/:orderId/bom",
+      "file": "backend/src/routes/order-bom.routes.ts",
+      "line": 62
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/orderBom.service.ts",
+     "hop": 1,
+     "line": 126,
+     "method": "POST",
+     "raw": "/orders/${orderId}/bom/approve-and-calculate",
+     "resolvedPath": "/api/orders/:_/bom/approve-and-calculate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/orders/:orderId/bom/approve-and-calculate",
+      "file": "backend/src/routes/order-bom.routes.ts",
+      "line": 87
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/orderBom.service.ts",
+     "hop": 1,
+     "line": 171,
+     "method": "POST",
+     "raw": "/orders/${orderId}/bom/calculate-mrp",
+     "resolvedPath": "/api/orders/:_/bom/calculate-mrp",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/orders/:orderId/bom/calculate-mrp",
+      "file": "backend/src/routes/order-bom.routes.ts",
+      "line": 100
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/orderBom.service.ts",
+     "hop": 1,
+     "line": 192,
+     "method": "PATCH",
+     "raw": "/orders/${orderId}/bom/lock?${params.toString()}",
+     "resolvedPath": "/api/orders/:_/bom/lock",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/orders/:orderId/bom/lock",
+      "file": "backend/src/routes/order-bom.routes.ts",
+      "line": 113
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/orderBom.service.ts",
+     "hop": 1,
+     "line": 231,
+     "method": "DELETE",
+     "raw": "/orders/${orderId}/bom?${params.toString()}",
+     "resolvedPath": "/api/orders/:_/bom",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/orders/:orderId/bom",
+      "file": "backend/src/routes/order-bom.routes.ts",
+      "line": 146
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/orderBom.service.ts",
+     "hop": 1,
+     "line": 263,
+     "method": "GET",
+     "raw": "/order-bom/${id}",
+     "resolvedPath": "/api/order-bom/:_",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/orderBom.service.ts",
+     "hop": 1,
+     "line": 272,
+     "method": "POST",
+     "raw": "/order-bom/${bomId}/change-width",
+     "resolvedPath": "/api/order-bom/:_/change-width",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/orderBom.service.ts",
+     "hop": 1,
+     "line": 281,
+     "method": "GET",
+     "raw": "/fabric-greige/cad/fabric/${fabricId}",
+     "resolvedPath": "/api/fabric-greige/cad/fabric/:_",
+     "matchedRoute": null,
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/OrderBOMList.tsx": {
+   "routes": [
+    "/order-bom"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/Dashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderBOMDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderBOMDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderBOMDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 160,
+     "raw": "/order-bom/${bom.id}",
+     "normalized": "/order-bom/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderBOMDetail.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/orderBom.service.ts",
+     "hop": 1,
+     "line": 254,
+     "method": "GET",
+     "raw": "/order-bom?${params.toString()}",
+     "resolvedPath": "/api/order-bom",
+     "matchedRoute": null,
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/OrderDetail.tsx": {
+   "routes": [
+    "/orders/:id"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 222,
+     "raw": "/order-bom/${orderBom.id}",
+     "normalized": "/order-bom/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderBOMDetail.tsx"
+    },
+    {
+     "line": 237,
+     "raw": "/mrp/requirements?orderId=${order.id}",
+     "normalized": "/mrp/requirements",
+     "queryParams": [
+      "orderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": null
+    },
+    {
+     "line": 248,
+     "raw": "/mrp/requirements?orderId=${order?.id}",
+     "normalized": "/mrp/requirements",
+     "queryParams": [
+      "orderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": null
+    },
+    {
+     "line": 425,
+     "raw": "/orders",
+     "normalized": "/orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderList.tsx"
+    },
+    {
+     "line": 440,
+     "raw": "/orders",
+     "normalized": "/orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderList.tsx"
+    },
+    {
+     "line": 443,
+     "raw": "/orders/${order.id}/edit",
+     "normalized": "/orders/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    },
+    {
+     "line": 547,
+     "raw": "/procurement/purchase-orders?orderId=${order.id}",
+     "normalized": "/procurement/purchase-orders",
+     "queryParams": [
+      "orderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/PurchaseOrderList.tsx"
+    },
+    {
+     "line": 585,
+     "raw": "/procurement/requirements?tab=material&orderId=${id}",
+     "normalized": "/procurement/requirements",
+     "queryParams": [
+      "tab",
+      "orderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/UnifiedRequirementsPage.tsx"
+    },
+    {
+     "line": 653,
+     "raw": "/procurement/requirements?tab=outsourced&orderId=${id}",
+     "normalized": "/procurement/requirements",
+     "queryParams": [
+      "tab",
+      "orderId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/UnifiedRequirementsPage.tsx"
+    },
+    {
+     "line": 855,
+     "raw": "/orders/${order.id}/edit",
+     "normalized": "/orders/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    },
+    {
+     "line": 906,
+     "raw": "/order-bom/${orderBom.id}",
+     "normalized": "/order-bom/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderBOMDetail.tsx"
+    },
+    {
+     "line": 979,
+     "raw": "/production/work-orders/${wo.id}",
+     "normalized": "/production/work-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/order.service.ts",
+     "hop": 1,
+     "line": 48,
+     "method": "GET",
+     "raw": "/orders/${id}",
+     "resolvedPath": "/api/orders/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/orders/:id",
+      "file": "backend/src/routes/order.routes.ts",
+      "line": 38
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 42,
+     "method": "GET",
+     "raw": "${BASE_URL}${params.toString() ? '?' + params.toString() : ''}",
+     "resolvedPath": "/api/work-orders",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/order/${orderId}",
+     "resolvedPath": "/api/work-orders/order/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 69,
+     "method": "POST",
+     "raw": "/work-orders",
+     "resolvedPath": "/api/work-orders",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 63
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 78,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 109
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 87,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/work-orders/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/work-orders/:id",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 120
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "POST",
+     "raw": "${BASE_URL}/${workOrderId}/tracking",
+     "resolvedPath": "/api/work-orders/:_/tracking",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/tracking",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 65
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 103,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/${id}/approve",
+     "resolvedPath": "/api/work-orders/:_/approve",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/work-orders/:id/approve",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 112,
+     "method": "GET",
+     "raw": "${BASE_URL}/dashboard/summary",
+     "resolvedPath": "/api/work-orders/dashboard/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/dashboard/summary",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 25
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 122,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/split",
+     "resolvedPath": "/api/work-orders/:_/split",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/split",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 71
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 144,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/material-readiness",
+     "resolvedPath": "/api/work-orders/:_/material-readiness",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 153,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/push-to-cutting",
+     "resolvedPath": "/api/work-orders/:_/push-to-cutting",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/push-to-cutting",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 77
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 162,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/fabric-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/fabric-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 169,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-fabric",
+     "resolvedPath": "/api/work-orders/:_/issue-fabric",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-fabric",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 83
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 174,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/trim-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/trim-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 181,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-trims",
+     "resolvedPath": "/api/work-orders/:_/issue-trims",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-trims",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 89
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 186,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/packaging-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/packaging-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 193,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-packaging",
+     "resolvedPath": "/api/work-orders/:_/issue-packaging",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-packaging",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 95
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 198,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/thread-issuance-data",
+     "resolvedPath": "/api/work-orders/:_/thread-issuance-data",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 205,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/issue-thread",
+     "resolvedPath": "/api/work-orders/:_/issue-thread",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/work-orders/:id/issue-thread",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 101
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/workOrder.service.ts",
+     "hop": 1,
+     "line": 210,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}/wip-summary",
+     "resolvedPath": "/api/work-orders/:_/wip-summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/work-orders/order/:orderId",
+      "file": "backend/src/routes/workOrder.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/orderBom.service.ts",
+     "hop": 1,
+     "line": 50,
+     "method": "GET",
+     "raw": "/orders/${orderId}/bom?${params.toString()}",
+     "resolvedPath": "/api/orders/:_/bom",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/orders/:orderId/bom",
+      "file": "backend/src/routes/order-bom.routes.ts",
+      "line": 53
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/orderBom.service.ts",
+     "hop": 1,
+     "line": 171,
+     "method": "POST",
+     "raw": "/orders/${orderId}/bom/calculate-mrp",
+     "resolvedPath": "/api/orders/:_/bom/calculate-mrp",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/orders/:orderId/bom/calculate-mrp",
+      "file": "backend/src/routes/order-bom.routes.ts",
+      "line": 100
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 56,
+     "method": "GET",
+     "raw": "${BASE_URL}/style/${styleId}/versions",
+     "resolvedPath": "/api/style-costing/style/:_/versions",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/style-costing/style/:styleId/versions",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 206
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/mrp.service.ts",
+     "hop": 1,
+     "line": 278,
+     "method": "GET",
+     "raw": "${BASE_URL}/orders/${orderId}/summary",
+     "resolvedPath": "/api/mrp/orders/:_/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/mrp/orders/:orderId/summary",
+      "file": "backend/src/routes/mrp.routes.ts",
+      "line": 215
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/serviceRequirement.service.ts",
+     "hop": 1,
+     "line": 159,
+     "method": "GET",
+     "raw": "/orders/${orderId}/service-requirements/summary",
+     "resolvedPath": "/api/orders/:_/service-requirements/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/orders/:orderId/service-requirements/summary",
+      "file": "backend/src/routes/service-requirement.routes.ts",
+      "line": 80
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 22,
+     "method": "GET",
+     "raw": "/materials/thread",
+     "resolvedPath": "/api/materials/thread",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/thread",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 87
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 32,
+     "method": "GET",
+     "raw": "/materials/thread/${id}",
+     "resolvedPath": "/api/materials/thread/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/thread/template",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 39
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 47,
+     "method": "POST",
+     "raw": "/materials/thread",
+     "resolvedPath": "/api/materials/thread",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/thread",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 62,
+     "method": "PUT",
+     "raw": "/materials/thread/${id}",
+     "resolvedPath": "/api/materials/thread/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/thread/:id",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 105
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 70,
+     "method": "DELETE",
+     "raw": "/materials/thread/${id}",
+     "resolvedPath": "/api/materials/thread/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/thread/:id",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 77,
+     "method": "POST",
+     "raw": "/materials/thread/bulk-import",
+     "resolvedPath": "/api/materials/thread/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/thread/bulk-import",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 85,
+     "method": "GET",
+     "raw": "/materials/thread/template",
+     "resolvedPath": "/api/materials/thread/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/thread/template",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 39
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/OrderForm.tsx": {
+   "routes": [
+    "/orders/new",
+    "/orders/:id/edit"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/CostSheetDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/SalesDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MaterialRequirementsList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/UnifiedRequirementsPage.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderForm.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 939,
+     "raw": "/orders",
+     "normalized": "/orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderList.tsx"
+    },
+    {
+     "line": 953,
+     "raw": "/orders",
+     "normalized": "/orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderList.tsx"
+    },
+    {
+     "line": 1143,
+     "raw": "/cost-sheets/new?styleId=${selectedStyleId}",
+     "normalized": "/cost-sheets/new",
+     "queryParams": [
+      "styleId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetForm.tsx"
+    },
+    {
+     "line": 1780,
+     "raw": "/orders",
+     "normalized": "/orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "/customers?${queryParams.toString()}",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/order.service.ts",
+     "hop": 1,
+     "line": 48,
+     "method": "GET",
+     "raw": "/orders/${id}",
+     "resolvedPath": "/api/orders/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/orders/:id",
+      "file": "backend/src/routes/order.routes.ts",
+      "line": 38
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/order.service.ts",
+     "hop": 1,
+     "line": 64,
+     "method": "POST",
+     "raw": "/orders",
+     "resolvedPath": "/api/orders",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/orders",
+      "file": "backend/src/routes/order.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/order.service.ts",
+     "hop": 1,
+     "line": 72,
+     "method": "PUT",
+     "raw": "/orders/${id}",
+     "resolvedPath": "/api/orders/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/orders/:id",
+      "file": "backend/src/routes/order.routes.ts",
+      "line": 39
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "/styles/${id}",
+     "resolvedPath": "/api/styles/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/drafts",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customerSizePreset.service.ts",
+     "hop": 1,
+     "line": 13,
+     "method": "GET",
+     "raw": "/customers/${customerId}/size-category-presets",
+     "resolvedPath": "/api/customers/:_/size-category-presets",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers/:customerId/size-category-presets",
+      "file": "backend/src/routes/customer-size-presets.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 56,
+     "method": "GET",
+     "raw": "${BASE_URL}/style/${styleId}/versions",
+     "resolvedPath": "/api/style-costing/style/:_/versions",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/style-costing/style/:styleId/versions",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 206
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/OrderList.tsx": {
+   "routes": [
+    "/orders"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/Dashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/GeneralDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/SalesDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MRPDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/UnifiedRequirementsPage.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 217,
+     "raw": "/order-bom/${bom.id}",
+     "normalized": "/order-bom/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderBOMDetail.tsx"
+    },
+    {
+     "line": 235,
+     "raw": "/orders/${order.id}",
+     "normalized": "/orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    },
+    {
+     "line": 326,
+     "raw": "/orders/${order.id}",
+     "normalized": "/orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    },
+    {
+     "line": 362,
+     "raw": "/orders/${order.id}/edit",
+     "normalized": "/orders/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    },
+    {
+     "line": 402,
+     "raw": "/orders/new",
+     "normalized": "/orders/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    },
+    {
+     "line": 476,
+     "raw": "/orders/new",
+     "normalized": "/orders/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    },
+    {
+     "line": 486,
+     "raw": "/orders/${order.id}",
+     "normalized": "/orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/order.service.ts",
+     "hop": 1,
+     "line": 25,
+     "method": "GET",
+     "raw": "/orders",
+     "resolvedPath": "/api/orders",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/orders",
+      "file": "backend/src/routes/order.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/order.service.ts",
+     "hop": 1,
+     "line": 88,
+     "method": "DELETE",
+     "raw": "/orders/${id}",
+     "resolvedPath": "/api/orders/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/orders/:id",
+      "file": "backend/src/routes/order.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/order.service.ts",
+     "hop": 1,
+     "line": 96,
+     "method": "GET",
+     "raw": "/orders/${id}/can-delete",
+     "resolvedPath": "/api/orders/:_/can-delete",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/orders/:id/can-delete",
+      "file": "backend/src/routes/order.routes.ts",
+      "line": 49
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/order.service.ts",
+     "hop": 1,
+     "line": 105,
+     "method": "DELETE",
+     "raw": "/orders/${id}/hard-delete",
+     "resolvedPath": "/api/orders/:_/hard-delete",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/orders/:id/hard-delete",
+      "file": "backend/src/routes/order.routes.ts",
+      "line": 50
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "/customers?${queryParams.toString()}",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/orderBom.service.ts",
+     "hop": 1,
+     "line": 37,
+     "method": "POST",
+     "raw": "/orders/${orderId}/bom",
+     "resolvedPath": "/api/orders/:_/bom",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/orders/:orderId/bom",
+      "file": "backend/src/routes/order-bom.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 56,
+     "method": "GET",
+     "raw": "${BASE_URL}/style/${styleId}/versions",
+     "resolvedPath": "/api/style-costing/style/:_/versions",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/style-costing/style/:styleId/versions",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 206
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/export.service.ts",
+     "hop": 2,
+     "line": 13,
+     "method": "POST",
+     "raw": "/export/${module}",
+     "resolvedPath": "/api/export/:_",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/export/:module",
+      "file": "backend/src/routes/export.routes.ts",
+      "line": 20
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 15,
+     "method": "POST",
+     "raw": "/import/${module}/preview",
+     "resolvedPath": "/api/import/:_/preview",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/import/:module/preview",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 18
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 38,
+     "method": "POST",
+     "raw": "/import/${module}/execute",
+     "resolvedPath": "/api/import/:_/execute",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/import/:module/execute",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/import.service.ts",
+     "hop": 2,
+     "line": 71,
+     "method": "GET",
+     "raw": "/import/${module}/template",
+     "resolvedPath": "/api/import/:_/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/import/:module/template",
+      "file": "backend/src/routes/import.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/QuotationDetail.tsx": {
+   "routes": [
+    "/quotations/:id"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 48,
+     "raw": "/quotations",
+     "normalized": "/quotations",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/QuotationList.tsx"
+    },
+    {
+     "line": 76,
+     "raw": "/quotations",
+     "normalized": "/quotations",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/QuotationList.tsx"
+    },
+    {
+     "line": 141,
+     "raw": "/quotations",
+     "normalized": "/quotations",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/QuotationList.tsx"
+    },
+    {
+     "line": 203,
+     "raw": "/quotations/${id}/edit",
+     "normalized": "/quotations/:_/edit",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/quotation.service.ts",
+     "hop": 1,
+     "line": 31,
+     "method": "GET",
+     "raw": "${QUOTATION_API_PATH}/${id}",
+     "resolvedPath": "/api/quotations/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/quotations/summary",
+      "file": "backend/src/routes/quotation.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/quotation.service.ts",
+     "hop": 1,
+     "line": 55,
+     "method": "PUT",
+     "raw": "${QUOTATION_API_PATH}/${id}/status",
+     "resolvedPath": "/api/quotations/:_/status",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/quotations/:id/status",
+      "file": "backend/src/routes/quotation.routes.ts",
+      "line": 92
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/quotation.service.ts",
+     "hop": 1,
+     "line": 63,
+     "method": "DELETE",
+     "raw": "${QUOTATION_API_PATH}/${id}",
+     "resolvedPath": "/api/quotations/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/quotations/:id",
+      "file": "backend/src/routes/quotation.routes.ts",
+      "line": 109
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/QuotationForm.tsx": {
+   "routes": [
+    "/quotations/new"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/dashboards/SalesDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/QuotationList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/QuotationList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/QuotationList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/QuotationList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 105,
+     "raw": "/quotations",
+     "normalized": "/quotations",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/QuotationList.tsx"
+    },
+    {
+     "line": 187,
+     "raw": "/quotations",
+     "normalized": "/quotations",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/QuotationList.tsx"
+    },
+    {
+     "line": 199,
+     "raw": "/quotations",
+     "normalized": "/quotations",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/QuotationList.tsx"
+    },
+    {
+     "line": 425,
+     "raw": "/quotations",
+     "normalized": "/quotations",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/QuotationList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "/customers?${queryParams.toString()}",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/quotation.service.ts",
+     "hop": 1,
+     "line": 31,
+     "method": "GET",
+     "raw": "${QUOTATION_API_PATH}/${id}",
+     "resolvedPath": "/api/quotations/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/quotations/summary",
+      "file": "backend/src/routes/quotation.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/quotation.service.ts",
+     "hop": 1,
+     "line": 39,
+     "method": "POST",
+     "raw": "/quotations",
+     "resolvedPath": "/api/quotations",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/quotations",
+      "file": "backend/src/routes/quotation.routes.ts",
+      "line": 67
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/quotation.service.ts",
+     "hop": 1,
+     "line": 47,
+     "method": "PUT",
+     "raw": "${QUOTATION_API_PATH}/${id}",
+     "resolvedPath": "/api/quotations/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/quotations/:id",
+      "file": "backend/src/routes/quotation.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/QuotationList.tsx": {
+   "routes": [
+    "/quotations"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/GeneralDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/SalesDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/QuotationDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/QuotationDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/QuotationDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/QuotationForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/QuotationForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/QuotationForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/QuotationForm.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 164,
+     "raw": "/quotations/${quotation.id}",
+     "normalized": "/quotations/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/QuotationForm.tsx"
+    },
+    {
+     "line": 234,
+     "raw": "/quotations/${quotation.id}",
+     "normalized": "/quotations/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/QuotationForm.tsx"
+    },
+    {
+     "line": 270,
+     "raw": "/quotations/new",
+     "normalized": "/quotations/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/QuotationForm.tsx"
+    },
+    {
+     "line": 378,
+     "raw": "/quotations/${quotation.id}",
+     "normalized": "/quotations/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/QuotationForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/quotation.service.ts",
+     "hop": 1,
+     "line": 23,
+     "method": "GET",
+     "raw": "/quotations",
+     "resolvedPath": "/api/quotations",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/quotations",
+      "file": "backend/src/routes/quotation.routes.ts",
+      "line": 50
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/quotation.service.ts",
+     "hop": 1,
+     "line": 63,
+     "method": "DELETE",
+     "raw": "${QUOTATION_API_PATH}/${id}",
+     "resolvedPath": "/api/quotations/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/quotations/:id",
+      "file": "backend/src/routes/quotation.routes.ts",
+      "line": 109
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/quotation.service.ts",
+     "hop": 1,
+     "line": 71,
+     "method": "GET",
+     "raw": "${QUOTATION_API_PATH}/summary",
+     "resolvedPath": "/api/quotations/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/quotations/summary",
+      "file": "backend/src/routes/quotation.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "/customers?${queryParams.toString()}",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/SaleOrderDetail.tsx": {
+   "routes": [
+    "/sale-orders/:id"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/SaleOrderList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SaleOrderList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/SaleOrderList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 113,
+     "raw": "/sale-orders",
+     "normalized": "/sale-orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SaleOrderList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/saleOrder.service.ts",
+     "hop": 1,
+     "line": 19,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/sale-orders/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/sale-orders/search",
+      "file": "backend/src/routes/saleOrder.routes.ts",
+      "line": 21
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/saleOrder.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/confirm",
+     "resolvedPath": "/api/sale-orders/:_/confirm",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/sale-orders/:id/confirm",
+      "file": "backend/src/routes/saleOrder.routes.ts",
+      "line": 59
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/saleOrder.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "POST",
+     "raw": "${BASE_URL}/allocate-stock",
+     "resolvedPath": "/api/sale-orders/allocate-stock",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/sale-orders/allocate-stock",
+      "file": "backend/src/routes/saleOrder.routes.ts",
+      "line": 67
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/saleOrder.service.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "GET",
+     "raw": "${BASE_URL}/available-stock",
+     "resolvedPath": "/api/sale-orders/available-stock",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/sale-orders/available-stock",
+      "file": "backend/src/routes/saleOrder.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/SaleOrderList.tsx": {
+   "routes": [
+    "/sale-orders"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/SaleOrderDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 84,
+     "raw": "/sale-orders/${created.id}",
+     "normalized": "/sale-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SaleOrderDetail.tsx"
+    },
+    {
+     "line": 223,
+     "raw": "/sale-orders/${so.id}",
+     "normalized": "/sale-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SaleOrderDetail.tsx"
+    },
+    {
+     "line": 242,
+     "raw": "/sale-orders/${so.id}",
+     "normalized": "/sale-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SaleOrderDetail.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/SaleOrderList.tsx",
+     "hop": 0,
+     "line": 71,
+     "method": "GET",
+     "raw": "/customers/search",
+     "resolvedPath": "/api/customers/search",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers/:id",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 55
+     },
+     "tags": [
+      "shadow-risk"
+     ]
+    },
+    {
+     "origin": "frontend/src/services/saleOrder.service.ts",
+     "hop": 1,
+     "line": 14,
+     "method": "GET",
+     "raw": "/sale-orders",
+     "resolvedPath": "/api/sale-orders",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/sale-orders",
+      "file": "backend/src/routes/saleOrder.routes.ts",
+      "line": 27
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StockProductionOrderDetail.tsx": {
+   "routes": [
+    "/stock-production-orders/:id"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/StockProductionOrderList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockProductionOrderList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StockProductionOrderList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 182,
+     "raw": "/stock-production-orders",
+     "normalized": "/stock-production-orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockProductionOrderList.tsx"
+    },
+    {
+     "line": 335,
+     "raw": "/production/work-orders/${wo.id}",
+     "normalized": "/production/work-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/stockProductionOrder.service.ts",
+     "hop": 1,
+     "line": 19,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-production-orders/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-production-orders/search",
+      "file": "backend/src/routes/stockProductionOrder.routes.ts",
+      "line": 21
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockProductionOrder.service.ts",
+     "hop": 1,
+     "line": 34,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/stock-production-orders/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/stock-production-orders/:id",
+      "file": "backend/src/routes/stockProductionOrder.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockProductionOrder.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/approve",
+     "resolvedPath": "/api/stock-production-orders/:_/approve",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-production-orders/:id/approve",
+      "file": "backend/src/routes/stockProductionOrder.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stockProductionOrder.service.ts",
+     "hop": 1,
+     "line": 48,
+     "method": "POST",
+     "raw": "${BASE_URL}/${id}/generate-work-orders",
+     "resolvedPath": "/api/stock-production-orders/:_/generate-work-orders",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/stock-production-orders/:id/generate-work-orders",
+      "file": "backend/src/routes/stockProductionOrder.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "/styles/${id}",
+     "resolvedPath": "/api/styles/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/drafts",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StockProductionOrderList.tsx": {
+   "routes": [
+    "/stock-production-orders"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/StockProductionOrderDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 98,
+     "raw": "/stock-production-orders/${created.id}",
+     "normalized": "/stock-production-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockProductionOrderDetail.tsx"
+    },
+    {
+     "line": 239,
+     "raw": "/stock-production-orders/${spo.id}",
+     "normalized": "/stock-production-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockProductionOrderDetail.tsx"
+    },
+    {
+     "line": 264,
+     "raw": "/stock-production-orders/${spo.id}",
+     "normalized": "/stock-production-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockProductionOrderDetail.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/stockProductionOrder.service.ts",
+     "hop": 1,
+     "line": 14,
+     "method": "GET",
+     "raw": "/stock-production-orders",
+     "resolvedPath": "/api/stock-production-orders",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock-production-orders",
+      "file": "backend/src/routes/stockProductionOrder.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    }
+   ]
+  }
+ },
+ "unresolvedCalls": []
+}

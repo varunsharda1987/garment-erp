@@ -1,0 +1,484 @@
+{
+ "batch": "B15-dashboards",
+ "pages": {
+  "frontend/src/pages/Dashboard.tsx": {
+   "routes": [
+    "/dashboard/main"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 255,
+     "raw": "/users",
+     "normalized": "/users",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/Users.tsx"
+    },
+    {
+     "line": 256,
+     "raw": "/styles",
+     "normalized": "/styles",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleList.tsx"
+    },
+    {
+     "line": 261,
+     "raw": "/customers",
+     "normalized": "/customers",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerList.tsx"
+    },
+    {
+     "line": 267,
+     "raw": "/suppliers",
+     "normalized": "/suppliers",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/SupplierList.tsx"
+    },
+    {
+     "line": 273,
+     "raw": "/material-master",
+     "normalized": "/material-master",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MaterialMasterList.tsx"
+    },
+    {
+     "line": 275,
+     "raw": "/orders",
+     "normalized": "/orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderList.tsx"
+    },
+    {
+     "line": 276,
+     "raw": "/order-bom",
+     "normalized": "/order-bom",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderBOMList.tsx"
+    },
+    {
+     "line": 281,
+     "raw": "/cost-sheets",
+     "normalized": "/cost-sheets",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetList.tsx"
+    },
+    {
+     "line": 287,
+     "raw": "/chart-of-accounts",
+     "normalized": "/chart-of-accounts",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/ChartOfAccountsList.tsx"
+    },
+    {
+     "line": 293,
+     "raw": "/inventory/dashboard",
+     "normalized": "/inventory/dashboard",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockDashboard.tsx"
+    },
+    {
+     "line": 299,
+     "raw": "/production/work-orders",
+     "normalized": "/production/work-orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WorkOrderList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 357,
+     "method": "GET",
+     "raw": "/dashboard/summary",
+     "resolvedPath": "/api/dashboard/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dashboard/summary",
+      "file": "backend/src/routes/dashboard.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/dashboards/AccountsDashboard.tsx": {
+   "routes": [
+    "/dashboard/accounts"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/dashboards/GeneralDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 112,
+     "raw": "/invoices?status=PENDING",
+     "normalized": "/invoices",
+     "queryParams": [
+      "status"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceList.tsx"
+    },
+    {
+     "line": 120,
+     "raw": "/invoices?status=OVERDUE",
+     "normalized": "/invoices",
+     "queryParams": [
+      "status"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceList.tsx"
+    },
+    {
+     "line": 251,
+     "raw": "/invoices/${row.id}",
+     "normalized": "/invoices/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/dashboards/AccountsDashboard.tsx",
+     "hop": 0,
+     "line": 67,
+     "method": "GET",
+     "raw": "/dashboard/accounts-stats",
+     "resolvedPath": "/api/dashboard/accounts-stats",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dashboard/accounts-stats",
+      "file": "backend/src/routes/dashboard.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/dashboards/DashboardRouter.tsx": {
+   "routes": [
+    "/dashboard"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/ChartOfAccountsList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/Login.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/NotFound.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/TemplateManager.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/WorkOrderList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 30,
+     "raw": "/login",
+     "normalized": "/login",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": []
+  },
+  "frontend/src/pages/dashboards/GeneralDashboard.tsx": {
+   "routes": [
+    "/dashboard/admin",
+    "/dashboard/general"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 108,
+     "raw": "/orders",
+     "normalized": "/orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderList.tsx"
+    },
+    {
+     "line": 116,
+     "raw": "/production/work-orders",
+     "normalized": "/production/work-orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WorkOrderList.tsx"
+    },
+    {
+     "line": 143,
+     "raw": "/customers",
+     "normalized": "/customers",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerList.tsx"
+    },
+    {
+     "line": 151,
+     "raw": "/quotations",
+     "normalized": "/quotations",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/QuotationList.tsx"
+    },
+    {
+     "line": 159,
+     "raw": "/inventory/stock-levels",
+     "normalized": "/inventory/stock-levels",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StockLevelList.tsx"
+    },
+    {
+     "line": 167,
+     "raw": "/invoices",
+     "normalized": "/invoices",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/InvoiceList.tsx"
+    },
+    {
+     "line": 176,
+     "raw": "/dashboard/production",
+     "normalized": "/dashboard/production",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/dashboards/ProductionDashboard.tsx"
+    },
+    {
+     "line": 184,
+     "raw": "/dashboard/sales",
+     "normalized": "/dashboard/sales",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/dashboards/SalesDashboard.tsx"
+    },
+    {
+     "line": 192,
+     "raw": "/dashboard/accounts",
+     "normalized": "/dashboard/accounts",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/dashboards/AccountsDashboard.tsx"
+    },
+    {
+     "line": 200,
+     "raw": "/users",
+     "normalized": "/users",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/Users.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/dashboards/GeneralDashboard.tsx",
+     "hop": 0,
+     "line": 42,
+     "method": "GET",
+     "raw": "/dashboard/general-stats",
+     "resolvedPath": "/api/dashboard/general-stats",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dashboard/general-stats",
+      "file": "backend/src/routes/dashboard.routes.ts",
+      "line": 34
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/dashboards/index.ts": {
+   "routes": [],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [],
+   "calls": []
+  },
+  "frontend/src/pages/dashboards/ProductionDashboard.tsx": {
+   "routes": [
+    "/dashboard/production"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/dashboards/GeneralDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 106,
+     "raw": "/production/work-orders?status=IN_PRODUCTION",
+     "normalized": "/production/work-orders",
+     "queryParams": [
+      "status"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WorkOrderList.tsx"
+    },
+    {
+     "line": 114,
+     "raw": "/manufacturing/dispatch",
+     "normalized": "/manufacturing/dispatch",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/DispatchList.tsx"
+    },
+    {
+     "line": 131,
+     "raw": "/production/work-orders?overdue=true",
+     "normalized": "/production/work-orders",
+     "queryParams": [
+      "overdue"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/WorkOrderList.tsx"
+    },
+    {
+     "line": 204,
+     "raw": "/production/work-orders/${row.id}",
+     "normalized": "/production/work-orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/dashboards/ProductionDashboard.tsx",
+     "hop": 0,
+     "line": 57,
+     "method": "GET",
+     "raw": "/dashboard/production-stats",
+     "resolvedPath": "/api/dashboard/production-stats",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dashboard/production-stats",
+      "file": "backend/src/routes/dashboard.routes.ts",
+      "line": 35
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/dashboards/SalesDashboard.tsx": {
+   "routes": [
+    "/dashboard/sales"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/dashboards/GeneralDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 120,
+     "raw": "/orders",
+     "normalized": "/orders",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderList.tsx"
+    },
+    {
+     "line": 128,
+     "raw": "/quotations?status=SENT",
+     "normalized": "/quotations",
+     "queryParams": [
+      "status"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/QuotationList.tsx"
+    },
+    {
+     "line": 156,
+     "raw": "/customers",
+     "normalized": "/customers",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CustomerList.tsx"
+    },
+    {
+     "line": 164,
+     "raw": "/cost-sheets",
+     "normalized": "/cost-sheets",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetList.tsx"
+    },
+    {
+     "line": 199,
+     "raw": "/orders/${row.id}",
+     "normalized": "/orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    },
+    {
+     "line": 234,
+     "raw": "/quotations/${row.id}",
+     "normalized": "/quotations/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/QuotationForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/dashboards/SalesDashboard.tsx",
+     "hop": 0,
+     "line": 61,
+     "method": "GET",
+     "raw": "/dashboard/sales-stats",
+     "resolvedPath": "/api/dashboard/sales-stats",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/dashboard/sales-stats",
+      "file": "backend/src/routes/dashboard.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    }
+   ]
+  }
+ },
+ "unresolvedCalls": []
+}

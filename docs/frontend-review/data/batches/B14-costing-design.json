@@ -1,0 +1,3829 @@
+{
+ "batch": "B14-costing-design",
+ "pages": {
+  "frontend/src/pages/CatalogueGenerator.tsx": {
+   "routes": [
+    "/catalogue-generator"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/DesignDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/pages/CatalogueGenerator.tsx",
+     "hop": 0,
+     "line": 200,
+     "method": "GET",
+     "raw": "/seasons",
+     "resolvedPath": "/api/seasons",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/seasons",
+      "file": "backend/src/routes/season.routes.ts",
+      "line": 66
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/pages/CatalogueGenerator.tsx",
+     "hop": 0,
+     "line": 204,
+     "method": "GET",
+     "raw": "/product-categories",
+     "resolvedPath": "/api/product-categories",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/product-categories",
+      "file": "backend/src/routes/productCategory.routes.ts",
+      "line": 98
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/pages/CatalogueGenerator.tsx",
+     "hop": 0,
+     "line": 416,
+     "method": "POST",
+     "raw": "/documents/catalogue/generate",
+     "resolvedPath": "/api/documents/catalogue/generate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/documents/catalogue/generate",
+      "file": "backend/src/routes/document.routes.ts",
+      "line": 132
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/pages/CatalogueGenerator.tsx",
+     "hop": 0,
+     "line": 458,
+     "method": "POST",
+     "raw": "/documents/catalogue/store",
+     "resolvedPath": "/api/documents/catalogue/store",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/documents/catalogue/store",
+      "file": "backend/src/routes/document.routes.ts",
+      "line": 144
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/pages/CatalogueGenerator.tsx",
+     "hop": 0,
+     "line": 480,
+     "method": "GET",
+     "raw": "/documents/catalogue/${storedCatalogueId}/whatsapp-link",
+     "resolvedPath": "/api/documents/catalogue/:_/whatsapp-link",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/documents/catalogue/:id/whatsapp-link",
+      "file": "backend/src/routes/document.routes.ts",
+      "line": 159
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/CostSheetDetail.tsx": {
+   "routes": [
+    "/cost-sheets/:id"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 61,
+     "raw": "/cost-sheets",
+     "normalized": "/cost-sheets",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetList.tsx"
+    },
+    {
+     "line": 156,
+     "raw": "/cost-sheets/${newVersion.id}/edit",
+     "normalized": "/cost-sheets/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetForm.tsx"
+    },
+    {
+     "line": 178,
+     "raw": "/cost-sheets",
+     "normalized": "/cost-sheets",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetList.tsx"
+    },
+    {
+     "line": 193,
+     "raw": "/cost-sheets",
+     "normalized": "/cost-sheets",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetList.tsx"
+    },
+    {
+     "line": 200,
+     "raw": "/cost-sheets/${costSheet.id}/edit",
+     "normalized": "/cost-sheets/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetForm.tsx"
+    },
+    {
+     "line": 219,
+     "raw": "/order-bom?costSheetId=${costSheet.id}&styleId=${costSheet.styleId}",
+     "normalized": "/order-bom",
+     "queryParams": [
+      "costSheetId",
+      "styleId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderBOMList.tsx"
+    },
+    {
+     "line": 306,
+     "raw": "/orders/new?${params.toString()}",
+     "normalized": "/orders/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 40,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/style-costing/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/style-costing/:id",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 120
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 91,
+     "method": "POST",
+     "raw": "${BASE_URL}/${costSheetId}/create-version",
+     "resolvedPath": "/api/style-costing/:_/create-version",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/style-costing/generate/:styleId",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 84
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 107,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/${id}/approve",
+     "resolvedPath": "/api/style-costing/:_/approve",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/style-costing/:id/approve",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 160
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 115,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/${id}/reject",
+     "resolvedPath": "/api/style-costing/:_/reject",
+     "matchedRoute": null,
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/CostSheetForm.tsx": {
+   "routes": [
+    "/cost-sheets/new",
+    "/cost-sheets/:id/edit"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/CostSheetDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/FabricCostingOptionsPage.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/FabricCostingPage.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderBOMDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/OrderForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleFabricCostingOptionsPage.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 473,
+     "raw": "/cost-sheets",
+     "normalized": "/cost-sheets",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetList.tsx"
+    },
+    {
+     "line": 1792,
+     "raw": "/cost-sheets",
+     "normalized": "/cost-sheets",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetList.tsx"
+    },
+    {
+     "line": 1809,
+     "raw": "/cost-sheets",
+     "normalized": "/cost-sheets",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetList.tsx"
+    },
+    {
+     "line": 2266,
+     "raw": "/cad-planning/${selectedStyleId}",
+     "normalized": "/cad-planning/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CADPlanningPage.tsx"
+    },
+    {
+     "line": 2929,
+     "raw": "/cost-sheets",
+     "normalized": "/cost-sheets",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 17,
+     "method": "POST",
+     "raw": "/style-costing",
+     "resolvedPath": "/api/style-costing",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/style-costing",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 71
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 40,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/style-costing/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/style-costing/:id",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 120
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 99,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/style-costing/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/style-costing/:id",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 146
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 130,
+     "method": "POST",
+     "raw": "${BASE_URL}/generate/${styleId}",
+     "resolvedPath": "/api/style-costing/generate/:_",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/style-costing/generate/:styleId",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 84
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 140,
+     "method": "GET",
+     "raw": "${BASE_URL}/budget-suggestions/${styleId}",
+     "resolvedPath": "/api/style-costing/budget-suggestions/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/style-costing/budget-suggestions/:styleId",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 107
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "/styles/${id}",
+     "resolvedPath": "/api/styles/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/drafts",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "/customers?${queryParams.toString()}",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricStock.service.ts",
+     "hop": 1,
+     "line": 48,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary",
+     "resolvedPath": "/api/stock/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock/summary",
+      "file": "backend/src/routes/fabric-stock.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricStock.service.ts",
+     "hop": 1,
+     "line": 57,
+     "method": "GET",
+     "raw": "${BASE_URL}?fabricId=${fabricId}&limit=10&status=AVAILABLE",
+     "resolvedPath": "/api/stock",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock",
+      "file": "backend/src/routes/fabric-stock.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricStock.service.ts",
+     "hop": 1,
+     "line": 80,
+     "method": "GET",
+     "raw": "${BASE_URL}?${queryParams.toString()}",
+     "resolvedPath": "/api/stock",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stock",
+      "file": "backend/src/routes/fabric-stock.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 39,
+     "method": "GET",
+     "raw": "${BASE_URL}/processors",
+     "resolvedPath": "/api/fabric-costing/processors",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing/processors",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 51
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 53,
+     "method": "GET",
+     "raw": "${BASE_URL}/style/${styleId}${params}",
+     "resolvedPath": "/api/fabric-costing/style/:_:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing/style/:styleId",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 54
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "POST",
+     "raw": "${BASE_URL}/lookup-rate",
+     "resolvedPath": "/api/fabric-costing/lookup-rate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/lookup-rate",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 84,
+     "method": "POST",
+     "raw": "${BASE_URL}/save",
+     "resolvedPath": "/api/fabric-costing/save",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/save",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 63
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 99,
+     "method": "POST",
+     "raw": "${BASE_URL}/calculate",
+     "resolvedPath": "/api/fabric-costing/calculate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/calculate",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 114
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 107,
+     "method": "POST",
+     "raw": "${BASE_URL}/batch-calculate",
+     "resolvedPath": "/api/fabric-costing/batch-calculate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/batch-calculate",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 128,
+     "method": "GET",
+     "raw": "${BASE_URL}/options?${params.toString()}",
+     "resolvedPath": "/api/fabric-costing/options",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing/options",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 153,
+     "method": "POST",
+     "raw": "${BASE_URL}/option/${optionId}/approve",
+     "resolvedPath": "/api/fabric-costing/option/:_/approve",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/option/:optionId/approve",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 74
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 161,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/option/${optionId}/unapprove",
+     "resolvedPath": "/api/fabric-costing/option/:_/unapprove",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/fabric-costing/option/:optionId/unapprove",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 82
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 169,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/option/${optionId}",
+     "resolvedPath": "/api/fabric-costing/option/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/fabric-costing/option/:optionId",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 98
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 177,
+     "method": "POST",
+     "raw": "${BASE_URL}/option/${optionId}/promote",
+     "resolvedPath": "/api/fabric-costing/option/:_/promote",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/option/:optionId/promote",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 90
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 188,
+     "method": "POST",
+     "raw": "${BASE_URL}/styles/costing-status",
+     "resolvedPath": "/api/fabric-costing/styles/costing-status",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/styles/costing-status",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 101
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 204,
+     "method": "POST",
+     "raw": "${BASE_URL}/check-cad-status",
+     "resolvedPath": "/api/fabric-costing/check-cad-status",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/check-cad-status",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 106
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 216,
+     "method": "POST",
+     "raw": "${BASE_URL}/push-from-cad",
+     "resolvedPath": "/api/fabric-costing/push-from-cad",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/push-from-cad",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 109
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCostingRun.service.ts",
+     "hop": 1,
+     "line": 57,
+     "method": "GET",
+     "raw": "/fabric-costing-runs/style/${styleId}${params}",
+     "resolvedPath": "/api/fabric-costing-runs/style/:_:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing-runs/style/:styleId",
+      "file": "backend/src/routes/fabric-costing-run.routes.ts",
+      "line": 26
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCostingRun.service.ts",
+     "hop": 1,
+     "line": 65,
+     "method": "GET",
+     "raw": "/fabric-costing-runs/${runId}",
+     "resolvedPath": "/api/fabric-costing-runs/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing-runs/:runId",
+      "file": "backend/src/routes/fabric-costing-run.routes.ts",
+      "line": 37
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 24,
+     "method": "GET",
+     "raw": "/materials/lace",
+     "resolvedPath": "/api/materials/lace",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 34,
+     "method": "GET",
+     "raw": "/materials/lace/${id}",
+     "resolvedPath": "/api/materials/lace/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace/greige",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 52
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 62,
+     "method": "POST",
+     "raw": "/materials/lace",
+     "resolvedPath": "/api/materials/lace",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/lace",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 36
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 90,
+     "method": "PUT",
+     "raw": "/materials/lace/${id}",
+     "resolvedPath": "/api/materials/lace/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/lace/:id",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 89
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 98,
+     "method": "DELETE",
+     "raw": "/materials/lace/${id}",
+     "resolvedPath": "/api/materials/lace/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/lace/:id",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 96
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 105,
+     "method": "POST",
+     "raw": "/materials/lace/bulk-import",
+     "resolvedPath": "/api/materials/lace/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/lace/bulk-import",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 103
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 113,
+     "method": "GET",
+     "raw": "/materials/lace/template",
+     "resolvedPath": "/api/materials/lace/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace/template",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 125,
+     "method": "GET",
+     "raw": "/materials/lace/greige",
+     "resolvedPath": "/api/materials/lace/greige",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace/greige",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 52
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 140,
+     "method": "GET",
+     "raw": "/materials/lace/finished",
+     "resolvedPath": "/api/materials/lace/finished",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace/finished",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/lace.service.ts",
+     "hop": 2,
+     "line": 150,
+     "method": "GET",
+     "raw": "/materials/lace/for-costing",
+     "resolvedPath": "/api/materials/lace/for-costing",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/lace/for-costing",
+      "file": "backend/src/routes/lace.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 22,
+     "method": "GET",
+     "raw": "/materials/thread",
+     "resolvedPath": "/api/materials/thread",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/thread",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 87
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 32,
+     "method": "GET",
+     "raw": "/materials/thread/${id}",
+     "resolvedPath": "/api/materials/thread/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/thread/template",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 39
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 47,
+     "method": "POST",
+     "raw": "/materials/thread",
+     "resolvedPath": "/api/materials/thread",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/thread",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 62,
+     "method": "PUT",
+     "raw": "/materials/thread/${id}",
+     "resolvedPath": "/api/materials/thread/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/thread/:id",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 105
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 70,
+     "method": "DELETE",
+     "raw": "/materials/thread/${id}",
+     "resolvedPath": "/api/materials/thread/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/thread/:id",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 77,
+     "method": "POST",
+     "raw": "/materials/thread/bulk-import",
+     "resolvedPath": "/api/materials/thread/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/thread/bulk-import",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/thread.service.ts",
+     "hop": 2,
+     "line": 85,
+     "method": "GET",
+     "raw": "/materials/thread/template",
+     "resolvedPath": "/api/materials/thread/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/thread/template",
+      "file": "backend/src/routes/thread.routes.ts",
+      "line": 39
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 2,
+     "line": 22,
+     "method": "GET",
+     "raw": "/materials/button",
+     "resolvedPath": "/api/materials/button",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/button",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 2,
+     "line": 32,
+     "method": "GET",
+     "raw": "/materials/button/${id}",
+     "resolvedPath": "/api/materials/button/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/button/template",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 2,
+     "line": 49,
+     "method": "POST",
+     "raw": "/materials/button",
+     "resolvedPath": "/api/materials/button",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/button",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 2,
+     "line": 66,
+     "method": "PUT",
+     "raw": "/materials/button/${id}",
+     "resolvedPath": "/api/materials/button/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/button/:id",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 2,
+     "line": 74,
+     "method": "DELETE",
+     "raw": "/materials/button/${id}",
+     "resolvedPath": "/api/materials/button/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/button/:id",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 73
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 2,
+     "line": 81,
+     "method": "POST",
+     "raw": "/materials/button/bulk-import",
+     "resolvedPath": "/api/materials/button/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/button/bulk-import",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 80
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/button.service.ts",
+     "hop": 2,
+     "line": 89,
+     "method": "GET",
+     "raw": "/materials/button/template",
+     "resolvedPath": "/api/materials/button/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/button/template",
+      "file": "backend/src/routes/button.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 2,
+     "line": 22,
+     "method": "GET",
+     "raw": "/materials/zipper",
+     "resolvedPath": "/api/materials/zipper",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/zipper",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 2,
+     "line": 32,
+     "method": "GET",
+     "raw": "/materials/zipper/${id}",
+     "resolvedPath": "/api/materials/zipper/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/zipper/template",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 2,
+     "line": 48,
+     "method": "POST",
+     "raw": "/materials/zipper",
+     "resolvedPath": "/api/materials/zipper",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/zipper",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 2,
+     "line": 64,
+     "method": "PUT",
+     "raw": "/materials/zipper/${id}",
+     "resolvedPath": "/api/materials/zipper/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/zipper/:id",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 2,
+     "line": 72,
+     "method": "DELETE",
+     "raw": "/materials/zipper/${id}",
+     "resolvedPath": "/api/materials/zipper/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/zipper/:id",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 73
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 2,
+     "line": 79,
+     "method": "POST",
+     "raw": "/materials/zipper/bulk-import",
+     "resolvedPath": "/api/materials/zipper/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/zipper/bulk-import",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 80
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/zipper.service.ts",
+     "hop": 2,
+     "line": 87,
+     "method": "GET",
+     "raw": "/materials/zipper/template",
+     "resolvedPath": "/api/materials/zipper/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/zipper/template",
+      "file": "backend/src/routes/zipper.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 2,
+     "line": 22,
+     "method": "GET",
+     "raw": "/materials/elastic",
+     "resolvedPath": "/api/materials/elastic",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/elastic",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 2,
+     "line": 32,
+     "method": "GET",
+     "raw": "/materials/elastic/${id}",
+     "resolvedPath": "/api/materials/elastic/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/elastic/template",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 2,
+     "line": 48,
+     "method": "POST",
+     "raw": "/materials/elastic",
+     "resolvedPath": "/api/materials/elastic",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/elastic",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 2,
+     "line": 64,
+     "method": "PUT",
+     "raw": "/materials/elastic/${id}",
+     "resolvedPath": "/api/materials/elastic/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/elastic/:id",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 2,
+     "line": 72,
+     "method": "DELETE",
+     "raw": "/materials/elastic/${id}",
+     "resolvedPath": "/api/materials/elastic/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/elastic/:id",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 73
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 2,
+     "line": 79,
+     "method": "POST",
+     "raw": "/materials/elastic/bulk-import",
+     "resolvedPath": "/api/materials/elastic/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/elastic/bulk-import",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 80
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/elastic.service.ts",
+     "hop": 2,
+     "line": 90,
+     "method": "GET",
+     "raw": "/materials/elastic/template",
+     "resolvedPath": "/api/materials/elastic/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/elastic/template",
+      "file": "backend/src/routes/elastic.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 2,
+     "line": 24,
+     "method": "GET",
+     "raw": "/materials/label",
+     "resolvedPath": "/api/materials/label",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/label",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 2,
+     "line": 34,
+     "method": "GET",
+     "raw": "/materials/label/${id}",
+     "resolvedPath": "/api/materials/label/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/label/template",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 2,
+     "line": 49,
+     "method": "POST",
+     "raw": "/materials/label",
+     "resolvedPath": "/api/materials/label",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/label",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 2,
+     "line": 64,
+     "method": "PUT",
+     "raw": "/materials/label/${id}",
+     "resolvedPath": "/api/materials/label/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/label/:id",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 2,
+     "line": 72,
+     "method": "DELETE",
+     "raw": "/materials/label/${id}",
+     "resolvedPath": "/api/materials/label/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/label/:id",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 2,
+     "line": 79,
+     "method": "POST",
+     "raw": "/materials/label/bulk-import",
+     "resolvedPath": "/api/materials/label/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/label/bulk-import",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/label.service.ts",
+     "hop": 2,
+     "line": 87,
+     "method": "GET",
+     "raw": "/materials/label/template",
+     "resolvedPath": "/api/materials/label/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/label/template",
+      "file": "backend/src/routes/label.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 2,
+     "line": 23,
+     "method": "GET",
+     "raw": "/materials/packaging",
+     "resolvedPath": "/api/materials/packaging",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/packaging",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 2,
+     "line": 33,
+     "method": "GET",
+     "raw": "/materials/packaging/${id}",
+     "resolvedPath": "/api/materials/packaging/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/packaging/template",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 2,
+     "line": 49,
+     "method": "POST",
+     "raw": "/materials/packaging",
+     "resolvedPath": "/api/materials/packaging",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/packaging",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 2,
+     "line": 65,
+     "method": "PUT",
+     "raw": "/materials/packaging/${id}",
+     "resolvedPath": "/api/materials/packaging/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/materials/packaging/:id",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 2,
+     "line": 73,
+     "method": "DELETE",
+     "raw": "/materials/packaging/${id}",
+     "resolvedPath": "/api/materials/packaging/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/materials/packaging/:id",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 73
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 2,
+     "line": 83,
+     "method": "POST",
+     "raw": "/materials/packaging/bulk-import",
+     "resolvedPath": "/api/materials/packaging/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/materials/packaging/bulk-import",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 80
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/packaging.service.ts",
+     "hop": 2,
+     "line": 94,
+     "method": "GET",
+     "raw": "/materials/packaging/template",
+     "resolvedPath": "/api/materials/packaging/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/materials/packaging/template",
+      "file": "backend/src/routes/packaging.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/genericTrim.service.ts",
+     "hop": 2,
+     "line": 29,
+     "method": "GET",
+     "raw": "${BASE_URL}/${trimType}",
+     "resolvedPath": "/api/generic-trims/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/generic-trims/configs",
+      "file": "backend/src/routes/generic-trim.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/genericTrim.service.ts",
+     "hop": 2,
+     "line": 37,
+     "method": "GET",
+     "raw": "${BASE_URL}/${trimType}/${id}",
+     "resolvedPath": "/api/generic-trims/:_/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/generic-trims/:trimType/:id",
+      "file": "backend/src/routes/generic-trim.routes.ts",
+      "line": 59
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/genericTrim.service.ts",
+     "hop": 2,
+     "line": 48,
+     "method": "POST",
+     "raw": "${BASE_URL}/${trimType}",
+     "resolvedPath": "/api/generic-trims/:_",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/generic-trims/:trimType",
+      "file": "backend/src/routes/generic-trim.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/genericTrim.service.ts",
+     "hop": 2,
+     "line": 60,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${trimType}/${id}",
+     "resolvedPath": "/api/generic-trims/:_/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/generic-trims/:trimType/:id",
+      "file": "backend/src/routes/generic-trim.routes.ts",
+      "line": 66
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/genericTrim.service.ts",
+     "hop": 2,
+     "line": 68,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${trimType}/${id}",
+     "resolvedPath": "/api/generic-trims/:_/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/generic-trims/:trimType/:id",
+      "file": "backend/src/routes/generic-trim.routes.ts",
+      "line": 72
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/genericTrim.service.ts",
+     "hop": 2,
+     "line": 76,
+     "method": "GET",
+     "raw": "${BASE_URL}/configs",
+     "resolvedPath": "/api/generic-trims/configs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/generic-trims/configs",
+      "file": "backend/src/routes/generic-trim.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/genericTrim.service.ts",
+     "hop": 2,
+     "line": 84,
+     "method": "GET",
+     "raw": "${BASE_URL}/counts",
+     "resolvedPath": "/api/generic-trims/counts",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/generic-trims/counts",
+      "file": "backend/src/routes/generic-trim.routes.ts",
+      "line": 50
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/CostSheetList.tsx": {
+   "routes": [
+    "/cost-sheets"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CostSheetForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/Dashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/SalesDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 146,
+     "raw": "/cost-sheets/${newVersion.id}/edit",
+     "normalized": "/cost-sheets/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetForm.tsx"
+    },
+    {
+     "line": 225,
+     "raw": "/cost-sheets/new",
+     "normalized": "/cost-sheets/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetForm.tsx"
+    },
+    {
+     "line": 300,
+     "raw": "/cost-sheets/new",
+     "normalized": "/cost-sheets/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetForm.tsx"
+    },
+    {
+     "line": 477,
+     "raw": "/cost-sheets/${sheet.id}",
+     "normalized": "/cost-sheets/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetForm.tsx"
+    },
+    {
+     "line": 490,
+     "raw": "/cost-sheets/${sheet.id}/edit",
+     "normalized": "/cost-sheets/:_/edit",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetForm.tsx"
+    },
+    {
+     "line": 449,
+     "raw": "/orders/${sheet.order.id}",
+     "normalized": "/orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    },
+    {
+     "line": 459,
+     "raw": "/orders/${sheet.orderItem.orderId}",
+     "normalized": "/orders/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/OrderForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 32,
+     "method": "GET",
+     "raw": "${BASE_URL}?${params.toString()}",
+     "resolvedPath": "/api/style-costing",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/style-costing",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 98
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 91,
+     "method": "POST",
+     "raw": "${BASE_URL}/${costSheetId}/create-version",
+     "resolvedPath": "/api/style-costing/:_/create-version",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/style-costing/generate/:styleId",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 84
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 107,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/${id}/approve",
+     "resolvedPath": "/api/style-costing/:_/approve",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/style-costing/:id/approve",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 160
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 115,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/${id}/reject",
+     "resolvedPath": "/api/style-costing/:_/reject",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 1,
+     "line": 123,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/style-costing/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/style-costing/:id",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 174
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/export.service.ts",
+     "hop": 2,
+     "line": 13,
+     "method": "POST",
+     "raw": "/export/${module}",
+     "resolvedPath": "/api/export/:_",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/export/:module",
+      "file": "backend/src/routes/export.routes.ts",
+      "line": 20
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/CostSheetPOGenerationPage.tsx": {
+   "routes": [
+    "/cost-sheets/:costSheetId/generate-po"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 1026,
+     "raw": "/purchase-orders/${po.id}",
+     "normalized": "/purchase-orders/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 1051,
+     "raw": "/purchase-orders/${po.id}",
+     "normalized": "/purchase-orders/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/costSheetPOGeneration.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "${BASE_URL}/calculate",
+     "resolvedPath": "/api/cost-sheet-po/calculate",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cost-sheet-po/calculate",
+      "file": "backend/src/routes/costSheetPOGeneration.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheetPOGeneration.service.ts",
+     "hop": 1,
+     "line": 36,
+     "method": "POST",
+     "raw": "${BASE_URL}/generate/fabric",
+     "resolvedPath": "/api/cost-sheet-po/generate/fabric",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cost-sheet-po/generate/fabric",
+      "file": "backend/src/routes/costSheetPOGeneration.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheetPOGeneration.service.ts",
+     "hop": 1,
+     "line": 44,
+     "method": "POST",
+     "raw": "${BASE_URL}/generate/greige",
+     "resolvedPath": "/api/cost-sheet-po/generate/greige",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cost-sheet-po/generate/greige",
+      "file": "backend/src/routes/costSheetPOGeneration.routes.ts",
+      "line": 44
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheetPOGeneration.service.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "POST",
+     "raw": "${BASE_URL}/generate/processing",
+     "resolvedPath": "/api/cost-sheet-po/generate/processing",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cost-sheet-po/generate/processing",
+      "file": "backend/src/routes/costSheetPOGeneration.routes.ts",
+      "line": 45
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheetPOGeneration.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "POST",
+     "raw": "${BASE_URL}/generate/trims",
+     "resolvedPath": "/api/cost-sheet-po/generate/trims",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/cost-sheet-po/generate/trims",
+      "file": "backend/src/routes/costSheetPOGeneration.routes.ts",
+      "line": 46
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheetPOGeneration.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "GET",
+     "raw": "${BASE_URL}/status/${costSheetId}",
+     "resolvedPath": "/api/cost-sheet-po/status/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/cost-sheet-po/status/:costSheetId",
+      "file": "backend/src/routes/costSheetPOGeneration.routes.ts",
+      "line": 56
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 2,
+     "line": 17,
+     "method": "POST",
+     "raw": "/style-costing",
+     "resolvedPath": "/api/style-costing",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/style-costing",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 71
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 2,
+     "line": 32,
+     "method": "GET",
+     "raw": "${BASE_URL}?${params.toString()}",
+     "resolvedPath": "/api/style-costing",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/style-costing",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 98
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 2,
+     "line": 40,
+     "method": "GET",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/style-costing/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/style-costing/:id",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 120
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 2,
+     "line": 48,
+     "method": "GET",
+     "raw": "${BASE_URL}/style/${styleId}",
+     "resolvedPath": "/api/style-costing/style/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/style-costing/style/:styleId",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 127
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 2,
+     "line": 56,
+     "method": "GET",
+     "raw": "${BASE_URL}/style/${styleId}/versions",
+     "resolvedPath": "/api/style-costing/style/:_/versions",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/style-costing/style/:styleId/versions",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 206
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 2,
+     "line": 80,
+     "method": "GET",
+     "raw": "${BASE_URL}/style/${styleId}/grouped",
+     "resolvedPath": "/api/style-costing/style/:_/grouped",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/style-costing/style/:styleId/grouped",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 134
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 2,
+     "line": 91,
+     "method": "POST",
+     "raw": "${BASE_URL}/${costSheetId}/create-version",
+     "resolvedPath": "/api/style-costing/:_/create-version",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/style-costing/generate/:styleId",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 84
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 2,
+     "line": 99,
+     "method": "PUT",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/style-costing/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/style-costing/:id",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 146
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 2,
+     "line": 107,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/${id}/approve",
+     "resolvedPath": "/api/style-costing/:_/approve",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/style-costing/:id/approve",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 160
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 2,
+     "line": 115,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/${id}/reject",
+     "resolvedPath": "/api/style-costing/:_/reject",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 2,
+     "line": 123,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/${id}",
+     "resolvedPath": "/api/style-costing/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/style-costing/:id",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 174
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 2,
+     "line": 130,
+     "method": "POST",
+     "raw": "${BASE_URL}/generate/${styleId}",
+     "resolvedPath": "/api/style-costing/generate/:_",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/style-costing/generate/:styleId",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 84
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/costSheet.service.ts",
+     "hop": 2,
+     "line": 140,
+     "method": "GET",
+     "raw": "${BASE_URL}/budget-suggestions/${styleId}",
+     "resolvedPath": "/api/style-costing/budget-suggestions/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/style-costing/budget-suggestions/:styleId",
+      "file": "backend/src/routes/styleCosting.routes.ts",
+      "line": 107
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/DesignDashboard.tsx": {
+   "routes": [
+    "/design-dashboard"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 75,
+     "raw": "/styles/${style.id}",
+     "normalized": "/styles/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 123,
+     "raw": "/styles/${activity.style!.id}",
+     "normalized": "/styles/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 217,
+     "raw": "/mood-boards",
+     "normalized": "/mood-boards",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MoodBoardList.tsx"
+    },
+    {
+     "line": 221,
+     "raw": "/styles/new",
+     "normalized": "/styles/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 291,
+     "raw": "/styles",
+     "normalized": "/styles",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleList.tsx"
+    },
+    {
+     "line": 301,
+     "raw": "/styles/new",
+     "normalized": "/styles/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 323,
+     "raw": "/styles/new",
+     "normalized": "/styles/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFormRedesigned.tsx"
+    },
+    {
+     "line": 327,
+     "raw": "/mood-boards/new",
+     "normalized": "/mood-boards/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MoodBoardDetail.tsx"
+    },
+    {
+     "line": 334,
+     "raw": "/catalogue-generator",
+     "normalized": "/catalogue-generator",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CatalogueGenerator.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/designerDashboard.service.ts",
+     "hop": 1,
+     "line": 21,
+     "method": "GET",
+     "raw": "/designer/dashboard",
+     "resolvedPath": "/api/designer/dashboard",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/designer/dashboard",
+      "file": "backend/src/routes/designer-dashboard.routes.ts",
+      "line": 19
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/FabricCostingOptionsPage.tsx": {
+   "routes": [
+    "/fabric-costing/options"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/FabricCostingPage.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 332,
+     "raw": "/fabric-costing",
+     "normalized": "/fabric-costing",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricCostingPage.tsx"
+    },
+    {
+     "line": 354,
+     "raw": "/fabric-costing?styleId=${filters.styleId}",
+     "normalized": "/fabric-costing",
+     "queryParams": [
+      "styleId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricCostingPage.tsx"
+    },
+    {
+     "line": 358,
+     "raw": "/fabric-costing",
+     "normalized": "/fabric-costing",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricCostingPage.tsx"
+    },
+    {
+     "line": 479,
+     "raw": "/fabric-costing",
+     "normalized": "/fabric-costing",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricCostingPage.tsx"
+    },
+    {
+     "line": 525,
+     "raw": "/fabric-costing?styleId=${styleId}",
+     "normalized": "/fabric-costing",
+     "queryParams": [
+      "styleId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricCostingPage.tsx"
+    },
+    {
+     "line": 599,
+     "raw": "/cost-sheets/new?styleId=${styleId}",
+     "normalized": "/cost-sheets/new",
+     "queryParams": [
+      "styleId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 39,
+     "method": "GET",
+     "raw": "${BASE_URL}/processors",
+     "resolvedPath": "/api/fabric-costing/processors",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing/processors",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 51
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 53,
+     "method": "GET",
+     "raw": "${BASE_URL}/style/${styleId}${params}",
+     "resolvedPath": "/api/fabric-costing/style/:_:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing/style/:styleId",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 54
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "POST",
+     "raw": "${BASE_URL}/lookup-rate",
+     "resolvedPath": "/api/fabric-costing/lookup-rate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/lookup-rate",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 84,
+     "method": "POST",
+     "raw": "${BASE_URL}/save",
+     "resolvedPath": "/api/fabric-costing/save",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/save",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 63
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 99,
+     "method": "POST",
+     "raw": "${BASE_URL}/calculate",
+     "resolvedPath": "/api/fabric-costing/calculate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/calculate",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 114
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 107,
+     "method": "POST",
+     "raw": "${BASE_URL}/batch-calculate",
+     "resolvedPath": "/api/fabric-costing/batch-calculate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/batch-calculate",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 128,
+     "method": "GET",
+     "raw": "${BASE_URL}/options?${params.toString()}",
+     "resolvedPath": "/api/fabric-costing/options",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing/options",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 153,
+     "method": "POST",
+     "raw": "${BASE_URL}/option/${optionId}/approve",
+     "resolvedPath": "/api/fabric-costing/option/:_/approve",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/option/:optionId/approve",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 74
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 161,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/option/${optionId}/unapprove",
+     "resolvedPath": "/api/fabric-costing/option/:_/unapprove",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/fabric-costing/option/:optionId/unapprove",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 82
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 169,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/option/${optionId}",
+     "resolvedPath": "/api/fabric-costing/option/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/fabric-costing/option/:optionId",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 98
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 177,
+     "method": "POST",
+     "raw": "${BASE_URL}/option/${optionId}/promote",
+     "resolvedPath": "/api/fabric-costing/option/:_/promote",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/option/:optionId/promote",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 90
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 188,
+     "method": "POST",
+     "raw": "${BASE_URL}/styles/costing-status",
+     "resolvedPath": "/api/fabric-costing/styles/costing-status",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/styles/costing-status",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 101
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 204,
+     "method": "POST",
+     "raw": "${BASE_URL}/check-cad-status",
+     "resolvedPath": "/api/fabric-costing/check-cad-status",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/check-cad-status",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 106
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 216,
+     "method": "POST",
+     "raw": "${BASE_URL}/push-from-cad",
+     "resolvedPath": "/api/fabric-costing/push-from-cad",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/push-from-cad",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 109
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "/customers?${queryParams.toString()}",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "/styles/${id}",
+     "resolvedPath": "/api/styles/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/drafts",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/FabricCostingPage.tsx": {
+   "routes": [
+    "/fabric-costing"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/CADPlanningList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CADPlanningPage.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CADPlanningPage.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/CADPlanningPage.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/FabricCostingOptionsPage.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/FabricCostingOptionsPage.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/FabricCostingOptionsPage.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/FabricCostingOptionsPage.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/FabricCostingOptionsPage.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/FabricCostingPage.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleFabricCostingOptionsPage.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleFabricCostingOptionsPage.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/StyleFabricCostingOptionsPage.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 918,
+     "raw": "/processor-rate-cards",
+     "normalized": "/processor-rate-cards",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/ProcessorRateCardPage.tsx"
+    },
+    {
+     "line": 1313,
+     "raw": "/fabric-costing",
+     "normalized": "/fabric-costing",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricCostingPage.tsx"
+    },
+    {
+     "line": 1524,
+     "raw": "/fabric-costing/style/${selectedStyleId}",
+     "normalized": "/fabric-costing/style/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/StyleFabricCostingOptionsPage.tsx"
+    },
+    {
+     "line": 1536,
+     "raw": "/fabric-costing/options?styleId=${selectedStyleId}",
+     "normalized": "/fabric-costing/options",
+     "queryParams": [
+      "styleId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricCostingOptionsPage.tsx"
+    },
+    {
+     "line": 1561,
+     "raw": "/cad-planning?style=${selectedStyleId}",
+     "normalized": "/cad-planning",
+     "queryParams": [
+      "style"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CADPlanningList.tsx"
+    },
+    {
+     "line": 2920,
+     "raw": "/cost-sheets/new?styleId=${selectedStyleId}",
+     "normalized": "/cost-sheets/new",
+     "queryParams": [
+      "styleId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 39,
+     "method": "GET",
+     "raw": "${BASE_URL}/processors",
+     "resolvedPath": "/api/fabric-costing/processors",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing/processors",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 51
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 53,
+     "method": "GET",
+     "raw": "${BASE_URL}/style/${styleId}${params}",
+     "resolvedPath": "/api/fabric-costing/style/:_:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing/style/:styleId",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 54
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "POST",
+     "raw": "${BASE_URL}/lookup-rate",
+     "resolvedPath": "/api/fabric-costing/lookup-rate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/lookup-rate",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 84,
+     "method": "POST",
+     "raw": "${BASE_URL}/save",
+     "resolvedPath": "/api/fabric-costing/save",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/save",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 63
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 99,
+     "method": "POST",
+     "raw": "${BASE_URL}/calculate",
+     "resolvedPath": "/api/fabric-costing/calculate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/calculate",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 114
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 107,
+     "method": "POST",
+     "raw": "${BASE_URL}/batch-calculate",
+     "resolvedPath": "/api/fabric-costing/batch-calculate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/batch-calculate",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 128,
+     "method": "GET",
+     "raw": "${BASE_URL}/options?${params.toString()}",
+     "resolvedPath": "/api/fabric-costing/options",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing/options",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 153,
+     "method": "POST",
+     "raw": "${BASE_URL}/option/${optionId}/approve",
+     "resolvedPath": "/api/fabric-costing/option/:_/approve",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/option/:optionId/approve",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 74
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 161,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/option/${optionId}/unapprove",
+     "resolvedPath": "/api/fabric-costing/option/:_/unapprove",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/fabric-costing/option/:optionId/unapprove",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 82
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 169,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/option/${optionId}",
+     "resolvedPath": "/api/fabric-costing/option/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/fabric-costing/option/:optionId",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 98
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 177,
+     "method": "POST",
+     "raw": "${BASE_URL}/option/${optionId}/promote",
+     "resolvedPath": "/api/fabric-costing/option/:_/promote",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/option/:optionId/promote",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 90
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 188,
+     "method": "POST",
+     "raw": "${BASE_URL}/styles/costing-status",
+     "resolvedPath": "/api/fabric-costing/styles/costing-status",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/styles/costing-status",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 101
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 204,
+     "method": "POST",
+     "raw": "${BASE_URL}/check-cad-status",
+     "resolvedPath": "/api/fabric-costing/check-cad-status",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/check-cad-status",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 106
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 216,
+     "method": "POST",
+     "raw": "${BASE_URL}/push-from-cad",
+     "resolvedPath": "/api/fabric-costing/push-from-cad",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/push-from-cad",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 109
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCostingRun.service.ts",
+     "hop": 1,
+     "line": 57,
+     "method": "GET",
+     "raw": "/fabric-costing-runs/style/${styleId}${params}",
+     "resolvedPath": "/api/fabric-costing-runs/style/:_:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing-runs/style/:styleId",
+      "file": "backend/src/routes/fabric-costing-run.routes.ts",
+      "line": 26
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCostingRun.service.ts",
+     "hop": 1,
+     "line": 73,
+     "method": "POST",
+     "raw": "/fabric-costing-runs/style/${styleId}",
+     "resolvedPath": "/api/fabric-costing-runs/style/:_",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing-runs/style/:styleId",
+      "file": "backend/src/routes/fabric-costing-run.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCostingRun.service.ts",
+     "hop": 1,
+     "line": 84,
+     "method": "DELETE",
+     "raw": "/fabric-costing-runs/${runId}",
+     "resolvedPath": "/api/fabric-costing-runs/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/fabric-costing-runs/:runId",
+      "file": "backend/src/routes/fabric-costing-run.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "/styles/${id}",
+     "resolvedPath": "/api/styles/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/drafts",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/customer.service.ts",
+     "hop": 1,
+     "line": 26,
+     "method": "GET",
+     "raw": "/customers?${queryParams.toString()}",
+     "resolvedPath": "/api/customers",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/customers",
+      "file": "backend/src/routes/customer.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 1,
+     "line": 35,
+     "method": "GET",
+     "raw": "/colors",
+     "resolvedPath": "/api/colors",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/colors",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "${API_PREFIX}/${id}",
+     "resolvedPath": "/api/colors/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/colors/search",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 1,
+     "line": 52,
+     "method": "POST",
+     "raw": "/colors",
+     "resolvedPath": "/api/colors",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/colors",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 1,
+     "line": 61,
+     "method": "PUT",
+     "raw": "${API_PREFIX}/${id}",
+     "resolvedPath": "/api/colors/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/colors/:id",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 89
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 1,
+     "line": 70,
+     "method": "DELETE",
+     "raw": "${API_PREFIX}/${id}",
+     "resolvedPath": "/api/colors/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/colors/:id",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 96
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 1,
+     "line": 77,
+     "method": "GET",
+     "raw": "${API_PREFIX}/search",
+     "resolvedPath": "/api/colors/search",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/colors/search",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 40
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 1,
+     "line": 85,
+     "method": "GET",
+     "raw": "${API_PREFIX}/families",
+     "resolvedPath": "/api/colors/families",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/colors/families",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 1,
+     "line": 94,
+     "method": "POST",
+     "raw": "${API_PREFIX}/bulk-import",
+     "resolvedPath": "/api/colors/bulk-import",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/colors/bulk-import",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 61
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/colorService.ts",
+     "hop": 1,
+     "line": 102,
+     "method": "GET",
+     "raw": "${API_PREFIX}/template",
+     "resolvedPath": "/api/colors/template",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/colors/template",
+      "file": "backend/src/routes/color.routes.ts",
+      "line": 54
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/MoodBoardDetail.tsx": {
+   "routes": [
+    "/mood-boards/new",
+    "/mood-boards/:id"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/DesignDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MoodBoardList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MoodBoardList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MoodBoardList.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MoodBoardList.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 95,
+     "raw": "/mood-boards",
+     "normalized": "/mood-boards",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MoodBoardList.tsx"
+    },
+    {
+     "line": 335,
+     "raw": "/mood-boards",
+     "normalized": "/mood-boards",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MoodBoardList.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/moodBoard.service.ts",
+     "hop": 1,
+     "line": 43,
+     "method": "GET",
+     "raw": "/mood-boards/${id}",
+     "resolvedPath": "/api/mood-boards/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/mood-boards/:id",
+      "file": "backend/src/routes/mood-board.routes.ts",
+      "line": 29
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/moodBoard.service.ts",
+     "hop": 1,
+     "line": 51,
+     "method": "POST",
+     "raw": "/mood-boards",
+     "resolvedPath": "/api/mood-boards",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/mood-boards",
+      "file": "backend/src/routes/mood-board.routes.ts",
+      "line": 28
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/moodBoard.service.ts",
+     "hop": 1,
+     "line": 59,
+     "method": "PATCH",
+     "raw": "/mood-boards/${id}",
+     "resolvedPath": "/api/mood-boards/:_",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/mood-boards/:id",
+      "file": "backend/src/routes/mood-board.routes.ts",
+      "line": 30
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/moodBoard.service.ts",
+     "hop": 1,
+     "line": 89,
+     "method": "POST",
+     "raw": "/mood-boards/${boardId}/items",
+     "resolvedPath": "/api/mood-boards/:_/items",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/mood-boards/:id/items",
+      "file": "backend/src/routes/mood-board.routes.ts",
+      "line": 34
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/moodBoard.service.ts",
+     "hop": 1,
+     "line": 107,
+     "method": "POST",
+     "raw": "/mood-boards/${boardId}/items",
+     "resolvedPath": "/api/mood-boards/:_/items",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/mood-boards/:id/items",
+      "file": "backend/src/routes/mood-board.routes.ts",
+      "line": 34
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/moodBoard.service.ts",
+     "hop": 1,
+     "line": 129,
+     "method": "POST",
+     "raw": "/mood-boards/${boardId}/items",
+     "resolvedPath": "/api/mood-boards/:_/items",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/mood-boards/:id/items",
+      "file": "backend/src/routes/mood-board.routes.ts",
+      "line": 34
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/moodBoard.service.ts",
+     "hop": 1,
+     "line": 145,
+     "method": "PATCH",
+     "raw": "/mood-boards/${boardId}/items/${itemId}",
+     "resolvedPath": "/api/mood-boards/:_/items/:_",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/mood-boards/:id/items/:itemId",
+      "file": "backend/src/routes/mood-board.routes.ts",
+      "line": 42
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/moodBoard.service.ts",
+     "hop": 1,
+     "line": 153,
+     "method": "DELETE",
+     "raw": "/mood-boards/${boardId}/items/${itemId}",
+     "resolvedPath": "/api/mood-boards/:_/items/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/mood-boards/:id/items/:itemId",
+      "file": "backend/src/routes/mood-board.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/MoodBoardList.tsx": {
+   "routes": [
+    "/mood-boards"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/DesignDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MoodBoardDetail.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/MoodBoardDetail.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 50,
+     "raw": "/mood-boards/${moodBoard.id}",
+     "normalized": "/mood-boards/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MoodBoardDetail.tsx"
+    },
+    {
+     "line": 79,
+     "raw": "/mood-boards/${moodBoard.id}",
+     "normalized": "/mood-boards/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MoodBoardDetail.tsx"
+    },
+    {
+     "line": 187,
+     "raw": "/mood-boards/new",
+     "normalized": "/mood-boards/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MoodBoardDetail.tsx"
+    },
+    {
+     "line": 239,
+     "raw": "/mood-boards/new",
+     "normalized": "/mood-boards/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/MoodBoardDetail.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/moodBoard.service.ts",
+     "hop": 1,
+     "line": 29,
+     "method": "GET",
+     "raw": "/mood-boards",
+     "resolvedPath": "/api/mood-boards",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/mood-boards",
+      "file": "backend/src/routes/mood-board.routes.ts",
+      "line": 27
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/moodBoard.service.ts",
+     "hop": 1,
+     "line": 67,
+     "method": "DELETE",
+     "raw": "/mood-boards/${id}",
+     "resolvedPath": "/api/mood-boards/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/mood-boards/:id",
+      "file": "backend/src/routes/mood-board.routes.ts",
+      "line": 31
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/ProcessorRateCardPage.tsx": {
+   "routes": [
+    "/processor-rate-cards"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/FabricCostingPage.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/processorRateCardV2.service.ts",
+     "hop": 1,
+     "line": 39,
+     "method": "GET",
+     "raw": "${BASE_URL}/summary",
+     "resolvedPath": "/api/processor-rate-cards/v2/summary",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/processor-rate-cards/v2/summary",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts",
+      "line": 47
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/processorRateCardV2.service.ts",
+     "hop": 1,
+     "line": 47,
+     "method": "GET",
+     "raw": "${BASE_URL}/processors",
+     "resolvedPath": "/api/processor-rate-cards/v2/processors",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/processor-rate-cards/v2/processors",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts",
+      "line": 50
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/processorRateCardV2.service.ts",
+     "hop": 1,
+     "line": 78,
+     "method": "GET",
+     "raw": "${BASE_URL}/greiges",
+     "resolvedPath": "/api/processor-rate-cards/v2/greiges",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/processor-rate-cards/v2/greiges",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts",
+      "line": 56
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/processorRateCardV2.service.ts",
+     "hop": 1,
+     "line": 90,
+     "method": "POST",
+     "raw": "${BASE_URL}/processors/${processorId}/slabs",
+     "resolvedPath": "/api/processor-rate-cards/v2/processors/:_/slabs",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/processor-rate-cards/v2/processors/:processorId/slabs",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts",
+      "line": 59
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/processorRateCardV2.service.ts",
+     "hop": 1,
+     "line": 101,
+     "method": "PUT",
+     "raw": "${BASE_URL}/processors/${processorId}/matrix",
+     "resolvedPath": "/api/processor-rate-cards/v2/processors/:_/matrix",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/processor-rate-cards/v2/processors/:processorId/matrix",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts",
+      "line": 67
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/processorRateCardV2.service.ts",
+     "hop": 1,
+     "line": 108,
+     "method": "POST",
+     "raw": "${BASE_URL}/copy",
+     "resolvedPath": "/api/processor-rate-cards/v2/copy",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/processor-rate-cards/v2/copy",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts",
+      "line": 75
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/processorRateCardV2.service.ts",
+     "hop": 1,
+     "line": 125,
+     "method": "POST",
+     "raw": "${BASE_URL}/processors/${processorId}/greiges/${greigeId}",
+     "resolvedPath": "/api/processor-rate-cards/v2/processors/:_/greiges/:_",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/processor-rate-cards/v2/processors/:processorId/greiges/:greigeId",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts",
+      "line": 78
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/processorRateCardV2.service.ts",
+     "hop": 1,
+     "line": 172,
+     "method": "POST",
+     "raw": "${BASE_URL}/lookup",
+     "resolvedPath": "/api/processor-rate-cards/v2/lookup",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/processor-rate-cards/v2/lookup",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts",
+      "line": 92
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/processorRateCardV2.service.ts",
+     "hop": 1,
+     "line": 198,
+     "method": "GET",
+     "raw": "${BASE_URL}/laces",
+     "resolvedPath": "/api/processor-rate-cards/v2/laces",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/processor-rate-cards/v2/laces",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts",
+      "line": 99
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/processorRateCardV2.service.ts",
+     "hop": 1,
+     "line": 206,
+     "method": "GET",
+     "raw": "${BASE_URL}/processors/${processorId}/lace-matrix",
+     "resolvedPath": "/api/processor-rate-cards/v2/processors/:_/lace-matrix",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/processor-rate-cards/v2/processors/:processorId/lace-matrix",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts",
+      "line": 102
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/processorRateCardV2.service.ts",
+     "hop": 1,
+     "line": 221,
+     "method": "PUT",
+     "raw": "${BASE_URL}/processors/${processorId}/lace-matrix",
+     "resolvedPath": "/api/processor-rate-cards/v2/processors/:_/lace-matrix",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/processor-rate-cards/v2/processors/:processorId/lace-matrix",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts",
+      "line": 109
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/processorRateCardV2.service.ts",
+     "hop": 1,
+     "line": 228,
+     "method": "POST",
+     "raw": "${BASE_URL}/processors/${processorId}/laces/${laceId}",
+     "resolvedPath": "/api/processor-rate-cards/v2/processors/:_/laces/:_",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/processor-rate-cards/v2/processors/:processorId/laces/:laceId",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/processorRateCardV2.service.ts",
+     "hop": 1,
+     "line": 235,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/processors/${processorId}/laces/${laceId}",
+     "resolvedPath": "/api/processor-rate-cards/v2/processors/:_/laces/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/processor-rate-cards/v2/processors/:processorId/laces/:laceId",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts",
+      "line": 120
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/processorRateCardV2.service.ts",
+     "hop": 1,
+     "line": 254,
+     "method": "POST",
+     "raw": "${BASE_URL}/lookup-lace",
+     "resolvedPath": "/api/processor-rate-cards/v2/lookup-lace",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/processor-rate-cards/v2/lookup-lace",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts",
+      "line": 127
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/StyleFabricCostingOptionsPage.tsx": {
+   "routes": [
+    "/fabric-costing/style/:styleId"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/FabricCostingPage.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 174,
+     "raw": "/fabric-costing?styleId=${styleId}",
+     "normalized": "/fabric-costing",
+     "queryParams": [
+      "styleId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricCostingPage.tsx"
+    },
+    {
+     "line": 189,
+     "raw": "/fabric-costing?styleId=${styleId}",
+     "normalized": "/fabric-costing",
+     "queryParams": [
+      "styleId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricCostingPage.tsx"
+    },
+    {
+     "line": 193,
+     "raw": "/cost-sheets/new?styleId=${styleId}",
+     "normalized": "/cost-sheets/new",
+     "queryParams": [
+      "styleId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/CostSheetForm.tsx"
+    },
+    {
+     "line": 209,
+     "raw": "/fabric-costing?styleId=${styleId}",
+     "normalized": "/fabric-costing",
+     "queryParams": [
+      "styleId"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricCostingPage.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 39,
+     "method": "GET",
+     "raw": "${BASE_URL}/processors",
+     "resolvedPath": "/api/fabric-costing/processors",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing/processors",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 51
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 53,
+     "method": "GET",
+     "raw": "${BASE_URL}/style/${styleId}${params}",
+     "resolvedPath": "/api/fabric-costing/style/:_:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing/style/:styleId",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 54
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 68,
+     "method": "POST",
+     "raw": "${BASE_URL}/lookup-rate",
+     "resolvedPath": "/api/fabric-costing/lookup-rate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/lookup-rate",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 60
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 84,
+     "method": "POST",
+     "raw": "${BASE_URL}/save",
+     "resolvedPath": "/api/fabric-costing/save",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/save",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 63
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 99,
+     "method": "POST",
+     "raw": "${BASE_URL}/calculate",
+     "resolvedPath": "/api/fabric-costing/calculate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/calculate",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 114
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 107,
+     "method": "POST",
+     "raw": "${BASE_URL}/batch-calculate",
+     "resolvedPath": "/api/fabric-costing/batch-calculate",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/batch-calculate",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 117
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 128,
+     "method": "GET",
+     "raw": "${BASE_URL}/options?${params.toString()}",
+     "resolvedPath": "/api/fabric-costing/options",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/fabric-costing/options",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 153,
+     "method": "POST",
+     "raw": "${BASE_URL}/option/${optionId}/approve",
+     "resolvedPath": "/api/fabric-costing/option/:_/approve",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/option/:optionId/approve",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 74
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 161,
+     "method": "PATCH",
+     "raw": "${BASE_URL}/option/${optionId}/unapprove",
+     "resolvedPath": "/api/fabric-costing/option/:_/unapprove",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/fabric-costing/option/:optionId/unapprove",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 82
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 169,
+     "method": "DELETE",
+     "raw": "${BASE_URL}/option/${optionId}",
+     "resolvedPath": "/api/fabric-costing/option/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/fabric-costing/option/:optionId",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 98
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 177,
+     "method": "POST",
+     "raw": "${BASE_URL}/option/${optionId}/promote",
+     "resolvedPath": "/api/fabric-costing/option/:_/promote",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/option/:optionId/promote",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 90
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 188,
+     "method": "POST",
+     "raw": "${BASE_URL}/styles/costing-status",
+     "resolvedPath": "/api/fabric-costing/styles/costing-status",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/styles/costing-status",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 101
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 204,
+     "method": "POST",
+     "raw": "${BASE_URL}/check-cad-status",
+     "resolvedPath": "/api/fabric-costing/check-cad-status",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/check-cad-status",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 106
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/fabricCosting.service.ts",
+     "hop": 1,
+     "line": 216,
+     "method": "POST",
+     "raw": "${BASE_URL}/push-from-cad",
+     "resolvedPath": "/api/fabric-costing/push-from-cad",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/fabric-costing/push-from-cad",
+      "file": "backend/src/routes/fabric-costing.routes.ts",
+      "line": 109
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/style.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "/styles/${id}",
+     "resolvedPath": "/api/styles/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/styles/drafts",
+      "file": "backend/src/routes/style.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    }
+   ]
+  }
+ },
+ "unresolvedCalls": []
+}

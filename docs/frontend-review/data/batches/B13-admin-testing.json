@@ -1,0 +1,1169 @@
+{
+ "batch": "B13-admin-testing",
+ "pages": {
+  "frontend/src/pages/admin/OverrideHistory.tsx": {
+   "routes": [
+    "/admin/override-history"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/stageValidation.service.ts",
+     "hop": 1,
+     "line": 62,
+     "method": "GET",
+     "raw": "/stage-validation/check",
+     "resolvedPath": "/api/stage-validation/check",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stage-validation/check",
+      "file": "backend/src/routes/stageTransitionValidation.routes.ts",
+      "line": 17
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stageValidation.service.ts",
+     "hop": 1,
+     "line": 80,
+     "method": "GET",
+     "raw": "/stage-validation/check-sample-creation",
+     "resolvedPath": "/api/stage-validation/check-sample-creation",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stage-validation/check-sample-creation",
+      "file": "backend/src/routes/stageTransitionValidation.routes.ts",
+      "line": 24
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/stageValidation.service.ts",
+     "hop": 1,
+     "line": 103,
+     "method": "GET",
+     "raw": "/stage-validation/override-history",
+     "resolvedPath": "/api/stage-validation/override-history",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/stage-validation/override-history",
+      "file": "backend/src/routes/stageTransitionValidation.routes.ts",
+      "line": 31
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/FabricPhysicalTests.tsx": {
+   "routes": [
+    "/fabric-physical-tests"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/TestingDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/TestingDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/TestingDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 96,
+     "raw": "/fabric-physical-tests/new",
+     "normalized": "/fabric-physical-tests/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 142,
+     "raw": "/fabric-physical-tests/new",
+     "normalized": "/fabric-physical-tests/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 153,
+     "raw": "/fabric-physical-tests/${test.id}",
+     "normalized": "/fabric-physical-tests/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 28,
+     "method": "GET",
+     "raw": "/testing-labs",
+     "resolvedPath": "/api/testing-labs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/testing-labs",
+      "file": "backend/src/routes/testingLabs.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 65,
+     "method": "GET",
+     "raw": "/test-templates",
+     "resolvedPath": "/api/test-templates",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/test-templates",
+      "file": "backend/src/routes/testTemplates.routes.ts",
+      "line": 26
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 97,
+     "method": "GET",
+     "raw": "/fabric-physical-tests",
+     "resolvedPath": "/api/fabric-physical-tests",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 148,
+     "method": "GET",
+     "raw": "/garment-physical-tests",
+     "resolvedPath": "/api/garment-physical-tests",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/garment-physical-tests",
+      "file": "backend/src/routes/garmentPhysicalTests.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/GarmentPhysicalTests.tsx": {
+   "routes": [
+    "/garment-physical-tests"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/TestingDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/TestingDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/TestingDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/TestingDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 115,
+     "raw": "/garment-physical-tests/new",
+     "normalized": "/garment-physical-tests/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 162,
+     "raw": "/garment-physical-tests/new",
+     "normalized": "/garment-physical-tests/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 173,
+     "raw": "/garment-physical-tests/${test.id}",
+     "normalized": "/garment-physical-tests/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 28,
+     "method": "GET",
+     "raw": "/testing-labs",
+     "resolvedPath": "/api/testing-labs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/testing-labs",
+      "file": "backend/src/routes/testingLabs.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 65,
+     "method": "GET",
+     "raw": "/test-templates",
+     "resolvedPath": "/api/test-templates",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/test-templates",
+      "file": "backend/src/routes/testTemplates.routes.ts",
+      "line": 26
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 97,
+     "method": "GET",
+     "raw": "/fabric-physical-tests",
+     "resolvedPath": "/api/fabric-physical-tests",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 148,
+     "method": "GET",
+     "raw": "/garment-physical-tests",
+     "resolvedPath": "/api/garment-physical-tests",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/garment-physical-tests",
+      "file": "backend/src/routes/garmentPhysicalTests.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/Login.tsx": {
+   "routes": [],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 42,
+     "raw": "/dashboard",
+     "normalized": "/dashboard",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/dashboards/DashboardRouter.tsx"
+    },
+    {
+     "line": 100,
+     "raw": "/register",
+     "normalized": "/register",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/auth.service.ts",
+     "hop": 1,
+     "line": 11,
+     "method": "POST",
+     "raw": "/auth/login",
+     "resolvedPath": "/api/auth/login",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "file": "backend/src/routes/auth.routes.ts",
+      "line": 94
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/auth.service.ts",
+     "hop": 1,
+     "line": 17,
+     "method": "POST",
+     "raw": "/auth/register",
+     "resolvedPath": "/api/auth/register",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/auth/register",
+      "file": "backend/src/routes/auth.routes.ts",
+      "line": 54
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/PendingUsersPage.tsx": {
+   "routes": [
+    "/users/pending"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/Users.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/user.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "/users/pending",
+     "resolvedPath": "/api/users/pending",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/users/pending",
+      "file": "backend/src/routes/user.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/user.service.ts",
+     "hop": 1,
+     "line": 66,
+     "method": "POST",
+     "raw": "/users/${id}/approve",
+     "resolvedPath": "/api/users/:_/approve",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/users/:id/approve",
+      "file": "backend/src/routes/user.routes.ts",
+      "line": 55
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/user.service.ts",
+     "hop": 1,
+     "line": 72,
+     "method": "POST",
+     "raw": "/users/${id}/reject",
+     "resolvedPath": "/api/users/:_/reject",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/users/:id/reject",
+      "file": "backend/src/routes/user.routes.ts",
+      "line": 68
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/PermissionManagement.tsx": {
+   "routes": [
+    "/admin/permissions"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/permission.service.ts",
+     "hop": 1,
+     "line": 18,
+     "method": "GET",
+     "raw": "/permissions/matrix",
+     "resolvedPath": "/api/permissions/matrix",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/permissions/matrix",
+      "file": "backend/src/routes/permission.routes.ts",
+      "line": 43
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/permission.service.ts",
+     "hop": 1,
+     "line": 28,
+     "method": "PATCH",
+     "raw": "/permissions/toggle",
+     "resolvedPath": "/api/permissions/toggle",
+     "matchedRoute": {
+      "method": "PATCH",
+      "path": "/api/permissions/toggle",
+      "file": "backend/src/routes/permission.routes.ts",
+      "line": 90
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/permission.service.ts",
+     "hop": 1,
+     "line": 47,
+     "method": "POST",
+     "raw": "/permissions/reset-defaults",
+     "resolvedPath": "/api/permissions/reset-defaults",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/permissions/reset-defaults",
+      "file": "backend/src/routes/permission.routes.ts",
+      "line": 103
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/permission.service.ts",
+     "hop": 1,
+     "line": 60,
+     "method": "GET",
+     "raw": "/permissions/audit-log",
+     "resolvedPath": "/api/permissions/audit-log",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/permissions/audit-log",
+      "file": "backend/src/routes/permission.routes.ts",
+      "line": 79
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/Profile.tsx": {
+   "routes": [
+    "/profile"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/user.service.ts",
+     "hop": 1,
+     "line": 33,
+     "method": "PUT",
+     "raw": "/users/${id}",
+     "resolvedPath": "/api/users/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/users/:id",
+      "file": "backend/src/routes/user.routes.ts",
+      "line": 95
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/Register.tsx": {
+   "routes": [],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [
+    {
+     "line": 115,
+     "raw": "/login",
+     "normalized": "/login",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 228,
+     "raw": "/login",
+     "normalized": "/login",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/auth.service.ts",
+     "hop": 1,
+     "line": 17,
+     "method": "POST",
+     "raw": "/auth/register",
+     "resolvedPath": "/api/auth/register",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/auth/register",
+      "file": "backend/src/routes/auth.routes.ts",
+      "line": 54
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/Settings.tsx": {
+   "routes": [
+    "/settings"
+   ],
+   "sidebar": false,
+   "inbound": [],
+   "outboundNav": [],
+   "calls": [
+    {
+     "origin": "frontend/src/services/user.service.ts",
+     "hop": 1,
+     "line": 55,
+     "method": "PUT",
+     "raw": "/users/${id}/change-password",
+     "resolvedPath": "/api/users/:_/change-password",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/users/:id/change-password",
+      "file": "backend/src/routes/user.routes.ts",
+      "line": 115
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/system-settings.service.ts",
+     "hop": 1,
+     "line": 15,
+     "method": "PUT",
+     "raw": "/system-settings/${key}",
+     "resolvedPath": "/api/system-settings/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/system-settings/:key",
+      "file": "backend/src/routes/system-settings.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/TestingDashboard.tsx": {
+   "routes": [
+    "/testing"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 163,
+     "raw": "/fabric-physical-tests",
+     "normalized": "/fabric-physical-tests",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricPhysicalTests.tsx"
+    },
+    {
+     "line": 199,
+     "raw": "/garment-physical-tests",
+     "normalized": "/garment-physical-tests",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/GarmentPhysicalTests.tsx"
+    },
+    {
+     "line": 235,
+     "raw": "/testing-labs",
+     "normalized": "/testing-labs",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/TestingLabs.tsx"
+    },
+    {
+     "line": 259,
+     "raw": "/test-templates",
+     "normalized": "/test-templates",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/TestTemplates.tsx"
+    },
+    {
+     "line": 305,
+     "raw": "/fabric-physical-tests?status=FAIL",
+     "normalized": "/fabric-physical-tests",
+     "queryParams": [
+      "status"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricPhysicalTests.tsx"
+    },
+    {
+     "line": 318,
+     "raw": "/garment-physical-tests?status=FAIL",
+     "normalized": "/garment-physical-tests",
+     "queryParams": [
+      "status"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/GarmentPhysicalTests.tsx"
+    },
+    {
+     "line": 335,
+     "raw": "/garment-physical-tests?pendingBuyerApproval=true",
+     "normalized": "/garment-physical-tests",
+     "queryParams": [
+      "pendingBuyerApproval"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/GarmentPhysicalTests.tsx"
+    },
+    {
+     "line": 355,
+     "raw": "/fabric-physical-tests/new",
+     "normalized": "/fabric-physical-tests/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 363,
+     "raw": "/fabric-physical-tests?status=PENDING",
+     "normalized": "/fabric-physical-tests",
+     "queryParams": [
+      "status"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/FabricPhysicalTests.tsx"
+    },
+    {
+     "line": 377,
+     "raw": "/garment-physical-tests/new",
+     "normalized": "/garment-physical-tests/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 385,
+     "raw": "/garment-physical-tests?status=PENDING",
+     "normalized": "/garment-physical-tests",
+     "queryParams": [
+      "status"
+     ],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/GarmentPhysicalTests.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 28,
+     "method": "GET",
+     "raw": "/testing-labs",
+     "resolvedPath": "/api/testing-labs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/testing-labs",
+      "file": "backend/src/routes/testingLabs.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 65,
+     "method": "GET",
+     "raw": "/test-templates",
+     "resolvedPath": "/api/test-templates",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/test-templates",
+      "file": "backend/src/routes/testTemplates.routes.ts",
+      "line": 26
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 97,
+     "method": "GET",
+     "raw": "/fabric-physical-tests",
+     "resolvedPath": "/api/fabric-physical-tests",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 148,
+     "method": "GET",
+     "raw": "/garment-physical-tests",
+     "resolvedPath": "/api/garment-physical-tests",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/garment-physical-tests",
+      "file": "backend/src/routes/garmentPhysicalTests.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/TestingLabs.tsx": {
+   "routes": [
+    "/testing-labs"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/TestingDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 70,
+     "raw": "/testing-labs/new",
+     "normalized": "/testing-labs/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 97,
+     "raw": "/testing-labs/new",
+     "normalized": "/testing-labs/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 180,
+     "raw": "/testing-labs/${lab.id}/edit",
+     "normalized": "/testing-labs/:_/edit",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 185,
+     "raw": "/testing-labs/${lab.id}",
+     "normalized": "/testing-labs/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 28,
+     "method": "GET",
+     "raw": "/testing-labs",
+     "resolvedPath": "/api/testing-labs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/testing-labs",
+      "file": "backend/src/routes/testingLabs.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 65,
+     "method": "GET",
+     "raw": "/test-templates",
+     "resolvedPath": "/api/test-templates",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/test-templates",
+      "file": "backend/src/routes/testTemplates.routes.ts",
+      "line": 26
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 97,
+     "method": "GET",
+     "raw": "/fabric-physical-tests",
+     "resolvedPath": "/api/fabric-physical-tests",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 148,
+     "method": "GET",
+     "raw": "/garment-physical-tests",
+     "resolvedPath": "/api/garment-physical-tests",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/garment-physical-tests",
+      "file": "backend/src/routes/garmentPhysicalTests.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/TestTemplates.tsx": {
+   "routes": [
+    "/test-templates"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/TestingDashboard.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 80,
+     "raw": "/test-templates/new",
+     "normalized": "/test-templates/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 124,
+     "raw": "/test-templates/new",
+     "normalized": "/test-templates/new",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 213,
+     "raw": "/test-templates/${template.id}/edit",
+     "normalized": "/test-templates/:_/edit",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    },
+    {
+     "line": 217,
+     "raw": "/test-templates/${template.id}",
+     "normalized": "/test-templates/:_",
+     "queryParams": [],
+     "matchedRoute": false,
+     "targetPage": null
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 28,
+     "method": "GET",
+     "raw": "/testing-labs",
+     "resolvedPath": "/api/testing-labs",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/testing-labs",
+      "file": "backend/src/routes/testingLabs.routes.ts",
+      "line": 23
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 65,
+     "method": "GET",
+     "raw": "/test-templates",
+     "resolvedPath": "/api/test-templates",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/test-templates",
+      "file": "backend/src/routes/testTemplates.routes.ts",
+      "line": 26
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 97,
+     "method": "GET",
+     "raw": "/fabric-physical-tests",
+     "resolvedPath": "/api/fabric-physical-tests",
+     "matchedRoute": null,
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/testing.service.ts",
+     "hop": 1,
+     "line": 148,
+     "method": "GET",
+     "raw": "/garment-physical-tests",
+     "resolvedPath": "/api/garment-physical-tests",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/garment-physical-tests",
+      "file": "backend/src/routes/garmentPhysicalTests.routes.ts",
+      "line": 32
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/UserForm.tsx": {
+   "routes": [
+    "/users/new",
+    "/users/edit/:id"
+   ],
+   "sidebar": false,
+   "inbound": [
+    {
+     "from": "frontend/src/pages/Users.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/Users.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/Users.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/Users.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 85,
+     "raw": "/users",
+     "normalized": "/users",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/Users.tsx"
+    },
+    {
+     "line": 99,
+     "raw": "/users",
+     "normalized": "/users",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/Users.tsx"
+    },
+    {
+     "line": 177,
+     "raw": "/users",
+     "normalized": "/users",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/Users.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/user.service.ts",
+     "hop": 1,
+     "line": 21,
+     "method": "GET",
+     "raw": "/users/${id}",
+     "resolvedPath": "/api/users/:_",
+     "matchedRoute": {
+      "method": "GET",
+      "path": "/api/users/pending",
+      "file": "backend/src/routes/user.routes.ts",
+      "line": 48
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/user.service.ts",
+     "hop": 1,
+     "line": 27,
+     "method": "POST",
+     "raw": "/users",
+     "resolvedPath": "/api/users",
+     "matchedRoute": {
+      "method": "POST",
+      "path": "/api/users",
+      "file": "backend/src/routes/user.routes.ts",
+      "line": 88
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/user.service.ts",
+     "hop": 1,
+     "line": 33,
+     "method": "PUT",
+     "raw": "/users/${id}",
+     "resolvedPath": "/api/users/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/users/:id",
+      "file": "backend/src/routes/user.routes.ts",
+      "line": 95
+     },
+     "tags": []
+    }
+   ]
+  },
+  "frontend/src/pages/Users.tsx": {
+   "routes": [
+    "/users"
+   ],
+   "sidebar": true,
+   "inbound": [
+    {
+     "from": "sidebar",
+     "via": "sidebar"
+    },
+    {
+     "from": "frontend/src/pages/Dashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/dashboards/GeneralDashboard.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/UserForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/UserForm.tsx",
+     "via": "navigate"
+    },
+    {
+     "from": "frontend/src/pages/UserForm.tsx",
+     "via": "navigate"
+    }
+   ],
+   "outboundNav": [
+    {
+     "line": 187,
+     "raw": "/users/edit/${user.id}",
+     "normalized": "/users/edit/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/UserForm.tsx"
+    },
+    {
+     "line": 250,
+     "raw": "/users/pending",
+     "normalized": "/users/pending",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/PendingUsersPage.tsx"
+    },
+    {
+     "line": 256,
+     "raw": "/users/new",
+     "normalized": "/users/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/UserForm.tsx"
+    },
+    {
+     "line": 281,
+     "raw": "/users/new",
+     "normalized": "/users/new",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/UserForm.tsx"
+    },
+    {
+     "line": 291,
+     "raw": "/users/edit/${user.id}",
+     "normalized": "/users/edit/:_",
+     "queryParams": [],
+     "matchedRoute": true,
+     "targetPage": "frontend/src/pages/UserForm.tsx"
+    }
+   ],
+   "calls": [
+    {
+     "origin": "frontend/src/services/user.service.ts",
+     "hop": 1,
+     "line": 33,
+     "method": "PUT",
+     "raw": "/users/${id}",
+     "resolvedPath": "/api/users/:_",
+     "matchedRoute": {
+      "method": "PUT",
+      "path": "/api/users/:id",
+      "file": "backend/src/routes/user.routes.ts",
+      "line": 95
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/user.service.ts",
+     "hop": 1,
+     "line": 45,
+     "method": "DELETE",
+     "raw": "/users/${id}",
+     "resolvedPath": "/api/users/:_",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/users/:id",
+      "file": "backend/src/routes/user.routes.ts",
+      "line": 139
+     },
+     "tags": []
+    },
+    {
+     "origin": "frontend/src/services/user.service.ts",
+     "hop": 1,
+     "line": 50,
+     "method": "DELETE",
+     "raw": "/users/${id}/permanent",
+     "resolvedPath": "/api/users/:_/permanent",
+     "matchedRoute": {
+      "method": "DELETE",
+      "path": "/api/users/:id/permanent",
+      "file": "backend/src/routes/user.routes.ts",
+      "line": 127
+     },
+     "tags": []
+    }
+   ]
+  }
+ },
+ "unresolvedCalls": []
+}

@@ -40,15 +40,15 @@ function parseCompositeStockLevelId(id: string): { materialId: string; warehouse
 
 class StockLevelService {
   /**
-   * Get stock summary by material type from unified view
+   * Get stock summary by material type from the derived view
    */
   async getStockSummaryByType(): Promise<
     Array<{ materialType: string; totalRecords: number; totalQuantity: number; totalValue: number }>
   > {
-    // T2-1 bug-fix + repoint: unified_stock_view has NO stockValue column, so the old query 500'd
-    // (Postgres 42703). Source per-type on-hand + valuation from the DERIVED view instead
-    // (stockValue = derived_qty × stock_settings.valuationRate), joined to materials.id — so counts exclude
-    // phantom/RAW/zero-qty rows and quantities are the per-lot truth.
+    // T2-1: sourced from derived_stock_view (stockValue = derived_qty × stock_settings.valuationRate),
+    // joined to materials.id — counts exclude phantom/RAW/zero-qty rows; quantities are per-lot truth.
+    // (Historical: this once read the broken unified_stock_view, which had no stockValue column and
+    // 500'd every call; that view was dropped entirely in migration 20260727100000.)
     const results = await prisma.$queryRaw<
       Array<{ materialType: string; totalRecords: bigint; totalQuantity: number; totalValue: number }>
     >`

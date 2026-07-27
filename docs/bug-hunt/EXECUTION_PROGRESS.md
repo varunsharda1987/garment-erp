@@ -287,3 +287,27 @@ missing (was: silent no-materials-record); lookup bulk create 500s on genuine (n
 MRP reports unresolvable materials instead of silently skipping supplier links.
 
 **Remaining:** G (delivery-note user feedback); H (user's error.middleware.ts WIP). Cleanup lists: none.
+
+---
+
+## ✅ 2026-07-27 — T2-1 Stage D COMPLETE (commit dd2c4fbb) — shim is now purely writer-internal
+
+User asked to check the deferred shim retirement. Findings + actions:
+1. **Drift verified ZERO** before and after (44/44 materials identical on qty + valuation, ₹9,02,137.46 both sides).
+2. **Full usage audit** (167 refs, 4 agents): 146 correct-by-design, 6 dead, **15 external readers still on the shim**.
+3. **All 15 repointed** (6 fix agents + 6 adversarial reviewers; 1 BLOCKER caught pre-deploy: composite-id
+   validation assumed UUID material ids — trim ids are 'mat-btn-0001'; fixed via last-underscore split):
+   stock-count worksheet seeding (FULL/PARTIAL/CYCLE → derived; variance can't inherit drift), stock-level
+   GET/PUT /:id (composite ids; **policy edits now land in stock_settings — they were silently ineffective**;
+   quantity writes rejected → adjustment flow), warehouse+fabric delete guards (derived on-hand, emptied
+   entities deletable again, shim rows cleaned in-tx — baselined as intentional), label API quantities,
+   common.schema materialIdParamSchema UUID-strictness (400'd all trim by-material lookups).
+4. **Dead code removed**: GET /stock-levels/unified chain + `unified_stock_view` DROPPED (migration
+   20260727100000); sendToJobWork/receiveFromJobWork; unreachable material-requirement.service.ts.
+5. Smoke-proved live: trim-material composite detail (qty 21000), policy round-trip 123→read-back→restore,
+   quantity write 400, by-material trim 200.
+
+**Final architecture**: derived_stock_view + stock_settings = the only external truth; stock_levels = writer-
+internal delta/check ledger kept consistent by material-sync (guardrail active); drift monitors: backend/scripts/
+diff-derived-onhand.ts + diff-valuation-per-material.ts (run after restoring any backup / on suspicion).
+Docs NIT deferred: BOM_MRP_GUIDE.md still links the deleted material-requirement.service.ts.

@@ -121,7 +121,14 @@ export default function LaceDefectForm() {
 
     setSubmitting(true);
     try {
-      await laceDefectService.logDefect(form);
+      // Strip empty-string optional references — the backend validates orderId/styleId
+      // as UUIDs and rejects '' (they must be omitted when blank).
+      const payload: LogDefectInput = {
+        ...form,
+        orderId: form.orderId?.trim() ? form.orderId.trim() : undefined,
+        styleId: form.styleId?.trim() ? form.styleId.trim() : undefined,
+      };
+      await laceDefectService.logDefect(payload);
       notify.success('Defect logged successfully');
       navigate('/lace-defects');
     } catch (error: unknown) {

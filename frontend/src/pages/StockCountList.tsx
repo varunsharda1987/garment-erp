@@ -1,7 +1,7 @@
 // Stock Count List - View all physical inventory counts
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Eye, ClipboardList } from 'lucide-react';
+import { Plus, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -145,25 +145,8 @@ export default function StockCountList() {
       header: 'Status',
       render: (count) => <StatusBadge status={count.status} variant={getStatusVariant(count.status)} />,
     },
-    {
-      key: 'actions',
-      header: 'Actions',
-      headerClassName: 'text-right',
-      className: 'text-right',
-      render: (count) => (
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/inventory/stock-counts/${count.id}`);
-          }}
-        >
-          <Eye className="h-4 w-4 mr-1" />
-          View
-        </Button>
-      ),
-    },
+    // Row/View "open detail" nav removed: the stock-count detail page (start/count/verify/approve
+    // workflow) is not built yet — deferred as B07-12 so the link doesn't dead-end on NotFound.
   ];
 
   return (
@@ -233,7 +216,6 @@ export default function StockCountList() {
             actionLabel: !statusFilter && !typeFilter ? 'Create First Stock Count' : undefined,
             onAction: !statusFilter && !typeFilter ? () => navigate('/inventory/stock-counts/new') : undefined,
           }}
-          onRowClick={(count) => navigate(`/inventory/stock-counts/${count.id}`)}
         />
       </Card>
 

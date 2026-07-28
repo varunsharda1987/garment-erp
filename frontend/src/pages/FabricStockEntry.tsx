@@ -133,6 +133,7 @@ export default function FabricStockEntry() {
         stockType: formData.stockType,
         receivedDate: formData.receivedDate ? new Date(formData.receivedDate) : new Date(),
         status: 'AVAILABLE',
+        notes: formData.notes || undefined,
       });
       setSuccess(true);
       toast.success('Fabric stock entry saved successfully!');

@@ -42,10 +42,9 @@ export const ServiceRequirementStatusEnum = z.enum([
 /**
  * Calculate Services
  * POST /api/work-orders/:workOrderId/calculate-services
+ * The acting user is taken from the auth token (req.user.userId), not the body (bug B06-05).
  */
-export const calculateServicesSchema = z.object({
-  userId: z.string().uuid('Invalid user ID'),
-});
+export const calculateServicesSchema = z.object({});
 
 /**
  * Query Service Requirements for Work Order

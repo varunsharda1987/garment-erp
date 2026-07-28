@@ -178,6 +178,24 @@ async function fetchModuleData(
       result = await prisma.bank_accounts.findMany({ where });
       break;
 
+    case 'cost_sheets':
+    case 'style_costing': {
+      // style_costing has no `isActive` column, so the default where ({ isActive: true, ... })
+      // cannot be used. The ExportButton (CostSheetList.tsx) passes
+      // { approved: 'all' | 'approved' | 'pending' | 'rejected' } -> map to approvalStatus.
+      const approvedFilter = typeof filters.approved === 'string' ? (filters.approved as string).toLowerCase() : 'all';
+      const costingWhere: Record<string, unknown> = {};
+      if (approvedFilter === 'approved') costingWhere.approvalStatus = 'APPROVED';
+      else if (approvedFilter === 'pending') costingWhere.approvalStatus = 'PENDING';
+      else if (approvedFilter === 'rejected') costingWhere.approvalStatus = 'REJECTED';
+      result = await prisma.style_costing.findMany({
+        where: costingWhere,
+        include: { styles: { select: { styleCode: true, styleName: true } } },
+        orderBy: { createdAt: 'desc' },
+      });
+      break;
+    }
+
     default:
       throw new Error(`Module '${moduleName}' not supported for export`);
   }

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +40,8 @@ export default function LaceList() {
   const [totalItems, setTotalItems] = useState(0);
 
   // Filter state
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
 
   // Stock count state
   const [stockCount, setStockCount] = useState<number | undefined>(undefined);
@@ -239,9 +240,9 @@ export default function LaceList() {
       header: 'Suppliers',
       render: (lace) => (
         <div className="flex flex-wrap gap-1">
-          {lace.laceSuppliers && lace.laceSuppliers.length > 0 ? (
+          {lace.suppliers && lace.suppliers.length > 0 ? (
             <>
-              {lace.laceSuppliers.slice(0, 2).map((ls) => (
+              {lace.suppliers.slice(0, 2).map((ls) => (
                 <Badge key={ls.id} variant={ls.isPreferred ? 'default' : 'secondary'} className="text-xs">
                   {ls.supplier.code}
                   {ls.pricePerMeter && (
@@ -249,9 +250,9 @@ export default function LaceList() {
                   )}
                 </Badge>
               ))}
-              {lace.laceSuppliers.length > 2 && (
+              {lace.suppliers.length > 2 && (
                 <Badge variant="outline" className="text-xs">
-                  +{lace.laceSuppliers.length - 2}
+                  +{lace.suppliers.length - 2}
                 </Badge>
               )}
             </>

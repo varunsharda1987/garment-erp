@@ -11,16 +11,17 @@ import { z } from 'zod';
 // Enums
 // ============================================================================
 
+// Aligned with the Prisma UserRole enum (schema.prisma). Keep in sync.
 export const UserRoleEnum = z.enum([
   'ADMIN',
-  'MERCHANDISER',
   'PRODUCTION_MANAGER',
+  'SALES',
   'INVENTORY',
   'ACCOUNTS',
   'QUALITY',
-  'CUTTING',
-  'STITCHING',
-  'USER',
+  'PURCHASE',
+  'FACTORY_SUPERVISOR',
+  'MERCHANDISER',
 ]);
 
 // ============================================================================

@@ -256,7 +256,7 @@ export default function FabricDetail() {
                   <p className="text-sm font-medium text-muted-foreground">Width CADs</p>
                   <p className="text-2xl font-bold text-foreground">{widthCADs.length}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {preferredCAD ? `${preferredCAD.availableWidth}" preferred` : 'no preferred'}
+                    {preferredCAD ? `${preferredCAD.cutableWidth}" preferred` : 'no preferred'}
                   </p>
                 </div>
                 <Palette className="h-8 w-8 text-primary" />
@@ -470,12 +470,12 @@ export default function FabricDetail() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Width CAD Options</span>
-                <Link to={`/fabric/${id}/cad/new`}>
-                  <Button size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add CAD
-                  </Button>
-                </Link>
+                {/*
+                  B01-02: "Add CAD" button hidden. It navigated to /fabric/:id/cad/new,
+                  which is not a registered route (no width-CAD create page exists yet).
+                  Deferred: needs a dedicated Fabric Width CAD create form/dialog wired to
+                  POST /fabric-management/cad. Do not repoint to /cad-planning (a different module).
+                */}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -508,7 +508,7 @@ export default function FabricDetail() {
                     {widthCADs.map((cad) => (
                       <tr key={cad.id} className="hover:bg-muted">
                         <td className="px-4 py-3 text-sm font-medium text-foreground">
-                          {cad.availableWidth} {cad.widthUnit}
+                          {cad.cutableWidth} {cad.widthUnit}
                         </td>
                         <td className="px-4 py-3 text-sm text-foreground">{cad.cadMeters?.toFixed(3) || '-'}</td>
                         <td className="px-4 py-3 text-sm text-foreground">{cad.cadYards?.toFixed(3) || '-'}</td>

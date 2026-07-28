@@ -39,7 +39,9 @@ export default function MaterialMasterList() {
     try {
       const data = await materialMasterService.getAll({
         type: selectedType || undefined,
-        active: activeOnly,
+        // 'Active Only' → active=true; 'All Status' → omit the param so the backend
+        // applies no isActive filter (returns both active and inactive materials).
+        active: activeOnly ? true : undefined,
         search: searchTerm || undefined,
       });
       setMaterials(data);

@@ -143,12 +143,23 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
     } | null;
   }
 
+  interface StyleAccessory {
+    id: string;
+    accessoryName: string;
+    accessoryType: string;
+    quantityPerPiece: unknown;
+    unit: string;
+    supplierName: string | null;
+    unitPrice: unknown;
+  }
+
   interface StyleComponent {
     id: string;
     componentName: string;
     componentType?: string | null;
     sortOrder?: number;
     style_fabrics: StyleFabric[];
+    style_accessories?: StyleAccessory[];
   }
 
   const styleWithComponents = style as unknown as {
@@ -211,6 +222,18 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
           fabricColor: fab.colorMaster?.colorName || null,
         };
       }),
+      // Per-component Materials/Accessories. This custom `components` array overwrites the
+      // serialized style_components->components key, so accessories must be re-attached here
+      // or the BOM tab's Materials/Accessories section can never render (bug B05-08).
+      accessories: (comp.style_accessories || []).map((acc) => ({
+        id: acc.id,
+        accessoryName: acc.accessoryName,
+        accessoryType: acc.accessoryType,
+        quantityPerPiece: acc.quantityPerPiece,
+        unit: acc.unit,
+        supplierName: acc.supplierName,
+        unitPrice: acc.unitPrice,
+      })),
     })) || [];
 
   res.status(200).json({

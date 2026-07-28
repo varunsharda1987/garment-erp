@@ -11,6 +11,8 @@ import type {
   ReceiveFromStitchingRequest,
   FinishingStyleSizeSummaryItem,
   FinishingIncomingTransferSlip,
+  PolybagEntryRequest,
+  CartonPackingRequest,
 } from '@/types/finishing.types';
 
 const BASE_URL = '/finishing';
@@ -99,6 +101,16 @@ export const finishingIssueService = {
       `${BASE_URL}/issues/${id}/generate-transfer-slip`
     );
     return response.data.data;
+  },
+
+  // Record a polybag entry (packing stage)
+  recordPolybagEntry: async (id: string, data: PolybagEntryRequest): Promise<void> => {
+    await api.post(`${BASE_URL}/issues/${id}/polybag-entry`, data);
+  },
+
+  // Record a carton packing (packing stage) — feeds dispatch's available-cartons picker
+  recordCartonPacking: async (id: string, data: CartonPackingRequest): Promise<void> => {
+    await api.post(`${BASE_URL}/issues/${id}/carton-packing`, data);
   },
 };
 

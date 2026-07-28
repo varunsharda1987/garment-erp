@@ -22,8 +22,11 @@ export async function findAll(filters: MaterialMasterFilterDto) {
     where.materialType = filters.materialType;
   }
 
-  // Active filter (default to true)
-  where.isActive = filters.isActive ?? true;
+  // Active filter — only applied when explicitly provided. When isActive is undefined
+  // (no `active` query param) the list returns both active and inactive materials.
+  if (filters.isActive !== undefined) {
+    where.isActive = filters.isActive;
+  }
 
   // Search filter
   if (filters.searchTerm) {

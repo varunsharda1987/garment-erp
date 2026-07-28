@@ -146,10 +146,10 @@ export default function UnifiedRequirementsPage() {
   const needsAssignment =
     (mrpStats?.requirementsNeedingPO || 0) +
     (mrpStats?.processingRequirementsCount || 0) +
-    (serviceStats?.servicesWithoutProcessor || 0);
-  const poGenerated = (mrpStats?.poInProgress || 0) + (serviceStats?.poGeneratedServices || 0);
+    (serviceStats?.needsProcessorCount || 0);
+  const poGenerated = (mrpStats?.poInProgress || 0) + (serviceStats?.poGeneratedCount || 0);
   const overdueCount = mrpStats?.overdueRequirements || 0;
-  const estimatedValue = serviceStats?.totalEstimatedCost || 0;
+  const estimatedValue = serviceStats?.estimatedTotalCost || 0;
 
   // ─── Tab Switch ────────────────────────────────────────────
 
@@ -1528,7 +1528,7 @@ function OutsourcedWorkTab({
           style: req.workOrder?.style?.styleCode || req.workOrder?.style?.styleName || '-',
           workType: ServiceTypeLabels[req.serviceType] || req.serviceType,
           reference: req.workOrder?.workOrderNumber || '-',
-          referenceLink: req.workOrderId ? `/work-orders/${req.workOrderId}` : undefined,
+          referenceLink: req.workOrderId ? `/production/work-orders/${req.workOrderId}` : undefined,
           processor: req.assignedProcessor?.name || req.preferredProcessor?.name || 'Not Assigned',
           processorAssigned: !!(req.assignedProcessorId || req.preferredProcessorId),
           quantity: `${req.quantityRequired} ${req.unit}`,

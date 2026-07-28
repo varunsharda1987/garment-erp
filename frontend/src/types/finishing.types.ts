@@ -207,6 +207,33 @@ export interface ReceiveFromStitchingRequest {
   }[];
 }
 
+// Packing (polybag entry / carton packing) — recorded from FinishingDetail during the PACKING stage.
+export interface PolybagEntryRequest {
+  packingDate?: string;
+  skuBreakdown: {
+    colorId: string | null;
+    sizeId: string;
+    packedQty: number;
+    polybagSize?: string;
+  }[];
+  remarks?: string;
+}
+
+export interface CartonPackingRequest {
+  cartonNumber: string;
+  cartonDate: string;
+  packingType?: string;
+  skuBreakdown: {
+    colorId: string | null;
+    sizeId: string;
+    quantity: number;
+  }[];
+  grossWeight?: number;
+  netWeight?: number;
+  cartonDimensions?: string;
+  remarks?: string;
+}
+
 // ============================================
 // API Response Types
 // ============================================

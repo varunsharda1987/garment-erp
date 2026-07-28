@@ -328,6 +328,17 @@ export interface ServiceDashboardStats {
   completedServices: number;
   servicesWithoutProcessor: number;
   totalEstimatedCost: number;
+  // Backend GET /api/service-requirements/dashboard returns these scalar keys verbatim
+  // (serializer does not rename scalars). UnifiedRequirementsPage reads them; the *Services
+  // aliases above are the legacy names still consumed by ServiceRequirementsDashboard.
+  pendingCount?: number;
+  processorAssignedCount?: number;
+  needsProcessorCount?: number;
+  poGeneratedCount?: number;
+  inProgressCount?: number;
+  completedCount?: number;
+  cancelledCount?: number;
+  estimatedTotalCost?: number;
   byServiceType: Array<{
     serviceType: ServiceType;
     count: number;

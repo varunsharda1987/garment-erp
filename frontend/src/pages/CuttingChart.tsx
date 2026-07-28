@@ -14,6 +14,7 @@ import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.s
 import type { CuttingChartData, CuttingChartFabric, CreateCuttingBatchRequest } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { getUploadUrl } from '@/config/api.config';
+import api from '@/lib/api';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Scissors, ArrowLeft, Save, Loader2, FileText, Image as ImageIcon, AlertTriangle } from 'lucide-react';
 
@@ -51,6 +52,7 @@ export default function CuttingChart() {
   const [cuttingDate, setCuttingDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedLots, setSelectedLots] = useState<Record<string, string[]>>({});
   const [showPdfPreview, setShowPdfPreview] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState('');
 
   // Manual cut qty per size (user can override calculated quantities)
   const [manualCutQty, setManualCutQty] = useState<Record<string, number>>({});
@@ -213,15 +215,39 @@ export default function CuttingChart() {
     }
   };
 
-  // PDF preview URL
-  const pdfPreviewUrl = useMemo(() => {
+  // PDF preview endpoint (relative to the api client baseURL, which already includes /api).
+  const pdfEndpoint = useMemo(() => {
     if (!chartData) return '';
     const params = new URLSearchParams({
       ...(selectedColorId ? { colorId: selectedColorId } : {}),
       extraPercent: String(extraPercent),
     });
-    return `/api/documents/cutting-chart/${chartData.workOrderId}/pdf?${params}`;
+    return `/documents/cutting-chart/${chartData.workOrderId}/pdf?${params}`;
   }, [chartData, selectedColorId, extraPercent]);
+
+  // The PDF route requires the Bearer token, which a plain <iframe src> GET cannot attach.
+  // Fetch it as a blob through the api client (auth interceptor adds the header) and hand the
+  // iframe an object URL instead (bug B06-06).
+  useEffect(() => {
+    if (!showPdfPreview || !pdfEndpoint) return;
+    let objectUrl = '';
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await api.get<Blob>(pdfEndpoint, { responseType: 'blob' });
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(response.data);
+        setPdfBlobUrl(objectUrl);
+      } catch (err) {
+        if (!cancelled) handleApiError(err, 'Failed to load cutting chart PDF');
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setPdfBlobUrl('');
+    };
+  }, [showPdfPreview, pdfEndpoint]);
 
   if (isLoading && !chartData) {
     return (
@@ -833,7 +859,7 @@ export default function CuttingChart() {
           <DialogHeader className="p-4 pb-2">
             <DialogTitle>Cutting Chart Preview</DialogTitle>
           </DialogHeader>
-          <iframe src={pdfPreviewUrl} className="w-full flex-1 border-0 rounded-b-lg" />
+          <iframe src={pdfBlobUrl} className="w-full flex-1 border-0 rounded-b-lg" />
         </DialogContent>
       </Dialog>
     </div>

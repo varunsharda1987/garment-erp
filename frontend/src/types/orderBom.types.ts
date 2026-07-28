@@ -155,6 +155,11 @@ export interface OrderBOM {
     [key: string]: unknown;
   };
   items?: OrderBOMItem[];
+  // Prisma _count aggregation — preserved verbatim by the serializer (leading
+  // underscore kept). List endpoint returns _count.items for the Items column.
+  _count?: {
+    items: number;
+  };
   createdBy?: {
     id: string;
     firstName: string;

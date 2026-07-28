@@ -92,11 +92,11 @@ export default function StockDashboard() {
       {/* Header */}
       <PageHeader title="Unified Inventory Dashboard">
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate('/inventory/reports')}>
+          <Button variant="outline" onClick={() => navigate('/reports/fabric-usage')}>
             <BarChart3 className="mr-2 h-4 w-4" />
             Reports
           </Button>
-          <Button onClick={() => navigate('/inventory/movements/new')}>
+          <Button onClick={() => navigate('/inventory/movements')}>
             <Package className="mr-2 h-4 w-4" />
             New Movement
           </Button>

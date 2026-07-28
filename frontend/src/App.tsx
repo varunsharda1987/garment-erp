@@ -169,6 +169,7 @@ import {
   EmbroideryPieceReceive,
   ColorMasterList,
   ColorMasterForm,
+  ColorBulkImport,
   SeasonMasterList,
   SeasonMasterForm,
   TrimMastersDashboard,
@@ -192,6 +193,7 @@ import {
   FinishingDetail,
   DispatchList,
   DispatchDeliveryNoteForm,
+  DispatchDeliveryNoteDetail,
   DispatchPODForm,
   ProductionStatus,
   TestingDashboard,
@@ -468,6 +470,7 @@ function App() {
               {/* Quotation Management */}
               <Route path="/quotations" element={<QuotationList />} />
               <Route path="/quotations/new" element={<QuotationForm />} />
+              <Route path="/quotations/:id/edit" element={<QuotationForm />} />
               <Route path="/quotations/:id" element={<QuotationDetail />} />
 
               {/* Credit & Debit Notes */}
@@ -584,10 +587,12 @@ function App() {
               <Route path="/manufacturing/dispatch" element={<DispatchList />} />
               <Route path="/manufacturing/dispatch/delivery/new" element={<DispatchDeliveryNoteForm />} />
               <Route path="/manufacturing/dispatch/delivery/:id/pod" element={<DispatchPODForm />} />
+              <Route path="/manufacturing/dispatch/delivery/:id" element={<DispatchDeliveryNoteDetail />} />
 
               {/* Color Master */}
               <Route path="/colors" element={<ColorMasterList />} />
               <Route path="/colors/new" element={<ColorMasterForm mode="create" />} />
+              <Route path="/colors/import" element={<ColorBulkImport />} />
               <Route path="/colors/:id/edit" element={<ColorMasterForm mode="edit" />} />
 
               {/* Season Master */}

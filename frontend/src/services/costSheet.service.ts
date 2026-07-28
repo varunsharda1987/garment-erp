@@ -110,9 +110,11 @@ export const approveCostSheet = async (id: string, approved: boolean): Promise<C
 
 /**
  * Reject cost sheet with notes
+ * Rejection is handled by the same /approve endpoint via action: 'reject'
+ * (there is no dedicated /reject route). See style-costing-approval.controller.ts.
  */
 export const rejectCostSheet = async (id: string, rejectionNotes: string): Promise<CostSheet> => {
-  const response = await api.patch(`${BASE_URL}/${id}/reject`, { rejectionNotes });
+  const response = await api.patch(`${BASE_URL}/${id}/approve`, { action: 'reject', rejectionNotes });
   return response.data.data;
 };
 

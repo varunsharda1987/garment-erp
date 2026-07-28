@@ -224,6 +224,7 @@ export const GreigeList = lazy(() => import('../pages/GreigeList'));
 export const GreigeDetail = lazy(() => import('../pages/GreigeDetail'));
 export const GreigeForm = lazy(() => import('../pages/GreigeForm'));
 export const GreigeBulkImport = lazy(() => import('../pages/GreigeBulkImport'));
+export const ColorBulkImport = lazy(() => import('../pages/ColorBulkImport'));
 export const GreigeStockEntry = lazy(() => import('../pages/GreigeStockEntry'));
 export const GreigeAvailableStock = lazy(() => import('../pages/GreigeAvailableStock'));
 export const FabricList = lazy(() => import('../pages/FabricList'));
@@ -388,6 +389,7 @@ export const FinishingDetail = lazy(() => import('../pages/FinishingDetail'));
 // ============================================================================
 export const DispatchList = lazy(() => import('../pages/DispatchList'));
 export const DispatchDeliveryNoteForm = lazy(() => import('../pages/DispatchDeliveryNoteForm'));
+export const DispatchDeliveryNoteDetail = lazy(() => import('../pages/DispatchDeliveryNoteDetail'));
 export const DispatchPODForm = lazy(() => import('../pages/DispatchPODForm'));
 
 // ============================================================================

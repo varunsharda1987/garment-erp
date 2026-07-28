@@ -11,16 +11,17 @@ import { z } from 'zod';
 // Enums
 // ============================================================================
 
+// Aligned with the Prisma UserRole enum (schema.prisma). Keep in sync.
 export const UserRoleEnum = z.enum([
   'ADMIN',
-  'MERCHANDISER',
   'PRODUCTION_MANAGER',
+  'SALES',
   'INVENTORY',
   'ACCOUNTS',
   'QUALITY',
-  'CUTTING',
-  'STITCHING',
-  'USER',
+  'PURCHASE',
+  'FACTORY_SUPERVISOR',
+  'MERCHANDISER',
 ]);
 
 // ============================================================================
@@ -34,11 +35,11 @@ export const UserRoleEnum = z.enum([
 export const createUserSchema = z.object({
   email: z.string().email('Invalid email format').max(255),
   password: z.string().min(6, 'Password must be at least 6 characters').max(100),
-  name: z.string().min(1, 'Name is required').max(200),
-  role: UserRoleEnum.optional().default('USER'),
+  firstName: z.string().min(1, 'First name is required').max(100),
+  lastName: z.string().min(1, 'Last name is required').max(100),
   phone: z.string().max(20).optional(),
-  avatar: z.string().max(500).optional(),
-  isActive: z.boolean().optional().default(true),
+  role: UserRoleEnum.optional().default('SALES'),
+  department: z.string().max(100).optional(),
 });
 
 /**
@@ -86,7 +87,8 @@ export const approveUserSchema = z.object({
  * POST /api/users/:id/reject
  */
 export const rejectUserSchema = z.object({
-  reason: z.string().min(1, 'Rejection reason is required').max(500),
+  // Optional: the controller does not read a reason and the reject dialog sends no body.
+  reason: z.string().max(500).optional(),
 });
 
 /**

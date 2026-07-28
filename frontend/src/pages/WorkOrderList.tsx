@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Edit, Eye, TrendingUp } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Edit, Eye, TrendingUp, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,14 +26,17 @@ type Column<T> = {
 
 export default function WorkOrderList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Filter state
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | ''>('');
+  // Filter state (seed from dashboard drill-down query params)
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | ''>((searchParams.get('status') as OrderStatus) || '');
   const [priorityFilter, setPriorityFilter] = useState<Priority | ''>('');
   const [searchQuery, setSearchQuery] = useState('');
+  // Backend has no "overdue" filter — applied client-side over plannedEndDate
+  const [overdueOnly, setOverdueOnly] = useState(searchParams.get('overdue') === 'true');
 
   useEffect(() => {
     loadWorkOrders();
@@ -101,6 +105,14 @@ export default function WorkOrderList() {
     if (workOrder.totalQuantity === 0) return 0;
     return Math.round((workOrder.completedQuantity / workOrder.totalQuantity) * 100);
   };
+
+  const isOverdue = (wo: WorkOrder) =>
+    !!wo.plannedEndDate &&
+    new Date(wo.plannedEndDate) < new Date() &&
+    !['COMPLETED', 'DISPATCHED', 'CANCELLED'].includes(wo.status);
+
+  // Overdue is filtered client-side (no backend param); status/priority/search are server-side
+  const displayedWorkOrders = overdueOnly ? workOrders.filter(isOverdue) : workOrders;
 
   // Define columns for DataTable
   const columns: Column<WorkOrder>[] = [
@@ -241,6 +253,23 @@ export default function WorkOrderList() {
         </Button>
       </PageHeader>
 
+      {/* Active drill-down filter indicator */}
+      {overdueOnly && (
+        <div className="mb-4">
+          <Badge variant="destructive" className="gap-1">
+            Overdue only
+            <button
+              type="button"
+              onClick={() => setOverdueOnly(false)}
+              className="ml-1 hover:opacity-80"
+              aria-label="Clear overdue filter"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        </div>
+      )}
+
       {/* Filters */}
       <Card className="mb-4">
         <CardContent className="pt-6">
@@ -297,7 +326,7 @@ export default function WorkOrderList() {
       {/* DataTable */}
       <Card>
         <DataTable
-          data={workOrders}
+          data={displayedWorkOrders}
           columns={columns}
           keyExtractor={(wo) => wo.id}
           loading={isLoading}
@@ -306,7 +335,7 @@ export default function WorkOrderList() {
             icon: <ClipboardList className="h-16 w-16" />,
             title: 'No production runs found',
             description:
-              searchQuery || statusFilter || priorityFilter
+              searchQuery || statusFilter || priorityFilter || overdueOnly
                 ? 'Try adjusting your search or filter criteria'
                 : 'Production runs are auto-created when orders are saved',
           }}
@@ -315,9 +344,9 @@ export default function WorkOrderList() {
       </Card>
 
       {/* Summary */}
-      {!isLoading && workOrders.length > 0 && (
+      {!isLoading && displayedWorkOrders.length > 0 && (
         <div className="mt-4 text-sm text-muted-foreground">
-          Showing {workOrders.length} production run{workOrders.length !== 1 ? 's' : ''}
+          Showing {displayedWorkOrders.length} production run{displayedWorkOrders.length !== 1 ? 's' : ''}
         </div>
       )}
     </>

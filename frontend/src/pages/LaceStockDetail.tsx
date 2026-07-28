@@ -23,17 +23,7 @@ import {
   AGING_BUCKET_COLORS,
 } from '../types/laceStock.types';
 import { notify } from '../lib/notify';
-import {
-  ArrowLeft,
-  Package,
-  ArrowRightLeft,
-  History,
-  AlertTriangle,
-  MapPin,
-  DollarSign,
-  Undo2,
-  TrendingDown,
-} from 'lucide-react';
+import { ArrowLeft, Package, ArrowRightLeft, History, MapPin, DollarSign, Undo2 } from 'lucide-react';
 
 export default function LaceStockDetail() {
   const { id } = useParams<{ id: string }>();
@@ -48,24 +38,22 @@ export default function LaceStockDetail() {
   // Modal states
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
-  const [showDowngradeModal, setShowDowngradeModal] = useState(false);
   const [processing, setProcessing] = useState(false);
+
+  // Return is allocation-scoped (backend route POST /lace-stock/allocations/:allocationId/return).
+  // The row-level Return action in the Allocations tab selects which allocation to return.
+  const [selectedAllocation, setSelectedAllocation] = useState<LaceStockAllocation | null>(null);
 
   // Form states
   const [transferForm, setTransferForm] = useState({
     toStyleId: '',
     toOrderId: '',
-    quantity: 0,
+    quantityToTransfer: 0,
     transferNotes: '',
   });
   const [returnForm, setReturnForm] = useState({
-    quantity: 0,
+    quantityToReturn: 0,
     notes: '',
-  });
-  const [downgradeForm, setDowngradeForm] = useState({
-    newGrade: 'B' as 'B' | 'DEFECT',
-    quantity: 0,
-    reason: '',
   });
 
   const fetchData = async () => {
@@ -133,7 +121,7 @@ export default function LaceStockDetail() {
 
   const handleTransfer = async () => {
     if (!id || !stock) return;
-    if (transferForm.quantity <= 0 || transferForm.quantity > stock.quantityAvailable) {
+    if (transferForm.quantityToTransfer <= 0 || transferForm.quantityToTransfer > stock.quantityAvailable) {
       notify.error('Invalid transfer quantity');
       return;
     }
@@ -147,7 +135,7 @@ export default function LaceStockDetail() {
       await laceStockService.transferStock(id, transferForm);
       notify.success('Stock transferred successfully');
       setShowTransferModal(false);
-      setTransferForm({ toStyleId: '', toOrderId: '', quantity: 0, transferNotes: '' });
+      setTransferForm({ toStyleId: '', toOrderId: '', quantityToTransfer: 0, transferNotes: '' });
       fetchData();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
@@ -157,19 +145,31 @@ export default function LaceStockDetail() {
     }
   };
 
+  // Unused-but-not-yet-consumed quantity that can be returned for a given allocation.
+  const getReturnableQty = (alloc: LaceStockAllocation) =>
+    alloc.quantityAllocated - alloc.quantityConsumed - alloc.quantityReturned;
+
+  const openReturnModal = (alloc: LaceStockAllocation) => {
+    setSelectedAllocation(alloc);
+    setReturnForm({ quantityToReturn: 0, notes: '' });
+    setShowReturnModal(true);
+  };
+
   const handleReturn = async () => {
-    if (!id || !stock) return;
-    if (returnForm.quantity <= 0) {
+    if (!id || !selectedAllocation) return;
+    const maxReturnable = getReturnableQty(selectedAllocation);
+    if (returnForm.quantityToReturn <= 0 || returnForm.quantityToReturn > maxReturnable) {
       notify.error('Invalid return quantity');
       return;
     }
 
     setProcessing(true);
     try {
-      await laceStockService.returnStock(id, returnForm);
+      await laceStockService.returnStock(selectedAllocation.id, returnForm);
       notify.success('Stock returned successfully');
       setShowReturnModal(false);
-      setReturnForm({ quantity: 0, notes: '' });
+      setSelectedAllocation(null);
+      setReturnForm({ quantityToReturn: 0, notes: '' });
       fetchData();
     } catch (error: unknown) {
       const err = error as { response?: { data?: { error?: string } } };
@@ -179,31 +179,9 @@ export default function LaceStockDetail() {
     }
   };
 
-  const handleDowngrade = async () => {
-    if (!id || !stock) return;
-    if (downgradeForm.quantity <= 0 || downgradeForm.quantity > stock.quantityAvailable) {
-      notify.error('Invalid quantity');
-      return;
-    }
-    if (!downgradeForm.reason) {
-      notify.error('Please provide a reason');
-      return;
-    }
-
-    setProcessing(true);
-    try {
-      await laceStockService.downgradeQuality(id, downgradeForm);
-      notify.success('Quality grade updated');
-      setShowDowngradeModal(false);
-      setDowngradeForm({ newGrade: 'B', quantity: 0, reason: '' });
-      fetchData();
-    } catch (error: unknown) {
-      const err = error as { response?: { data?: { error?: string } } };
-      notify.error(err.response?.data?.error || 'Failed to downgrade quality');
-    } finally {
-      setProcessing(false);
-    }
-  };
+  // NOTE: Quality downgrade (A -> B/DEFECT) was removed here. No backend
+  // POST /lace-stock/:id/downgrade route or service method exists, so the old
+  // Downgrade button 404'd every time. Deferred as a real build (see wave notes).
 
   if (loading) {
     return (
@@ -241,25 +219,13 @@ export default function LaceStockDetail() {
         </div>
         <div className="flex gap-2">
           {stock.status === 'AVAILABLE' && stock.quantityAvailable > 0 && (
-            <>
-              <Button onClick={() => setShowTransferModal(true)}>
-                <ArrowRightLeft className="h-4 w-4 mr-2" />
-                Transfer
-              </Button>
-              {stock.qualityGrade === 'A' && (
-                <Button variant="outline" onClick={() => setShowDowngradeModal(true)}>
-                  <TrendingDown className="h-4 w-4 mr-2" />
-                  Downgrade
-                </Button>
-              )}
-            </>
-          )}
-          {stock.status === 'ISSUED' && (
-            <Button onClick={() => setShowReturnModal(true)}>
-              <Undo2 className="h-4 w-4 mr-2" />
-              Return
+            <Button onClick={() => setShowTransferModal(true)}>
+              <ArrowRightLeft className="h-4 w-4 mr-2" />
+              Transfer
             </Button>
           )}
+          {/* Return is now a per-allocation action in the Allocations tab (backend route is
+              allocation-scoped). Downgrade removed: no backend endpoint exists (deferred). */}
         </div>
       </div>
 
@@ -461,6 +427,9 @@ export default function LaceStockDetail() {
                         Status
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Date</th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -492,6 +461,18 @@ export default function LaceStockDetail() {
                           </Badge>
                         </td>
                         <td className="px-4 py-4 text-sm">{formatDate(alloc.createdAt)}</td>
+                        <td className="px-4 py-4 text-right">
+                          {getReturnableQty(alloc) > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openReturnModal(alloc)}
+                              title="Return unused stock to available"
+                            >
+                              <Undo2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -584,11 +565,11 @@ export default function LaceStockDetail() {
               <Label>Quantity (meters)</Label>
               <Input
                 type="number"
-                value={transferForm.quantity || ''}
+                value={transferForm.quantityToTransfer || ''}
                 onChange={(e) =>
                   setTransferForm({
                     ...transferForm,
-                    quantity: parseFloat(e.target.value) || 0,
+                    quantityToTransfer: parseFloat(e.target.value) || 0,
                   })
                 }
                 max={stock.quantityAvailable}
@@ -614,24 +595,37 @@ export default function LaceStockDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Return Modal */}
-      <Dialog open={showReturnModal} onOpenChange={setShowReturnModal}>
+      {/* Return Modal (per-allocation) */}
+      <Dialog
+        open={showReturnModal}
+        onOpenChange={(open) => {
+          setShowReturnModal(open);
+          if (!open) setSelectedAllocation(null);
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Return Stock</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {selectedAllocation && (
+              <div className="text-sm text-muted-foreground">
+                Allocation: {selectedAllocation.styleCode || selectedAllocation.styleId} &middot; Returnable:{' '}
+                {getReturnableQty(selectedAllocation).toLocaleString()}m
+              </div>
+            )}
             <div>
               <Label>Quantity (meters)</Label>
               <Input
                 type="number"
-                value={returnForm.quantity || ''}
+                value={returnForm.quantityToReturn || ''}
                 onChange={(e) =>
                   setReturnForm({
                     ...returnForm,
-                    quantity: parseFloat(e.target.value) || 0,
+                    quantityToReturn: parseFloat(e.target.value) || 0,
                   })
                 }
+                max={selectedAllocation ? getReturnableQty(selectedAllocation) : undefined}
               />
             </div>
             <div>
@@ -644,73 +638,17 @@ export default function LaceStockDetail() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowReturnModal(false)}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowReturnModal(false);
+                setSelectedAllocation(null);
+              }}
+            >
               Cancel
             </Button>
             <Button onClick={handleReturn} disabled={processing}>
               {processing ? 'Returning...' : 'Return'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Downgrade Modal */}
-      <Dialog open={showDowngradeModal} onOpenChange={setShowDowngradeModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Downgrade Quality</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="flex items-center gap-2 p-3 bg-warning-muted border border-warning/20 rounded">
-              <AlertTriangle className="h-4 w-4 text-warning" />
-              <span className="text-sm text-warning">This action cannot be undone</span>
-            </div>
-            <div>
-              <Label>New Grade</Label>
-              <select
-                className="w-full border rounded p-2"
-                value={downgradeForm.newGrade}
-                onChange={(e) =>
-                  setDowngradeForm({
-                    ...downgradeForm,
-                    newGrade: e.target.value as 'B' | 'DEFECT',
-                  })
-                }
-              >
-                <option value="B">Grade B</option>
-                <option value="DEFECT">Defect</option>
-              </select>
-            </div>
-            <div>
-              <Label>Quantity (meters)</Label>
-              <Input
-                type="number"
-                value={downgradeForm.quantity || ''}
-                onChange={(e) =>
-                  setDowngradeForm({
-                    ...downgradeForm,
-                    quantity: parseFloat(e.target.value) || 0,
-                  })
-                }
-                max={stock.quantityAvailable}
-              />
-            </div>
-            <div>
-              <Label>Reason</Label>
-              <Textarea
-                value={downgradeForm.reason}
-                onChange={(e) => setDowngradeForm({ ...downgradeForm, reason: e.target.value })}
-                placeholder="Reason for downgrade..."
-                required
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDowngradeModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDowngrade} disabled={processing}>
-              {processing ? 'Processing...' : 'Downgrade'}
             </Button>
           </DialogFooter>
         </DialogContent>

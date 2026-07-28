@@ -15,7 +15,9 @@ export const getAllMaterials = async (req: Request, res: Response) => {
 
   const materials = await materialMasterService.findAll({
     materialType: type as MaterialType,
-    isActive: active === 'true',
+    // Pass undefined when the `active` param is absent so the service applies no
+    // isActive filter (shows all). Only an explicit active=true/false narrows it.
+    isActive: active === undefined ? undefined : active === 'true',
     searchTerm: search as string,
     supplierId: supplierId as string,
   });

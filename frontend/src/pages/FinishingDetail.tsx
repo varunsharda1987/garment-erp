@@ -50,6 +50,16 @@ interface OutputEntry {
   defectQty: number;
 }
 
+// Per-SKU packing quantity (shared by the polybag-entry and carton-packing dialogs)
+interface PackEntry {
+  colorId: string;
+  sizeId: string;
+  colorName: string;
+  sizeName: string;
+  issuedQty: number;
+  qty: number;
+}
+
 export default function FinishingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -64,6 +74,19 @@ export default function FinishingDetail() {
   const [outputDate, setOutputDate] = useState(new Date().toISOString().split('T')[0]);
   const [outputRemarks, setOutputRemarks] = useState('');
   const [outputEntries, setOutputEntries] = useState<OutputEntry[]>([]);
+
+  // Polybag Entry Modal (packing stage)
+  const [showPolybagModal, setShowPolybagModal] = useState(false);
+  const [polybagDate, setPolybagDate] = useState(new Date().toISOString().split('T')[0]);
+  const [polybagRemarks, setPolybagRemarks] = useState('');
+  const [polybagEntries, setPolybagEntries] = useState<PackEntry[]>([]);
+
+  // Carton Packing Modal (packing stage)
+  const [showCartonModal, setShowCartonModal] = useState(false);
+  const [cartonNumber, setCartonNumber] = useState('');
+  const [cartonDate, setCartonDate] = useState(new Date().toISOString().split('T')[0]);
+  const [cartonRemarks, setCartonRemarks] = useState('');
+  const [cartonEntries, setCartonEntries] = useState<PackEntry[]>([]);
 
   useEffect(() => {
     if (id) {
@@ -225,6 +248,89 @@ export default function FinishingDetail() {
     }
   };
 
+  // Seed a fresh per-SKU packing grid from the issue's SKU breakdown.
+  const buildPackEntries = (): PackEntry[] =>
+    (issue?.skuBreakdown || []).map((sku) => ({
+      colorId: sku.colorId,
+      sizeId: sku.sizeId,
+      colorName: sku.color?.colorName || 'Unknown',
+      sizeName: sku.size?.sizeName || 'Unknown',
+      issuedQty: sku.issuedQty,
+      qty: 0,
+    }));
+
+  const openPolybagModal = () => {
+    setPolybagEntries(buildPackEntries());
+    setPolybagDate(new Date().toISOString().split('T')[0]);
+    setPolybagRemarks('');
+    setShowPolybagModal(true);
+  };
+
+  const openCartonModal = () => {
+    setCartonEntries(buildPackEntries());
+    setCartonNumber('');
+    setCartonDate(new Date().toISOString().split('T')[0]);
+    setCartonRemarks('');
+    setShowCartonModal(true);
+  };
+
+  const handlePolybagSubmit = async () => {
+    if (!issue) return;
+    const skuBreakdown = polybagEntries
+      .filter((e) => e.qty > 0)
+      .map((e) => ({ colorId: e.colorId, sizeId: e.sizeId, packedQty: e.qty }));
+    if (skuBreakdown.length === 0) {
+      handleApiError(new Error('Enter at least one packed quantity'));
+      return;
+    }
+    try {
+      setActionLoading(true);
+      await finishingIssueService.recordPolybagEntry(issue.id, {
+        packingDate: polybagDate,
+        skuBreakdown,
+        remarks: polybagRemarks || undefined,
+      });
+      handleApiSuccess('Success', 'Polybag entry recorded');
+      setShowPolybagModal(false);
+      loadIssue();
+    } catch (err: unknown) {
+      handleApiError(err, 'Failed to record polybag entry');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCartonSubmit = async () => {
+    if (!issue) return;
+    if (!cartonNumber.trim()) {
+      handleApiError(new Error('Carton number is required'));
+      return;
+    }
+    const skuBreakdown = cartonEntries
+      .filter((e) => e.qty > 0)
+      .map((e) => ({ colorId: e.colorId, sizeId: e.sizeId, quantity: e.qty }));
+    if (skuBreakdown.length === 0) {
+      handleApiError(new Error('Enter at least one carton quantity'));
+      return;
+    }
+    try {
+      setActionLoading(true);
+      await finishingIssueService.recordCartonPacking(issue.id, {
+        cartonNumber: cartonNumber.trim(),
+        cartonDate,
+        skuBreakdown,
+        remarks: cartonRemarks || undefined,
+      });
+      handleApiSuccess('Success', 'Carton packing recorded');
+      setShowCartonModal(false);
+      loadIssue();
+    } catch (err: unknown) {
+      handleApiError(err, 'Failed to record carton packing');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const getStatusBadge = (status: FinishingStatus) => (
     <Badge className={`${FinishingStatusColors[status]} text-sm px-3 py-1`}>{FinishingStatusLabels[status]}</Badge>
   );
@@ -323,10 +429,20 @@ export default function FinishingDetail() {
           )}
 
           {issue.status === 'PACKING' && (
-            <Button onClick={handleComplete} disabled={actionLoading}>
-              <CheckCircle className="mr-2 h-4 w-4" />
-              Complete
-            </Button>
+            <>
+              <Button variant="outline" onClick={openPolybagModal} disabled={actionLoading}>
+                <Package className="mr-2 h-4 w-4" />
+                Polybag Entry
+              </Button>
+              <Button variant="outline" onClick={openCartonModal} disabled={actionLoading}>
+                <Box className="mr-2 h-4 w-4" />
+                Carton Packing
+              </Button>
+              <Button onClick={handleComplete} disabled={actionLoading}>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Complete
+              </Button>
+            </>
           )}
 
           {issue.status === 'COMPLETED' && (
@@ -667,6 +783,156 @@ export default function FinishingDetail() {
             </Button>
             <Button onClick={handleRecordOutput} disabled={actionLoading}>
               {actionLoading ? 'Saving...' : 'Save Output'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Polybag Entry Modal */}
+      <Dialog open={showPolybagModal} onOpenChange={setShowPolybagModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Record Polybag Entry</DialogTitle>
+            <DialogDescription>Enter the number of polybags packed per SKU</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>Packing Date</Label>
+              <Input type="date" value={polybagDate} onChange={(e) => setPolybagDate(e.target.value)} />
+            </div>
+
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Color</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead className="text-right">Issued</TableHead>
+                    <TableHead className="text-right w-[120px]">Packed</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {polybagEntries.map((entry, index) => (
+                    <TableRow key={`${entry.colorId}-${entry.sizeId}`}>
+                      <TableCell>{entry.colorName}</TableCell>
+                      <TableCell>{entry.sizeName}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{entry.issuedQty}</TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={entry.qty}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseInt(e.target.value) || 0);
+                            setPolybagEntries((prev) => prev.map((en, i) => (i === index ? { ...en, qty: val } : en)));
+                          }}
+                          className="w-20 text-right ml-auto"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div>
+              <Label>Remarks</Label>
+              <Textarea
+                value={polybagRemarks}
+                onChange={(e) => setPolybagRemarks(e.target.value)}
+                rows={2}
+                placeholder="Any notes about this polybag entry..."
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPolybagModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handlePolybagSubmit} disabled={actionLoading}>
+              {actionLoading ? 'Saving...' : 'Save Polybag Entry'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Carton Packing Modal */}
+      <Dialog open={showCartonModal} onOpenChange={setShowCartonModal}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Record Carton Packing</DialogTitle>
+            <DialogDescription>Pack finished pieces into a carton for dispatch</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Carton Number *</Label>
+                <Input
+                  value={cartonNumber}
+                  onChange={(e) => setCartonNumber(e.target.value)}
+                  placeholder="e.g. CTN-001"
+                />
+              </div>
+              <div>
+                <Label>Carton Date *</Label>
+                <Input type="date" value={cartonDate} onChange={(e) => setCartonDate(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="border rounded-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Color</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead className="text-right">Issued</TableHead>
+                    <TableHead className="text-right w-[120px]">Quantity</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cartonEntries.map((entry, index) => (
+                    <TableRow key={`${entry.colorId}-${entry.sizeId}`}>
+                      <TableCell>{entry.colorName}</TableCell>
+                      <TableCell>{entry.sizeName}</TableCell>
+                      <TableCell className="text-right text-muted-foreground">{entry.issuedQty}</TableCell>
+                      <TableCell className="text-right">
+                        <Input
+                          type="number"
+                          min={0}
+                          value={entry.qty}
+                          onChange={(e) => {
+                            const val = Math.max(0, parseInt(e.target.value) || 0);
+                            setCartonEntries((prev) => prev.map((en, i) => (i === index ? { ...en, qty: val } : en)));
+                          }}
+                          className="w-20 text-right ml-auto"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            <div>
+              <Label>Remarks</Label>
+              <Textarea
+                value={cartonRemarks}
+                onChange={(e) => setCartonRemarks(e.target.value)}
+                rows={2}
+                placeholder="Any notes about this carton..."
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCartonModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCartonSubmit} disabled={actionLoading}>
+              {actionLoading ? 'Saving...' : 'Save Carton'}
             </Button>
           </DialogFooter>
         </DialogContent>

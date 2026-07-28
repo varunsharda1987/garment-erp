@@ -254,7 +254,7 @@ export default function MachinePartList() {
             keyExtractor={(part) => part.id}
             loading={isLoading}
             error={error}
-            onRowClick={(part) => navigate(`/materials/machine-part/${part.id}`)}
+            onRowClick={(part) => navigate(`/materials/machine-part/${part.id}/edit`)}
             emptyState={{
               icon: <Settings className="h-16 w-16" />,
               title: 'No machine parts found',

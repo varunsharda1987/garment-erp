@@ -259,7 +259,7 @@ export default function OtherMaterialList() {
             keyExtractor={(material) => material.id}
             loading={isLoading}
             error={error}
-            onRowClick={(material) => navigate(`/materials/other/${material.id}`)}
+            onRowClick={(material) => navigate(`/materials/other/${material.id}/edit`)}
             emptyState={{
               icon: <Package className="h-16 w-16" />,
               title: 'No other materials found',

@@ -440,6 +440,7 @@ export interface PurchaseOrderFilters {
   poCategory?: string;
   poCategories?: string[];
   supplierId?: string;
+  orderId?: string;
   search?: string;
   startDate?: string;
   endDate?: string;

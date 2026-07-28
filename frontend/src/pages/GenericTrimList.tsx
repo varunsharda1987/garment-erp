@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +40,8 @@ export default function GenericTrimList() {
   const [totalItems, setTotalItems] = useState(0);
 
   // Filter state
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

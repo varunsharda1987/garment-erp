@@ -54,6 +54,9 @@ export interface ConversationWithMessages extends Conversation {
 
 export interface ChatResponse {
   response: string;
+  // Real ai_messages id of the saved assistant reply — used to attach feedback to a freshly
+  // streamed answer (backend now returns it; see finding B10-09).
+  messageId?: string;
   conversationId: string;
   provider: string;
   model: string;

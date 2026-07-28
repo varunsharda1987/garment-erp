@@ -10,6 +10,7 @@ import { createOrder, getOrderById, updateOrder } from '../services/order.servic
 import { styleService } from '../services/style.service';
 import { getAllPresetsForCustomer } from '../services/customerSizePreset.service';
 import { getCostSheetVersionsByStyle } from '../services/costSheet.service';
+import { getQuotationById } from '../services/quotation.service';
 import type { CustomerSizePreset } from '../types/customerSizePreset.types';
 import type { Customer } from '../types/customer.types';
 import type { Style } from '../types/style.types';
@@ -60,6 +61,8 @@ export default function OrderForm() {
 
   // Track if we've processed the cost sheet pre-fill from query params
   const [costSheetPrefillProcessed, setCostSheetPrefillProcessed] = useState(false);
+  // Track if we've processed the quotation → order pre-fill (B09-08)
+  const [quotationPrefillProcessed, setQuotationPrefillProcessed] = useState(false);
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [styles, setStyles] = useState<Style[]>([]);
@@ -208,6 +211,62 @@ export default function OrderForm() {
 
     handleCostSheetPrefill();
   }, [searchParams, styles, customers, costSheetPrefillProcessed, isEditMode]);
+
+  // Handle pre-fill from an accepted Quotation (query param: quotationId).
+  // Surfaces the documented Quotation → Order conversion (B09-08). An order is
+  // single-style, so we seed the customer + the first quoted line's style/price;
+  // the user still selects/validates a cost sheet before saving.
+  useEffect(() => {
+    const handleQuotationPrefill = async () => {
+      if (quotationPrefillProcessed || isEditMode) return;
+
+      const quotationIdParam = searchParams.get('quotationId');
+      if (!quotationIdParam) return;
+
+      // Wait for styles/customers so selections resolve against loaded lists
+      if (styles.length === 0 || customers.length === 0) return;
+
+      setQuotationPrefillProcessed(true);
+
+      try {
+        const quotation = await getQuotationById(quotationIdParam);
+
+        // Seed customer + payment terms
+        if (quotation.customerId) {
+          setCustomerId(quotation.customerId);
+          const matchedCustomer = customers.find((c) => c.id === quotation.customerId);
+          if (matchedCustomer?.creditDays) {
+            setPaymentTerms(`Net ${matchedCustomer.creditDays} Days`);
+          }
+        }
+
+        // Seed the first quoted line's style + unit price (single-style order)
+        const firstItem = quotation.items?.[0];
+        if (firstItem?.styleId) {
+          setSelectedStyleId(firstItem.styleId);
+          const fullStyle = (await styleService.getStyleById(firstItem.styleId)) as StyleWithOptions;
+          setSelectedStyle(fullStyle);
+          setDisplayBrandName(fullStyle.brandName || fullStyle.brandCategories?.brandName || '');
+          setColors(fullStyle.colorOptions ?? []);
+          setSizes(fullStyle.sizeOptions ?? []);
+          if (firstItem.unitPrice) {
+            setUnitPrice(firstItem.unitPrice.toString());
+          }
+        }
+
+        // Note the source quotation for traceability
+        const multiStyleNote =
+          quotation.items && quotation.items.length > 1
+            ? ` (${quotation.items.length} styles quoted — this order covers the first; create separate orders for the rest)`
+            : '';
+        setRemarks(`Converted from quotation ${quotation.quotationNumber}${multiStyleNote}`);
+      } catch (err) {
+        logError('Failed to pre-fill from quotation:', err);
+      }
+    };
+
+    handleQuotationPrefill();
+  }, [searchParams, styles, customers, quotationPrefillProcessed, isEditMode]);
 
   const fetchCustomers = async () => {
     try {

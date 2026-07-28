@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -27,6 +27,8 @@ type Column<T> = {
 
 export default function InvoiceList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const statusParam = searchParams.get('status');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
@@ -42,7 +44,7 @@ export default function InvoiceList() {
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [customerFilter, setCustomerFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>(statusParam || 'all');
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

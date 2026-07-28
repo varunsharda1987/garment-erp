@@ -10,15 +10,20 @@ export const AccountType = {
 } as const;
 export type AccountType = (typeof AccountType)[keyof typeof AccountType];
 
+// Must match the Prisma AccountGroup enum exactly (backend AccountGroupEnum in
+// chartOfAccounts.schema.ts). CAPITAL/SALES were stale values not present in the
+// DB enum and would be rejected on create/update.
 export const AccountGroup = {
   CURRENT_ASSET: 'CURRENT_ASSET',
   FIXED_ASSET: 'FIXED_ASSET',
   CURRENT_LIABILITY: 'CURRENT_LIABILITY',
   LONG_TERM_LIABILITY: 'LONG_TERM_LIABILITY',
-  CAPITAL: 'CAPITAL',
-  SALES: 'SALES',
+  EQUITY: 'EQUITY',
+  DIRECT_REVENUE: 'DIRECT_REVENUE',
+  INDIRECT_REVENUE: 'INDIRECT_REVENUE',
   DIRECT_EXPENSE: 'DIRECT_EXPENSE',
   INDIRECT_EXPENSE: 'INDIRECT_EXPENSE',
+  OVERHEAD: 'OVERHEAD',
 } as const;
 export type AccountGroup = (typeof AccountGroup)[keyof typeof AccountGroup];
 
@@ -39,13 +44,16 @@ export interface ChartOfAccount {
   childAccounts?: ChartOfAccount[];
 }
 
+// camelCase to match the backend Zod schema (createChartOfAccountSchema).
+// validateBody strips unknown keys, so snake_case fields were silently dropped.
 export interface ChartOfAccountCreate {
-  account_code: string;
-  account_name: string;
-  account_type: AccountType;
-  account_group: AccountGroup;
-  parent_account_id?: number | null;
-  description?: string;
+  accountCode: string;
+  accountName: string;
+  accountType: AccountType;
+  accountGroup: AccountGroup;
+  parentAccountId?: string | null;
+  description?: string | null;
+  isActive?: boolean;
 }
 
 // Tax Masters

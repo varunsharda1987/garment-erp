@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +35,7 @@ import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { notify } from '@/lib/notify';
 import {
   Printer,
   Plus,
@@ -65,8 +66,13 @@ type Column<T> = {
 };
 
 export default function PrintingList() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  // Lab-dip and process-PO create/edit/detail/QC/return screens are not built yet (deferred).
+  // Inform the user instead of routing to the NotFound page.
+  const notImplemented = () =>
+    notify.info('Coming soon', {
+      description: 'Lab-dip and process-PO create/detail/QC/return screens are not yet available.',
+    });
 
   const [activeTab, setActiveTab] = useState<'lab-dips' | 'process-pos'>(
     (searchParams.get('tab') as 'lab-dips' | 'process-pos') || 'lab-dips'
@@ -406,7 +412,7 @@ export default function PrintingList() {
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/manufacturing/printing/lab-dip/${item.id}`);
+              notImplemented();
             }}
             title="View details"
           >
@@ -419,7 +425,7 @@ export default function PrintingList() {
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  navigate(`/manufacturing/printing/lab-dip/${item.id}/edit`);
+                  notImplemented();
                 }}
                 title="Edit"
               >
@@ -588,7 +594,7 @@ export default function PrintingList() {
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/manufacturing/printing/process-po/${item.id}`);
+              notImplemented();
             }}
             title="View details"
           >
@@ -641,7 +647,7 @@ export default function PrintingList() {
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/manufacturing/printing/process-po/${item.id}?action=qc`);
+                notImplemented();
               }}
               className="text-primary hover:text-primary hover:bg-primary/10"
               title="Quality Check"
@@ -671,7 +677,7 @@ export default function PrintingList() {
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/manufacturing/printing/process-po/${item.id}?action=return`);
+                notImplemented();
               }}
               className="text-warning hover:text-yellow-700 hover:bg-warning-muted"
               title="Return Unprocessed"
@@ -711,11 +717,11 @@ export default function PrintingList() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate('/manufacturing/printing/lab-dip/new')}>
+          <Button variant="outline" onClick={notImplemented}>
             <Droplets className="h-4 w-4 mr-2" />
             New Lab Dip
           </Button>
-          <Button onClick={() => navigate('/manufacturing/printing/process-po/new')}>
+          <Button onClick={notImplemented}>
             <Plus className="h-4 w-4 mr-2" />
             New Process PO
           </Button>
@@ -867,7 +873,7 @@ export default function PrintingList() {
                   data={labDips}
                   keyExtractor={(item) => item.id}
                   loading={isLoading}
-                  onRowClick={(item) => navigate(`/manufacturing/printing/lab-dip/${item.id}`)}
+                  onRowClick={() => notImplemented()}
                   emptyState={{
                     title: 'No lab dips found',
                     description: 'Get started by creating a new lab dip',
@@ -949,7 +955,7 @@ export default function PrintingList() {
                   data={processPOs}
                   keyExtractor={(item) => item.id}
                   loading={isLoading}
-                  onRowClick={(item) => navigate(`/manufacturing/printing/process-po/${item.id}`)}
+                  onRowClick={() => notImplemented()}
                   emptyState={{
                     title: 'No process POs found',
                     description: 'Get started by creating a new process PO',

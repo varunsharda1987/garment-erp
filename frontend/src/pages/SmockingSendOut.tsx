@@ -160,7 +160,8 @@ export default function SmockingSendOut() {
       return;
     }
     api
-      .get(`/fabric-stock?limit=100`)
+      // fabric stock is mounted at /stock (not /fabric-stock); the old path 404'd → empty dropdown (B11-09)
+      .get(`/stock?limit=100`)
       .then((res) => {
         const items = (res.data?.data || res.data || [])
           .filter((s: any) => parseFloat(s.quantityAvailable) > 0)

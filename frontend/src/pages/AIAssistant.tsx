@@ -131,9 +131,11 @@ export default function AIAssistant() {
         });
       }
 
-      // Add assistant response
+      // Add assistant response. Use the real DB message id returned by the backend so feedback
+      // (thumbs up/down) targets an existing ai_messages row; only fall back to a synthetic id if
+      // the backend didn't provide one (finding B10-09).
       const assistantMessage: Message = {
-        id: `msg-${Date.now()}`,
+        id: response.messageId || `msg-${Date.now()}`,
         conversationId: response.conversationId,
         role: 'ASSISTANT',
         content: response.response,

@@ -66,6 +66,8 @@ export const createFabricStockSchema = z.object({
   procurementId: z.string().uuid('Invalid procurement ID').optional(),
   originStyleId: z.string().uuid('Invalid style ID').optional(),
   originOrderId: z.string().uuid('Invalid order ID').optional(),
+  // Optional operator note; persisted onto the initial STOCK_IN transaction (B01-07)
+  notes: z.string().max(500).optional(),
 });
 
 /**

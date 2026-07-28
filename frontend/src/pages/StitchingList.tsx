@@ -498,7 +498,10 @@ export default function StitchingList() {
                               {slip.issuedTo && ` • Contractor: ${slip.issuedTo}`}
                             </div>
                           </div>
-                          <Button size="sm" onClick={() => navigate(`/manufacturing/stitching/new?slipId=${slip.id}`)}>
+                          <Button
+                            size="sm"
+                            onClick={() => navigate(`/manufacturing/stitching/new?transferSlipId=${slip.id}`)}
+                          >
                             <Plus className="h-4 w-4 mr-1" />
                             Receive & Create Issue
                           </Button>

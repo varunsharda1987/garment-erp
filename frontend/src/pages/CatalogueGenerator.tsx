@@ -76,7 +76,7 @@ interface Season {
 
 interface ProductCategory {
   id: string;
-  categoryName: string;
+  name: string;
 }
 
 type PriceDisplay = 'b2b' | 'b2r' | 'both' | 'none';
@@ -722,7 +722,7 @@ export default function CatalogueGenerator() {
                     <SelectItem value="_all">All Categories</SelectItem>
                     {productCategories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
-                        {cat.categoryName}
+                        {cat.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

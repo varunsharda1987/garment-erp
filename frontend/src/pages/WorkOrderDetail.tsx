@@ -204,9 +204,8 @@ export default function WorkOrderDetail() {
     if (!id) return;
     try {
       setIsCalculatingServices(true);
-      // Get user ID from auth store - adjust this based on your auth implementation
-      const userId = localStorage.getItem('userId') || '';
-      await calculateServices(id, userId);
+      // The acting user is resolved server-side from the auth token (bug B06-05).
+      await calculateServices(id);
       await loadServiceRequirements();
       handleApiSuccess('Services Calculated', 'Service requirements have been calculated successfully');
     } catch (err: unknown) {

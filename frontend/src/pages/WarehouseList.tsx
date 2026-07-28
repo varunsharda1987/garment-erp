@@ -154,7 +154,7 @@ export default function WarehouseList() {
             variant="outline"
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/inventory/warehouses/${wh.id}`);
+              navigate(`/inventory/warehouses/${wh.id}/edit`);
             }}
           >
             <Eye className="h-4 w-4" />
@@ -203,7 +203,10 @@ export default function WarehouseList() {
             </div>
             <div className="w-40">
               <Label htmlFor="typeFilter">Type</Label>
-              <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as WarehouseType | '')}>
+              <Select
+                value={typeFilter || 'all'}
+                onValueChange={(value) => setTypeFilter(value === 'all' ? '' : (value as WarehouseType))}
+              >
                 <SelectTrigger id="typeFilter">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
@@ -253,7 +256,7 @@ export default function WarehouseList() {
             onAction:
               !searchTerm && !typeFilter && !activeFilter ? () => navigate('/inventory/warehouses/new') : undefined,
           }}
-          onRowClick={(wh) => navigate(`/inventory/warehouses/${wh.id}`)}
+          onRowClick={(wh) => navigate(`/inventory/warehouses/${wh.id}/edit`)}
         />
       </Card>
 

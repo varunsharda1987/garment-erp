@@ -468,7 +468,7 @@ export default function TrimMastersDashboard() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => navigate('/materials/fabric')}
+                  onClick={() => navigate('/fabric')}
                   className="gap-1 text-muted-foreground"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +39,8 @@ export default function LabelList() {
   const [totalItems, setTotalItems] = useState(0);
 
   // Filter state
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
 
   // Stock count state
   const [stockCount, setStockCount] = useState<number | undefined>(undefined);

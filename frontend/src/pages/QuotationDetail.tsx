@@ -18,7 +18,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, FileText, Edit, Trash2, CheckCircle2, XCircle, Send } from 'lucide-react';
+import { ArrowLeft, FileText, Edit, Trash2, CheckCircle2, XCircle, Send, ShoppingCart } from 'lucide-react';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 
 export default function QuotationDetail() {
@@ -198,6 +198,12 @@ export default function QuotationDetail() {
                 Reject
               </Button>
             </>
+          )}
+          {quotation.status === 'ACCEPTED' && (
+            <Button onClick={() => navigate(`/orders/new?quotationId=${id}`)} className="gap-2">
+              <ShoppingCart className="h-4 w-4" />
+              Convert to Order
+            </Button>
           )}
           {canEdit && (
             <Button variant="outline" onClick={() => navigate(`/quotations/${id}/edit`)} className="gap-2">

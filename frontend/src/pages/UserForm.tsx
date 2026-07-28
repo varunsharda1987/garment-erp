@@ -32,6 +32,8 @@ export default function UserForm({ mode }: UserFormProps) {
   const isNewUser = mode === 'create';
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Track the role loaded on edit so we only call the role endpoint when it changes.
+  const [originalRole, setOriginalRole] = useState<string | null>(null);
 
   const { register, handleSubmit, setValue } = useForm<UserFormData>({
     resolver: zodResolver(userFormSchema),
@@ -45,6 +47,7 @@ export default function UserForm({ mode }: UserFormProps) {
         setValue('lastName', user.lastName);
         setValue('phone', user.phone || '');
         setValue('role', user.role);
+        setOriginalRole(user.role);
         setValue('department', user.department || '');
       });
     }
@@ -80,6 +83,10 @@ export default function UserForm({ mode }: UserFormProps) {
           password: data.password || undefined,
         };
         await userService.updateUser(id, updateData);
+        // The main update endpoint ignores role; apply role changes via the dedicated endpoint.
+        if (data.role && data.role !== originalRole) {
+          await userService.updateUserRole(id, data.role);
+        }
       }
       // Navigate with replace to force component remount
       navigate('/users', { replace: true });

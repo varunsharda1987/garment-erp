@@ -209,10 +209,11 @@ export interface AllocateStockInput {
 }
 
 // Transfer stock input
+// Field name MUST match backend transferLaceStockSchema (quantityToTransfer), else validateBody 400s.
 export interface TransferStockInput {
   toStyleId: string;
   toOrderId: string;
-  quantity: number;
+  quantityToTransfer: number;
   transferNotes?: string;
 }
 
@@ -224,9 +225,10 @@ export interface ConsumeStockInput {
   notes?: string;
 }
 
-// Return stock input
+// Return stock input (per-allocation).
+// Field name MUST match backend returnLaceStockSchema (quantityToReturn).
 export interface ReturnStockInput {
-  quantity: number;
+  quantityToReturn: number;
   notes?: string;
 }
 

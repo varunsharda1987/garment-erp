@@ -165,7 +165,9 @@ export const createFabricStock = async (req: Request, res: Response) => {
       totalValue: data.quantityAvailable * (data.purchaseCost || 0),
       balanceAfter: data.quantityAvailable,
       valueAfter: data.quantityAvailable * (data.purchaseCost || 0),
-      notes: 'Initial stock entry',
+      // Persist the operator's manual-entry note on the initial STOCK_IN transaction
+      // (fabric_stock has no notes column; the transaction audit trail carries it) (B01-07)
+      notes: data.notes?.trim() || 'Initial stock entry',
       ...(userId && {
         createdBy: {
           connect: { id: userId },
@@ -237,6 +239,7 @@ export const listStock = async (req: Request, res: Response) => {
             cutableWidth: true,
             greige: {
               select: {
+                id: true, // needed so the Stock View can link to /greige/:id (B01-03)
                 greigeCode: true,
                 greigeName: true,
                 composition: true,

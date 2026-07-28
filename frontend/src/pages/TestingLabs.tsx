@@ -1,22 +1,68 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Building2, Plus, Search, Edit, CheckCircle, XCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { testingLabsService } from '@/services/testing.service';
-import type { TestingLab } from '@/types/testing.types';
-import { handleApiError } from '@/lib/api-error-handler';
+import type { TestingLab, CreateTestingLabInput } from '@/types/testing.types';
+import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { notify } from '@/lib/notify';
+
+interface LabFormState {
+  labCode: string;
+  labName: string;
+  contactPerson: string;
+  contactEmail: string;
+  contactPhone: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  averageTurnaroundDays: string;
+  accreditations: string;
+  isActive: boolean;
+}
+
+const EMPTY_FORM: LabFormState = {
+  labCode: '',
+  labName: '',
+  contactPerson: '',
+  contactEmail: '',
+  contactPhone: '',
+  address: '',
+  city: '',
+  state: '',
+  pincode: '',
+  averageTurnaroundDays: '7',
+  accreditations: '',
+  isActive: true,
+};
 
 export default function TestingLabs() {
-  const navigate = useNavigate();
   const [labs, setLabs] = useState<TestingLab[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const pageSize = 20;
+
+  // Inline create/edit dialog (replaces dead /new, /:id, /:id/edit routes)
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingLab, setEditingLab] = useState<TestingLab | null>(null);
+  const [form, setForm] = useState<LabFormState>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchLabs();
@@ -45,6 +91,85 @@ export default function TestingLabs() {
     setPage(1);
   };
 
+  const openCreate = () => {
+    setEditingLab(null);
+    setForm(EMPTY_FORM);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (lab: TestingLab) => {
+    setEditingLab(lab);
+    setForm({
+      labCode: lab.labCode ?? '',
+      labName: lab.labName ?? '',
+      contactPerson: lab.contactPerson ?? '',
+      contactEmail: lab.contactEmail ?? '',
+      contactPhone: lab.contactPhone ?? '',
+      address: lab.address ?? '',
+      city: lab.city ?? '',
+      state: lab.state ?? '',
+      pincode: lab.pincode ?? '',
+      averageTurnaroundDays: lab.averageTurnaroundDays != null ? String(lab.averageTurnaroundDays) : '7',
+      accreditations: (lab.accreditations ?? []).join(', '),
+      isActive: lab.isActive,
+    });
+    setDialogOpen(true);
+  };
+
+  const setField = <K extends keyof LabFormState>(key: K, value: LabFormState[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const buildPayload = (): CreateTestingLabInput => {
+    // Omit empty optional strings so backend validators (e.g. email) don't reject ''
+    const opt = (s: string) => {
+      const t = s.trim();
+      return t.length ? t : undefined;
+    };
+    const accreditations = form.accreditations
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return {
+      labCode: form.labCode.trim(),
+      labName: form.labName.trim(),
+      contactPerson: opt(form.contactPerson),
+      contactEmail: opt(form.contactEmail),
+      contactPhone: opt(form.contactPhone),
+      address: opt(form.address),
+      city: opt(form.city),
+      state: opt(form.state),
+      pincode: opt(form.pincode),
+      averageTurnaroundDays: form.averageTurnaroundDays ? Number(form.averageTurnaroundDays) : undefined,
+      accreditations: accreditations.length ? accreditations : undefined,
+      isActive: form.isActive,
+    };
+  };
+
+  const handleSubmit = async () => {
+    if (!form.labCode.trim() || !form.labName.trim()) {
+      notify.error('Lab code and lab name are required');
+      return;
+    }
+    try {
+      setSaving(true);
+      const payload = buildPayload();
+      if (editingLab) {
+        await testingLabsService.update(editingLab.id, payload);
+        handleApiSuccess('Testing lab updated', `${payload.labName} has been updated.`);
+      } else {
+        await testingLabsService.create(payload);
+        handleApiSuccess('Testing lab created', `${payload.labName} has been added.`);
+      }
+      setDialogOpen(false);
+      fetchLabs();
+    } catch (error) {
+      handleApiError(error, 'Failed to save testing lab');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -67,7 +192,7 @@ export default function TestingLabs() {
           </h1>
           <p className="text-muted-foreground mt-1">Manage external testing laboratory information</p>
         </div>
-        <Button onClick={() => navigate('/testing-labs/new')} className="flex items-center gap-2">
+        <Button onClick={openCreate} className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
           Add Testing Lab
         </Button>
@@ -94,7 +219,7 @@ export default function TestingLabs() {
           <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No Testing Labs Found</h3>
           <p className="text-muted-foreground mb-4">Get started by adding your first testing lab</p>
-          <Button onClick={() => navigate('/testing-labs/new')}>
+          <Button onClick={openCreate}>
             <Plus className="h-4 w-4 mr-2" />
             Add Testing Lab
           </Button>
@@ -173,16 +298,11 @@ export default function TestingLabs() {
 
               {/* Actions */}
               <div className="flex gap-2 pt-4 border-t border-border">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => navigate(`/testing-labs/${lab.id}/edit`)}
-                >
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(lab)}>
                   <Edit className="h-4 w-4 mr-1" />
                   Edit
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => navigate(`/testing-labs/${lab.id}`)}>
+                <Button variant="outline" size="sm" onClick={() => openEdit(lab)}>
                   View
                 </Button>
               </div>
@@ -209,6 +329,122 @@ export default function TestingLabs() {
           </Button>
         </div>
       )}
+
+      {/* Create / Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingLab ? 'Edit Testing Lab' : 'Add Testing Lab'}</DialogTitle>
+            <DialogDescription>
+              {editingLab ? 'Update the testing laboratory details.' : 'Register a new external testing laboratory.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="labCode">
+                Lab Code <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="labCode"
+                value={form.labCode}
+                onChange={(e) => setField('labCode', e.target.value)}
+                placeholder="e.g. LAB-001"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="labName">
+                Lab Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="labName"
+                value={form.labName}
+                onChange={(e) => setField('labName', e.target.value)}
+                placeholder="e.g. SGS India"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="contactPerson">Contact Person</Label>
+              <Input
+                id="contactPerson"
+                value={form.contactPerson}
+                onChange={(e) => setField('contactPerson', e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="contactEmail">Contact Email</Label>
+              <Input
+                id="contactEmail"
+                type="email"
+                value={form.contactEmail}
+                onChange={(e) => setField('contactEmail', e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="contactPhone">Contact Phone</Label>
+              <Input
+                id="contactPhone"
+                value={form.contactPhone}
+                onChange={(e) => setField('contactPhone', e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="averageTurnaroundDays">Avg. Turnaround (days)</Label>
+              <Input
+                id="averageTurnaroundDays"
+                type="number"
+                min={1}
+                max={60}
+                value={form.averageTurnaroundDays}
+                onChange={(e) => setField('averageTurnaroundDays', e.target.value)}
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label htmlFor="address">Address</Label>
+              <Textarea
+                id="address"
+                value={form.address}
+                onChange={(e) => setField('address', e.target.value)}
+                rows={2}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="city">City</Label>
+              <Input id="city" value={form.city} onChange={(e) => setField('city', e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="state">State</Label>
+              <Input id="state" value={form.state} onChange={(e) => setField('state', e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="pincode">Pincode</Label>
+              <Input id="pincode" value={form.pincode} onChange={(e) => setField('pincode', e.target.value)} />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <Label htmlFor="accreditations">Accreditations (comma separated)</Label>
+              <Input
+                id="accreditations"
+                value={form.accreditations}
+                onChange={(e) => setField('accreditations', e.target.value)}
+                placeholder="e.g. NABL, ISO 17025"
+              />
+            </div>
+            <div className="flex items-center gap-2 md:col-span-2">
+              <Switch id="isActive" checked={form.isActive} onCheckedChange={(v) => setField('isActive', v)} />
+              <Label htmlFor="isActive">Active</Label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmit} disabled={saving}>
+              {saving ? 'Saving...' : editingLab ? 'Save Changes' : 'Create Lab'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

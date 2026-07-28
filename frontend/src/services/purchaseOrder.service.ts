@@ -35,6 +35,7 @@ export const getAllPurchaseOrders = async (filters?: PurchaseOrderFilters): Prom
       source: filters?.source || undefined,
       poCategories: filters?.poCategories?.join(',') || undefined,
       supplierId: filters?.supplierId || undefined,
+      orderId: filters?.orderId || undefined,
       search: filters?.search || undefined,
       startDate: filters?.startDate || undefined,
       endDate: filters?.endDate || undefined,

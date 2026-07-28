@@ -331,8 +331,10 @@ IMPORTANT:
 
     const latencyMs = Date.now() - startTime;
 
-    // Save assistant response
-    await conversationService.addMessage({
+    // Save assistant response. Return its DB id so the client can attach feedback to the
+    // just-streamed answer (frontend previously fabricated a `msg-<ts>` id that never matched a
+    // real ai_messages row, so thumbs up/down always failed the FK — frontend finding B10-09).
+    const savedAssistantMessage = await conversationService.addMessage({
       conversationId: activeConversationId,
       role: 'ASSISTANT',
       content: response.text,
@@ -345,6 +347,7 @@ IMPORTANT:
 
     res.json({
       response: response.text,
+      messageId: savedAssistantMessage?.id,
       conversationId: activeConversationId,
       provider: response.provider,
       model: response.model,

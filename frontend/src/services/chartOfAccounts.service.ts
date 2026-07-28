@@ -20,7 +20,7 @@ export const chartOfAccountsService = {
   },
 
   // Get single account
-  getById: async (id: number): Promise<ChartOfAccount> => {
+  getById: async (id: string): Promise<ChartOfAccount> => {
     const response = await api.get(`${BASE_URL}/${id}`);
     return response.data;
   },
@@ -28,17 +28,17 @@ export const chartOfAccountsService = {
   // Create account
   create: async (data: ChartOfAccountCreate): Promise<ChartOfAccount> => {
     const response = await api.post(BASE_URL, data);
-    return response.data;
+    return response.data.data;
   },
 
-  // Update account
-  update: async (id: number, data: Partial<ChartOfAccountCreate>): Promise<ChartOfAccount> => {
+  // Update account (accountCode is not updatable)
+  update: async (id: string, data: Partial<ChartOfAccountCreate>): Promise<ChartOfAccount> => {
     const response = await api.put(`${BASE_URL}/${id}`, data);
-    return response.data;
+    return response.data.data;
   },
 
   // Delete account (soft delete)
-  delete: async (id: number): Promise<void> => {
+  delete: async (id: string): Promise<void> => {
     await api.delete(`${BASE_URL}/${id}`);
   },
 };

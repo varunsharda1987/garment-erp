@@ -40,6 +40,7 @@ interface FabricStock {
     actualWidth: number;
     cutableWidth?: number;
     greige?: {
+      id: string;
       greigeCode: string;
       greigeName: string;
       composition: string;
@@ -99,10 +100,10 @@ export default function FabricAvailableStock() {
   const loadFabricStock = async () => {
     try {
       setIsLoading(true);
-      const statusParam = statusFilter === 'ALL' ? '' : `status=${statusFilter}`;
-      const response = await api.get<{ data: FabricStock[] } | FabricStock[]>(
-        `/stock${statusParam ? `?${statusParam}` : ''}`
-      );
+      // limit=500 (schema max): this page has no server pagination — it renders/exports the
+      // full list client-side, so request the whole set instead of the backend default of 20.
+      const statusParam = statusFilter === 'ALL' ? '' : `&status=${statusFilter}`;
+      const response = await api.get<{ data: FabricStock[] } | FabricStock[]>(`/stock?limit=500${statusParam}`);
       const data = response.data;
       setFabricStock((data as { data: FabricStock[] }).data || (data as FabricStock[]) || []);
     } catch (err) {
@@ -477,7 +478,7 @@ export default function FabricAvailableStock() {
                       <td className="px-3 py-3">
                         {stock.fabric?.greige && (
                           <Link
-                            to={`/greige/${stock.fabric.greige.greigeCode}`}
+                            to={`/greige/${stock.fabric.greige.id}`}
                             className="text-info hover:underline text-xs whitespace-nowrap"
                           >
                             {stock.fabric.greige.greigeCode}

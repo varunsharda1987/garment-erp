@@ -121,7 +121,9 @@ export function MoodBoardDetail() {
         status,
       });
       setMoodBoard(created);
-      setItems(created.items);
+      // Backend create() response has no items array (mood-board.service.ts), so guard
+      // against undefined — otherwise the first addItem spreads undefined and throws.
+      setItems(created.items ?? []);
       setSettingsOpen(false);
       toast({
         title: 'Success',

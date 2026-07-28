@@ -113,13 +113,12 @@ export default function StockMovementList() {
   const getSourceLink = (mov: UnifiedMovement): string | null => {
     switch (mov.sourceType) {
       case 'GRN':
-        return `/grn/${mov.sourceId}`;
+        return `/procurement/grn/${mov.sourceId}`;
       case 'CHALLAN':
-        return `/challans/${mov.sourceId}`;
+        return `/manufacturing/challans/${mov.sourceId}`;
       case 'GREIGE_STOCK':
         return `/greige-stock`;
-      case 'PROCUREMENT':
-        return `/fabric-procurement/${mov.sourceId}`;
+      // PROCUREMENT: no fabric-procurement detail route exists yet — render as plain text (B07-11)
       default:
         return null;
     }

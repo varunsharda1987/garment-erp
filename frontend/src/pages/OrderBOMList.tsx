@@ -149,7 +149,7 @@ const OrderBOMList = () => {
                             {bom.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-center">{bom.items?.length || 0}</td>
+                        <td className="px-4 py-3 text-sm text-center">{bom._count?.items ?? bom.items?.length ?? 0}</td>
                         <td className="px-4 py-3 text-sm text-right font-medium">
                           {bom.totalMaterialCost ? formatCurrency(bom.totalMaterialCost) : '-'}
                         </td>

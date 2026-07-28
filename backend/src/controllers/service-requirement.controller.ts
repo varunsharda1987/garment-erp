@@ -27,7 +27,6 @@ import { ValidationError } from '../errors';
 // for these body schemas is backend/src/schemas/serviceRequirement.schema.ts.
 // Do NOT re-add controller-local schemas or .parse(req.body) calls here.
 import type {
-  CalculateServicesInput,
   SuggestProcessorInput,
   SuggestProcessorsBulkInput,
   BulkAssignProcessorsInput,
@@ -48,10 +47,14 @@ import type {
  */
 export const calculateServices = async (req: Request, res: Response) => {
   const { workOrderId } = req.params;
-  const { userId } = req.body as CalculateServicesInput;
+  // Acting user comes from the auth token, not the request body (bug B06-05).
+  const userId = req.user?.userId;
 
   if (!workOrderId) {
     throw new ValidationError('Work order ID is required');
+  }
+  if (!userId) {
+    throw new ValidationError('Authenticated user is required');
   }
 
   const result = await calculateRequirementsFromWorkOrder({

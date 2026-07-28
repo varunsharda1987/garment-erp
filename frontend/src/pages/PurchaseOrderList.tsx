@@ -121,6 +121,8 @@ export default function PurchaseOrderList() {
       source: (searchParams.get('source') as POSource) || undefined,
       poCategories,
       supplierId: searchParams.get('supplierId') || undefined,
+      // Scoped from OrderDetail "View POs" action (?orderId=...) — B09-11 handoff
+      orderId: searchParams.get('orderId') || undefined,
       search: searchParams.get('search') || undefined,
       page: parseInt(searchParams.get('page') || '1'),
       limit: 20,

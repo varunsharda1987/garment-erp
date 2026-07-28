@@ -233,7 +233,14 @@ export async function getLaceStockById(id: string) {
     },
   });
 
-  return stock;
+  if (!stock) {
+    return stock;
+  }
+
+  // Derive FIFO aging days from receivedDate so the detail page badge/bucket render
+  // real values (previously undefined -> "undefined days old" / wrong bucket color).
+  const agingDays = Math.floor((Date.now() - stock.receivedDate.getTime()) / (1000 * 60 * 60 * 24));
+  return { ...stock, agingDays };
 }
 
 /**
@@ -320,8 +327,16 @@ export async function getAllLaceStock(filters: LaceStockFilters = {}) {
     }),
   ]);
 
+  // Derive FIFO aging days per lot from receivedDate so the list badge (`${agingDays}d`)
+  // and the >60d "Aging Alert" summary count work (agingDays was otherwise undefined).
+  const now = Date.now();
+  const stocksWithAging = stocks.map((stock) => ({
+    ...stock,
+    agingDays: Math.floor((now - stock.receivedDate.getTime()) / (1000 * 60 * 60 * 24)),
+  }));
+
   return {
-    data: stocks,
+    data: stocksWithAging,
     pagination: {
       page,
       limit,

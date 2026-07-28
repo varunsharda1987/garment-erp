@@ -84,7 +84,7 @@ export default function StockCountForm() {
 
     try {
       setLoading(true);
-      const count = await stockCountService.create({
+      await stockCountService.create({
         warehouseId: formData.warehouseId,
         countType: formData.countType as CountType,
         countDate: formData.countDate,
@@ -93,7 +93,8 @@ export default function StockCountForm() {
       });
 
       setSuccess(true);
-      setTimeout(() => navigate(`/inventory/stock-counts/${count.id}`), 2000);
+      // No stock-count detail page exists yet (B07-12 deferred); land back on the list.
+      setTimeout(() => navigate('/inventory/stock-counts'), 2000);
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { message?: string } } };
       setError(axiosError.response?.data?.message || 'Failed to create stock count');

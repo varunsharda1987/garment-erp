@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { FileText, Plus, Search, Edit, CheckCircle, XCircle, Filter } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,9 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { testTemplatesService } from '@/services/testing.service';
 import type { TestTemplate, TestTemplateType } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
+import { notify } from '@/lib/notify';
 
 export default function TestTemplates() {
-  const navigate = useNavigate();
+  // Test-template create/edit/detail screens are not built yet (deferred). Inform instead of routing to NotFound.
+  const notImplemented = () =>
+    notify.info('Coming soon', {
+      description: 'Test template create/edit/detail screens are not yet available.',
+    });
   const [templates, setTemplates] = useState<TestTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -77,7 +81,7 @@ export default function TestTemplates() {
           </h1>
           <p className="text-muted-foreground mt-1">Define test parameters and tolerance ranges for buyers</p>
         </div>
-        <Button onClick={() => navigate('/test-templates/new')} className="flex items-center gap-2">
+        <Button onClick={notImplemented} className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
           Create Template
         </Button>
@@ -121,7 +125,7 @@ export default function TestTemplates() {
           <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No Test Templates Found</h3>
           <p className="text-muted-foreground mb-4">Create your first test template</p>
-          <Button onClick={() => navigate('/test-templates/new')}>
+          <Button onClick={notImplemented}>
             <Plus className="h-4 w-4 mr-2" />
             Create Template
           </Button>
@@ -210,11 +214,11 @@ export default function TestTemplates() {
 
                 {/* Actions */}
                 <div className="flex gap-2 ml-4">
-                  <Button variant="outline" size="sm" onClick={() => navigate(`/test-templates/${template.id}/edit`)}>
+                  <Button variant="outline" size="sm" onClick={notImplemented}>
                     <Edit className="h-4 w-4 mr-1" />
                     Edit
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => navigate(`/test-templates/${template.id}`)}>
+                  <Button variant="outline" size="sm" onClick={notImplemented}>
                     View
                   </Button>
                 </div>

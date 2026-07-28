@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,7 +30,7 @@ import { CreditNoteReasonLabels, DocumentStatusLabels, DocumentStatusColors } fr
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { FileText, Plus, Search, CheckCircle2, XCircle, Trash2, Eye } from 'lucide-react';
+import { FileText, Plus, Search, CheckCircle2, XCircle, Trash2 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -87,7 +86,6 @@ interface CreditNoteLineItem {
 // ---------------------------------------------------------------------------
 
 export default function CreditNoteList() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   // List state
@@ -266,7 +264,7 @@ export default function CreditNoteList() {
                 </TableHeader>
                 <TableBody>
                   {creditNotes.map((cn) => (
-                    <TableRow key={cn.id} className="cursor-pointer" onClick={() => navigate(`/credit-notes/${cn.id}`)}>
+                    <TableRow key={cn.id}>
                       <TableCell className="font-mono text-sm font-medium">{cn.creditNoteNumber}</TableCell>
                       <TableCell>
                         <div className="text-sm font-medium">
@@ -288,15 +286,9 @@ export default function CreditNoteList() {
                         <Badge className={getStatusBadgeClasses(cn.status)}>{DocumentStatusLabels[cn.status]}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="View"
-                            onClick={() => navigate(`/credit-notes/${cn.id}`)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                        {/* Credit-note detail view (/credit-notes/:id) is not built yet —
+                            the row-click and View button were dead nav (B12-05). Deferred. */}
+                        <div className="flex justify-end gap-1">
                           {cn.status === 'DRAFT' && (
                             <>
                               <Button variant="ghost" size="icon" title="Approve" onClick={() => setApproveTarget(cn)}>

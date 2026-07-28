@@ -15,6 +15,7 @@ export const TrimTypeEnum = z.enum([
   'hook_eye',
   'snap_button',
   'buckle',
+  'belt',
   'velcro',
   'drawstring',
   'ribbon',
@@ -23,6 +24,10 @@ export const TrimTypeEnum = z.enum([
   'motif',
   'interlining',
   'padding',
+  'other_fastener',
+  'other_tape',
+  'other_decorative',
+  'other_functional',
 ]);
 
 // ============================================================================

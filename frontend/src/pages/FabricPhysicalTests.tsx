@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Plus, Search, Filter, FileText, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,9 +8,14 @@ import { Badge } from '@/components/ui/badge';
 import { fabricPhysicalTestsService } from '@/services/testing.service';
 import type { FabricPhysicalTest, TestResult } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
+import { notify } from '@/lib/notify';
 
 export default function FabricPhysicalTests() {
-  const navigate = useNavigate();
+  // FPT create/detail screens are not built yet (deferred). Inform instead of routing to NotFound.
+  const notImplemented = () =>
+    notify.info('Coming soon', {
+      description: 'Fabric physical test entry & detail screens are not yet available.',
+    });
   const [tests, setTests] = useState<FabricPhysicalTest[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -93,7 +97,7 @@ export default function FabricPhysicalTests() {
           <h1 className="text-3xl font-display font-medium text-foreground">Fabric Physical Tests</h1>
           <p className="text-muted-foreground mt-1">Manage fabric testing records and results</p>
         </div>
-        <Button onClick={() => navigate('/fabric-physical-tests/new')} className="gap-2">
+        <Button onClick={notImplemented} className="gap-2">
           <Plus className="h-4 w-4" />
           New Test
         </Button>
@@ -139,7 +143,7 @@ export default function FabricPhysicalTests() {
           <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No tests found</h3>
           <p className="text-muted-foreground mb-6">Get started by creating a new fabric physical test</p>
-          <Button onClick={() => navigate('/fabric-physical-tests/new')}>
+          <Button onClick={notImplemented}>
             <Plus className="h-4 w-4 mr-2" />
             New Test
           </Button>
@@ -147,11 +151,7 @@ export default function FabricPhysicalTests() {
       ) : (
         <div className="space-y-4">
           {tests.map((test) => (
-            <Card
-              key={test.id}
-              className="p-5 hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => navigate(`/fabric-physical-tests/${test.id}`)}
-            >
+            <Card key={test.id} className="p-5">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">

@@ -94,10 +94,12 @@ export const consumeStock = async (stockId: string, input: ConsumeStockInput): P
 };
 
 /**
- * Return stock to available
+ * Return unused allocated stock back to available.
+ * Backend route is allocation-scoped: POST /lace-stock/allocations/:allocationId/return
+ * (there is no stock-level /:id/return route). Body must be { quantityToReturn, notes? }.
  */
-export const returnStock = async (stockId: string, input: ReturnStockInput): Promise<LaceStock> => {
-  const { data } = await api.post<ApiResponse<LaceStock>>(`${BASE_URL}/${stockId}/return`, input);
+export const returnStock = async (allocationId: string, input: ReturnStockInput): Promise<LaceStock> => {
+  const { data } = await api.post<ApiResponse<LaceStock>>(`${BASE_URL}/allocations/${allocationId}/return`, input);
   return data.data;
 };
 

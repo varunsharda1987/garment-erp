@@ -435,7 +435,23 @@ class TemplateService {
         { fieldName: 'status', displayName: 'Status', type: 'text' },
         { fieldName: 'totalCost', displayName: 'Total Cost', type: 'number' },
       ],
+      // Cost sheets export (style_costing table). Nested style fields resolve via getNestedValue.
+      style_costing: [
+        { fieldName: 'styles.styleCode', displayName: 'Style Code', type: 'text' },
+        { fieldName: 'styles.styleName', displayName: 'Style Name', type: 'text' },
+        { fieldName: 'version', displayName: 'Version', type: 'number' },
+        { fieldName: 'approvalStatus', displayName: 'Approval Status', type: 'text' },
+        { fieldName: 'totalMaterialCost', displayName: 'Total Material Cost', type: 'number' },
+        { fieldName: 'totalProductionCost', displayName: 'Total Production Cost', type: 'number' },
+        { fieldName: 'totalProductCost', displayName: 'Total Product Cost', type: 'number' },
+        { fieldName: 'totalCostPerPiece', displayName: 'Cost Per Piece', type: 'number' },
+        { fieldName: 'sellingPricePerPiece', displayName: 'Selling Price Per Piece', type: 'number' },
+        { fieldName: 'closedCost', displayName: 'Closed Cost', type: 'number' },
+        { fieldName: 'createdAt', displayName: 'Created At', type: 'date' },
+      ],
     };
+    // cost_sheets is an alias of style_costing (see getAvailableModules)
+    moduleColumns.cost_sheets = moduleColumns.style_costing;
 
     return moduleColumns[moduleName] || [];
   }

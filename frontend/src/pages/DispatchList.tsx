@@ -10,6 +10,8 @@ import {
   Eye,
   Send,
   CheckCircle,
+  XCircle,
+  CalendarClock,
   RefreshCw,
   Package,
   FileText,
@@ -26,6 +28,8 @@ import { deliveryNoteService, asnService, dispatchSummaryService } from '@/servi
 import type { DeliveryNote, DeliveryStatus, ASNApplication, ASNStatus, DispatchSummary } from '@/types/dispatch.types';
 import { DeliveryStatusLabels, DeliveryStatusColors, ASNStatusLabels, ASNStatusColors } from '@/types/dispatch.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { AssignTransportDialog } from '@/components/dispatch/AssignTransportDialog';
+import { ASNActionDialog, type ASNAction } from '@/components/dispatch/ASNActionDialog';
 import { format } from 'date-fns';
 
 export default function DispatchList() {
@@ -49,6 +53,10 @@ export default function DispatchList() {
   const [summary, setSummary] = useState<DispatchSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Inline action dialogs (wired to existing endpoints — findings B10-05, B10-06)
+  const [transportDn, setTransportDn] = useState<DeliveryNote | null>(null);
+  const [asnAction, setAsnAction] = useState<{ asn: ASNApplication; action: ASNAction } | null>(null);
 
   const fetchDeliveryNotes = useCallback(async () => {
     try {
@@ -181,12 +189,9 @@ export default function DispatchList() {
           <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
-          <Button asChild variant="outline">
-            <Link to="/manufacturing/dispatch/asn/new">
-              <ClipboardList className="h-4 w-4 mr-2" />
-              New ASN
-            </Link>
-          </Button>
+          {/* "New ASN" button hidden (finding B10-03): the /manufacturing/dispatch/asn/new route and
+              its multi-step ASN creation form do not exist yet, so this only landed on NotFound.
+              Deferred for a real build — see deferredBuilds. */}
           <Button asChild>
             <Link to="/manufacturing/dispatch/delivery/new">
               <Plus className="h-4 w-4 mr-2" />
@@ -343,11 +348,21 @@ export default function DispatchList() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" asChild>
+                            <Button variant="ghost" size="icon" asChild title="View">
                               <Link to={`/manufacturing/dispatch/delivery/${dn.id}`}>
                                 <Eye className="h-4 w-4" />
                               </Link>
                             </Button>
+                            {dn.status === 'PENDING' && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setTransportDn(dn)}
+                                title="Assign Transport"
+                              >
+                                <Truck className="h-4 w-4 text-muted-foreground" />
+                              </Button>
+                            )}
                             {dn.status === 'PENDING' && (
                               <Button
                                 variant="ghost"
@@ -484,11 +499,10 @@ export default function DispatchList() {
                         <TableCell>{getASNStatusBadge(asn.status)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" asChild>
-                              <Link to={`/manufacturing/dispatch/asn/${asn.id}`}>
-                                <Eye className="h-4 w-4" />
-                              </Link>
-                            </Button>
+                            {/* View button hidden (finding B10-04): the /manufacturing/dispatch/asn/:id
+                                route and ASN detail page do not exist yet, so this only landed on
+                                NotFound. Deferred for a real build (see deferredBuilds). The
+                                Approve/Reject/Reschedule lifecycle is driven inline via dialogs below. */}
                             {asn.status === 'PENDING' && (
                               <Button
                                 variant="ghost"
@@ -498,6 +512,34 @@ export default function DispatchList() {
                               >
                                 <Send className="h-4 w-4 text-info" />
                               </Button>
+                            )}
+                            {asn.status === 'APPLIED' && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setAsnAction({ asn, action: 'approve' })}
+                                  title="Approve ASN"
+                                >
+                                  <CheckCircle className="h-4 w-4 text-success" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setAsnAction({ asn, action: 'reschedule' })}
+                                  title="Reschedule ASN"
+                                >
+                                  <CalendarClock className="h-4 w-4 text-warning" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setAsnAction({ asn, action: 'reject' })}
+                                  title="Reject ASN"
+                                >
+                                  <XCircle className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </>
                             )}
                             {asn.status === 'APPROVED' && (
                               <Button variant="ghost" size="icon" title="Create Delivery Note" asChild>
@@ -546,6 +588,27 @@ export default function DispatchList() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Assign Transport dialog (PENDING delivery notes) — finding B10-06 */}
+      <AssignTransportDialog
+        deliveryNote={transportDn}
+        onOpenChange={(open) => !open && setTransportDn(null)}
+        onSuccess={() => {
+          fetchDeliveryNotes();
+          fetchSummary();
+        }}
+      />
+
+      {/* ASN approve / reject / reschedule dialog (APPLIED applications) — finding B10-05 */}
+      <ASNActionDialog
+        asn={asnAction?.asn ?? null}
+        action={asnAction?.action ?? null}
+        onOpenChange={(open) => !open && setAsnAction(null)}
+        onSuccess={() => {
+          fetchASNApplications();
+          fetchSummary();
+        }}
+      />
     </div>
   );
 }

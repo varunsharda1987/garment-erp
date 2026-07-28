@@ -523,6 +523,9 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
               size_options: true,
             },
           },
+          // Costing Details + Production Variance panel (OrderDetail.tsx reads
+          // item.orderItemCosting — serializer camelizes order_item_costing).
+          order_item_costing: true,
         },
       },
       orderBoms: {

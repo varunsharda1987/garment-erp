@@ -275,11 +275,12 @@ export async function changeWidth(bomId: string, data: ChangeWidthRequest): Prom
 
 /**
  * Fetch available CAD width options for a fabric
- * GET /api/fabric-greige/cad/fabric/:fabricId
+ * GET /api/fabric-management/cad/fabric/:fabricId
+ * (fabric-greige routes are mounted at /fabric-management — see routes/index.ts)
  */
 export async function getFabricCadOptions(fabricId: string): Promise<FabricCadOption[]> {
   const response = await api.get<{ success: boolean; data: FabricCadOption[] }>(
-    `/fabric-greige/cad/fabric/${fabricId}`
+    `/fabric-management/cad/fabric/${fabricId}`
   );
   return response.data.data;
 }

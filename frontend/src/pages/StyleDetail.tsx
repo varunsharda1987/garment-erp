@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { styleService } from '@/services/style.service';
-import type { Style, ProductionStage } from '@/types/style.types';
+import type { Style } from '@/types/style.types';
 import { PRODUCTION_STAGE_LABELS } from '@/types/style.types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import ConfirmDialog from '@/components/ConfirmDialog';
 import { logError } from '@/lib/logger';
 import { getUploadUrl } from '../config/api.config';
 import { getStyleStock } from '@/services/style-stock.service';
@@ -23,9 +21,6 @@ export default function StyleDetail() {
   const [style, setStyle] = useState<Style | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [updatingStage, setUpdatingStage] = useState(false);
-  const [stageDialogOpen, setStageDialogOpen] = useState(false);
-  const [pendingStage, setPendingStage] = useState<ProductionStage | null>(null);
   const [fabricStock, setFabricStock] = useState<StyleStockAvailability | null>(null);
   const [fabricStockLoading, setFabricStockLoading] = useState(false);
   const [actualConsumption, setActualConsumption] = useState<StyleActualConsumption[]>([]);
@@ -79,35 +74,6 @@ export default function StyleDetail() {
       );
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Handle stage update click - opens confirmation dialog
-  const handleStageUpdateClick = (newStage: ProductionStage) => {
-    if (!id || !style) return;
-    setPendingStage(newStage);
-    setStageDialogOpen(true);
-  };
-
-  // Confirm stage update - executes after user confirms
-  const confirmStageUpdate = async () => {
-    if (!id || !pendingStage) return;
-
-    try {
-      setUpdatingStage(true);
-      await styleService.updateProductionStage(id, pendingStage);
-      // Reload style data to get updated tracking
-      await loadStyleData(id);
-      alert('Production stage updated successfully!');
-    } catch (err: unknown) {
-      logError('Error updating stage:', err);
-      alert(
-        (err as { response?: { data?: { message?: string } } }).response?.data?.message ||
-          'Failed to update production stage'
-      );
-    } finally {
-      setUpdatingStage(false);
-      setPendingStage(null);
     }
   };
 
@@ -288,7 +254,14 @@ export default function StyleDetail() {
                     <Button onClick={() => navigate(`/orders/new?styleId=${style.id}`)} size="lg">
                       Create Order from This Style
                     </Button>
-                    <Button variant="outline" onClick={() => navigate(`/styles/${style.id}/costing`)}>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        navigate(
+                          style.costing ? `/cost-sheets/${style.costing.id}` : `/cost-sheets/new?styleId=${style.id}`
+                        )
+                      }
+                    >
                       {style.costing ? 'View Costing' : 'Add Costing'}
                     </Button>
                   </div>
@@ -744,31 +717,15 @@ export default function StyleDetail() {
                           <h3 className="font-semibold text-lg mb-4">Current Stage</h3>
                           <div className="flex items-center gap-4">
                             <div className="flex-1">
-                              <Select
-                                value={tracking.currentStage}
-                                onValueChange={(value) => handleStageUpdateClick(value as ProductionStage)}
-                                disabled={updatingStage}
-                              >
-                                <SelectTrigger className="w-full">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="ORDER_RECEIVED">Orders Received</SelectItem>
-                                  <SelectItem value="PENDING_COSTING">Pending Costing</SelectItem>
-                                  <SelectItem value="PENDING_GREIGE_ORDER">Pending Greige Order</SelectItem>
-                                  <SelectItem value="TRIMS_NOT_ORDERED">Trims Not Ordered</SelectItem>
-                                  <SelectItem value="IN_PRINTING">In Printing</SelectItem>
-                                  <SelectItem value="IN_DYING">In Dying</SelectItem>
-                                  <SelectItem value="IN_EMBROIDERY">In Embroidery</SelectItem>
-                                  <SelectItem value="IN_HANDWORK">In Handwork</SelectItem>
-                                  <SelectItem value="IN_CUTTING">In Cutting</SelectItem>
-                                  <SelectItem value="IN_STITCHING">In Stitching</SelectItem>
-                                  <SelectItem value="IN_FINISHING">In Finishing</SelectItem>
-                                  <SelectItem value="READY_TO_SHIP">Ready to Ship</SelectItem>
-                                  <SelectItem value="SHIPPED">Shipped</SelectItem>
-                                  <SelectItem value="COMPLETED">Completed</SelectItem>
-                                </SelectContent>
-                              </Select>
+                              {/* Read-only: production stage advances via Work Order stage
+                                  transitions, not by editing here. The former editable Select
+                                  called a throwing stub / non-existent endpoint (bug B05-06). */}
+                              <div className="w-full rounded-md border border-input bg-muted px-3 py-2 text-sm font-medium">
+                                {PRODUCTION_STAGE_LABELS[tracking.currentStage]}
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Stage advances automatically via Work Order transitions
+                              </p>
                             </div>
                             <div className="bg-info-muted p-4 rounded">
                               <p className="text-sm text-info">Pieces in Stage</p>
@@ -968,18 +925,6 @@ export default function StyleDetail() {
             </Card>
           </TabsContent>
         </Tabs>
-
-        {/* Stage Update Confirmation Dialog */}
-        <ConfirmDialog
-          open={stageDialogOpen}
-          onOpenChange={setStageDialogOpen}
-          title="Update Production Stage"
-          description={pendingStage ? `Update production stage to "${PRODUCTION_STAGE_LABELS[pendingStage]}"?` : ''}
-          confirmText="Update"
-          cancelText="Cancel"
-          onConfirm={confirmStageUpdate}
-          variant="default"
-        />
       </div>
     </div>
   );

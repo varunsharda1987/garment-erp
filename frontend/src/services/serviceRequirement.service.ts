@@ -38,13 +38,10 @@ import type {
  * Calculate service requirements from work order's style processes
  * POST /api/work-orders/:workOrderId/calculate-services
  */
-export async function calculateServices(
-  workOrderId: string,
-  userId: string
-): Promise<CalculationResultResponse['data']> {
-  const response = await api.post<CalculationResultResponse>(`/work-orders/${workOrderId}/calculate-services`, {
-    userId,
-  });
+export async function calculateServices(workOrderId: string): Promise<CalculationResultResponse['data']> {
+  // The acting user is derived server-side from the auth token (req.user.userId) — the
+  // browser has no reliable userId to send, so no body is required (bug B06-05).
+  const response = await api.post<CalculationResultResponse>(`/work-orders/${workOrderId}/calculate-services`, {});
   return response.data.data;
 }
 

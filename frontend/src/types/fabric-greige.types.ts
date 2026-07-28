@@ -167,7 +167,7 @@ export interface FabricMaster {
 export interface FabricWidthCAD {
   id: string;
   fabricId: string;
-  availableWidth: number;
+  cutableWidth: number; // backend column name (fabric_width_cad.cutableWidth); was mis-aliased as availableWidth
   widthUnit: string;
   cadMeters?: number;
   cadYards?: number;

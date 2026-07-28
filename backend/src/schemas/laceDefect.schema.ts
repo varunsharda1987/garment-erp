@@ -11,15 +11,13 @@ import { z } from 'zod';
 // Enums
 // ============================================================================
 
-export const DefectTypeEnum = z.enum([
-  'WEAVING_FAULT',
-  'DYEING_FAULT',
-  'FINISHING_FAULT',
-  'PATTERN_FAULT',
-  'CONTAMINATION',
-  'DIMENSIONAL',
-  'OTHER',
-]);
+// Defect type family — matches laceDefect.service.ts DefectType and the controller's
+// validDefectTypes check (defect_records.defectType is stored as a plain String column).
+export const DefectTypeEnum = z.enum(['WEAVE_DEFECT', 'COLOR_VARIATION', 'WIDTH_VARIATION', 'DAMAGE']);
+
+// Production stage at which the defect was discovered — matches service DiscoveredAt and
+// the controller's validDiscoveredAt check (defect_records.discoveredAt is a plain String).
+export const DiscoveredAtEnum = z.enum(['RECEIVING', 'CUTTING', 'STITCHING', 'QC']);
 
 export const ClaimStatusEnum = z.enum(['PENDING', 'SUBMITTED', 'APPROVED', 'REJECTED', 'RESOLVED']);
 
@@ -36,7 +34,7 @@ export const logDefectSchema = z.object({
   laceId: z.string().uuid('Invalid lace ID'),
   defectType: DefectTypeEnum,
   defectQuantity: z.number().positive('Defect quantity must be positive'),
-  discoveredAt: z.string().datetime().optional(),
+  discoveredAt: DiscoveredAtEnum,
   orderId: z.string().uuid('Invalid order ID').optional(),
   styleId: z.string().uuid('Invalid style ID').optional(),
   defectDescription: z.string().max(1000).optional(),

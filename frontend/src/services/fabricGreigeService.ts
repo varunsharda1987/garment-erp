@@ -263,11 +263,19 @@ export const fabricService = {
   },
 
   // Get pattern parts for a component (from component_pattern_parts)
+  // Route is GET /components/:componentId/pattern-parts and returns { success, data: [...] },
+  // where each element is a component_pattern_parts junction row with a nested `patternPart`.
+  // Flatten to the pattern-part identity (id/code/name): the allocation endpoint validates
+  // patternPartIds against pattern_part_master, so `id` MUST be the pattern-part id — NOT the
+  // junction row id. (The old /component-masters/:id/pattern-parts path 404'd — no such route.)
   async getPatternPartsForComponent(componentMasterId: string): Promise<PatternPartForAllocation[]> {
-    const response = await api.get<{ patternParts: PatternPartForAllocation[] }>(
-      `/component-masters/${componentMasterId}/pattern-parts`
-    );
-    return response.data.patternParts || [];
+    const response = await api.get<{
+      data: Array<{ patternPart?: { id: string; code: string; name: string } }>;
+    }>(`/components/${componentMasterId}/pattern-parts`);
+    return (response.data.data || [])
+      .map((row) => row.patternPart)
+      .filter((pp): pp is { id: string; code: string; name: string } => Boolean(pp))
+      .map((pp) => ({ id: pp.id, code: pp.code, name: pp.name }));
   },
 
   // Get CAD pattern parts for a style component (CAD-defined parts first, then component master parts)

@@ -1121,8 +1121,11 @@ export default function StyleFormRedesigned() {
         }
       }
 
-      // Load SKU variants if available (from style_variants table)
-      const skuVariantsData = (styleData.variants || []) as Array<{
+      // Load SKU variants if available (from style_variants table).
+      // Serializer emits the key `styleVariants` (styleVariants->styleVariants), NOT `variants`.
+      // Reading the wrong key left the form on default blank rows and the save then
+      // deleted+recreated auto-generated SKUs, destroying the saved variants (B05-02).
+      const skuVariantsData = (styleData.styleVariants || []) as Array<{
         sizeName?: string;
         size?: string;
         sku: string;

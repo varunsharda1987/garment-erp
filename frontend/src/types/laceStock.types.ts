@@ -100,6 +100,8 @@ export interface LaceStock {
     id: string;
     orderNumber: string;
   };
+  // getLaceStockById includes allocations (with order/style relations) directly on the stock.
+  allocations?: LaceStockAllocation[];
 }
 
 // Stock allocation record

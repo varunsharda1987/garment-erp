@@ -121,7 +121,7 @@ export default function EmbroideryPieceSendOut() {
       return;
     }
     api
-      .get(`/purchase-orders?poCategory=EMBROIDERY_SERVICE&serviceWorkOrderId=${selectedWorkOrderId}&limit=100`)
+      .get(`/purchase-orders?poCategories=EMBROIDERY_SERVICE&serviceWorkOrderId=${selectedWorkOrderId}&limit=100`)
       .then((res) => {
         const items = (res.data?.data || res.data || []).map((po: any) => ({
           id: po.id,

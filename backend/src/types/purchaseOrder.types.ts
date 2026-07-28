@@ -132,6 +132,7 @@ export interface PurchaseOrderFilters {
   source?: POSource;
   poCategories?: string[];
   supplierId?: string;
+  serviceWorkOrderId?: string;
   search?: string;
   startDate?: Date | string;
   endDate?: Date | string;

@@ -156,10 +156,11 @@ export interface FabricMaster {
       };
     }>;
   }>;
-  // Note: Prisma's _count is converted to count by humps.camelizeKeys (lowercase)
-  count?: {
+  // Note: the serializer now preserves Prisma's `_count` key verbatim and does NOT
+  // remap its inner relation keys, so read `_count.styleFabrics` (not `count.fabrics`).
+  _count?: {
     widthCADs: number;
-    fabrics?: number; // styleFabrics -> fabrics (serializer applies RELATION_MAPPINGS)
+    styleFabrics?: number; // preserved as-is inside _count (no styleFabrics->fabrics remap)
   };
 }
 

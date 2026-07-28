@@ -33,6 +33,10 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
   const [laceType, setLaceType] = useState<string>('');
   const [suppliers, setSuppliers] = useState<LaceSupplierInput[]>([]);
+  // Tracks whether the supplier section was actually loaded or edited. We only send `suppliers`
+  // on save when this is true — otherwise an unloaded/untouched edit would send [] and the
+  // controller's delete-and-recreate would wipe all existing supplier links.
+  const [suppliersTouched, setSuppliersTouched] = useState(false);
   const [nameManuallyEdited, setNameManuallyEdited] = useState(false);
   const [originalLaceName, setOriginalLaceName] = useState<string>('');
 
@@ -107,10 +111,12 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
             setSourceGreigeLaceId(lace.sourceGreigeLaceId);
           }
 
-          // Set suppliers from junction table
-          if (lace.laceSuppliers && lace.laceSuppliers.length > 0) {
+          // Set suppliers from junction table. The serializer renames laceSuppliers→`suppliers`,
+          // so the existing links live under `lace.suppliers`. When they are present we know the
+          // server's true supplier state, so mark the section as touched (safe to echo back on save).
+          if (lace.suppliers && lace.suppliers.length > 0) {
             setSuppliers(
-              lace.laceSuppliers.map((s) => ({
+              lace.suppliers.map((s) => ({
                 supplierId: s.supplierId,
                 isPreferred: s.isPreferred,
                 isActive: s.isActive,
@@ -118,6 +124,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                 pricePerMeter: s.pricePerMeter?.toString() || '',
               }))
             );
+            setSuppliersTouched(true);
           }
 
           // Set style codes
@@ -137,6 +144,7 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
 
   // Supplier management functions
   const handleAddSupplier = () => {
+    setSuppliersTouched(true);
     setSuppliers((prev) => [
       ...prev,
       {
@@ -150,10 +158,12 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
   };
 
   const handleRemoveSupplier = (index: number) => {
+    setSuppliersTouched(true);
     setSuppliers((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSupplierChange = (index: number, field: keyof LaceSupplierInput, value: string | boolean) => {
+    setSuppliersTouched(true);
     setSuppliers((prev) => prev.map((s, i) => (i === index ? { ...s, [field]: value } : s)));
   };
 
@@ -175,7 +185,10 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
         laceType: laceType || undefined,
         width: data.width ? Number(data.width) : undefined,
         styleCodes: selectedStyleCodes,
-        suppliers: validSuppliers,
+        // Only send suppliers when the section was loaded/edited. Omitting it makes the backend
+        // leave existing supplier links untouched (it only delete-and-recreates when `suppliers`
+        // is provided), preventing a silent wipe on an untouched edit.
+        ...(suppliersTouched ? { suppliers: validSuppliers } : {}),
         // Greige fields
         isGreige,
         expectedShrinkagePercent:

@@ -469,11 +469,15 @@ function MaterialRequirementsTab({
         api.get('/mrp/processing-assignment/processors'),
       ]);
       setGreigeOptions(
-        (greigeRes.data?.data || []).map((g: { id: string; genericName?: string; name?: string; code: string }) => ({
-          id: g.id,
-          name: g.genericName || g.name || g.code,
-          code: g.code,
-        }))
+        // GET /fabric-management/greige returns raw greige_master rows: greigeCode / greigeName /
+        // genericGreigeName (there is no name/code/genericName), so map those actual fields.
+        (greigeRes.data?.data || []).map(
+          (g: { id: string; genericGreigeName?: string; greigeName?: string; greigeCode: string }) => ({
+            id: g.id,
+            name: g.genericGreigeName || g.greigeName || g.greigeCode,
+            code: g.greigeCode,
+          })
+        )
       );
       setProcessorOptions(
         (processorRes.data?.data || []).map((p: { id: string; name: string; code: string }) => ({

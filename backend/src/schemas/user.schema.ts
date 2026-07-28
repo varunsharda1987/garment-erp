@@ -47,9 +47,11 @@ export const createUserSchema = z.object({
  */
 export const updateUserSchema = z.object({
   email: z.string().email('Invalid email format').max(255).optional(),
-  name: z.string().min(1).max(200).optional(),
+  firstName: z.string().max(100).optional(),
+  lastName: z.string().max(100).optional(),
   phone: z.string().max(20).optional().nullable(),
-  avatar: z.string().max(500).optional().nullable(),
+  department: z.string().max(100).optional().nullable(),
+  password: z.string().min(6, 'Password must be at least 6 characters').max(100).optional(),
   isActive: z.boolean().optional(),
 });
 

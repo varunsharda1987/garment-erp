@@ -153,7 +153,12 @@ export default function SupplierDetail() {
               {supplier._count && (
                 <div className="text-right text-sm text-muted-foreground">
                   <div>Purchase Orders: {supplier._count.purchaseOrders}</div>
-                  <div>Materials: {supplier._count.materials}</div>
+                  <div>
+                    Materials:{' '}
+                    {(supplier._count.materialSuppliers || 0) +
+                      (supplier._count.greigeSuppliers || 0) +
+                      (supplier._count.fabricSuppliers || 0)}
+                  </div>
                   <div>GRNs: {supplier._count.goodsReceivingNotes}</div>
                 </div>
               )}

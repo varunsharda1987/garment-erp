@@ -112,7 +112,7 @@ export default function SmockingSendOut() {
       return;
     }
     api
-      .get(`/purchase-orders?poCategory=SMOCKING_SERVICE&serviceWorkOrderId=${selectedWorkOrderId}&limit=100`)
+      .get(`/purchase-orders?poCategories=SMOCKING_SERVICE&serviceWorkOrderId=${selectedWorkOrderId}&limit=100`)
       .then((res) => {
         const items = (res.data?.data || res.data || []).map((po: any) => ({
           id: po.id,

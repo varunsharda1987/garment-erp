@@ -113,7 +113,8 @@ export default function StockProductionOrderDetail() {
         quantity: item.quantity,
       }));
       const newItem = {
-        colorId: newItemColorId || null,
+        // 'none' is the "No specific color" sentinel from the Select — map it to null (not a uuid)
+        colorId: newItemColorId && newItemColorId !== 'none' ? newItemColorId : null,
         sizeId: newItemSizeId,
         quantity: parseInt(newItemQuantity),
       };

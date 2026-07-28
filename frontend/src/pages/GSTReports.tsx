@@ -15,48 +15,51 @@ import { FileText, Calendar } from 'lucide-react';
 // ---------------------------------------------------------------------------
 
 interface B2BInvoice {
-  gstin: string;
+  customerGstin: string;
   customerName: string;
   invoiceNumber: string;
   invoiceDate: string;
   taxableValue: number;
-  cgst: number;
-  sgst: number;
-  igst: number;
-  totalValue: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  invoiceValue: number;
 }
 
 interface B2CSEntry {
   placeOfSupply: string;
   taxableValue: number;
-  cgst: number;
-  sgst: number;
-  igst: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
 }
 
 interface CDNREntry {
-  gstin: string;
+  customerGstin: string;
   customerName: string;
-  noteNumber: string;
+  creditNoteNumber: string;
   invoiceNumber: string;
-  noteDate: string;
-  value: number;
+  creditNoteDate: string;
+  noteValue: number;
   reason: string;
 }
 
 interface HSNSummaryEntry {
   hsnCode: string;
   taxableValue: number;
-  cgst: number;
-  sgst: number;
-  igst: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
   totalTax: number;
 }
 
 interface GSTR1Report {
-  summary: {
+  totals: {
     totalInvoices: number;
     totalTaxableValue: number;
+    totalCgst: number;
+    totalSgst: number;
+    totalIgst: number;
     totalTax: number;
     totalInvoiceValue: number;
   };
@@ -74,11 +77,17 @@ interface TaxBreakdown {
 }
 
 interface GSTR3BSummary {
-  outwardSupplies: TaxBreakdown;
+  outwardSupplies: {
+    taxable: TaxBreakdown;
+    exempt: { taxableValue: number };
+    nilRated: { taxableValue: number };
+  };
   inputTaxCredit: {
-    cgst: number;
-    sgst: number;
-    igst: number;
+    fromPurchases: {
+      cgst: number;
+      sgst: number;
+      igst: number;
+    };
   };
   netTaxPayable: {
     cgst: number;
@@ -256,10 +265,10 @@ export default function GSTReports() {
             <>
               {/* Summary cards */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <SummaryCard title="Total Invoices" value={String(gstr1Data.summary.totalInvoices)} plain />
-                <SummaryCard title="Total Taxable Value" value={formatCurrency(gstr1Data.summary.totalTaxableValue)} />
-                <SummaryCard title="Total Tax" value={formatCurrency(gstr1Data.summary.totalTax)} />
-                <SummaryCard title="Total Invoice Value" value={formatCurrency(gstr1Data.summary.totalInvoiceValue)} />
+                <SummaryCard title="Total Invoices" value={String(gstr1Data.totals.totalInvoices)} plain />
+                <SummaryCard title="Total Taxable Value" value={formatCurrency(gstr1Data.totals.totalTaxableValue)} />
+                <SummaryCard title="Total Tax" value={formatCurrency(gstr1Data.totals.totalTax)} />
+                <SummaryCard title="Total Invoice Value" value={formatCurrency(gstr1Data.totals.totalInvoiceValue)} />
               </div>
 
               {/* B2B Table */}
@@ -289,15 +298,17 @@ export default function GSTReports() {
                         <TableBody>
                           {gstr1Data.b2b.map((row, idx) => (
                             <TableRow key={idx}>
-                              <TableCell className="font-mono text-xs">{row.gstin}</TableCell>
+                              <TableCell className="font-mono text-xs">{row.customerGstin}</TableCell>
                               <TableCell>{row.customerName}</TableCell>
                               <TableCell>{row.invoiceNumber}</TableCell>
                               <TableCell>{formatDate(row.invoiceDate)}</TableCell>
                               <TableCell className="text-right">{formatCurrency(row.taxableValue)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(row.cgst)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(row.sgst)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(row.igst)}</TableCell>
-                              <TableCell className="text-right font-medium">{formatCurrency(row.totalValue)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(row.cgstAmount)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(row.sgstAmount)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(row.igstAmount)}</TableCell>
+                              <TableCell className="text-right font-medium">
+                                {formatCurrency(row.invoiceValue)}
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -332,9 +343,9 @@ export default function GSTReports() {
                             <TableRow key={idx}>
                               <TableCell>{row.placeOfSupply}</TableCell>
                               <TableCell className="text-right">{formatCurrency(row.taxableValue)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(row.cgst)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(row.sgst)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(row.igst)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(row.cgstAmount)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(row.sgstAmount)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(row.igstAmount)}</TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
@@ -369,12 +380,12 @@ export default function GSTReports() {
                         <TableBody>
                           {gstr1Data.cdnr.map((row, idx) => (
                             <TableRow key={idx}>
-                              <TableCell className="font-mono text-xs">{row.gstin}</TableCell>
+                              <TableCell className="font-mono text-xs">{row.customerGstin}</TableCell>
                               <TableCell>{row.customerName}</TableCell>
-                              <TableCell>{row.noteNumber}</TableCell>
+                              <TableCell>{row.creditNoteNumber}</TableCell>
                               <TableCell>{row.invoiceNumber}</TableCell>
-                              <TableCell>{formatDate(row.noteDate)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(row.value)}</TableCell>
+                              <TableCell>{formatDate(row.creditNoteDate)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(row.noteValue)}</TableCell>
                               <TableCell>{row.reason}</TableCell>
                             </TableRow>
                           ))}
@@ -411,9 +422,9 @@ export default function GSTReports() {
                             <TableRow key={idx}>
                               <TableCell className="font-mono">{row.hsnCode}</TableCell>
                               <TableCell className="text-right">{formatCurrency(row.taxableValue)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(row.cgst)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(row.sgst)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(row.igst)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(row.cgstAmount)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(row.sgstAmount)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(row.igstAmount)}</TableCell>
                               <TableCell className="text-right font-medium">{formatCurrency(row.totalTax)}</TableCell>
                             </TableRow>
                           ))}
@@ -456,16 +467,16 @@ export default function GSTReports() {
                             Outward taxable supplies (other than zero rated, nil rated and exempted)
                           </TableCell>
                           <TableCell className="text-right">
-                            {formatCurrency(gstr3bData.outwardSupplies.taxableValue)}
+                            {formatCurrency(gstr3bData.outwardSupplies.taxable.taxableValue)}
                           </TableCell>
                           <TableCell className="text-right">
-                            {formatCurrency(gstr3bData.outwardSupplies.cgst)}
+                            {formatCurrency(gstr3bData.outwardSupplies.taxable.cgst)}
                           </TableCell>
                           <TableCell className="text-right">
-                            {formatCurrency(gstr3bData.outwardSupplies.sgst)}
+                            {formatCurrency(gstr3bData.outwardSupplies.taxable.sgst)}
                           </TableCell>
                           <TableCell className="text-right">
-                            {formatCurrency(gstr3bData.outwardSupplies.igst)}
+                            {formatCurrency(gstr3bData.outwardSupplies.taxable.igst)}
                           </TableCell>
                         </TableRow>
                       </TableBody>
@@ -493,9 +504,15 @@ export default function GSTReports() {
                       <TableBody>
                         <TableRow>
                           <TableCell className="font-medium">ITC Available (from purchases)</TableCell>
-                          <TableCell className="text-right">{formatCurrency(gstr3bData.inputTaxCredit.cgst)}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(gstr3bData.inputTaxCredit.sgst)}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(gstr3bData.inputTaxCredit.igst)}</TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(gstr3bData.inputTaxCredit.fromPurchases.cgst)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(gstr3bData.inputTaxCredit.fromPurchases.sgst)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(gstr3bData.inputTaxCredit.fromPurchases.igst)}
+                          </TableCell>
                         </TableRow>
                       </TableBody>
                     </Table>
@@ -523,9 +540,11 @@ export default function GSTReports() {
                         <TableRow>
                           <TableCell className="font-medium">CGST</TableCell>
                           <TableCell className="text-right">
-                            {formatCurrency(gstr3bData.outwardSupplies.cgst)}
+                            {formatCurrency(gstr3bData.outwardSupplies.taxable.cgst)}
                           </TableCell>
-                          <TableCell className="text-right">{formatCurrency(gstr3bData.inputTaxCredit.cgst)}</TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(gstr3bData.inputTaxCredit.fromPurchases.cgst)}
+                          </TableCell>
                           <TableCell className="text-right font-semibold">
                             {formatCurrency(gstr3bData.netTaxPayable.cgst)}
                           </TableCell>
@@ -533,9 +552,11 @@ export default function GSTReports() {
                         <TableRow>
                           <TableCell className="font-medium">SGST</TableCell>
                           <TableCell className="text-right">
-                            {formatCurrency(gstr3bData.outwardSupplies.sgst)}
+                            {formatCurrency(gstr3bData.outwardSupplies.taxable.sgst)}
                           </TableCell>
-                          <TableCell className="text-right">{formatCurrency(gstr3bData.inputTaxCredit.sgst)}</TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(gstr3bData.inputTaxCredit.fromPurchases.sgst)}
+                          </TableCell>
                           <TableCell className="text-right font-semibold">
                             {formatCurrency(gstr3bData.netTaxPayable.sgst)}
                           </TableCell>
@@ -543,9 +564,11 @@ export default function GSTReports() {
                         <TableRow>
                           <TableCell className="font-medium">IGST</TableCell>
                           <TableCell className="text-right">
-                            {formatCurrency(gstr3bData.outwardSupplies.igst)}
+                            {formatCurrency(gstr3bData.outwardSupplies.taxable.igst)}
                           </TableCell>
-                          <TableCell className="text-right">{formatCurrency(gstr3bData.inputTaxCredit.igst)}</TableCell>
+                          <TableCell className="text-right">
+                            {formatCurrency(gstr3bData.inputTaxCredit.fromPurchases.igst)}
+                          </TableCell>
                           <TableCell className="text-right font-semibold">
                             {formatCurrency(gstr3bData.netTaxPayable.igst)}
                           </TableCell>
@@ -554,16 +577,16 @@ export default function GSTReports() {
                           <TableCell className="font-bold">Total</TableCell>
                           <TableCell className="text-right font-bold">
                             {formatCurrency(
-                              gstr3bData.outwardSupplies.cgst +
-                                gstr3bData.outwardSupplies.sgst +
-                                gstr3bData.outwardSupplies.igst
+                              gstr3bData.outwardSupplies.taxable.cgst +
+                                gstr3bData.outwardSupplies.taxable.sgst +
+                                gstr3bData.outwardSupplies.taxable.igst
                             )}
                           </TableCell>
                           <TableCell className="text-right font-bold">
                             {formatCurrency(
-                              gstr3bData.inputTaxCredit.cgst +
-                                gstr3bData.inputTaxCredit.sgst +
-                                gstr3bData.inputTaxCredit.igst
+                              gstr3bData.inputTaxCredit.fromPurchases.cgst +
+                                gstr3bData.inputTaxCredit.fromPurchases.sgst +
+                                gstr3bData.inputTaxCredit.fromPurchases.igst
                             )}
                           </TableCell>
                           <TableCell className="text-right font-bold text-primary">

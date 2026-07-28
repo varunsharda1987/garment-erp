@@ -72,13 +72,16 @@ export default function LaceStockDetail() {
     if (!id) return;
     setLoading(true);
     try {
-      const [stockData, allocationsData, transactionsData] = await Promise.all([
+      // getLaceStockById already returns allocations on the stock object. There is no
+      // GET /lace-stock/:id/allocations route, so calling it 404'd inside the Promise.all
+      // and the shared catch nulled the whole page ('Stock not found'). Read allocations
+      // from the stock response instead.
+      const [stockData, transactionsData] = await Promise.all([
         laceStockService.getLaceStockById(id),
-        laceStockService.getStockAllocations(id),
         laceStockService.getStockTransactions(id),
       ]);
       setStock(stockData);
-      setAllocations(allocationsData);
+      setAllocations(stockData.allocations ?? []);
       setTransactions(transactionsData);
     } catch (error) {
       console.error('Failed to fetch stock details:', error);

@@ -224,20 +224,21 @@ export default function CuttingForm() {
             sizeId: string;
             plannedQuantity: number;
             completedQuantity?: number;
-            colors?: { colorName: string };
-            sizes?: { sizeName: string };
+            colorOptions?: { colorName: string };
+            sizeOptions?: { sizeName: string };
           }>;
         };
       }>(`/work-orders/${workOrderId}`);
 
-      // Serializer maps: workOrderBreakup→breakup, colorOptions→colors, sizeOptions→sizes
+      // Serializer maps: workOrderBreakup→breakup; color_options→colorOptions, size_options→sizeOptions
+      // (the colorOptions→colors / sizeOptions→sizes relation mappings were removed).
       const breakup = response.data.data.breakup || [];
       setWorkOrderBreakup(
         breakup.map((b) => ({
           colorId: b.colorId,
-          colorName: b.colors?.colorName || 'No Color',
+          colorName: b.colorOptions?.colorName || 'No Color',
           sizeId: b.sizeId,
-          sizeName: b.sizes?.sizeName || 'Unknown',
+          sizeName: b.sizeOptions?.sizeName || 'Unknown',
           plannedQuantity: b.plannedQuantity,
           completedQuantity: b.completedQuantity || 0,
         }))

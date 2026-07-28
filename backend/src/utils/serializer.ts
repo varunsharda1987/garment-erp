@@ -132,7 +132,18 @@ export function toCamelCase<T = unknown>(data: unknown): T {
     const camelizeOptions = {
       process: (key: string, convert: (key: string) => string) => {
         // Don't convert UUID keys - they should remain as-is
-        return isUUID(key) ? key : convert(key);
+        if (isUUID(key)) {
+          return key;
+        }
+        // Preserve Prisma's `_count` aggregation key VERBATIM (keep the leading
+        // underscore that humps would otherwise strip → `count`). humps still
+        // recurses into its value and camelizes the INNER relation keys, e.g.
+        // `style_components` → `styleComponents`. The inner keys are then left
+        // un-remapped by applyRelationMappings (see below) to avoid rename/collision.
+        if (key === '_count') {
+          return key;
+        }
+        return convert(key);
       },
     };
     const camelized = (humps.camelizeKeys as Function)(
@@ -504,6 +515,16 @@ export function applyRelationMappings<T = unknown>(data: unknown): T {
     const debugEnabled = process.env.DEBUG_TRANSFORM === 'true';
 
     for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+      // Preserve Prisma's `_count` aggregation subtree VERBATIM. Its inner keys are
+      // relation-named counts (e.g. customers, components, styleComponents) that must
+      // NOT be run through RELATION_MAPPINGS — doing so renames them (customers→customer)
+      // and, worse, collides distinct counts (styleComponents→components overwrites the
+      // real `components` count). The values are plain numbers, so no recursion is needed.
+      if (key === '_count') {
+        result[key] = value;
+        continue;
+      }
+
       // Check if this key has a custom mapping
       const mappedKey = RELATION_MAPPINGS[key] || key;
 

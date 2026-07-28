@@ -5,6 +5,11 @@ import { z } from 'zod';
  */
 export const ChallanTypeEnum = z.enum(['OUTWARD', 'INWARD', 'INTERNAL']);
 
+// Date pickers send 'YYYY-MM-DD' (z.string().datetime() would reject it, and a plain string reaches
+// Prisma's DateTime columns and 500s). z.coerce.date() parses the date-only string; the preprocess maps
+// '' (a cleared date input) → undefined so an optional date is dropped instead of becoming Invalid Date.
+const optionalChallanDate = z.preprocess((v) => (v === '' || v === null ? undefined : v), z.coerce.date().optional());
+
 /**
  * Challan Item Schema
  */
@@ -36,7 +41,7 @@ const challanItemSchema = z.object({
  */
 export const createChallanSchema = z.object({
   challanType: ChallanTypeEnum,
-  challanDate: z.string().optional(),
+  challanDate: optionalChallanDate,
   orderId: z.string().optional(),
   productionRunId: z.string().optional(),
   purchaseOrderId: z.string().optional(),
@@ -51,7 +56,7 @@ export const createChallanSchema = z.object({
   driverName: z.string().max(100, 'Driver name must not exceed 100 characters').trim().optional(),
   driverPhone: z.string().max(20, 'Driver phone must not exceed 20 characters').trim().optional(),
   lrNumber: z.string().max(50, 'LR number must not exceed 50 characters').trim().optional(),
-  expectedDate: z.string().optional(),
+  expectedDate: optionalChallanDate,
   unit: z.string().optional(),
   remarks: z.string().max(1000, 'Remarks must not exceed 1000 characters').trim().optional(),
   items: z.array(challanItemSchema).min(1, 'At least one item is required'),

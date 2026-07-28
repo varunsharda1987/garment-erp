@@ -94,12 +94,14 @@ export interface OrderItemBreakup {
   colorId: string | null;
   sizeId: string;
   quantity: number;
-  colors?: {
+  // Serializer keeps these as colorOptions/sizeOptions (the colorOptions->colors /
+  // sizeOptions->sizes RELATION_MAPPINGS were removed; frontend reads them directly).
+  colorOptions?: {
     id: string;
     colorName: string;
     colorCode?: string;
   } | null;
-  sizes?: {
+  sizeOptions?: {
     id: string;
     sizeName: string;
     sizeCode?: string;

@@ -165,8 +165,8 @@ export default function DebitNoteList() {
     const controller = new AbortController();
     const fetchSuppliers = async () => {
       try {
-        const { data: res } = await api.get('/suppliers/search', {
-          params: { q: supplierSearch, limit: 20 },
+        const { data: res } = await api.get('/suppliers', {
+          params: { search: supplierSearch, limit: 20 },
           signal: controller.signal,
         });
         setSupplierOptions(res.data ?? res ?? []);

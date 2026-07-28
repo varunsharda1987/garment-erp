@@ -24,34 +24,44 @@ export const SPOStatusEnum = z.enum([
 // STOCK PRODUCTION ORDER SCHEMAS
 // ============================================================================
 
+const PriorityEnum = z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']);
+
+// Size/color breakup item — matches the controller/service DTO (colorId optional, sizeId + quantity required)
+const spoItemSchema = z.object({
+  colorId: z.string().uuid('Invalid color ID').nullable().optional(),
+  sizeId: z.string().uuid('Invalid size ID'),
+  quantity: z.number().int().positive('Quantity must be positive'),
+});
+
 /**
  * Create Stock Production Order
  * POST /api/stock-production-orders
+ *
+ * Matches StockProductionOrderList.tsx (sends styleId/totalQuantity/targetDate?/priority?/remarks?/items[])
+ * and the controller/service DTO. Items may be empty at creation — the breakup is added on the detail page.
  */
 export const createSPOSchema = z.object({
   styleId: z.string().uuid('Invalid style ID'),
-  orderDate: z.string().datetime().optional(),
-  expectedDeliveryDate: z.string().datetime().optional(),
-  quantity: z.number().int().positive('Quantity must be positive'),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional().default('MEDIUM'),
+  totalQuantity: z.number().int().positive('Total quantity must be positive'),
+  // z.coerce.date(): date pickers send YYYY-MM-DD, which z.string().datetime() rejects
+  targetDate: z.coerce.date().optional(),
+  priority: PriorityEnum.optional().default('MEDIUM'),
   remarks: z.string().max(1000).optional(),
-  sizeBreakdown: z.record(z.string(), z.number().int().nonnegative()).optional(),
-  colorBreakdown: z.record(z.string(), z.number().int().nonnegative()).optional(),
+  items: z.array(spoItemSchema).optional().default([]),
 });
 
 /**
  * Update Stock Production Order
  * PUT /api/stock-production-orders/:id
+ *
+ * Matches SPOUpdateInput — the detail page sends items[]/totalQuantity for Add/Remove Item.
  */
 export const updateSPOSchema = z.object({
-  styleId: z.string().uuid('Invalid style ID').optional(),
-  expectedDeliveryDate: z.string().datetime().optional().nullable(),
-  quantity: z.number().int().positive().optional(),
-  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
-  status: SPOStatusEnum.optional(),
+  totalQuantity: z.number().int().positive().optional(),
+  targetDate: z.coerce.date().optional().nullable(),
+  priority: PriorityEnum.optional(),
   remarks: z.string().max(1000).optional().nullable(),
-  sizeBreakdown: z.record(z.string(), z.number().int().nonnegative()).optional().nullable(),
-  colorBreakdown: z.record(z.string(), z.number().int().nonnegative()).optional().nullable(),
+  items: z.array(spoItemSchema).optional(),
 });
 
 /**

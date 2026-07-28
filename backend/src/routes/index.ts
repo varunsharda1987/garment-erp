@@ -105,6 +105,7 @@ import dispatchRoutes from './dispatch.routes';
 import testingLabsRoutes from './testingLabs.routes';
 import testTemplatesRoutes from './testTemplates.routes';
 
+import fabricPhysicalTestsRoutes from './fabricPhysicalTests.routes';
 import garmentPhysicalTestsRoutes from './garmentPhysicalTests.routes';
 import productionStatusRoutes from './productionStatus.routes';
 import productCategoryRoutes from './productCategory.routes';
@@ -369,6 +370,7 @@ export function createApiRouter(): Router {
   router.use('/testing-labs', testingLabsRoutes);
   router.use('/test-templates', testTemplatesRoutes);
 
+  router.use('/fabric-physical-tests', fabricPhysicalTestsRoutes);
   router.use('/garment-physical-tests', garmentPhysicalTestsRoutes);
 
   // Production Stage Validation & Blocking

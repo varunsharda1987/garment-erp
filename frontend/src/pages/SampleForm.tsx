@@ -647,13 +647,18 @@ export default function SampleForm() {
                         variant="outline"
                         size="sm"
                         onClick={addColorway}
-                        disabled={!selectedStyle?.colorOptions?.length}
+                        disabled={isEditing || !selectedStyle?.colorOptions?.length}
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Add
                       </Button>
                     </CardHeader>
                     <CardContent>
+                      {isEditing && (
+                        <p className="text-sm text-warning mb-3">
+                          Colorways can only be edited when creating the sample.
+                        </p>
+                      )}
                       {!selectedStyle?.colorOptions?.length ? (
                         <p className="text-muted-foreground text-center py-8">
                           Select a style with color options to add colorways.
@@ -663,7 +668,11 @@ export default function SampleForm() {
                           {colorways.map((c, index) => (
                             <div key={index} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                               <div className="flex-1">
-                                <Select value={c.colorId} onValueChange={(v) => updateColorway(index, 'colorId', v)}>
+                                <Select
+                                  value={c.colorId}
+                                  onValueChange={(v) => updateColorway(index, 'colorId', v)}
+                                  disabled={isEditing}
+                                >
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select color" />
                                   </SelectTrigger>
@@ -681,6 +690,7 @@ export default function SampleForm() {
                                   placeholder="Fabric Lot"
                                   value={c.fabricLot || ''}
                                   onChange={(e) => updateColorway(index, 'fabricLot', e.target.value)}
+                                  disabled={isEditing}
                                 />
                               </div>
                               <div className="w-20">
@@ -690,6 +700,7 @@ export default function SampleForm() {
                                   placeholder="Qty"
                                   value={c.qtySent || ''}
                                   onChange={(e) => updateColorway(index, 'qtySent', parseInt(e.target.value) || 1)}
+                                  disabled={isEditing}
                                 />
                               </div>
                               <Button
@@ -697,6 +708,7 @@ export default function SampleForm() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => removeColorway(index)}
+                                disabled={isEditing}
                                 className="text-destructive"
                               >
                                 <Trash2 className="h-4 w-4" />
@@ -727,13 +739,20 @@ export default function SampleForm() {
                         variant="outline"
                         size="sm"
                         onClick={addSizeSet}
-                        disabled={!selectedStyle?.sizeOptions?.length || !selectedStyle?.colorOptions?.length}
+                        disabled={
+                          isEditing || !selectedStyle?.sizeOptions?.length || !selectedStyle?.colorOptions?.length
+                        }
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Add
                       </Button>
                     </CardHeader>
                     <CardContent>
+                      {isEditing && (
+                        <p className="text-sm text-warning mb-3">
+                          Size-set entries can only be edited when creating the sample.
+                        </p>
+                      )}
                       {!selectedStyle?.sizeOptions?.length || !selectedStyle?.colorOptions?.length ? (
                         <p className="text-muted-foreground text-center py-8">
                           Select a style with size and color options to add size set entries.
@@ -743,7 +762,11 @@ export default function SampleForm() {
                           {sizeSets.map((s, index) => (
                             <div key={index} className="flex items-center gap-3 p-3 bg-muted rounded-lg">
                               <div className="flex-1">
-                                <Select value={s.sizeId} onValueChange={(v) => updateSizeSet(index, 'sizeId', v)}>
+                                <Select
+                                  value={s.sizeId}
+                                  onValueChange={(v) => updateSizeSet(index, 'sizeId', v)}
+                                  disabled={isEditing}
+                                >
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select size" />
                                   </SelectTrigger>
@@ -757,7 +780,11 @@ export default function SampleForm() {
                                 </Select>
                               </div>
                               <div className="flex-1">
-                                <Select value={s.colorId} onValueChange={(v) => updateSizeSet(index, 'colorId', v)}>
+                                <Select
+                                  value={s.colorId}
+                                  onValueChange={(v) => updateSizeSet(index, 'colorId', v)}
+                                  disabled={isEditing}
+                                >
                                   <SelectTrigger>
                                     <SelectValue placeholder="Select color" />
                                   </SelectTrigger>
@@ -777,6 +804,7 @@ export default function SampleForm() {
                                   placeholder="Qty"
                                   value={s.qty || ''}
                                   onChange={(e) => updateSizeSet(index, 'qty', parseInt(e.target.value) || 1)}
+                                  disabled={isEditing}
                                 />
                               </div>
                               <Button
@@ -784,6 +812,7 @@ export default function SampleForm() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => removeSizeSet(index)}
+                                disabled={isEditing}
                                 className="text-destructive"
                               >
                                 <Trash2 className="h-4 w-4" />

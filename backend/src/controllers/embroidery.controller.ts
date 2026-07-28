@@ -17,6 +17,10 @@ const serializeEmbroidery = (embroidery: any) => {
     repeatWidth: embroidery.repeatWidth ? Number(embroidery.repeatWidth) : null,
     repeatHeight: embroidery.repeatHeight ? Number(embroidery.repeatHeight) : null,
     cutableWidth: embroidery.cutableWidth ? Number(embroidery.cutableWidth) : null,
+    // Frontend (List/Detail/Form) reads `usableWidthAfter`; the DB column is `cutableWidth`.
+    // Expose the alias here so all read paths (getAll/getById) populate it. createEmbroidery
+    // already accepts usableWidthAfter as an input alias for cutableWidth.
+    usableWidthAfter: embroidery.cutableWidth ? Number(embroidery.cutableWidth) : null,
     costPerMeter: embroidery.costPerMeter ? Number(embroidery.costPerMeter) : null,
   };
 };

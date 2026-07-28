@@ -181,11 +181,19 @@ export default function DispatchDeliveryNoteForm() {
       for (const oi of order.orderItems || []) {
         const entry = (optionsMap[oi.styleId] = optionsMap[oi.styleId] || { colors: [], sizes: [] });
         for (const b of oi.breakup || []) {
-          if (b.colors && !entry.colors.some((c) => c.id === b.colors!.id)) {
-            entry.colors.push({ id: b.colors.id, colorName: b.colors.colorName, colorCode: b.colors.colorCode });
+          if (b.colorOptions && !entry.colors.some((c) => c.id === b.colorOptions!.id)) {
+            entry.colors.push({
+              id: b.colorOptions.id,
+              colorName: b.colorOptions.colorName,
+              colorCode: b.colorOptions.colorCode,
+            });
           }
-          if (b.sizes && !entry.sizes.some((s) => s.id === b.sizes!.id)) {
-            entry.sizes.push({ id: b.sizes.id, sizeName: b.sizes.sizeName, sizeCode: b.sizes.sizeCode });
+          if (b.sizeOptions && !entry.sizes.some((s) => s.id === b.sizeOptions!.id)) {
+            entry.sizes.push({
+              id: b.sizeOptions.id,
+              sizeName: b.sizeOptions.sizeName,
+              sizeCode: b.sizeOptions.sizeCode,
+            });
           }
         }
       }

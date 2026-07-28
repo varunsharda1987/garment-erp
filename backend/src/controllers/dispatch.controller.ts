@@ -62,6 +62,7 @@ const transformDeliveryNote = (note: any) => ({
         id: note.delivery_notes_ext.id,
         pod: note.delivery_notes_ext.pod ?? null,
         transport: note.delivery_notes_ext.transport ?? null,
+        cartons: note.delivery_notes_ext.cartons ?? [],
       }
     : null,
 });
@@ -198,13 +199,14 @@ const deliveryNoteIncludeOptions = {
   },
 };
 
-// Extended include options with POD + transport for delivery note detail
+// Extended include options with POD + transport + cartons for delivery note detail
 const deliveryNoteExtendedIncludeOptions = {
   ...deliveryNoteIncludeOptions,
   delivery_notes_ext: {
     include: {
       pod: true,
       transport: true,
+      cartons: true,
     },
   },
 };
@@ -271,7 +273,8 @@ export const getAllDeliveryNotes = async (req: Request, res: Response) => {
       skip,
       take: Number(limit),
       orderBy: { createdAt: 'desc' },
-      include: deliveryNoteIncludeOptions,
+      // Extended include (POD + cartons) so list rows carry carton counts and the customer GRN
+      include: deliveryNoteExtendedIncludeOptions,
     }),
     prisma.delivery_notes.count({ where }),
   ]);

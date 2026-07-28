@@ -23,14 +23,27 @@ import { NotFoundError, ValidationError, ConflictError, BusinessError, Unauthori
  * @access Private
  */
 export const getAllPurchaseOrders = async (req: Request, res: Response) => {
-  const { status, source, poCategories, supplierId, search, startDate, endDate, page, limit, sortBy, sortOrder } =
-    req.query;
+  const {
+    status,
+    source,
+    poCategories,
+    supplierId,
+    serviceWorkOrderId,
+    search,
+    startDate,
+    endDate,
+    page,
+    limit,
+    sortBy,
+    sortOrder,
+  } = req.query;
 
   const filters: PurchaseOrderFilters = {
     status: status as PurchaseOrderStatus | undefined,
     source: source as POSource | undefined,
     poCategories: poCategories ? (poCategories as string).split(',') : undefined,
     supplierId: supplierId as string | undefined,
+    serviceWorkOrderId: serviceWorkOrderId as string | undefined,
     search: search as string | undefined,
     startDate: startDate as string | undefined,
     endDate: endDate as string | undefined,

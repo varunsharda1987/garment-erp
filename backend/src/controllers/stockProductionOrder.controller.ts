@@ -52,10 +52,9 @@ export class StockProductionOrderController {
     if (!styleId) {
       throw new ValidationError('Style is required');
     }
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      throw new ValidationError('At least one item (size/color breakup) is required');
-    }
 
+    // Items may be empty at creation — the size/color breakup is added on the detail page.
+    // The schema guarantees `items` is an array (defaults to []), so the service can safely map it.
     const spo = await stockProductionOrderService.create({
       styleId,
       totalQuantity,
@@ -63,10 +62,13 @@ export class StockProductionOrderController {
       priority,
       remarks,
       createdById: userId,
-      items,
+      items: Array.isArray(items) ? items : [],
     });
 
-    res.status(201).json({ data: spo, message: 'Stock production order created successfully' });
+    // Return the raw SPO (matching getById/update and the frontend createSPO return type) so the
+    // list page can navigate to /stock-production-orders/:id. A { data, message } envelope here left
+    // created.id undefined at the call site, sending the user to /stock-production-orders/undefined.
+    res.status(201).json(spo);
   }
 
   async update(req: Request, res: Response) {

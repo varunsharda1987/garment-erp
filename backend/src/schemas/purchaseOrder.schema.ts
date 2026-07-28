@@ -183,6 +183,7 @@ export const purchaseOrderQuerySchema = z.object({
   source: POSourceEnum.optional(),
   poCategories: z.string().optional(), // Comma-separated list
   supplierId: z.string().uuid().optional(),
+  serviceWorkOrderId: z.string().uuid().optional(), // Scope service-PO dropdowns to a work order
   search: z.string().max(100).optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),

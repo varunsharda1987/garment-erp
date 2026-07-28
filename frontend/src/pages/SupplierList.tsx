@@ -222,7 +222,12 @@ export default function SupplierList() {
         supplier._count && (
           <div className="text-xs text-muted-foreground">
             <div>POs: {supplier._count.purchaseOrders}</div>
-            <div>Materials: {supplier._count.materials}</div>
+            <div>
+              Materials:{' '}
+              {(supplier._count.materialSuppliers || 0) +
+                (supplier._count.greigeSuppliers || 0) +
+                (supplier._count.fabricSuppliers || 0)}
+            </div>
           </div>
         ),
     },

@@ -33,7 +33,10 @@ export const SettingDataTypeEnum = z.enum(['STRING', 'NUMBER', 'BOOLEAN', 'JSON'
  */
 export const upsertSystemSettingSchema = z.object({
   value: z.union([z.string(), z.number(), z.boolean(), z.record(z.string(), z.unknown())]),
-  category: SettingCategoryEnum.optional().default('OTHER'),
+  // No .default() here: a client that omits category (e.g. Settings.tsx sends only {value, dataType})
+  // must NOT overwrite the row's existing category. The service update branch only sets category when
+  // input.category is truthy, so leaving it undefined preserves a DEFAULTS-category setting.
+  category: SettingCategoryEnum.optional(),
   dataType: SettingDataTypeEnum.optional().default('STRING'),
   description: z.string().max(500).optional(),
   isSystem: z.boolean().optional().default(false),

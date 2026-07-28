@@ -104,7 +104,7 @@ export default function HandworkSendOut() {
       return;
     }
     api
-      .get(`/purchase-orders?poCategory=HANDWORK_SERVICE&serviceWorkOrderId=${selectedWorkOrderId}&limit=100`)
+      .get(`/purchase-orders?poCategories=HANDWORK_SERVICE&serviceWorkOrderId=${selectedWorkOrderId}&limit=100`)
       .then((res) => {
         const items = (res.data?.data || res.data || []).map((po: any) => ({
           id: po.id,

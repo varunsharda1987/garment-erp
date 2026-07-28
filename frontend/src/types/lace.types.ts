@@ -101,7 +101,11 @@ export interface Lace {
   materialCode?: string;
   materialId?: string;
 
-  // Multi-supplier support
+  // Multi-supplier support. The serializer renames the lace_suppliers relation → `suppliers`,
+  // so `suppliers` is the actual API key. `laceSuppliers` is kept (deprecated) only so existing
+  // readers still type-check; new code should read `suppliers`.
+  suppliers?: LaceSupplier[];
+  /** @deprecated API returns `suppliers` (serializer renames laceSuppliers→suppliers). Read `suppliers`. */
   laceSuppliers?: LaceSupplier[];
 
   // Style associations (many-to-many - direct associations)

@@ -149,13 +149,19 @@ export const updateSampleStatusSchema = z
 /**
  * Update Measurements
  * PUT /api/samples/:id/measurements
+ *
+ * Mirrors createSampleSchema.measurements and what the controller reads
+ * (m.sizeId/measurementPoint/specValue/actualValue/tolerance) — the previous
+ * measurementPointId/targetValue shape matched neither side, so every edit-save 400'd.
  */
 export const updateMeasurementsSchema = z.object({
   measurements: z.array(
     z.object({
-      measurementPointId: z.string().uuid('Invalid measurement point ID'),
-      targetValue: z.number().positive().optional(),
-      tolerance: z.number().nonnegative().optional(),
+      sizeId: z.string().uuid().optional(),
+      measurementPoint: z.string(),
+      specValue: z.number(),
+      actualValue: z.number().optional(),
+      tolerance: z.number().optional(),
     })
   ),
 });

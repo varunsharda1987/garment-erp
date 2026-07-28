@@ -167,8 +167,8 @@ export default function FabricList() {
       header: 'CAD Widths',
       render: (fabric) => (
         <StatusBadge
-          status={`${fabric.count?.widthCADs || 0} widths`}
-          variant={fabric.count?.widthCADs ? 'info' : 'secondary'}
+          status={`${fabric._count?.widthCADs || 0} widths`}
+          variant={fabric._count?.widthCADs ? 'info' : 'secondary'}
         />
       ),
     },
@@ -176,7 +176,7 @@ export default function FabricList() {
       key: 'styleUsage',
       header: 'Style Usage',
       render: (fabric) => {
-        const styleCount = fabric.count?.fabrics || 0; // _count -> count (humps camelCase), styleFabrics -> fabrics
+        const styleCount = fabric._count?.styleFabrics || 0; // _count.styleFabrics: serializer preserves _count verbatim (no inner remap)
         const allocations = fabric.fabrics || []; // styleFabrics -> fabrics (serializer mapping)
 
         if (styleCount === 0) {

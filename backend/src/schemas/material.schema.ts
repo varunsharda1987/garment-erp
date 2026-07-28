@@ -13,6 +13,11 @@ export const materialSupplierSchema = z.object({
   isPreferred: z.boolean().optional().default(false),
   isActive: z.boolean().optional().default(true),
   notes: z.string().optional(),
+  supplierPrice: z.number().nonnegative('Supplier price must be non-negative').optional().nullable(),
+  leadTimeDays: z.number().int('Lead time must be an integer').nonnegative().optional().nullable(),
+  moq: z.number().nonnegative('MOQ must be non-negative').optional().nullable(),
+  moqUnit: z.string().optional().nullable(),
+  isPrimary: z.boolean().optional().default(false),
 });
 
 /**

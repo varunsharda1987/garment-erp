@@ -314,8 +314,8 @@ export default function OrderForm() {
             breakupByIdMap.set(idKey, b.quantity);
 
             // Map by size name (for fallback when IDs don't match)
-            const sizeName = b.sizes?.sizeName || '';
-            const colorName = b.colors?.colorName || '';
+            const sizeName = b.sizeOptions?.sizeName || '';
+            const colorName = b.colorOptions?.colorName || '';
             if (sizeName) {
               const nameKey = colorName ? `${colorName}-${sizeName}` : sizeName;
               breakupByNameMap.set(nameKey, b.quantity);

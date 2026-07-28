@@ -241,6 +241,18 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
     };
   }
 
+  /**
+   * Override findById to include `_count` so the customer detail page can render
+   * the Orders/Quotations/Invoices counts. The base findById uses getDefaultIncludes(),
+   * which omits `_count`, so the detail header's counts block never rendered (B04-06).
+   */
+  async findById(id: string): Promise<customers | null> {
+    return this.model.findUnique({
+      where: { id },
+      include: this.getListIncludes(),
+    });
+  }
+
   // ============================================
   // Custom Methods
   // ============================================

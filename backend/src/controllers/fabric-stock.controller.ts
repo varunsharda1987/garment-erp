@@ -35,7 +35,9 @@ const StockListQuerySchema = z.object({
   warehouseLocation: z.string().optional(),
   status: z.enum(['AVAILABLE', 'RESERVED', 'EXHAUSTED', 'ISSUED', 'PENDING_RETURN']).optional(),
   qualityGrade: z.enum(['A', 'B', 'DEFECT']).optional(),
-  stockType: z.enum(['PLANNED_STOCK', 'EXCESS_MOQ', 'CROSS_STYLE_REUSE']).optional(),
+  // 'EMBROIDERED' is not a StockEntryType column value — it is a virtual filter that the
+  // Embroidered Stock tab sends (?stockType=EMBROIDERED); it maps to embroideryId != null below.
+  stockType: z.enum(['PLANNED_STOCK', 'EXCESS_MOQ', 'CROSS_STYLE_REUSE', 'EMBROIDERED']).optional(),
   agingDaysMin: z.number().int().nonnegative().optional(),
   originStyleId: z.string().uuid().optional(),
   page: z.number().int().positive().default(1).optional(),
@@ -203,7 +205,14 @@ export const listStock = async (req: Request, res: Response) => {
   if (query.warehouseLocation) where.warehouseLocation = query.warehouseLocation;
   if (query.status) where.status = query.status;
   if (query.qualityGrade) where.qualityGrade = query.qualityGrade;
-  if (query.stockType) where.stockType = query.stockType;
+  if (query.stockType) {
+    if (query.stockType === 'EMBROIDERED') {
+      // Virtual filter: embroidered stock is any fabric_stock row linked to an embroidery design
+      where.embroideryId = { not: null };
+    } else {
+      where.stockType = query.stockType;
+    }
+  }
   if (query.originStyleId) where.originStyleId = query.originStyleId;
   if (query.agingDaysMin !== undefined) {
     where.agingDays = { gte: query.agingDaysMin };
@@ -276,6 +285,7 @@ export const listStock = async (req: Request, res: Response) => {
         },
         originStyle: {
           select: {
+            id: true,
             styleCode: true,
             styleName: true,
           },
@@ -283,6 +293,14 @@ export const listStock = async (req: Request, res: Response) => {
         originOrder: {
           select: {
             orderNumber: true,
+          },
+        },
+        // Embroidery design linked to this stock (drives the Embroidered Stock tab)
+        embroidery: {
+          select: {
+            id: true,
+            embroideryCode: true,
+            designName: true,
           },
         },
       },
@@ -316,6 +334,12 @@ export const listStock = async (req: Request, res: Response) => {
       return {
         id: s.id,
         fabricId: s.fabricId,
+        // `fabricMaster` mirrors `fabric` below — the Embroidered Stock tab reads `fabricMaster`.
+        fabricMaster: {
+          fabricCode: s.fabricMaster.fabricCode,
+          fabricName: s.fabricMaster.fabricName,
+          colorName: s.fabricMaster.colorName,
+        },
         fabric: {
           fabricCode: s.fabricMaster.fabricCode,
           fabricName: s.fabricMaster.fabricName,
@@ -363,6 +387,23 @@ export const listStock = async (req: Request, res: Response) => {
         originOrder: s.originOrder
           ? {
               orderNumber: s.originOrder.orderNumber,
+            }
+          : null,
+        // Embroidered Stock tab fields
+        embroideryId: s.embroideryId,
+        embroidery: s.embroidery
+          ? {
+              id: s.embroidery.id,
+              embroideryCode: s.embroidery.embroideryCode,
+              designName: s.embroidery.designName,
+            }
+          : null,
+        // `forStyle` = the style this stock is for (origin style); the tab links to /styles/:id
+        forStyle: s.originStyle
+          ? {
+              id: s.originStyle.id,
+              styleCode: s.originStyle.styleCode,
+              styleName: s.originStyle.styleName,
             }
           : null,
       };

@@ -352,7 +352,11 @@ export interface Supplier {
     email: string;
   };
   _count?: {
-    materials: number;
+    // Backend selects the three supplier-link relations separately (materialSuppliers +
+    // greigeSuppliers + fabricSuppliers); the UI shows their sum as "Materials".
+    materialSuppliers: number;
+    greigeSuppliers: number;
+    fabricSuppliers: number;
     purchaseOrders: number;
     goodsReceivingNotes: number;
   };

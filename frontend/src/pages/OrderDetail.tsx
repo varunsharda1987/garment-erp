@@ -229,7 +229,9 @@ export default function OrderDetail() {
 
     try {
       setCalculatingMrp(true);
-      const result = await calculateMRPStandalone(order.id, {});
+      const result = await calculateMRPStandalone(order.id, {
+        styleId: order.orderItems?.[0]?.styleId,
+      });
       toast({
         title: 'MRP Calculated',
         description: `Created ${result.created} requirements, updated ${result.updated}`,
@@ -814,9 +816,9 @@ export default function OrderDetail() {
                             {item.breakup.map((breakup, idx) => (
                               <tr key={idx} className="hover:bg-muted">
                                 <td className="border px-4 py-2">
-                                  {breakup.colors?.colorName || (breakup.colorId === null ? '-' : 'N/A')}
+                                  {breakup.colorOptions?.colorName || (breakup.colorId === null ? '-' : 'N/A')}
                                 </td>
-                                <td className="border px-4 py-2">{breakup.sizes?.sizeName || 'N/A'}</td>
+                                <td className="border px-4 py-2">{breakup.sizeOptions?.sizeName || 'N/A'}</td>
                                 <td className="border px-4 py-2 text-right font-medium">{breakup.quantity}</td>
                               </tr>
                             ))}

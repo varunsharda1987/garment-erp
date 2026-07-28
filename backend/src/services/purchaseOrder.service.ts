@@ -240,6 +240,10 @@ class PurchaseOrderService {
       where.supplierId = filters.supplierId;
     }
 
+    if (filters?.serviceWorkOrderId) {
+      where.serviceWorkOrderId = filters.serviceWorkOrderId;
+    }
+
     if (filters?.source) {
       where.poSource = filters.source;
     }

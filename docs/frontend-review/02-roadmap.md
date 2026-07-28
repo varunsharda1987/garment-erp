@@ -89,3 +89,28 @@ every P0 (3) and P1 (41) from the review is now resolved — zero silent-wrong-d
 - Fabric Physical Tests backend BUILT (was 404 with a fully-built frontend) — smoke 200.
 
 **Not yet done:** Wave 3 (dead links/handoffs, 74 P2), Wave 4 (polish incl. fake KPIs, 53 P3). Awaiting go-ahead.
+
+---
+
+## ✅ Wave 3 COMPLETE (2026-07-28, commit 11a0217e)
+
+72 P2 findings actioned by 10 parallel groups (decision ladder: repoint > wire-existing > build-if-trivial >
+hide-with-note). **62 fixed inline, 12 hidden with an honest "coming soon" and returned as deferred builds.**
+Builds clean, guardrails green, deployed, smoke-verified (belt/other_* trim types 200 were 400; PO orderId
+filter 200; dashboards/tests read-side 200). 3 new pages built (ColorBulkImport, DispatchDeliveryNoteDetail,
+TestingLabs inline CRUD) + 3 routes registered in one serial pass.
+
+### Deferred builds (real new features — user to prioritize)
+These dead controls were HIDDEN (no longer dump users on a blank page); each needs a genuine new page/dialog:
+1. **B01-02** Fabric Width-CAD create form (POST /fabric-management/cad).
+2. **B07-04** Lace quality downgrade (needs new backend endpoint too).
+3. **B07-12** Stock-Count detail/execution page (start→count→verify→approve→variance).
+4. **B08-07** Processing-batch create form.
+5. **B10-03 / B10-04** ASN create form + ASN detail page (backend getById exists).
+6. **B12-05** Credit-Note detail page (backend GET exists; no sibling to copy).
+7. **B13-05 / B13-06 / B13-08** Fabric/Garment physical-test + Test-template create/detail forms
+   (backends exist; multi-section forms).
+8. **B06-03 / B06-04** Dyeing & Printing sub-modules (lab-dip + process-PO create/detail/QC/return) —
+   note: without process-PO QC, a RECEIVED process PO can't reach QUALITY_CHECKED from the UI.
+
+**Remaining wave:** Wave 4 polish (53 P3 — fake hardcoded KPIs, orphan pages, cosmetic). Awaiting go-ahead.

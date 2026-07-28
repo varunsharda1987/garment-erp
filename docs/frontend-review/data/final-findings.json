@@ -57,7 +57,8 @@
    "fix": "Add the 5 missing values to TrimTypeEnum in backend/src/schemas/genericTrim.schema.ts (controller + Prisma models already support them)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B02-04",
@@ -75,7 +76,8 @@
    "fix": "Read `lace.suppliers` (same one-line fix family as B02-01/02)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B02-05",
@@ -93,7 +95,8 @@
    "fix": "Point onRowClick to `/materials/machine-part/${part.id}/edit` (or add a detail route)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B02-06",
@@ -111,7 +114,8 @@
    "fix": "Point onRowClick to `/materials/other/${material.id}/edit`",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B02-07",
@@ -129,7 +133,8 @@
    "fix": "Rewrite logDefectSchema to match controller+frontend: defectType z.enum([WEAVE_DEFECT,COLOR_VARIATION,WIDTH_VARIATION,DAMAGE]), discoveredAt z.enum([RECEIVING,CUTTING,STITCHING,QC]), and strip empty-string orderId/styleId in the form",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B02-08",
@@ -201,7 +206,8 @@
    "fix": "navigate('/fabric')",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B02-12",
@@ -219,7 +225,8 @@
    "fix": "In the trim list pages, seed searchQuery from useSearchParams().get('search')",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B01-01",
@@ -257,7 +264,8 @@
    "fix": "Point the button at the CAD create flow (e.g. open createCAD dialog or /cad-planning) or register the route",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "DEFERRED-build"
   },
   {
    "id": "B01-03",
@@ -275,7 +283,8 @@
    "fix": "Have listStock also select greige.id and link to /greige/${stock.fabric.greige.id}",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B01-04",
@@ -293,7 +302,8 @@
    "fix": "Request `/stock?limit=500&status=...` (or implement server pagination in the page)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B01-05",
@@ -311,7 +321,8 @@
    "fix": "Read cad.cutableWidth in FabricDetail (drop the availableWidth alias)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B01-06",
@@ -347,7 +358,8 @@
    "fix": "Add notes to the POST body and to createFabricStockSchema (+ persist in createFabricStock), or remove the input",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B01-08",
@@ -439,7 +451,8 @@
    "fix": "Add a /colors/import route with a ColorBulkImport page (copy GreigeBulkImport pattern; service + endpoints already exist) or remove the button",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B03-03",
@@ -603,7 +616,8 @@
    "fix": "Create fabricPhysicalTests routes/controller (mirroring garmentPhysicalTests) or delete the dead service block and its consumers' fabric-test tab",
    "confidence": "high",
    "liveCheck": "suggested",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B04-04",
@@ -621,7 +635,8 @@
    "fix": "Point View/row-click to `/inventory/warehouses/${wh.id}/edit` or add a /inventory/warehouses/:id detail route",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B04-05",
@@ -639,7 +654,8 @@
    "fix": "In onValueChange map 'all' to '' (like CustomerList does with its ALL sentinel) before setting typeFilter",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B04-06",
@@ -812,7 +828,8 @@
    "fix": "Render the stage as read-only text (stage moves via Work Order transitions) or implement PUT /api/styles/:id/production-stage",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B05-07",
@@ -830,7 +847,8 @@
    "fix": "Point the button at the actual costing page (e.g. cost-sheet route with styleId param) or register /styles/:id/costing",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B05-08",
@@ -848,7 +866,8 @@
    "fix": "Add `accessories: comp.style_accessories` to the custom components mapping in getStyleById",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B05-09",
@@ -866,7 +885,8 @@
    "fix": "Treat missing/'all' as no isActive filter (make controller pass undefined unless param present, and service drop the ?? true default when explicitly 'all')",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B05-10",
@@ -978,7 +998,8 @@
    "fix": "Register/build the lab-dip and process-po sub-pages, or convert QC/return/new actions to in-page dialogs like the existing Receive/Update-Stock dialogs",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "DEFERRED-build"
   },
   {
    "id": "B06-04",
@@ -996,7 +1017,8 @@
    "fix": "Same as dyeing: register the sub-pages or move QC/return/new into dialogs",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "DEFERRED-build"
   },
   {
    "id": "B06-05",
@@ -1014,7 +1036,8 @@
    "fix": "Drop userId from the request body and use req.user.userId server-side (auth middleware already provides it)",
    "confidence": "high",
    "liveCheck": "suggested",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B06-06",
@@ -1032,7 +1055,8 @@
    "fix": "Fetch the PDF as a blob via the api client and set the iframe src to a createObjectURL result",
    "confidence": "high",
    "liveCheck": "suggested",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B06-07",
@@ -1050,7 +1074,8 @@
    "fix": "Rename the query param at StitchingList.tsx:499 to transferSlipId",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B06-12",
@@ -1069,7 +1094,8 @@
    "confidence": "medium",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: grep for polybag-entry|carton-packing|polybagEntry|cartonPacking across frontend/src = 0 matches; finishing.routes.ts:94-103 registers POST /issues/:id/polybag-entry and /issues/:id/carton-packing with validateBody + controllers; FinishingDetail.tsx action buttons are only receive/start/record-output/move-to-packing/complete/transfer-slip (lines 302-334). Guide citation checks out: MODULE_RELATIONSHIPS_GUIDE lists 'Polybag Entries (polybag_entries.finishingIssueId)' and 'Carton Packings (carton_packings.finishingIssueId)' under the Finishing card (lines 1518-1519) and stage 14 Packing keys on carton_packings (line 888). Minor correction to the impact claim: dispatch.service.ts:193 getAvailableCartons exists but is not called from any page, so the dispatch picker dependency is latent, not user-visible — P2 integration-gap stands (pipeline remains passable via Move to Packing/Complete, so not P0)."
+   "verifyReason": "Re-derived: grep for polybag-entry|carton-packing|polybagEntry|cartonPacking across frontend/src = 0 matches; finishing.routes.ts:94-103 registers POST /issues/:id/polybag-entry and /issues/:id/carton-packing with validateBody + controllers; FinishingDetail.tsx action buttons are only receive/start/record-output/move-to-packing/complete/transfer-slip (lines 302-334). Guide citation checks out: MODULE_RELATIONSHIPS_GUIDE lists 'Polybag Entries (polybag_entries.finishingIssueId)' and 'Carton Packings (carton_packings.finishingIssueId)' under the Finishing card (lines 1518-1519) and stage 14 Packing keys on carton_packings (line 888). Minor correction to the impact claim: dispatch.service.ts:193 getAvailableCartons exists but is not called from any page, so the dispatch picker dependency is latent, not user-visible — P2 integration-gap stands (pipeline remains passable via Move to Packing/Complete, so not P0).",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B06-08",
@@ -1179,7 +1205,8 @@
    "fix": "Send quantityToTransfer (rename field in transferForm/TransferStockInput) to match the Zod schema",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B07-03",
@@ -1197,7 +1224,8 @@
    "fix": "Call POST /allocations/:allocationId/return with quantityToReturn, or add a stock-level return route",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B07-04",
@@ -1215,7 +1243,8 @@
    "fix": "Implement POST /api/lace-stock/:id/downgrade in laceStock.routes/controller or remove the Downgrade button",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "DEFERRED-build"
   },
   {
    "id": "B07-05",
@@ -1233,7 +1262,8 @@
    "fix": "Compute agingDays from receivedDate in getStocks/getLaceStockById (or derive client-side from stock.receivedDate)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B07-06",
@@ -1305,7 +1335,8 @@
    "fix": "Point at an existing report page (e.g. /reports/fabric-usage) or remove the button until an inventory reports page exists",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B07-10",
@@ -1323,7 +1354,8 @@
    "fix": "Navigate to /inventory/movements/stock-in (or /inventory/movements which has the New Movement dropdown)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B07-11",
@@ -1341,7 +1373,8 @@
    "fix": "Map GRN→/procurement/grn/:id, CHALLAN→/manufacturing/challans/:id, and drop or reroute PROCUREMENT until a detail route exists",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B07-12",
@@ -1359,7 +1392,8 @@
    "fix": "Build StockCountDetail page (start/count/verify/approve/variance) and register /inventory/stock-counts/:id (after /new)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "DEFERRED-build"
   },
   {
    "id": "B07-13",
@@ -1377,7 +1411,8 @@
    "fix": "Redirect to /inventory/stock-counts until the detail page (B07-12) is built",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B07-14",
@@ -1414,7 +1449,8 @@
    "confidence": "medium",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: GET /component-masters/:id/pattern-parts (fabricGreigeService.ts:266-268) matches no route — componentMasters.routes.ts:27-47 has only /, /categories, /:id; pattern-part routes mount at /components/:componentId/pattern-parts (routes/index.ts:235), so the call 404s and AllocateFabricToStyleModal.tsx:129-131 catch masks it as an empty list. StockInForm.tsx:18 does import fabricGreigeService (hop-1 attribution valid per batch method; real UI path is FabricForm.tsx:1550). Kept as the canonical single filing (B04-02 refuted as its duplicate). P2 stands: pattern-part selection is optional (modal :188 sends undefined when empty) and the allocation flow completes."
+   "verifyReason": "Re-derived: GET /component-masters/:id/pattern-parts (fabricGreigeService.ts:266-268) matches no route — componentMasters.routes.ts:27-47 has only /, /categories, /:id; pattern-part routes mount at /components/:componentId/pattern-parts (routes/index.ts:235), so the call 404s and AllocateFabricToStyleModal.tsx:129-131 catch masks it as an empty list. StockInForm.tsx:18 does import fabricGreigeService (hop-1 attribution valid per batch method; real UI path is FabricForm.tsx:1550). Kept as the canonical single filing (B04-02 refuted as its duplicate). P2 stands: pattern-part selection is optional (modal :188 sends undefined when empty) and the allocation flow completes.",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B07-16",
@@ -1490,7 +1526,8 @@
    "fix": "Read serviceStats.needsProcessorCount / serviceStats.poGeneratedCount (and align ServiceDashboardStats type with the backend interface)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B08-04",
@@ -1508,7 +1545,8 @@
    "fix": "Change referenceLink to /production/work-orders/${req.workOrderId}",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B08-05",
@@ -1526,7 +1564,8 @@
    "fix": "Wire the page to processingBatchService.getJobWorkSummary() (endpoint and service wrapper already exist)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B08-06",
@@ -1544,7 +1583,8 @@
    "fix": "Implement the page against processingBatchService.getById(id) (backend response is already rich)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B08-07",
@@ -1562,7 +1602,8 @@
    "fix": "Build a batch-create form (or hide the button until it exists); register /processing/batches/new before the :id route",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "DEFERRED-build"
   },
   {
    "id": "B08-08",
@@ -1672,7 +1713,8 @@
    "fix": "Add a /manufacturing/dispatch/delivery/:id route with a DN detail (read-only) page, or remove the View button",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B10-03",
@@ -1690,7 +1732,8 @@
    "fix": "Build an ASN create form page and register /manufacturing/dispatch/asn/new, or hide the button until it exists",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "DEFERRED-build"
   },
   {
    "id": "B10-04",
@@ -1708,7 +1751,8 @@
    "fix": "Add an ASN detail page + route, or remove the View button",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "DEFERRED-build"
   },
   {
    "id": "B10-05",
@@ -1726,7 +1770,8 @@
    "fix": "Add Approve/Reject/Reschedule actions (buttons or an ASN detail page) wired to the existing endpoints",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B10-06",
@@ -1745,7 +1790,8 @@
    "confidence": "medium",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Backend POST /delivery-notes/:id/assign-transport exists (dispatch.routes.ts:67-72). Frontend grep for assignTransport|assign-transport across frontend/src hits only the service definition (dispatch.service.ts:86-87) — no page calls it. DispatchDeliveryNoteForm.tsx has zero transport/vehicle/driver fields (case-insensitive grep: no matches); a pages-wide grep for vehicleNumber/'Assign Transport'/transporterName finds only ChallanForm/ChallanDetail (different module) and DispatchPODForm.tsx:200, where the transport block renders only if deliveryNote.vehicleNumber is set — which no dispatch UI ever sets. Guide citation verified: MODULE_RELATIONSHIPS_GUIDE.md:1624 (§8.13) lists dispatch_transports as a primary dispatch table with FK at line 1643. Distinct from the excluded 'POD recording' fix. Integration gap off the strict daily path → P2 appropriate."
+   "verifyReason": "Backend POST /delivery-notes/:id/assign-transport exists (dispatch.routes.ts:67-72). Frontend grep for assignTransport|assign-transport across frontend/src hits only the service definition (dispatch.service.ts:86-87) — no page calls it. DispatchDeliveryNoteForm.tsx has zero transport/vehicle/driver fields (case-insensitive grep: no matches); a pages-wide grep for vehicleNumber/'Assign Transport'/transporterName finds only ChallanForm/ChallanDetail (different module) and DispatchPODForm.tsx:200, where the transport block renders only if deliveryNote.vehicleNumber is set — which no dispatch UI ever sets. Guide citation verified: MODULE_RELATIONSHIPS_GUIDE.md:1624 (§8.13) lists dispatch_transports as a primary dispatch table with FK at line 1643. Distinct from the excluded 'POD recording' fix. Integration gap off the strict daily path → P2 appropriate.",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B10-07",
@@ -1783,7 +1829,8 @@
    "fix": "Add a Receive dialog on ChallanDetail for ISSUED challans wired to challanService.receiveChallan",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B10-09",
@@ -1801,7 +1848,8 @@
    "fix": "Return the saved assistant message id from POST /ai/chat/persistent and use it when building the assistantMessage",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B10-10",
@@ -1937,7 +1985,8 @@
    "fix": "Change the service URL to /fabric-management/cad/fabric/${fabricId} (FabricDetail.tsx:78 already uses the correct path)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B09-07",
@@ -1955,7 +2004,8 @@
    "fix": "Add <Route path=\"/quotations/:id/edit\" element={<QuotationForm />} /> in App.tsx",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B09-08",
@@ -1973,7 +2023,8 @@
    "fix": "After ACCEPTED, show a 'Convert to Order' button navigating to /orders/new?quotationId=... and teach OrderForm to prefill from it",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B09-09",
@@ -1991,7 +2042,8 @@
    "fix": "Add an Add/Edit Items dialog on SaleOrderDetail wired to the existing PUT /sale-orders/:id",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B09-10",
@@ -2009,7 +2061,8 @@
    "fix": "Add order_item_costing: true to the order_items include in getOrderById",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B09-11",
@@ -2027,7 +2080,8 @@
    "fix": "Read searchParams.get('orderId') in PurchaseOrderList and pass it to getAllPurchaseOrders (backend PO query supports orderId filtering)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B09-12",
@@ -2045,7 +2099,8 @@
    "fix": "Render the serialized count field (count.items) or include items in getListIncludes",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B09-13",
@@ -2196,7 +2251,8 @@
    "fix": "Build a ChartOfAccountForm page (or dialog on the list page) and register /chart-of-accounts/new and /chart-of-accounts/:id/edit in App.tsx — or convert the buttons to an in-page dialog like TaxMasterList does",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B12-05",
@@ -2214,7 +2270,8 @@
    "fix": "Add a CreditNoteDetail page + /credit-notes/:id route (backend endpoint is ready), or remove the row onClick/View button until it exists",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "DEFERRED-build"
   },
   {
    "id": "B12-06",
@@ -2431,7 +2488,8 @@
    "fix": "Change the URL to /stock?limit=100 (matching EmbroideryStockSendOut.tsx:95) and map fabricMaster fields accordingly",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B11-10",
@@ -2527,7 +2585,8 @@
    "liveCheck": "suggested",
    "originalSeverity": "P1",
    "verified": "DOWNGRADED",
-   "verifyReason": "Evidence fully confirmed: user.routes.ts:88 wires validateBody(createUserSchema); user.schema.ts:34-42 requires `name` (never sent — UserForm.tsx:63-71 posts firstName/lastName/department) and UserRoleEnum (:14-24) lacks SALES/PURCHASE/FACTORY_SUPERVISOR which UserForm offers (:142-147) and Prisma UserRole has (schema.prisma:9078-9088); even a schema-passing body would fail because Zod strips firstName/lastName and user.controller.ts:106-107 requires them. Create User via UI always 400s with generic 'Failed to save' (UserForm.tsx:88-89). Downgraded per rubric: this is a hard, visible failure on an off-daily-path admin form — no wrong data is shown or saved — and a working alternative onboarding path exists (self-registration uses auth.schema.ts:38-48 whose role enum matches Prisma, plus admin approve). That is a dead endpoint off the daily path = P2, not P1 silent-wrong-data."
+   "verifyReason": "Evidence fully confirmed: user.routes.ts:88 wires validateBody(createUserSchema); user.schema.ts:34-42 requires `name` (never sent — UserForm.tsx:63-71 posts firstName/lastName/department) and UserRoleEnum (:14-24) lacks SALES/PURCHASE/FACTORY_SUPERVISOR which UserForm offers (:142-147) and Prisma UserRole has (schema.prisma:9078-9088); even a schema-passing body would fail because Zod strips firstName/lastName and user.controller.ts:106-107 requires them. Create User via UI always 400s with generic 'Failed to save' (UserForm.tsx:88-89). Downgraded per rubric: this is a hard, visible failure on an off-daily-path admin form — no wrong data is shown or saved — and a working alternative onboarding path exists (self-registration uses auth.schema.ts:38-48 whose role enum matches Prisma, plus admin approve). That is a dead endpoint off the daily path = P2, not P1 silent-wrong-data.",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B13-04",
@@ -2565,7 +2624,8 @@
    "fix": "Create FabricPhysicalTestForm/Detail pages and register /fabric-physical-tests/new and /:id routes (blocked on B13-01)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "DEFERRED-build"
   },
   {
    "id": "B13-06",
@@ -2583,7 +2643,8 @@
    "fix": "Build GarmentPhysicalTestForm/Detail pages and register /garment-physical-tests/new and /:id routes",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "DEFERRED-build"
   },
   {
    "id": "B13-07",
@@ -2601,7 +2662,8 @@
    "fix": "Build TestingLabForm/Detail pages and register /testing-labs/new, /:id, /:id/edit routes",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B13-08",
@@ -2619,7 +2681,8 @@
    "fix": "Build TestTemplateForm/Detail pages and register /test-templates/new, /:id, /:id/edit routes",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "DEFERRED-build"
   },
   {
    "id": "B13-09",
@@ -2637,7 +2700,8 @@
    "fix": "Either make `reason` optional in rejectUserSchema or add a reason field to the reject dialog and send it",
    "confidence": "high",
    "liveCheck": "suggested",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B13-10",
@@ -2673,7 +2737,8 @@
    "fix": "Read status and pendingBuyerApproval from searchParams in GarmentPhysicalTests.tsx and pass to getAll",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B13-12",
@@ -2691,7 +2756,8 @@
    "fix": "Align permission.schema.ts UserRoleEnum (and user.schema.ts's identical copy) with the Prisma UserRole enum",
    "confidence": "high",
    "liveCheck": "suggested",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B13-13",
@@ -2709,7 +2775,8 @@
    "fix": "On edit, call updateUserRole(id, role) when the role changed (endpoint already exists)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B13-14",
@@ -2765,7 +2832,8 @@
    "liveCheck": "not-needed",
    "originalSeverity": "P1",
    "verified": "DOWNGRADED",
-   "verifyReason": "Evidence fully holds: costSheet.service.ts:114-117 PATCHes /style-costing/:id/reject, invoked from CostSheetDetail.tsx:128 and CostSheetList.tsx:207; styleCosting.routes.ts registers only PATCH /:id/approve (line 161) — no /reject route, so the call 404s every time; rejection is only reachable via {action:'reject', rejectionNotes} (style-costing-approval.controller.ts:39-47) and legacy approved=false maps to PENDING (line 55), so REJECTED is unreachable from the UI. Not excluded (exclusion covers cost-sheet create/edit/version/variance, not approve/reject). Downgraded P1->P2: the failure is NOT silent — confirmReject catches and toasts 'Failed to reject cost sheet' (CostSheetDetail.tsx:138-139) — so no wrong data is shown or saved; it is a dead endpoint on the exception branch of the approval flow while the daily approve path works, which the rubric classes as P2."
+   "verifyReason": "Evidence fully holds: costSheet.service.ts:114-117 PATCHes /style-costing/:id/reject, invoked from CostSheetDetail.tsx:128 and CostSheetList.tsx:207; styleCosting.routes.ts registers only PATCH /:id/approve (line 161) — no /reject route, so the call 404s every time; rejection is only reachable via {action:'reject', rejectionNotes} (style-costing-approval.controller.ts:39-47) and legacy approved=false maps to PENDING (line 55), so REJECTED is unreachable from the UI. Not excluded (exclusion covers cost-sheet create/edit/version/variance, not approve/reject). Downgraded P1->P2: the failure is NOT silent — confirmReject catches and toasts 'Failed to reject cost sheet' (CostSheetDetail.tsx:138-139) — so no wrong data is shown or saved; it is a dead endpoint on the exception branch of the approval flow while the daily approve path works, which the rubric classes as P2.",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B14-02",
@@ -2783,7 +2851,8 @@
    "fix": "Add a 'style_costing' case (prisma.style_costing.findMany + default columns) to fetchModuleData, or remove the ExportButton from CostSheetList",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B14-03",
@@ -2801,7 +2870,8 @@
    "fix": "Rename interface field to `name` and render `{cat.name}` (matches style.productCategory?.name used at line 909)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B14-06",
@@ -2820,7 +2890,8 @@
    "confidence": "medium",
    "liveCheck": "suggested",
    "verified": "CONFIRMED",
-   "verifyReason": "MoodBoardDetail.tsx:124 runs setItems(created.items) after create, and moodBoardService.create returns response.data.data directly (moodBoard.service.ts:50-53). Backend create (mood-board.service.ts:65-94) includes only season/createdBy/_count — no items — and the controller returns it as-is (mood-board.controller.ts:42-45), so created.items is undefined and items state becomes undefined. URL is swapped with history.replaceState (line 131), so no refetch occurs. First addItem then runs setItems((prev) => [...prev, newItem]) (line 185) — spreading undefined throws TypeError, so item adds fail until a full page load re-runs loadMoodBoard. P2 appropriate: real breakage on first use of a freshly created board, but off the daily order pipeline and recoverable by reload."
+   "verifyReason": "MoodBoardDetail.tsx:124 runs setItems(created.items) after create, and moodBoardService.create returns response.data.data directly (moodBoard.service.ts:50-53). Backend create (mood-board.service.ts:65-94) includes only season/createdBy/_count — no items — and the controller returns it as-is (mood-board.controller.ts:42-45), so created.items is undefined and items state becomes undefined. URL is swapped with history.replaceState (line 131), so no refetch occurs. First addItem then runs setItems((prev) => [...prev, newItem]) (line 185) — spreading undefined throws TypeError, so item adds fail until a full page load re-runs loadMoodBoard. P2 appropriate: real breakage on first use of a freshly created board, but off the daily order pipeline and recoverable by reload.",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B14-04",
@@ -3011,7 +3082,8 @@
    "fix": "Seed InvoiceList's status filter state from useSearchParams().get('status'), or drop the query params from the nav",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B15-07",
@@ -3029,7 +3101,8 @@
    "fix": "Read status/overdue via useSearchParams in WorkOrderList and seed its filters, or remove the params",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B15-08",
@@ -3047,7 +3120,8 @@
    "fix": "Seed QuotationList's status filter from useSearchParams().get('status'), or drop the param",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave3"
   },
   {
    "id": "B15-09",

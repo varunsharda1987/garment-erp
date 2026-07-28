@@ -382,11 +382,11 @@ export default function SupplierDetail() {
                   <label className="text-sm font-medium text-muted-foreground">Last Updated</label>
                   <p className="text-foreground">{new Date(supplier.updatedAt).toLocaleString()}</p>
                 </div>
-                {supplier.createdBy && (
+                {supplier.users && (
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Created By</label>
                     <p className="text-foreground">
-                      {supplier.createdBy.firstName} {supplier.createdBy.lastName}
+                      {supplier.users.firstName} {supplier.users.lastName}
                     </p>
                   </div>
                 )}

@@ -454,10 +454,10 @@ export default function PermissionManagement() {
                           </Badge>
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          by {log.user?.firstName} {log.user?.lastName}
+                          by {log.users?.firstName} {log.users?.lastName}
                         </div>
                       </div>
-                      <div className="text-sm text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</div>
+                      <div className="text-sm text-muted-foreground">{new Date(log.timestamp).toLocaleString()}</div>
                     </div>
                   ))}
                 </div>

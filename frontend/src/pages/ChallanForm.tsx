@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,8 +16,12 @@ import { Unit, UnitLabels } from '@/types/material.types';
 
 export default function ChallanForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Prefill the originating production run when arriving from a work-order drill-down link
+  const productionRunIdParam = searchParams.get('productionRunId') || undefined;
 
   const [form, setForm] = useState<CreateChallanInput>({
     challanType: 'OUTWARD',
@@ -25,6 +29,7 @@ export default function ChallanForm() {
     fromName: '',
     toType: 'VENDOR',
     toName: '',
+    productionRunId: productionRunIdParam,
     items: [
       {
         itemType: 'FABRIC',
@@ -104,6 +109,10 @@ export default function ChallanForm() {
         </Button>
         <h1 className="text-2xl font-display font-medium">New Challan</h1>
       </div>
+
+      {productionRunIdParam && (
+        <p className="text-sm text-muted-foreground">This challan will be linked to the originating production run.</p>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Challan Type & Transport */}

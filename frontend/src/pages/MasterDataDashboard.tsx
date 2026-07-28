@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import {
@@ -29,6 +30,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function MasterDataDashboard() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<MasterDataSummary | null>(null);
   const [totals, setTotals] = useState({ totalItems: 0, activeItems: 0, categories: 0 });
   const [expandedCategories, setExpandedCategories] = useState<string[]>([
@@ -48,11 +50,17 @@ export default function MasterDataDashboard() {
 
   const loadSummary = async () => {
     try {
+      setLoading(true);
+      setError(null);
       const response = await masterDataService.getSummary();
       setSummary(response.data.summary);
       setTotals(response.data.totals);
     } catch (err: unknown) {
       console.error('Failed to load master data summary:', err);
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to load master data. Please try again.';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -103,6 +111,27 @@ export default function MasterDataDashboard() {
 
   if (loading) {
     return <LoadingSpinner />;
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Master Data">
+          <div className="flex items-center gap-2">
+            <Package className="h-6 w-6" />
+          </div>
+        </PageHeader>
+        <Alert variant="destructive">
+          <AlertTitle>Failed to load master data</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3">
+            <span>{error}</span>
+            <Button variant="outline" size="sm" className="w-fit" onClick={loadSummary}>
+              Retry
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
   }
 
   const displaySummary = filteredSummary();

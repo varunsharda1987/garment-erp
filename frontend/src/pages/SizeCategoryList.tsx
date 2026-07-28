@@ -192,7 +192,7 @@ export default function SizeCategoryList() {
             keyExtractor={(category) => category.id}
             loading={isLoading}
             error={error}
-            onRowClick={(category) => navigate(`/masters/size-categories/${category.id}`)}
+            onRowClick={(category) => navigate(`/masters/size-categories/${category.id}/edit`)}
             emptyState={{
               icon: <Ruler className="h-16 w-16" />,
               title: 'No size categories found',

@@ -141,7 +141,7 @@ export default function LaceStockList() {
             Manage lace inventory with FIFO tracking and cross-style allocation
           </p>
         </div>
-        <Button onClick={() => navigate('/lace-stock/aging-report')}>
+        <Button onClick={() => navigate('/lace-stock/aging')}>
           <Clock className="h-4 w-4 mr-2" />
           Aging Report
         </Button>
@@ -362,7 +362,7 @@ export default function LaceStockList() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => navigate(`/lace-stock/${stock.id}/transfer`)}
+                                onClick={() => navigate(`/lace-stock/${stock.id}`)}
                                 title="Transfer"
                               >
                                 <ArrowRightLeft className="h-4 w-4" />

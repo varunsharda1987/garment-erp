@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -17,6 +17,8 @@ import { toast } from 'sonner';
 
 export default function FabricStockEntry() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedFabricId = searchParams.get('fabricId') || '';
 
   const [fabricList, setFabricList] = useState<FabricMaster[]>([]);
   const [selectedFabricId, setSelectedFabricId] = useState<string>('');
@@ -53,13 +55,23 @@ export default function FabricStockEntry() {
         fabricService.getAll({ limit: 200, isActive: 'true' }),
         warehouseService.getAll({ isActive: true }),
       ]);
-      setFabricList(fabricResponse.data || []);
+      const loadedList = fabricResponse.data || [];
+      setFabricList(loadedList);
       setWarehouses(warehouseData);
 
       // Set default warehouse to "Kashaya Fabs"
       const kashayaFabs = warehouseData.find((wh) => wh.warehouseName === 'Kashaya Fabs');
       if (kashayaFabs) {
         setFormData((prev) => ({ ...prev, warehouseLocation: kashayaFabs.warehouseName }));
+      }
+
+      // Auto-select fabric if passed via URL query param (from FabricDetail "Add Stock")
+      if (preselectedFabricId) {
+        const match = loadedList.find((f) => f.id === preselectedFabricId);
+        if (match) {
+          setSelectedFabricId(preselectedFabricId);
+          setFormData((prev) => ({ ...prev, width: match.actualWidth.toString() }));
+        }
       }
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };

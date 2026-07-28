@@ -85,13 +85,6 @@ export const greigeStockService = {
   },
 
   /**
-   * Delete a greige stock entry
-   */
-  async deleteStock(stockId: string): Promise<void> {
-    await api.delete(`${BASE_URL}/stock/${stockId}`);
-  },
-
-  /**
    * Adjust greige stock (increase/decrease with reason)
    */
   async adjustStock(

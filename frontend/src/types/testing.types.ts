@@ -262,6 +262,8 @@ export interface GarmentPhysicalTest {
   createdById: string;
   createdAt: string;
   updatedAt: string;
+  workOrder?: { id: string; workOrderNumber: string } | null;
+  style?: { id: string; styleCode: string; styleName: string } | null;
 }
 
 export interface CreateGarmentPhysicalTestInput {

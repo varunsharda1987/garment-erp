@@ -183,7 +183,20 @@ export default function InvoiceList() {
     {
       key: 'order',
       header: 'Order',
-      render: (invoice) => <div className="text-sm text-foreground">{invoice.orders?.orderNumber || 'N/A'}</div>,
+      render: (invoice) =>
+        invoice.orderId && invoice.orders?.orderNumber ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/orders/${invoice.orderId}`);
+            }}
+            className="text-sm text-info hover:underline"
+          >
+            {invoice.orders.orderNumber}
+          </button>
+        ) : (
+          <div className="text-sm text-foreground">{invoice.orders?.orderNumber || 'N/A'}</div>
+        ),
     },
     {
       key: 'dueDate',

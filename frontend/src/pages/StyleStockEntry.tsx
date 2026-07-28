@@ -328,7 +328,7 @@ export default function StyleStockEntry() {
                           {fabric.widthCADs && fabric.widthCADs.length > 0 && (
                             <p className="text-xs text-muted-foreground mt-1">
                               CAD: {fabric.widthCADs[0].cadMeters?.toFixed(2)} meters @{' '}
-                              {fabric.widthCADs[0].availableWidth}" width
+                              {fabric.widthCADs[0].cutableWidth}" width
                             </p>
                           )}
                         </div>

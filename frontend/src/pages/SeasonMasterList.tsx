@@ -48,6 +48,7 @@ export default function SeasonMasterList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -62,7 +63,7 @@ export default function SeasonMasterList() {
   useEffect(() => {
     fetchSeasons();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery, yearFilter, typeFilter]);
+  }, [currentPage, pageSize, searchQuery, yearFilter, typeFilter, statusFilter]);
 
   const fetchSeasons = async () => {
     try {
@@ -74,7 +75,7 @@ export default function SeasonMasterList() {
         search: searchQuery || undefined,
         year: yearFilter !== 'all' ? Number(yearFilter) : undefined,
         seasonType: typeFilter !== 'all' ? (typeFilter as SeasonType) : undefined,
-        isActive: true,
+        isActive: statusFilter === 'all' ? undefined : statusFilter === 'active',
       });
       setSeasons(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -284,6 +285,24 @@ export default function SeasonMasterList() {
                       {type} - {SEASON_TYPE_NAMES[type]}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-[160px]">
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => {
+                  setStatusFilter(value);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
             </div>

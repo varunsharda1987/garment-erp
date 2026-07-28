@@ -20,9 +20,17 @@ import {
   ArrowRight,
   Wrench,
   ClipboardList,
+  FileText,
+  Truck,
 } from 'lucide-react';
 import { getOrderById } from '../services/order.service';
 import workOrderService from '../services/workOrder.service';
+import { getInvoices } from '../services/invoice.service';
+import { deliveryNoteService } from '../services/dispatch.service';
+import { InvoiceStatusLabels } from '../types/invoice.types';
+import type { Invoice } from '../types/invoice.types';
+import { DeliveryStatusLabels } from '../types/dispatch.types';
+import type { DeliveryNote } from '../types/dispatch.types';
 import {
   getByOrderId as getOrderBOM,
   createFromCostSheet as createOrderBOMFromCostSheet,
@@ -141,6 +149,34 @@ export default function OrderDetail() {
       }
     },
     { enabled: shouldFetchServiceSummary, staleTime: 60 * 1000 }
+  );
+
+  // React Query: Downstream invoices for this order (billing surfacing)
+  const { data: invoices = [] } = useDetailQuery<Invoice[]>(
+    [...queryKeys.orders.detail(id || ''), 'invoices'],
+    async () => {
+      try {
+        const res = await getInvoices({ orderId: id!, limit: 100 });
+        return res.data;
+      } catch {
+        return [];
+      }
+    },
+    { enabled: !!id, staleTime: 60 * 1000 }
+  );
+
+  // React Query: Downstream delivery notes for this order (dispatch surfacing)
+  const { data: deliveryNotes = [] } = useDetailQuery<DeliveryNote[]>(
+    [...queryKeys.orders.detail(id || ''), 'delivery-notes'],
+    async () => {
+      try {
+        const res = await deliveryNoteService.getAll({ orderId: id!, limit: 100 });
+        return res.data;
+      } catch {
+        return [];
+      }
+    },
+    { enabled: !!id, staleTime: 60 * 1000 }
   );
 
   // Error message
@@ -1035,6 +1071,72 @@ export default function OrderDetail() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Billing & Dispatch Summary */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Billing & Dispatch
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Invoices */}
+            <div>
+              <div className="flex items-center gap-2 mb-3 text-sm font-medium text-muted-foreground">
+                <DollarSign className="h-4 w-4" />
+                Invoices
+                <Badge variant="secondary">{invoices.length}</Badge>
+              </div>
+              {invoices.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No invoices created for this order yet</div>
+              ) : (
+                <div className="space-y-2">
+                  {invoices.map((inv) => (
+                    <button
+                      key={inv.id}
+                      onClick={() => navigate(`/invoices/${inv.id}`)}
+                      className="w-full flex items-center justify-between rounded-md border p-2 text-sm hover:border-gray-400 transition-colors"
+                    >
+                      <span className="font-medium text-primary">{inv.invoiceNumber}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-muted-foreground">{formatCurrency(inv.totalAmount)}</span>
+                        <Badge variant="outline">{InvoiceStatusLabels[inv.status]}</Badge>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Delivery Notes */}
+            <div>
+              <div className="flex items-center gap-2 mb-3 text-sm font-medium text-muted-foreground">
+                <Truck className="h-4 w-4" />
+                Delivery Notes
+                <Badge variant="secondary">{deliveryNotes.length}</Badge>
+              </div>
+              {deliveryNotes.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No delivery notes created for this order yet</div>
+              ) : (
+                <div className="space-y-2">
+                  {deliveryNotes.map((dn) => (
+                    <button
+                      key={dn.id}
+                      onClick={() => navigate(`/manufacturing/dispatch/delivery/${dn.id}`)}
+                      className="w-full flex items-center justify-between rounded-md border p-2 text-sm hover:border-gray-400 transition-colors"
+                    >
+                      <span className="font-medium text-primary">{dn.deliveryNumber}</span>
+                      <Badge variant="outline">{DeliveryStatusLabels[dn.status]}</Badge>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

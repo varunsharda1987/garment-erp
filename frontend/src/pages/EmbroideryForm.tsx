@@ -29,7 +29,6 @@ interface FormData {
   threadColors?: string;
   repeatWidth?: string;
   repeatHeight?: string;
-  minFabricWidth?: string;
   usableWidthAfter: string;
   costPerMeter: string;
   leadTimeDays?: string;
@@ -102,7 +101,6 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
           setValue('threadColors', embroidery.threadColors?.toString() || '');
           setValue('repeatWidth', embroidery.repeatWidth?.toString() || '');
           setValue('repeatHeight', embroidery.repeatHeight?.toString() || '');
-          setValue('minFabricWidth', embroidery.minFabricWidth?.toString() || '');
           setValue('usableWidthAfter', embroidery.usableWidthAfter?.toString() || '');
           setValue('costPerMeter', embroidery.costPerMeter?.toString() || '');
           setValue('leadTimeDays', embroidery.leadTimeDays?.toString() || '');
@@ -150,7 +148,6 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
         threadColors: data.threadColors ? parseInt(data.threadColors, 10) : null,
         repeatWidth: data.repeatWidth ? parseFloat(data.repeatWidth) : null,
         repeatHeight: data.repeatHeight ? parseFloat(data.repeatHeight) : null,
-        minFabricWidth: data.minFabricWidth ? parseFloat(data.minFabricWidth) : null,
         usableWidthAfter: parseFloat(data.usableWidthAfter),
         costPerMeter: parseFloat(data.costPerMeter),
         supplierId: selectedSupplierId || null,
@@ -315,19 +312,6 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
             <div className="border-t pt-6">
               <h3 className="text-lg font-semibold mb-4 text-foreground">Width Impact</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Min Fabric Width */}
-                <div>
-                  <Label htmlFor="minFabricWidth">Minimum Fabric Width (inches)</Label>
-                  <Input
-                    id="minFabricWidth"
-                    type="number"
-                    step="0.01"
-                    {...register('minFabricWidth')}
-                    placeholder="e.g., 55"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Minimum input width needed for this design</p>
-                </div>
-
                 {/* Usable Width After */}
                 <div>
                   <Label htmlFor="usableWidthAfter">Usable Width After Embroidery (inches) *</Label>

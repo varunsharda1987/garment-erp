@@ -276,7 +276,9 @@ export class CreditNoteService {
           customer: {
             select: {
               id: true,
+              code: true,
               name: true,
+              billingName: true,
             },
           },
           createdBy: {

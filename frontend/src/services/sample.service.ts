@@ -14,8 +14,6 @@ import type {
   UpdateSampleStatusRequest,
   SampleSummary,
   SampleMeasurementInput,
-  SampleColorwayInput,
-  SampleSizeSetInput,
 } from '../types/sample.types';
 
 const BASE_URL = '/samples';
@@ -112,53 +110,9 @@ export const sampleService = {
    */
   recordActualMeasurements: async (
     sampleId: string,
-    measurements: Array<{ id: string; actualValue: number }>
+    measurements: Array<{ measurementPointId: string; actualValue: number; remarks?: string }>
   ): Promise<Sample> => {
     const response = await api.patch<SampleResponse>(`${BASE_URL}/${sampleId}/measurements/actual`, { measurements });
-    return response.data.data;
-  },
-
-  // ============================================
-  // COLORWAYS (PP Samples)
-  // ============================================
-
-  /**
-   * Add or update colorways for a PP sample
-   */
-  updateColorways: async (sampleId: string, colorways: SampleColorwayInput[]): Promise<Sample> => {
-    const response = await api.put<SampleResponse>(`${BASE_URL}/${sampleId}/colorways`, { colorways });
-    return response.data.data;
-  },
-
-  /**
-   * Update colorway status (approve/reject individual colorway)
-   */
-  updateColorwayStatus: async (sampleId: string, colorwayId: string, status: string): Promise<Sample> => {
-    const response = await api.patch<SampleResponse>(`${BASE_URL}/${sampleId}/colorways/${colorwayId}/status`, {
-      status,
-    });
-    return response.data.data;
-  },
-
-  // ============================================
-  // SIZE SETS (Size Set Samples)
-  // ============================================
-
-  /**
-   * Add or update size sets for a Size Set sample
-   */
-  updateSizeSets: async (sampleId: string, sizeSets: SampleSizeSetInput[]): Promise<Sample> => {
-    const response = await api.put<SampleResponse>(`${BASE_URL}/${sampleId}/size-sets`, { sizeSets });
-    return response.data.data;
-  },
-
-  /**
-   * Update size set item status (approve/reject individual size/color)
-   */
-  updateSizeSetStatus: async (sampleId: string, sizeSetId: string, status: string): Promise<Sample> => {
-    const response = await api.patch<SampleResponse>(`${BASE_URL}/${sampleId}/size-sets/${sizeSetId}/status`, {
-      status,
-    });
     return response.data.data;
   },
 
@@ -178,6 +132,19 @@ export const sampleService = {
     }
   ): Promise<Sample> => {
     const response = await api.post<SampleResponse>(`${BASE_URL}/${id}/send`, data);
+    return response.data.data;
+  },
+
+  /**
+   * Notify the buyer on WhatsApp that the sample was couriered (through the sender's own number).
+   * Pass no body to send the default composed message to the customer's number; pass `to`/`text`
+   * to override the recipient number and/or the message.
+   */
+  notifyBuyer: async (id: string, data?: { to?: string; text?: string }): Promise<{ to: string }> => {
+    const response = await api.post<{ data: { to: string }; message: string }>(
+      `${BASE_URL}/${id}/notify-buyer`,
+      data ?? {}
+    );
     return response.data.data;
   },
 

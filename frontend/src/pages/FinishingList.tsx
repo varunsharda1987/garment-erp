@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   CheckSquare,
   Plus,
@@ -39,6 +39,9 @@ import { format, differenceInCalendarDays } from 'date-fns';
 
 export default function FinishingList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Scope the list to a work order when arriving from a work-order drill-down link
+  const workOrderId = searchParams.get('workOrderId') || '';
 
   // Issues tab state
   const [issues, setIssues] = useState<FinishingIssue[]>([]);
@@ -70,6 +73,7 @@ export default function FinishingList() {
           limit: 20,
           search: search || undefined,
           status: (statusFilter as FinishingStatus) || undefined,
+          workOrderId: workOrderId || undefined,
         }),
         finishingSummaryService.getSummary(),
       ]);
@@ -116,7 +120,7 @@ export default function FinishingList() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, statusFilter]);
+  }, [page, statusFilter, workOrderId]);
 
   // Lazy-load tab data
   useEffect(() => {
@@ -221,6 +225,18 @@ export default function FinishingList() {
           </Button>
         </div>
       </div>
+
+      {/* Work-order drill-down filter indicator */}
+      {workOrderId && (
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">
+            Filtered to work order: {issues.find((i) => i.workOrder)?.workOrder?.workOrderNumber || workOrderId}
+          </Badge>
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/manufacturing/finishing">Clear filter</Link>
+          </Button>
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>

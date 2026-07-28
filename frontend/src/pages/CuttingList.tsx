@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Scissors,
   Plus,
@@ -34,6 +34,9 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { format, differenceInCalendarDays } from 'date-fns';
 
 export default function CuttingList() {
+  const [searchParams] = useSearchParams();
+  // Scope the list to a work order when arriving from a work-order drill-down link
+  const workOrderId = searchParams.get('workOrderId') || '';
   const [batches, setBatches] = useState<CuttingBatch[]>([]);
   const [summary, setSummary] = useState<CuttingSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,6 +70,7 @@ export default function CuttingList() {
           limit: 20,
           search: search || undefined,
           status: (statusFilter as CuttingBatchStatus) || undefined,
+          workOrderId: workOrderId || undefined,
         }),
         cuttingSummaryService.getSummary(),
       ]);
@@ -89,7 +93,7 @@ export default function CuttingList() {
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, statusFilter]);
+  }, [page, statusFilter, workOrderId]);
 
   const handleSearch = () => {
     setPage(1);
@@ -157,6 +161,18 @@ export default function CuttingList() {
           </Button>
         </div>
       </div>
+
+      {/* Work-order drill-down filter indicator */}
+      {workOrderId && (
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">
+            Filtered to work order: {batches.find((b) => b.workOrder)?.workOrder?.workOrderNumber || workOrderId}
+          </Badge>
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/manufacturing/cutting">Clear filter</Link>
+          </Button>
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>

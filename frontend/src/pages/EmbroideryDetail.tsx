@@ -186,12 +186,6 @@ export default function EmbroideryDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {embroidery.minFabricWidth && (
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Minimum Fabric Width</label>
-                  <p className="text-foreground text-lg">{embroidery.minFabricWidth}" (input)</p>
-                </div>
-              )}
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Usable Width After Embroidery</label>
                 <div className="flex items-center gap-2">

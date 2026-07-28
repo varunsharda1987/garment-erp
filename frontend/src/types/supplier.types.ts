@@ -345,7 +345,9 @@ export interface Supplier {
   createdAt: string;
   updatedAt: string;
   createdById: string;
-  createdBy?: {
+  // Backend includes the creator via the `users` relation (suppliers.createdById);
+  // the serializer keeps the key as `users`, so read that (not `createdBy`) - B04-08.
+  users?: {
     id: string;
     firstName: string;
     lastName: string;

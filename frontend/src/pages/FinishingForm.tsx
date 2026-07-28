@@ -38,6 +38,7 @@ export default function FinishingForm() {
   const [searchParams] = useSearchParams();
 
   const transferSlipIdParam = searchParams.get('transferSlipId');
+  const workOrderIdParam = searchParams.get('workOrderId');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -205,6 +206,11 @@ export default function FinishingForm() {
     }
   };
 
+  // When arriving from a work-order drill-down link, restrict the selectable slips to that WO
+  const visibleTransferSlips = workOrderIdParam
+    ? pendingTransferSlips.filter((s) => s.workOrderId === workOrderIdParam)
+    : pendingTransferSlips;
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -258,12 +264,12 @@ export default function FinishingForm() {
                     <SelectItem value="NONE" disabled>
                       Select a transfer slip...
                     </SelectItem>
-                    {pendingTransferSlips.length === 0 ? (
+                    {visibleTransferSlips.length === 0 ? (
                       <SelectItem value="empty" disabled>
                         No pending transfer slips
                       </SelectItem>
                     ) : (
-                      pendingTransferSlips.map((slip) => (
+                      visibleTransferSlips.map((slip) => (
                         <SelectItem key={slip.id} value={slip.id}>
                           {slip.slipNumber} - {slip.workOrderNumber} ({slip.styleCode || slip.styleName}) -{' '}
                           {slip.totalGoodPieces} pcs
@@ -272,9 +278,11 @@ export default function FinishingForm() {
                     )}
                   </SelectContent>
                 </Select>
-                {pendingTransferSlips.length === 0 && (
+                {visibleTransferSlips.length === 0 && (
                   <p className="text-sm text-warning mt-2">
-                    No pending transfer slips from stitching. Complete stitching issues first.
+                    {workOrderIdParam
+                      ? 'No pending transfer slips from stitching for this work order.'
+                      : 'No pending transfer slips from stitching. Complete stitching issues first.'}
                   </p>
                 )}
               </div>

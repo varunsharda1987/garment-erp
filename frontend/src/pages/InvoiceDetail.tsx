@@ -308,7 +308,17 @@ export default function InvoiceDetail() {
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Order Number</p>
-              <p className="text-sm text-foreground">{invoice.orders?.orderNumber || 'N/A'}</p>
+              {invoice.orderId && invoice.orders?.orderNumber ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/orders/${invoice.orderId}`)}
+                  className="text-sm text-info hover:underline"
+                >
+                  {invoice.orders.orderNumber}
+                </button>
+              ) : (
+                <p className="text-sm text-foreground">{invoice.orders?.orderNumber || 'N/A'}</p>
+              )}
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Created By</p>

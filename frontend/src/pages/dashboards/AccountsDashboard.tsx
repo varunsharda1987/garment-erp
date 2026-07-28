@@ -5,7 +5,7 @@
 
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { FileText, DollarSign, AlertTriangle, TrendingUp, Clock, Receipt, BarChart3 } from 'lucide-react';
+import { FileText, DollarSign, AlertTriangle, Clock, Receipt } from 'lucide-react';
 import { DashboardLayout, DashboardSection } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TableWidget } from '@/components/dashboard/TableWidget';
@@ -125,7 +125,6 @@ export default function AccountsDashboard() {
           icon={DollarSign}
           iconColor="text-success"
           iconBgColor="bg-success-muted"
-          trend={{ value: 8, direction: 'up', label: 'vs last month' }}
         />
         <StatCard
           title="Pending Invoices"
@@ -182,23 +181,6 @@ export default function AccountsDashboard() {
           icon={Receipt}
           iconColor="text-accent"
           iconBgColor="bg-accent/10"
-        />
-        <StatCard
-          title="Collection Rate"
-          value="78%"
-          description="On-time payments"
-          icon={TrendingUp}
-          iconColor="text-success"
-          iconBgColor="bg-success-muted"
-          trend={{ value: 3, direction: 'up' }}
-        />
-        <StatCard
-          title="Avg. Payment Days"
-          value="32"
-          description="Days to receive payment"
-          icon={BarChart3}
-          iconColor="text-primary"
-          iconBgColor="bg-primary/10"
         />
       </div>
 

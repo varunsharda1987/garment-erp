@@ -37,6 +37,7 @@ export default function ColorMasterList() {
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [familyFilter, setFamilyFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -45,7 +46,7 @@ export default function ColorMasterList() {
   useEffect(() => {
     fetchColors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery, familyFilter]);
+  }, [currentPage, pageSize, searchQuery, familyFilter, statusFilter]);
 
   const fetchColors = async () => {
     try {
@@ -56,7 +57,7 @@ export default function ColorMasterList() {
         limit: pageSize,
         search: searchQuery || undefined,
         colorFamily: familyFilter !== 'all' ? familyFilter : undefined,
-        isActive: true,
+        isActive: statusFilter === 'all' ? undefined : statusFilter === 'active',
       });
       setColors(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -226,6 +227,24 @@ export default function ColorMasterList() {
                       {family}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-[160px]">
+              <Select
+                value={statusFilter}
+                onValueChange={(value) => {
+                  setStatusFilter(value);
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -37,11 +37,13 @@ export default function WorkOrderList() {
   const [searchQuery, setSearchQuery] = useState('');
   // Backend has no "overdue" filter — applied client-side over plannedEndDate
   const [overdueOnly, setOverdueOnly] = useState(searchParams.get('overdue') === 'true');
+  // Scope to a single order when arriving from the order detail drill-down link
+  const [orderIdFilter, setOrderIdFilter] = useState(searchParams.get('orderId') || '');
 
   useEffect(() => {
     loadWorkOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, priorityFilter, searchQuery]);
+  }, [statusFilter, priorityFilter, searchQuery, orderIdFilter]);
 
   const loadWorkOrders = async () => {
     try {
@@ -51,6 +53,7 @@ export default function WorkOrderList() {
         status: statusFilter || undefined,
         priority: priorityFilter || undefined,
         search: searchQuery || undefined,
+        orderId: orderIdFilter || undefined,
       });
       setWorkOrders(data);
     } catch (err: unknown) {
@@ -253,20 +256,35 @@ export default function WorkOrderList() {
         </Button>
       </PageHeader>
 
-      {/* Active drill-down filter indicator */}
-      {overdueOnly && (
-        <div className="mb-4">
-          <Badge variant="destructive" className="gap-1">
-            Overdue only
-            <button
-              type="button"
-              onClick={() => setOverdueOnly(false)}
-              className="ml-1 hover:opacity-80"
-              aria-label="Clear overdue filter"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          </Badge>
+      {/* Active drill-down filter indicators */}
+      {(overdueOnly || orderIdFilter) && (
+        <div className="mb-4 flex items-center gap-2">
+          {overdueOnly && (
+            <Badge variant="destructive" className="gap-1">
+              Overdue only
+              <button
+                type="button"
+                onClick={() => setOverdueOnly(false)}
+                className="ml-1 hover:opacity-80"
+                aria-label="Clear overdue filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
+          {orderIdFilter && (
+            <Badge variant="secondary" className="gap-1">
+              Order: {workOrders.find((wo) => wo.orders)?.orders?.orderNumber || orderIdFilter}
+              <button
+                type="button"
+                onClick={() => setOrderIdFilter('')}
+                className="ml-1 hover:opacity-80"
+                aria-label="Clear order filter"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          )}
         </div>
       )}
 
@@ -335,7 +353,7 @@ export default function WorkOrderList() {
             icon: <ClipboardList className="h-16 w-16" />,
             title: 'No production runs found',
             description:
-              searchQuery || statusFilter || priorityFilter || overdueOnly
+              searchQuery || statusFilter || priorityFilter || overdueOnly || orderIdFilter
                 ? 'Try adjusting your search or filter criteria'
                 : 'Production runs are auto-created when orders are saved',
           }}

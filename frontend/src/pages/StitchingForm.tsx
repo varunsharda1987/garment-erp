@@ -65,6 +65,7 @@ export default function StitchingForm() {
   const [searchParams] = useSearchParams();
 
   const transferSlipIdParam = searchParams.get('transferSlipId');
+  const workOrderIdParam = searchParams.get('workOrderId');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -83,10 +84,17 @@ export default function StitchingForm() {
   const [pendingTransferSlips, setPendingTransferSlips] = useState<IncomingTransferSlip[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
 
+  // When arriving from a work-order drill-down link, restrict the selectable slips to that WO
+  const visibleTransferSlips = useMemo(
+    () =>
+      workOrderIdParam ? pendingTransferSlips.filter((s) => s.workOrderId === workOrderIdParam) : pendingTransferSlips,
+    [pendingTransferSlips, workOrderIdParam]
+  );
+
   // Group slips by work order for display
   const slipsByWorkOrder = useMemo(() => {
     const groups = new Map<string, { workOrderNumber: string; slips: IncomingTransferSlip[] }>();
-    for (const slip of pendingTransferSlips) {
+    for (const slip of visibleTransferSlips) {
       const key = slip.workOrderId;
       if (!groups.has(key)) {
         groups.set(key, { workOrderNumber: slip.workOrderNumber, slips: [] });
@@ -94,7 +102,7 @@ export default function StitchingForm() {
       groups.get(key)!.slips.push(slip);
     }
     return groups;
-  }, [pendingTransferSlips]);
+  }, [visibleTransferSlips]);
 
   useEffect(() => {
     loadInitialData();
@@ -304,9 +312,11 @@ export default function StitchingForm() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {pendingTransferSlips.length === 0 ? (
+              {visibleTransferSlips.length === 0 ? (
                 <p className="text-sm text-warning">
-                  No pending transfer slips from cutting. Complete cutting batches first.
+                  {workOrderIdParam
+                    ? 'No pending transfer slips from cutting for this work order.'
+                    : 'No pending transfer slips from cutting. Complete cutting batches first.'}
                 </p>
               ) : (
                 <div className="space-y-4 max-h-[400px] overflow-y-auto pr-1">

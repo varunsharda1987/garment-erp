@@ -12,6 +12,7 @@ import {
   RefreshCw,
   ShoppingCart,
   Package,
+  FileText,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -308,6 +309,20 @@ const CostSheetDetail = () => {
                   >
                     <ShoppingCart className="h-4 w-4 mr-2" />
                     Create Order
+                  </Button>
+                  {/* Costing → Quotation stage of the sales pipeline (B14-08) */}
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      const params = new URLSearchParams({
+                        costSheetId: costSheet.id,
+                        styleId: costSheet.styleId,
+                      });
+                      navigate(`/quotations/new?${params.toString()}`);
+                    }}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Create Quotation
                   </Button>
                 </>
               )}

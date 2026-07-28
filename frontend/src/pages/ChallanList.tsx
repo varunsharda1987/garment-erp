@@ -22,13 +22,15 @@ export default function ChallanList() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>(searchParams.get('challanType') || 'all');
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all');
+  // Scope the list to a production run when arriving from a work-order drill-down link
+  const productionRunId = searchParams.get('productionRunId') || '';
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
   useEffect(() => {
     loadChallans();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeFilter, statusFilter, page, search]);
+  }, [typeFilter, statusFilter, page, search, productionRunId]);
 
   async function loadChallans() {
     try {
@@ -39,6 +41,7 @@ export default function ChallanList() {
       };
       if (typeFilter !== 'all') filters.challanType = typeFilter as ChallanFilters['challanType'];
       if (statusFilter !== 'all') filters.status = statusFilter as ChallanFilters['status'];
+      if (productionRunId) filters.productionRunId = productionRunId;
       if (search) filters.search = search;
 
       const result = await challanService.getChallans(filters);
@@ -149,6 +152,19 @@ export default function ChallanList() {
           New Challan
         </Button>
       </div>
+
+      {/* Production-run drill-down filter indicator */}
+      {productionRunId && (
+        <div className="flex items-center gap-2">
+          <Badge variant="secondary">
+            Filtered to production run:{' '}
+            {challans.find((c) => c.productionRun)?.productionRun?.workOrderNumber || productionRunId}
+          </Badge>
+          <Button variant="ghost" size="sm" onClick={() => navigate('/manufacturing/challans')}>
+            Clear filter
+          </Button>
+        </div>
+      )}
 
       <Card>
         <CardHeader className="pb-3">

@@ -24,6 +24,9 @@ import {
   PendingUsersPage,
   Profile,
   Settings,
+  TemplateManager,
+  WhatsAppLink,
+  MessageStaff,
   StyleList,
   StyleFormRedesigned,
   StyleDetail,
@@ -51,7 +54,6 @@ import {
   CostSheetList,
   CostSheetForm,
   CostSheetDetail,
-  // CostSheetPOGenerationPage, // DEPRECATED: All POs now through Order → BOM → MRP workflow
   FabricCostingPage,
   FabricCostingOptionsPage,
   StyleFabricCostingOptionsPage,
@@ -110,6 +112,7 @@ import {
   LaceLabDipForm,
   LaceStockList,
   LaceStockDetail,
+  LaceStockAging,
   LaceDefectList,
   LaceDefectForm,
   ButtonList,
@@ -140,7 +143,6 @@ import {
   ComponentGroupMaster,
   PatternPartMaster,
   AIAssistant,
-  SelectTest,
   NotFound,
   PurchaseOrderList,
   PurchaseOrderForm,
@@ -278,6 +280,11 @@ function App() {
               {/* Profile & Settings */}
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
+              <Route path="/settings/export-templates" element={<TemplateManager />} />
+
+              {/* Messaging (per-user WhatsApp) */}
+              <Route path="/whatsapp" element={<WhatsAppLink />} />
+              <Route path="/messages/new" element={<MessageStaff />} />
 
               {/* Style Master */}
               <Route path="/styles" element={<StyleList />} />
@@ -363,6 +370,7 @@ function App() {
 
               {/* Lace Stock Management */}
               <Route path="/lace-stock" element={<LaceStockList />} />
+              <Route path="/lace-stock/aging" element={<LaceStockAging />} />
               <Route path="/lace-stock/:id" element={<LaceStockDetail />} />
 
               {/* Lace Defect Management */}
@@ -445,9 +453,6 @@ function App() {
               <Route path="/cost-sheets/new" element={<CostSheetForm />} />
               <Route path="/cost-sheets/:id" element={<CostSheetDetail />} />
               <Route path="/cost-sheets/:id/edit" element={<CostSheetForm />} />
-              {/* DEPRECATED: Cost Sheet PO Generation removed - all POs now through Order → BOM → MRP workflow
-            <Route path="/cost-sheets/:costSheetId/generate-po" element={<CostSheetPOGenerationPage />} />
-            */}
 
               {/* Fabric Costing */}
               <Route path="/fabric-costing" element={<FabricCostingPage />} />
@@ -648,9 +653,6 @@ function App() {
               <Route path="/mood-boards" element={<MoodBoardList />} />
               <Route path="/mood-boards/new" element={<MoodBoardDetail />} />
               <Route path="/mood-boards/:id" element={<MoodBoardDetail />} />
-
-              {/* Debug/Test Pages */}
-              <Route path="/test/select" element={<SelectTest />} />
             </Route>
 
             {/* 404 - Show NotFound page */}

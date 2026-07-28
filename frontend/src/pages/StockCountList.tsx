@@ -164,7 +164,10 @@ export default function StockCountList() {
           <div className="flex flex-wrap gap-4">
             <div className="w-48">
               <Label htmlFor="statusFilter">Status</Label>
-              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as CountStatus | '')}>
+              <Select
+                value={statusFilter || 'all'}
+                onValueChange={(value) => setStatusFilter(value === 'all' ? '' : (value as CountStatus))}
+              >
                 <SelectTrigger id="statusFilter">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>
@@ -181,7 +184,10 @@ export default function StockCountList() {
             </div>
             <div className="w-48">
               <Label htmlFor="typeFilter">Count Type</Label>
-              <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as CountType | '')}>
+              <Select
+                value={typeFilter || 'all'}
+                onValueChange={(value) => setTypeFilter(value === 'all' ? '' : (value as CountType))}
+              >
                 <SelectTrigger id="typeFilter">
                   <SelectValue placeholder="All" />
                 </SelectTrigger>

@@ -5,7 +5,7 @@
 
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ShoppingCart, FileText, Users, Calendar, DollarSign, TrendingUp, Clock, Shirt } from 'lucide-react';
+import { ShoppingCart, FileText, Users, Calendar, DollarSign, Clock, Shirt } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TableWidget } from '@/components/dashboard/TableWidget';
@@ -133,7 +133,6 @@ export default function SalesDashboard() {
           icon={DollarSign}
           iconColor="text-success"
           iconBgColor="bg-success-muted"
-          trend={{ value: 12, direction: 'up', label: 'vs last month' }}
         />
         <StatCard
           title="Upcoming Deliveries"
@@ -162,15 +161,6 @@ export default function SalesDashboard() {
           iconColor="text-primary"
           iconBgColor="bg-orange-100"
           onClick={() => navigate('/cost-sheets')}
-        />
-        <StatCard
-          title="Conversion Rate"
-          value="68%"
-          description="Quotation to Order"
-          icon={TrendingUp}
-          iconColor="text-success"
-          iconBgColor="bg-success-muted"
-          trend={{ value: 5, direction: 'up' }}
         />
       </div>
 

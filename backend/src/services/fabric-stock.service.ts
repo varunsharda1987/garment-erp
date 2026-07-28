@@ -481,15 +481,35 @@ class FabricStockService {
         },
       });
 
-      const result: FabricUsageByStyle[] = styleFabrics.map((sf) => ({
-        styleId: sf.style_components.styleId,
-        styleCode: sf.style_components.styles.styleCode,
-        styleName: sf.style_components.styles.styleName,
-        componentName: sf.style_components.componentName,
-        cadMeters: sf.quantityNeeded ? Number(sf.quantityNeeded) : 0,
-        stockAllocated: 0, // Will be calculated from allocations
-        stockConsumed: 0, // Will be calculated from allocations
-      }));
+      // Aggregate allocated/consumed meters per style from allocations drawn
+      // against stock of THIS fabric.
+      const allocationSums = await prisma.fabric_stock_allocation.groupBy({
+        by: ['styleId'],
+        where: { fabricStock: { fabricId } },
+        _sum: { quantityAllocated: true, quantityConsumed: true },
+      });
+      const allocationByStyle = new Map(
+        allocationSums.map((a) => [
+          a.styleId,
+          {
+            allocated: a._sum.quantityAllocated ? Number(a._sum.quantityAllocated) : 0,
+            consumed: a._sum.quantityConsumed ? Number(a._sum.quantityConsumed) : 0,
+          },
+        ])
+      );
+
+      const result: FabricUsageByStyle[] = styleFabrics.map((sf) => {
+        const alloc = allocationByStyle.get(sf.style_components.styleId);
+        return {
+          styleId: sf.style_components.styleId,
+          styleCode: sf.style_components.styles.styleCode,
+          styleName: sf.style_components.styles.styleName,
+          componentName: sf.style_components.componentName,
+          cadMeters: sf.quantityNeeded ? Number(sf.quantityNeeded) : 0,
+          stockAllocated: alloc?.allocated ?? 0,
+          stockConsumed: alloc?.consumed ?? 0,
+        };
+      });
 
       return result;
     } catch (error: unknown) {

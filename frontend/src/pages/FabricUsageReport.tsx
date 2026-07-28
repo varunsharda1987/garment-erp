@@ -236,8 +236,12 @@ export default function FabricUsageReport() {
                                         <td className="px-4 py-3 text-sm text-right text-foreground">
                                           {(style.quantityPerGarment ?? 0).toFixed(2)}
                                         </td>
-                                        <td className="px-4 py-3 text-sm text-right text-info">-</td>
-                                        <td className="px-4 py-3 text-sm text-right text-success">-</td>
+                                        <td className="px-4 py-3 text-sm text-right text-info">
+                                          {(style.stockAllocated ?? 0).toFixed(2)}
+                                        </td>
+                                        <td className="px-4 py-3 text-sm text-right text-success">
+                                          {(style.stockConsumed ?? 0).toFixed(2)}
+                                        </td>
                                       </tr>
                                     ))}
                                   </tbody>

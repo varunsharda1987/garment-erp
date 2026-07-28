@@ -53,7 +53,6 @@ export default function PatternPartMaster() {
       setLoading(true);
       const response = await getAllPatternParts({
         search: searchTerm,
-        activeOnly: false,
         limit: 100,
       });
       setPatternParts(response.data);

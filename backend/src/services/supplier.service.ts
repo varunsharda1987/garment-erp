@@ -140,12 +140,8 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
           cityName: true,
         },
       },
-    };
-  }
-
-  protected getListIncludes(): IncludeConfig {
-    return {
-      ...this.getDefaultIncludes(),
+      // _count included on the default (detail) includes so findById surfaces the
+      // PO/Materials/GRN counts the SupplierDetail page renders (B04-07).
       _count: {
         select: {
           materialSuppliers: true,
@@ -156,6 +152,10 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
         },
       },
     };
+  }
+
+  protected getListIncludes(): IncludeConfig {
+    return this.getDefaultIncludes();
   }
 
   // ============================================

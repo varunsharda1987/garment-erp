@@ -5,7 +5,7 @@
 
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Factory, Scissors, CheckSquare, Send, AlertTriangle, ClipboardList, Clock, TrendingUp } from 'lucide-react';
+import { Factory, Scissors, CheckSquare, Send, AlertTriangle, ClipboardList, Clock } from 'lucide-react';
 import { DashboardLayout, DashboardSection } from '@/components/dashboard';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { TableWidget } from '@/components/dashboard/TableWidget';
@@ -112,15 +112,6 @@ export default function ProductionDashboard() {
           iconColor="text-accent"
           iconBgColor="bg-accent/10"
           onClick={() => navigate('/manufacturing/dispatch')}
-        />
-        <StatCard
-          title="Production Efficiency"
-          value="87%"
-          description="Target vs Actual"
-          icon={TrendingUp}
-          iconColor="text-success"
-          iconBgColor="bg-success-muted"
-          trend={{ value: 5, direction: 'up', label: 'vs last week' }}
         />
         <StatCard
           title="Overdue Orders"

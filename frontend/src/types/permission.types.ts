@@ -63,13 +63,13 @@ export interface PermissionAuditEntry {
     permissionKey: string;
     allowed: boolean;
   } | null;
-  user: {
+  users: {
     id: string;
     firstName: string;
     lastName: string;
     email: string;
   } | null;
-  createdAt: string;
+  timestamp: string;
 }
 
 export interface AuditLogResponse {

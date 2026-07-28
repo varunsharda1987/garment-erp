@@ -249,9 +249,9 @@ export default function MaterialDetail() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium text-foreground">
-                            {stock.location?.locationName || 'Unknown Location'}
+                            {stock.locations?.locationName || 'Unknown Location'}
                           </p>
-                          <p className="text-sm text-muted-foreground">{stock.location?.locationCode}</p>
+                          <p className="text-sm text-muted-foreground">{stock.locations?.locationCode}</p>
                         </div>
                         <div className="text-right">
                           <p className="text-xl font-semibold text-foreground">

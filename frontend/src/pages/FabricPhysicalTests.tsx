@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, Search, Filter, FileText, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,12 +17,13 @@ export default function FabricPhysicalTests() {
     notify.info('Coming soon', {
       description: 'Fabric physical test entry & detail screens are not yet available.',
     });
+  const [searchParams] = useSearchParams();
   const [tests, setTests] = useState<FabricPhysicalTest[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>(searchParams.get('status') || 'all');
 
   useEffect(() => {
     fetchTests();

@@ -48,7 +48,7 @@ export interface FabricWithCAD {
   };
   widthCADs?: Array<{
     id: string;
-    availableWidth: number;
+    cutableWidth: number;
     cadMeters?: number;
     actualCad?: number;
     cadVariancePercent?: number;
@@ -109,6 +109,8 @@ export interface FabricStyleUsage {
   styleName: string;
   quantityPerGarment: number;
   componentName: string;
+  stockAllocated?: number;
+  stockConsumed?: number;
 }
 
 export interface FabricStockHistoryEntry {

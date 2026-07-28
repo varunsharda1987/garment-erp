@@ -334,6 +334,10 @@ export const listStock = async (req: Request, res: Response) => {
       // Use styleReference from fabric_master, or fall back to style_fabrics link
       const effectiveStyleRef = s.fabricMaster.styleReference || styleRefFromLink;
 
+      // Stock awaits embroidery when a pattern part is flagged for embroidery
+      // but no embroidery design has been linked to this stock yet.
+      const needsEmbroidery = patternParts.some((p) => p.goesToEmbroidery) && !s.embroideryId;
+
       return {
         id: s.id,
         fabricId: s.fabricId,
@@ -392,6 +396,7 @@ export const listStock = async (req: Request, res: Response) => {
               orderNumber: s.originOrder.orderNumber,
             }
           : null,
+        needsEmbroidery,
         // Embroidered Stock tab fields
         embroideryId: s.embroideryId,
         embroidery: s.embroidery

@@ -47,6 +47,13 @@ export const UserForm = lazy(() => import('../pages/UserForm'));
 export const PendingUsersPage = lazy(() => import('../pages/PendingUsersPage'));
 export const Profile = lazy(() => import('../pages/Profile'));
 export const Settings = lazy(() => import('../pages/Settings'));
+export const TemplateManager = lazy(() => import('../pages/TemplateManager'));
+
+// ============================================================================
+// Messaging (per-user WhatsApp)
+// ============================================================================
+export const WhatsAppLink = lazy(() => import('../pages/WhatsAppLink'));
+export const MessageStaff = lazy(() => import('../pages/MessageStaff'));
 
 // ============================================================================
 // Role-Specific Dashboards
@@ -123,8 +130,6 @@ export const OrderBOMDetail = lazy(() => import('../pages/OrderBOMDetail'));
 export const CostSheetList = lazy(() => import('../pages/CostSheetList'));
 export const CostSheetForm = lazy(() => import('../pages/CostSheetForm'));
 export const CostSheetDetail = lazy(() => import('../pages/CostSheetDetail'));
-// DEPRECATED: Cost Sheet PO Generation removed - all POs now through Order → BOM → MRP workflow
-// export const CostSheetPOGenerationPage = lazy(() => import('../pages/CostSheetPOGenerationPage'));
 export const FabricCostingPage = lazy(() => import('../pages/FabricCostingPage'));
 export const FabricCostingOptionsPage = lazy(() => import('../pages/FabricCostingOptionsPage'));
 export const StyleFabricCostingOptionsPage = lazy(() => import('../pages/StyleFabricCostingOptionsPage'));
@@ -196,14 +201,10 @@ export const GRNDetail = lazy(() => import('../pages/GRNDetail'));
 // ============================================================================
 // MRP (Material Requirement Planning)
 // ============================================================================
-export const MRPDashboard = lazy(() => import('../pages/MRPDashboard'));
-export const MaterialRequirementsList = lazy(() => import('../pages/MaterialRequirementsList'));
 
 // ============================================================================
 // Service Requirements (Work Order Service PO Management)
 // ============================================================================
-export const ServiceRequirementsDashboard = lazy(() => import('../pages/ServiceRequirementsDashboard'));
-export const ServiceRequirementsList = lazy(() => import('../pages/ServiceRequirementsList'));
 
 // ============================================================================
 // Unified Procurement Requirements (Material + Service combined)
@@ -267,6 +268,7 @@ export const LaceLabDipList = lazy(() => import('../pages/LaceLabDipList'));
 export const LaceLabDipForm = lazy(() => import('../pages/LaceLabDipForm'));
 export const LaceStockList = lazy(() => import('../pages/LaceStockList'));
 export const LaceStockDetail = lazy(() => import('../pages/LaceStockDetail'));
+export const LaceStockAging = lazy(() => import('../pages/LaceStockAging'));
 export const LaceDefectList = lazy(() => import('../pages/LaceDefectList'));
 export const LaceDefectForm = lazy(() => import('../pages/LaceDefectForm'));
 export const ButtonList = lazy(() => import('../pages/ButtonList'));
@@ -412,7 +414,6 @@ export const AIAssistant = lazy(() => import('../pages/AIAssistant'));
 // ============================================================================
 // Debug/Test Pages
 // ============================================================================
-export const SelectTest = lazy(() => import('../pages/SelectTest'));
 
 // ============================================================================
 // Testing Module (FPT/GPT)

@@ -298,7 +298,6 @@ export default function Dashboard() {
               description="Production tracking"
               onClick={() => navigate('/production/work-orders')}
             />
-            <QuickAction icon="📊" label="Reports" description="Coming soon" onClick={() => {}} disabled />
           </div>
         </CardContent>
       </Card>

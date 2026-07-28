@@ -40,10 +40,20 @@ export class PatternPartController {
    * GET /api/pattern-parts
    */
   async getPatternParts(req: Request, res: Response) {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 50;
-    const search = req.query.search as string | undefined;
-    const isActive = req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
+    // Read the PARSED query: validateQuery(patternPartQuerySchema) puts the coerced values
+    // (isActive → boolean, page/limit → number) in req.validatedQuery — its copy-back onto
+    // req.query does not stick, so req.query.isActive is still the raw string 'true' and would
+    // reach Prisma as a string (→ count() validation crash). Fall back to req.query if absent.
+    const q = ((req as { validatedQuery?: Record<string, unknown> }).validatedQuery ?? req.query) as {
+      page?: number | string;
+      limit?: number | string;
+      search?: string;
+      isActive?: boolean;
+    };
+    const page = Number(q.page) || 1;
+    const limit = Number(q.limit) || 50;
+    const search = q.search;
+    const isActive = typeof q.isActive === 'boolean' ? q.isActive : undefined;
 
     const result = await patternPartService.getPatternParts(page, limit, search, isActive);
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, RefreshCw, ListChecks } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
@@ -17,6 +17,10 @@ import type { OrderBOM, OrderBOMStatus } from '../types/orderBom.types';
 
 const OrderBOMList = () => {
   const navigate = useNavigate();
+  // Seed the style filter from the URL so "Generate Order BOM" on an approved cost
+  // sheet lands on the BOM list scoped to that style (B14-05).
+  const [searchParams] = useSearchParams();
+  const styleIdFilter = searchParams.get('styleId') || undefined;
   const [boms, setBoms] = useState<OrderBOM[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +37,7 @@ const OrderBOMList = () => {
       const response = await listOrderBOMs({
         ...apiParams,
         status: statusFilter !== 'all' ? (statusFilter as OrderBOMStatus) : undefined,
+        styleId: styleIdFilter,
         isActive: true,
       });
       setBoms(response.data);
@@ -49,7 +54,7 @@ const OrderBOMList = () => {
   useEffect(() => {
     fetchBOMs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, statusFilter]);
+  }, [currentPage, pageSize, statusFilter, styleIdFilter]);
 
   return (
     <>

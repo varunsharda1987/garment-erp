@@ -15,7 +15,7 @@ export const getAllPatternParts = async (params?: {
   page?: number;
   limit?: number;
   search?: string;
-  activeOnly?: boolean;
+  isActive?: boolean;
 }): Promise<PatternPartListResponse> => {
   const { data } = await api.get<PatternPartListResponse>('/pattern-parts', {
     params,

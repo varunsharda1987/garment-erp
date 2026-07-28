@@ -213,7 +213,8 @@ export interface InventoryStock {
   quantity: number;
   unit: Unit;
   lastUpdated: string;
-  location?: {
+  // Serializer keeps the Prisma relation name `locations` (to-one) verbatim
+  locations?: {
     id: string;
     locationCode: string;
     locationName: string;

@@ -13,9 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { embroideryService } from '../services/embroidery.service';
 import { getAllSuppliers } from '../services/supplier.service';
+import { styleService } from '../services/style.service';
+import { getAllOrders } from '../services/order.service';
 import { CheckCircle, XCircle, ArrowLeft, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Embroidery, EmbroiderySendOutRequest } from '../types/embroidery.types';
 import type { Supplier } from '../types/supplier.types';
+import type { Style } from '../types/style.types';
+import type { Order } from '../types/order.types';
 import { logError } from '../lib/logger';
 import api from '@/lib/api';
 import { formatCurrency } from '../lib/currency';
@@ -52,6 +56,8 @@ export default function EmbroideryStockSendOut() {
   const [fabricStockList, setFabricStockList] = useState<FabricStock[]>([]);
   const [embroideryList, setEmbroideryList] = useState<Embroidery[]>([]);
   const [supplierList, setSupplierList] = useState<Supplier[]>([]);
+  const [styleList, setStyleList] = useState<Style[]>([]);
+  const [orderList, setOrderList] = useState<Order[]>([]);
 
   // Selected items
   const [selectedStockId, setSelectedStockId] = useState<string>('');
@@ -114,6 +120,19 @@ export default function EmbroideryStockSendOut() {
         setSupplierList(allSuppliers.data || []);
       } else {
         setSupplierList(supplierData.data || []);
+      }
+
+      // Load styles and orders for optional earmarking (non-blocking)
+      try {
+        const [styleData, orderData] = await Promise.all([
+          styleService.getAllStyles(1, 200),
+          getAllOrders({ limit: 200 }),
+        ]);
+        setStyleList(styleData.data || []);
+        setOrderList(orderData.data || []);
+      } catch {
+        setStyleList([]);
+        setOrderList([]);
       }
     } catch (err) {
       logError('Failed to load initial data:', err);
@@ -574,6 +593,46 @@ export default function EmbroideryStockSendOut() {
                         Lead time: {selectedEmbroidery.leadTimeDays} days
                       </p>
                     )}
+                  </div>
+
+                  <div>
+                    <Label htmlFor="forStyleId">For Style (optional)</Label>
+                    <Select
+                      value={formData.forStyleId}
+                      onValueChange={(v) => handleFieldChange('forStyleId', v === '__none__' ? '' : v)}
+                    >
+                      <SelectTrigger className="w-full mt-1">
+                        <SelectValue placeholder="Earmark for a style..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">None</SelectItem>
+                        {styleList.map((style) => (
+                          <SelectItem key={style.id} value={style.id}>
+                            {style.styleCode} - {style.styleName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="forOrderId">For Order (optional)</Label>
+                    <Select
+                      value={formData.forOrderId}
+                      onValueChange={(v) => handleFieldChange('forOrderId', v === '__none__' ? '' : v)}
+                    >
+                      <SelectTrigger className="w-full mt-1">
+                        <SelectValue placeholder="Earmark for an order..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">None</SelectItem>
+                        {orderList.map((order) => (
+                          <SelectItem key={order.id} value={order.id}>
+                            {order.orderNumber}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="md:col-span-2">

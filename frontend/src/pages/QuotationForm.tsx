@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,7 +23,10 @@ interface QuotationItemRow extends QuotationItemInput {
 export default function QuotationForm() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const isEditMode = Boolean(id);
+  // Pre-selected style when arriving from an approved cost sheet's "Create Quotation" (B14-08)
+  const prefillStyleId = searchParams.get('styleId') || '';
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [styles, setStyles] = useState<Style[]>([]);
@@ -52,6 +55,9 @@ export default function QuotationForm() {
     fetchStyles();
     if (isEditMode && id) {
       fetchQuotation(id);
+    } else if (prefillStyleId) {
+      // Seed the first line item with the style handed off from the cost sheet
+      setItems((prev) => prev.map((item, idx) => (idx === 0 ? { ...item, styleId: prefillStyleId } : item)));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditMode]);

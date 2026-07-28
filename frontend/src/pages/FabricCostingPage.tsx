@@ -1558,7 +1558,7 @@ export default function FabricCostingPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate(`/cad-planning?style=${selectedStyleId}`)}
+                onClick={() => navigate(`/cad-planning/${selectedStyleId}`)}
                 className="border-warning text-warning hover:bg-warning/10"
               >
                 <FileText className="w-4 h-4 mr-2" />

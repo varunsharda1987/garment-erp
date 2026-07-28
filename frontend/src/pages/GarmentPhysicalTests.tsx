@@ -232,11 +232,13 @@ export default function GarmentPhysicalTests() {
                   <div className="grid grid-cols-4 gap-4 text-sm mb-4">
                     <div>
                       <span className="text-muted-foreground">Work Order:</span>
-                      <p className="font-medium text-foreground">{test.workOrderId}</p>
+                      <p className="font-medium text-foreground">
+                        {test.workOrder?.workOrderNumber || test.workOrderId}
+                      </p>
                     </div>
                     <div>
                       <span className="text-muted-foreground">Style:</span>
-                      <p className="font-medium text-foreground">{test.styleId}</p>
+                      <p className="font-medium text-foreground">{test.style?.styleCode || test.styleId}</p>
                     </div>
                     {test.batchNumber && (
                       <div>

@@ -361,7 +361,7 @@ export default function StitchingDetail() {
           const hasOutput = getTotalCompleted() > 0;
           const issueRecord = issue as unknown as Record<string, unknown>;
           const hasTransferSlip = !!issueRecord.transferSlip;
-          const transferSlip = issueRecord.transferSlip as { slipNumber?: string } | undefined;
+          const transferSlip = issueRecord.transferSlip as { id?: string; slipNumber?: string } | undefined;
 
           if (issue.status === 'PENDING_RECEIPT') {
             return (
@@ -488,7 +488,15 @@ export default function StitchingDetail() {
                         </div>
                       </div>
                     </div>
-                    <Button onClick={() => navigate('/manufacturing/finishing/new')}>
+                    <Button
+                      onClick={() =>
+                        navigate(
+                          transferSlip.id
+                            ? `/manufacturing/finishing/new?transferSlipId=${transferSlip.id}`
+                            : '/manufacturing/finishing/new'
+                        )
+                      }
+                    >
                       <ArrowRight className="mr-2 h-4 w-4" />
                       Go to Finishing
                     </Button>

@@ -269,10 +269,11 @@ class ProductCategoryServiceClass extends BaseService<
    * Get full hierarchy tree
    */
   async getHierarchy(parentId: string | null = null): Promise<ProductCategoryHierarchy[]> {
+    // Include inactive categories so the management tree can render them greyed-out
+    // (with the reactivate toggle). This endpoint is only consumed by ProductCategoryMaster.
     const categories = await this.prisma.product_category_master.findMany({
       where: {
         parentId,
-        isActive: true,
       },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });

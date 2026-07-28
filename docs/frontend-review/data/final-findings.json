@@ -18,7 +18,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: LaceForm.tsx:111-121 reads lace.laceSuppliers but serializer.ts:320 renames laceSuppliers→'suppliers' (lace.controller.ts:519 comment explicitly relies on this), so existing links never load; onSubmit (LaceForm.tsx:166,178) unconditionally sends suppliers:[] when none loaded; lace.controller.ts:621-631 deleteMany then createMany-only-if-length>0 wipes all supplier links; updateLaceSchema (trimMasters.schema.ts:400) passes suppliers through. Silent data loss on every lace edit save. Not excluded. P1 correct."
+   "verifyReason": "Re-derived: LaceForm.tsx:111-121 reads lace.laceSuppliers but serializer.ts:320 renames laceSuppliers→'suppliers' (lace.controller.ts:519 comment explicitly relies on this), so existing links never load; onSubmit (LaceForm.tsx:166,178) unconditionally sends suppliers:[] when none loaded; lace.controller.ts:621-631 deleteMany then createMany-only-if-length>0 wipes all supplier links; updateLaceSchema (trimMasters.schema.ts:400) passes suppliers through. Silent data loss on every lace edit save. Not excluded. P1 correct.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B02-02",
@@ -37,7 +38,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: lace.controller.ts getLaceById (458-531) includes lace_suppliers and returns it raw; transformResponse middleware (app.ts:145) runs serialize() = toCamelCase then applyRelationMappings, and serializer.ts:320 maps laceSuppliers→'suppliers', so the response key is `suppliers`. LaceDetail.tsx:197/201/221 reads lace.laceSuppliers → always undefined; Suppliers card permanently shows (0). frontend lace.service.ts:33-36 does no remapping. Not on the exclusion list. P1 (silent empty relation shown) holds."
+   "verifyReason": "Re-derived: lace.controller.ts getLaceById (458-531) includes lace_suppliers and returns it raw; transformResponse middleware (app.ts:145) runs serialize() = toCamelCase then applyRelationMappings, and serializer.ts:320 maps laceSuppliers→'suppliers', so the response key is `suppliers`. LaceDetail.tsx:197/201/221 reads lace.laceSuppliers → always undefined; Suppliers card permanently shows (0). frontend lace.service.ts:33-36 does no remapping. Not on the exclusion list. P1 (silent empty relation shown) holds.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B02-03",
@@ -236,7 +238,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: fabricGreigeService.ts:266-271 calls GET /component-masters/:id/pattern-parts and reads response.data.patternParts. routes/index.ts:235 mounts the pattern-part list only at /components/:componentId/pattern-parts; componentMasters.routes.ts has no /:id/pattern-parts route (only /, /categories, /:id, PUT, DELETE) so the call 404s. Controller (patternPart.controller.ts:174-177) returns {success,data} so even the fixed path would need .data.data. AllocateFabricToStyleModal.tsx:129-131 catches and setPatternParts([]) — silent empty list. Allocation itself still submits (patternPartIds optional at modal line 188), but pattern-part granularity is silently lost. P1 holds (silent wrong data shown/saved)."
+   "verifyReason": "Re-derived: fabricGreigeService.ts:266-271 calls GET /component-masters/:id/pattern-parts and reads response.data.patternParts. routes/index.ts:235 mounts the pattern-part list only at /components/:componentId/pattern-parts; componentMasters.routes.ts has no /:id/pattern-parts route (only /, /categories, /:id, PUT, DELETE) so the call 404s. Controller (patternPart.controller.ts:174-177) returns {success,data} so even the fixed path would need .data.data. AllocateFabricToStyleModal.tsx:129-131 catches and setPatternParts([]) — silent empty list. Allocation itself still submits (patternPartIds optional at modal line 188), but pattern-part granularity is silently lost. P1 holds (silent wrong data shown/saved).",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B01-02",
@@ -417,7 +420,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: ComponentGroupMaster.tsx:269 reads group._count?.components; componentGroup.service.ts includes _count (lines 33/69); the global transformResponse middleware (app.ts:145 -> transform.middleware.ts -> serializer.serialize) runs humps.camelizeKeys, which strips the leading underscore ('_count' -> 'count'; only UUID keys are preserved via the process option), and RELATION_MAPPINGS has no entry restoring _count. Frontend therefore always sees undefined -> badge shows 0. P1 fits the rubric (silent wrong data shown)."
+   "verifyReason": "Re-derived: ComponentGroupMaster.tsx:269 reads group._count?.components; componentGroup.service.ts includes _count (lines 33/69); the global transformResponse middleware (app.ts:145 -> transform.middleware.ts -> serializer.serialize) runs humps.camelizeKeys, which strips the leading underscore ('_count' -> 'count'; only UUID keys are preserved via the process option), and RELATION_MAPPINGS has no entry restoring _count. Frontend therefore always sees undefined -> badge shows 0. P1 fits the rubric (silent wrong data shown).",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B03-02",
@@ -580,7 +584,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Reproduced the serializer behavior directly: node repro of humps.camelizeKeys({_count:{agents:2,customers:3}}) with the UUID-only process option (serializer.ts:132-141) returns {count:{agents:2,customers:3}}, and applyRelationMappings then renames the inner 'customers' to 'customer' (RELATION_MAPPINGS serializer.ts:244). transformResponse is mounted globally (app.ts:145) and wraps every res.json. Frontend reads verified: AgencyList.tsx:192 agency._count?.agents, AgentList.tsx:200 agent._count?.customers, CustomerList.tsx:232-236 and SupplierList.tsx:222-225 gate on _count. No re-mapping in frontend/src/lib/api.ts (zero matches for count/_count). Backend does include _count (agency.service.ts:95-98), so real data exists but is unreachable under the _count key — every one of these columns shows 0 or blank regardless of data. Silent wrong data shown → P1 per rubric. Not on the exclusion list."
+   "verifyReason": "Reproduced the serializer behavior directly: node repro of humps.camelizeKeys({_count:{agents:2,customers:3}}) with the UUID-only process option (serializer.ts:132-141) returns {count:{agents:2,customers:3}}, and applyRelationMappings then renames the inner 'customers' to 'customer' (RELATION_MAPPINGS serializer.ts:244). transformResponse is mounted globally (app.ts:145) and wraps every res.json. Frontend reads verified: AgencyList.tsx:192 agency._count?.agents, AgentList.tsx:200 agent._count?.customers, CustomerList.tsx:232-236 and SupplierList.tsx:222-225 gate on _count. No re-mapping in frontend/src/lib/api.ts (zero matches for count/_count). Backend does include _count (agency.service.ts:95-98), so real data exists but is unreachable under the _count key — every one of these columns shows 0 or blank regardless of data. Silent wrong data shown → P1 per rubric. Not on the exclusion list.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B04-03",
@@ -652,7 +657,8 @@
    "fix": "Override findById in CustomerService to use getListIncludes() (or add _count to getDefaultIncludes)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B04-07",
@@ -707,7 +713,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived with one mechanism nuance that doesn't change the outcome: route-level validateQuery(fabricStockQuerySchema) has no stockType field, but validation.middleware.ts:55-60 only copies validated keys back and never deletes unknown ones from req.query, so the controller's own StockListQuerySchema.parse (fabric-stock.controller.ts:33-38,188) still sees stockType=EMBROIDERED and throws (enum is PLANNED_STOCK|EXCESS_MOQ|CROSS_STYLE_REUSE) → 400 via error.middleware ZodError handler. Live probe reproduced the exact 400. EmbroideryAvailableStock.tsx:87-88 catch masks it as []; and even if it passed, the listStock map (316-368) exposes `fabric` not `fabricMaster` and no embroideryId/embroidery/forStyle, so the :85 embroideryId filter yields [] regardless. Not excluded: the 'embroidery send-out/receive' exclusion is the EmbroideryStockSendOut/Receive flow, and the 'stock pages derived repoints' exclusion doesn't cover this tab's EMBROIDERED filter. P1 holds."
+   "verifyReason": "Re-derived with one mechanism nuance that doesn't change the outcome: route-level validateQuery(fabricStockQuerySchema) has no stockType field, but validation.middleware.ts:55-60 only copies validated keys back and never deletes unknown ones from req.query, so the controller's own StockListQuerySchema.parse (fabric-stock.controller.ts:33-38,188) still sees stockType=EMBROIDERED and throws (enum is PLANNED_STOCK|EXCESS_MOQ|CROSS_STYLE_REUSE) → 400 via error.middleware ZodError handler. Live probe reproduced the exact 400. EmbroideryAvailableStock.tsx:87-88 catch masks it as []; and even if it passed, the listStock map (316-368) exposes `fabric` not `fabricMaster` and no embroideryId/embroidery/forStyle, so the :85 embroideryId filter yields [] regardless. Not excluded: the 'embroidery send-out/receive' exclusion is the EmbroideryStockSendOut/Receive flow, and the 'stock pages derived repoints' exclusion doesn't cover this tab's EMBROIDERED filter. P1 holds.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B05-02",
@@ -726,7 +733,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: StyleFormRedesigned.tsx:1125 reads styleData.variants; serializer.ts:239 maps styleVariants→styleVariants (never 'variants') and style.service.ts:703 includes style_variants raw, so the key is styleVariants — variants is always undefined. State defaults to DEFAULT_SIZES with blank SKUs (lines 392-399). Save always includes skuVariants (line 2160, from skuVariantsWithGenerated at 2029-2032 with auto-generated styleCode+size SKUs); update schema (style.schema.ts:310) passes skuVariants through; style.service.ts:1055-1093 does style_variants.deleteMany + recreate whenever skuVariants is present. Custom SKUs/barcodes/sizes are silently destroyed on every edit-save. P1 correct."
+   "verifyReason": "Re-derived: StyleFormRedesigned.tsx:1125 reads styleData.variants; serializer.ts:239 maps styleVariants→styleVariants (never 'variants') and style.service.ts:703 includes style_variants raw, so the key is styleVariants — variants is always undefined. State defaults to DEFAULT_SIZES with blank SKUs (lines 392-399). Save always includes skuVariants (line 2160, from skuVariantsWithGenerated at 2029-2032 with auto-generated styleCode+size SKUs); update schema (style.schema.ts:310) passes skuVariants through; style.service.ts:1055-1093 does style_variants.deleteMany + recreate whenever skuVariants is present. Custom SKUs/barcodes/sizes are silently destroyed on every edit-save. P1 correct.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B05-03",
@@ -745,7 +753,8 @@
    "confidence": "high",
    "liveCheck": "suggested",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: frontend MaterialMasterForm collects pricePerUnit/pricePerMeter/pricePerPiece/pricePerKg/pricePerGross (+currencyId on edit-load) and submits via materialMasterService.create/update to /material-master; material-master.routes.ts:45,48-53 applies validateBody(createMaterialSchema/updateMaterialSchema); materialMaster.schema.ts:57-95 defines only 'price' and none of the pricePer*/currencyId fields; validation.middleware.ts:28 does req.body = schema.parse(req.body) (Zod default strips unknown keys); backend material-master.service.ts:94-100/136-142 then writes data.pricePer*/currencyId which are always undefined -> prices saved NULL. Not on the exclusion list. P1 correct (silent data loss on save)."
+   "verifyReason": "Re-derived: frontend MaterialMasterForm collects pricePerUnit/pricePerMeter/pricePerPiece/pricePerKg/pricePerGross (+currencyId on edit-load) and submits via materialMasterService.create/update to /material-master; material-master.routes.ts:45,48-53 applies validateBody(createMaterialSchema/updateMaterialSchema); materialMaster.schema.ts:57-95 defines only 'price' and none of the pricePer*/currencyId fields; validation.middleware.ts:28 does req.body = schema.parse(req.body) (Zod default strips unknown keys); backend material-master.service.ts:94-100/136-142 then writes data.pricePer*/currencyId which are always undefined -> prices saved NULL. Not on the exclusion list. P1 correct (silent data loss on save).",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B05-04",
@@ -764,7 +773,8 @@
    "confidence": "high",
    "liveCheck": "suggested",
    "verified": "CONFIRMED",
-   "verifyReason": "materialSupplierSchema (material.schema.ts:11-16) contains only supplierId/isPreferred/isActive/notes; createMaterialSchema/updateMaterialSchema nest it at .suppliers (lines 48, 85) and both routes validate with validateBody (material.routes.ts:54, 78), whose middleware replaces req.body with schema.parse output (validation.middleware.ts:28) — Zod's default object behavior strips the unknown nested keys. The controller then writes s.supplierPrice ?? null, s.leadTimeDays ?? null, s.moq ?? null, s.moqUnit ?? null, s.isPrimary ?? false on both create (material.controller.ts:74-78) and update (503-510), so every save nulls these columns. MaterialForm.tsx collects and sends exactly these fields (lines 199-212, 504-550, payload line 266). Silent data loss on save → P1 holds."
+   "verifyReason": "materialSupplierSchema (material.schema.ts:11-16) contains only supplierId/isPreferred/isActive/notes; createMaterialSchema/updateMaterialSchema nest it at .suppliers (lines 48, 85) and both routes validate with validateBody (material.routes.ts:54, 78), whose middleware replaces req.body with schema.parse output (validation.middleware.ts:28) — Zod's default object behavior strips the unknown nested keys. The controller then writes s.supplierPrice ?? null, s.leadTimeDays ?? null, s.moq ?? null, s.moqUnit ?? null, s.isPrimary ?? false on both create (material.controller.ts:74-78) and update (503-510), so every save nulls these columns. MaterialForm.tsx collects and sends exactly these fields (lines 199-212, 504-550, payload line 266). Silent data loss on save → P1 holds.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B05-05",
@@ -783,7 +793,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: embroidery_master has only cutableWidth (schema.prisma:2166, no usableWidthAfter column); serializeEmbroidery (embroidery.controller.ts:14-22) and both GET handlers (:181-185, :247-252) never emit usableWidthAfter (only createEmbroidery ACCEPTS it as input alias, :49-57). EmbroideryList.tsx:144 column always '-', EmbroideryDetail.tsx:199 flagship stat always blank, EmbroideryForm.tsx:106 loads '' into a required field (:338) blocking every edit save. Not under the 'embroidery send-out/receive' exclusion (these are the master pages). P1 correct."
+   "verifyReason": "Re-derived: embroidery_master has only cutableWidth (schema.prisma:2166, no usableWidthAfter column); serializeEmbroidery (embroidery.controller.ts:14-22) and both GET handlers (:181-185, :247-252) never emit usableWidthAfter (only createEmbroidery ACCEPTS it as input alias, :49-57). EmbroideryList.tsx:144 column always '-', EmbroideryDetail.tsx:199 flagship stat always blank, EmbroideryForm.tsx:106 loads '' into a required field (:338) blocking every edit save. Not under the 'embroidery send-out/receive' exclusion (these are the master pages). P1 correct.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B05-06",
@@ -1149,7 +1160,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "laceStock.service.ts:108 (frontend) GETs /lace-stock/:id/allocations; laceStock.routes.ts defines GET /, /available/:laceId, /:id, /:id/transactions and only POST routes under /allocations/:allocationId/(consume|return) — no GET /:id/allocations exists anywhere in the file, and /lace-stock is mounted once (routes/index.ts:300), so the call 404s (prior probe agreed). LaceStockDetail.tsx:75-88 wraps getLaceStockById + getStockAllocations + getStockTransactions in one Promise.all with a single catch, so the 404 rejects the whole batch, stock stays null, and lines 213-217 render 'Stock not found' for every valid stock id. Whole detail page non-functional → P1 stands. Not covered by the 'stock pages derived repoints' exclusion, which concerns stock-levels derived-inventory repoints, not this missing lace-stock route."
+   "verifyReason": "laceStock.service.ts:108 (frontend) GETs /lace-stock/:id/allocations; laceStock.routes.ts defines GET /, /available/:laceId, /:id, /:id/transactions and only POST routes under /allocations/:allocationId/(consume|return) — no GET /:id/allocations exists anywhere in the file, and /lace-stock is mounted once (routes/index.ts:300), so the call 404s (prior probe agreed). LaceStockDetail.tsx:75-88 wraps getLaceStockById + getStockAllocations + getStockTransactions in one Promise.all with a single catch, so the 404 rejects the whole batch, stock stays null, and lines 213-217 render 'Stock not found' for every valid stock id. Whole detail page non-functional → P1 stands. Not covered by the 'stock pages derived repoints' exclusion, which concerns stock-levels derived-inventory repoints, not this missing lace-stock route.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B07-02",
@@ -1439,7 +1451,8 @@
    "confidence": "high",
    "liveCheck": "suggested",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: fabricGreigeService.ts:266-270 GETs /component-masters/${id}/pattern-parts; componentMasters.routes.ts (whole file read) has only /, /categories, /:id — a two-segment suffix matches nothing; the real route is mounted at /components/:componentId/pattern-parts (routes/index.ts:235). Live probe: 404. AllocateFabricToStyleModal.tsx:124-135 catch converts the 404 to setPatternParts([]), so pattern parts silently always empty and allocations save without pattern-part links. P1 (silent wrong/empty data leading to incomplete saves) holds."
+   "verifyReason": "Re-derived: fabricGreigeService.ts:266-270 GETs /component-masters/${id}/pattern-parts; componentMasters.routes.ts (whole file read) has only /, /categories, /:id — a two-segment suffix matches nothing; the real route is mounted at /components/:componentId/pattern-parts (routes/index.ts:235). Live probe: 404. AllocateFabricToStyleModal.tsx:124-135 catch converts the 404 to setPatternParts([]), so pattern parts silently always empty and allocations save without pattern-part links. P1 (silent wrong/empty data leading to incomplete saves) holds.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B08-02",
@@ -1458,7 +1471,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: UnifiedRequirementsPage.tsx:471-477 maps g.genericName||g.name||g.code and code:g.code; GET /fabric-management/greige (fabric-greige.routes.ts:39) → getAllGreigeMasters → serializeGreige spreads raw greige_master rows (greige.controller.ts:21-31) whose fields are greigeCode/greigeName (schema.prisma:4025-4026; genericGreigeName exists at :4048) — no name/code/genericName. Every option's name and code are undefined. One nuance: React renders undefined as empty, so options show blank labels ' ()' rather than the literal 'undefined (undefined)' — substance unchanged: the greige dropdown in the convert-to-greige-processing dialog is unusable by label. P1 holds."
+   "verifyReason": "Re-derived: UnifiedRequirementsPage.tsx:471-477 maps g.genericName||g.name||g.code and code:g.code; GET /fabric-management/greige (fabric-greige.routes.ts:39) → getAllGreigeMasters → serializeGreige spreads raw greige_master rows (greige.controller.ts:21-31) whose fields are greigeCode/greigeName (schema.prisma:4025-4026; genericGreigeName exists at :4048) — no name/code/genericName. Every option's name and code are undefined. One nuance: React renders undefined as empty, so options show blank labels ' ()' rather than the literal 'undefined (undefined)' — substance unchanged: the greige dropdown in the convert-to-greige-processing dialog is unusable by label. P1 holds.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B08-03",
@@ -1639,7 +1653,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: DispatchList.tsx:328 reads dn.ext?.cartons?.length and :331 dn.ext?.pod?.customerGrnNumber from the LIST query; dispatch.controller.ts getAllDeliveryNotes (lines 268-280) includes only deliveryNoteIncludeOptions (188-199, no delivery_notes_ext) so transformDeliveryNote (line 60) returns ext:null for every list row; and the ext transform (60-66) exposes only {id,pod,transport} even on the extended detail path, while the delivery_notes_ext model does have a cartons relation (schema.prisma:6534) that is never included or returned. Cartons column always 0, Customer GRN always '-'. Not excluded (POD *recording* was the fixed item; this is list read-back). P1 correct."
+   "verifyReason": "Re-derived: DispatchList.tsx:328 reads dn.ext?.cartons?.length and :331 dn.ext?.pod?.customerGrnNumber from the LIST query; dispatch.controller.ts getAllDeliveryNotes (lines 268-280) includes only deliveryNoteIncludeOptions (188-199, no delivery_notes_ext) so transformDeliveryNote (line 60) returns ext:null for every list row; and the ext transform (60-66) exposes only {id,pod,transport} even on the extended detail path, while the delivery_notes_ext model does have a cartons relation (schema.prisma:6534) that is never included or returned. Cartons column always 0, Customer GRN always '-'. Not excluded (POD *recording* was the fixed item; this is list read-back). P1 correct.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B10-02",
@@ -1749,7 +1764,8 @@
    "confidence": "medium",
    "liveCheck": "suggested",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived full path: ChallanForm date inputs (:135-147) put 'YYYY-MM-DD' strings in form state with no default (initial state :22-36 omits dates, so empty-date submits work); frontend challan.service.ts:38 posts form as-is; createChallanSchema keeps them as plain strings (challan.schema.ts:39,54); controller spreads req.body (challan.controller.ts:25-27); service passes the raw string to prisma challans.create on DateTime columns challanDate/expectedDate (challan.service.ts:116,132; schema.prisma:8367). Prisma rejects date-only strings for DateTime ('Expected ISO-8601 DateTime') → PrismaClientValidationError → 500 whenever either date is picked. Exactly the repo's datetime-schema guardrail bug class. P1 reasonable (visible failure of a daily manufacturing form path, workaround = leave dates blank)."
+   "verifyReason": "Re-derived full path: ChallanForm date inputs (:135-147) put 'YYYY-MM-DD' strings in form state with no default (initial state :22-36 omits dates, so empty-date submits work); frontend challan.service.ts:38 posts form as-is; createChallanSchema keeps them as plain strings (challan.schema.ts:39,54); controller spreads req.body (challan.controller.ts:25-27); service passes the raw string to prisma challans.create on DateTime columns challanDate/expectedDate (challan.service.ts:116,132; schema.prisma:8367). Prisma rejects date-only strings for DateTime ('Expected ISO-8601 DateTime') → PrismaClientValidationError → 500 whenever either date is picked. Exactly the repo's datetime-schema guardrail bug class. P1 reasonable (visible failure of a daily manufacturing form path, workaround = leave dates blank).",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B10-08",
@@ -1822,7 +1838,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: OrderDetail.tsx:232 calls calculateMRPStandalone(order.id, {}); orderBom.schema.ts:134-137 calculateMRPStandaloneSchema requires styleId as non-optional z.string().uuid(); order-bom.routes.ts:100-105 wires validateBody on POST /:orderId/bom/calculate-mrp → every click from the Order Detail workflow tracker returns 400. OrderBOMDetail.tsx:174-176 passes styleId and works, confirming the fix direction. P1 is right: on the daily order→MRP path but not a total pipeline block (workaround exists) and the failure is a visible error, not silent corruption."
+   "verifyReason": "Re-derived: OrderDetail.tsx:232 calls calculateMRPStandalone(order.id, {}); orderBom.schema.ts:134-137 calculateMRPStandaloneSchema requires styleId as non-optional z.string().uuid(); order-bom.routes.ts:100-105 wires validateBody on POST /:orderId/bom/calculate-mrp → every click from the Order Detail workflow tracker returns 400. OrderBOMDetail.tsx:174-176 passes styleId and works, confirming the fix direction. P1 is right: on the daily order→MRP path but not a total pipeline block (workaround exists) and the failure is a visible error, not silent corruption.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B09-02",
@@ -1841,7 +1858,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: OrderDetail.tsx:817-819 reads breakup.colors?.colorName / breakup.sizes?.sizeName. order.controller.ts:520-525 includes color_options/size_options on order_item_breakup; serializer.ts:236-238 explicitly removed the colorOptions→colors and sizeOptions→sizes mappings (comment says frontend uses colorOptions/sizeOptions directly), so the API keys are colorOptions/sizeOptions. breakup.colors/breakup.sizes are always undefined → every row shows 'N/A' (or '-' when colorId null). Silent wrong data on the daily order detail view. Not excluded ('order editing' exclusion is the edit flow, this is the read view). P1 correct."
+   "verifyReason": "Re-derived: OrderDetail.tsx:817-819 reads breakup.colors?.colorName / breakup.sizes?.sizeName. order.controller.ts:520-525 includes color_options/size_options on order_item_breakup; serializer.ts:236-238 explicitly removed the colorOptions→colors and sizeOptions→sizes mappings (comment says frontend uses colorOptions/sizeOptions directly), so the API keys are colorOptions/sizeOptions. breakup.colors/breakup.sizes are always undefined → every row shows 'N/A' (or '-' when colorId null). Silent wrong data on the daily order detail view. Not excluded ('order editing' exclusion is the edit flow, this is the read view). P1 correct.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B09-03",
@@ -1880,7 +1898,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "StockProductionOrderList.tsx:138-145 sends { styleId, totalQuantity, targetDate?, priority, remarks?, items: [] } to POST /stock-production-orders (service BASE_URL confirmed; route mounted at routes/index.ts:255 with validateBody(createSPOSchema) at stockProductionOrder.routes.ts:40). createSPOSchema (stockProductionOrder.schema.ts:31-40) requires `quantity` (not sent → deterministic Zod 400 'Required') and defines no totalQuantity/targetDate/items, so those are stripped. Independently, the controller (stockProductionOrder.controller.ts:55-57) throws 'At least one item...' on empty items, and the UI always sends items: [] ('Items will be added in detail page'). Double-blocked — SPO creation from the UI is impossible. P1 stands: complete break of the stock-production entry flow is more than a P2 dead link, and SPO is this business's produce-for-stock workflow."
+   "verifyReason": "StockProductionOrderList.tsx:138-145 sends { styleId, totalQuantity, targetDate?, priority, remarks?, items: [] } to POST /stock-production-orders (service BASE_URL confirmed; route mounted at routes/index.ts:255 with validateBody(createSPOSchema) at stockProductionOrder.routes.ts:40). createSPOSchema (stockProductionOrder.schema.ts:31-40) requires `quantity` (not sent → deterministic Zod 400 'Required') and defines no totalQuantity/targetDate/items, so those are stripped. Independently, the controller (stockProductionOrder.controller.ts:55-57) throws 'At least one item...' on empty items, and the UI always sends items: [] ('Items will be added in detail page'). Double-blocked — SPO creation from the UI is impossible. P1 stands: complete break of the stock-production entry flow is more than a P2 dead link, and SPO is this business's produce-for-stock workflow.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B09-05",
@@ -1899,7 +1918,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: StockProductionOrderDetail.tsx:121-124/149-152 send {items,totalQuantity}; PUT route validates with updateSPOSchema (stockProductionOrder.routes.ts:48) which has neither field (schema :46-55); validation.middleware.ts:28 replaces req.body with the stripped parse; controller :74-81 then passes items=undefined and service :172 'if (data.items)' skips — 200 no-op with 'Item added' toast while the table stays empty; Approve gated on items.length>0 (page :197). Secondary sentinel claim also verified: SelectItem value='none' (:397) passes through 'colorId: newItemColorId || null' (:116). Worse than filed, even: createSPOSchema also lacks items while the create controller (:55) requires it. P1 correct (silent wrong save; SPO/stock-production is not the canonical order→dispatch pipeline, so not P0)."
+   "verifyReason": "Re-derived: StockProductionOrderDetail.tsx:121-124/149-152 send {items,totalQuantity}; PUT route validates with updateSPOSchema (stockProductionOrder.routes.ts:48) which has neither field (schema :46-55); validation.middleware.ts:28 replaces req.body with the stripped parse; controller :74-81 then passes items=undefined and service :172 'if (data.items)' skips — 200 no-op with 'Item added' toast while the table stays empty; Approve gated on items.length>0 (page :197). Secondary sentinel claim also verified: SelectItem value='none' (:397) passes through 'colorId: newItemColorId || null' (:116). Worse than filed, even: createSPOSchema also lacks items while the create controller (:55) requires it. P1 correct (silent wrong save; SPO/stock-production is not the canonical order→dispatch pipeline, so not P0).",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B09-06",
@@ -2117,7 +2137,8 @@
    "confidence": "high",
    "liveCheck": "suggested",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: DebitNoteList.tsx:168 calls GET /suppliers/search; read the FULL supplier.routes.ts — no /search route exists; the request matches router.get('/:id') at line 45 with validateParams(supplierIdParamSchema) requiring z.string().uuid() (supplier.schema.ts:211-213) → 400 for id='search'. The bare catch at :173-175 swallows everything, supplierOptions stays [], and the create submit is gated on selectedSupplier (line 711 + guard at 246) — debit-note creation is silently dead end-to-end. GET /suppliers?search=... exists as the proper fix. P1 reasonable (whole feature silently dead, presented as 'no matching suppliers')."
+   "verifyReason": "Re-derived: DebitNoteList.tsx:168 calls GET /suppliers/search; read the FULL supplier.routes.ts — no /search route exists; the request matches router.get('/:id') at line 45 with validateParams(supplierIdParamSchema) requiring z.string().uuid() (supplier.schema.ts:211-213) → 400 for id='search'. The bare catch at :173-175 swallows everything, supplierOptions stays [], and the create submit is gated on selectedSupplier (line 711 + guard at 246) — debit-note creation is silently dead end-to-end. GET /suppliers?search=... exists as the proper fix. P1 reasonable (whole feature silently dead, presented as 'no matching suppliers').",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B12-02",
@@ -2136,7 +2157,8 @@
    "confidence": "high",
    "liveCheck": "suggested",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: GSTReports.tsx:259 reads String(gstr1Data.summary.totalInvoices) with no optional chaining, and gstr1Data is set directly from res.data.data (line 168); backend gstReport.service.ts generateGSTR1 returns { period, b2b, b2cs, cdnr, hsnSummary, totals } (lines 261-268) — key is 'totals', no 'summary' — and gstReport.controller.ts:15 passes it through unchanged (serializer won't rename these already-camelCase keys). So .summary is undefined -> TypeError crashes the GSTR-1 tab on Generate. Field mismatches also verified: backend sends customerGstin/cgstAmount/sgstAmount/igstAmount/invoiceValue/creditNoteNumber/creditNoteDate/noteValue (interfaces 18-57, mappers 146-199) vs frontend reads gstin/cgst/sgst/igst/totalValue/noteNumber/noteDate/value. P1 correct."
+   "verifyReason": "Re-derived: GSTReports.tsx:259 reads String(gstr1Data.summary.totalInvoices) with no optional chaining, and gstr1Data is set directly from res.data.data (line 168); backend gstReport.service.ts generateGSTR1 returns { period, b2b, b2cs, cdnr, hsnSummary, totals } (lines 261-268) — key is 'totals', no 'summary' — and gstReport.controller.ts:15 passes it through unchanged (serializer won't rename these already-camelCase keys). So .summary is undefined -> TypeError crashes the GSTR-1 tab on Generate. Field mismatches also verified: backend sends customerGstin/cgstAmount/sgstAmount/igstAmount/invoiceValue/creditNoteNumber/creditNoteDate/noteValue (interfaces 18-57, mappers 146-199) vs frontend reads gstin/cgst/sgst/igst/totalValue/noteNumber/noteDate/value. P1 correct.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B12-03",
@@ -2155,7 +2177,8 @@
    "confidence": "high",
    "liveCheck": "suggested",
    "verified": "CONFIRMED",
-   "verifyReason": "gstReport.service.ts:335-349 returns outwardSupplies: { taxable: {taxableValue,cgst,sgst,igst}, exempt, nilRated } and inputTaxCredit: { fromPurchases: {cgst,sgst,igst} }; the controller passes it through untransformed (gstReport.controller.ts:27 res.json({data: report})) and the serializer only renames keys, never flattens. GSTReports.tsx reads one level too shallow: outwardSupplies.taxableValue/.cgst/.sgst/.igst (lines 459-468, 526, 536, 546, 557-559) and inputTaxCredit.cgst/.sgst/.igst (496-498, 528, 538, 548, 564-566) — all undefined. formatCurrency(undefined) returns '₹0.00' (frontend/src/lib/currency.ts:34-36). netTaxPayable.* matches the backend shape and shows real numbers (530, 540, 550, 570), producing an internally inconsistent statutory GSTR-3B. Silent wrong data on a compliance report → P1 correct."
+   "verifyReason": "gstReport.service.ts:335-349 returns outwardSupplies: { taxable: {taxableValue,cgst,sgst,igst}, exempt, nilRated } and inputTaxCredit: { fromPurchases: {cgst,sgst,igst} }; the controller passes it through untransformed (gstReport.controller.ts:27 res.json({data: report})) and the serializer only renames keys, never flattens. GSTReports.tsx reads one level too shallow: outwardSupplies.taxableValue/.cgst/.sgst/.igst (lines 459-468, 526, 536, 546, 557-559) and inputTaxCredit.cgst/.sgst/.igst (496-498, 528, 538, 548, 564-566) — all undefined. formatCurrency(undefined) returns '₹0.00' (frontend/src/lib/currency.ts:34-36). netTaxPayable.* matches the backend shape and shows real numbers (530, 540, 550, 570), producing an internally inconsistent statutory GSTR-3B. Silent wrong data on a compliance report → P1 correct.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B12-04",
@@ -2349,7 +2372,8 @@
    "confidence": "high",
    "liveCheck": "suggested",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: all three pages send poCategory (singular)+serviceWorkOrderId (SmockingSendOut.tsx:115, HandworkSendOut.tsx:107, EmbroideryPieceSendOut.tsx:124); purchaseOrder.controller.ts:26 destructures only poCategories (plural CSV); purchaseOrderQuerySchema (purchaseOrder.schema.ts:181-193) has neither param and non-strict z.object just strips them, so no 400 — silently ignored; purchaseOrder.service.ts:247-248 filters only on poCategories and serviceWorkOrderId appears nowhere in the service. Dropdown therefore lists up to 100 POs of any category/work order, letting a send-out be booked against an unrelated PO. P1 (silent wrong data shown, enabling wrong-PO writes) holds."
+   "verifyReason": "Re-derived: all three pages send poCategory (singular)+serviceWorkOrderId (SmockingSendOut.tsx:115, HandworkSendOut.tsx:107, EmbroideryPieceSendOut.tsx:124); purchaseOrder.controller.ts:26 destructures only poCategories (plural CSV); purchaseOrderQuerySchema (purchaseOrder.schema.ts:181-193) has neither param and non-strict z.object just strips them, so no 400 — silently ignored; purchaseOrder.service.ts:247-248 filters only on poCategories and serviceWorkOrderId appears nowhere in the service. Dropdown therefore lists up to 100 POs of any category/work order, letting a send-out be booked against an unrelated PO. P1 (silent wrong data shown, enabling wrong-PO writes) holds.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B11-07",
@@ -2368,7 +2392,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: sample.routes.ts:117-122 applies validateBody(updateMeasurementsSchema); the schema (sample.schema.ts:153-161) requires measurementPointId uuid (+optional targetValue/tolerance) per item, but the frontend sends SampleMeasurementInput {sizeId?, measurementPoint, specValue, actualValue?, tolerance} (sample.types.ts:83-89, sent verbatim by sample.service.ts:105-107), and the controller (sample.controller.ts:730-738) reads m.measurementPoint/m.specValue/m.tolerance — the schema matches NEITHER side, so every edit-save with measurements 400s. Partial write confirmed: SampleForm.tsx:300-308 calls updateSample (requiredDate/remarks) first, then updateMeasurements fails → user sees 'Failed to save sample' though half the save landed. Edit path only; the 'sample creation' exclusion does not apply. P1 correct."
+   "verifyReason": "Re-derived: sample.routes.ts:117-122 applies validateBody(updateMeasurementsSchema); the schema (sample.schema.ts:153-161) requires measurementPointId uuid (+optional targetValue/tolerance) per item, but the frontend sends SampleMeasurementInput {sizeId?, measurementPoint, specValue, actualValue?, tolerance} (sample.types.ts:83-89, sent verbatim by sample.service.ts:105-107), and the controller (sample.controller.ts:730-738) reads m.measurementPoint/m.specValue/m.tolerance — the schema matches NEITHER side, so every edit-save with measurements 400s. Partial write confirmed: SampleForm.tsx:300-308 calls updateSample (requiredDate/remarks) first, then updateMeasurements fails → user sees 'Failed to save sample' though half the save landed. Edit path only; the 'sample creation' exclusion does not apply. P1 correct.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B11-08",
@@ -2387,7 +2412,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: SampleForm.tsx createOrUpdateSample edit branch (lines 300-309) sends only {requiredDate, remarks} + updateMeasurements — colorways/sizeSets state is never transmitted on edit, yet the colorway editor (line 637+, gated only on sampleType, not on !isEditing) stays fully interactive and 'Sample updated' success toast fires (line 309). Backend: sample.routes.ts has no colorway/size-set subroutes (grep 0 matches); updateSampleSchema (sample.schema.ts:119-135) lacks colorways/sizeSets and the update controller does not process them (colorway writes exist only in the create path, sample.controller.ts:187-206). Not excluded — the exclusion covers sample *creation*; this is the edit flow. P1 correct (silent discard with success feedback)."
+   "verifyReason": "Re-derived: SampleForm.tsx createOrUpdateSample edit branch (lines 300-309) sends only {requiredDate, remarks} + updateMeasurements — colorways/sizeSets state is never transmitted on edit, yet the colorway editor (line 637+, gated only on sampleType, not on !isEditing) stays fully interactive and 'Sample updated' success toast fires (line 309). Backend: sample.routes.ts has no colorway/size-set subroutes (grep 0 matches); updateSampleSchema (sample.schema.ts:119-135) lacks colorways/sizeSets and the update controller does not process them (colorway writes exist only in the create path, sample.controller.ts:187-206). Not excluded — the exclusion covers sample *creation*; this is the edit flow. P1 correct (silent discard with success feedback).",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B11-09",
@@ -2460,7 +2486,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Whole-backend grep for fabric-physical-tests/fabricPhysicalTest hits only serializer mappings, types (testing.types.ts), and Zod schemas (testing.schemas.ts) — no route, controller, or service file; routes/index.ts mounts only /garment-physical-tests (line 372). Frontend fabricPhysicalTestsService (testing.service.ts:93-138) targets /fabric-physical-tests for all 7 operations and FabricPhysicalTests.tsx consumes it, so the list always 404s; TestingDashboard.tsx:54,69-77 swallows failures with .catch(() => ({pagination:{total:0}})), silently rendering 0 in FPT stat cards. FPT is not one of the four KNOWN-UNBUILT P4 items in REVIEWER_INSTRUCTIONS (ledger/journal, exchange-rate, e-invoice/e-way-bill, generic-material-type), and the frontend is fully built, so P4 reclassification is not warranted. Silent zeros on the dashboard plus a dead module → P1 holds."
+   "verifyReason": "Whole-backend grep for fabric-physical-tests/fabricPhysicalTest hits only serializer mappings, types (testing.types.ts), and Zod schemas (testing.schemas.ts) — no route, controller, or service file; routes/index.ts mounts only /garment-physical-tests (line 372). Frontend fabricPhysicalTestsService (testing.service.ts:93-138) targets /fabric-physical-tests for all 7 operations and FabricPhysicalTests.tsx consumes it, so the list always 404s; TestingDashboard.tsx:54,69-77 swallows failures with .catch(() => ({pagination:{total:0}})), silently rendering 0 in FPT stat cards. FPT is not one of the four KNOWN-UNBUILT P4 items in REVIEWER_INSTRUCTIONS (ledger/journal, exchange-rate, e-invoice/e-way-bill, generic-material-type), and the frontend is fully built, so P4 reclassification is not warranted. Silent zeros on the dashboard plus a dead module → P1 holds.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B13-02",
@@ -2479,7 +2506,8 @@
    "confidence": "high",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: PUT /users/:id validates with updateUserSchema (user.routes.ts:95) which only allows email/name/phone/avatar/isActive (user.schema.ts:48-54); validation.middleware.ts:28 replaces req.body, so user.controller.ts:168's destructured firstName/lastName/department/password are always undefined — only email/phone (and admin isActive) persist. UserForm.tsx:74-82 and Profile.tsx:47-52 both send the stripped fields and show success. Silent data loss incl. silently-ignored password change. P1 correct."
+   "verifyReason": "Re-derived: PUT /users/:id validates with updateUserSchema (user.routes.ts:95) which only allows email/name/phone/avatar/isActive (user.schema.ts:48-54); validation.middleware.ts:28 replaces req.body, so user.controller.ts:168's destructured firstName/lastName/department/password are always undefined — only email/phone (and admin isActive) persist. UserForm.tsx:74-82 and Profile.tsx:47-52 both send the stripped fields and show success. Silent data loss incl. silently-ignored password change. P1 correct.",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B13-03",
@@ -2518,7 +2546,8 @@
    "confidence": "high",
    "liveCheck": "suggested",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived the full chain: Settings.tsx:291 → updateSystemSetting sends only {value, dataType} (system-settings.service.ts:14-16, frontend); route PUT /system-settings/:key applies validateBody(upsertSystemSettingSchema) (system-settings.routes.ts:32-37); validateBody replaces req.body with schema.parse output (validation.middleware.ts:28), and the schema's category: optional().default('OTHER') (systemSettings.schema.ts:36) injects category='OTHER'; controller passes it through (system-settings.controller.ts:33-43); service update branch spreads ...(input.category && {category}) (system-settings.service.ts:185) → the row's category flips DEFAULTS→OTHER on first save; getDefaults filters where category='DEFAULTS' (lines 154-157) so the setting vanishes from /system-settings/defaults and the Settings card loads blank next time. P1 correct (silent data loss)."
+   "verifyReason": "Re-derived the full chain: Settings.tsx:291 → updateSystemSetting sends only {value, dataType} (system-settings.service.ts:14-16, frontend); route PUT /system-settings/:key applies validateBody(upsertSystemSettingSchema) (system-settings.routes.ts:32-37); validateBody replaces req.body with schema.parse output (validation.middleware.ts:28), and the schema's category: optional().default('OTHER') (systemSettings.schema.ts:36) injects category='OTHER'; controller passes it through (system-settings.controller.ts:33-43); service update branch spreads ...(input.category && {category}) (system-settings.service.ts:185) → the row's category flips DEFAULTS→OTHER on first save; getDefaults filters where category='DEFAULTS' (lines 154-157) so the setting vanishes from /system-settings/defaults and the Settings card loads blank next time. P1 correct (silent data loss).",
+   "status": "FIXED-wave2"
   },
   {
    "id": "B13-05",

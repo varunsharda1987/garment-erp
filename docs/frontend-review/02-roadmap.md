@@ -72,3 +72,20 @@ guardrails --all green, deployed, smoke-verified:
 
 **Not yet done:** Waves 2 (silent wrong data — _count serializer, schema-strips-input, GST reads),
 3 (dead links/handoffs), 4 (polish). Awaiting go-ahead.
+
+---
+
+## ✅ Wave 2 COMPLETE (2026-07-28, commit 59914e05)
+
+All 29 remaining P1 findings fixed (7 parallel agent groups + 7 adversarial verifiers, all CLEAN, +2
+same-class NITs swept). Builds green, guardrails --all green, deployed, smoke-verified. **With Wave 1,
+every P0 (3) and P1 (41) from the review is now resolved — zero silent-wrong-data findings remain.**
+- Serializer `_count` corruption fixed at the root (ts-node repro proves inner keys intact); count columns
+  across agencies/agents/customers/suppliers/component-groups show real data; style edit no longer wipes variants.
+- Schema-strips-input family aligned (material prices, user edits incl. password, settings category, SPO
+  items, challan dates 500→ok, sample measurements/colorways, lace supplier links).
+- GST reports: GSTR-1 crash fixed, GSTR-3B ₹0 fixed (statutory screens show real numbers).
+- Field-read/wrong-path fixes across lace/embroidery/greige/order/dispatch/debit-note.
+- Fabric Physical Tests backend BUILT (was 404 with a fully-built frontend) — smoke 200.
+
+**Not yet done:** Wave 3 (dead links/handoffs, 74 P2), Wave 4 (polish incl. fake KPIs, 53 P3). Awaiting go-ahead.

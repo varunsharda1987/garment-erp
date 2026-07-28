@@ -152,7 +152,8 @@
    "fix": "Keep: add a sidebar entry (Materials section) or a 'Defects' link on LaceList/lace stock pages — the module is functional except B02-07/09",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B02-09",
@@ -170,7 +171,8 @@
    "fix": "Align DefectTypeEnum in laceDefect.schema.ts with the controller/frontend WEAVE_DEFECT family (same fix as B02-07)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B02-10",
@@ -188,7 +190,8 @@
    "fix": "Keep: add sidebar entry or a 'Lab Dips' button on greige LaceDetail/LaceForm (backend + forms already work)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B02-11",
@@ -340,7 +343,8 @@
    "fix": "Use fabric.widthCADs[0].cutableWidth",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B01-07",
@@ -377,7 +381,8 @@
    "fix": "In FabricStockEntry read searchParams.get('fabricId') and preselect it after loadFabricList (mirror GreigeStockEntry.tsx:33-34,78-84)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B01-09",
@@ -395,7 +400,8 @@
    "fix": "Either add DELETE /stock/:stockId to greige-stock.routes.ts (with material-sync) or delete the unused service method",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B01-10",
@@ -413,7 +419,8 @@
    "fix": "Derive needsEmbroidery in listStock (e.g. patternParts.some(goesToEmbroidery) && no embroideryId) or compute it client-side from stock.fabric.patternParts",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B03-01",
@@ -470,7 +477,8 @@
    "fix": "Point onRowClick at `/masters/size-categories/${id}/edit` (or map the :id route to the form/detail component)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B03-04",
@@ -488,7 +496,8 @@
    "fix": "Keep: register a route (e.g. /settings/export-templates) + sidebar entry, since backend and service layers are complete and healthy; otherwise delete the page and template.service.ts together",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B03-05",
@@ -506,7 +515,8 @@
    "fix": "Rename the frontend param to isActive and have the controller use the validated boolean directly (`query.isActive === true`)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B03-06",
@@ -524,7 +534,8 @@
    "fix": "Add an active-status filter (All/Active/Inactive) next to the family filter and pass it through to getAll",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B03-07",
@@ -542,7 +553,8 @@
    "fix": "Add an active-status filter (All/Active/Inactive) and pass it through seasonService.getAll",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B03-08",
@@ -560,7 +572,8 @@
    "fix": "Return inactive nodes from getHierarchy (or add a showInactive query param the page passes) so the existing inactive styling/toggle work",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B03-09",
@@ -578,7 +591,8 @@
    "fix": "Set an error state in the catch and render an alert with a retry button",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B04-01",
@@ -692,7 +706,8 @@
    "fix": "Add _count to supplier findById includes and read materialSuppliers (or alias it to materials) in SupplierList/SupplierDetail",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B04-08",
@@ -710,7 +725,8 @@
    "fix": "Read `supplier.users` in SupplierDetail (or add a suppliers-scoped users->createdBy serializer mapping)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B05-01",
@@ -904,7 +920,8 @@
    "fix": "Remove the View button or route /material-master/:id to a read-only MaterialMasterForm/detail view",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B05-11",
@@ -922,7 +939,8 @@
    "fix": "Remove the minFabricWidth input from EmbroideryForm and the block from EmbroideryDetail (or add the column end-to-end)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B05-12",
@@ -940,7 +958,8 @@
    "fix": "Read stock.locations?.locationName in MaterialDetail (or map the relation to singular in the controller response)",
    "confidence": "high",
    "liveCheck": "suggested",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B06-01",
@@ -1113,7 +1132,8 @@
    "fix": "Initialize the three list pages' filter state from searchParams.get('workOrderId') and pass it to their getAll calls",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B06-09",
@@ -1131,7 +1151,8 @@
    "fix": "Have StitchingForm/FinishingForm read workOrderId and pre-filter/pre-group their pending-slip lists to that WO",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B06-10",
@@ -1149,7 +1170,8 @@
    "fix": "Read productionRunId in ChallanList (as a filter) and ChallanForm (as prefill)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B06-11",
@@ -1167,7 +1189,8 @@
    "fix": "Navigate to `/manufacturing/finishing/new?transferSlipId=${transferSlip.id}`",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B07-01",
@@ -1281,7 +1304,8 @@
    "fix": "Build an aging-report page on GET /lace-stock/reports/aging and register /lace-stock/aging-report BEFORE /lace-stock/:id, or remove the button",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B07-07",
@@ -1299,7 +1323,8 @@
    "fix": "Navigate to /lace-stock/${stock.id} (transfer modal lives on the detail page) instead",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B07-08",
@@ -1317,7 +1342,8 @@
    "fix": "KEEP and add a sidebar entry (and/or a StockDashboard 'Lace Stock' card) — backend module is functional; fix B07-01..05 alongside",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B07-09",
@@ -1430,7 +1456,8 @@
    "fix": "Map 'all' to '' in onValueChange (value === 'all' ? '' : value) like LaceStockList does with '__all__'",
    "confidence": "high",
    "liveCheck": "suggested",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B07-15",
@@ -1468,7 +1495,8 @@
    "fix": "Populate from fabric_stock_allocation aggregates in getStylesByFabric, or drop the two columns",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B08-01",
@@ -1621,7 +1649,8 @@
    "fix": "Delete the file (UnifiedRequirementsPage + redirects fully replace it); salvage nothing",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B08-09",
@@ -1639,7 +1668,8 @@
    "fix": "Delete the file",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B08-10",
@@ -1657,7 +1687,8 @@
    "fix": "Delete the file",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B08-11",
@@ -1675,7 +1706,8 @@
    "fix": "Delete the file",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B10-01",
@@ -1867,7 +1899,8 @@
    "fix": "Delete the page and the /test/select route (it was a one-off debugging aid for Select visibility)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B09-01",
@@ -2118,7 +2151,8 @@
    "fix": "Read orderId in WorkOrderList and filter, or navigate without implying scoping",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B09-14",
@@ -2136,7 +2170,8 @@
    "fix": "Read so.count?.items (or add a serializer special-case preserving _count)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B09-15",
@@ -2154,7 +2189,8 @@
    "fix": "Read stock.locations?.locationName",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B09-16",
@@ -2173,7 +2209,8 @@
    "confidence": "medium",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: grep of OrderDetail.tsx for invoice/delivery matches only date labels (lines 478-479, 782-787) — no invoice or delivery-note links/panels anywhere on the page. Guide citation checks out: MODULE_RELATIONSHIPS_GUIDE.md:1245-1249 (§8.2 Order card) lists 'Invoice creation (invoices.orderId)' and 'Delivery note creation (delivery_notes.orderId)' under Triggers. Not covered by the 'invoice create/edit UI' or 'delivery-note create page + ASN prefill' exclusions — those are the target-module UIs, not the order page's missing surfacing. P3 integration-gap with citation holds."
+   "verifyReason": "Re-derived: grep of OrderDetail.tsx for invoice/delivery matches only date labels (lines 478-479, 782-787) — no invoice or delivery-note links/panels anywhere on the page. Guide citation checks out: MODULE_RELATIONSHIPS_GUIDE.md:1245-1249 (§8.2 Order card) lists 'Invoice creation (invoices.orderId)' and 'Delivery note creation (delivery_notes.orderId)' under Triggers. Not covered by the 'invoice create/edit UI' or 'delivery-note create page + ASN prefill' exclusions — those are the target-module UIs, not the order page's missing surfacing. P3 integration-gap with citation holds.",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B12-01",
@@ -2289,7 +2326,8 @@
    "fix": "Add `code: true, billingName: true` to the customer select in creditNote.service.ts getAll (and getById for consistency)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B12-07",
@@ -2308,7 +2346,8 @@
    "confidence": "medium",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: InvoiceDetail.tsx:311 renders invoice.orders?.orderNumber as plain <p> text; the page's only navigations are back-to-list and edit (:58,113,177,207) — no link to the order. Guide citation verified: §8.14 lists 'Orders (via invoices.orderId) — Invoice for order' (MODULE_RELATIONSHIPS_GUIDE.md:1665) and 'Triggered By: Delivery note dispatch' (:1686). Invoice DETAIL navigation is not under the 'invoice create/edit UI' exclusion. P3 correct (navigation convenience gap, no wrong data)."
+   "verifyReason": "Re-derived: InvoiceDetail.tsx:311 renders invoice.orders?.orderNumber as plain <p> text; the page's only navigations are back-to-list and edit (:58,113,177,207) — no link to the order. Guide citation verified: §8.14 lists 'Orders (via invoices.orderId) — Invoice for order' (MODULE_RELATIONSHIPS_GUIDE.md:1665) and 'Triggered By: Delivery note dispatch' (:1686). Invoice DETAIL navigation is not under the 'invoice create/edit UI' exclusion. P3 correct (navigation convenience gap, no wrong data).",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B11-01",
@@ -2507,7 +2546,8 @@
    "fix": "Either implement the colorway/size-set status routes and align recordActualMeasurements payload, or delete the dead service methods",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B11-11",
@@ -2525,7 +2565,8 @@
    "fix": "Add optional Style and Order pickers to Step 4 of EmbroideryStockSendOut and pass their ids as forStyleId/forOrderId",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B13-01",
@@ -2719,7 +2760,8 @@
    "fix": "Read searchParams.get('status') into filterStatus on mount in FabricPhysicalTests.tsx",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B13-11",
@@ -2794,7 +2836,8 @@
    "fix": "Read log.users and log.timestamp in the frontend (or alias user/createdAt in the service select)",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B13-15",
@@ -2812,7 +2855,8 @@
    "fix": "Render test.workOrder?.workOrderNumber and test.style?.styleCode instead of the id fields",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B14-01",
@@ -2909,7 +2953,8 @@
    "fix": "Read searchParams.get('style') in CADPlanningList to seed the search box, or navigate to /cad-planning/:styleId (CADPlanningPage) instead",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B14-05",
@@ -2927,7 +2972,8 @@
    "fix": "Consume costSheetId/styleId in OrderBOMList to filter/prefill (BOM is auto-created on approval per App.tsx:441 comment), or relabel the button 'View Order BOMs'",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B14-07",
@@ -2945,7 +2991,8 @@
    "fix": "DELETE recommendation: remove the page + frontend/src/services/costSheetPOGeneration.service.ts, and consider retiring the /api/cost-sheet-po routes since the workflow moved to Order -> BOM -> MRP",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B14-08",
@@ -2964,7 +3011,8 @@
    "confidence": "medium",
    "liveCheck": "not-needed",
    "verified": "CONFIRMED",
-   "verifyReason": "Re-derived: CostSheetDetail approved-state actions are only Revoke + Create Order→/orders/new (:288-311, plus Generate Order BOM); zero quotation references in CostSheetDetail.tsx (grep count 0); QuotationForm.tsx has no searchParams reading and no costSheet consumption (grep 0). Guide citation verified: 15-stage pipeline stage 4 'Costing & Pricing' → 5 'Quotation Approval' → 6 'Order Entry' (MODULE_RELATIONSHIPS_GUIDE.md:851, 878-880). Not under the 'cost-sheet create/edit/version/variance' exclusion — this is the costing→quotation wiring, and the quotation module itself exists (so not P4 unbuilt). P3 correct."
+   "verifyReason": "Re-derived: CostSheetDetail approved-state actions are only Revoke + Create Order→/orders/new (:288-311, plus Generate Order BOM); zero quotation references in CostSheetDetail.tsx (grep count 0); QuotationForm.tsx has no searchParams reading and no costSheet consumption (grep 0). Guide citation verified: 15-stage pipeline stage 4 'Costing & Pricing' → 5 'Quotation Approval' → 6 'Order Entry' (MODULE_RELATIONSHIPS_GUIDE.md:851, 878-880). Not under the 'cost-sheet create/edit/version/variance' exclusion — this is the costing→quotation wiring, and the quotation module itself exists (so not P4 unbuilt). P3 correct.",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B15-01",
@@ -3139,7 +3187,8 @@
    "fix": "Remove the card or compute efficiency server-side; same treatment for the hardcoded trend arrows",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B15-10",
@@ -3157,7 +3206,8 @@
    "fix": "Remove or derive from payments/invoices data server-side",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B15-11",
@@ -3175,7 +3225,8 @@
    "fix": "Remove or compute quotations-accepted/orders ratio server-side",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   },
   {
    "id": "B15-12",
@@ -3193,7 +3244,8 @@
    "fix": "Remove the tile or point it at an existing report page when one ships",
    "confidence": "high",
    "liveCheck": "not-needed",
-   "verified": "mechanical"
+   "verified": "mechanical",
+   "status": "FIXED-wave4"
   }
  ],
  "pageStatus": [

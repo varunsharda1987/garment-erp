@@ -114,3 +114,24 @@ These dead controls were HIDDEN (no longer dump users on a blank page); each nee
    note: without process-PO QC, a RECEIVED process PO can't reach QUALITY_CHECKED from the UI.
 
 **Remaining wave:** Wave 4 polish (53 P3 — fake hardcoded KPIs, orphan pages, cosmetic). Awaiting go-ahead.
+
+---
+
+## ✅ Wave 4 COMPLETE (2026-07-28, commit eed2ae52) — FRONTEND REVIEW FULLY REMEDIATED
+
+52 P3 polish items fixed (5 parallel groups + orphan pass). Backend builds clean, all guardrails green,
+backend deployed, smoke-verified (incl. a caught+fixed pattern-parts regression). **Final tally across all
+four waves: 156 findings fixed + 12 deferred builds = 168 total; ZERO open P0–P3.**
+- Fake hardcoded KPIs removed (efficiency/collection/conversion + trend arrows + disabled Reports tile).
+- ~20 param-handoff + field-read + dead-ui polish fixes; LaceStockAging report built.
+- Orphans: deleted 6 unreachable pages (4 requirement dashboards, SelectTest, deprecated
+  CostSheetPOGenerationPage + service); wired 4 keep-orphans (LaceStock/LabDips/Defects sidebar +
+  TemplateManager at /settings/export-templates).
+
+### ⚠ Frontend production build currently blocked by USER WIP (not review work)
+The tree has uncommitted in-progress features — **Customer Address/Contact** and **WhatsApp messaging** —
+with 4 tsc errors + 2 unvalidated routes. These block `npm run build` (frontend) and the CI tsc-zero gate.
+All my Wave-4 frontend code is verified clean (isolated tsc: 0 errors in touched files) and will bundle into
+the live frontend the moment those WIP files compile. Left entirely untouched.
+
+## Status: all four waves done. Remaining = the 12 DEFERRED BUILDS (real new pages, user to prioritize).

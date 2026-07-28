@@ -16,6 +16,7 @@ const userFormSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   phone: z.string().optional(),
+  whatsappNumber: z.string().optional(),
   role: z.string(),
   department: z.string().optional(),
 });
@@ -46,6 +47,7 @@ export default function UserForm({ mode }: UserFormProps) {
         setValue('firstName', user.firstName);
         setValue('lastName', user.lastName);
         setValue('phone', user.phone || '');
+        setValue('whatsappNumber', user.whatsappNumber || '');
         setValue('role', user.role);
         setOriginalRole(user.role);
         setValue('department', user.department || '');
@@ -69,6 +71,7 @@ export default function UserForm({ mode }: UserFormProps) {
           firstName: data.firstName,
           lastName: data.lastName,
           phone: data.phone,
+          whatsappNumber: data.whatsappNumber || null,
           role: data.role as UserRole,
           department: data.department,
         };
@@ -79,6 +82,7 @@ export default function UserForm({ mode }: UserFormProps) {
           firstName: data.firstName,
           lastName: data.lastName,
           phone: data.phone || null,
+          whatsappNumber: data.whatsappNumber || null,
           department: data.department || null,
           password: data.password || undefined,
         };
@@ -135,6 +139,14 @@ export default function UserForm({ mode }: UserFormProps) {
               <div>
                 <Label htmlFor="phone">Phone</Label>
                 <Input id="phone" {...register('phone')} />
+              </div>
+              <div>
+                <Label htmlFor="whatsappNumber">WhatsApp Number</Label>
+                <Input id="whatsappNumber" placeholder="e.g. 9876543210" {...register('whatsappNumber')} />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Used to receive internal WhatsApp messages from colleagues. Include country code without + (e.g.
+                  919876543210 for India).
+                </p>
               </div>
               <div>
                 <Label htmlFor="role">Role</Label>

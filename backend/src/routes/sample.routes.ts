@@ -9,6 +9,7 @@ import {
   updateMeasurements,
   recordActualMeasurements,
   markAsSent,
+  notifyBuyer,
   recordReceipt,
   recordFeedback,
   createRevision,
@@ -31,6 +32,7 @@ import {
   createRevisionSchema,
   sampleQuerySchema,
 } from '../schemas/sample.schema';
+import { notifyBuyerSchema } from '../schemas/whatsapp.schema';
 import { idParamSchema, styleIdParamSchema } from '../schemas/common.schema';
 
 const router = Router();
@@ -139,6 +141,18 @@ router.patch(
  * @access  Private
  */
 router.post('/:id/send', validateParams(idParamSchema), validateBody(markAsSentSchema), asyncHandler(markAsSent));
+
+/**
+ * @route   POST /api/samples/:id/notify-buyer
+ * @desc    Notify the buyer on WhatsApp that the sample was couriered (through the sender's number)
+ * @access  Private
+ */
+router.post(
+  '/:id/notify-buyer',
+  validateParams(idParamSchema),
+  validateBody(notifyBuyerSchema),
+  asyncHandler(notifyBuyer)
+);
 
 /**
  * @route   POST /api/samples/:id/receive

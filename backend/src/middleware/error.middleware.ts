@@ -161,10 +161,16 @@ export const errorHandler = (error: Error, req: Request, res: Response, _next: N
 
   // Handle Prisma validation errors
   if (error instanceof Prisma.PrismaClientValidationError) {
-    logWarn(`[${requestId}] Prisma validation error`, errorContext);
+    // Log full error details for debugging (includes which fields/relations failed)
+    logWarn(`[${requestId}] Prisma validation error`, {
+      ...errorContext,
+      validationMessage: error.message,
+    });
     res.status(400).json({
       error: 'VALIDATION_ERROR',
       message: 'Invalid data provided to database',
+      // Include details in development for easier debugging
+      ...(process.env.NODE_ENV === 'development' && { details: error.message }),
       requestId,
       timestamp: new Date().toISOString(),
     });

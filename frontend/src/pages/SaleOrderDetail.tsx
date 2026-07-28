@@ -7,16 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { SmartConfirmDialog } from '@/components/SmartConfirmDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -135,7 +126,7 @@ export default function SaleOrderDetail() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Customer</CardTitle>
@@ -147,10 +138,19 @@ export default function SaleOrderDetail() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Style</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="font-mono font-bold">{so.style?.styleCode || '-'}</div>
+            <div className="text-sm text-muted-foreground truncate">{so.style?.styleName || 'No primary style'}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
             <CardTitle className="text-sm text-muted-foreground">Total Amount</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(Number(so.totalAmount))}</div>
+            <div className="text-xl font-bold">{formatCurrency(Number(so.totalAmount))}</div>
           </CardContent>
         </Card>
         <Card>
@@ -159,6 +159,16 @@ export default function SaleOrderDetail() {
           </CardHeader>
           <CardContent>
             <div className="font-medium">{new Date(so.saleDate).toLocaleDateString()}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm text-muted-foreground">Buyer Deadline</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="font-medium">
+              {so.buyerDeadline ? new Date(so.buyerDeadline).toLocaleDateString() : 'Not set'}
+            </div>
           </CardContent>
         </Card>
         <Card>
@@ -280,22 +290,16 @@ export default function SaleOrderDetail() {
         </CardContent>
       </Card>
 
-      {/* Confirm Dialog */}
-      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirm Sale Order?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will confirm {so.saleOrderNumber} for {formatCurrency(Number(so.totalAmount))}. After confirmation,
-              you can allocate finished goods stock.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => confirmMutation.mutate()}>Confirm</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Smart Confirm Dialog - shows stock availability + style readiness */}
+      <SmartConfirmDialog
+        saleOrderId={so.id}
+        saleOrderNumber={so.saleOrderNumber}
+        totalAmount={Number(so.totalAmount)}
+        open={confirmDialogOpen}
+        onOpenChange={setConfirmDialogOpen}
+        onConfirm={() => confirmMutation.mutate()}
+        isConfirming={confirmMutation.isPending}
+      />
 
       {/* Allocate Stock Dialog */}
       <Dialog

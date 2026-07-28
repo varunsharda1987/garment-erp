@@ -353,6 +353,8 @@ model customers {
   shippingStateId                String?
   brand_categories               brand_categories[]
   customer_accessories_presets   customer_accessories_presets[]
+  customer_addresses             customer_addresses[]
+  customer_contacts              customer_contacts[]
   customer_gst_numbers           customer_gst_numbers[]
   customer_size_category_presets customer_size_category_presets[]
   billingCity                    indian_cities?                   @relation("CustomerBillingCity", fields: [billingCityId], references: [id])
@@ -483,6 +485,56 @@ model customer_gst_numbers {
   @@index([billingCityId])
 }
 
+model customer_addresses {
+  id            String              @id @default(uuid())
+  customerId    String
+  label         String // "Mumbai Warehouse", "Delhi Office"
+  addressType   CustomerAddressType
+  addressLine1  String
+  addressLine2  String?
+  landmark      String?
+  stateId       String?
+  cityId        String?
+  pincode       String
+  country       String              @default("India")
+  contactPerson String?
+  contactPhone  String?
+  contactEmail  String?
+  isPrimary     Boolean             @default(false)
+  isActive      Boolean             @default(true)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  customer customers      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  state    indian_states? @relation("CustomerAddressState", fields: [stateId], references: [id])
+  city     indian_cities? @relation("CustomerAddressCity", fields: [cityId], references: [id])
+
+  @@index([customerId])
+  @@index([customerId, addressType])
+  @@index([stateId])
+  @@index([cityId])
+}
+
+model customer_contacts {
+  id             String   @id @default(uuid())
+  customerId     String
+  name           String
+  designation    String?
+  phone          String?
+  alternatePhone String?
+  email          String?
+  whatsapp       String?
+  isPrimary      Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  customer customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+}
+
 model supplier_gst_numbers {
   id             String         @id @default(uuid())
   supplierId     String
@@ -516,6 +568,7 @@ model indian_states {
   isActive                   Boolean                @default(true)
   createdAt                  DateTime               @default(now())
   updatedAt                  DateTime               @updatedAt
+  customer_addresses         customer_addresses[]   @relation("CustomerAddressState")
   customer_gst_numbers       customer_gst_numbers[]
   customers_billing          customers[]            @relation("CustomerBillingState")
   customers_shipping         customers[]            @relation("CustomerShippingState")
@@ -539,6 +592,7 @@ model indian_cities {
   isActive             Boolean                @default(true)
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
+  customer_addresses   customer_addresses[]   @relation("CustomerAddressCity")
   customer_gst_billing customer_gst_numbers[] @relation("customer_gst_billing_city")
   customers_billing    customers[]            @relation("CustomerBillingCity")
   customers_shipping   customers[]            @relation("CustomerShippingCity")
@@ -1500,6 +1554,8 @@ model samples {
   sentDate                 DateTime?
   sentTo                   String?
   trackingNumber           String?
+  buyerNotifiedAt          DateTime?
+  buyerNotifiedTo          String?
   version                  Int                          @default(1)
   isActive                 Boolean                      @default(true)
   colorways                sample_colorways[]
@@ -2465,6 +2521,7 @@ model styles {
   work_orders                 work_orders[]
   stock_production_orders     stock_production_orders[]
   sale_order_items            sale_order_items[]
+  sale_orders                 sale_orders[]                @relation("so_primaryStyle")
   // Lace processing relations
   laceStockOrigins            lace_stock[]                 @relation("lace_stock_origin_style")
   laceAllocations             lace_stock_allocation[]      @relation("lace_allocation_style")
@@ -2806,6 +2863,7 @@ model users {
   firstName                                                       String
   lastName                                                        String
   phone                                                           String?
+  whatsappNumber                                                  String?
   role                                                            UserRole
   department                                                      String?
   isActive                                                        Boolean                           @default(true)
@@ -3177,8 +3235,10 @@ model sale_orders {
   id               String          @id @default(uuid())
   saleOrderNumber  String          @unique
   customerId       String
+  styleId          String? // Primary style for the order (optional - multi-style orders leave null)
   saleDate         DateTime        @default(now())
-  expectedShipDate DateTime?
+  expectedShipDate DateTime? // Factory's planned ship date
+  buyerDeadline    DateTime? // Buyer's required completion date
   status           SaleOrderStatus @default(DRAFT)
   subtotal         Decimal         @default(0) @db.Decimal(12, 2)
   taxAmount        Decimal         @default(0) @db.Decimal(12, 2)
@@ -3191,6 +3251,7 @@ model sale_orders {
   isActive         Boolean         @default(true)
 
   customer       customers          @relation(fields: [customerId], references: [id])
+  style          styles?            @relation("so_primaryStyle", fields: [styleId], references: [id])
   createdBy      users              @relation("so_createdBy", fields: [createdById], references: [id])
   approvedBy     users?             @relation("so_approvedBy", fields: [approvedById], references: [id])
   items          sale_order_items[]
@@ -3198,6 +3259,7 @@ model sale_orders {
   invoices       invoices[]
 
   @@index([customerId])
+  @@index([styleId])
   @@index([status])
   @@index([saleOrderNumber])
 }
@@ -8530,6 +8592,12 @@ enum BusinessType {
 enum MarketType {
   INTERNATIONAL
   DOMESTIC
+}
+
+enum CustomerAddressType {
+  SHIP_TO
+  COURIER
+  OFFICE
 }
 
 enum DeliveryStatus {

@@ -55,3 +55,7 @@ coverage/
 # Uploaded files (stored locally, not in git)
 backend/uploads/
 .playwright-mcp/
+
+# WhatsApp Web linked-device sessions (per-user, whatsapp-web.js) — never commit
+.wwebjs_auth/
+.wwebjs_cache/

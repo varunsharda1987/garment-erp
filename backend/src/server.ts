@@ -7,6 +7,7 @@ import { cleanupOldTempFiles } from './middleware/upload.middleware';
 import { initializeCache, closeCache } from './lib/cache';
 import { PermissionService } from './services/permission.service';
 import { systemSettingsService } from './services/system-settings.service';
+import { startIdleSweep as startWhatsappIdleSweep, shutdownAll as shutdownWhatsapp } from './services/whatsapp.service';
 
 const PORT = process.env.PORT || 5000;
 
@@ -40,6 +41,9 @@ async function startServer() {
 
     // Load system settings and seed defaults if missing
     await systemSettingsService.preloadDefaults();
+
+    // Start the per-user WhatsApp idle-teardown sweep (sessions link lazily on first use).
+    startWhatsappIdleSweep();
 
     // Initialize Redis cache (optional - falls back gracefully if unavailable)
     const cacheEnabled = await initializeCache();
@@ -81,6 +85,7 @@ process.on('SIGINT', async () => {
       logInfo('Server closed');
     });
   }
+  await shutdownWhatsapp();
   await closeCache();
   await prisma.$disconnect();
   process.exit(0);
@@ -93,6 +98,7 @@ process.on('SIGTERM', async () => {
       logInfo('Server closed');
     });
   }
+  await shutdownWhatsapp();
   await closeCache();
   await prisma.$disconnect();
   process.exit(0);

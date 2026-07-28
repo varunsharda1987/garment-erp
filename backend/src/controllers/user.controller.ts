@@ -41,6 +41,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
       firstName: true,
       lastName: true,
       phone: true,
+      whatsappNumber: true,
       role: true,
       department: true,
       isActive: true,
@@ -79,6 +80,7 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
       firstName: true,
       lastName: true,
       phone: true,
+      whatsappNumber: true,
       role: true,
       department: true,
       isActive: true,
@@ -100,7 +102,7 @@ export const getUserById = async (req: Request, res: Response): Promise<void> =>
  * POST /api/users
  */
 export const createUser = async (req: Request, res: Response): Promise<void> => {
-  const { email, password, firstName, lastName, phone, role, department } = req.body;
+  const { email, password, firstName, lastName, phone, whatsappNumber, role, department } = req.body;
 
   // Validation
   if (!email || !password || !firstName || !lastName) {
@@ -132,6 +134,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       firstName,
       lastName,
       phone: phone || null,
+      whatsappNumber: whatsappNumber || null,
       role: role || UserRole.SALES, // Default role
       department: department || null,
       isActive: true,
@@ -145,6 +148,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
       firstName: true,
       lastName: true,
       phone: true,
+      whatsappNumber: true,
       role: true,
       department: true,
       isActive: true,
@@ -165,7 +169,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
  */
 export const updateUser = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { email, firstName, lastName, phone, department, password, isActive } = req.body;
+  const { email, firstName, lastName, phone, whatsappNumber, department, password, isActive } = req.body;
 
   // Check if user exists
   const existingUser = await prisma.users.findUnique({
@@ -198,6 +202,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
     ...(firstName && { firstName }),
     ...(lastName && { lastName }),
     ...(phone !== undefined && { phone: phone || null }),
+    ...(whatsappNumber !== undefined && { whatsappNumber: whatsappNumber || null }),
     ...(department !== undefined && { department: department || null }),
   };
 
@@ -221,6 +226,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
       firstName: true,
       lastName: true,
       phone: true,
+      whatsappNumber: true,
       role: true,
       department: true,
       isActive: true,

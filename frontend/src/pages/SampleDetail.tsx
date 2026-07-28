@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { sampleService } from '@/services/sample.service';
+import { useWhatsappStatus } from '@/hooks/useWhatsapp';
 import type { Sample, SampleStatus, SampleType } from '@/types/sample.types';
 import { SampleTypeLabels, SampleStatusLabels, SampleStatusColors } from '@/types/sample.types';
 
@@ -38,6 +39,7 @@ import {
   ExternalLink,
   Copy,
   AlertCircle,
+  MessageCircle,
 } from 'lucide-react';
 import {
   Dialog,
@@ -61,6 +63,13 @@ export default function SampleDetail() {
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
+
+  // WhatsApp: notify the buyer through the logged-in user's own linked number.
+  const { data: waStatus } = useWhatsappStatus();
+  const waLinked = waStatus?.state === 'ready';
+  const [notifyForm, setNotifyForm] = useState({ to: '', text: '' });
+  const [notifying, setNotifying] = useState(false);
 
   // Form states
   const [sendForm, setSendForm] = useState({
@@ -101,9 +110,71 @@ export default function SampleDetail() {
       await sampleService.markAsSent(id!, sendForm);
       handleApiSuccess('Sample sent', 'Sample has been marked as sent.');
       setSendDialogOpen(false);
-      fetchSample();
+      await fetchSample();
+      // Offer to notify the buyer on WhatsApp right away, prefilled from the shipping details.
+      openNotifyDialog({
+        courierMode: sendForm.courierMode,
+        trackingNumber: sendForm.trackingNumber,
+        sentDate: sendForm.sentDate,
+      });
     } catch (err: unknown) {
       handleApiError(err, 'Failed to update sample');
+    }
+  };
+
+  // Build the default buyer message from the sample + (optional) fresh shipping details.
+  const buildBuyerMessage = (
+    s: Sample,
+    courier?: string | null,
+    tracking?: string | null,
+    sentDate?: string | null
+  ) => {
+    const greet = s.customer?.contactPerson?.trim() || s.customer?.name?.trim() || 'Sir/Madam';
+    const styleBit = s.style?.styleCode
+      ? ` for style ${s.style.styleCode}${s.style.styleName ? ` (${s.style.styleName})` : ''}`
+      : '';
+    const dateStr = sentDate ? new Date(sentDate).toLocaleDateString('en-IN') : '';
+    return [
+      `Dear ${greet},`,
+      '',
+      `Your sample ${s.sampleNumber}${styleBit} has been dispatched.`,
+      courier ? `Courier: ${courier}` : '',
+      tracking ? `Tracking No: ${tracking}` : '',
+      dateStr ? `Dispatched on: ${dateStr}` : '',
+      '',
+      'Kindly confirm once received. Thank you!',
+    ]
+      .filter(Boolean)
+      .join('\n');
+  };
+
+  const openNotifyDialog = (overrides?: { courierMode?: string; trackingNumber?: string; sentDate?: string }) => {
+    if (!sample) return;
+    const courier = overrides?.courierMode ?? sample.courierMode ?? '';
+    const tracking = overrides?.trackingNumber ?? sample.trackingNumber ?? '';
+    const sentDate = overrides?.sentDate ?? sample.sentDate ?? new Date().toISOString();
+    setNotifyForm({
+      to: sample.customer?.phone || '',
+      text: buildBuyerMessage(sample, courier, tracking, sentDate),
+    });
+    setNotifyDialogOpen(true);
+  };
+
+  const handleNotifyBuyer = async () => {
+    if (!notifyForm.to.trim()) {
+      handleApiError(new Error('Enter a WhatsApp number'), 'No recipient');
+      return;
+    }
+    try {
+      setNotifying(true);
+      await sampleService.notifyBuyer(id!, { to: notifyForm.to.trim(), text: notifyForm.text });
+      handleApiSuccess('Buyer notified', 'WhatsApp message sent to the buyer.');
+      setNotifyDialogOpen(false);
+      fetchSample();
+    } catch (err: unknown) {
+      handleApiError(err, 'Failed to notify buyer');
+    } finally {
+      setNotifying(false);
     }
   };
 
@@ -524,6 +595,22 @@ export default function SampleDetail() {
                 <Label className="text-xs text-muted-foreground">Received Date</Label>
                 <p>{formatDate(sample.receivedDate) || '-'}</p>
               </div>
+
+              {/* Notify buyer on WhatsApp (through the sender's own number) */}
+              {['SENT', 'FEEDBACK_PENDING'].includes(sample.status) && (
+                <div className="space-y-2 border-t pt-3">
+                  {sample.buyerNotifiedAt && (
+                    <p className="text-xs text-muted-foreground">
+                      Buyer notified on {formatDate(sample.buyerNotifiedAt)}
+                      {sample.buyerNotifiedTo ? ` (+${sample.buyerNotifiedTo.replace(/@c\.us$/i, '')})` : ''}.
+                    </p>
+                  )}
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => openNotifyDialog()}>
+                    <MessageCircle className="h-4 w-4 mr-2 text-green-600" />
+                    {sample.buyerNotifiedAt ? 'Notify buyer again' : 'Notify buyer on WhatsApp'}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -732,6 +819,62 @@ export default function SampleDetail() {
               Cancel
             </Button>
             <Button onClick={handleStatusChange}>Update Status</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Notify Buyer on WhatsApp Dialog */}
+      <Dialog open={notifyDialogOpen} onOpenChange={setNotifyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-green-600" />
+              Notify Buyer on WhatsApp
+            </DialogTitle>
+            <DialogDescription>
+              Sends from your own WhatsApp number. Review or edit the message before sending.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Buyer WhatsApp Number</Label>
+              <Input
+                value={notifyForm.to}
+                onChange={(e) => setNotifyForm({ ...notifyForm, to: e.target.value })}
+                placeholder="e.g. 919876543210"
+              />
+              <p className="text-xs text-muted-foreground">Include country code without + (e.g. 91… for India).</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Message</Label>
+              <Textarea
+                rows={8}
+                value={notifyForm.text}
+                onChange={(e) => setNotifyForm({ ...notifyForm, text: e.target.value })}
+              />
+            </div>
+            {!waLinked && (
+              <p className="text-sm text-amber-700">
+                Your WhatsApp isn’t linked yet.{' '}
+                <Link to="/whatsapp" className="font-medium underline">
+                  Link it in My WhatsApp
+                </Link>{' '}
+                to send.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNotifyDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleNotifyBuyer}
+              disabled={notifying || !waLinked || !notifyForm.to.trim()}
+              className="bg-[#25D366] text-white hover:bg-[#1ebe5b]"
+            >
+              <MessageCircle className="h-4 w-4 mr-2" />
+              {notifying ? 'Sending…' : 'Send on WhatsApp'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

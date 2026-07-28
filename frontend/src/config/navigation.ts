@@ -214,6 +214,9 @@ export const NAV_GROUPS: NavGroup[] = [
       { title: 'Packaging', path: '/materials/packaging', iconName: 'Box', permission: 'trimMasters' },
       { title: 'Machine Parts', path: '/materials/machine-part', iconName: 'Settings', permission: 'trimMasters' },
       { title: 'Other Materials', path: '/materials/other', iconName: 'PackageSearch', permission: 'trimMasters' },
+      { title: 'Lace Stock', path: '/lace-stock', iconName: 'Package', permission: 'trimMasters' },
+      { title: 'Lace Lab Dips', path: '/lace-lab-dips', iconName: 'FlaskConical', permission: 'trimMasters' },
+      { title: 'Lace Defects', path: '/lace-defects', iconName: 'AlertTriangle', permission: 'trimMasters' },
       'divider',
       // Sub-header: People & Entities
       { type: 'sub-header', title: 'People & Entities' } as SubHeader,
@@ -249,6 +252,12 @@ export const NAV_GROUPS: NavGroup[] = [
         permission: 'suppliers',
       },
       { title: 'Warehouses', path: '/inventory/warehouses', iconName: 'Warehouse', permission: 'warehouses' },
+      {
+        title: 'Export Templates',
+        path: '/settings/export-templates',
+        iconName: 'FileSpreadsheet',
+        permission: 'masterData',
+      },
     ],
   },
   // 8. Sales & Billing (moved above Reports)
@@ -290,6 +299,21 @@ export const NAV_GROUPS: NavGroup[] = [
       { title: 'GST Reports', path: '/gst-reports', iconName: 'FileText' },
       { title: 'TDS Tracking', path: '/tds', iconName: 'FileText' },
       { title: 'TCS Tracking', path: '/tcs', iconName: 'FileText' },
+    ],
+  },
+  // 9.5 Messaging (per-user WhatsApp) — visible to all staff (each links their own number)
+  {
+    title: 'Messaging',
+    iconName: 'MessageCircle',
+    items: [
+      { title: 'My WhatsApp', path: '/whatsapp', iconName: 'MessageCircle', permission: 'whatsapp' },
+      {
+        title: 'Message Staff',
+        path: '/messages/new',
+        iconName: 'Send',
+        permission: 'messaging',
+        keywords: ['whatsapp', 'department', 'colleague', 'internal message'],
+      },
     ],
   },
   // 10. Administration (merged Admin + Settings)

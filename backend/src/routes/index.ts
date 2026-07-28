@@ -19,6 +19,8 @@ import greigeStockRoutes from './greige-stock.routes';
 import dashboardRoutes from './dashboard.routes';
 import customerRoutes from './customer.routes';
 import customerAccessoriesRoutes from './customer-accessories.routes';
+import customerAddressRoutes from './customerAddress.routes';
+import customerContactRoutes from './customerContact.routes';
 import customerSizePresetsRoutes from './customer-size-presets.routes';
 import supplierRoutes from './supplier.routes';
 import agentRoutes from './agent.routes';
@@ -137,6 +139,7 @@ import designerDashboardRoutes from './designer-dashboard.routes';
 import moodBoardRoutes from './mood-board.routes';
 import notificationRoutes from './notification.routes';
 import reportRoutes from './report.routes';
+import whatsappRoutes from './whatsapp.routes';
 // DEPRECATED: Direct Cost Sheet -> PO generation bypasses Orders
 // Use Order -> Order BOM -> MRP -> PO flow instead
 // import costSheetPOGenerationRoutes from './costSheetPOGeneration.routes';
@@ -156,6 +159,7 @@ export function createApiRouter(): Router {
   router.use('/users', userRoutes);
   router.use('/dashboard', dashboardRoutes);
   router.use('/notifications', notificationRoutes);
+  router.use('/whatsapp', whatsappRoutes);
 
   // Style Management
   router.use('/styles', styleRoutes);
@@ -171,6 +175,8 @@ export function createApiRouter(): Router {
   // Customer & Supplier Management
   router.use('/customers', customerRoutes);
   router.use('/customers', customerAccessoriesRoutes);
+  router.use('/customer-addresses', customerAddressRoutes);
+  router.use('/customer-contacts', customerContactRoutes);
   router.use('/', customerSizePresetsRoutes);
   router.use('/suppliers', supplierRoutes);
   router.use('/agents', agentRoutes);

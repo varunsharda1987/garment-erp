@@ -6,6 +6,7 @@ import type {
   SOQueryParams,
   PaginatedSaleOrders,
   AvailableFGStock,
+  StockPreviewResponse,
 } from '@/types/saleOrder.types';
 
 const BASE_URL = '/sale-orders';
@@ -59,5 +60,14 @@ export async function getAvailableStock(params: {
   sizeId?: string;
 }): Promise<AvailableFGStock[]> {
   const response = await api.get(`${BASE_URL}/available-stock`, { params });
+  return response.data;
+}
+
+/**
+ * Get stock preview for a sale order before confirmation.
+ * Shows FG stock availability + style readiness for items needing production.
+ */
+export async function getStockPreview(saleOrderId: string): Promise<StockPreviewResponse> {
+  const response = await api.get(`${BASE_URL}/${saleOrderId}/stock-preview`);
   return response.data;
 }

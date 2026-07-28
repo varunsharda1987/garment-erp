@@ -58,6 +58,7 @@ import {
   Star,
   X,
   Hash,
+  MessageCircle,
 } from 'lucide-react';
 import { useState, useMemo, type ReactNode } from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -130,6 +131,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FileText,
   UserCheck,
   Hash,
+  MessageCircle,
 };
 
 function getIcon(name: string, size: 'sm' | 'md' = 'sm'): ReactNode {

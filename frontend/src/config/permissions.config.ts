@@ -95,6 +95,10 @@ export const PERMISSIONS = {
   invoices: [UserRole.ADMIN, UserRole.ACCOUNTS, UserRole.SALES],
   quotations: [UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER],
 
+  // Messaging (per-user WhatsApp) - available to all authenticated staff
+  whatsapp: ALL_ROLES,
+  messaging: ALL_ROLES,
+
   // Admin
   users: [UserRole.ADMIN],
   admin: [UserRole.ADMIN],
@@ -179,6 +183,10 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   '/invoices': 'invoices',
   '/quotations': 'quotations',
 
+  // Messaging
+  '/whatsapp': 'whatsapp',
+  '/messages/new': 'messaging',
+
   // Admin
   '/users': 'users',
   '/admin': 'admin',
@@ -237,6 +245,7 @@ export const MODULES = {
   MASTERS: { name: 'Masters', description: 'Master data management' },
   FINANCE: { name: 'Finance', description: 'Invoices, quotations, accounts' },
   QUALITY: { name: 'Quality', description: 'Testing and quality control' },
+  MESSAGING: { name: 'Messaging', description: 'WhatsApp linking and internal staff messaging' },
   ADMIN: { name: 'Admin', description: 'User and permission management' },
 } as const;
 
@@ -284,5 +293,6 @@ export const PERMISSION_GROUPS: Record<keyof typeof MODULES, PermissionKey[]> = 
   ],
   FINANCE: ['reports', 'chartOfAccounts', 'invoices', 'quotations'],
   QUALITY: ['testing'],
+  MESSAGING: ['whatsapp', 'messaging'],
   ADMIN: ['users', 'admin', 'permissions', 'overrideHistory'],
 };

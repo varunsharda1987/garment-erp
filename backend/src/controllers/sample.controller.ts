@@ -4,6 +4,7 @@ import { logInfo, logDebug } from '../utils/logger';
 import { randomUUID } from 'crypto';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
+import * as wa from '../services/whatsapp.service';
 
 /**
  * Sample Controller
@@ -423,7 +424,7 @@ export const getSampleById = async (req: Request, res: Response) => {
   const sample = await prisma.samples.findUnique({
     where: { id },
     include: {
-      customers: { select: { id: true, code: true, name: true, contactPerson: true, email: true } },
+      customers: { select: { id: true, code: true, name: true, contactPerson: true, email: true, phone: true } },
       styles: {
         select: {
           id: true,
@@ -836,7 +837,7 @@ export const markAsSent = async (req: Request, res: Response) => {
       trackingNumber: trackingNumber || null,
     },
     include: {
-      customers: { select: { id: true, code: true, name: true } },
+      customers: { select: { id: true, code: true, name: true, contactPerson: true, phone: true } },
       styles: { select: { id: true, styleCode: true, styleName: true } },
     },
   });
@@ -854,6 +855,64 @@ export const markAsSent = async (req: Request, res: Response) => {
     },
     message: 'Sample marked as sent',
   });
+};
+
+/**
+ * Notify the buyer on WhatsApp that a sample was couriered — sent through the LOGGED-IN user's
+ * own linked WhatsApp. Builds a default message (sample no., style, courier, tracking, date) that
+ * the caller can override, then stamps buyerNotifiedAt/To for the "already notified" hint.
+ * POST /api/samples/:id/notify-buyer
+ */
+export const notifyBuyer = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { to, text } = req.body as { to?: string; text?: string };
+
+  const sample = await prisma.samples.findUnique({
+    where: { id },
+    include: {
+      customers: { select: { name: true, contactPerson: true, phone: true } },
+      styles: { select: { styleCode: true, styleName: true } },
+    },
+  });
+
+  if (!sample) {
+    throw new NotFoundError('Sample', id);
+  }
+
+  const recipient = (to || sample.customers?.phone || '').trim();
+  if (!recipient) {
+    throw new ValidationError('No WhatsApp number for this buyer. Enter a number or add one to the customer.');
+  }
+
+  const greetName = sample.customers?.contactPerson?.trim() || sample.customers?.name?.trim() || 'Sir/Madam';
+  const styleBit = sample.styles?.styleCode
+    ? ` for style ${sample.styles.styleCode}${sample.styles.styleName ? ` (${sample.styles.styleName})` : ''}`
+    : '';
+  const sentOn = sample.sentDate ? new Date(sample.sentDate).toLocaleDateString('en-IN') : '';
+  const message =
+    text?.trim() ||
+    [
+      `Dear ${greetName},`,
+      '',
+      `Your sample ${sample.sampleNumber}${styleBit} has been dispatched.`,
+      sample.courierMode ? `Courier: ${sample.courierMode}` : '',
+      sample.trackingNumber ? `Tracking No: ${sample.trackingNumber}` : '',
+      sentOn ? `Dispatched on: ${sentOn}` : '',
+      '',
+      'Kindly confirm once received. Thank you!',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+  const result = await wa.sendTextForUser(req.user!.userId, recipient, message);
+
+  await prisma.samples.update({
+    where: { id },
+    data: { buyerNotifiedAt: new Date(), buyerNotifiedTo: result.to },
+  });
+
+  logInfo('Sample buyer notified on WhatsApp', { id, to: result.to });
+  res.json({ data: result, message: 'Buyer notified on WhatsApp' });
 };
 
 /**

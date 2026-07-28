@@ -46,8 +46,8 @@ export const createPrintLabDipSchema = z
     targetColorId: z.string().uuid('Invalid target color ID').optional(),
     colorReference: z.string().max(100).optional(),
     processorId: z.string().uuid('Invalid processor ID').optional(),
-    submissionDate: z.string().datetime(),
-    expectedDate: z.string().datetime().optional(),
+    submissionDate: z.coerce.date(),
+    expectedDate: z.coerce.date().optional(),
     remarks: z.string().max(500).optional(),
   })
   .passthrough();
@@ -67,9 +67,9 @@ export const updatePrintLabDipSchema = z
     targetColorId: z.string().uuid('Invalid target color ID').optional().nullable(),
     colorReference: z.string().max(100).optional().nullable(),
     processorId: z.string().uuid('Invalid processor ID').optional().nullable(),
-    submissionDate: z.string().datetime().optional().nullable(),
-    expectedDate: z.string().datetime().optional().nullable(),
-    receivedDate: z.string().datetime().optional().nullable(),
+    submissionDate: z.coerce.date().optional().nullable(),
+    expectedDate: z.coerce.date().optional().nullable(),
+    receivedDate: z.coerce.date().optional().nullable(),
     remarks: z.string().max(500).optional().nullable(),
   })
   .passthrough();
@@ -126,7 +126,7 @@ export const createPrintJobSchema = z
     reprocessReason: z.string().max(500).optional(),
     qtySentMeters: z.number().positive('Quantity must be positive'),
     sentWidthInches: z.number().positive('Width must be positive'),
-    expectedReturnDate: z.string().datetime().optional(),
+    expectedReturnDate: z.coerce.date().optional(),
     expectedShrinkage: z.number().min(0).max(100).optional(),
     agreedRatePerMeter: z.number().nonnegative('Rate cannot be negative'),
     remarks: z.string().max(500).optional(),
@@ -147,7 +147,7 @@ export const updatePrintJobSchema = z
     reprocessReason: z.string().max(500).optional(),
     qtySentMeters: z.number().positive().optional(),
     sentWidthInches: z.number().positive().optional(),
-    expectedReturnDate: z.string().datetime().optional().nullable(),
+    expectedReturnDate: z.coerce.date().optional().nullable(),
     expectedShrinkage: z.number().min(0).max(100).optional().nullable(),
     agreedRatePerMeter: z.number().nonnegative().optional().nullable(),
     remarks: z.string().max(500).optional().nullable(),
@@ -179,13 +179,13 @@ export const printJobQuerySchema = z.object({
 export const printJobActionSchema = z
   .object({
     // sendToMill fields
-    sentDate: z.string().datetime().optional(),
+    sentDate: z.coerce.date().optional(),
     challanNumber: z.string().max(100).optional(),
     vehicleNumber: z.string().max(50).optional(),
     // receiveFromMill fields
     qtyReceivedMeters: z.number().nonnegative().optional(),
     receivedWidthInches: z.number().positive().optional(),
-    receivedDate: z.string().datetime().optional(),
+    receivedDate: z.coerce.date().optional(),
     receivedChallan: z.string().max(100).optional(),
     invoiceNumber: z.string().max(100).optional(),
     thanCount: z.number().int().nonnegative().optional(),
@@ -219,7 +219,7 @@ export const createPrintProcessPoSchema = z
     qtySentMeters: z.number().positive('Quantity must be positive'),
     sentWidthInches: z.number().positive('Width must be positive'),
     agreedRatePerMeter: z.number().nonnegative('Rate cannot be negative'),
-    expectedReturnDate: z.string().datetime().optional(),
+    expectedReturnDate: z.coerce.date().optional(),
     expectedShrinkage: z.number().min(0).max(100).optional(),
     fabricType: z.string().max(50).optional().default('GREIGE'),
     remarks: z.string().max(500).optional(),
@@ -252,13 +252,13 @@ export const printProcessPoQuerySchema = z.object({
 export const printProcessPoActionSchema = z
   .object({
     // sendProcessPO fields
-    sentDate: z.string().datetime().optional(),
+    sentDate: z.coerce.date().optional(),
     challanNumber: z.string().max(100).optional(),
     vehicleNumber: z.string().max(50).optional(),
     // receiveProcessPO fields
     qtyReceivedMeters: z.number().nonnegative().optional(),
     receivedWidthInches: z.number().positive().optional(),
-    receivedDate: z.string().datetime().optional(),
+    receivedDate: z.coerce.date().optional(),
     receivedChallan: z.string().max(100).optional(),
     invoiceNumber: z.string().max(100).optional(),
     thanCount: z.number().int().nonnegative().optional(),
@@ -271,7 +271,7 @@ export const printProcessPoActionSchema = z
     actualRate: z.number().nonnegative().optional(),
     // returnUnprocessedProcessPO fields
     returnedQtyMeters: z.number().positive().optional(),
-    returnDate: z.string().datetime().optional(),
+    returnDate: z.coerce.date().optional(),
     remarks: z.string().max(500).optional(),
   })
   .passthrough();

@@ -35,6 +35,8 @@ export interface SampleCustomer {
   id: string;
   code?: string;
   name: string;
+  contactPerson?: string | null;
+  phone?: string | null;
 }
 
 export interface SampleStyle {
@@ -161,6 +163,8 @@ export interface Sample {
   sentDate?: string | null;
   courierMode?: string | null;
   trackingNumber?: string | null;
+  buyerNotifiedAt?: string | null;
+  buyerNotifiedTo?: string | null;
   receivedDate?: string | null;
   feedbackDate?: string | null;
   measurementComments?: string | null;

@@ -51,8 +51,10 @@ export interface SaleOrder {
   id: string;
   saleOrderNumber: string;
   customerId: string;
+  styleId?: string | null; // Primary style for the order
   saleDate: string;
-  expectedShipDate?: string | null;
+  expectedShipDate?: string | null; // Factory's planned ship date
+  buyerDeadline?: string | null; // Buyer's required completion date
   status: SaleOrderStatus;
   subtotal: number;
   taxAmount: number;
@@ -71,6 +73,12 @@ export interface SaleOrder {
     shippingAddress?: string | null;
     gstNumber?: string | null;
   };
+  style?: {
+    id: string;
+    styleCode: string;
+    styleName: string;
+    imageUrl?: string | null;
+  } | null; // Primary style relation
   items?: SaleOrderItem[];
   createdBy?: {
     id: string;
@@ -91,7 +99,9 @@ export interface SaleOrder {
 
 export interface CreateSORequest {
   customerId: string;
+  styleId?: string | null; // Primary style for the order
   expectedShipDate?: string;
+  buyerDeadline?: string; // Buyer's required completion date
   remarks?: string;
   items: Array<{
     styleId: string;
@@ -103,7 +113,9 @@ export interface CreateSORequest {
 }
 
 export interface UpdateSORequest {
+  styleId?: string | null; // Primary style for the order
   expectedShipDate?: string;
+  buyerDeadline?: string | null; // Buyer's required completion date
   remarks?: string;
   items?: Array<{
     styleId: string;
@@ -155,4 +167,59 @@ export interface AvailableFGStock {
     id: string;
     name: string;
   };
+}
+
+// Stock Preview types for Smart Confirm Dialog
+export interface StyleReadiness {
+  status: string;
+  hasComponents: boolean;
+  hasFabrics: boolean;
+  hasSizes: boolean;
+  hasVariants: boolean;
+  isReady: boolean;
+  missingSteps: string[];
+}
+
+export type StockStatus = 'FULL' | 'PARTIAL' | 'NONE';
+export type RecommendedAction = 'ALLOCATE_ALL' | 'START_PRODUCTION' | 'MIXED';
+
+export interface StockPreviewItem {
+  id: string;
+  style: {
+    id: string;
+    styleCode: string;
+    styleName: string;
+  } | null;
+  color: {
+    id: string;
+    colorName: string;
+  } | null;
+  size: {
+    id: string;
+    sizeName: string;
+    sizeCode: string;
+  } | null;
+  orderedQty: number;
+  availableQty: number;
+  shortfall: number;
+  status: StockStatus;
+  styleReadiness?: StyleReadiness;
+}
+
+export interface StockPreviewSummary {
+  itemsWithStock: number;
+  itemsPartialStock: number;
+  itemsNoStock: number;
+  quantityAvailable: number;
+  quantityNeedsProduction: number;
+}
+
+export interface StockPreviewResponse {
+  saleOrderId: string;
+  saleOrderNumber: string;
+  totalItems: number;
+  totalQuantity: number;
+  summary: StockPreviewSummary;
+  items: StockPreviewItem[];
+  recommendedAction: RecommendedAction;
 }

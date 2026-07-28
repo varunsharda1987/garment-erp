@@ -2,7 +2,64 @@
 
 > The diagnosis lives in [START_HERE.md](START_HERE.md) / [FINDINGS_INDEX.md](FINDINGS_INDEX.md) / [REPAIR_PLAN.md](REPAIR_PLAN.md).
 > **This file tracks what has actually been fixed, merged, and what's next** — so any session can resume.
-> Last updated: 2026-07-18. Integration branch: **`main`** (pushed to origin).
+> Last updated: 2026-07-28. Integration branch: **`main`** (pushed to origin).
+
+---
+
+## 🗺️ MASTER PLAN — full layer map & sequence (added 2026-07-28)
+
+> This is the authoritative roadmap for ALL remaining bug-hunt work, in order. Status flips happen HERE
+> (✅ done / 🔄 in progress / ⬜ pending), and every completed step also gets a dated entry in the DONE log below —
+> one document, complete history + future queue.
+
+### Layer status map — what was covered vs. what remains
+
+| Layer | Status |
+|---|---|
+| Backend code (schemas, services, controllers, money math, races) | ✅ DONE — 420-finding hunt + 87-verdict backlog, all fixed (see DONE log below) |
+| Stock/data corruption + derived stock (T2-1) | ✅ DONE — repaired, drift zero, monitors in place |
+| Guardrails/detectors (smart-check ratchet) | ✅ DONE — 12 detectors + CI, baselines at zero |
+| Frontend static review (205 pages) | ✅ DONE — 168 verified findings (`docs/frontend-review/`) |
+| Frontend FIXES | 🔄 Wave 1 done (13 findings); Waves 2–4 pending (165) |
+| Frontend live-walk | 🔄 gaps: B12/B13/B15 probes + 79 param routes (old rate limiter blocked them; fixed in Wave 1) |
+| Security deep-dive | ⬜ not done (route-auth breadth WAS covered in the original hunt — 1,205 routes, 0 unauthenticated; RBAC depth, uploads, secrets follow-through were not) |
+| Database integrity re-audit | ⬜ not done since the stock repair |
+| B2B contract test | ⬜ not done |
+| API orphan/dead endpoints | ⬜ partially (call-graph exists, not mined for orphans) |
+| Infra/CI | ⬜ not done — CI doesn't run the Jest/Playwright test suites |
+| Performance | ⬜ deliberately last — DB near-empty, perf numbers would be meaningless |
+
+### Phase 1 — Finish the frontend (CURRENT PHASE)
+
+| Step | Work | Status |
+|---|---|---|
+| 1.1 | Live-walk gap closure: re-probe B12/B13/B15 (limiter now 5000/15min); param routes that have data now; any new P0/P1 findings join Wave 2 | ⬜ |
+| 1.2 | Wave 2 — silent wrong data (38 P1): `_count`→`count` serializer, schema-strips-input family incl. password, GST report reads, P1 field mismatches | ⬜ |
+| 1.3 | Wave 3 — dead links & handoffs (74 P2) | ⬜ |
+| 1.4 | Wave 4 — polish (53 P3) | ⬜ |
+| 1.5 | Close-out sweep: full live route walk incl. param routes with real data; 0 console errors / failed XHRs on core flows → frontend layer marked DONE | ⬜ |
+
+Per-finding detail lives in [`docs/frontend-review/02-roadmap.md`](../frontend-review/02-roadmap.md) — that stays the
+frontend-detail doc; this file tracks phase-level status.
+
+### Phase 2 — New layers, in risk order (each starts on user go-ahead)
+
+| # | Layer | Why this position | What gets checked | Status |
+|---|---|---|---|---|
+| 2.1 | Security | App is live on the internet; a hole here loses everything | RBAC depth per role (not just authenticated-vs-not), file upload + `file-access` middleware, injection surface, JWT/session handling, secrets rotation follow-through (BH-0251 said .env was in git history — verify rotation happened), CORS/helmet | ⬜ |
+| 2.2 | Database integrity | Real data entered daily; silent corruption compounds | Orphaned rows, FK/constraint gaps (original hunt: ZERO check constraints on 576 money/qty columns — verify the deferred-constraints work covered the rest), DB-vs-Prisma enum drift, duplicates; run existing drift monitors as baseline | ⬜ |
+| 2.3 | B2B contract | LIVE external consumer (House of Kasya app) | Actual payload/read-back shapes vs `docs/B2B_INTEGRATION_GUIDE.md`; automate as a check | ⬜ |
+| 2.4 | API orphans | Cheap — call-graph exists | Mine `docs/frontend-review/data/join.json` (2,222 calls ↔ 1,193 endpoints) for orphan/dead endpoints | ⬜ |
+| 2.5 | Infra / CI | Protects everything above | CI to actually run Jest + Playwright; backup→restore drill (incl. `seed-code-sequences.ts` re-run rule + drift monitors post-restore) | ⬜ |
+| 2.6 | Performance | LAST — perf numbers meaningless on near-empty DB | Prisma slow-query logging, vite bundle analyzer, N+1 scan on heaviest pages | ⬜ |
+
+### Standing rules (every phase)
+
+- Findings logged + adversarially verified before fixing (existing bug-hunt format).
+- Every fixed bug class gets a ratcheted detector in `scripts/hooks/smart-check.js`.
+- Completion of each step = dated entry in the DONE log below + status flip in the tables above.
+- Backend deploys: `npm run build` + `pm2 reload garment-erp-api`, poll `/api/health`.
+- Never touch user WIP: `backend/.env`, `error.middleware.ts`, uncommitted saleOrder/schema.prisma/package.json changes.
 
 ---
 

@@ -30,6 +30,13 @@ router.get(
   asyncHandler(saleOrderController.getAll.bind(saleOrderController))
 );
 
+// GET /api/sale-orders/:id/stock-preview - Get stock availability preview before confirmation
+router.get(
+  '/:id/stock-preview',
+  validateParams(idParamSchema),
+  asyncHandler(saleOrderController.getStockPreview.bind(saleOrderController))
+);
+
 // GET /api/sale-orders/:id - Get by ID
 router.get('/:id', validateParams(idParamSchema), asyncHandler(saleOrderController.getById.bind(saleOrderController)));
 

@@ -35,3 +35,7 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+
+# WhatsApp Web linked-device sessions (per-user, whatsapp-web.js) — never commit
+.wwebjs_auth/
+.wwebjs_cache/

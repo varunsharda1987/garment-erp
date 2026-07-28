@@ -166,6 +166,30 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
           },
         },
       },
+      customer_addresses: {
+        where: { isActive: true },
+        orderBy: [{ isPrimary: 'desc' }, { label: 'asc' }],
+        include: {
+          state: {
+            select: {
+              id: true,
+              stateName: true,
+              stateCode: true,
+            },
+          },
+          city: {
+            select: {
+              id: true,
+              cityName: true,
+              tier: true,
+            },
+          },
+        },
+      },
+      customer_contacts: {
+        where: { isActive: true },
+        orderBy: [{ isPrimary: 'desc' }, { name: 'asc' }],
+      },
       billingState: {
         select: {
           id: true,

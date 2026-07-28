@@ -1913,8 +1913,12 @@ class CostSheetPOGenerationService {
       return;
     }
 
-    // Check if PO is fully received
-    const fullyReceived = greigePO.purchase_order_items.every((item) => item.receivedQuantity >= item.orderedQuantity);
+    // Check if PO is fully received. Number() is REQUIRED: these are Prisma Decimal objects, and >= on
+    // them compares their STRING forms — lexicographic, so "95">="100" is true and "100">="20" is false
+    // (bug-hunt costing-8: the gate flipped on digit count, not quantity — same fix as the GREIGE_LACE path above).
+    const fullyReceived = greigePO.purchase_order_items.every(
+      (item) => Number(item.receivedQuantity) >= Number(item.orderedQuantity)
+    );
 
     if (!fullyReceived) {
       logDebug('Greige PO not fully received yet', { greigePOId });

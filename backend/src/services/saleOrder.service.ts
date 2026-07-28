@@ -5,7 +5,9 @@ import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 
 interface SOCreateInput {
   customerId: string;
+  styleId?: string | null; // Primary style for the order
   expectedShipDate?: Date;
+  buyerDeadline?: Date; // Buyer's required completion date
   remarks?: string;
   createdById: string;
   items: Array<{
@@ -18,7 +20,9 @@ interface SOCreateInput {
 }
 
 interface SOUpdateInput {
+  styleId?: string | null; // Primary style for the order
   expectedShipDate?: Date;
+  buyerDeadline?: Date | null; // Buyer's required completion date
   remarks?: string;
   items?: Array<{
     styleId: string;
@@ -56,7 +60,9 @@ export class SaleOrderService {
         id: randomUUID(),
         saleOrderNumber,
         customerId: data.customerId,
+        styleId: data.styleId || null,
         expectedShipDate: data.expectedShipDate || null,
+        buyerDeadline: data.buyerDeadline || null,
         status: SaleOrderStatus.DRAFT,
         subtotal,
         totalAmount: subtotal,
@@ -173,7 +179,9 @@ export class SaleOrderService {
         return tx.sale_orders.update({
           where: { id },
           data: {
+            styleId: data.styleId,
             expectedShipDate: data.expectedShipDate,
+            buyerDeadline: data.buyerDeadline,
             remarks: data.remarks,
             subtotal,
             totalAmount: subtotal,
@@ -185,7 +193,9 @@ export class SaleOrderService {
       return tx.sale_orders.update({
         where: { id },
         data: {
+          styleId: data.styleId,
           expectedShipDate: data.expectedShipDate,
+          buyerDeadline: data.buyerDeadline,
           remarks: data.remarks,
         },
         include: this.getDefaultIncludes(),
@@ -365,6 +375,144 @@ export class SaleOrderService {
     });
   }
 
+  /**
+   * Get stock preview for a sale order before confirmation.
+   * Shows FG stock availability for each item + style readiness for items needing production.
+   */
+  async getStockPreview(saleOrderId: string) {
+    const so = await prisma.sale_orders.findUnique({
+      where: { id: saleOrderId },
+      include: {
+        items: {
+          include: {
+            style: {
+              select: {
+                id: true,
+                styleCode: true,
+                styleName: true,
+                status: true,
+                _count: {
+                  select: {
+                    style_components: true,
+                    size_options: true,
+                    style_variants: true,
+                  },
+                },
+              },
+            },
+            color: { select: { id: true, colorName: true } },
+            size: { select: { id: true, sizeName: true, sizeCode: true } },
+          },
+        },
+      },
+    });
+
+    if (!so) throw new Error('Sale Order not found');
+
+    // Build item previews with stock availability and style readiness
+    const itemPreviews = await Promise.all(
+      so.items.map(async (item) => {
+        // Get available FG stock for this item
+        const stocks = await this.getAvailableStock(item.styleId, item.colorId || undefined, item.sizeId);
+        const totalAvailable = stocks.reduce((sum, s) => sum + s.availableQty, 0);
+        const availableQty = Math.min(totalAvailable, item.quantity);
+        const shortfall = Math.max(0, item.quantity - totalAvailable);
+
+        const status: 'FULL' | 'PARTIAL' | 'NONE' =
+          totalAvailable >= item.quantity ? 'FULL' : totalAvailable > 0 ? 'PARTIAL' : 'NONE';
+
+        // For items needing production, check style readiness
+        let styleReadiness:
+          | {
+              status: string;
+              hasComponents: boolean;
+              hasFabrics: boolean;
+              hasSizes: boolean;
+              hasVariants: boolean;
+              isReady: boolean;
+              missingSteps: string[];
+            }
+          | undefined;
+
+        if (status !== 'FULL' && item.style) {
+          // Check if style has fabrics (via style_components -> style_fabrics)
+          const fabricCount = await prisma.style_fabrics.count({
+            where: {
+              style_components: { styleId: item.styleId },
+            },
+          });
+
+          const hasComponents = (item.style._count?.style_components || 0) > 0;
+          const hasFabrics = fabricCount > 0;
+          const hasSizes = (item.style._count?.size_options || 0) > 0;
+          const hasVariants = (item.style._count?.style_variants || 0) > 0;
+          // StyleStatus enum: DRAFT, ACTIVE, ARCHIVED - ACTIVE means ready for production
+          const isActive = item.style.status === 'ACTIVE';
+
+          const missingSteps: string[] = [];
+          if (!isActive) missingSteps.push('Activate style');
+          if (!hasComponents) missingSteps.push('Add components');
+          if (!hasFabrics) missingSteps.push('Assign fabrics');
+          if (!hasSizes) missingSteps.push('Define sizes');
+          if (!hasVariants) missingSteps.push('Create SKU variants');
+
+          styleReadiness = {
+            status: item.style.status,
+            hasComponents,
+            hasFabrics,
+            hasSizes,
+            hasVariants,
+            isReady: missingSteps.length === 0,
+            missingSteps,
+          };
+        }
+
+        return {
+          id: item.id,
+          style: item.style
+            ? { id: item.style.id, styleCode: item.style.styleCode, styleName: item.style.styleName }
+            : null,
+          color: item.color,
+          size: item.size,
+          orderedQty: item.quantity,
+          availableQty,
+          shortfall,
+          status,
+          styleReadiness,
+        };
+      })
+    );
+
+    // Calculate summary
+    const summary = {
+      itemsWithStock: itemPreviews.filter((i) => i.status === 'FULL').length,
+      itemsPartialStock: itemPreviews.filter((i) => i.status === 'PARTIAL').length,
+      itemsNoStock: itemPreviews.filter((i) => i.status === 'NONE').length,
+      quantityAvailable: itemPreviews.reduce((sum, i) => sum + i.availableQty, 0),
+      quantityNeedsProduction: itemPreviews.reduce((sum, i) => sum + i.shortfall, 0),
+    };
+
+    // Determine recommended action
+    let recommendedAction: 'ALLOCATE_ALL' | 'START_PRODUCTION' | 'MIXED';
+    if (summary.itemsNoStock === 0 && summary.itemsPartialStock === 0) {
+      recommendedAction = 'ALLOCATE_ALL';
+    } else if (summary.itemsWithStock === 0 && summary.itemsPartialStock === 0) {
+      recommendedAction = 'START_PRODUCTION';
+    } else {
+      recommendedAction = 'MIXED';
+    }
+
+    return {
+      saleOrderId: so.id,
+      saleOrderNumber: so.saleOrderNumber,
+      totalItems: so.items.length,
+      totalQuantity: so.items.reduce((sum, i) => sum + i.quantity, 0),
+      summary,
+      items: itemPreviews,
+      recommendedAction,
+    };
+  }
+
   private getDefaultIncludes() {
     return {
       customer: {
@@ -376,6 +524,9 @@ export class SaleOrderService {
           shippingAddress: true,
           gstNumber: true,
         },
+      },
+      style: {
+        select: { id: true, styleCode: true, styleName: true, imageUrl: true },
       },
       items: {
         include: {

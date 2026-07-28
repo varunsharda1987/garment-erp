@@ -1,5 +1,7 @@
 // Customer types
 import type { State, City } from './location.types';
+import type { CustomerAddress } from './customerAddress.types';
+import type { CustomerContact } from './customerContact.types';
 
 export const CustomerType = {
   BUYER: 'BUYER',
@@ -126,6 +128,8 @@ export interface Customer {
   };
   brandCategories?: BrandCategory[];
   customerGstNumbers?: CustomerGstNumber[];
+  customerAddresses?: CustomerAddress[];
+  customerContacts?: CustomerContact[];
   _count?: {
     orders: number;
     quotations: number;

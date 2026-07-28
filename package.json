@@ -1,5 +1,8 @@
 {
   "scripts": {
+    "check": "npm run check:backend && npm run check:guardrails",
+    "check:backend": "npm --prefix backend run type-check",
+    "check:guardrails": "node scripts/hooks/smart-check.js --all",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky",

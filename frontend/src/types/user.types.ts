@@ -5,6 +5,7 @@ export interface User {
   firstName: string;
   lastName: string;
   phone: string | null;
+  whatsappNumber: string | null;
   role: UserRole;
   department: string | null;
   isActive: boolean;
@@ -35,6 +36,7 @@ export interface CreateUserData {
   firstName: string;
   lastName: string;
   phone?: string;
+  whatsappNumber?: string | null;
   role: UserRole;
   department?: string;
 }
@@ -45,6 +47,7 @@ export interface UpdateUserData {
   firstName?: string;
   lastName?: string;
   phone?: string | null;
+  whatsappNumber?: string | null;
   department?: string | null;
   password?: string;
   isActive?: boolean;

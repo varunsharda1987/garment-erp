@@ -41,7 +41,7 @@ export class SaleOrderController {
   }
 
   async create(req: Request, res: Response) {
-    const { customerId, expectedShipDate, remarks, items } = req.body;
+    const { customerId, styleId, expectedShipDate, buyerDeadline, remarks, items } = req.body;
     const userId = req.user?.id;
     if (!userId) {
       throw new UnauthorizedError();
@@ -56,7 +56,9 @@ export class SaleOrderController {
 
     const so = await saleOrderService.create({
       customerId,
+      styleId: styleId || null,
       expectedShipDate: expectedShipDate ? new Date(expectedShipDate) : undefined,
+      buyerDeadline: buyerDeadline ? new Date(buyerDeadline) : undefined,
       remarks,
       createdById: userId,
       items,
@@ -67,10 +69,12 @@ export class SaleOrderController {
 
   async update(req: Request, res: Response) {
     const { id } = req.params;
-    const { expectedShipDate, remarks, items } = req.body;
+    const { styleId, expectedShipDate, buyerDeadline, remarks, items } = req.body;
 
     const so = await saleOrderService.update(id, {
+      styleId,
       expectedShipDate: expectedShipDate ? new Date(expectedShipDate) : undefined,
+      buyerDeadline: buyerDeadline ? new Date(buyerDeadline) : undefined,
       remarks,
       items,
     });
@@ -125,6 +129,16 @@ export class SaleOrderController {
     );
 
     res.json(stock);
+  }
+
+  /**
+   * Get stock preview for a sale order before confirmation.
+   * Shows FG stock availability + style readiness for items needing production.
+   */
+  async getStockPreview(req: Request, res: Response) {
+    const { id } = req.params;
+    const preview = await saleOrderService.getStockPreview(id);
+    res.json(preview);
   }
 }
 

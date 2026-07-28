@@ -38,6 +38,7 @@ export const createUserSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(100),
   lastName: z.string().min(1, 'Last name is required').max(100),
   phone: z.string().max(20).optional(),
+  whatsappNumber: z.string().max(20).optional().nullable(),
   role: UserRoleEnum.optional().default('SALES'),
   department: z.string().max(100).optional(),
 });
@@ -51,6 +52,7 @@ export const updateUserSchema = z.object({
   firstName: z.string().max(100).optional(),
   lastName: z.string().max(100).optional(),
   phone: z.string().max(20).optional().nullable(),
+  whatsappNumber: z.string().max(20).optional().nullable(),
   department: z.string().max(100).optional().nullable(),
   password: z.string().min(6, 'Password must be at least 6 characters').max(100).optional(),
   isActive: z.boolean().optional(),

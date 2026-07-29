@@ -447,7 +447,13 @@ export interface ProcessPO {
 }
 
 export interface CreateProcessPORequest {
-  labDipId: string;
+  // Either labDipId OR (styleId + fabricId + processorId) must be provided
+  labDipId?: string;
+  // Style-based PO fields (when labDipId is not provided)
+  styleId?: string;
+  fabricId?: string;
+  processorId?: string;
+  // Common fields
   greigeStockLotId: string;
   qtySentMeters: number;
   sentWidthInches: number;

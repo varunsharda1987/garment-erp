@@ -9063,6 +9063,9 @@ enum Unit {
   BOX
   PAIR
   PACK
+  GRAM
+  LITER
+  ROLL
 }
 
 enum MaterialType {

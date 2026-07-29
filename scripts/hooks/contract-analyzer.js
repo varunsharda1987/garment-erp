@@ -152,12 +152,21 @@ function lineOf(src, index) {
 // 1. SCHEMAS — load at runtime, introspect the real Zod objects
 // ---------------------------------------------------------------------------
 
-/** Unwrap ZodEffects(.refine/.transform), ZodOptional/Nullable/Default to reach an object shape. */
+/** Resolve an import specifier ('../schemas/agency.schema') to the file basename we index by. */
+function specToFile(spec) {
+  return path.basename(spec).replace(/\.(ts|js)$/, '') + '.ts';
+}
+
+/**
+ * Unwrap ZodEffects(.refine/.transform), ZodOptional/Nullable/Default to reach an object shape.
+ * NOTE: `out` is tried BEFORE `in` — for z.preprocess() `_def.in` is the preprocessing transform and
+ * `_def.out` is the real object; short-circuiting on `in` classified those schemas as non-object.
+ */
 function unwrap(schema, depth = 0) {
   if (!schema || depth > 12) return null;
   if (schema.shape) return schema;
   const d = schema._def || {};
-  return unwrap(d.innerType || d.schema || d.in || d.out || null, depth + 1);
+  return unwrap(d.innerType || d.schema || d.out || d.in || null, depth + 1);
 }
 
 function describeType(field) {
@@ -195,7 +204,10 @@ function loadSchemas() {
     process.exit(2);
   }
 
-  const schemas = new Map(); // exportName -> info
+  // Keyed by `file::exportName` — 33 schema export names are duplicated across files
+  // (sendOutSchema, allocateStockSchema, ...), so a bare-name map silently resolved to the wrong file.
+  const schemas = new Map();
+  const byName = new Map(); // exportName -> [keys] (fallback when the import can't be resolved)
   const loadErrors = [];
   const files = fs.readdirSync(SCHEMAS_DIR).filter((f) => f.endsWith('.ts'));
 
@@ -210,10 +222,13 @@ function loadSchemas() {
     }
     for (const [name, val] of Object.entries(mod)) {
       if (!val || typeof val !== 'object' || typeof val.safeParse !== 'function') continue;
+      const key = `${file}::${name}`;
+      if (!byName.has(name)) byName.set(name, []);
+      byName.get(name).push(key);
       const obj = unwrap(val);
       if (!obj || !obj.shape) {
         // Union / non-object schema — record so we can report it rather than silently skip.
-        schemas.set(name, { name, file, kind: 'non-object', fields: null });
+        schemas.set(key, { name, file, kind: 'non-object', fields: null });
         continue;
       }
       const shape = obj.shape;
@@ -224,17 +239,20 @@ function loadSchemas() {
       // zod v4: catchall undefined => strips unknown keys; ZodUnknown => passthrough; ZodNever => strict
       const catchall = obj._def && obj._def.catchall;
       const catchallType = catchall && catchall._def ? catchall._def.type : undefined;
-      schemas.set(name, {
+      schemas.set(key, {
         name,
         file,
         kind: 'object',
         fields,
-        strips: catchallType === undefined,
+        // undefined = default strip; 'never' = .strict() which REJECTS unknown keys (400 rather than a
+        // silent drop, but still a contract mismatch worth reporting).
+        strips: catchallType === undefined || catchallType === 'never',
+        strict: catchallType === 'never',
         passthrough: catchallType === 'unknown',
       });
     }
   }
-  return { schemas, loadErrors, fileCount: files.length };
+  return { schemas, byName, loadErrors, fileCount: files.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -263,16 +281,30 @@ function parseImports(src) {
 function handlerName(arg) {
   if (!arg) return null;
   const a = arg.trim();
-  if (/^async\s*\(|^\(.*\)\s*=>/.test(a)) return '<inline>';
+  if (/^async\s*\(|^\(.*\)\s*=>/.test(a)) {
+    // arrow delegate: (req,res) => SomeController.method(req,res)
+    const d = a.match(/=>\s*\{?\s*(?:return\s+)?([\w.]+)\s*\(/);
+    return d ? stripBind(d[1]) : '<inline>';
+  }
   let m = a.match(/^asyncHandler\s*\(\s*([\w.]+)/);
-  if (m) return m[1];
+  if (m) return stripBind(m[1]);
   m = a.match(/^([\w.]+)\.bind\s*\(/);
-  if (m) return m[1];
+  if (m) return stripBind(m[1]);
   m = a.match(/^([\w.]+)$/);
-  if (m) return m[1];
+  if (m) return stripBind(m[1]);
   m = a.match(/^[\w]+\s*\(\s*([\w.]+)/); // any wrapper(fn)
-  if (m) return m[1];
+  if (m) return stripBind(m[1]);
   return null;
+}
+
+/**
+ * `agencyController.create.bind` -> `agencyController.create`.
+ * Without this the trailing segment popped off was literally "bind", so every class-based module —
+ * including the LIVE B2B saleOrder routes, tcs/tds, credit/debit notes, agency (the project's own
+ * documented reference pattern) — was skipped as "handler-not-found".
+ */
+function stripBind(sym) {
+  return sym.replace(/\.bind$/, '');
 }
 
 function parseRoutes() {
@@ -365,7 +397,8 @@ function cleanDestructured(inner) {
 }
 
 function parseControllers() {
-  const fns = new Map(); // functionName -> info
+  const fns = new Map(); // `file::functionName` -> info
+  const byName = new Map(); // functionName -> [keys]
   const files = fs.readdirSync(CONTROLLERS_DIR).filter((f) => f.endsWith('.ts'));
   for (const file of files) {
     const src = stripComments(fs.readFileSync(path.join(CONTROLLERS_DIR, file), 'utf8'));
@@ -388,8 +421,24 @@ function parseControllers() {
       const are = /req\.body\.(\w+)/g;
       let a;
       while ((a = are.exec(body))) fields.add(a[1]);
-      // mode 3: wholesale — req.body passed/spread without a property access
-      const wholesale = /\.{3}\s*req\.body|req\.body\s*(?:\)|,|;|\})/.test(body);
+      // mode 3: ALIAS — `const data = req.body as CreateX;` then `data.field`.
+      // Previously invisible to all modes, producing false "controller never reads it" findings.
+      const aliasRe = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*req\.body\b(?!\s*\.)/g;
+      let al;
+      while ((al = aliasRe.exec(body))) {
+        const alias = al[1];
+        const useRe = new RegExp('\\b' + alias + '\\.(\\w+)', 'g');
+        let u;
+        while ((u = useRe.exec(body))) fields.add(u[1]);
+        // also `const { x } = data`
+        destructuredFrom(body, alias).forEach((f) => fields.add(f));
+      }
+      // mode 4: WHOLESALE — req.body spread, or passed as a bare argument.
+      // The old test `req.body\s*(?:\)|,|;|\})` also matched the `;` ending a plain destructure
+      // (`const {a,b} = req.body;`), flagging 305 ordinary controllers as mass-assignment and (via the
+      // !wholesale guard) suppressing real REQUIRED_UNUSED findings. Require spread or argument position.
+      const wholesale =
+        /\.{3}\s*req\.body/.test(body) || /[(,]\s*req\.body\s*(?:[,)])/.test(body);
 
       // query usage (Express-5 validatedQuery discard class)
       const queryFields = destructuredFrom(body, 'req.query');
@@ -398,20 +447,25 @@ function parseControllers() {
       while ((q = qre.exec(body))) queryFields.add(q[1]);
       const usesValidatedQuery = /validatedQuery/.test(body);
 
-      if (!fns.has(name)) {
-        fns.set(name, {
-          name,
-          file,
-          fields: [...fields],
-          wholesale,
-          queryFields: [...queryFields],
-          usesValidatedQuery,
-          line: lineOf(src, m.index),
-        });
-      }
+      // Keyed by `file::name` — 47 controller function names collide across files (getById in 13
+      // files, create/delete in 11), so a bare-name map compared ~9% of routes against the WRONG
+      // controller body.
+      const key = `${file}::${name}`;
+      const info = {
+        name,
+        file,
+        fields: [...fields],
+        wholesale,
+        queryFields: [...queryFields],
+        usesValidatedQuery,
+        line: lineOf(src, m.index),
+      };
+      if (!fns.has(key)) fns.set(key, info);
+      if (!byName.has(name)) byName.set(name, []);
+      byName.get(name).push(key);
     }
   }
-  return fns;
+  return { fns, byName };
 }
 
 // ---------------------------------------------------------------------------
@@ -419,9 +473,29 @@ function parseControllers() {
 // ---------------------------------------------------------------------------
 
 function analyze() {
-  const { schemas, loadErrors, fileCount } = loadSchemas();
+  const { schemas, byName: schemasByName, loadErrors, fileCount } = loadSchemas();
   const routes = parseRoutes();
-  const controllers = parseControllers();
+  const { fns: controllers, byName: ctrlByName } = parseControllers();
+
+  /**
+   * Resolve a symbol referenced in a route file to its defining file, USING THAT ROUTE FILE'S IMPORTS.
+   * This is the whole point of pairing via route files; without it, duplicate export names (33 schemas,
+   * 47 controller fns) resolve to an arbitrary file and silently compare the wrong pair.
+   */
+  const resolveVia = (map, byNameMap, imports, symbol) => {
+    if (!symbol) return { entry: null, ambiguous: false };
+    const base = symbol.split('.')[0]; // agencyController.create -> agencyController
+    const leaf = symbol.split('.').pop(); // -> create
+    const spec = imports[base] || imports[leaf] || imports[symbol];
+    if (spec) {
+      const hit = map.get(`${specToFile(spec)}::${leaf}`);
+      if (hit) return { entry: hit, ambiguous: false };
+    }
+    const candidates = byNameMap.get(leaf) || [];
+    if (candidates.length === 1) return { entry: map.get(candidates[0]), ambiguous: false };
+    // Ambiguous: several files export this name and the import didn't resolve — refuse to guess.
+    return { entry: null, ambiguous: candidates.length > 1 };
+  };
 
   const findings = [];
   const stats = {
@@ -445,14 +519,20 @@ function analyze() {
 
     // ---- class: mutating route with NO body validation at all
     if (!r.bodySchema) {
-      if (!r.noBodyMarker) {
+      // Only a real risk if the handler actually READS a body. 116 of the original 207 were DELETEs,
+      // which normally carry no body at all — reporting those as "raw body reaches Prisma" was noise.
+      const { entry: h } = resolveVia(controllers, ctrlByName, r.imports, r.handler);
+      const readsBody = h ? h.fields.length > 0 || h.wholesale : null;
+      if (!r.noBodyMarker && readsBody !== false) {
         findings.push({
           type: 'NO_VALIDATION',
-          severity: 'MEDIUM',
-          symptom: '500-crash / mass-assignment',
+          severity: readsBody ? 'MEDIUM' : 'LOW',
+          symptom: readsBody ? '500-crash / mass-assignment' : 'unverified (handler not resolved)',
           route: `${r.method} ${r.path}`,
           file: `backend/src/routes/${r.file}:${r.line}`,
-          detail: 'Mutating route has no validateBody — raw body reaches the controller/Prisma.',
+          detail: readsBody
+            ? 'Mutating route has no validateBody and the handler reads req.body — raw input reaches the controller/Prisma.'
+            : 'Mutating route has no validateBody; handler could not be resolved to confirm body usage.',
           handler: r.handler,
         });
       }
@@ -460,10 +540,15 @@ function analyze() {
     }
     stats.mutatingWithBody++;
 
-    const schemaKey = r.bodySchema.split('.').pop();
-    const schema = schemas.get(schemaKey);
+    const { entry: schema, ambiguous: schemaAmbiguous } = resolveVia(
+      schemas,
+      schemasByName,
+      r.imports,
+      r.bodySchema
+    );
     if (!schema) {
-      skip(r, 'schema-not-loaded');
+      skip(r, schemaAmbiguous ? 'schema-ambiguous(duplicate name)' : 'schema-not-loaded');
+      if (schemaAmbiguous) continue;
       findings.push({
         type: 'SCHEMA_UNRESOLVED',
         severity: 'LOW',
@@ -479,10 +564,14 @@ function analyze() {
       continue;
     }
 
-    const fnKey = r.handler ? r.handler.split('.').pop() : null;
-    const fn = fnKey ? controllers.get(fnKey) : null;
+    const { entry: fn, ambiguous: fnAmbiguous } = resolveVia(
+      controllers,
+      ctrlByName,
+      r.imports,
+      r.handler
+    );
     if (!fn) {
-      skip(r, 'handler-not-found');
+      skip(r, fnAmbiguous ? 'handler-ambiguous(duplicate name)' : 'handler-not-found');
       continue;
     }
 
@@ -540,10 +629,9 @@ function analyze() {
   // ---- class D: Express-5 validatedQuery discard
   for (const r of routes) {
     if (!r.querySchema) continue;
-    const schema = schemas.get(r.querySchema.split('.').pop());
+    const { entry: schema } = resolveVia(schemas, schemasByName, r.imports, r.querySchema);
     if (!schema || schema.kind !== 'object') continue;
-    const fnKey = r.handler ? r.handler.split('.').pop() : null;
-    const fn = fnKey ? controllers.get(fnKey) : null;
+    const { entry: fn } = resolveVia(controllers, ctrlByName, r.imports, r.handler);
     if (!fn || fn.usesValidatedQuery) continue;
     const coerced = Object.keys(schema.fields).filter(
       (f) => /coerce|number|boolean|date|pipe|transform/i.test(schema.fields[f].type) && fn.queryFields.includes(f)

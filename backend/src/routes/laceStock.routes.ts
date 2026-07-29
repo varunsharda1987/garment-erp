@@ -73,7 +73,13 @@ router.get('/reports/utilization', asyncHandler(getUtilizationReport));
  */
 router.post(
   '/allocations/:allocationId/consume',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  authorize(
+    UserRole.ADMIN,
+    UserRole.INVENTORY,
+    UserRole.PRODUCTION_MANAGER,
+    UserRole.FACTORY_SUPERVISOR,
+    UserRole.PURCHASE
+  ),
   validateParams(allocationIdParamSchema),
   validateBody(consumeLaceStockSchema),
   asyncHandler(consumeStockController)
@@ -87,7 +93,13 @@ router.post(
  */
 router.post(
   '/allocations/:allocationId/return',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  authorize(
+    UserRole.ADMIN,
+    UserRole.INVENTORY,
+    UserRole.PRODUCTION_MANAGER,
+    UserRole.FACTORY_SUPERVISOR,
+    UserRole.PURCHASE
+  ),
   validateParams(allocationIdParamSchema),
   validateBody(returnLaceStockSchema),
   asyncHandler(returnStockController)
@@ -106,7 +118,13 @@ router.post(
  */
 router.post(
   '/',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  authorize(
+    UserRole.ADMIN,
+    UserRole.INVENTORY,
+    UserRole.PRODUCTION_MANAGER,
+    UserRole.FACTORY_SUPERVISOR,
+    UserRole.PURCHASE
+  ),
   validateBody(createLaceStockSchema),
   asyncHandler(createLaceStock)
 );
@@ -150,7 +168,13 @@ router.get('/:id/transactions', validateParams(laceStockIdParamSchema), asyncHan
  */
 router.post(
   '/:id/allocate',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  authorize(
+    UserRole.ADMIN,
+    UserRole.INVENTORY,
+    UserRole.PRODUCTION_MANAGER,
+    UserRole.FACTORY_SUPERVISOR,
+    UserRole.PURCHASE
+  ),
   validateParams(laceStockIdParamSchema),
   validateBody(allocateLaceStockSchema),
   asyncHandler(allocateStockController)
@@ -164,7 +188,13 @@ router.post(
  */
 router.post(
   '/:id/transfer',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  authorize(
+    UserRole.ADMIN,
+    UserRole.INVENTORY,
+    UserRole.PRODUCTION_MANAGER,
+    UserRole.FACTORY_SUPERVISOR,
+    UserRole.PURCHASE
+  ),
   validateParams(laceStockIdParamSchema),
   validateBody(transferLaceStockSchema),
   asyncHandler(transferStockController)

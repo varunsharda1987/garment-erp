@@ -49,25 +49,49 @@ router.get('/:id', validateParams(stockMovementIdParamSchema), asyncHandler(stoc
 // POST routes - all validated with Zod schemas (write access: Admin, Inventory)
 router.post(
   '/stock-in',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  authorize(
+    UserRole.ADMIN,
+    UserRole.INVENTORY,
+    UserRole.PRODUCTION_MANAGER,
+    UserRole.FACTORY_SUPERVISOR,
+    UserRole.PURCHASE
+  ),
   validateBody(createStockInSchema),
   asyncHandler(stockMovementController.createStockIn)
 );
 router.post(
   '/bulk-stock-in',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  authorize(
+    UserRole.ADMIN,
+    UserRole.INVENTORY,
+    UserRole.PRODUCTION_MANAGER,
+    UserRole.FACTORY_SUPERVISOR,
+    UserRole.PURCHASE
+  ),
   validateBody(createBulkStockInSchema),
   asyncHandler(stockMovementController.createBulkStockIn)
 );
 router.post(
   '/stock-out',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  authorize(
+    UserRole.ADMIN,
+    UserRole.INVENTORY,
+    UserRole.PRODUCTION_MANAGER,
+    UserRole.FACTORY_SUPERVISOR,
+    UserRole.PURCHASE
+  ),
   validateBody(createStockOutSchema),
   asyncHandler(stockMovementController.createStockOut)
 );
 router.post(
   '/transfer',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  authorize(
+    UserRole.ADMIN,
+    UserRole.INVENTORY,
+    UserRole.PRODUCTION_MANAGER,
+    UserRole.FACTORY_SUPERVISOR,
+    UserRole.PURCHASE
+  ),
   validateBody(createStockTransferSchema),
   asyncHandler(stockMovementController.createStockTransfer)
 );
@@ -79,7 +103,13 @@ router.post(
 );
 router.post(
   '/processor-return',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  authorize(
+    UserRole.ADMIN,
+    UserRole.INVENTORY,
+    UserRole.PRODUCTION_MANAGER,
+    UserRole.FACTORY_SUPERVISOR,
+    UserRole.PURCHASE
+  ),
   validateBody(createProcessorReturnSchema),
   asyncHandler(stockMovementController.createProcessorReturn)
 );

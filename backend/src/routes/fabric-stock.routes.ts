@@ -39,7 +39,13 @@ router.use(authenticateToken);
 // Stock creation
 router.post(
   '/',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  authorize(
+    UserRole.ADMIN,
+    UserRole.INVENTORY,
+    UserRole.PRODUCTION_MANAGER,
+    UserRole.FACTORY_SUPERVISOR,
+    UserRole.PURCHASE
+  ),
   validateBody(createFabricStockSchema),
   asyncHandler(createFabricStock)
 );
@@ -55,7 +61,13 @@ router.get('/:id', validateParams(fabricStockIdParamSchema), asyncHandler(getSto
 // Stock operations
 router.post(
   '/transfer',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  authorize(
+    UserRole.ADMIN,
+    UserRole.INVENTORY,
+    UserRole.PRODUCTION_MANAGER,
+    UserRole.FACTORY_SUPERVISOR,
+    UserRole.PURCHASE
+  ),
   validateBody(transferFabricStockSchema),
   asyncHandler(transferStock)
 );

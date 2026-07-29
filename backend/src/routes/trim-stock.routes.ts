@@ -78,67 +78,39 @@ router.get('/:trimType', async (req: Request, res: Response) => {
  * POST /api/trim-stock/:trimType
  * Create a new trim stock entry (manual entry)
  */
-router.post('/:trimType', authorize(UserRole.ADMIN, UserRole.INVENTORY), async (req: Request, res: Response) => {
-  try {
-    const userId = (req as any).user?.id;
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'User not authenticated',
-      });
-    }
+router.post(
+  '/:trimType',
+  authorize(
+    UserRole.ADMIN,
+    UserRole.INVENTORY,
+    UserRole.PRODUCTION_MANAGER,
+    UserRole.FACTORY_SUPERVISOR,
+    UserRole.PURCHASE
+  ),
+  async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: 'User not authenticated',
+        });
+      }
 
-    const trimType = req.params.trimType.toUpperCase() as TrimType;
+      const trimType = req.params.trimType.toUpperCase() as TrimType;
 
-    if (!VALID_TRIM_TYPES.includes(trimType)) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid trim type. Must be one of: ${VALID_TRIM_TYPES.join(', ')}`,
-      });
-    }
+      if (!VALID_TRIM_TYPES.includes(trimType)) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid trim type. Must be one of: ${VALID_TRIM_TYPES.join(', ')}`,
+        });
+      }
 
-    const {
-      masterId,
-      quantity,
-      unit,
-      purchaseCost,
-      supplierId,
-      batchNumber,
-      lotNumber,
-      warehouseId,
-      warehouseLocation,
-      rackNumber,
-      qualityGrade,
-      receivedDate,
-    } = req.body;
-
-    // Validate required fields
-    if (!masterId) {
-      return res.status(400).json({
-        success: false,
-        error: 'masterId is required',
-      });
-    }
-    if (!quantity || quantity <= 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'quantity must be a positive number',
-      });
-    }
-    if (purchaseCost === undefined || purchaseCost < 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'purchaseCost is required and must be non-negative',
-      });
-    }
-
-    const stock = await trimStockService.createTrimStock(
-      {
-        trimType,
+      const {
         masterId,
-        quantity: Number(quantity),
+        quantity,
         unit,
-        purchaseCost: Number(purchaseCost),
+        purchaseCost,
         supplierId,
         batchNumber,
         lotNumber,
@@ -146,21 +118,59 @@ router.post('/:trimType', authorize(UserRole.ADMIN, UserRole.INVENTORY), async (
         warehouseLocation,
         rackNumber,
         qualityGrade,
-        receivedDate: receivedDate ? new Date(receivedDate) : undefined,
-        sourceType: 'MANUAL',
-      },
-      userId
-    );
+        receivedDate,
+      } = req.body;
 
-    res.status(201).json({ success: true, data: stock });
-  } catch (error) {
-    console.error('Error creating trim stock:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create trim stock',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
+      // Validate required fields
+      if (!masterId) {
+        return res.status(400).json({
+          success: false,
+          error: 'masterId is required',
+        });
+      }
+      if (!quantity || quantity <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'quantity must be a positive number',
+        });
+      }
+      if (purchaseCost === undefined || purchaseCost < 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'purchaseCost is required and must be non-negative',
+        });
+      }
+
+      const stock = await trimStockService.createTrimStock(
+        {
+          trimType,
+          masterId,
+          quantity: Number(quantity),
+          unit,
+          purchaseCost: Number(purchaseCost),
+          supplierId,
+          batchNumber,
+          lotNumber,
+          warehouseId,
+          warehouseLocation,
+          rackNumber,
+          qualityGrade,
+          receivedDate: receivedDate ? new Date(receivedDate) : undefined,
+          sourceType: 'MANUAL',
+        },
+        userId
+      );
+
+      res.status(201).json({ success: true, data: stock });
+    } catch (error) {
+      console.error('Error creating trim stock:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to create trim stock',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
-});
+);
 
 export default router;

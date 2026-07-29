@@ -38,6 +38,13 @@ const grnItemSchema = z.object({
   foldLengthCm: z.number().nonnegative().optional().nullable(),
   receivedWidthInches: z.number().nonnegative().optional().nullable(),
   entryMode: entryModeEnum.optional().nullable(),
+  // Greige "received as ready fabric" override (GRNForm sends these for GREIGE POs and
+  // grn.service.ts:200-202 persists them). They were missing here, so Zod stripped all three and the
+  // service always stored false/null/false: the override never applied, the actual received rate was
+  // never captured (weighted-average cost kept using the PO rate) and future-sourcing was never updated.
+  receivedAsReadyFabric: z.boolean().optional(),
+  actualRatePerUnit: z.coerce.number().nonnegative().optional().nullable(),
+  updateFutureSourcing: z.boolean().optional(),
   details: z.array(grnItemDetailSchema).optional(),
 });
 

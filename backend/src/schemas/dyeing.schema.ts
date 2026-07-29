@@ -18,7 +18,11 @@ const isValidIdFormat = (val: string) =>
 // Enums
 // ============================================================================
 
-export const LabDipStatusEnum = z.enum(['PENDING', 'IN_PROGRESS', 'APPROVED', 'REJECTED', 'REVISED']);
+// Must match the Prisma LabDipStatus enum exactly (the UI dropdown already does).
+// It previously invented IN_PROGRESS/REVISED (absent from the DB → 500 if ever written) and omitted
+// SUBMITTED/RESUBMIT — the real states the controller sets — so filtering the Lab Dips list by
+// "Submitted" or "Resubmit Needed" returned 400.
+export const LabDipStatusEnum = z.enum(['PENDING', 'SUBMITTED', 'APPROVED', 'REJECTED', 'RESUBMIT']);
 
 export const DyeJobStatusEnum = z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']);
 

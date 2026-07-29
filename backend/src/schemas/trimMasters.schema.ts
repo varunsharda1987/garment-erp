@@ -217,7 +217,9 @@ export const createZipperSchema = z
     // Domain-specific field names (matching controller/frontend)
     brand: z.string().max(50).optional(),
     sliderType: z.string().max(50).optional(),
-    tapeWidth: z.string().max(50).optional(),
+    // Decimal(10,2) column and ZipperForm sends Number(data.tapeWidth) — z.string() rejected it, so
+    // saving a zipper with a tape width 400'd every time.
+    tapeWidth: z.coerce.number().nonnegative().optional(),
     length: z.number().positive().optional().nullable(),
     color: z.string().max(50).optional(),
     teethType: z.string().max(50).optional(),

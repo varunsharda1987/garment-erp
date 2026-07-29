@@ -2,7 +2,9 @@
 
 > The diagnosis lives in [START_HERE.md](START_HERE.md) / [FINDINGS_INDEX.md](FINDINGS_INDEX.md) / [REPAIR_PLAN.md](REPAIR_PLAN.md).
 > **This file tracks what has actually been fixed, merged, and what's next** — so any session can resume.
-> Last updated: 2026-07-28. Integration branch: **`main`** (pushed to origin).
+> Last updated: 2026-07-29. Integration branch: **`main`**.
+> ⚠ **13 commits are LOCAL-ONLY (not pushed to origin)** — prod is deployed locally via `npm run deploy`, so pushing
+> is optional/for backup. Everything below marked 2026-07-29 is live on local prod but not yet on GitHub.
 
 ---
 
@@ -18,26 +20,30 @@
 |---|---|
 | Backend code (schemas, services, controllers, money math, races) | ✅ DONE — 420-finding hunt + 87-verdict backlog, all fixed (see DONE log below) |
 | Stock/data corruption + derived stock (T2-1) | ✅ DONE — repaired, drift zero, monitors in place |
-| Guardrails/detectors (smart-check ratchet) | ✅ DONE — 12 detectors + CI, baselines at zero |
+| Guardrails/detectors (smart-check ratchet) | 🔄 12 detectors + CI, baselines at zero — **but 2026-07-29 measurement proved the schema↔controller detector only compared 81 of 655 mutating routes (~12%) and silently discarded 212 findings. Replaced by `contract-analyzer.js`; ratchet re-wire pending** |
 | Frontend static review (205 pages) | ✅ DONE — 168 verified findings (`docs/frontend-review/`) |
-| Frontend FIXES | 🔄 Wave 1 done (13 findings); Waves 2–4 pending (165) |
-| Frontend live-walk | 🔄 gaps: B12/B13/B15 probes + 79 param routes (old rate limiter blocked them; fixed in Wave 1) |
-| Security deep-dive | ⬜ not done (route-auth breadth WAS covered in the original hunt — 1,205 routes, 0 unauthenticated; RBAC depth, uploads, secrets follow-through were not) |
-| Database integrity re-audit | ⬜ not done since the stock repair |
+| Frontend FIXES | ✅ DONE (2026-07-28) — Waves 1–4 all applied: 156 fixed + 12 deferred new-page builds, ZERO open P0–P3 |
+| Frontend live-walk | ✅ DONE — 160/161 routes swept; limiter fix unblocked the earlier gaps |
+| Security deep-dive | ✅ DONE (2026-07-29) — 1 CRITICAL + 7 HIGH, all adversarially confirmed and fixed (63 RBAC guards, password-hash/PII leaks, log redaction, register-role). ⚠ secret ROTATION deferred by owner |
+| Validation-contract integrity (Zod ↔ controller ↔ frontend ↔ serializer) | 🔄 **NEW layer, added 2026-07-29** — owner's #1 recurring pain. Sampling passes fixed the loudest; the mechanical sweep found 371 more (see Phase 2.0) |
+| Database integrity re-audit | 🔄 partial — Prisma FK/cascade/constraint pass done 2026-07-29; unique-constraint migrations (styleCode/colorName/workOrderNumber) still pending (need owner-run migration) |
 | B2B contract test | ⬜ not done |
 | API orphan/dead endpoints | ⬜ partially (call-graph exists, not mined for orphans) |
-| Infra/CI | ⬜ not done — CI doesn't run the Jest/Playwright test suites |
+| Infra/CI | 🔄 CI pipeline REPAIRED + green 2026-07-29 (lint report-only, guardrails deps, Dockerfile prisma-order; auto-deploy paused — no server). Jest/Playwright still not wired in |
 | Performance | ⬜ deliberately last — DB near-empty, perf numbers would be meaningless |
 
-### Phase 1 — Finish the frontend (CURRENT PHASE)
+### Phase 1 — Finish the frontend ✅ COMPLETE (2026-07-28)
 
 | Step | Work | Status |
 |---|---|---|
-| 1.1 | Live-walk gap closure: re-probe B12/B13/B15 (limiter now 5000/15min); param routes that have data now; any new P0/P1 findings join Wave 2 | ⬜ |
-| 1.2 | Wave 2 — silent wrong data (38 P1): `_count`→`count` serializer, schema-strips-input family incl. password, GST report reads, P1 field mismatches | ⬜ |
-| 1.3 | Wave 3 — dead links & handoffs (74 P2) | ⬜ |
-| 1.4 | Wave 4 — polish (53 P3) | ⬜ |
-| 1.5 | Close-out sweep: full live route walk incl. param routes with real data; 0 console errors / failed XHRs on core flows → frontend layer marked DONE | ⬜ |
+| 1.1 | Live-walk gap closure: re-probe B12/B13/B15 (limiter now 5000/15min); param routes that have data now | ✅ |
+| 1.2 | Wave 2 — silent wrong data (38 P1): `_count`→`count` serializer, schema-strips-input family incl. password, GST report reads, P1 field mismatches | ✅ 59914e05 |
+| 1.3 | Wave 3 — dead links & handoffs (74 P2) | ✅ 11a0217e (62 fixed, 12 deferred as new-page builds) |
+| 1.4 | Wave 4 — polish (53 P3) | ✅ eed2ae52 |
+| 1.5 | Close-out sweep → frontend layer DONE | ✅ 156 fixed, 0 open P0–P3 |
+
+> Remaining frontend work = the **12 deferred new-page builds** listed in
+> [`docs/frontend-review/02-roadmap.md`](../frontend-review/02-roadmap.md) (dead controls show "coming soon", not blank).
 
 Per-finding detail lives in [`docs/frontend-review/02-roadmap.md`](../frontend-review/02-roadmap.md) — that stays the
 frontend-detail doc; this file tracks phase-level status.
@@ -46,11 +52,12 @@ frontend-detail doc; this file tracks phase-level status.
 
 | # | Layer | Why this position | What gets checked | Status |
 |---|---|---|---|---|
-| 2.1 | Security | App is live on the internet; a hole here loses everything | RBAC depth per role (not just authenticated-vs-not), file upload + `file-access` middleware, injection surface, JWT/session handling, secrets rotation follow-through (BH-0251 said .env was in git history — verify rotation happened), CORS/helmet | ⬜ |
-| 2.2 | Database integrity | Real data entered daily; silent corruption compounds | Orphaned rows, FK/constraint gaps (original hunt: ZERO check constraints on 576 money/qty columns — verify the deferred-constraints work covered the rest), DB-vs-Prisma enum drift, duplicates; run existing drift monitors as baseline | ⬜ |
+| **2.0** | **Validation-contract integrity** (added 2026-07-29) | **Owner's #1 recurring pain — Zod/schema-drift/middleware bugs that silently lose data. Earlier passes were LLM SAMPLING (capped ~15 findings/area); this is the mechanical full sweep** | Every route ↔ Zod schema ↔ controller ↔ frontend-type triple via `scripts/hooks/contract-analyzer.js` (runtime Zod introspection, route-file pairing). Classes: silent-drop, required-but-unused (400), Express-5 `validatedQuery` discard, passthrough mass-assignment, no-validation | 🔄 **IN PROGRESS** — analyzer built + 371 findings inventoried ([`docs/contract-audit/`](../contract-audit/00-summary.md)); fixes batching now |
+| 2.1 | Security | App is live on the internet; a hole here loses everything | RBAC depth per role (not just authenticated-vs-not), file upload + `file-access` middleware, injection surface, JWT/session handling, secrets rotation follow-through (BH-0251 said .env was in git history — verify rotation happened), CORS/helmet | ✅ DONE 2026-07-29 — 1 CRIT + 7 HIGH fixed (de046808, ee58145a, c3ea6ccf). ⚠ **secret rotation DEFERRED by owner** (JWT key still in git history) |
+| 2.2 | Database integrity | Real data entered daily; silent corruption compounds | Orphaned rows, FK/constraint gaps (original hunt: ZERO check constraints on 576 money/qty columns — verify the deferred-constraints work covered the rest), DB-vs-Prisma enum drift, duplicates; run existing drift monitors as baseline | 🔄 partial 2026-07-29 — FK/cascade/constraint pass done; **pending: unique-constraint migrations for styleCode / colorName / workOrderNumber (racy check-then-insert today; needs owner-run migration + duplicate scan first)** |
 | 2.3 | B2B contract | LIVE external consumer (House of Kasya app) | Actual payload/read-back shapes vs `docs/B2B_INTEGRATION_GUIDE.md`; automate as a check | ⬜ |
 | 2.4 | API orphans | Cheap — call-graph exists | Mine `docs/frontend-review/data/join.json` (2,222 calls ↔ 1,193 endpoints) for orphan/dead endpoints | ⬜ |
-| 2.5 | Infra / CI | Protects everything above | CI to actually run Jest + Playwright; backup→restore drill (incl. `seed-code-sequences.ts` re-run rule + drift monitors post-restore) | ⬜ |
+| 2.5 | Infra / CI | Protects everything above | CI to actually run Jest + Playwright; backup→restore drill (incl. `seed-code-sequences.ts` re-run rule + drift monitors post-restore) | 🔄 partial 2026-07-29 — **CI was RED for days; now GREEN** (61a75509, a7ac49ba): lint made report-only (hygiene-only failures), guardrails job missing frontend deps, Dockerfile ran `npm ci` before copying prisma/. Auto-deploy PAUSED to manual (`workflow_dispatch`) — DO droplet not in use, prod is deployed locally via `npm run deploy`. **Still pending: wire Jest/Playwright into CI** |
 | 2.6 | Performance | LAST — perf numbers meaningless on near-empty DB | Prisma slow-query logging, vite bundle analyzer, N+1 scan on heaviest pages | ⬜ |
 
 ### Standing rules (every phase)
@@ -64,6 +71,56 @@ frontend-detail doc; this file tracks phase-level status.
 ---
 
 ## ✅ DONE — fixed, committed, on `main` (pushed)
+
+### 2026-07-29 — Phase 2.1 Security + Phase 2.0 contract integrity (LOCAL commits, deployed to local prod)
+
+- **Security audit + remediation** — 7 dimensions, adversarially verified, **1 CRITICAL + 7 HIGH, zero false positives**:
+  - `de046808` — **63 `authorize()` guards** across 18 route files (authorization had been enforced only in the UI:
+    any logged-in role could self-approve credit notes, edit bank accounts/tax rates, delete orders, adjust stock).
+    Also: delivery-note + ASN endpoints leaked bcrypt password hashes + PII; error handler logged plaintext passwords;
+    public `/register` accepted `role: ADMIN`. `.env` × 5 untracked + `.gitignore` hardened.
+  - `ee58145a` — widened stock guards to PRODUCTION_MANAGER / FACTORY_SUPERVISOR / PURCHASE after owner confirmed
+    those roles do everyday stock ops (adjust/edit/delete stay ADMIN+INVENTORY).
+  - `c3ea6ccf` — JWT re-validated against the DB each request (deactivated/demoted users lost access for up to 7 days).
+    **Fail-OPEN on infra error** so a DB blip can't lock everyone out. Isolated commit; smoke-tested live (login + authed call = 200).
+  - ⚠ **CRITICAL still open by owner's choice:** JWT signing key + DB creds are in git HISTORY — untracking does not undo
+    that, they must be ROTATED. Owner deferred: *"not in my priority list, only proper functioning is."* Do not re-raise.
+- **Contract/schema-drift fixes** — `f1301de5` (33 files): processingDelivery `/qc` + `/reject` were 400-ing on **every**
+  call; sale-order status enum missing the allocation states the UI filters by; `isActive` filter silently ignored on
+  bank/tax/payment-terms lists; zero values coerced to null; TCS status fields dropped; `currencyId` number-vs-string;
+  +`validateBody` on challan quick-issue/receive, processingBatch, stockCount, thread/trim/other-material; export
+  scalar-filter allowlist; import temp-PII cleanup + zip-bomb cap.
+- **Unit enum centralised** — `8bd4bd9e` + `9cff76eb`: PO/GRN/unified-PO/MRP/stock-movement now share ONE `UnitEnum`
+  in `common.schema.ts` (was 5 divergent copies; PAIR/PACK/GRAM/LITER/ROLL 400-ed depending on the screen).
+  Prisma `Unit` gained GRAM/LITER/ROLL (`d79cee29`).
+- **Middleware/schema/DB audit fixes** — `3e54b854`: style tech-specs saved "successfully" while **silently dropping 8 of
+  10 fields**; thread-PO generation 400-ed on every call (date-picker vs `datetime()`); **serializer cardinality bug
+  patched at the root** (it singularised has-many arrays for customers/styles/suppliers — the unfixed root cause of the
+  BH-0207 supplier-link wipe); dead `addMaterialToBOM` internal call removed.
+- **CI repaired + one-command deploy** — `61a75509`, `a7ac49ba`, `7c25de1a` (`npm run deploy`), `npm run check` added.
+
+### 2026-07-29 — Phase 2.0 tooling: the detector blind spot
+
+`scripts/hooks/contract-analyzer.js` (commit `423a7007`) replaces the regex-based
+`check-schema-controller-alignment.js`, which **only understood plain `z.object({…})`** — so 111 `.passthrough()`,
+45 `.refine()`, 29 union and 20 `.extend()/.partial()` schemas were invisible to it.
+
+| | old detector | contract-analyzer |
+|---|---|---|
+| schemas resolved | 128 **unresolvable** | **751 loaded, 0 errors** |
+| route/schema/controller triples compared | **81** of 655 mutating routes | **385** |
+| findings silently discarded as "warnings" | **212** | **0** |
+
+**371 findings inventoried** ([`docs/contract-audit/`](../contract-audit/00-summary.md)): 18 silent-drop, 13 required-but-unused
+(400), 47 Express-5 `validatedQuery` discard, 84 passthrough mass-assignment, 207 routes with no body validation.
+Validated against a regression corpus (re-detects the live lace `calculate-options` bug; correctly silent on the
+already-fixed tech-specs route). Hand-confirmed: **fabric CAD create/update discards 12 of 13 fields**; **cost-sheet
+`/actuals` discards all 6 money fields** (schema and controller share zero field names).
+
+**Fix batches (owner approved 2026-07-29): 1) 18 silent-drop → 2) 13×400 + 47 query-coercion → 3) 207 no-validation +
+84 mass-assignment → 4) wire the analyzer into `smart-check.js` and ratchet to zero.**
+
+
 
 **Individual fixes (each verified, own branch, merged to main):**
 - CAD planning actions (approve/link/copy) — BH-0353

@@ -11,13 +11,15 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (including devDependencies for build)
-RUN npm ci
-
-# Copy Prisma schema first (for generation)
+# Copy Prisma schema BEFORE install: the `postinstall` script runs `prisma generate`,
+# which needs prisma/schema.prisma to already be present, or it fails with
+# "Could not find Prisma Schema".
 COPY prisma ./prisma
 
-# Generate Prisma Client
+# Install dependencies (including devDependencies for build); postinstall generates the client
+RUN npm ci
+
+# Ensure the client is generated (idempotent; explicit for clarity)
 RUN npx prisma generate
 
 # Copy source code
@@ -43,12 +45,14 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
+# Copy Prisma schema BEFORE install (postinstall runs `prisma generate`, which needs the schema)
+COPY prisma ./prisma
+
 # Install production dependencies only
 RUN npm ci --only=production && \
     npm cache clean --force
 
-# Copy Prisma schema and generate client
-COPY prisma ./prisma
+# Ensure the client is generated (idempotent; explicit for clarity)
 RUN npx prisma generate
 
 # Copy built application from builder

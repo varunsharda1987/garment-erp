@@ -107,18 +107,6 @@
       "detail": "calculateCADCostSchema REQUIRES [styleId] but calculateCADCost never reads them → callers must send dead fields or get 400."
     },
     {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "POST /:styleId/add-width",
-      "file": "backend/src/controllers/cad-planning.controller.ts:1058",
-      "schema": "addCADWidthSchema (cadPlanning.schema.ts)",
-      "fields": [
-        "printDirection"
-      ],
-      "detail": "addCADWidth reads [printDirection] but addCADWidthSchema strips them → saved as undefined."
-    },
-    {
       "type": "REQUIRED_UNUSED",
       "severity": "MEDIUM",
       "symptom": "400-blocks-valid-input",
@@ -182,18 +170,6 @@
       "handler": "async"
     },
     {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "POST /:customerId/accessory-presets",
-      "file": "backend/src/controllers/customer-accessories.controller.ts:72",
-      "schema": "createAccessoryPresetSchema (customerAccessories.schema.ts)",
-      "fields": [
-        "items"
-      ],
-      "detail": "createAccessoryPreset reads [items] but createAccessoryPresetSchema strips them → saved as undefined."
-    },
-    {
       "type": "NO_VALIDATION",
       "severity": "MEDIUM",
       "symptom": "500-crash / mass-assignment",
@@ -237,54 +213,6 @@
       "file": "backend/src/routes/customer.routes.ts:77",
       "detail": "Mutating route has no validateBody and the handler reads req.body — raw input reaches the controller/Prisma.",
       "handler": "updateAccessoryPreset"
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "POST /catalogue/generate",
-      "file": "backend/src/controllers/document.controller.ts:168",
-      "schema": "generateCatalogueSchema (document.schema.ts)",
-      "fields": [
-        "seasons"
-      ],
-      "detail": "generateCataloguePDF reads [seasons] but generateCatalogueSchema strips them → saved as undefined."
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "POST /catalogue/store",
-      "file": "backend/src/controllers/document.controller.ts:213",
-      "schema": "generateCatalogueSchema (document.schema.ts)",
-      "fields": [
-        "seasons"
-      ],
-      "detail": "generateAndStoreCataloguePDF reads [seasons] but generateCatalogueSchema strips them → saved as undefined."
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "POST /line-sheet/pdf",
-      "file": "backend/src/controllers/document.controller.ts:383",
-      "schema": "generateLineSheetSchema (document.schema.ts)",
-      "fields": [
-        "options"
-      ],
-      "detail": "generateLineSheetPDF reads [options] but generateLineSheetSchema strips them → saved as undefined."
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "POST /line-sheet/excel",
-      "file": "backend/src/controllers/document.controller.ts:401",
-      "schema": "generateLineSheetSchema (document.schema.ts)",
-      "fields": [
-        "options"
-      ],
-      "detail": "generateLineSheetExcel reads [options] but generateLineSheetSchema strips them → saved as undefined."
     },
     {
       "type": "SILENT_DROP",
@@ -464,18 +392,6 @@
       "file": "backend/src/routes/order.routes.ts:76",
       "detail": "Mutating route has no validateBody and the handler reads req.body — raw input reaches the controller/Prisma.",
       "handler": "cancelOrderWithOptions"
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "POST /:id/recalculate-costing",
-      "file": "backend/src/controllers/orderProductionStatus.controller.ts:105",
-      "schema": "recalculateCostingSchema (orderItems.schema.ts)",
-      "fields": [
-        "selectedCadId"
-      ],
-      "detail": "recalculateOrderCosting reads [selectedCadId] but recalculateCostingSchema strips them → saved as undefined."
     },
     {
       "type": "PASSTHROUGH_WHOLESALE",

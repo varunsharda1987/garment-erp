@@ -41,8 +41,10 @@ export const updateInheritanceSchema = z.object({
  * POST /api/order-items/:id/recalculate-costing
  */
 export const recalculateCostingSchema = z.object({
-  forceRecalculate: z.boolean().optional().default(false),
-  cadId: z.string().uuid('Invalid CAD ID').optional(),
+  // The controller reads `selectedCadId`; `cadId` was stripped, so an explicitly chosen CAD was
+  // silently ignored and the recalculation always used the current one. (`forceRecalculate` was
+  // dead: the controller never read it.)
+  selectedCadId: z.string().uuid('Invalid CAD ID').optional(),
 });
 
 // ============================================================================

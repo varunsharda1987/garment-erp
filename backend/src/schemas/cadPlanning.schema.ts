@@ -145,6 +145,9 @@ export const addCADWidthSchema = z.object({
   fabricId: z.string().uuid('Invalid fabric ID').optional(),
   cutableWidth: z.number().positive().optional(),
   componentName: z.string().max(200).optional(),
+  // Real PrintDirection column the controller reads; stripped here, so it always fell back to the
+  // TWO_WAY default and a ONE_WAY selection was silently lost.
+  printDirection: z.enum(['ONE_WAY', 'TWO_WAY']).optional(),
 });
 
 /**

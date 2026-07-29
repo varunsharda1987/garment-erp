@@ -427,13 +427,16 @@ class DocumentController {
    * Body: { styleIds: string[], options: LineSheetOptions }
    */
   async generateLineSheetPDF(req: Request, res: Response) {
-    const { styleIds, options } = req.body;
+    // The client (and generateLineSheetSchema) send these FLAT, not nested under `options`.
+    // Reading a nested `options` key meant it was always undefined, so every line-sheet option
+    // (price toggles, buyer details, title) was silently ignored.
+    const { styleIds, ...options } = req.body;
 
     if (!styleIds || !Array.isArray(styleIds) || styleIds.length === 0) {
       throw new ValidationError('styleIds array is required');
     }
 
-    const pdfBuffer = await documentGeneratorService.generateLineSheetPDF(styleIds, options || {});
+    const pdfBuffer = await documentGeneratorService.generateLineSheetPDF(styleIds, options);
 
     const filename = `LineSheet_${new Date().toISOString().split('T')[0]}.pdf`;
 
@@ -449,13 +452,14 @@ class DocumentController {
    * Body: { styleIds: string[], options: LineSheetOptions }
    */
   async generateLineSheetExcel(req: Request, res: Response) {
-    const { styleIds, options } = req.body;
+    // Flat, not nested under `options` — same fix as generateLineSheetPDF above.
+    const { styleIds, ...options } = req.body;
 
     if (!styleIds || !Array.isArray(styleIds) || styleIds.length === 0) {
       throw new ValidationError('styleIds array is required');
     }
 
-    const excelBuffer = await documentGeneratorService.generateLineSheetExcel(styleIds, options || {});
+    const excelBuffer = await documentGeneratorService.generateLineSheetExcel(styleIds, options);
 
     const filename = `LineSheet_${new Date().toISOString().split('T')[0]}.xlsx`;
 

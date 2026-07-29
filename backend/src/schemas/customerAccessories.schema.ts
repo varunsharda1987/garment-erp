@@ -11,14 +11,20 @@ import { z } from 'zod';
 // Accessory Item Schema
 // ============================================================================
 
+// Mirrors the AccessoryItem interface in customer.service.ts, the
+// customer_accessories_preset_items columns, and what CustomerAccessoryPresets.tsx sends.
+// The previous shape (accessoryType/description/unit/specifications/isRequired) matched none of
+// them, so every item was stripped.
 const AccessoryItemSchema = z.object({
-  accessoryType: z.string().min(1).max(50),
-  materialId: z.string().uuid('Invalid material ID').optional(),
-  description: z.string().max(200).optional(),
-  quantity: z.number().positive().optional(),
-  unit: z.string().max(20).optional(),
-  specifications: z.record(z.string(), z.unknown()).optional(),
-  isRequired: z.boolean().optional().default(true),
+  materialType: z.string().min(1).max(50), // 'LABEL' | 'PACKAGING'
+  // PACKAGING
+  materialId: z.string().uuid('Invalid material ID').optional().nullable(),
+  quantity: z.coerce.number().nonnegative().optional().nullable(),
+  usageCategory: z.string().max(50).optional(),
+  // LABEL
+  labelId: z.string().uuid('Invalid label ID').optional().nullable(),
+  componentName: z.string().max(200).optional().nullable(),
+  extraPercentage: z.coerce.number().nonnegative().optional().nullable(),
   sortOrder: z.number().int().nonnegative().optional(),
 });
 
@@ -33,7 +39,10 @@ const AccessoryItemSchema = z.object({
 export const createAccessoryPresetSchema = z.object({
   presetName: z.string().min(1, 'Preset name is required').max(100),
   description: z.string().max(500).optional(),
-  accessoryItems: z.array(AccessoryItemSchema).min(1, 'At least one accessory item is required'),
+  // `items`, not `accessoryItems` — the controller DTO was renamed ("Changed from accessoryItems to
+  // items") and the UI sends `items`, but this schema was never updated, so the array was stripped
+  // and every create/update threw "Items array is required".
+  items: z.array(AccessoryItemSchema).min(1, 'At least one accessory item is required'),
   isDefault: z.boolean().optional().default(false),
   isActive: z.boolean().optional().default(true),
 });
@@ -45,7 +54,7 @@ export const createAccessoryPresetSchema = z.object({
 export const updateAccessoryPresetSchema = z.object({
   presetName: z.string().min(1).max(100).optional(),
   description: z.string().max(500).optional().nullable(),
-  accessoryItems: z.array(AccessoryItemSchema).optional(),
+  items: z.array(AccessoryItemSchema).optional(),
   isDefault: z.boolean().optional(),
   isActive: z.boolean().optional(),
 });

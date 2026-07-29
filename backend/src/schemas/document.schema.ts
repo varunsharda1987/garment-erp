@@ -20,6 +20,10 @@ export const generateCatalogueSchema = z.object({
   styleIds: z.array(z.string().uuid()).optional(),
   categoryIds: z.array(z.number().int().positive()).optional(),
   brandCategoryIds: z.array(z.number().int().positive()).optional(),
+  // CatalogueGenerator sends seasons:[selectedSeason] and the service filters on it
+  // (whereClause.season = { in: filters.seasons }). It was missing here, so Zod stripped it and
+  // choosing a season had no effect on the generated catalogue.
+  seasons: z.array(z.string()).optional(),
   priceRange: z
     .object({
       min: z.number().nonnegative().optional(),

@@ -32,7 +32,9 @@ export const techSpecsService = {
    * Create or update tech specs for a style
    */
   save: async (styleId: string, data: CreateUpdateTechSpecsDTO): Promise<TechSpecs> => {
-    const response = await api.post<TechSpecsResponse>(`/styles/${styleId}/tech-specs`, data);
+    // PUT, not POST — the backend registers only PUT /styles/:styleId/tech-specs (it is an idempotent
+    // upsert). Sending POST 404'd, so tech-specs never saved at all.
+    const response = await api.put<TechSpecsResponse>(`/styles/${styleId}/tech-specs`, data);
     return response.data.data;
   },
 

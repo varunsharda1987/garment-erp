@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { usePermissions } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -87,6 +88,7 @@ interface CreditNoteLineItem {
 
 export default function CreditNoteList() {
   const queryClient = useQueryClient();
+  const { isAdmin } = usePermissions();
 
   // List state
   const [search, setSearch] = useState('');
@@ -291,9 +293,19 @@ export default function CreditNoteList() {
                         <div className="flex justify-end gap-1">
                           {cn.status === 'DRAFT' && (
                             <>
-                              <Button variant="ghost" size="icon" title="Approve" onClick={() => setApproveTarget(cn)}>
-                                <CheckCircle2 className="h-4 w-4 text-success" />
-                              </Button>
+                              {/* Approve is ADMIN-only on the backend (maker-checker: the ACCOUNTS user
+                                  who raises a note must not approve it). Hide rather than show a button
+                                  that 403s. */}
+                              {isAdmin && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  title="Approve"
+                                  onClick={() => setApproveTarget(cn)}
+                                >
+                                  <CheckCircle2 className="h-4 w-4 text-success" />
+                                </Button>
+                              )}
                               <Button variant="ghost" size="icon" title="Cancel" onClick={() => setCancelTarget(cn)}>
                                 <XCircle className="h-4 w-4 text-orange-500" />
                               </Button>

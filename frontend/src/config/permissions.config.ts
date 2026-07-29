@@ -94,6 +94,12 @@ export const PERMISSIONS = {
   chartOfAccounts: [UserRole.ADMIN, UserRole.ACCOUNTS],
   invoices: [UserRole.ADMIN, UserRole.ACCOUNTS, UserRole.SALES],
   quotations: [UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER],
+  // Financial masters (tax masters, TDS, TCS) and credit/debit notes.
+  // These had NO entry here, and an unmapped route is treated as "accessible to all authenticated
+  // users" (see usePermissions.canAccessRoute) — so every role was shown pages whose writes the
+  // backend restricts to ADMIN/ACCOUNTS, producing "access denied" on save.
+  financialMasters: [UserRole.ADMIN, UserRole.ACCOUNTS],
+  creditDebitNotes: [UserRole.ADMIN, UserRole.ACCOUNTS],
 
   // Messaging (per-user WhatsApp) - available to all authenticated staff
   whatsapp: ALL_ROLES,
@@ -182,6 +188,11 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   '/chart-of-accounts': 'chartOfAccounts',
   '/invoices': 'invoices',
   '/quotations': 'quotations',
+  '/tax-masters': 'financialMasters',
+  '/tds': 'financialMasters',
+  '/tcs': 'financialMasters',
+  '/credit-notes': 'creditDebitNotes',
+  '/debit-notes': 'creditDebitNotes',
 
   // Messaging
   '/whatsapp': 'whatsapp',

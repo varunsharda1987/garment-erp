@@ -1,18 +1,4 @@
 {
-  "stats": {
-    "schemaFiles": 102,
-    "schemasLoaded": 837,
-    "schemaLoadErrors": 0,
-    "routesTotal": 1214,
-    "mutating": 655,
-    "mutatingWithBody": 444,
-    "compared": 414,
-    "skipped": {
-      "handler-not-found": 20,
-      "handler-ambiguous(duplicate name)": 8,
-      "schema-not-loaded": 2
-    }
-  },
   "findings": [
     {
       "type": "NO_VALIDATION",
@@ -187,55 +173,6 @@
       "handler": "splitProductionRunController"
     },
     {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /",
-      "file": "backend/src/schemas/color.schema.ts",
-      "schema": "createColorSchema",
-      "fields": [
-        "colorName"
-      ],
-      "detail": "createColorSchema REQUIRES [colorName] but createColor never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /",
-      "file": "backend/src/schemas/componentGroup.schema.ts",
-      "schema": "createComponentGroupSchema",
-      "fields": [
-        "code",
-        "name"
-      ],
-      "detail": "createComponentGroupSchema REQUIRES [code, name] but createComponentGroup never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /reorder",
-      "file": "backend/src/schemas/componentGroup.schema.ts",
-      "schema": "reorderComponentGroupsSchema",
-      "fields": [
-        "orders"
-      ],
-      "detail": "reorderComponentGroupsSchema REQUIRES [orders] but reorderComponentGroups never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /",
-      "file": "backend/src/schemas/patternPart.schema.ts",
-      "schema": "addComponentPatternPartSchema",
-      "fields": [
-        "patternPartId"
-      ],
-      "detail": "addComponentPatternPartSchema REQUIRES [patternPartId] but addPatternPartToComponent never reads them → callers must send dead fields or get 400."
-    },
-    {
       "type": "NO_VALIDATION",
       "severity": "LOW",
       "symptom": "unverified (handler not resolved)",
@@ -255,18 +192,6 @@
         "items"
       ],
       "detail": "createAccessoryPreset reads [items] but createAccessoryPresetSchema strips them → saved as undefined."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /:customerId/accessory-presets",
-      "file": "backend/src/schemas/customerAccessories.schema.ts",
-      "schema": "createAccessoryPresetSchema",
-      "fields": [
-        "accessoryItems"
-      ],
-      "detail": "createAccessoryPresetSchema REQUIRES [accessoryItems] but createAccessoryPreset never reads them → callers must send dead fields or get 400."
     },
     {
       "type": "NO_VALIDATION",
@@ -461,6 +386,15 @@
       "detail": "updateFinishingIssue reads [issueDate, expectedCompletionDate] but updateFinishingIssueSchema strips them → saved as undefined."
     },
     {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/grn.controller.ts:92",
+      "schema": "createGRNSchema",
+      "detail": "createGRNSchema is .passthrough() and createGRN forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
       "type": "NO_VALIDATION",
       "severity": "LOW",
       "symptom": "unverified (handler not resolved)",
@@ -536,30 +470,6 @@
       "handler": "updateItem"
     },
     {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "POST /thread-requirements/available-suppliers",
-      "file": "backend/src/controllers/order-thread-requirement.controller.ts:172",
-      "schema": "availableSuppliersSchema (orderThreadRequirement.schema.ts)",
-      "fields": [
-        "requirementIds"
-      ],
-      "detail": "getAvailableSuppliers reads [requirementIds] but availableSuppliersSchema strips them → saved as undefined."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /thread-requirements/available-suppliers",
-      "file": "backend/src/schemas/orderThreadRequirement.schema.ts",
-      "schema": "availableSuppliersSchema",
-      "fields": [
-        "threadIds"
-      ],
-      "detail": "availableSuppliersSchema REQUIRES [threadIds] but getAvailableSuppliers never reads them → callers must send dead fields or get 400."
-    },
-    {
       "type": "NO_VALIDATION",
       "severity": "MEDIUM",
       "symptom": "500-crash / mass-assignment",
@@ -567,31 +477,6 @@
       "file": "backend/src/routes/order.routes.ts:76",
       "detail": "Mutating route has no validateBody and the handler reads req.body — raw input reaches the controller/Prisma.",
       "handler": "cancelOrderWithOptions"
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "PATCH /:id/select-cad",
-      "file": "backend/src/controllers/orderProductionStatus.controller.ts:51",
-      "schema": "selectCadSchema (orderItems.schema.ts)",
-      "fields": [
-        "recalculateCosting"
-      ],
-      "detail": "selectCadForOrder reads [recalculateCosting] but selectCadSchema strips them → saved as undefined."
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "PATCH /:id/inheritance",
-      "file": "backend/src/controllers/orderProductionStatus.controller.ts:82",
-      "schema": "updateInheritanceSchema (orderItems.schema.ts)",
-      "fields": [
-        "inheritStyleSamples",
-        "inheritInspections"
-      ],
-      "detail": "updateInheritanceSettings reads [inheritStyleSamples, inheritInspections] but updateInheritanceSchema strips them → saved as undefined."
     },
     {
       "type": "SILENT_DROP",
@@ -613,31 +498,6 @@
       "file": "backend/src/controllers/packaging.controller.ts:26",
       "schema": "createPackagingSchema",
       "detail": "createPackagingSchema is .passthrough() and createPackaging forwards req.body wholesale → unvalidated keys reach the service/Prisma."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /",
-      "file": "backend/src/schemas/patternPart.schema.ts",
-      "schema": "createPatternPartSchema",
-      "fields": [
-        "code",
-        "name"
-      ],
-      "detail": "createPatternPartSchema REQUIRES [code, name] but createPatternPart never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /reorder",
-      "file": "backend/src/schemas/patternPart.schema.ts",
-      "schema": "reorderPatternPartsSchema",
-      "fields": [
-        "orders"
-      ],
-      "detail": "reorderPatternPartsSchema REQUIRES [orders] but reorderPatternParts never reads them → callers must send dead fields or get 400."
     },
     {
       "type": "REQUIRED_UNUSED",
@@ -728,18 +588,6 @@
       "type": "REQUIRED_UNUSED",
       "severity": "MEDIUM",
       "symptom": "400-blocks-valid-input",
-      "route": "POST /:id/items",
-      "file": "backend/src/schemas/purchaseOrder.schema.ts",
-      "schema": "addPurchaseOrderItemSchema",
-      "fields": [
-        "unit"
-      ],
-      "detail": "addPurchaseOrderItemSchema REQUIRES [unit] but addPurchaseOrderItem never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
       "route": "POST /",
       "file": "backend/src/schemas/quotation.schema.ts",
       "schema": "createQuotationSchema",
@@ -779,32 +627,6 @@
       "file": "backend/src/routes/report.routes.ts:40",
       "detail": "Mutating route has no validateBody and the handler reads req.body — raw input reaches the controller/Prisma.",
       "handler": "cleanupReports"
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /",
-      "file": "backend/src/schemas/season.schema.ts",
-      "schema": "createSeasonSchema",
-      "fields": [
-        "name",
-        "seasonType",
-        "year"
-      ],
-      "detail": "createSeasonSchema REQUIRES [name, seasonType, year] but createSeason never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "PATCH /service-requirements/:id/execution",
-      "file": "backend/src/schemas/serviceRequirement.schema.ts",
-      "schema": "updateExecutionSchema",
-      "fields": [
-        "status"
-      ],
-      "detail": "updateExecutionSchema REQUIRES [status] but updateExecution never reads them → callers must send dead fields or get 400."
     },
     {
       "type": "SILENT_DROP",
@@ -854,30 +676,6 @@
       "file": "backend/src/routes/style-image.routes.ts:25",
       "detail": "Mutating route has no validateBody and the handler reads req.body — raw input reaches the controller/Prisma.",
       "handler": "uploadImage"
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "POST /:styleId/images/reorder",
-      "file": "backend/src/controllers/style-image.controller.ts:71",
-      "schema": "reorderImagesSchema (styleImage.schema.ts)",
-      "fields": [
-        "imageIds"
-      ],
-      "detail": "reorderImages reads [imageIds] but reorderImagesSchema strips them → saved as undefined."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /:styleId/images/reorder",
-      "file": "backend/src/schemas/styleImage.schema.ts",
-      "schema": "reorderImagesSchema",
-      "fields": [
-        "orderedIds"
-      ],
-      "detail": "reorderImagesSchema REQUIRES [orderedIds] but reorderImages never reads them → callers must send dead fields or get 400."
     },
     {
       "type": "NO_VALIDATION",
@@ -1126,36 +924,6 @@
       "file": "backend/src/controllers/supplier.controller.ts:65",
       "schema": "updateSupplierSchema",
       "detail": "updateSupplierSchema is .passthrough() and updateSupplier forwards req.body wholesale → unvalidated keys reach the service/Prisma."
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "POST /convert",
-      "file": "backend/src/controllers/thread-conversion.controller.ts:8",
-      "schema": "convertThreadSchema (trimMasters.schema.ts)",
-      "fields": [
-        "ply",
-        "packagingType",
-        "inputType",
-        "value"
-      ],
-      "detail": "convertThreadQuantity reads [ply, packagingType, inputType, value] but convertThreadSchema strips them → saved as undefined."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /convert",
-      "file": "backend/src/schemas/trimMasters.schema.ts",
-      "schema": "convertThreadSchema",
-      "fields": [
-        "threadId",
-        "fromUnit",
-        "toUnit",
-        "quantity"
-      ],
-      "detail": "convertThreadSchema REQUIRES [threadId, fromUnit, toUnit, quantity] but convertThreadQuantity never reads them → callers must send dead fields or get 400."
     },
     {
       "type": "REQUIRED_UNUSED",
@@ -1931,5 +1699,20 @@
       ],
       "detail": "getAllZipper reads req.query.[page, limit] but those are coerced by trimMasterQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
     }
-  ]
+  ],
+  "stats": {
+    "schemaFiles": 102,
+    "schemasLoaded": 837,
+    "schemaLoadErrors": 0,
+    "routesTotal": 1214,
+    "mutating": 655,
+    "mutatingWithBody": 444,
+    "compared": 414,
+    "skipped": {
+      "handler-not-found": 20,
+      "handler-ambiguous(duplicate name)": 8,
+      "schema-not-loaded": 2
+    }
+  },
+  "loadErrors": []
 }

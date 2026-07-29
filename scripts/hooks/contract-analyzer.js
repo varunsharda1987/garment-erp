@@ -425,6 +425,7 @@ function parseControllers() {
       // Previously invisible to all modes, producing false "controller never reads it" findings.
       const aliasRe = /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=]+)?=\s*req\.body\b(?!\s*\.)/g;
       let al;
+      let aliasForwarded = false;
       while ((al = aliasRe.exec(body))) {
         const alias = al[1];
         const useRe = new RegExp('\\b' + alias + '\\.(\\w+)', 'g');
@@ -432,13 +433,17 @@ function parseControllers() {
         while ((u = useRe.exec(body))) fields.add(u[1]);
         // also `const { x } = data`
         destructuredFrom(body, alias).forEach((f) => fields.add(f));
+        // ...and the alias may be forwarded WHOLESALE: `service.reorder(validatedData)`.
+        // Without this the controller looks like it reads nothing, producing false
+        // REQUIRED_UNUSED ("schema requires X but controller never reads it").
+        if (new RegExp('[(,]\\s*' + alias + '\\s*[,)]').test(body)) aliasForwarded = true;
       }
       // mode 4: WHOLESALE — req.body spread, or passed as a bare argument.
       // The old test `req.body\s*(?:\)|,|;|\})` also matched the `;` ending a plain destructure
       // (`const {a,b} = req.body;`), flagging 305 ordinary controllers as mass-assignment and (via the
       // !wholesale guard) suppressing real REQUIRED_UNUSED findings. Require spread or argument position.
       const wholesale =
-        /\.{3}\s*req\.body/.test(body) || /[(,]\s*req\.body\s*(?:[,)])/.test(body);
+        aliasForwarded || /\.{3}\s*req\.body/.test(body) || /[(,]\s*req\.body\s*(?:[,)])/.test(body);
 
       // query usage (Express-5 validatedQuery discard class)
       const queryFields = destructuredFrom(body, 'req.query');

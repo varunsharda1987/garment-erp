@@ -17,17 +17,23 @@ import { z } from 'zod';
  */
 export const selectCadSchema = z.object({
   cadId: z.string().uuid('Invalid CAD ID'),
-  widthOption: z.string().max(50).optional(),
+  // The UI always sends this ("Auto-recalculate costing"); it was absent here, so Zod stripped it and
+  // the controller's recalculation branch never ran — the toast said "costing recalculated" while
+  // nothing was recalculated. (`widthOption` was dead: nothing sent it, nothing read it.)
+  recalculateCosting: z.boolean().optional(),
 });
 
 /**
  * Update Inheritance Settings
  * PATCH /api/order-items/:id/inheritance
  */
+// Field names must match the controller + frontend (both use inheritStyleSamples/inheritInspections).
+// The old names were stripped by Zod, so the controller saw undefined and threw
+// "At least one inheritance setting is required" — the toggle 400'd every time.
+// (`inheritCosting` was dead: nothing sent it, the controller never read it.)
 export const updateInheritanceSchema = z.object({
-  inheritSample: z.boolean().optional(),
-  inheritInspection: z.boolean().optional(),
-  inheritCosting: z.boolean().optional(),
+  inheritStyleSamples: z.boolean().optional(),
+  inheritInspections: z.boolean().optional(),
 });
 
 /**

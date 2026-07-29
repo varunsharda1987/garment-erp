@@ -42,8 +42,10 @@ export const updateImageSchema = z.object({
  * Reorder Images
  * POST /api/styles/:styleId/images/reorder
  */
+// `imageIds`, not `orderedIds` — the controller and the drag-drop UI both send `imageIds`.
+// The mismatched name 400'd every reorder.
 export const reorderImagesSchema = z.object({
-  orderedIds: z.array(z.string().uuid()).min(1, 'At least one image ID is required'),
+  imageIds: z.array(z.string().uuid()).min(1, 'At least one image ID is required'),
 });
 
 // ============================================================================

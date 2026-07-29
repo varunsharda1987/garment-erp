@@ -64,8 +64,11 @@ export const generateThreadPOSchema = z.object({
  * Get Available Suppliers
  * POST /api/thread-requirements/available-suppliers
  */
+// `requirementIds`, not `threadIds` — the controller and the frontend both send requirement ids.
+// The mismatched name made Zod reject every call ("At least one thread ID is required"), so the
+// thread-PO supplier list never loaded.
 export const availableSuppliersSchema = z.object({
-  threadIds: z.array(z.string().uuid()).min(1, 'At least one thread ID is required'),
+  requirementIds: z.array(z.string().uuid()).min(1, 'At least one requirement ID is required'),
 });
 
 /**

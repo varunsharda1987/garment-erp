@@ -175,11 +175,15 @@ export const updateThreadSchema = z
  * Convert Thread Quantity
  * POST /api/materials/thread/convert
  */
+// Matches the controller (convertThreadQuantity) and the ThreadQuantityInput UI, which send
+// {ply, packagingType, inputType, value}. The previous {threadId, fromUnit, toUnit, quantity} shape
+// shared NO field with either side, so every conversion call 400'd — the quantity converter failed
+// on each keystroke.
 export const convertThreadSchema = z.object({
-  threadId: z.string().uuid('Invalid thread ID'),
-  fromUnit: z.enum(['METER', 'CONE', 'BOX']),
-  toUnit: z.enum(['METER', 'CONE', 'BOX']),
-  quantity: z.number().positive('Quantity must be positive'),
+  ply: z.string().min(1, 'Ply is required'),
+  packagingType: z.string().min(1, 'Packaging type is required'),
+  inputType: z.enum(['UNITS', 'BOXES', 'METERS']),
+  value: z.number().nonnegative('Value must be zero or greater'),
 });
 
 /**

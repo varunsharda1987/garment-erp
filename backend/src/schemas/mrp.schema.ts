@@ -39,6 +39,9 @@ export const UnitEnum = z.enum([
   'DOZEN',
   'GROSS',
   'LITER',
+  'PAIR',
+  'PACK',
+  'TUBE',
 ]);
 
 export const RequirementTypeEnum = z.enum(['MATERIAL', 'PROCESSING']);

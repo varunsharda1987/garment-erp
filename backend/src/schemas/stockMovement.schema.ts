@@ -31,6 +31,9 @@ export const UnitEnum = z.enum([
   'BOX',
   'PAIR',
   'PACK',
+  'GRAM',
+  'LITER',
+  'ROLL',
 ]);
 
 export const ItemTypeEnum = z.enum([

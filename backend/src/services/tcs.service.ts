@@ -85,8 +85,10 @@ class TCSService {
     return prisma.tcs_entries.update({ where: { id }, data: updateData });
   }
 
-  async updateStatus(id: string, status: string) {
-    return prisma.tcs_entries.update({ where: { id }, data: { status } });
+  async updateStatus(id: string, status: string, remarks?: string) {
+    const data: any = { status };
+    if (remarks !== undefined) data.remarks = remarks;
+    return prisma.tcs_entries.update({ where: { id }, data });
   }
 
   async delete(id: string) {

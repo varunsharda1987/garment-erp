@@ -1,21 +1,10 @@
 import { z } from 'zod';
+import { UnitEnum } from './common.schema';
 
 /**
- * Unit Enum - matches Prisma Unit
+ * Unit Enum - shared full Prisma-aligned enum (includes PAIR/PACK/GRAM/LITER/ROLL).
  */
-export const UnitEnum = z.enum([
-  'METER',
-  'PIECE',
-  'KILOGRAM',
-  'SET',
-  'YARD',
-  'DOZEN',
-  'GROSS',
-  'TUBE',
-  'CONE',
-  'SPOOL',
-  'BOX',
-]);
+export { UnitEnum };
 
 /**
  * Entry mode for GRN items (FABRIC & GREIGE)

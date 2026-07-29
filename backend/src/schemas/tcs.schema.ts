@@ -60,8 +60,9 @@ export const updateTCSSchema = z.object({
  */
 export const updateTCSStatusSchema = z.object({
   status: TCSStatusEnum,
-  challanNumber: z.string().max(50).optional(),
-  challanDate: z.string().datetime().optional(),
+  // Only `status` and `remarks` are real columns on tcs_entries.
+  // challanNumber/challanDate have no DB column, so they are intentionally
+  // not accepted here (accepting them would be silent data loss).
   remarks: z.string().max(500).optional(),
 });
 

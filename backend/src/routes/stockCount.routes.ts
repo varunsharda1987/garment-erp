@@ -3,8 +3,9 @@ import express from 'express';
 import * as stockCountController from '../controllers/stockCount.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateParams } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { idParamSchema, warehouseIdParamSchema, countIdAndItemIdParamSchema } from '../schemas/common.schema';
+import { updateCountItemSchema } from '../schemas/stockCount.schema';
 
 const router = express.Router();
 
@@ -32,6 +33,7 @@ router.post('/:id/cancel', validateParams(idParamSchema), asyncHandler(stockCoun
 router.put(
   '/:countId/items/:itemId',
   validateParams(countIdAndItemIdParamSchema),
+  validateBody(updateCountItemSchema),
   asyncHandler(stockCountController.updateCountItem)
 );
 

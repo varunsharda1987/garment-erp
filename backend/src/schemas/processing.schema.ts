@@ -19,6 +19,9 @@ export const DeliveryStatusEnum = z.enum(['PENDING_QC', 'QC_PASSED', 'QC_FAILED'
 
 export const QCResultEnum = z.enum(['PASS', 'FAIL', 'CONDITIONAL']);
 
+// Mirrors Prisma `enum QualityStatus { PASS FAIL CONDITIONAL_PASS }`
+export const QualityStatusEnum = z.enum(['PASS', 'FAIL', 'CONDITIONAL_PASS']);
+
 // ============================================================================
 // PROCESSING STAGE SCHEMAS
 // ============================================================================
@@ -199,13 +202,11 @@ export const updateProcessingDeliverySchema = z.object({
  * POST /api/processing-deliveries/:id/qc
  */
 export const performQCSchema = z.object({
-  qcResult: QCResultEnum,
-  passedQuantity: z.number().nonnegative().optional(),
-  rejectedQuantity: z.number().nonnegative().optional(),
-  defects: z.string().max(500).optional(),
-  qcDate: z.string().datetime().optional(),
-  qcBy: z.string().uuid().optional(),
-  remarks: z.string().max(500).optional(),
+  quantityAccepted: z.number().nonnegative(),
+  quantityRejected: z.number().nonnegative(),
+  qualityStatus: QualityStatusEnum,
+  qualityNotes: z.string().max(500).optional(),
+  rejectionReason: z.string().max(500).optional(),
 });
 
 /**
@@ -213,7 +214,8 @@ export const performQCSchema = z.object({
  * POST /api/processing-deliveries/:id/accept
  */
 export const acceptDeliverySchema = z.object({
-  acceptedQuantity: z.number().nonnegative('Accepted quantity cannot be negative'),
+  // Controller reads nothing from the body — keep optional so an empty POST /accept passes.
+  acceptedQuantity: z.number().nonnegative('Accepted quantity cannot be negative').optional(),
   acceptedDate: z.string().datetime().optional(),
   remarks: z.string().max(500).optional(),
 });
@@ -223,8 +225,8 @@ export const acceptDeliverySchema = z.object({
  * POST /api/processing-deliveries/:id/reject
  */
 export const rejectDeliverySchema = z.object({
-  rejectedQuantity: z.number().positive('Rejected quantity must be positive'),
-  rejectionReason: z.string().min(1, 'Rejection reason is required').max(500),
+  // Controller reads only { reason }.
+  reason: z.string().min(1, 'Rejection reason is required').max(500),
   rejectedDate: z.string().datetime().optional(),
   remarks: z.string().max(500).optional(),
 });
@@ -241,6 +243,51 @@ export const processingDeliveryQuerySchema = z.object({
   stageId: z.string().uuid().optional(),
   status: DeliveryStatusEnum.optional(),
 });
+
+// ============================================================================
+// PROCESSING BATCH SCHEMAS
+// ============================================================================
+
+// Material type a batch can be created for (matches CreateProcessingBatchDTO)
+export const ProcessingMaterialTypeEnum = z.enum(['GREIGE', 'FABRIC', 'LACE']);
+
+/**
+ * Create Processing Batch
+ * POST /api/processing-batches
+ * `createdById` is injected by the controller from the authenticated user — NOT accepted from the body.
+ */
+export const createProcessingBatchSchema = z.object({
+  materialType: ProcessingMaterialTypeEnum,
+  greigeId: z.string().uuid('Invalid greige ID').optional(),
+  fabricId: z.string().uuid('Invalid fabric ID').optional(),
+  laceId: z.string().uuid('Invalid lace ID').optional(),
+  totalQuantitySent: z.number().positive('Total quantity sent must be positive'),
+  quantityInProcess: z.number().nonnegative('Quantity in process cannot be negative'),
+  // Lace-specific fields
+  colorToApply: z.string().max(100).optional(),
+  expectedShrinkagePercent: z.number().min(0).max(100).optional(),
+});
+
+/**
+ * Update Processing Batch
+ * PUT /api/processing-batches/:id
+ * Only user-editable operational quantities + lace notes. Deliberately EXCLUDES
+ * overallStatus, totalCostIncurred, batchNumber, createdById, and material FKs
+ * (greigeId/fabricId/laceId/finishedLaceId) — those are managed by dedicated
+ * flows (complete/cancel/receiveProcessedLace), not raw body mass-assignment.
+ */
+export const updateProcessingBatchSchema = z
+  .object({
+    totalQuantityReceived: z.number().nonnegative().optional(),
+    quantityInProcess: z.number().nonnegative().optional(),
+    quantityInTransit: z.number().nonnegative().optional(),
+    quantityRejected: z.number().nonnegative().optional(),
+    dyeLotNumber: z.string().max(50).optional(),
+    shadeNote: z.string().max(500).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided for update',
+  });
 
 // ============================================================================
 // Param Validation Schemas
@@ -299,3 +346,7 @@ export type PerformQCInput = z.infer<typeof performQCSchema>;
 export type AcceptDeliveryInput = z.infer<typeof acceptDeliverySchema>;
 export type RejectDeliveryInput = z.infer<typeof rejectDeliverySchema>;
 export type ProcessingDeliveryQueryInput = z.infer<typeof processingDeliveryQuerySchema>;
+
+// Batch types
+export type CreateProcessingBatchInput = z.infer<typeof createProcessingBatchSchema>;
+export type UpdateProcessingBatchInput = z.infer<typeof updateProcessingBatchSchema>;

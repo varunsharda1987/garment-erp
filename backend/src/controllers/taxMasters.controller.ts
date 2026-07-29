@@ -61,7 +61,8 @@ export const createTax = async (req: Request, res: Response): Promise<void> => {
  * GET /api/tax-masters
  */
 export const getAllTaxes = async (req: Request, res: Response): Promise<void> => {
-  const { page = '1', limit = '20', search = '', taxType, activeOnly = 'true' } = req.query;
+  const query = (req as any).validatedQuery ?? req.query;
+  const { page = '1', limit = '20', search = '', taxType, isActive } = query;
 
   const pageNum = parseInt(page as string);
   const limitNum = parseInt(limit as string);
@@ -70,9 +71,9 @@ export const getAllTaxes = async (req: Request, res: Response): Promise<void> =>
   // Build where clause
   const where: Prisma.tax_mastersWhereInput = {};
 
-  if (activeOnly === 'true') {
-    where.isActive = true;
-  }
+  // Honor the validated isActive contract: undefined defaults to active-only (prior behavior),
+  // but ?isActive=false now genuinely returns soft-deleted taxes.
+  where.isActive = isActive === undefined ? true : (isActive as unknown) === true || isActive === 'true';
 
   if (search) {
     where.OR = [

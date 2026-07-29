@@ -11,7 +11,11 @@ import {
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
-import { bulkImportOtherMaterialSchema } from '../schemas/otherMaterial.schema';
+import {
+  bulkImportOtherMaterialSchema,
+  createOtherMaterialSchema,
+  updateOtherMaterialSchema,
+} from '../schemas/otherMaterial.schema';
 import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
@@ -20,11 +24,16 @@ const router = Router();
 router.use(authenticateToken);
 
 // CRUD routes
-router.post('/', asyncHandler(createOtherMaterial));
+router.post('/', validateBody(createOtherMaterialSchema), asyncHandler(createOtherMaterial));
 router.get('/', asyncHandler(getAllOtherMaterials));
 router.get('/template', asyncHandler(downloadTemplate));
 router.get('/:id', validateParams(idParamSchema), asyncHandler(getOtherMaterialById));
-router.put('/:id', validateParams(idParamSchema), asyncHandler(updateOtherMaterial));
+router.put(
+  '/:id',
+  validateParams(idParamSchema),
+  validateBody(updateOtherMaterialSchema),
+  asyncHandler(updateOtherMaterial)
+);
 router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteOtherMaterial));
 
 // Bulk operations

@@ -6,26 +6,14 @@
  */
 
 import { z } from 'zod';
+import { UnitEnum } from './common.schema';
 
 // ============================================================================
 // Enums (match Prisma enums)
 // ============================================================================
 
-export const UnitEnum = z.enum([
-  'PIECE',
-  'METER',
-  'YARD',
-  'KILOGRAM',
-  'GRAM',
-  'CONE',
-  'SPOOL',
-  'ROLL',
-  'BOX',
-  'SET',
-  'DOZEN',
-  'GROSS',
-  'LITER',
-]);
+// Shared full Prisma-aligned Unit enum (includes PAIR/PACK/GRAM/LITER/ROLL).
+export { UnitEnum };
 
 export const POSourceEnum = z.enum(['MANUAL', 'COST_SHEET', 'MRP', 'SERVICE_REQUIREMENT', 'PRODUCTION_RUN']);
 

@@ -67,7 +67,7 @@ export default function MaterialMasterForm({ mode }: MaterialMasterFormProps) {
         pricePerKg: material.pricePerKg,
         pricePerGross: material.pricePerGross,
         unit: material.unit,
-        currencyId: material.currencyId ? Number(material.currencyId) : undefined,
+        currencyId: material.currencyId || undefined,
         isActive: material.isActive,
         hsnCode: material.hsnCode,
         gstRate: material.gstRate,

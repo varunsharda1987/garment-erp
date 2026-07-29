@@ -163,6 +163,9 @@ export const Unit = {
   BOX: 'BOX',
   PAIR: 'PAIR',
   PACK: 'PACK',
+  GRAM: 'GRAM',
+  LITER: 'LITER',
+  ROLL: 'ROLL',
 } as const;
 
 export type Unit = (typeof Unit)[keyof typeof Unit];

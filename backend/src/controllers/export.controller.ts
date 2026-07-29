@@ -96,14 +96,55 @@ export const exportData = async (req: Request, res: Response) => {
 };
 
 /**
+ * Per-module allowlist of SCALAR filter fields that may be forwarded into the
+ * Prisma `where` clause. Anything not listed here is dropped, so a caller can
+ * never override `isActive` or inject nested relation-operator objects (which
+ * validateBody(exportBodySchema) also rejects up front). Keep in sync with the
+ * filters the frontend ExportButton actually sends.
+ */
+const EXPORT_FILTER_ALLOWLIST: Record<string, string[]> = {
+  customers: ['category'],
+  suppliers: ['category', 'rating'],
+  materials: ['categoryId', 'unit'],
+  styles: ['stage', 'cadStatus'],
+  orders: ['customerId', 'status', 'priority'],
+  bom: [],
+  chart_of_accounts: [],
+  tax_masters: [],
+  payment_terms: [],
+  currencies: [],
+  cost_centers: [],
+  expense_types: [],
+  bank_accounts: [],
+  // cost_sheets / style_costing handle their own `approved` filter below.
+};
+
+/**
+ * Reduce a raw filters object down to the per-module scalar allowlist.
+ */
+function sanitizeFilters(moduleName: string, filters: Record<string, unknown>): Record<string, unknown> {
+  const allowed = EXPORT_FILTER_ALLOWLIST[moduleName] ?? [];
+  const safe: Record<string, unknown> = {};
+  for (const key of allowed) {
+    const value = filters[key];
+    if (value !== undefined && value !== null && value !== '') {
+      safe[key] = value;
+    }
+  }
+  return safe;
+}
+
+/**
  * Fetch data from database based on module
  */
 async function fetchModuleData(
   moduleName: string,
   filters: Record<string, unknown> = {}
 ): Promise<Record<string, unknown>[]> {
-  // Build where clause from filters
-  const where: Record<string, unknown> = { isActive: true, ...filters };
+  // Build where clause from an allowlisted, scalar-only subset of filters.
+  // Never spread the raw request filters (would allow isActive override / DoS).
+  const safeFilters = sanitizeFilters(moduleName, filters);
+  const where: Record<string, unknown> = { isActive: true, ...safeFilters };
 
   let result: unknown[];
 

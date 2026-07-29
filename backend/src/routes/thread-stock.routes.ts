@@ -5,6 +5,8 @@
 import { Router, Request, Response } from 'express';
 import { threadStockService } from '../services/thread-stock.service';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import { createThreadStockSchema } from '../schemas/threadStock.schema';
 import { UserRole } from '@prisma/client';
 
 const router = Router();
@@ -93,6 +95,7 @@ router.post(
     UserRole.FACTORY_SUPERVISOR,
     UserRole.PURCHASE
   ),
+  validateBody(createThreadStockSchema),
   async (req: Request, res: Response) => {
     try {
       const userId = (req as any).user?.id;

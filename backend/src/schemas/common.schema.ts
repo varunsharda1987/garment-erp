@@ -8,6 +8,37 @@
 import { z } from 'zod';
 
 // ============================================================================
+// Shared Enums (SINGLE SOURCE OF TRUTH — must match Prisma enums)
+// ============================================================================
+
+/**
+ * Unit — must list EVERY value in the Prisma `Unit` enum (schema.prisma).
+ * Previously PO / GRN / unified-PO each had a different partial subset, so
+ * creating a PO/GRN with PAIR/PACK/GRAM/LITER/ROLL returned 400. Keep this the
+ * single shared enum for all PO/GRN/unified-PO unit fields.
+ */
+export const UnitEnum = z.enum([
+  'METER',
+  'PIECE',
+  'KILOGRAM',
+  'SET',
+  'YARD',
+  'DOZEN',
+  'GROSS',
+  'TUBE',
+  'CONE',
+  'SPOOL',
+  'BOX',
+  'PAIR',
+  'PACK',
+  'GRAM',
+  'LITER',
+  'ROLL',
+]);
+
+export type Unit = z.infer<typeof UnitEnum>;
+
+// ============================================================================
 // Common ID Param Schemas
 // ============================================================================
 

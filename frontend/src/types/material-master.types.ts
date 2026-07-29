@@ -134,7 +134,7 @@ export interface CreateMaterialMasterDto {
   unit?: string;
 
   // Currency support
-  currencyId?: number;
+  currencyId?: string;
 
   // Type-specific attributes
   specifications?: Record<string, unknown>;
@@ -156,7 +156,7 @@ export interface UpdateMaterialMasterDto {
   pricePerGross?: number;
   unit?: string;
 
-  currencyId?: number;
+  currencyId?: string;
 
   specifications?: Record<string, unknown>;
 

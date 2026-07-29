@@ -21,6 +21,29 @@ export interface ImportOptions {
 }
 
 /**
+ * Zip-bomb / DoS guards for spreadsheet imports.
+ *
+ * A small compressed .xlsx can decompress into a workbook with millions of
+ * rows/cells and exhaust memory during parse. We defend at two levels:
+ *  - MAX_IMPORT_FILE_BYTES: reject oversized uploads before we ever read them
+ *    (redundant with the multer limit, but also guards non-HTTP callers).
+ *  - MAX_IMPORT_CELLS / MAX_IMPORT_ROWS: after the sheet dimensions are known,
+ *    abort BEFORE the O(rows*cols) validation loop if the sheet is absurdly big.
+ */
+const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024; // 10MB (mirrors upload middleware)
+const MAX_IMPORT_ROWS = 50_000; // hard ceiling on declared sheet rows
+const MAX_IMPORT_CELLS = 1_000_000; // hard ceiling on rows * columns
+
+/**
+ * Reject an upload whose raw size exceeds the hard limit, before parsing.
+ */
+function assertFileSizeWithinLimit(file: Express.Multer.File): void {
+  if (typeof file.size === 'number' && file.size > MAX_IMPORT_FILE_BYTES) {
+    throw new Error(`File too large. Maximum import size is ${Math.floor(MAX_IMPORT_FILE_BYTES / (1024 * 1024))}MB.`);
+  }
+}
+
+/**
  * Get readable stream from file - supports both buffer and disk storage
  */
 function getFileStream(file: Express.Multer.File): Readable {
@@ -56,6 +79,9 @@ class ImportService {
    */
   async importFromCSV(options: ImportOptions): Promise<ImportResult> {
     const { columns, file, maxRows = 10000 } = options;
+
+    // Reject oversized uploads before streaming/parsing (DoS guard).
+    assertFileSizeWithinLimit(file);
 
     return new Promise((resolve, reject) => {
       const results: Record<string, unknown>[] = [];
@@ -124,6 +150,9 @@ class ImportService {
   async importFromExcel(options: ImportOptions): Promise<ImportResult> {
     const { columns, file, maxRows = 10000 } = options;
 
+    // Reject oversized uploads before parsing the (potentially zip-bombed) file.
+    assertFileSizeWithinLimit(file);
+
     const workbook = new ExcelJS.Workbook();
 
     // Support both buffer and disk storage
@@ -139,6 +168,18 @@ class ImportService {
     const worksheet = workbook.worksheets[0]; // Get first sheet
     if (!worksheet) {
       throw new Error('No worksheet found in Excel file');
+    }
+
+    // Abort before the O(rows*cols) validation loop if the sheet is absurdly
+    // large (zip-bomb / accidental huge export). rowCount/columnCount reflect
+    // the declared sheet dimensions.
+    const declaredRows = worksheet.rowCount || 0;
+    const declaredCols = worksheet.columnCount || 0;
+    if (declaredRows > MAX_IMPORT_ROWS || declaredRows * declaredCols > MAX_IMPORT_CELLS) {
+      throw new Error(
+        `Spreadsheet too large to import (${declaredRows} rows x ${declaredCols} columns). ` +
+          `Limit is ${MAX_IMPORT_ROWS} rows / ${MAX_IMPORT_CELLS} cells. Split the file and retry.`
+      );
     }
 
     const results: Record<string, unknown>[] = [];

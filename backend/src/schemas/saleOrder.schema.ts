@@ -14,8 +14,12 @@ import { z } from 'zod';
 export const SaleOrderStatusEnum = z.enum([
   'DRAFT',
   'CONFIRMED',
+  // Allocation states the DB assigns and the UI filters by (were missing -> 400 on those filters).
+  'PARTIALLY_ALLOCATED',
+  'FULLY_ALLOCATED',
   'PARTIALLY_DISPATCHED',
   'DISPATCHED',
+  // DELIVERED is not in the Prisma enum but is a documented B2B terminal status (B2B_INTEGRATION_GUIDE.md:77) — kept intentionally.
   'DELIVERED',
   'CANCELLED',
 ]);

@@ -31,8 +31,19 @@ const challanItemSchema = z.object({
   greigeStockId: z.string().optional(),
   fabricStockId: z.string().optional(),
   laceStockId: z.string().optional(),
+  threadStockId: z.string().optional(),
   materialRequirementId: z.string().optional(),
   serviceRequirementId: z.string().optional(),
+  // Measurement + traceability fields the service persists (challan.service.ts) — without these the
+  // Zod validator strips them and the columns land NULL.
+  foldLengthCm: z.number().nonnegative('Fold length must be 0 or greater').optional(),
+  thanCount: z
+    .number()
+    .int('Than count must be a whole number')
+    .nonnegative('Than count must be 0 or greater')
+    .optional(),
+  componentName: z.string().max(200, 'Component name must not exceed 200 characters').trim().optional(),
+  colorName: z.string().max(200, 'Color name must not exceed 200 characters').trim().optional(),
 });
 
 /**
@@ -62,5 +73,36 @@ export const createChallanSchema = z.object({
   items: z.array(challanItemSchema).min(1, 'At least one item is required'),
 });
 
+/**
+ * Quick Issue Challan Schema
+ * POST /api/challans/quick-issue
+ * The controller spreads req.body (plus a server-derived issuedById) straight into quickIssueChallan,
+ * which creates the challan AND deducts stock — same payload shape as create, so it reuses createChallanSchema.
+ */
+export const quickIssueChallanSchema = createChallanSchema;
+
+/**
+ * Receive Challan Item Schema — one received line.
+ */
+const receiveChallanItemSchema = z.object({
+  challanItemId: z.string().min(1, 'Challan item id is required'),
+  receivedQty: z.number().nonnegative('Received quantity must be 0 or greater'),
+  damagedQty: z.number().nonnegative('Damaged quantity must be 0 or greater').optional(),
+  remarks: z.string().max(500, 'Remarks must not exceed 500 characters').trim().optional(),
+});
+
+/**
+ * Receive Challan Schema
+ * PUT /api/challans/:id/receive
+ * receivedById is derived from the authenticated user in the controller, so it is NOT part of the body.
+ */
+export const receiveChallanSchema = z.object({
+  receivedDate: optionalChallanDate,
+  items: z.array(receiveChallanItemSchema).min(1, 'At least one received item is required'),
+  remarks: z.string().max(1000, 'Remarks must not exceed 1000 characters').trim().optional(),
+});
+
 // Type exports for use in controllers
 export type CreateChallanInput = z.infer<typeof createChallanSchema>;
+export type QuickIssueChallanInput = z.infer<typeof quickIssueChallanSchema>;
+export type ReceiveChallanInput = z.infer<typeof receiveChallanSchema>;

@@ -5,6 +5,7 @@ import prisma from '../config/database';
 import { Prisma, SupplierCategory } from '@prisma/client';
 import { logInfo, logDebug } from '../utils/logger';
 import { ValidationError, UnauthorizedError } from '../errors';
+import { cleanupTempFile } from '../middleware/upload.middleware';
 
 /**
  * Helper: Safely get string value from unknown type
@@ -129,18 +130,24 @@ export const previewImport = async (req: Request, res: Response) => {
     throw new ValidationError('No file uploaded');
   }
 
-  // Get column configuration for this module
-  const columns = getModuleColumns(module);
+  try {
+    // Get column configuration for this module
+    const columns = getModuleColumns(module);
 
-  const result = await importService.previewImport({
-    columns,
-    file: file as Express.Multer.File,
-  });
+    const result = await importService.previewImport({
+      columns,
+      file: file as Express.Multer.File,
+    });
 
-  res.json({
-    success: true,
-    preview: result,
-  });
+    res.json({
+      success: true,
+      preview: result,
+    });
+  } finally {
+    // Always remove the uploaded spreadsheet (may contain bank/GST/customer PII)
+    // from the web-served temp dir, whether the import succeeded or failed.
+    cleanupTempFile(file.path);
+  }
 };
 
 /**
@@ -157,50 +164,56 @@ export const executeImport = async (req: Request, res: Response) => {
     throw new ValidationError('No file uploaded');
   }
 
-  if (!userId) {
-    throw new UnauthorizedError('User not authenticated');
-  }
+  try {
+    if (!userId) {
+      throw new UnauthorizedError('User not authenticated');
+    }
 
-  // Get column configuration for this module
-  const columns = getModuleColumns(module);
+    // Get column configuration for this module
+    const columns = getModuleColumns(module);
 
-  // Parse and validate file
-  const fileExtension = file.originalname.split('.').pop()?.toLowerCase();
-  let result;
+    // Parse and validate file
+    const fileExtension = file.originalname.split('.').pop()?.toLowerCase();
+    let result;
 
-  if (fileExtension === 'csv') {
-    result = await importService.importFromCSV({ columns, file: file as Express.Multer.File });
-  } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-    result = await importService.importFromExcel({ columns, file: file as Express.Multer.File });
-  } else {
-    throw new ValidationError('Unsupported file format. Use CSV or Excel files.');
-  }
+    if (fileExtension === 'csv') {
+      result = await importService.importFromCSV({ columns, file: file as Express.Multer.File });
+    } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+      result = await importService.importFromExcel({ columns, file: file as Express.Multer.File });
+    } else {
+      throw new ValidationError('Unsupported file format. Use CSV or Excel files.');
+    }
 
-  // If there are errors, return them without importing
-  if (!result.success) {
-    throw new ValidationError('Validation errors found. Please fix and try again.', {
-      errors: result.errors,
+    // If there are errors, return them without importing
+    if (!result.success) {
+      throw new ValidationError('Validation errors found. Please fix and try again.', {
+        errors: result.errors,
+        summary: {
+          totalRows: result.totalRows,
+          validRows: result.validRows,
+          invalidRows: result.invalidRows,
+        },
+      });
+    }
+
+    // Execute import using transaction
+    const importResult = await executeModuleImport(module, result.data!, userId);
+
+    res.json({
+      success: true,
+      message: `Successfully imported ${importResult.count} records`,
       summary: {
         totalRows: result.totalRows,
         validRows: result.validRows,
         invalidRows: result.invalidRows,
+        importedRows: importResult.count,
       },
     });
+  } finally {
+    // Always remove the uploaded spreadsheet (may contain bank/GST/customer PII)
+    // from the web-served temp dir, whether the import succeeded or failed.
+    cleanupTempFile(file.path);
   }
-
-  // Execute import using transaction
-  const importResult = await executeModuleImport(module, result.data!, userId);
-
-  res.json({
-    success: true,
-    message: `Successfully imported ${importResult.count} records`,
-    summary: {
-      totalRows: result.totalRows,
-      validRows: result.validRows,
-      invalidRows: result.invalidRows,
-      importedRows: importResult.count,
-    },
-  });
 };
 
 /**

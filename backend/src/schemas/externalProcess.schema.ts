@@ -110,8 +110,8 @@ export const externalProcessQuerySchema = z.object({
   processorId: z.string().uuid().optional(),
   processType: ExternalProcessTypeEnum.optional(),
   status: SendOutStatusEnum.optional(),
-  fromDate: z.string().datetime().optional(),
-  toDate: z.string().datetime().optional(),
+  fromDate: z.coerce.date().optional(),
+  toDate: z.coerce.date().optional(),
 });
 
 // ============================================================================

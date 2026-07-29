@@ -31,9 +31,9 @@ export const createPaymentTerm = async (req: Request, res: Response): Promise<vo
       termCode,
       termName,
       description: description || null,
-      daysCount: daysCount ? parseInt(daysCount) : null,
+      daysCount: daysCount != null ? parseInt(daysCount) : null,
       paymentSchedule: paymentSchedule || null,
-      discountPercent: discountPercent ? parseFloat(discountPercent) : null,
+      discountPercent: discountPercent != null ? parseFloat(discountPercent) : null,
       isActive: true,
       createdById: userId,
     },
@@ -59,7 +59,8 @@ export const createPaymentTerm = async (req: Request, res: Response): Promise<vo
  * GET /api/payment-terms
  */
 export const getAllPaymentTerms = async (req: Request, res: Response): Promise<void> => {
-  const { page = '1', limit = '20', search = '', activeOnly = 'true' } = req.query;
+  const query = (req as any).validatedQuery ?? req.query;
+  const { page = '1', limit = '20', search = '', isActive } = query;
 
   const pageNum = parseInt(page as string);
   const limitNum = parseInt(limit as string);
@@ -67,9 +68,9 @@ export const getAllPaymentTerms = async (req: Request, res: Response): Promise<v
 
   const where: Prisma.payment_termsWhereInput = {};
 
-  if (activeOnly === 'true') {
-    where.isActive = true;
-  }
+  // Honor the validated isActive contract: undefined defaults to active-only (prior behavior),
+  // but ?isActive=false now genuinely returns soft-deleted payment terms.
+  where.isActive = isActive === undefined ? true : (isActive as unknown) === true || isActive === 'true';
 
   if (search) {
     where.OR = [
@@ -173,9 +174,9 @@ export const updatePaymentTerm = async (req: Request, res: Response): Promise<vo
       termCode,
       termName,
       description: description || null,
-      daysCount: daysCount ? parseInt(daysCount) : null,
+      daysCount: daysCount != null ? parseInt(daysCount) : null,
       paymentSchedule: paymentSchedule || null,
-      discountPercent: discountPercent ? parseFloat(discountPercent) : null,
+      discountPercent: discountPercent != null ? parseFloat(discountPercent) : null,
     },
   });
 

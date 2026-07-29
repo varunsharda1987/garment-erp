@@ -36,8 +36,8 @@ class TCSController {
   }
 
   async updateStatus(req: Request, res: Response) {
-    const { status } = req.body;
-    const entry = await tcsService.updateStatus(req.params.id, status);
+    const { status, remarks } = req.body;
+    const entry = await tcsService.updateStatus(req.params.id, status, remarks);
     res.json(entry);
   }
 

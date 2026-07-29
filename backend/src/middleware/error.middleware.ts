@@ -29,6 +29,40 @@ const generateRequestId = (): string => {
 };
 
 /**
+ * Keys whose values must never reach the logs in plaintext (passwords, tokens, secrets).
+ * Matched case-insensitively.
+ */
+const SENSITIVE_LOG_KEYS = [
+  'password',
+  'currentPassword',
+  'newPassword',
+  'confirmPassword',
+  'token',
+  'authorization',
+  'secret',
+  'apiKey',
+  'refreshToken',
+];
+
+/**
+ * Return a SHALLOW clone of a request body with sensitive keys redacted, so error-context logging
+ * never writes plaintext credentials. The original body object is never mutated.
+ */
+const redactSensitive = (body: unknown): unknown => {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return body;
+  }
+  const clone: Record<string, unknown> = { ...(body as Record<string, unknown>) };
+  const lowerSensitive = SENSITIVE_LOG_KEYS.map((k) => k.toLowerCase());
+  for (const key of Object.keys(clone)) {
+    if (lowerSensitive.includes(key.toLowerCase())) {
+      clone[key] = '[REDACTED]';
+    }
+  }
+  return clone;
+};
+
+/**
  * Map Prisma error codes to user-friendly messages
  */
 const handlePrismaError = (error: Prisma.PrismaClientKnownRequestError, requestId: string): ErrorResponse => {
@@ -113,7 +147,7 @@ export const errorHandler = (error: Error, req: Request, res: Response, _next: N
     path: req.path,
     method: req.method,
     query: req.query,
-    body: req.body,
+    body: redactSensitive(req.body),
     user: req.user?.userId,
   };
 

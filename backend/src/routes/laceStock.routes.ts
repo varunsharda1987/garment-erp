@@ -8,7 +8,8 @@
  */
 
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -72,6 +73,7 @@ router.get('/reports/utilization', asyncHandler(getUtilizationReport));
  */
 router.post(
   '/allocations/:allocationId/consume',
+  authorize(UserRole.ADMIN, UserRole.INVENTORY),
   validateParams(allocationIdParamSchema),
   validateBody(consumeLaceStockSchema),
   asyncHandler(consumeStockController)
@@ -85,6 +87,7 @@ router.post(
  */
 router.post(
   '/allocations/:allocationId/return',
+  authorize(UserRole.ADMIN, UserRole.INVENTORY),
   validateParams(allocationIdParamSchema),
   validateBody(returnLaceStockSchema),
   asyncHandler(returnStockController)
@@ -101,7 +104,12 @@ router.post(
  * @body    laceId, quantityAvailable, weightedAvgCost, purchaseCost?,
  *          lotNumber?, dyeLotNumber?, shadeNote?, originStyleId?, etc.
  */
-router.post('/', validateBody(createLaceStockSchema), asyncHandler(createLaceStock));
+router.post(
+  '/',
+  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  validateBody(createLaceStockSchema),
+  asyncHandler(createLaceStock)
+);
 
 /**
  * @route   GET /api/lace-stock
@@ -142,6 +150,7 @@ router.get('/:id/transactions', validateParams(laceStockIdParamSchema), asyncHan
  */
 router.post(
   '/:id/allocate',
+  authorize(UserRole.ADMIN, UserRole.INVENTORY),
   validateParams(laceStockIdParamSchema),
   validateBody(allocateLaceStockSchema),
   asyncHandler(allocateStockController)
@@ -155,6 +164,7 @@ router.post(
  */
 router.post(
   '/:id/transfer',
+  authorize(UserRole.ADMIN, UserRole.INVENTORY),
   validateParams(laceStockIdParamSchema),
   validateBody(transferLaceStockSchema),
   asyncHandler(transferStockController)

@@ -10,7 +10,7 @@ import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 // Helper Functions
 // ============================================
 
-const transformDeliveryNote = (note: any) => ({
+const transformDeliveryNote = ({ users, ...note }: any) => ({
   ...note,
   order: note.orders
     ? {
@@ -25,10 +25,12 @@ const transformDeliveryNote = (note: any) => ({
         billingName: note.customers.billingName,
       }
     : null,
-  createdBy: note.users
+  // `users` is destructured OUT of the spread above so the raw relation is never returned; only the
+  // curated createdBy is exposed. The include is also a safe-select (no password), so this is belt-and-braces.
+  createdBy: users
     ? {
-        id: note.users.id,
-        name: `${note.users.firstName} ${note.users.lastName}`,
+        id: users.id,
+        name: `${users.firstName} ${users.lastName}`,
       }
     : null,
   items: note.delivery_note_items?.map((item: any) => ({
@@ -67,7 +69,7 @@ const transformDeliveryNote = (note: any) => ({
     : null,
 });
 
-const transformASN = (asn: any) => ({
+const transformASN = ({ createdBy, ...asn }: any) => ({
   ...asn,
   order: asn.order
     ? {
@@ -82,10 +84,12 @@ const transformASN = (asn: any) => ({
           : null,
       }
     : null,
-  createdBy: asn.createdBy
+  // `createdBy` destructured OUT of the spread so the raw user relation (incl. password hash) is never
+  // returned; only the curated form is exposed. The include is also a safe-select — belt-and-braces.
+  createdBy: createdBy
     ? {
-        id: asn.createdBy.id,
-        name: `${asn.createdBy.firstName} ${asn.createdBy.lastName}`,
+        id: createdBy.id,
+        name: `${createdBy.firstName} ${createdBy.lastName}`,
       }
     : null,
   skus: asn.skuBreakdown?.map((sku: any) => ({
@@ -189,7 +193,9 @@ const generateASNNumber = async (orderNumber: string): Promise<string> => {
 const deliveryNoteIncludeOptions = {
   orders: true,
   customers: true,
-  users: true,
+  // Safe-select only — NEVER `users: true` (that returns the password hash, which
+  // transformDeliveryNote would then spread into the API response). Match the safe-select pattern.
+  users: { select: { id: true, firstName: true, lastName: true } },
   delivery_note_items: {
     include: {
       styles: true,
@@ -217,7 +223,9 @@ const asnIncludeOptions = {
       customers: true,
     },
   },
-  createdBy: true,
+  // Safe-select only — NEVER `createdBy: true` (returns the password hash, which transformASN
+  // would spread into the response).
+  createdBy: { select: { id: true, firstName: true, lastName: true } },
   skuBreakdown: {
     include: {
       color: true,

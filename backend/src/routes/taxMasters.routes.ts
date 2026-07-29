@@ -8,7 +8,8 @@ import {
   updateTax,
   deleteTax,
 } from '../controllers/taxMasters.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { createTaxMasterSchema, updateTaxMasterSchema, taxMasterQuerySchema } from '../schemas/taxMasters.schema';
@@ -20,7 +21,12 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new tax
-router.post('/', validateBody(createTaxMasterSchema), asyncHandler(createTax));
+router.post(
+  '/',
+  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
+  validateBody(createTaxMasterSchema),
+  asyncHandler(createTax)
+);
 
 // Get all taxes with pagination and filters
 router.get('/', validateQuery(taxMasterQuerySchema), asyncHandler(getAllTaxes));
@@ -32,9 +38,20 @@ router.get('/applicable', asyncHandler(getApplicableTaxes));
 router.get('/:id', validateParams(idParamSchema), asyncHandler(getTaxById));
 
 // Update tax
-router.put('/:id', validateParams(idParamSchema), validateBody(updateTaxMasterSchema), asyncHandler(updateTax));
+router.put(
+  '/:id',
+  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
+  validateParams(idParamSchema),
+  validateBody(updateTaxMasterSchema),
+  asyncHandler(updateTax)
+);
 
 // Delete tax (soft delete)
-router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteTax));
+router.delete(
+  '/:id',
+  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
+  validateParams(idParamSchema),
+  asyncHandler(deleteTax)
+);
 
 export default router;

@@ -4,7 +4,8 @@
  */
 import { Router, Request, Response } from 'express';
 import { threadStockService } from '../services/thread-stock.service';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { UserRole } from '@prisma/client';
 
 const router = Router();
 
@@ -83,7 +84,7 @@ router.get('/:id', async (req: Request, res: Response) => {
  * POST /api/thread-stock
  * Create a new thread stock entry (manual entry)
  */
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', authorize(UserRole.ADMIN, UserRole.INVENTORY), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
     if (!userId) {

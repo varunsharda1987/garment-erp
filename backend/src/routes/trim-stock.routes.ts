@@ -4,7 +4,8 @@
  */
 import { Router, Request, Response } from 'express';
 import { trimStockService, TrimType } from '../services/trim-stock.service';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { UserRole } from '@prisma/client';
 
 const router = Router();
 
@@ -77,7 +78,7 @@ router.get('/:trimType', async (req: Request, res: Response) => {
  * POST /api/trim-stock/:trimType
  * Create a new trim stock entry (manual entry)
  */
-router.post('/:trimType', async (req: Request, res: Response) => {
+router.post('/:trimType', authorize(UserRole.ADMIN, UserRole.INVENTORY), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
     if (!userId) {

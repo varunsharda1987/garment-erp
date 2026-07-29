@@ -1,9 +1,10 @@
 // Stock Level Routes - API routes for stock inquiry and management
 import express from 'express';
 import * as stockLevelController from '../controllers/stockLevel.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
+import { UserRole } from '@prisma/client';
 import { updateStockLevelSchema, stockLevelQuerySchema, stockLevelIdParamSchema } from '../schemas/stockLevel.schema';
 import { warehouseIdParamSchema, materialIdParamSchema, materialTypeParamSchema } from '../schemas/common.schema';
 
@@ -41,9 +42,10 @@ router.get(
 // (legacy bare-UUID row ids still pass validation and get a clear 404 from the service).
 router.get('/:id', validateParams(stockLevelIdParamSchema), asyncHandler(stockLevelController.getStockLevelById));
 
-// PUT routes
+// PUT routes (write access: Admin, Inventory)
 router.put(
   '/:id',
+  authorize(UserRole.ADMIN, UserRole.INVENTORY),
   validateParams(stockLevelIdParamSchema),
   validateBody(updateStockLevelSchema),
   asyncHandler(stockLevelController.updateStockLevel)

@@ -7,7 +7,8 @@ import {
   updateCostCenter,
   deleteCostCenter,
 } from '../controllers/costCenters.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { createCostCenterSchema, updateCostCenterSchema, costCenterQuerySchema } from '../schemas/costCenters.schema';
@@ -19,7 +20,12 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new cost center
-router.post('/', validateBody(createCostCenterSchema), asyncHandler(createCostCenter));
+router.post(
+  '/',
+  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
+  validateBody(createCostCenterSchema),
+  asyncHandler(createCostCenter)
+);
 
 // Get all cost centers with pagination and filters
 router.get('/', validateQuery(costCenterQuerySchema), asyncHandler(getAllCostCenters));
@@ -28,9 +34,20 @@ router.get('/', validateQuery(costCenterQuerySchema), asyncHandler(getAllCostCen
 router.get('/:id', validateParams(idParamSchema), asyncHandler(getCostCenterById));
 
 // Update cost center
-router.put('/:id', validateParams(idParamSchema), validateBody(updateCostCenterSchema), asyncHandler(updateCostCenter));
+router.put(
+  '/:id',
+  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
+  validateParams(idParamSchema),
+  validateBody(updateCostCenterSchema),
+  asyncHandler(updateCostCenter)
+);
 
 // Delete cost center (soft delete)
-router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteCostCenter));
+router.delete(
+  '/:id',
+  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
+  validateParams(idParamSchema),
+  asyncHandler(deleteCostCenter)
+);
 
 export default router;

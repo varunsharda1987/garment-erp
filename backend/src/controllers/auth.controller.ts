@@ -1,6 +1,7 @@
 // Authentication controller
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import { UserRole } from '@prisma/client';
 import prisma from '../config/database';
 import { generateToken } from '../utils/jwt.utils';
 import { RegisterRequest, LoginRequest, AuthResponse } from '../types/auth.types';
@@ -12,8 +13,13 @@ import { ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, Valida
  * Note: Request body is pre-validated by Zod middleware (validates email format, password strength, etc.)
  */
 export const register = async (req: Request, res: Response): Promise<void> => {
-  // Body is already validated and transformed by middleware
-  const { email, password, firstName, lastName, phone, role }: RegisterRequest = req.body;
+  // Body is already validated and transformed by middleware.
+  // SECURITY: `role` is intentionally NOT read from the request body — public self-registration must
+  // not let the caller choose their own role (that allowed self-service ADMIN escalation). New
+  // self-registrations get the least-privileged default and stay pending admin approval; an admin
+  // assigns the real role afterwards via the user-management endpoints.
+  const { email, password, firstName, lastName, phone }: RegisterRequest = req.body;
+  const role = UserRole.SALES; // safe non-admin default for self-registration
 
   // Check if user already exists
   const existingUser = await prisma.users.findUnique({
@@ -27,11 +33,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   // Validate required fields
   if (!firstName || !lastName) {
     throw new ValidationError('First name and last name are required');
-  }
-
-  // Validate role is provided
-  if (!role) {
-    throw new ValidationError('Role is required for registration');
   }
 
   // Hash password

@@ -10,7 +10,8 @@ import {
   getExchangeRates,
   getLatestExchangeRate,
 } from '../controllers/currencies.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -27,7 +28,12 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Create new currency
-router.post('/', validateBody(createCurrencySchema), asyncHandler(createCurrency));
+router.post(
+  '/',
+  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
+  validateBody(createCurrencySchema),
+  asyncHandler(createCurrency)
+);
 
 // Get all currencies
 router.get('/', validateQuery(currencyQuerySchema), asyncHandler(getAllCurrencies));
@@ -36,10 +42,21 @@ router.get('/', validateQuery(currencyQuerySchema), asyncHandler(getAllCurrencie
 router.get('/:code', validateParams(codeParamSchema), asyncHandler(getCurrencyByCode));
 
 // Update currency
-router.put('/:code', validateParams(codeParamSchema), validateBody(updateCurrencySchema), asyncHandler(updateCurrency));
+router.put(
+  '/:code',
+  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
+  validateParams(codeParamSchema),
+  validateBody(updateCurrencySchema),
+  asyncHandler(updateCurrency)
+);
 
 // Delete currency (soft delete)
-router.delete('/:code', validateParams(codeParamSchema), asyncHandler(deleteCurrency));
+router.delete(
+  '/:code',
+  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
+  validateParams(codeParamSchema),
+  asyncHandler(deleteCurrency)
+);
 
 // Exchange rates sub-routes
 // Get latest exchange rate for currency
@@ -48,6 +65,7 @@ router.get('/:code/exchange-rates/latest', validateParams(codeParamSchema), asyn
 // Add exchange rate
 router.post(
   '/:code/exchange-rates',
+  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
   validateParams(codeParamSchema),
   validateBody(createExchangeRateSchema),
   asyncHandler(addExchangeRate)

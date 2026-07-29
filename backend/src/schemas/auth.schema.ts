@@ -35,17 +35,10 @@ export const registerSchema = z.object({
 
   phone: z.string().optional(),
 
-  role: z.enum([
-    'ADMIN',
-    'PRODUCTION_MANAGER',
-    'SALES',
-    'INVENTORY',
-    'ACCOUNTS',
-    'QUALITY',
-    'PURCHASE',
-    'FACTORY_SUPERVISOR',
-    'MERCHANDISER',
-  ]),
+  // SECURITY: public self-registration must NOT accept a caller-supplied role — allowing it let anyone
+  // register themselves as ADMIN (privilege escalation). Role is assigned only by an admin via the
+  // user-management endpoints (POST /api/users, PUT /api/users/:id/role). Self-registrations get a
+  // safe default (see auth.controller register) and remain pending admin approval.
 });
 
 /**

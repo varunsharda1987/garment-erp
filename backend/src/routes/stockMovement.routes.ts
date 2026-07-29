@@ -1,9 +1,10 @@
 // Stock Movement Routes - API routes for stock transactions
 import express from 'express';
 import * as stockMovementController from '../controllers/stockMovement.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
+import { UserRole } from '@prisma/client';
 import {
   createStockInSchema,
   createBulkStockInSchema,
@@ -45,26 +46,40 @@ router.get(
 );
 router.get('/:id', validateParams(stockMovementIdParamSchema), asyncHandler(stockMovementController.getMovementById));
 
-// POST routes - all validated with Zod schemas
-router.post('/stock-in', validateBody(createStockInSchema), asyncHandler(stockMovementController.createStockIn));
+// POST routes - all validated with Zod schemas (write access: Admin, Inventory)
+router.post(
+  '/stock-in',
+  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  validateBody(createStockInSchema),
+  asyncHandler(stockMovementController.createStockIn)
+);
 router.post(
   '/bulk-stock-in',
+  authorize(UserRole.ADMIN, UserRole.INVENTORY),
   validateBody(createBulkStockInSchema),
   asyncHandler(stockMovementController.createBulkStockIn)
 );
-router.post('/stock-out', validateBody(createStockOutSchema), asyncHandler(stockMovementController.createStockOut));
+router.post(
+  '/stock-out',
+  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  validateBody(createStockOutSchema),
+  asyncHandler(stockMovementController.createStockOut)
+);
 router.post(
   '/transfer',
+  authorize(UserRole.ADMIN, UserRole.INVENTORY),
   validateBody(createStockTransferSchema),
   asyncHandler(stockMovementController.createStockTransfer)
 );
 router.post(
   '/adjustment',
+  authorize(UserRole.ADMIN, UserRole.INVENTORY),
   validateBody(createStockAdjustmentSchema),
   asyncHandler(stockMovementController.createStockAdjustment)
 );
 router.post(
   '/processor-return',
+  authorize(UserRole.ADMIN, UserRole.INVENTORY),
   validateBody(createProcessorReturnSchema),
   asyncHandler(stockMovementController.createProcessorReturn)
 );

@@ -50,20 +50,13 @@ export const updateLookupSchema = z
  * POST /api/lookups/bulk
  * Controller expects: { lookups: [{ category, values: string[] }] }
  */
-export const bulkCreateLookupsSchema = z
-  .object({
-    lookups: z
-      .array(
-        z
-          .object({
-            category: z.string().min(1).max(100),
-            values: z.array(z.string().min(1).max(200)).min(1, 'At least one value is required'),
-          })
-          .passthrough()
-      )
-      .min(1, 'At least one lookup category is required'),
-  })
-  .passthrough();
+// bulkCreateLookups reads { category, values } from the body — a single category with many values —
+// not a `lookups` array. Requiring `lookups` meant a correct call was rejected while the fields the
+// controller actually uses were stripped.
+export const bulkCreateLookupsSchema = z.object({
+  category: z.string().min(1).max(100),
+  values: z.array(z.string().min(1).max(200)).min(1, 'At least one value is required'),
+});
 
 /**
  * Query Lookups

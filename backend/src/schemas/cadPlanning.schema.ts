@@ -39,7 +39,8 @@ export const generateCADOptionsSchema = z.object({
  * POST /api/cad-planning/calculate-cost
  */
 export const calculateCADCostSchema = z.object({
-  styleId: z.string().uuid('Invalid style ID'),
+  // Not read by calculateCADCost (it uses cadId/fabricRate/unit) — optional so a valid call is not rejected.
+  styleId: z.string().uuid('Invalid style ID').optional(),
   cadId: z.string().uuid('Invalid CAD ID').optional(),
   fabricId: z.string().uuid('Invalid fabric ID').optional(),
   greigeId: z.string().uuid('Invalid greige ID').optional(),
@@ -229,7 +230,8 @@ export const approveCADSchema = z.object({
  * POST /api/cad-planning/:styleId/row/:rowId/reject
  */
 export const cadPurposeActionSchema = z.object({
-  purpose: CADPurposeEnum,
+  // approve/reject read only approvalNotes/rejectionNotes — purpose was required but never used.
+  purpose: CADPurposeEnum.optional(),
   remarks: z.string().max(500).optional(),
   rejectionReason: z.string().max(500).optional(),
   rejectionNotes: z.string().max(500).optional(),
@@ -343,7 +345,8 @@ export const assignPatternPartsSchema = z.object({
  * POST /api/cad-planning/:styleId/fabrics/:fabricId/pattern-parts/from-component
  */
 export const assignPatternPartsFromComponentSchema = z.object({
-  componentId: z.string().uuid('Invalid component ID'),
+  // Handler works off the route params; componentId was required but never read.
+  componentId: z.string().uuid('Invalid component ID').optional(),
 });
 
 /**

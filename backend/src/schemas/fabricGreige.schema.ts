@@ -355,7 +355,8 @@ export const updateCADSchema = z.object({
  * PATCH /api/fabric-greige/cad/:id/set-preferred
  */
 export const setPreferredWidthSchema = z.object({
-  isPreferred: z.literal(true),
+  // The route IS 'set-preferred'; requiring the flag in the body only forced callers to echo it.
+  isPreferred: z.literal(true).optional(),
 });
 
 // ============================================================================

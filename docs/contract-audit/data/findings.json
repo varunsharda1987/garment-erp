@@ -55,82 +55,6 @@
       "handler": "async"
     },
     {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /register",
-      "file": "backend/src/schemas/auth.schema.ts",
-      "schema": "registerSchema",
-      "fields": [
-        "email",
-        "password",
-        "firstName",
-        "lastName"
-      ],
-      "detail": "registerSchema REQUIRES [email, password, firstName, lastName] but register never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /login",
-      "file": "backend/src/schemas/auth.schema.ts",
-      "schema": "loginSchema",
-      "fields": [
-        "email",
-        "password"
-      ],
-      "detail": "loginSchema REQUIRES [email, password] but login never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /calculate-cost",
-      "file": "backend/src/schemas/cadPlanning.schema.ts",
-      "schema": "calculateCADCostSchema",
-      "fields": [
-        "styleId"
-      ],
-      "detail": "calculateCADCostSchema REQUIRES [styleId] but calculateCADCost never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /:styleId/row/:rowId/approve",
-      "file": "backend/src/schemas/cadPlanning.schema.ts",
-      "schema": "cadPurposeActionSchema",
-      "fields": [
-        "purpose"
-      ],
-      "detail": "cadPurposeActionSchema REQUIRES [purpose] but approveCADPurpose never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /:styleId/row/:rowId/reject",
-      "file": "backend/src/schemas/cadPlanning.schema.ts",
-      "schema": "cadPurposeActionSchema",
-      "fields": [
-        "purpose"
-      ],
-      "detail": "cadPurposeActionSchema REQUIRES [purpose] but rejectCADPurpose never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /:styleId/fabrics/:fabricId/pattern-parts/from-component",
-      "file": "backend/src/schemas/cadPlanning.schema.ts",
-      "schema": "assignPatternPartsFromComponentSchema",
-      "fields": [
-        "componentId"
-      ],
-      "detail": "assignPatternPartsFromComponentSchema REQUIRES [componentId] but assignPatternPartsFromComponent never reads them → callers must send dead fields or get 400."
-    },
-    {
       "type": "NO_VALIDATION",
       "severity": "MEDIUM",
       "symptom": "500-crash / mass-assignment",
@@ -203,34 +127,6 @@
       "handler": "updateAccessoryPreset"
     },
     {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "PATCH /cad/:id/set-preferred",
-      "file": "backend/src/schemas/fabricGreige.schema.ts",
-      "schema": "setPreferredWidthSchema",
-      "fields": [
-        "isPreferred"
-      ],
-      "detail": "setPreferredWidthSchema REQUIRES [isPreferred] but setPreferredWidth never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /",
-      "file": "backend/src/schemas/fabricProcurement.schema.ts",
-      "schema": "createProcurementSchema",
-      "fields": [
-        "supplierId",
-        "quantityPurchased",
-        "width",
-        "ratePerUnit",
-        "totalCost"
-      ],
-      "detail": "createProcurementSchema REQUIRES [supplierId, quantityPurchased, width, ratePerUnit, totalCost] but createProcurement never reads them → callers must send dead fields or get 400."
-    },
-    {
       "type": "PASSTHROUGH_WHOLESALE",
       "severity": "MEDIUM",
       "symptom": "mass-assignment",
@@ -247,18 +143,6 @@
       "file": "backend/src/routes/health.routes.ts:161",
       "detail": "Mutating route has no validateBody; handler could not be resolved to confirm body usage.",
       "handler": "async"
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /bulk",
-      "file": "backend/src/schemas/lookup.schema.ts",
-      "schema": "bulkCreateLookupsSchema",
-      "fields": [
-        "lookups"
-      ],
-      "detail": "bulkCreateLookupsSchema REQUIRES [lookups] but bulkCreateLookups never reads them → callers must send dead fields or get 400."
     },
     {
       "type": "NO_VALIDATION",
@@ -333,30 +217,6 @@
       "detail": "createPackagingSchema is .passthrough() and createPackaging forwards req.body wholesale → unvalidated keys reach the service/Prisma."
     },
     {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /:id/deliver",
-      "file": "backend/src/schemas/processing.schema.ts",
-      "schema": "markAsDeliveredSchema",
-      "fields": [
-        "deliveredQuantity"
-      ],
-      "detail": "markAsDeliveredSchema REQUIRES [deliveredQuantity] but markAsDelivered never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /:id/complete",
-      "file": "backend/src/schemas/processing.schema.ts",
-      "schema": "completeStageSchema",
-      "fields": [
-        "actualQuantity"
-      ],
-      "detail": "completeStageSchema REQUIRES [actualQuantity] but completeStage never reads them → callers must send dead fields or get 400."
-    },
-    {
       "type": "NO_VALIDATION",
       "severity": "MEDIUM",
       "symptom": "500-crash / mass-assignment",
@@ -391,32 +251,6 @@
       "file": "backend/src/routes/productCategory.routes.ts:109",
       "detail": "Mutating route has no validateBody and the handler reads req.body — raw input reaches the controller/Prisma.",
       "handler": "updateDefaultComponent"
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /",
-      "file": "backend/src/schemas/quotation.schema.ts",
-      "schema": "createQuotationSchema",
-      "fields": [
-        "customerId",
-        "validUntil",
-        "items"
-      ],
-      "detail": "createQuotationSchema REQUIRES [customerId, validUntil, items] but createQuotation never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "PUT /:id/status",
-      "file": "backend/src/schemas/quotation.schema.ts",
-      "schema": "updateQuotationStatusSchema",
-      "fields": [
-        "status"
-      ],
-      "detail": "updateQuotationStatusSchema REQUIRES [status] but updateQuotationStatus never reads them → callers must send dead fields or get 400."
     },
     {
       "type": "NO_VALIDATION",
@@ -631,18 +465,6 @@
       "file": "backend/src/controllers/supplier.controller.ts:65",
       "schema": "updateSupplierSchema",
       "detail": "updateSupplierSchema is .passthrough() and updateSupplier forwards req.body wholesale → unvalidated keys reach the service/Prisma."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /check-duplicates",
-      "file": "backend/src/schemas/unifiedPo.schema.ts",
-      "schema": "checkDuplicatesSchema",
-      "fields": [
-        "supplierId"
-      ],
-      "detail": "checkDuplicatesSchema REQUIRES [supplierId] but checkDuplicatesController never reads them → callers must send dead fields or get 400."
     },
     {
       "type": "QUERY_COERCION_LOST",

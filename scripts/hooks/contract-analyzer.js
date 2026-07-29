@@ -369,6 +369,19 @@ function destructuredFrom(body, expr) {
   while ((m = re.exec(body))) {
     let i = m.index - 1;
     while (i >= 0 && /\s/.test(body[i])) i--;
+    // Skip a TYPE ANNOTATION on the pattern: `const { a, b }: LoginRequest = req.body`.
+    // Without this the scan sees the type name instead of `}` and reports the controller as reading
+    // nothing — which produced false "schema requires X but controller never reads it" findings on
+    // obviously-correct handlers like login/register.
+    if (body[i] !== '}') {
+      let j = i;
+      while (j >= 0 && /[\w<>\[\]|&.,'"\s]/.test(body[j]) && body[j] !== ':' && body[j] !== '}') j--;
+      if (body[j] === ':') {
+        j--;
+        while (j >= 0 && /\s/.test(body[j])) j--;
+        i = j;
+      }
+    }
     if (body[i] !== '}') continue;
     let depth = 0;
     let j = i;
@@ -436,7 +449,15 @@ function parseControllers() {
         // ...and the alias may be forwarded WHOLESALE: `service.reorder(validatedData)`.
         // Without this the controller looks like it reads nothing, producing false
         // REQUIRED_UNUSED ("schema requires X but controller never reads it").
-        if (new RegExp('[(,]\\s*' + alias + '\\s*[,)]').test(body)) aliasForwarded = true;
+        // ...forwarded either as a bare argument `service.create(data)` or SPREAD into an object
+        // literal `service.create({ ...data, createdById })` — both mean the whole validated body
+        // is used, so the schema's fields are not "unused".
+        if (
+          new RegExp('[(,]\\s*' + alias + '\\s*[,)]').test(body) ||
+          new RegExp('\\.{3}\\s*' + alias + '\\b').test(body)
+        ) {
+          aliasForwarded = true;
+        }
       }
       // mode 4: WHOLESALE — req.body spread, or passed as a bare argument.
       // The old test `req.body\s*(?:\)|,|;|\})` also matched the `;` ending a plain destructure

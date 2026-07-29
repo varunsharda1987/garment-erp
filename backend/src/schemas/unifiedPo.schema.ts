@@ -105,11 +105,13 @@ export const validatePOInputSchema = createUnifiedPOSchema;
  * Check Duplicates
  * POST /api/purchase-orders/check-duplicates
  */
+// The controller reads { materialIds, excludePOIds } only. supplierId was REQUIRED but never read,
+// so a caller sending just materialIds got a 400 for a field the endpoint does not use.
 export const checkDuplicatesSchema = z.object({
-  supplierId: z.string().uuid('Invalid supplier ID'),
   materialIds: z.array(z.string().uuid()).optional(),
-  serviceTypes: z.array(ServiceTypeEnum).optional(),
   excludePOIds: z.array(z.string().uuid()).optional(),
+  supplierId: z.string().uuid('Invalid supplier ID').optional(),
+  serviceTypes: z.array(ServiceTypeEnum).optional(),
 });
 
 /**

@@ -76,7 +76,9 @@ export const updateStageStatusSchema = z.object({
  * POST /api/processing-stages/:id/complete
  */
 export const completeStageSchema = z.object({
-  actualQuantity: z.number().nonnegative('Quantity cannot be negative'),
+  // completeStage(id) takes no quantity today, so requiring it rejected the natural empty-body call.
+  // NOTE: if completion should record an actual quantity, that needs a column + service change.
+  actualQuantity: z.coerce.number().nonnegative('Quantity cannot be negative').optional(),
   completedDate: z.string().datetime().optional(),
   remarks: z.string().max(500).optional(),
 });
@@ -150,7 +152,8 @@ export const updateProcessingMovementSchema = z.object({
  * POST /api/processing-movements/:id/deliver
  */
 export const markAsDeliveredSchema = z.object({
-  deliveredQuantity: z.number().nonnegative('Delivered quantity cannot be negative'),
+  // Not read by the deliver handler; required only forced callers to send a dead field.
+  deliveredQuantity: z.coerce.number().nonnegative('Delivered quantity cannot be negative').optional(),
   deliveredDate: z.string().datetime().optional(),
   receivedBy: z.string().max(100).optional(),
   remarks: z.string().max(500).optional(),

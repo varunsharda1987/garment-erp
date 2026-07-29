@@ -1,5 +1,5 @@
 // Shared Lab Dip Create Form - works for both Dyeing and Printing
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Beaker, Loader2, Check, ChevronsUpDown } from 'lucide-react';
@@ -56,10 +56,15 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
   const [styleOpen, setStyleOpen] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
 
+  // Style's fabrics (extracted from style details)
+  const [styleFabrics, setStyleFabrics] = useState<any[]>([]);
+  const [useOtherFabric, setUseOtherFabric] = useState(false);
+
   // Fabric selection
   const [fabricSearch, setFabricSearch] = useState('');
   const [fabricOpen, setFabricOpen] = useState(false);
   const [selectedFabric, setSelectedFabric] = useState<FabricMaster | null>(null);
+  const [selectedStyleFabric, setSelectedStyleFabric] = useState<any | null>(null);
 
   // Processor selection
   const [processorSearch, setProcessorSearch] = useState('');
@@ -113,6 +118,69 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
   const fabrics = fabricsData?.data || [];
   const processors = processorsData?.data || [];
   const colors = colorsData || [];
+
+  // Fetch full style details when style is selected to get style_fabrics
+  useEffect(() => {
+    if (selectedStyle) {
+      styleService.getStyleById(selectedStyle.id).then((fullStyle: any) => {
+        // Extract fabrics from style_components → style_fabrics
+        const allStyleFabrics: any[] = [];
+        const components = fullStyle.components || fullStyle.styleComponents || [];
+
+        for (const comp of components) {
+          const compFabrics = comp.fabrics || comp.styleFabrics || [];
+          for (const sf of compFabrics) {
+            // Filter by fabricFinishType matching processType
+            const finishType = sf.fabricFinishType;
+            if (processType === 'DYEING' && finishType === 'DYED') {
+              allStyleFabrics.push(sf);
+            } else if (processType === 'PRINTING' && finishType === 'PRINTED') {
+              allStyleFabrics.push(sf);
+            }
+          }
+        }
+
+        setStyleFabrics(allStyleFabrics);
+        // Reset fabric selection when style changes
+        setSelectedFabric(null);
+        setSelectedStyleFabric(null);
+        setUseOtherFabric(false);
+      });
+    } else {
+      setStyleFabrics([]);
+      setSelectedStyleFabric(null);
+    }
+  }, [selectedStyle, processType]);
+
+  // Auto-fill color/design when style fabric is selected
+  useEffect(() => {
+    if (selectedStyleFabric) {
+      // For dyeing: auto-fill target color
+      if (processType === 'DYEING' && selectedStyleFabric.colorMaster) {
+        setSelectedColor({
+          id: selectedStyleFabric.colorMaster.id,
+          colorCode: selectedStyleFabric.colorMaster.colorCode,
+          colorName: selectedStyleFabric.colorMaster.colorName,
+          hexCode: selectedStyleFabric.colorMaster.hexCode,
+        });
+      }
+      // For printing: auto-fill design artwork
+      if (processType === 'PRINTING' && selectedStyleFabric.printDesign) {
+        setDesignArtwork(selectedStyleFabric.printDesign);
+      }
+      // Set the fabric reference
+      if (selectedStyleFabric.fabric) {
+        setSelectedFabric(selectedStyleFabric.fabric);
+      } else if (selectedStyleFabric.fabricId) {
+        // If fabric object not included, create minimal reference
+        setSelectedFabric({
+          id: selectedStyleFabric.fabricId,
+          fabricCode: selectedStyleFabric.fabricName || 'Unknown',
+          fabricName: selectedStyleFabric.fabricName || 'Unknown',
+        } as FabricMaster);
+      }
+    }
+  }, [selectedStyleFabric, processType]);
 
   // Create mutation
   const createMutation = useMutation({
@@ -293,68 +361,121 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
               </Popover>
             </div>
 
-            {/* Fabric Selector */}
+            {/* Fabric Selector - Show style's fabrics or search */}
             <div className="space-y-2">
               <Label>Fabric *</Label>
-              <Popover open={fabricOpen} onOpenChange={setFabricOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={fabricOpen}
-                    className="w-full justify-between"
-                  >
-                    {selectedFabric ? (
-                      <span className="truncate">
-                        {selectedFabric.fabricCode} - {selectedFabric.fabricName}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">Search fabrics...</span>
-                    )}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[400px] p-0" align="start">
-                  <Command shouldFilter={false}>
-                    <CommandInput
-                      placeholder="Search by code or name..."
-                      value={fabricSearch}
-                      onValueChange={setFabricSearch}
-                    />
-                    <CommandList>
-                      {fabricsLoading && (
-                        <div className="p-4 flex items-center justify-center">
-                          <Loader2 className="h-4 w-4 animate-spin" />
+              {styleFabrics.length > 0 && !useOtherFabric ? (
+                // Show dropdown of style's fabrics
+                <Select
+                  value={selectedStyleFabric?.id || ''}
+                  onValueChange={(value) => {
+                    if (value === '__other__') {
+                      setUseOtherFabric(true);
+                      setSelectedStyleFabric(null);
+                      setSelectedFabric(null);
+                    } else {
+                      const sf = styleFabrics.find((f) => f.id === value);
+                      setSelectedStyleFabric(sf || null);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select fabric from style..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {styleFabrics.map((sf) => (
+                      <SelectItem key={sf.id} value={sf.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{sf.fabric?.fabricCode || sf.fabricName || 'Unknown'}</span>
+                          {sf.colorMaster && (
+                            <span className="text-muted-foreground text-xs">({sf.colorMaster.colorName})</span>
+                          )}
+                          {sf.printDesign && <span className="text-muted-foreground text-xs">({sf.printDesign})</span>}
                         </div>
-                      )}
-                      <CommandEmpty>No fabrics found</CommandEmpty>
-                      <CommandGroup>
-                        {fabrics.map((fabric: FabricMaster) => (
-                          <CommandItem
-                            key={fabric.id}
-                            value={fabric.id}
-                            onSelect={() => {
-                              setSelectedFabric(fabric);
-                              setFabricOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                'mr-2 h-4 w-4',
-                                selectedFabric?.id === fabric.id ? 'opacity-100' : 'opacity-0'
-                              )}
-                            />
-                            <div className="flex flex-col">
-                              <span className="font-medium">{fabric.fabricCode}</span>
-                              <span className="text-sm text-muted-foreground">{fabric.fabricName}</span>
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__other__">
+                      <span className="text-muted-foreground">Search other fabrics...</span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                // Show search popover (no style fabrics or "other" selected)
+                <div className="space-y-2">
+                  {useOtherFabric && styleFabrics.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setUseOtherFabric(false);
+                        setSelectedFabric(null);
+                      }}
+                      className="text-xs text-muted-foreground"
+                    >
+                      ← Back to style fabrics
+                    </Button>
+                  )}
+                  <Popover open={fabricOpen} onOpenChange={setFabricOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={fabricOpen}
+                        className="w-full justify-between"
+                      >
+                        {selectedFabric ? (
+                          <span className="truncate">
+                            {selectedFabric.fabricCode} - {selectedFabric.fabricName}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">Search fabrics...</span>
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start">
+                      <Command shouldFilter={false}>
+                        <CommandInput
+                          placeholder="Search by code or name..."
+                          value={fabricSearch}
+                          onValueChange={setFabricSearch}
+                        />
+                        <CommandList>
+                          {fabricsLoading && (
+                            <div className="p-4 flex items-center justify-center">
+                              <Loader2 className="h-4 w-4 animate-spin" />
                             </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+                          )}
+                          <CommandEmpty>No fabrics found</CommandEmpty>
+                          <CommandGroup>
+                            {fabrics.map((fabric: FabricMaster) => (
+                              <CommandItem
+                                key={fabric.id}
+                                value={fabric.id}
+                                onSelect={() => {
+                                  setSelectedFabric(fabric);
+                                  setFabricOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    'mr-2 h-4 w-4',
+                                    selectedFabric?.id === fabric.id ? 'opacity-100' : 'opacity-0'
+                                  )}
+                                />
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{fabric.fabricCode}</span>
+                                  <span className="text-sm text-muted-foreground">{fabric.fabricName}</span>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>

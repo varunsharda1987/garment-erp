@@ -2,11 +2,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../utils/jwt.utils';
 import { UserRole } from '@prisma/client';
+import prisma from '../config/database';
+import { logWarn } from '../utils/logger';
 
 /**
  * Middleware to verify JWT token
  */
-export const authenticateToken = (req: Request, res: Response, next: NextFunction): void => {
+export const authenticateToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     // Get token from Authorization header
     const authHeader = req.headers.authorization;
@@ -20,11 +22,40 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
       return;
     }
 
-    // Verify token
+    // Verify token signature + expiry
     const decoded = verifyToken(token);
 
-    // Attach user to request
-    req.user = decoded;
+    // Re-validate the account against the DB so deactivation, un-approval, and role changes
+    // take effect immediately instead of persisting for the token's (7-day) lifetime.
+    // Fail-OPEN on infrastructure errors (DB unreachable/query error) so a transient DB blip
+    // cannot lock every user out of the shared server; fail-CLOSED only when the DB explicitly
+    // reports the user missing / inactive / unapproved.
+    try {
+      const userId = decoded.userId || decoded.id;
+      const dbUser = userId
+        ? await prisma.users.findUnique({
+            where: { id: userId },
+            select: { id: true, role: true, isActive: true, isApproved: true },
+          })
+        : null;
+
+      if (!dbUser || !dbUser.isActive || !dbUser.isApproved) {
+        res.status(401).json({
+          error: 'Unauthorized',
+          message: 'Account is inactive, unapproved, or no longer exists',
+        });
+        return;
+      }
+
+      // Attach the user with the FRESH role from the DB (not the possibly-stale token role).
+      req.user = { ...decoded, id: dbUser.id, userId: dbUser.id, role: dbUser.role };
+    } catch (dbErr) {
+      // Infra error while re-validating — do NOT lock users out; fall back to the valid token.
+      logWarn('authenticateToken: DB re-validation failed, using token payload', {
+        error: dbErr instanceof Error ? dbErr.message : String(dbErr),
+      });
+      req.user = decoded;
+    }
 
     next();
   } catch (error) {

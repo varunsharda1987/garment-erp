@@ -1,0 +1,3721 @@
+{
+  "stats": {
+    "schemaFiles": 102,
+    "schemasLoaded": 751,
+    "schemaLoadErrors": 0,
+    "routesTotal": 1214,
+    "mutating": 655,
+    "mutatingWithBody": 444,
+    "compared": 385,
+    "skipped": {
+      "handler-not-found": 57,
+      "schema-not-loaded": 2
+    }
+  },
+  "findings": [
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/agency.routes.ts:35",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "agencyController.delete.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/agent.routes.ts:39",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteAgent"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /initialize",
+      "file": "backend/src/routes/ai-admin.routes.ts:56",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "async"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /index/guides",
+      "file": "backend/src/routes/ai-admin.routes.ts:101",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "async"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /index/styles",
+      "file": "backend/src/routes/ai-admin.routes.ts:120",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "async"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /index/all",
+      "file": "backend/src/routes/ai-admin.routes.ts:139",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "async"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /documents/:type",
+      "file": "backend/src/routes/ai-admin.routes.ts:183",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "async"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /insights",
+      "file": "backend/src/routes/ai.routes.ts:141",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "async"
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "PUT /:id",
+      "file": "backend/src/controllers/bankAccounts.controller.ts:115",
+      "schema": "updateBankAccountSchema (bankAccounts.schema.ts)",
+      "fields": [
+        "currentBalance"
+      ],
+      "detail": "updateBankAccount reads [currentBalance] but updateBankAccountSchema strips them → saved as undefined."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/bankAccounts.routes.ts:50",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteBankAccount"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/button.controller.ts:18",
+      "schema": "createButtonSchema",
+      "detail": "createButtonSchema is .passthrough() and createButton forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /:id",
+      "file": "backend/src/controllers/button.controller.ts:328",
+      "schema": "updateButtonSchema",
+      "detail": "updateButtonSchema is .passthrough() and updateButton forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/button.routes.ts:48",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteButton"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:styleId/sync-bom-fabric",
+      "file": "backend/src/routes/cad-planning.routes.ts:202",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "syncBomFabricFromCAD"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:styleId/row/:rowId",
+      "file": "backend/src/routes/cad-planning.routes.ts:219",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteCADTableRow"
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "POST /:styleId/add-width",
+      "file": "backend/src/controllers/cad-planning.controller.ts:1058",
+      "schema": "addCADWidthSchema (cadPlanning.schema.ts)",
+      "fields": [
+        "printDirection"
+      ],
+      "detail": "addCADWidth reads [printDirection] but addCADWidthSchema strips them → saved as undefined."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /cad/:cadId",
+      "file": "backend/src/routes/cad-planning.routes.ts:236",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteCADWidth"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /cad/:cadId/set-preferred",
+      "file": "backend/src/routes/cad-planning.routes.ts:262",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "setPreferredCAD"
+    },
+    {
+      "type": "REQUIRED_UNUSED",
+      "severity": "MEDIUM",
+      "symptom": "400-blocks-valid-input",
+      "route": "POST /:styleId/fabrics/:fabricId/pattern-parts/from-component",
+      "file": "backend/src/schemas/cadPlanning.schema.ts",
+      "schema": "assignPatternPartsFromComponentSchema",
+      "fields": [
+        "componentId"
+      ],
+      "detail": "assignPatternPartsFromComponentSchema REQUIRES [componentId] but assignPatternPartsFromComponent never reads them → callers must send dead fields or get 400."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:styleId/pattern-parts/:partId",
+      "file": "backend/src/routes/cad-planning.routes.ts:394",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deletePatternPartAssignment"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:styleId/fabrics/:fabricId/embroidery-cad",
+      "file": "backend/src/routes/cad-planning.routes.ts:429",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteEmbroideryCad"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /challans/greige-outward",
+      "file": "backend/src/routes/challan.routes.ts:31",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "createGreigeOutwardChallanController"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /challans/:id/issue",
+      "file": "backend/src/routes/challan.routes.ts:36",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "issueChallanController"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /challans/:id/cancel",
+      "file": "backend/src/routes/challan.routes.ts:43",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "cancelChallanController"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /production-runs/:id/split",
+      "file": "backend/src/routes/challan.routes.ts:49",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "splitProductionRunController"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/chartOfAccounts.routes.ts:54",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteAccount"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/color.routes.ts:57",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteColor"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/componentGroup.routes.ts:65",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "componentGroupController.deleteComponentGroup.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/componentMasters.routes.ts:47",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteComponentMaster"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:patternPartId",
+      "file": "backend/src/routes/componentPatternPart.routes.ts:31",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "patternPartController.removePatternPartFromComponent.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/conversation.routes.ts:114",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "async"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/costCenters.routes.ts:46",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteCostCenter"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /:id/approve",
+      "file": "backend/src/routes/creditNote.routes.ts:38",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "creditNoteController.approve.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /:id/cancel",
+      "file": "backend/src/routes/creditNote.routes.ts:46",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "creditNoteController.cancel.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/creditNote.routes.ts:54",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "creditNoteController.delete.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:code",
+      "file": "backend/src/routes/currencies.routes.ts:54",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteCurrency"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:customerId/accessory-presets/:presetId",
+      "file": "backend/src/routes/customer-accessories.routes.ts:69",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteAccessoryPreset"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:customerId/accessory-presets/:presetId/set-default",
+      "file": "backend/src/routes/customer-accessories.routes.ts:77",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "setDefaultPreset"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /customers/:customerId/size-category-presets",
+      "file": "backend/src/routes/customer-size-presets.routes.ts:44",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "createPreset"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /customers/:customerId/size-category-presets/:presetId",
+      "file": "backend/src/routes/customer-size-presets.routes.ts:51",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "updatePreset"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /customers/:customerId/size-category-presets/:presetId",
+      "file": "backend/src/routes/customer-size-presets.routes.ts:58",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deletePreset"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /customers/:customerId/size-category-presets/:presetId/set-default",
+      "file": "backend/src/routes/customer-size-presets.routes.ts:65",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "setAsDefault"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /customers/:customerId/size-category-presets/:presetId/clone",
+      "file": "backend/src/routes/customer-size-presets.routes.ts:72",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "clonePreset"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/customer.routes.ts:55",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteCustomer"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/accessory-presets",
+      "file": "backend/src/routes/customer.routes.ts:69",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "createAccessoryPreset"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /:id/accessory-presets/:presetId",
+      "file": "backend/src/routes/customer.routes.ts:77",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "updateAccessoryPreset"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id/accessory-presets/:presetId",
+      "file": "backend/src/routes/customer.routes.ts:85",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteAccessoryPreset"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/customerAddress.routes.ts:78",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "customerAddressController.delete.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/customerContact.routes.ts:58",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "customerContactController.delete.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /batches/:id",
+      "file": "backend/src/routes/cutting.routes.ts:92",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteCuttingBatch"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /batches/:id/start",
+      "file": "backend/src/routes/cutting.routes.ts:98",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "startCuttingBatch"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /batches/:id/record-output",
+      "file": "backend/src/controllers/cutting.controller.ts:496",
+      "schema": "recordCuttingOutputSchema",
+      "detail": "recordCuttingOutputSchema is .passthrough() and recordCuttingOutput forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /batches/:id/complete",
+      "file": "backend/src/controllers/cutting.controller.ts:575",
+      "schema": "completeCuttingBatchSchema",
+      "detail": "completeCuttingBatchSchema is .passthrough() and completeCuttingBatch forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /batches/:id/resume",
+      "file": "backend/src/routes/cutting.routes.ts:117",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "resumeCuttingBatch"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /batches/:id/generate-transfer-slip",
+      "file": "backend/src/routes/cutting.routes.ts:124",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "generateTransferSlip"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /batches/:id/lays/:layId",
+      "file": "backend/src/routes/cutting.routes.ts:134",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteCuttingLay"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /batches/:id/issue-to-stitching",
+      "file": "backend/src/controllers/cutting-issue.controller.ts:71",
+      "schema": "issueToStitchingSchema",
+      "detail": "issueToStitchingSchema is .passthrough() and issueToStitching forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /:id/approve",
+      "file": "backend/src/routes/debitNote.routes.ts:34",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "debitNoteController.approve.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /:id/cancel",
+      "file": "backend/src/routes/debitNote.routes.ts:42",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "debitNoteController.cancel.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/debitNote.routes.ts:50",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "debitNoteController.delete.bind"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /delivery-notes",
+      "file": "backend/src/controllers/dispatch.controller.ts:311",
+      "schema": "createDeliveryNoteSchema",
+      "detail": "createDeliveryNoteSchema is .passthrough() and createDeliveryNote forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /delivery-notes/:id",
+      "file": "backend/src/routes/dispatch.routes.ts:64",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteDeliveryNote"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /delivery-notes/:id/assign-transport",
+      "file": "backend/src/controllers/dispatch.controller.ts:653",
+      "schema": "assignTransportSchema",
+      "detail": "assignTransportSchema is .passthrough() and assignTransport forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /delivery-notes/:id/record-pod",
+      "file": "backend/src/controllers/dispatch.controller.ts:836",
+      "schema": "recordPODSchema",
+      "detail": "recordPODSchema is .passthrough() and recordPOD forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /asn",
+      "file": "backend/src/controllers/dispatch.controller.ts:1032",
+      "schema": "createASNSchema",
+      "detail": "createASNSchema is .passthrough() and createASN forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /asn/:id",
+      "file": "backend/src/routes/dispatch.routes.ts:94",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteASN"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /asn/:id/approve",
+      "file": "backend/src/controllers/dispatch.controller.ts:1103",
+      "schema": "approveASNSchema",
+      "detail": "approveASNSchema is .passthrough() and approveASN forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /asn/:id/reject",
+      "file": "backend/src/controllers/dispatch.controller.ts:1135",
+      "schema": "rejectASNSchema",
+      "detail": "rejectASNSchema is .passthrough() and rejectASN forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /asn/:id/reschedule",
+      "file": "backend/src/controllers/dispatch.controller.ts:1164",
+      "schema": "rescheduleASNSchema",
+      "detail": "rescheduleASNSchema is .passthrough() and rescheduleASN forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /process-pos",
+      "file": "backend/src/controllers/dyeing.controller.ts:1409",
+      "schema": "createProcessPoSchema",
+      "detail": "createProcessPoSchema is .passthrough() and createProcessPO forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /process-pos/:id",
+      "file": "backend/src/routes/dyeing.routes.ts:75",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteProcessPO"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /process-pos/:id/send",
+      "file": "backend/src/controllers/dyeing.controller.ts:1651",
+      "schema": "processPoActionSchema",
+      "detail": "processPoActionSchema is .passthrough() and sendProcessPO forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /process-pos/:id/receive",
+      "file": "backend/src/controllers/dyeing.controller.ts:1866",
+      "schema": "processPoActionSchema",
+      "detail": "processPoActionSchema is .passthrough() and receiveProcessPO forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /process-pos/:id/quality-check",
+      "file": "backend/src/controllers/dyeing.controller.ts:2016",
+      "schema": "processPoActionSchema",
+      "detail": "processPoActionSchema is .passthrough() and qualityCheckProcessPO forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /process-pos/:id/return-unprocessed",
+      "file": "backend/src/controllers/dyeing.controller.ts:2224",
+      "schema": "processPoActionSchema",
+      "detail": "processPoActionSchema is .passthrough() and returnUnprocessedProcessPO forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /lab-dips",
+      "file": "backend/src/controllers/dyeing.controller.ts:304",
+      "schema": "createLabDipSchema",
+      "detail": "createLabDipSchema is .passthrough() and createLabDip forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /lab-dips/:id",
+      "file": "backend/src/controllers/dyeing.controller.ts:347",
+      "schema": "updateLabDipSchema",
+      "detail": "updateLabDipSchema is .passthrough() and updateLabDip forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /lab-dips/:id",
+      "file": "backend/src/routes/dyeing.routes.ts:125",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteLabDip"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /lab-dips/:id/approve",
+      "file": "backend/src/controllers/dyeing.controller.ts:408",
+      "schema": "labDipActionSchema",
+      "detail": "labDipActionSchema is .passthrough() and approveLabDip forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /lab-dips/:id/reject",
+      "file": "backend/src/controllers/dyeing.controller.ts:446",
+      "schema": "labDipActionSchema",
+      "detail": "labDipActionSchema is .passthrough() and rejectLabDip forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /lab-dips/:id/resubmit",
+      "file": "backend/src/controllers/dyeing.controller.ts:485",
+      "schema": "labDipActionSchema",
+      "detail": "labDipActionSchema is .passthrough() and requestResubmit forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /jobs",
+      "file": "backend/src/controllers/dyeing.controller.ts:663",
+      "schema": "createDyeJobSchema",
+      "detail": "createDyeJobSchema is .passthrough() and createDyeJob forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /jobs/:id",
+      "file": "backend/src/controllers/dyeing.controller.ts:740",
+      "schema": "updateDyeJobSchema",
+      "detail": "updateDyeJobSchema is .passthrough() and updateDyeJob forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /jobs/:id",
+      "file": "backend/src/routes/dyeing.routes.ts:158",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteDyeJob"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /jobs/:id/send",
+      "file": "backend/src/controllers/dyeing.controller.ts:809",
+      "schema": "dyeJobActionSchema",
+      "detail": "dyeJobActionSchema is .passthrough() and sendToMill forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /jobs/:id/receive",
+      "file": "backend/src/controllers/dyeing.controller.ts:966",
+      "schema": "dyeJobActionSchema",
+      "detail": "dyeJobActionSchema is .passthrough() and receiveFromMill forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /jobs/:id/quality-check",
+      "file": "backend/src/controllers/dyeing.controller.ts:1046",
+      "schema": "dyeJobActionSchema",
+      "detail": "dyeJobActionSchema is .passthrough() and qualityCheck forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/elastic.controller.ts:17",
+      "schema": "createElasticSchema",
+      "detail": "createElasticSchema is .passthrough() and createElastic forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /:id",
+      "file": "backend/src/controllers/elastic.controller.ts:257",
+      "schema": "updateElasticSchema",
+      "detail": "updateElasticSchema is .passthrough() and updateElastic forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/elastic.routes.ts:48",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteElastic"
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "POST /send-out",
+      "file": "backend/src/controllers/embroidery-stock.controller.ts:9",
+      "schema": "sendOutSchema (externalProcess.schema.ts)",
+      "fields": [
+        "sourceFabricStockId",
+        "sentWidth",
+        "forStyleId",
+        "forOrderId"
+      ],
+      "detail": "sendOut reads [sourceFabricStockId, sentWidth, forStyleId, forOrderId] but sendOutSchema strips them → saved as undefined."
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "POST /receive",
+      "file": "backend/src/controllers/embroidery-stock.controller.ts:60",
+      "schema": "receiveSchema (externalProcess.schema.ts)",
+      "fields": [
+        "receivedWidth",
+        "qualityGrade",
+        "warehouseLocation"
+      ],
+      "detail": "receive reads [receivedWidth, qualityGrade, warehouseLocation] but receiveSchema strips them → saved as undefined."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/embroidery.controller.ts:32",
+      "schema": "createEmbroiderySchema",
+      "detail": "createEmbroiderySchema is .passthrough() and createEmbroidery forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /:id",
+      "file": "backend/src/controllers/embroidery.controller.ts:248",
+      "schema": "updateEmbroiderySchema",
+      "detail": "updateEmbroiderySchema is .passthrough() and updateEmbroidery forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/embroidery.routes.ts:42",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteEmbroidery"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/expenseTypes.routes.ts:50",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteExpenseType"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /style/:styleId",
+      "file": "backend/src/controllers/fabric-costing-run.controller.ts:155",
+      "schema": "createCostingRunSchema",
+      "detail": "createCostingRunSchema is .passthrough() and createRun forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:runId",
+      "file": "backend/src/routes/fabric-costing-run.routes.ts:37",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteRun"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /lookup-rate",
+      "file": "backend/src/controllers/fabric-costing.controller.ts:589",
+      "schema": "lookupRateSchema",
+      "detail": "lookupRateSchema is .passthrough() and lookupProcessorRate forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /option/:optionId/promote",
+      "file": "backend/src/controllers/fabric-costing.controller.ts:1353",
+      "schema": "promoteCostingOptionSchema",
+      "detail": "promoteCostingOptionSchema is .passthrough() and promoteCostingOption forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /option/:optionId",
+      "file": "backend/src/routes/fabric-costing.routes.ts:95",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteCostingOption"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /check-cad-status",
+      "file": "backend/src/controllers/fabric-costing.controller.ts:1486",
+      "schema": "checkCADCostingStatusSchema",
+      "detail": "checkCADCostingStatusSchema is .passthrough() and checkCADCostingStatus forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /push-from-cad",
+      "file": "backend/src/controllers/fabric-costing.controller.ts:1540",
+      "schema": "pushFromCADSchema",
+      "detail": "pushFromCADSchema is .passthrough() and pushFromCAD forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /calculate",
+      "file": "backend/src/controllers/fabric-costing.controller.ts:12",
+      "schema": "calculateSingleCostSchema",
+      "detail": "calculateSingleCostSchema is .passthrough() and calculateSingleFabricCost forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /batch-calculate",
+      "file": "backend/src/controllers/fabric-costing.controller.ts:37",
+      "schema": "calculateBatchCostSchema",
+      "detail": "calculateBatchCostSchema is .passthrough() and calculateBatchFabricCost forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /greige/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts:99",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "greigeController.deleteGreigeMaster"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /fabric/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts:172",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "fabricController.deleteFabricMaster"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /fabric/:id/allocate-to-style",
+      "file": "backend/src/controllers/fabric.controller.ts:1275",
+      "schema": "allocateToStyleSchema",
+      "detail": "allocateToStyleSchema is .passthrough() and allocateToStyle forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /fabric/:id/style-allocations/:styleFabricId",
+      "file": "backend/src/routes/fabric-greige.routes.ts:209",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "fabricController.removeStyleAllocation"
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "POST /cad",
+      "file": "backend/src/controllers/fabric-cad.controller.ts:65",
+      "schema": "createCADSchema (fabricGreige.schema.ts)",
+      "fields": [
+        "cutableWidth",
+        "widthUnit",
+        "cadMeters",
+        "cadYards",
+        "cadWastagePercent",
+        "markerEfficiency",
+        "supplierAvailability",
+        "priceDifferential",
+        "markerPlanFile",
+        "markerLengthMeters",
+        "piecesPerMarker",
+        "notes"
+      ],
+      "detail": "createCAD reads [cutableWidth, widthUnit, cadMeters, cadYards, cadWastagePercent, markerEfficiency, supplierAvailability, priceDifferential, markerPlanFile, markerLengthMeters, piecesPerMarker, notes] but createCADSchema strips them → saved as undefined."
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "PUT /cad/:id",
+      "file": "backend/src/controllers/fabric-cad.controller.ts:173",
+      "schema": "updateCADSchema (fabricGreige.schema.ts)",
+      "fields": [
+        "cutableWidth",
+        "widthUnit",
+        "cadMeters",
+        "cadYards",
+        "cadWastagePercent",
+        "markerEfficiency",
+        "supplierAvailability",
+        "priceDifferential",
+        "markerPlanFile",
+        "markerLengthMeters",
+        "piecesPerMarker",
+        "notes"
+      ],
+      "detail": "updateCAD reads [cutableWidth, widthUnit, cadMeters, cadYards, cadWastagePercent, markerEfficiency, supplierAvailability, priceDifferential, markerPlanFile, markerLengthMeters, piecesPerMarker, notes] but updateCADSchema strips them → saved as undefined."
+    },
+    {
+      "type": "REQUIRED_UNUSED",
+      "severity": "MEDIUM",
+      "symptom": "400-blocks-valid-input",
+      "route": "PATCH /cad/:id/set-preferred",
+      "file": "backend/src/schemas/fabricGreige.schema.ts",
+      "schema": "setPreferredWidthSchema",
+      "fields": [
+        "isPreferred"
+      ],
+      "detail": "setPreferredWidthSchema REQUIRES [isPreferred] but setPreferredWidth never reads them → callers must send dead fields or get 400."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /cad/:id",
+      "file": "backend/src/routes/fabric-greige.routes.ts:273",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "cadController.deleteCAD"
+    },
+    {
+      "type": "REQUIRED_UNUSED",
+      "severity": "MEDIUM",
+      "symptom": "400-blocks-valid-input",
+      "route": "POST /",
+      "file": "backend/src/schemas/fabric-processing.schema.ts",
+      "schema": "sendForProcessingSchema",
+      "fields": [
+        "procurementId",
+        "greigeId",
+        "processorId",
+        "processingType",
+        "greigeQuantitySent",
+        "greigeWidth",
+        "expectedFinishedWidthMin",
+        "expectedFinishedWidthMax",
+        "expectedShrinkagePercent",
+        "greigeCost",
+        "processingCost",
+        "sentDate"
+      ],
+      "detail": "sendForProcessingSchema REQUIRES [procurementId, greigeId, processorId, processingType, greigeQuantitySent, greigeWidth, expectedFinishedWidthMin, expectedFinishedWidthMax, expectedShrinkagePercent, greigeCost, processingCost, sentDate] but sendForProcessing never reads them → callers must send dead fields or get 400."
+    },
+    {
+      "type": "REQUIRED_UNUSED",
+      "severity": "MEDIUM",
+      "symptom": "400-blocks-valid-input",
+      "route": "PUT /:id/receive",
+      "file": "backend/src/schemas/fabric-processing.schema.ts",
+      "schema": "receiveFinishedFabricSchema",
+      "fields": [
+        "actualFinishedWidth",
+        "actualQuantityReceived",
+        "actualShrinkagePercent",
+        "processingLossMeters",
+        "finishedFabricId",
+        "actualReturnDate"
+      ],
+      "detail": "receiveFinishedFabricSchema REQUIRES [actualFinishedWidth, actualQuantityReceived, actualShrinkagePercent, processingLossMeters, finishedFabricId, actualReturnDate] but receiveFinishedFabric never reads them → callers must send dead fields or get 400."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /plan",
+      "file": "backend/src/controllers/fabric-procurement.controller.ts:225",
+      "schema": "planProcurementSchema",
+      "detail": "planProcurementSchema is .passthrough() and planProcurement forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "REQUIRED_UNUSED",
+      "severity": "MEDIUM",
+      "symptom": "400-blocks-valid-input",
+      "route": "POST /",
+      "file": "backend/src/schemas/fabricProcurement.schema.ts",
+      "schema": "createProcurementSchema",
+      "fields": [
+        "procurementType",
+        "supplierId",
+        "quantityPurchased",
+        "width",
+        "ratePerUnit",
+        "totalCost"
+      ],
+      "detail": "createProcurementSchema REQUIRES [procurementType, supplierId, quantityPurchased, width, ratePerUnit, totalCost] but createProcurement never reads them → callers must send dead fields or get 400."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/fabric-procurement.routes.ts:47",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteProcurement"
+    },
+    {
+      "type": "REQUIRED_UNUSED",
+      "severity": "MEDIUM",
+      "symptom": "400-blocks-valid-input",
+      "route": "POST /transfer",
+      "file": "backend/src/schemas/fabricStock.schema.ts",
+      "schema": "transferFabricStockSchema",
+      "fields": [
+        "stockId",
+        "toWarehouse",
+        "quantityToTransfer"
+      ],
+      "detail": "transferFabricStockSchema REQUIRES [stockId, toWarehouse, quantityToTransfer] but transferStock never reads them → callers must send dead fields or get 400."
+    },
+    {
+      "type": "REQUIRED_UNUSED",
+      "severity": "MEDIUM",
+      "symptom": "400-blocks-valid-input",
+      "route": "POST /adjust",
+      "file": "backend/src/schemas/fabricStock.schema.ts",
+      "schema": "adjustFabricStockSchema",
+      "fields": [
+        "stockId",
+        "adjustmentType",
+        "quantity",
+        "reason"
+      ],
+      "detail": "adjustFabricStockSchema REQUIRES [stockId, adjustmentType, quantity, reason] but adjustStock never reads them → callers must send dead fields or get 400."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/fabric-stock.routes.ts:87",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteStock"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/fabricPhysicalTests.routes.ts:45",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteFabricPhysicalTest"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /issues/:id",
+      "file": "backend/src/routes/finishing.routes.ts:72",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteFinishingIssue"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /issues/:id/receive",
+      "file": "backend/src/controllers/finishing.controller.ts:445",
+      "schema": "receiveFromStitchingSchema",
+      "detail": "receiveFromStitchingSchema is .passthrough() and receiveFromStitching forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /issues/:id/start",
+      "file": "backend/src/routes/finishing.routes.ts:81",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "startFinishingIssue"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /issues/:id/record-output",
+      "file": "backend/src/controllers/finishing.controller.ts:532",
+      "schema": "recordFinishingOutputSchema",
+      "detail": "recordFinishingOutputSchema is .passthrough() and recordDailyOutput forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /issues/:id/move-to-packing",
+      "file": "backend/src/routes/finishing.routes.ts:88",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "moveToPackingFinishingIssue"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /issues/:id/complete",
+      "file": "backend/src/routes/finishing.routes.ts:89",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "completeFinishingIssue"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /issues/:id/generate-transfer-slip",
+      "file": "backend/src/routes/finishing.routes.ts:90",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "generateTransferSlip"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/garmentPhysicalTests.routes.ts:53",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteGarmentPhysicalTest"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /:trimType",
+      "file": "backend/src/controllers/generic-trim.controller.ts:307",
+      "schema": "createGenericTrimSchema",
+      "detail": "createGenericTrimSchema is .passthrough() and createGenericTrim forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /:trimType/:id",
+      "file": "backend/src/controllers/agency.controller.ts:67",
+      "schema": "updateGenericTrimSchema",
+      "detail": "updateGenericTrimSchema is .passthrough() and update forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:trimType/:id",
+      "file": "backend/src/routes/generic-trim.routes.ts:55",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "remove"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/grn.controller.ts:92",
+      "schema": "createGRNSchema",
+      "detail": "createGRNSchema is .passthrough() and createGRN forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PATCH /:id/approve",
+      "file": "backend/src/controllers/grn.controller.ts:133",
+      "schema": "approveGRNSchema",
+      "detail": "approveGRNSchema is .passthrough() and approveGRN forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PATCH /:id/reject",
+      "file": "backend/src/controllers/grn.controller.ts:343",
+      "schema": "rejectGRNSchema",
+      "detail": "rejectGRNSchema is .passthrough() and rejectGRN forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /cleanup",
+      "file": "backend/src/routes/health.routes.ts:161",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "async"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/hsnSacMaster.routes.ts:65",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "hsnSacMasterController.delete.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:module/preview",
+      "file": "backend/src/routes/import.routes.ts:13",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "importController.previewImport"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:module/execute",
+      "file": "backend/src/routes/import.routes.ts:22",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "importController.executeImport"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /update-overdue",
+      "file": "backend/src/routes/invoice.routes.ts:34",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "updateOverdueInvoices"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/invoice.routes.ts:60",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteInvoice"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/label.controller.ts:19",
+      "schema": "createLabelSchema",
+      "detail": "createLabelSchema is .passthrough() and createLabel forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /:id",
+      "file": "backend/src/controllers/label.controller.ts:513",
+      "schema": "updateLabelSchema",
+      "detail": "updateLabelSchema is .passthrough() and updateLabel forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/label.routes.ts:43",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteLabel"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/lace.controller.ts:58",
+      "schema": "createLaceSchema",
+      "detail": "createLaceSchema is .passthrough() and createLace forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /:id",
+      "file": "backend/src/controllers/lace.controller.ts:517",
+      "schema": "updateLaceSchema",
+      "detail": "updateLaceSchema is .passthrough() and updateLace forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/lace.routes.ts:55",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteLace"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /calculate",
+      "file": "backend/src/controllers/laceCosting.controller.ts:13",
+      "schema": "calculateSingleLaceCostSchema",
+      "detail": "calculateSingleLaceCostSchema is .passthrough() and calculateSingleLaceCost forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /batch-calculate",
+      "file": "backend/src/controllers/laceCosting.controller.ts:40",
+      "schema": "calculateBatchLaceCostSchema",
+      "detail": "calculateBatchLaceCostSchema is .passthrough() and calculateBatchLaceCosts forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/close",
+      "file": "backend/src/routes/laceIssueNote.routes.ts:66",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "closeIssueNoteController"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/dyeing.controller.ts:304",
+      "schema": "createLaceLabDipSchema",
+      "detail": "createLaceLabDipSchema is .passthrough() and createLabDip forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /:id",
+      "file": "backend/src/controllers/dyeing.controller.ts:347",
+      "schema": "updateLaceLabDipSchema",
+      "detail": "updateLaceLabDipSchema is .passthrough() and updateLabDip forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /:id/status",
+      "file": "backend/src/controllers/laceLabDip.controller.ts:115",
+      "schema": "updateLaceLabDipStatusSchema",
+      "detail": "updateLaceLabDipStatusSchema is .passthrough() and updateStatus forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/laceLabDip.routes.ts:52",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteLabDip"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/laceStock.controller.ts:22",
+      "schema": "createLaceStockSchema",
+      "detail": "createLaceStockSchema is .passthrough() and createLaceStock forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/lookup.controller.ts:73",
+      "schema": "createLookupSchema",
+      "detail": "createLookupSchema is .passthrough() and createLookup forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /bulk",
+      "file": "backend/src/controllers/lookup.controller.ts:171",
+      "schema": "bulkCreateLookupsSchema",
+      "detail": "bulkCreateLookupsSchema is .passthrough() and bulkCreateLookups forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /:id",
+      "file": "backend/src/controllers/lookup.controller.ts:115",
+      "schema": "updateLookupSchema",
+      "detail": "updateLookupSchema is .passthrough() and updateLookup forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/lookup.routes.ts:42",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteLookup"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/machine-part.controller.ts:17",
+      "schema": "createMachinePartSchema",
+      "detail": "createMachinePartSchema is .passthrough() and createMachinePart forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /:id",
+      "file": "backend/src/controllers/machine-part.controller.ts:253",
+      "schema": "updateMachinePartSchema",
+      "detail": "updateMachinePartSchema is .passthrough() and updateMachinePart forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/machine-part.routes.ts:38",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteMachinePart"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /bulk-import",
+      "file": "backend/src/controllers/machine-part.controller.ts:400",
+      "schema": "bulkImportMachinePartsSchema",
+      "detail": "bulkImportMachinePartsSchema is .passthrough() and bulkImportMachineParts forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/material-master.routes.ts:51",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "materialMasterController.deleteMaterial"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /categories",
+      "file": "backend/src/routes/material.routes.ts:35",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "createCategory"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/material.routes.ts:55",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteMaterial"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/routes/mood-board.routes.ts:25",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "create"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PATCH /:id",
+      "file": "backend/src/routes/mood-board.routes.ts:27",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "update"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/mood-board.routes.ts:28",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteMoodBoard"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/items",
+      "file": "backend/src/routes/mood-board.routes.ts:31",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "addItem"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PATCH /:id/items/:itemId",
+      "file": "backend/src/routes/mood-board.routes.ts:39",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "updateItem"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id/items/:itemId",
+      "file": "backend/src/routes/mood-board.routes.ts:40",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteItem"
+    },
+    {
+      "type": "REQUIRED_UNUSED",
+      "severity": "MEDIUM",
+      "symptom": "400-blocks-valid-input",
+      "route": "POST /calculate",
+      "file": "backend/src/schemas/mrp.schema.ts",
+      "schema": "calculateRequirementsSchema",
+      "fields": [
+        "orderId",
+        "requiredDate"
+      ],
+      "detail": "calculateRequirementsSchema REQUIRES [orderId, requiredDate] but calculateRequirements never reads them → callers must send dead fields or get 400."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /requirements/:id",
+      "file": "backend/src/routes/mrp.routes.ts:68",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "mrpController.cancelRequirement"
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "POST /requirements/:id/allocate-stock",
+      "file": "backend/src/controllers/mrp.controller.ts:154",
+      "schema": "allocateStockSchema (saleOrder.schema.ts)",
+      "fields": [
+        "warehouseId"
+      ],
+      "detail": "allocateStock reads [warehouseId] but allocateStockSchema strips them → saved as undefined."
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "PATCH /requirements/:id/status",
+      "file": "backend/src/controllers/laceLabDip.controller.ts:115",
+      "schema": "updateRequirementStatusSchema (mrp.schema.ts)",
+      "fields": [
+        "buyerRemarks",
+        "rejectionReason",
+        "approvalReference"
+      ],
+      "detail": "updateStatus reads [buyerRemarks, rejectionReason, approvalReference] but updateRequirementStatusSchema strips them → saved as undefined."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PATCH /:id/read",
+      "file": "backend/src/routes/notification.routes.ts:28",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "markAsRead"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /mark-all-read",
+      "file": "backend/src/routes/notification.routes.ts:31",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "markAllAsRead"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/notification.routes.ts:34",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteNotification"
+    },
+    {
+      "type": "REQUIRED_UNUSED",
+      "severity": "MEDIUM",
+      "symptom": "400-blocks-valid-input",
+      "route": "POST /:orderId/bom",
+      "file": "backend/src/schemas/orderBom.schema.ts",
+      "schema": "createFromCostSheetSchema",
+      "fields": [
+        "styleId",
+        "costSheetId"
+      ],
+      "detail": "createFromCostSheetSchema REQUIRES [styleId, costSheetId] but createFromCostSheet never reads them → callers must send dead fields or get 400."
+    },
+    {
+      "type": "REQUIRED_UNUSED",
+      "severity": "MEDIUM",
+      "symptom": "400-blocks-valid-input",
+      "route": "PUT /:orderId/bom",
+      "file": "backend/src/schemas/orderBom.schema.ts",
+      "schema": "updateOrderBOMSchema",
+      "fields": [
+        "items"
+      ],
+      "detail": "updateOrderBOMSchema REQUIRES [items] but updateOrderBOM never reads them → callers must send dead fields or get 400."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PATCH /:orderId/bom/approve",
+      "file": "backend/src/routes/order-bom.routes.ts:48",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "orderBomController.approveOrderBOM"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PATCH /:orderId/bom/lock",
+      "file": "backend/src/routes/order-bom.routes.ts:71",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "orderBomController.lockOrderBOM"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:orderId/bom",
+      "file": "backend/src/routes/order-bom.routes.ts:89",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "orderBomController.deactivateOrderBOM"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/order-label.routes.ts:29",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteLabelOverride"
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "POST /thread-requirements/available-suppliers",
+      "file": "backend/src/controllers/order-thread-requirement.controller.ts:172",
+      "schema": "availableSuppliersSchema (orderThreadRequirement.schema.ts)",
+      "fields": [
+        "requirementIds"
+      ],
+      "detail": "getAvailableSuppliers reads [requirementIds] but availableSuppliersSchema strips them → saved as undefined."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /orders/:orderId/thread-requirements/:id",
+      "file": "backend/src/routes/order-thread-requirement.routes.ts:72",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "controller.deleteThreadRequirement"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/order.routes.ts:59",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteOrder"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id/hard-delete",
+      "file": "backend/src/routes/order.routes.ts:68",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "hardDeleteOrder"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/cancel",
+      "file": "backend/src/routes/order.routes.ts:76",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "cancelOrderWithOptions"
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "PATCH /:id/select-cad",
+      "file": "backend/src/controllers/orderProductionStatus.controller.ts:51",
+      "schema": "selectCadSchema (orderItems.schema.ts)",
+      "fields": [
+        "recalculateCosting"
+      ],
+      "detail": "selectCadForOrder reads [recalculateCosting] but selectCadSchema strips them → saved as undefined."
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "PATCH /:id/inheritance",
+      "file": "backend/src/controllers/orderProductionStatus.controller.ts:82",
+      "schema": "updateInheritanceSchema (orderItems.schema.ts)",
+      "fields": [
+        "inheritStyleSamples",
+        "inheritInspections"
+      ],
+      "detail": "updateInheritanceSettings reads [inheritStyleSamples, inheritInspections] but updateInheritanceSchema strips them → saved as undefined."
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "POST /:id/recalculate-costing",
+      "file": "backend/src/controllers/orderProductionStatus.controller.ts:105",
+      "schema": "recalculateCostingSchema (orderItems.schema.ts)",
+      "fields": [
+        "selectedCadId"
+      ],
+      "detail": "recalculateOrderCosting reads [selectedCadId] but recalculateCostingSchema strips them → saved as undefined."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id/costing",
+      "file": "backend/src/routes/orderItems.routes.ts:63",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteOrderItemCosting"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/other-material.routes.ts:37",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteOtherMaterial"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/packaging.controller.ts:26",
+      "schema": "createPackagingSchema",
+      "detail": "createPackagingSchema is .passthrough() and createPackaging forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /:id",
+      "file": "backend/src/controllers/packaging.controller.ts:357",
+      "schema": "updatePackagingSchema",
+      "detail": "updatePackagingSchema is .passthrough() and updatePackaging forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/packaging.routes.ts:48",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deletePackaging"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/patternPart.routes.ts:64",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "patternPartController.deletePatternPart.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/paymentTerms.routes.ts:50",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deletePaymentTerm"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /reset-defaults",
+      "file": "backend/src/routes/permission.routes.ts:68",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "resetToDefaults"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /seed",
+      "file": "backend/src/routes/permission.routes.ts:71",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "seedPermissions"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /process-pos/:id",
+      "file": "backend/src/routes/printing.routes.ts:75",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteProcessPO"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /lab-dips/:id",
+      "file": "backend/src/routes/printing.routes.ts:125",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteLabDip"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /jobs",
+      "file": "backend/src/controllers/printing.controller.ts:710",
+      "schema": "createPrintJobSchema",
+      "detail": "createPrintJobSchema is .passthrough() and createPrintJob forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /jobs/:id",
+      "file": "backend/src/controllers/printing.controller.ts:788",
+      "schema": "updatePrintJobSchema",
+      "detail": "updatePrintJobSchema is .passthrough() and updatePrintJob forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /jobs/:id",
+      "file": "backend/src/routes/printing.routes.ts:163",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deletePrintJob"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/cancel",
+      "file": "backend/src/routes/processingBatch.routes.ts:35",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "processingBatchController.cancelBatch"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/complete",
+      "file": "backend/src/routes/processingBatch.routes.ts:40",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "processingBatchController.completeBatch"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/processingDelivery.routes.ts:76",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "processingDeliveryController.deleteDelivery"
+    },
+    {
+      "type": "REQUIRED_UNUSED",
+      "severity": "MEDIUM",
+      "symptom": "400-blocks-valid-input",
+      "route": "POST /:id/deliver",
+      "file": "backend/src/schemas/processing.schema.ts",
+      "schema": "markAsDeliveredSchema",
+      "fields": [
+        "deliveredQuantity"
+      ],
+      "detail": "markAsDeliveredSchema REQUIRES [deliveredQuantity] but markAsDelivered never reads them → callers must send dead fields or get 400."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/processingMovement.routes.ts:62",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "processingMovementController.deleteMovement"
+    },
+    {
+      "type": "REQUIRED_UNUSED",
+      "severity": "MEDIUM",
+      "symptom": "400-blocks-valid-input",
+      "route": "POST /:id/complete",
+      "file": "backend/src/schemas/processing.schema.ts",
+      "schema": "completeStageSchema",
+      "fields": [
+        "actualQuantity"
+      ],
+      "detail": "completeStageSchema REQUIRES [actualQuantity] but completeStage never reads them → callers must send dead fields or get 400."
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "POST /:id/rework",
+      "file": "backend/src/controllers/processingStage.controller.ts:105",
+      "schema": "markForReworkSchema (processing.schema.ts)",
+      "fields": [
+        "reason"
+      ],
+      "detail": "markForRework reads [reason] but markForReworkSchema strips them → saved as undefined."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/processingStage.routes.ts:67",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "processingStageController.deleteStage"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /processors/:processorId/slabs",
+      "file": "backend/src/controllers/processor-rate-card-v2.controller.ts:70",
+      "schema": "updateSlabsSchema",
+      "detail": "updateSlabsSchema is .passthrough() and updateSlabs forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /processors/:processorId/matrix",
+      "file": "backend/src/controllers/processor-rate-card-v2.controller.ts:104",
+      "schema": "saveMatrixSchema",
+      "detail": "saveMatrixSchema is .passthrough() and saveMatrix forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /copy",
+      "file": "backend/src/controllers/processor-rate-card-v2.controller.ts:150",
+      "schema": "copyRatesSchema",
+      "detail": "copyRatesSchema is .passthrough() and copyRates forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /processors/:processorId/greiges/:greigeId",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts:75",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "addGreige"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /processors/:processorId/greiges/:greigeId",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts:82",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "removeGreige"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /lookup",
+      "file": "backend/src/controllers/processor-rate-card-v2.controller.ts:290",
+      "schema": "lookupRateSchema",
+      "detail": "lookupRateSchema is .passthrough() and lookupRate forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /processors/:processorId/lace-matrix",
+      "file": "backend/src/controllers/processor-rate-card-v2.controller.ts:361",
+      "schema": "saveLaceMatrixSchema",
+      "detail": "saveLaceMatrixSchema is .passthrough() and saveLaceMatrix forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /processors/:processorId/laces/:laceId",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts:114",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "addLace"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /processors/:processorId/laces/:laceId",
+      "file": "backend/src/routes/processor-rate-card-v2.routes.ts:117",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "removeLace"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /lookup-lace",
+      "file": "backend/src/controllers/processor-rate-card-v2.controller.ts:421",
+      "schema": "lookupLaceRateSchema",
+      "detail": "lookupLaceRateSchema is .passthrough() and lookupLaceRate forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/default-components",
+      "file": "backend/src/routes/productCategory.routes.ts:93",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "setDefaultComponents"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/default-components/add",
+      "file": "backend/src/routes/productCategory.routes.ts:101",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "addDefaultComponent"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /:categoryId/default-components/:componentId",
+      "file": "backend/src/routes/productCategory.routes.ts:109",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "updateDefaultComponent"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:categoryId/default-components/:componentId",
+      "file": "backend/src/routes/productCategory.routes.ts:117",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "removeDefaultComponent"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PATCH /:id/toggle-active",
+      "file": "backend/src/routes/productCategory.routes.ts:134",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "toggleProductCategoryActive"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/productCategory.routes.ts:142",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteProductCategory"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/purchaseOrder.routes.ts:96",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deletePurchaseOrder"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id/items/:itemId",
+      "file": "backend/src/routes/purchaseOrder.routes.ts:119",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "removePurchaseOrderItem"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PATCH /:id/send",
+      "file": "backend/src/routes/purchaseOrder.routes.ts:126",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "sendPurchaseOrder"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PATCH /:id/acknowledge",
+      "file": "backend/src/routes/purchaseOrder.routes.ts:129",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "acknowledgePurchaseOrder"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/quotation.routes.ts:79",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteQuotation"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /mark-expired",
+      "file": "backend/src/routes/quotation.routes.ts:82",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "markExpiredQuotations"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /generate",
+      "file": "backend/src/routes/report.routes.ts:23",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "generateReport"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /cleanup",
+      "file": "backend/src/routes/report.routes.ts:40",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "cleanupReports"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/saleOrder.routes.ts:59",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "saleOrderController.delete.bind"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/sample.controller.ts:36",
+      "schema": "createSampleSchema",
+      "detail": "createSampleSchema is .passthrough() and createSample forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /:id",
+      "file": "backend/src/controllers/sample.controller.ts:493",
+      "schema": "updateSampleSchema",
+      "detail": "updateSampleSchema is .passthrough() and updateSample forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PATCH /:id/status",
+      "file": "backend/src/controllers/sample.controller.ts:590",
+      "schema": "updateSampleStatusSchema",
+      "detail": "updateSampleStatusSchema is .passthrough() and updateSampleStatus forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/sample.routes.ts:73",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteSample"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /:id/send",
+      "file": "backend/src/controllers/sample.controller.ts:792",
+      "schema": "markAsSentSchema",
+      "detail": "markAsSentSchema is .passthrough() and markAsSent forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /:id/feedback",
+      "file": "backend/src/controllers/sample.controller.ts:928",
+      "schema": "recordFeedbackSchema",
+      "detail": "recordFeedbackSchema is .passthrough() and recordFeedback forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/season.routes.ts:52",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteSeason"
+    },
+    {
+      "type": "REQUIRED_UNUSED",
+      "severity": "MEDIUM",
+      "symptom": "400-blocks-valid-input",
+      "route": "PATCH /service-requirements/:id/execution",
+      "file": "backend/src/schemas/serviceRequirement.schema.ts",
+      "schema": "updateExecutionSchema",
+      "fields": [
+        "status"
+      ],
+      "detail": "updateExecutionSchema REQUIRES [status] but updateExecution never reads them → callers must send dead fields or get 400."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/size-category.routes.ts:38",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteSizeCategory"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /issues/:id",
+      "file": "backend/src/routes/stitching.routes.ts:71",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteStitchingIssue"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /issues/:id/start",
+      "file": "backend/src/routes/stitching.routes.ts:80",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "startStitchingIssue"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /issues/:id/complete",
+      "file": "backend/src/routes/stitching.routes.ts:87",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "completeStitchingIssue"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /issues/:id/reopen",
+      "file": "backend/src/routes/stitching.routes.ts:88",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "reopenStitchingIssue"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /issues/:id/generate-transfer-slip",
+      "file": "backend/src/routes/stitching.routes.ts:89",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "generateTransferSlip"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/routes/stockCount.routes.ts:26",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "stockCountController.createStockCount"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/start",
+      "file": "backend/src/routes/stockCount.routes.ts:27",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "stockCountController.startCounting"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/verify",
+      "file": "backend/src/routes/stockCount.routes.ts:28",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "stockCountController.verifyStockCount"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/approve",
+      "file": "backend/src/routes/stockCount.routes.ts:29",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "stockCountController.approveStockCount"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/cancel",
+      "file": "backend/src/routes/stockCount.routes.ts:30",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "stockCountController.cancelStockCount"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/stockProductionOrder.routes.ts:53",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "stockProductionOrderController.delete.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:styleId/comments",
+      "file": "backend/src/routes/style-comment.routes.ts:27",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "createComment"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PATCH /:styleId/comments/:commentId",
+      "file": "backend/src/routes/style-comment.routes.ts:33",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "updateComment"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:styleId/comments/:commentId",
+      "file": "backend/src/routes/style-comment.routes.ts:39",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteComment"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:styleId/images",
+      "file": "backend/src/routes/style-image.routes.ts:25",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "uploadImage"
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "POST /:styleId/images/reorder",
+      "file": "backend/src/controllers/style-image.controller.ts:71",
+      "schema": "reorderImagesSchema (styleImage.schema.ts)",
+      "fields": [
+        "imageIds"
+      ],
+      "detail": "reorderImages reads [imageIds] but reorderImagesSchema strips them → saved as undefined."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:styleId/images/:imageId",
+      "file": "backend/src/routes/style-image.routes.ts:46",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteImage"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /import",
+      "file": "backend/src/routes/style-import.routes.ts:47",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": null
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:styleId/materials",
+      "file": "backend/src/routes/style-material-bom.routes.ts:32",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "addMaterialToBOM"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /:styleId/materials/:bomId",
+      "file": "backend/src/routes/style-material-bom.routes.ts:33",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "updateBOMItem"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:styleId/materials/:bomId",
+      "file": "backend/src/routes/style-material-bom.routes.ts:34",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteBOMItem"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:styleId/tech-specs",
+      "file": "backend/src/routes/style-tech-specs.routes.ts:30",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteTechSpecs"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /drafts/:id",
+      "file": "backend/src/routes/style.routes.ts:77",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteDraft"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/style.routes.ts:106",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteStyle"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/image",
+      "file": "backend/src/routes/style.routes.ts:120",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "uploadStyleImage"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/variants",
+      "file": "backend/src/routes/style.routes.ts:129",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "createStyleVariants"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/publish",
+      "file": "backend/src/routes/style.routes.ts:137",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "publishDraft"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/cad-groups",
+      "file": "backend/src/routes/style.routes.ts:152",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "updateCADGrouping"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /:id/approve-cad",
+      "file": "backend/src/routes/style.routes.ts:160",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "approveCADPlan"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:id/restore",
+      "file": "backend/src/routes/style.routes.ts:168",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "restoreStyle"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id/permanent",
+      "file": "backend/src/routes/style.routes.ts:176",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "permanentDeleteStyle"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:styleId/components",
+      "file": "backend/src/routes/style.routes.ts:188",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "createComponent"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /components/:id",
+      "file": "backend/src/routes/style.routes.ts:196",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "updateComponent"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /components/:id",
+      "file": "backend/src/routes/style.routes.ts:204",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteComponent"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /components/:componentId/fabrics",
+      "file": "backend/src/routes/style.routes.ts:216",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "createFabric"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /fabrics/:id",
+      "file": "backend/src/routes/style.routes.ts:224",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "updateFabric"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /fabrics/:id",
+      "file": "backend/src/routes/style.routes.ts:232",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteFabric"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /components/:componentId/accessories",
+      "file": "backend/src/routes/style.routes.ts:244",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "createAccessory"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /accessories/:id",
+      "file": "backend/src/routes/style.routes.ts:252",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "updateAccessory"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /accessories/:id",
+      "file": "backend/src/routes/style.routes.ts:260",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteAccessory"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "POST /:styleId/processes",
+      "file": "backend/src/routes/style.routes.ts:272",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "createProcess"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PUT /processes/:id",
+      "file": "backend/src/routes/style.routes.ts:280",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "updateProcess"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /processes/:id",
+      "file": "backend/src/routes/style.routes.ts:288",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteProcess"
+    },
+    {
+      "type": "SCHEMA_UNRESOLVED",
+      "severity": "LOW",
+      "symptom": "analyzer-gap",
+      "route": "POST /",
+      "file": "backend/src/routes/styleCosting.routes.ts:67",
+      "detail": "validateBody(CreateCostSheetSchema) but that export could not be loaded/introspected."
+    },
+    {
+      "type": "SCHEMA_UNRESOLVED",
+      "severity": "LOW",
+      "symptom": "analyzer-gap",
+      "route": "PUT /:id",
+      "file": "backend/src/routes/styleCosting.routes.ts:112",
+      "detail": "validateBody(UpdateCostSheetSchema) but that export could not be loaded/introspected."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/styleCosting.routes.ts:132",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteCostSheet"
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "PATCH /:id/actuals",
+      "file": "backend/src/controllers/style-costing-approval.controller.ts:620",
+      "schema": "updateActualsSchema (styleCosting.schema.ts)",
+      "fields": [
+        "fabricActual",
+        "trimsActual",
+        "cmtActual",
+        "embroideryActual",
+        "accessoriesActual",
+        "totalActual"
+      ],
+      "detail": "updateActuals reads [fabricActual, trimsActual, cmtActual, embroideryActual, accessoriesActual, totalActual] but updateActualsSchema strips them → saved as undefined."
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "POST /variance/:id/approve",
+      "file": "backend/src/controllers/style-costing-approval.controller.ts:673",
+      "schema": "approveVarianceSchema (styleCosting.schema.ts)",
+      "fields": [
+        "action",
+        "notes"
+      ],
+      "detail": "approveVariance reads [action, notes] but approveVarianceSchema strips them → saved as undefined."
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "POST /:costingId/lace-items/calculate-options",
+      "file": "backend/src/controllers/styleCostingLaceItems.controller.ts:190",
+      "schema": "calculateLaceOptionsSchema (styleCosting.schema.ts)",
+      "fields": [
+        "quantityPerGarment",
+        "orderQuantity",
+        "wastagePercent",
+        "styleId"
+      ],
+      "detail": "calculateLaceOptions reads [quantityPerGarment, orderQuantity, wastagePercent, styleId] but calculateLaceOptionsSchema strips them → saved as undefined."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:costingId/lace-items/:itemId",
+      "file": "backend/src/routes/styleCosting.routes.ts:263",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteLaceItem"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/supplier.controller.ts:8",
+      "schema": "createSupplierSchema",
+      "detail": "createSupplierSchema is .passthrough() and createSupplier forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /:id",
+      "file": "backend/src/controllers/supplier.controller.ts:65",
+      "schema": "updateSupplierSchema",
+      "detail": "updateSupplierSchema is .passthrough() and updateSupplier forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/supplier.routes.ts:44",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteSupplier"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:key",
+      "file": "backend/src/routes/system-settings.routes.ts:40",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "systemSettingsController.delete.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/taxMasters.routes.ts:50",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteTax"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/tcs.routes.ts:38",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "tcsController.delete.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/tds.routes.ts:38",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "tdsController.delete.bind"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/template.routes.ts:50",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "templateController.deleteTemplate"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/testingLabs.routes.ts:27",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteTestingLab"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/testTemplates.routes.ts:34",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteTestTemplate"
+    },
+    {
+      "type": "SILENT_DROP",
+      "severity": "HIGH",
+      "symptom": "silent-data-loss",
+      "route": "POST /convert",
+      "file": "backend/src/controllers/thread-conversion.controller.ts:8",
+      "schema": "convertThreadSchema (trimMasters.schema.ts)",
+      "fields": [
+        "ply",
+        "packagingType",
+        "inputType",
+        "value"
+      ],
+      "detail": "convertThreadQuantity reads [ply, packagingType, inputType, value] but convertThreadSchema strips them → saved as undefined."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/thread.controller.ts:18",
+      "schema": "createThreadSchema",
+      "detail": "createThreadSchema is .passthrough() and createThread forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /:id",
+      "file": "backend/src/controllers/thread.controller.ts:336",
+      "schema": "updateThreadSchema",
+      "detail": "updateThreadSchema is .passthrough() and updateThread forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/thread.routes.ts:75",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteThread"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PATCH /:id/send",
+      "file": "backend/src/routes/unified-po.routes.ts:63",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "sendPOController"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PATCH /:id/acknowledge",
+      "file": "backend/src/routes/unified-po.routes.ts:71",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "acknowledgePOController"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id/permanent",
+      "file": "backend/src/routes/user.routes.ts:87",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "permanentDeleteUser"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/user.routes.ts:95",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteUser"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/warehouse.routes.ts:57",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "warehouseController.deleteWarehouse"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "PATCH /:id/approve",
+      "file": "backend/src/routes/workOrder.routes.ts:117",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "workOrderController.approveWorkOrder"
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/workOrder.routes.ts:120",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "workOrderController.deleteWorkOrder"
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "POST /",
+      "file": "backend/src/controllers/zipper.controller.ts:17",
+      "schema": "createZipperSchema",
+      "detail": "createZipperSchema is .passthrough() and createZipper forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "PASSTHROUGH_WHOLESALE",
+      "severity": "MEDIUM",
+      "symptom": "mass-assignment",
+      "route": "PUT /:id",
+      "file": "backend/src/controllers/zipper.controller.ts:259",
+      "schema": "updateZipperSchema",
+      "detail": "updateZipperSchema is .passthrough() and updateZipper forwards req.body wholesale → unvalidated keys reach the service/Prisma."
+    },
+    {
+      "type": "NO_VALIDATION",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / mass-assignment",
+      "route": "DELETE /:id",
+      "file": "backend/src/routes/zipper.routes.ts:48",
+      "detail": "Mutating route has no validateBody — raw body reaches the controller/Prisma.",
+      "handler": "deleteZipper"
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/agent.controller.ts:24",
+      "schema": "agentQuerySchema",
+      "fields": [
+        "page",
+        "limit",
+        "isActive"
+      ],
+      "detail": "getAllAgents reads req.query.[page, limit, isActive] but those are coerced by agentQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/button.controller.ts:161",
+      "schema": "trimMasterQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllButtons reads req.query.[page, limit] but those are coerced by trimMasterQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/chartOfAccounts.controller.ts:68",
+      "schema": "chartOfAccountQuerySchema",
+      "fields": [
+        "page",
+        "limit",
+        "isActive"
+      ],
+      "detail": "getAllAccounts reads req.query.[page, limit, isActive] but those are coerced by chartOfAccountQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/componentMasters.controller.ts:96",
+      "schema": "componentMasterQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllComponentMasters reads req.query.[page, limit] but those are coerced by componentMasterQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/costCenters.controller.ts:37",
+      "schema": "costCenterQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllCostCenters reads req.query.[page, limit] but those are coerced by costCenterQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /calculate",
+      "file": "backend/src/controllers/costSheetPOGeneration.controller.ts:9",
+      "schema": "calculateRequirementsQuerySchema",
+      "fields": [
+        "totalOrderQty"
+      ],
+      "detail": "calculateRequirements reads req.query.[totalOrderQty] but those are coerced by calculateRequirementsQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/customer.controller.ts:18",
+      "schema": "customerQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllCustomers reads req.query.[page, limit] but those are coerced by customerQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /batches",
+      "file": "backend/src/controllers/cutting.controller.ts:21",
+      "schema": "cuttingBatchQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllCuttingBatches reads req.query.[page, limit] but those are coerced by cuttingBatchQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /delivery-notes",
+      "file": "backend/src/controllers/dispatch.controller.ts:235",
+      "schema": "deliveryNoteQuerySchema",
+      "fields": [
+        "page",
+        "limit",
+        "fromDate",
+        "toDate"
+      ],
+      "detail": "getAllDeliveryNotes reads req.query.[page, limit, fromDate, toDate] but those are coerced by deliveryNoteQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /asn",
+      "file": "backend/src/controllers/dispatch.controller.ts:963",
+      "schema": "asnQuerySchema",
+      "fields": [
+        "page",
+        "limit",
+        "fromDate",
+        "toDate"
+      ],
+      "detail": "getAllASN reads req.query.[page, limit, fromDate, toDate] but those are coerced by asnQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /process-pos",
+      "file": "backend/src/controllers/dyeing.controller.ts:1313",
+      "schema": "processPoQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getProcessPOs reads req.query.[page, limit] but those are coerced by processPoQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /lab-dips",
+      "file": "backend/src/controllers/dyeing.controller.ts:215",
+      "schema": "labDipQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllLabDips reads req.query.[page, limit] but those are coerced by labDipQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /jobs",
+      "file": "backend/src/controllers/dyeing.controller.ts:579",
+      "schema": "dyeJobQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllDyeJobs reads req.query.[page, limit] but those are coerced by dyeJobQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/elastic.controller.ts:127",
+      "schema": "trimMasterQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllElastic reads req.query.[page, limit] but those are coerced by trimMasterQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /send-outs",
+      "file": "backend/src/controllers/embroidery-stock.controller.ts:109",
+      "schema": "embroideryStockQuerySchema",
+      "fields": [
+        "fromDate",
+        "toDate"
+      ],
+      "detail": "getSendOuts reads req.query.[fromDate, toDate] but those are coerced by embroideryStockQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/embroidery.controller.ts:116",
+      "schema": "embroideryQuerySchema",
+      "fields": [
+        "page",
+        "limit",
+        "isActive"
+      ],
+      "detail": "getAllEmbroidery reads req.query.[page, limit, isActive] but those are coerced by embroideryQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/expenseTypes.controller.ts:35",
+      "schema": "expenseTypeQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllExpenseTypes reads req.query.[page, limit] but those are coerced by expenseTypeQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /options",
+      "file": "backend/src/controllers/fabric-costing.controller.ts:873",
+      "schema": "costingOptionsQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getCostingOptions reads req.query.[page, limit] but those are coerced by costingOptionsQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /greige",
+      "file": "backend/src/controllers/greige.controller.ts:31",
+      "schema": "greigeQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllGreigeMasters reads req.query.[page, limit] but those are coerced by greigeQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /fabric",
+      "file": "backend/src/controllers/fabric.controller.ts:14",
+      "schema": "fabricQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllFabricMasters reads req.query.[page, limit] but those are coerced by fabricQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/fabric-procurement.controller.ts:34",
+      "schema": "procurementQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getProcurements reads req.query.[page, limit] but those are coerced by procurementQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/fabric-stock.controller.ts:172",
+      "schema": "fabricStockQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "listStock reads req.query.[page, limit] but those are coerced by fabricStockQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /issues",
+      "file": "backend/src/controllers/finishing.controller.ts:201",
+      "schema": "finishingIssueQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllFinishingIssues reads req.query.[page, limit] but those are coerced by finishingIssueQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /:trimType",
+      "file": "backend/src/controllers/agency.controller.ts:7",
+      "schema": "genericTrimQuerySchema",
+      "fields": [
+        "page",
+        "limit",
+        "isActive"
+      ],
+      "detail": "getAll reads req.query.[page, limit, isActive] but those are coerced by genericTrimQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/invoice.controller.ts:21",
+      "schema": "invoiceQuerySchema",
+      "fields": [
+        "page",
+        "limit",
+        "fromDate",
+        "toDate"
+      ],
+      "detail": "getAllInvoices reads req.query.[page, limit, fromDate, toDate] but those are coerced by invoiceQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/label.controller.ts:235",
+      "schema": "trimMasterQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllLabel reads req.query.[page, limit] but those are coerced by trimMasterQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/lace.controller.ts:241",
+      "schema": "trimMasterQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllLace reads req.query.[page, limit] but those are coerced by trimMasterQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/laceDefect.controller.ts:167",
+      "schema": "laceDefectQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getDefectsController reads req.query.[page, limit] but those are coerced by laceDefectQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/laceIssueNote.controller.ts:148",
+      "schema": "issueNoteQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getIssueNotesController reads req.query.[page, limit] but those are coerced by issueNoteQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/laceStock.controller.ts:81",
+      "schema": "laceStockQuerySchema",
+      "fields": [
+        "page",
+        "limit",
+        "minQuantity"
+      ],
+      "detail": "getStocks reads req.query.[page, limit, minQuantity] but those are coerced by laceStockQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/machine-part.controller.ts:123",
+      "schema": "machinePartQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllMachineParts reads req.query.[page, limit] but those are coerced by machinePartQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/material-master.controller.ts:9",
+      "schema": "materialQuerySchema",
+      "fields": [
+        "active"
+      ],
+      "detail": "getAllMaterials reads req.query.[active] but those are coerced by materialQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /requirements",
+      "file": "backend/src/controllers/mrp.controller.ts:85",
+      "schema": "requirementsQuerySchema",
+      "fields": [
+        "hasShortfall",
+        "page",
+        "limit"
+      ],
+      "detail": "getRequirements reads req.query.[hasShortfall, page, limit] but those are coerced by requirementsQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /thread-requirements",
+      "file": "backend/src/controllers/order-thread-requirement.controller.ts:120",
+      "schema": "threadRequirementQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllRequirements reads req.query.[page, limit] but those are coerced by threadRequirementQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/packaging.controller.ts:164",
+      "schema": "trimMasterQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllPackaging reads req.query.[page, limit] but those are coerced by trimMasterQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /jobs",
+      "file": "backend/src/controllers/printing.controller.ts:615",
+      "schema": "printJobQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllPrintJobs reads req.query.[page, limit] but those are coerced by printJobQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/productCategory.controller.ts:17",
+      "schema": "productCategoryQuerySchema",
+      "fields": [
+        "page",
+        "limit",
+        "level",
+        "isActive"
+      ],
+      "detail": "getAllProductCategories reads req.query.[page, limit, level, isActive] but those are coerced by productCategoryQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/purchaseOrder.controller.ts:18",
+      "schema": "purchaseOrderQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllPurchaseOrders reads req.query.[page, limit] but those are coerced by purchaseOrderQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/sample.controller.ts:278",
+      "schema": "sampleQuerySchema",
+      "fields": [
+        "page",
+        "limit",
+        "fromDate",
+        "toDate",
+        "pendingApproval"
+      ],
+      "detail": "getAllSamples reads req.query.[page, limit, fromDate, toDate, pendingApproval] but those are coerced by sampleQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /service-requirements/list",
+      "file": "backend/src/controllers/service-requirement.controller.ts:294",
+      "schema": "listServiceRequirementsSchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "listAll reads req.query.[page, limit] but those are coerced by listServiceRequirementsSchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /issues",
+      "file": "backend/src/controllers/stitching.controller.ts:150",
+      "schema": "stitchingIssueQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllStitchingIssues reads req.query.[page, limit] but those are coerced by stitchingIssueQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/style.controller.ts:19",
+      "schema": "styleQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllStyles reads req.query.[page, limit] but those are coerced by styleQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/styleCosting.controller.ts:420",
+      "schema": "costSheetQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllCostSheets reads req.query.[page, limit] but those are coerced by costSheetQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/supplier.controller.ts:21",
+      "schema": "supplierQuerySchema",
+      "fields": [
+        "page",
+        "limit",
+        "rating"
+      ],
+      "detail": "getAllSuppliers reads req.query.[page, limit, rating] but those are coerced by supplierQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/thread.controller.ts:168",
+      "schema": "trimMasterQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllThreads reads req.query.[page, limit] but those are coerced by trimMasterQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/user.controller.ts:10",
+      "schema": "userQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllUsers reads req.query.[page, limit] but those are coerced by userQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    },
+    {
+      "type": "QUERY_COERCION_LOST",
+      "severity": "MEDIUM",
+      "symptom": "500-crash / wrong-filter",
+      "route": "GET /",
+      "file": "backend/src/controllers/zipper.controller.ts:129",
+      "schema": "trimMasterQuerySchema",
+      "fields": [
+        "page",
+        "limit"
+      ],
+      "detail": "getAllZipper reads req.query.[page, limit] but those are coerced by trimMasterQuerySchema; under Express 5 the coerced copy lives only on req.validatedQuery → controller gets a raw string."
+    }
+  ]
+}

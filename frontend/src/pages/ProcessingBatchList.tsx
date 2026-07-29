@@ -13,7 +13,7 @@ import { Badge } from '../components/ui/badge';
 import processingBatchService from '../services/processingBatch.service';
 import type { ProcessingBatch, MaterialType, BatchStatus, ProcessingBatchFilters } from '../types/processing.types';
 import { notify } from '../lib/notify';
-import { Search, RefreshCw, Eye, Factory, Package, Clock, CheckCircle2, Layers } from 'lucide-react';
+import { Search, RefreshCw, Eye, Factory, Package, Clock, CheckCircle2, Layers, Plus } from 'lucide-react';
 
 // Status colors
 const STATUS_COLORS: Record<BatchStatus, string> = {
@@ -137,9 +137,10 @@ export default function ProcessingBatchList() {
             <Factory className="h-4 w-4 mr-2" />
             Job Work Dashboard
           </Button>
-          {/* "New Batch" button removed (B08-07): no batch-creation UI exists and '/processing/batches/new'
-              matches the :id detail route, landing on a stub. Deferred — a real create form (material
-              picker + quantities + lace-specific fields) is needed before re-enabling. */}
+          <Button onClick={() => navigate('/processing/batches/new')}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Batch
+          </Button>
         </div>
       </div>
 

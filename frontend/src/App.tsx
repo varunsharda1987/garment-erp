@@ -156,6 +156,7 @@ import {
   JobWorkDashboard,
   ProcessingBatchList,
   ProcessingBatchDetail,
+  ProcessingBatchCreateForm,
   EmbroideryList,
   EmbroideryForm,
   EmbroideryDetail,
@@ -204,9 +205,12 @@ import {
   ProductionStatus,
   TestingDashboard,
   FabricPhysicalTests,
+  FabricPhysicalTestForm,
   GarmentPhysicalTests,
+  GarmentPhysicalTestForm,
   TestingLabs,
   TestTemplates,
+  TestTemplateForm,
   ProductCategoryMaster,
   ProcessGuidePage,
   OverrideHistory,
@@ -559,6 +563,7 @@ function App() {
               {/* Job Work Processing (Multi-Stage) */}
               <Route path="/processing/job-work" element={<JobWorkDashboard />} />
               <Route path="/processing/batches" element={<ProcessingBatchList />} />
+              <Route path="/processing/batches/new" element={<ProcessingBatchCreateForm />} />
               <Route path="/processing/batches/:id" element={<ProcessingBatchDetail />} />
 
               {/* Sample Tracking (Manufacturing) */}
@@ -646,9 +651,12 @@ function App() {
               {/* Testing Module (FPT/GPT) */}
               <Route path="/testing" element={<TestingDashboard />} />
               <Route path="/fabric-physical-tests" element={<FabricPhysicalTests />} />
+              <Route path="/fabric-physical-tests/new" element={<FabricPhysicalTestForm />} />
               <Route path="/garment-physical-tests" element={<GarmentPhysicalTests />} />
+              <Route path="/garment-physical-tests/new" element={<GarmentPhysicalTestForm />} />
               <Route path="/testing-labs" element={<TestingLabs />} />
               <Route path="/test-templates" element={<TestTemplates />} />
+              <Route path="/test-templates/new" element={<TestTemplateForm />} />
 
               {/* AI Assistant */}
               <Route path="/ai-assistant" element={<AIAssistant />} />

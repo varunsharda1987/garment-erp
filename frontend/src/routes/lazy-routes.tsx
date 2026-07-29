@@ -219,6 +219,7 @@ export const UnifiedRequirementsPage = lazy(() => import('../pages/UnifiedRequir
 export const JobWorkDashboard = lazy(() => import('../pages/JobWorkDashboard'));
 export const ProcessingBatchList = lazy(() => import('../pages/ProcessingBatchList'));
 export const ProcessingBatchDetail = lazy(() => import('../pages/ProcessingBatchDetail'));
+export const ProcessingBatchCreateForm = lazy(() => import('../pages/ProcessingBatchCreateForm'));
 
 // ============================================================================
 // Fabric & Greige Management
@@ -424,9 +425,12 @@ export const AIAssistant = lazy(() => import('../pages/AIAssistant'));
 // ============================================================================
 export const TestingDashboard = lazy(() => import('../pages/TestingDashboard'));
 export const FabricPhysicalTests = lazy(() => import('../pages/FabricPhysicalTests'));
+export const FabricPhysicalTestForm = lazy(() => import('../pages/FabricPhysicalTestForm'));
 export const GarmentPhysicalTests = lazy(() => import('../pages/GarmentPhysicalTests'));
+export const GarmentPhysicalTestForm = lazy(() => import('../pages/GarmentPhysicalTestForm'));
 export const TestingLabs = lazy(() => import('../pages/TestingLabs'));
 export const TestTemplates = lazy(() => import('../pages/TestTemplates'));
+export const TestTemplateForm = lazy(() => import('../pages/TestTemplateForm'));
 
 // ============================================================================
 // Process Guide

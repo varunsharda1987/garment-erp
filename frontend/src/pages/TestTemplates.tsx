@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FileText, Plus, Search, Edit, CheckCircle, XCircle, Filter } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,11 +12,7 @@ import { handleApiError } from '@/lib/api-error-handler';
 import { notify } from '@/lib/notify';
 
 export default function TestTemplates() {
-  // Test-template create/edit/detail screens are not built yet (deferred). Inform instead of routing to NotFound.
-  const notImplemented = () =>
-    notify.info('Coming soon', {
-      description: 'Test template create/edit/detail screens are not yet available.',
-    });
+  const navigate = useNavigate();
   const [templates, setTemplates] = useState<TestTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -81,7 +78,7 @@ export default function TestTemplates() {
           </h1>
           <p className="text-muted-foreground mt-1">Define test parameters and tolerance ranges for buyers</p>
         </div>
-        <Button onClick={notImplemented} className="flex items-center gap-2">
+        <Button onClick={() => navigate('/test-templates/new')} className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
           Create Template
         </Button>
@@ -125,7 +122,7 @@ export default function TestTemplates() {
           <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No Test Templates Found</h3>
           <p className="text-muted-foreground mb-4">Create your first test template</p>
-          <Button onClick={notImplemented}>
+          <Button onClick={() => navigate('/test-templates/new')}>
             <Plus className="h-4 w-4 mr-2" />
             Create Template
           </Button>
@@ -214,11 +211,23 @@ export default function TestTemplates() {
 
                 {/* Actions */}
                 <div className="flex gap-2 ml-4">
-                  <Button variant="outline" size="sm" onClick={notImplemented}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      notify.info('Coming soon', { description: 'Edit template feature is not yet available.' })
+                    }
+                  >
                     <Edit className="h-4 w-4 mr-1" />
                     Edit
                   </Button>
-                  <Button variant="outline" size="sm" onClick={notImplemented}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      notify.info('Coming soon', { description: 'View template detail is not yet available.' })
+                    }
+                  >
                     View
                   </Button>
                 </div>

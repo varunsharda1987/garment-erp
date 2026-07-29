@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Shirt, Plus, Search, Filter, CheckCircle, XCircle, Clock, AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,15 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { garmentPhysicalTestsService } from '@/services/testing.service';
 import type { GarmentPhysicalTest, TestResult } from '@/types/testing.types';
 import { handleApiError } from '@/lib/api-error-handler';
-import { notify } from '@/lib/notify';
 
 export default function GarmentPhysicalTests() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  // GPT create/detail screens are not built yet (deferred). Inform instead of routing to NotFound.
-  const notImplemented = () =>
-    notify.info('Coming soon', {
-      description: 'Garment physical test entry & detail screens are not yet available.',
-    });
   const [tests, setTests] = useState<GarmentPhysicalTest[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -123,7 +118,7 @@ export default function GarmentPhysicalTests() {
             Track shrinkage, seam strength, and color fastness tests for finished garments
           </p>
         </div>
-        <Button onClick={notImplemented} className="flex items-center gap-2">
+        <Button onClick={() => navigate('/garment-physical-tests/new')} className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
           Create GPT
         </Button>
@@ -189,7 +184,7 @@ export default function GarmentPhysicalTests() {
           <Shirt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-foreground mb-2">No Garment Tests Found</h3>
           <p className="text-muted-foreground mb-4">Create your first garment physical test</p>
-          <Button onClick={notImplemented}>
+          <Button onClick={() => navigate('/garment-physical-tests/new')}>
             <Plus className="h-4 w-4 mr-2" />
             Create GPT
           </Button>

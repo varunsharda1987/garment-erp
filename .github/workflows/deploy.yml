@@ -16,16 +16,19 @@
 name: Deploy to Production
 
 on:
-  # Deploy only AFTER the "Test" workflow (lint + typecheck + guardrails + docker build)
-  # succeeds on main. This gates production behind a green build: a failing check now
-  # BLOCKS the deploy instead of racing it in parallel. Previously this triggered directly
-  # on `push` to main with no dependency, so a red build still shipped to prod.
-  # Manual deploys remain available via the "Run workflow" button (workflow_dispatch).
-  workflow_run:
-    workflows: ["Test"]
-    types: [completed]
-    branches: [main]
-  workflow_dispatch:  # Allow manual trigger
+  # Auto-deploy is PAUSED: the DigitalOcean droplet is not currently in use and production
+  # is deployed manually. Leaving the old push-trigger (or the gated workflow_run) active
+  # would just spawn failing deploys against a server that isn't there.
+  #
+  # To RE-ENABLE gated auto-deploy once a live server + secrets exist, restore this block —
+  # it deploys only after the "Test" workflow passes on main (a red build can't ship):
+  #   workflow_run:
+  #     workflows: ["Test"]
+  #     types: [completed]
+  #     branches: [main]
+  #
+  # (The deploy job below already guards on workflow_run.conclusion == 'success'.)
+  workflow_dispatch:  # manual trigger only, for now
 
 env:
   DEPLOY_PATH: /opt/garment-erp

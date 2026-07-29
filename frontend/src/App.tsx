@@ -200,6 +200,7 @@ import {
   DispatchDeliveryNoteDetail,
   DispatchPODForm,
   ASNDetail,
+  ASNCreateForm,
   ProductionStatus,
   TestingDashboard,
   FabricPhysicalTests,
@@ -598,6 +599,7 @@ function App() {
               <Route path="/manufacturing/dispatch/delivery/new" element={<DispatchDeliveryNoteForm />} />
               <Route path="/manufacturing/dispatch/delivery/:id/pod" element={<DispatchPODForm />} />
               <Route path="/manufacturing/dispatch/delivery/:id" element={<DispatchDeliveryNoteDetail />} />
+              <Route path="/manufacturing/dispatch/asn/new" element={<ASNCreateForm />} />
               <Route path="/manufacturing/dispatch/asn/:id" element={<ASNDetail />} />
 
               {/* Color Master */}

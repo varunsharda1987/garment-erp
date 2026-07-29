@@ -189,9 +189,12 @@ export default function DispatchList() {
           <Button variant="outline" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
-          {/* "New ASN" button hidden (finding B10-03): the /manufacturing/dispatch/asn/new route and
-              its multi-step ASN creation form do not exist yet, so this only landed on NotFound.
-              Deferred for a real build — see deferredBuilds. */}
+          <Button variant="outline" asChild>
+            <Link to="/manufacturing/dispatch/asn/new">
+              <Plus className="h-4 w-4 mr-2" />
+              New ASN
+            </Link>
+          </Button>
           <Button asChild>
             <Link to="/manufacturing/dispatch/delivery/new">
               <Plus className="h-4 w-4 mr-2" />

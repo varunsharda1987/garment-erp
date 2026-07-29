@@ -526,16 +526,18 @@ export function applyRelationMappings<T = unknown>(data: unknown): T {
       }
 
       // Check if this key has a custom mapping
-      let mappedKey = RELATION_MAPPINGS[key] || key;
+      const mappedKey = RELATION_MAPPINGS[key] || key;
 
-      // Cardinality guard: customers/styles/suppliers map to a SINGULAR (belongs-to) name, but the
-      // same snake_case key is ALSO used for has-many ARRAYS. Singularizing an array ships it under
-      // the singular key so the frontend's plural read returns undefined — the root cause of the
-      // BH-0207 supplier-link-wiping data-loss bug. Keep the plural key when the value is an array;
-      // still singularize a single belongs-to object.
-      if (Array.isArray(value) && (key === 'customers' || key === 'styles' || key === 'suppliers')) {
-        mappedKey = key;
-      }
+      // ⚠ DO NOT add a "cardinality guard" here that keeps the plural key for arrays.
+      // It looks correct (suppliers/customers/styles are has-many arrays being shipped under a
+      // singular key) but the FRONTEND WAS ALREADY ADAPTED TO THE SINGULAR KEY when BH-0207 was fixed
+      // on 2026-07-17 (see frontend/src/types/fabric-greige.types.ts — `supplier?: Array<...>`).
+      // Reverting the serializer to plural silently broke those consumers: FabricForm/GreigeForm read
+      // `fabric.supplier` → undefined → submitted `suppliers: []` → fabric.service deleteMany wiped
+      // every supplier link on save. Introduced in 3e54b854, reverted here.
+      // If this is ever "fixed" properly, the frontend reads must change IN THE SAME COMMIT:
+      //   FabricForm.tsx, GreigeForm.tsx, MaterialForm.tsx, FabricDetail.tsx, MaterialDetail.tsx,
+      //   MaterialList.tsx  (+ the type comment in fabric-greige.types.ts).
 
       if (debugEnabled && mappedKey !== key) {
         logDebug(`  [Mapping] ${key} → ${mappedKey}`);

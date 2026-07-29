@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { UnitEnum } from './common.schema';
 
 // ============================================================================
 // Enums (match Prisma enums)
@@ -25,24 +26,8 @@ export const MaterialRequirementStatusEnum = z.enum([
 
 export const RequirementSourceEnum = z.enum(['SALES_ORDER', 'WORK_ORDER', 'MANUAL']);
 
-export const UnitEnum = z.enum([
-  'PIECE',
-  'METER',
-  'YARD',
-  'KILOGRAM',
-  'GRAM',
-  'CONE',
-  'SPOOL',
-  'ROLL',
-  'BOX',
-  'SET',
-  'DOZEN',
-  'GROSS',
-  'LITER',
-  'PAIR',
-  'PACK',
-  'TUBE',
-]);
+// Units come from the central shared enum (common.schema.ts) so they can never drift again.
+export { UnitEnum };
 
 export const RequirementTypeEnum = z.enum(['MATERIAL', 'PROCESSING']);
 

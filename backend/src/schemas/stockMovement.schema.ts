@@ -12,29 +12,14 @@
  */
 
 import { z } from 'zod';
+import { UnitEnum } from './common.schema';
 
 // ============================================================================
 // Enums (match Prisma enums)
 // ============================================================================
 
-export const UnitEnum = z.enum([
-  'METER',
-  'PIECE',
-  'KILOGRAM',
-  'SET',
-  'YARD',
-  'DOZEN',
-  'GROSS',
-  'TUBE',
-  'CONE',
-  'SPOOL',
-  'BOX',
-  'PAIR',
-  'PACK',
-  'GRAM',
-  'LITER',
-  'ROLL',
-]);
+// Units come from the central shared enum (common.schema.ts) so they can never drift again.
+export { UnitEnum };
 
 export const ItemTypeEnum = z.enum([
   'GREIGE',

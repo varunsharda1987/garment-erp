@@ -166,8 +166,24 @@ function perRouteValidation(relFiles) {
       const pathM = call.match(/^\(\s*['"`]([^'"`]*)['"`]/);
       const routePath = pathM ? pathM[1] : '?';
       const validated = /\bvalidateBody\s*\(|\bvalidateQuery\s*\(/.test(call);
-      // Opt-out for genuinely body-less mutations: `// no-body` in the call or just above it.
-      const optOut = /no-body/.test(call) || /no-body/.test(content.slice(Math.max(0, m.index - 80), m.index));
+      // Opt-out for genuinely body-less mutations: `// no-body` in the call, or in the comment block
+      // directly above it. Scan back over whole COMMENT LINES rather than a fixed 80-char window —
+      // that window silently ignored any marker whose explanatory comment ran past ~82 chars, so a
+      // correctly-marked route kept being reported and the author had no way to see why.
+      const lines = content.slice(0, m.index).split('\n');
+      let precedingComment = '';
+      // Walk up from the route, collecting the comment block immediately above it. STOP at the first
+      // line of real code so we can't pick up an unrelated comment further up the file.
+      for (let i = lines.length - 2; i >= 0; i--) {
+        const t = lines[i].trim();
+        if (t === '') continue;
+        if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) {
+          precedingComment += t + '\n';
+          continue;
+        }
+        break;
+      }
+      const optOut = /no-body/.test(call) || /no-body/.test(precedingComment);
       if (!validated && !optOut) {
         out.push({
           key: `${rel} :: ${verb} ${routePath}`,

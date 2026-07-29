@@ -83,6 +83,7 @@ import {
   StockAdjustmentForm,
   StockCountList,
   StockCountForm,
+  StockCountDetail,
   WorkOrderList,
   WorkOrderDetail,
   WorkOrderForm,
@@ -508,6 +509,7 @@ function App() {
               <Route path="/inventory/stock-levels" element={<StockLevelList />} />
               <Route path="/inventory/stock-counts" element={<StockCountList />} />
               <Route path="/inventory/stock-counts/new" element={<StockCountForm />} />
+              <Route path="/inventory/stock-counts/:id" element={<StockCountDetail />} />
 
               {/* Production Planning (Phase 5.4) */}
               <Route path="/stock-production-orders" element={<StockProductionOrderList />} />

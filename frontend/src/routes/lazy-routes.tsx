@@ -171,6 +171,7 @@ export const StockTransferForm = lazy(() => import('../pages/StockTransferForm')
 export const StockAdjustmentForm = lazy(() => import('../pages/StockAdjustmentForm'));
 export const StockCountList = lazy(() => import('../pages/StockCountList'));
 export const StockCountForm = lazy(() => import('../pages/StockCountForm'));
+export const StockCountDetail = lazy(() => import('../pages/StockCountDetail'));
 
 // ============================================================================
 // Production Planning

@@ -370,8 +370,9 @@ export interface StockCountItem {
   updatedAt: Date | string;
   materials?: {
     id: string;
-    materialCode: string;
-    materialName: string;
+    code: string;
+    name: string;
+    unit?: string;
   };
 }
 

@@ -145,8 +145,6 @@ export default function StockCountList() {
       header: 'Status',
       render: (count) => <StatusBadge status={count.status} variant={getStatusVariant(count.status)} />,
     },
-    // Row/View "open detail" nav removed: the stock-count detail page (start/count/verify/approve
-    // workflow) is not built yet — deferred as B07-12 so the link doesn't dead-end on NotFound.
   ];
 
   return (
@@ -212,6 +210,7 @@ export default function StockCountList() {
           keyExtractor={(count) => count.id}
           loading={loading}
           error={error}
+          onRowClick={(count) => navigate(`/inventory/stock-counts/${count.id}`)}
           emptyState={{
             icon: <ClipboardList className="h-16 w-16" />,
             title: 'No stock counts found',

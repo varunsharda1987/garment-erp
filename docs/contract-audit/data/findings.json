@@ -373,19 +373,6 @@
       "detail": "createProcurementSchema REQUIRES [supplierId, quantityPurchased, width, ratePerUnit, totalCost] but createProcurement never reads them → callers must send dead fields or get 400."
     },
     {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "PUT /issues/:id",
-      "file": "backend/src/controllers/finishing.controller.ts:379",
-      "schema": "updateFinishingIssueSchema (production.schema.ts)",
-      "fields": [
-        "issueDate",
-        "expectedCompletionDate"
-      ],
-      "detail": "updateFinishingIssue reads [issueDate, expectedCompletionDate] but updateFinishingIssueSchema strips them → saved as undefined."
-    },
-    {
       "type": "PASSTHROUGH_WHOLESALE",
       "severity": "MEDIUM",
       "symptom": "mass-assignment",
@@ -629,19 +616,6 @@
       "handler": "cleanupReports"
     },
     {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "PUT /issues/:id",
-      "file": "backend/src/controllers/stitching.controller.ts:412",
-      "schema": "updateStitchingIssueSchema (production.schema.ts)",
-      "fields": [
-        "issueDate",
-        "expectedCompletionDate"
-      ],
-      "detail": "updateStitchingIssue reads [issueDate, expectedCompletionDate] but updateStitchingIssueSchema strips them → saved as undefined."
-    },
-    {
       "type": "NO_VALIDATION",
       "severity": "MEDIUM",
       "symptom": "500-crash / mass-assignment",
@@ -860,52 +834,6 @@
         "approved"
       ],
       "detail": "approveVarianceSchema REQUIRES [approved] but approveVariance never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "POST /:costingId/lace-items/calculate-options",
-      "file": "backend/src/controllers/styleCostingLaceItems.controller.ts:190",
-      "schema": "calculateLaceOptionsSchema (styleCosting.schema.ts)",
-      "fields": [
-        "quantityPerGarment",
-        "orderQuantity",
-        "wastagePercent",
-        "styleId"
-      ],
-      "detail": "calculateLaceOptions reads [quantityPerGarment, orderQuantity, wastagePercent, styleId] but calculateLaceOptionsSchema strips them → saved as undefined."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /:costingId/lace-items/calculate-options",
-      "file": "backend/src/schemas/styleCosting.schema.ts",
-      "schema": "calculateLaceOptionsSchema",
-      "fields": [
-        "quantity"
-      ],
-      "detail": "calculateLaceOptionsSchema REQUIRES [quantity] but calculateLaceOptions never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "PUT /:costingId/lace-items/:itemId",
-      "file": "backend/src/controllers/styleCostingLaceItems.controller.ts:95",
-      "schema": "updateLaceItemSchema (styleCosting.schema.ts)",
-      "fields": [
-        "sourcingStrategy",
-        "width",
-        "quantityPerGarment",
-        "wastagePercent",
-        "greigeCost",
-        "readyLaceCost",
-        "stockCost",
-        "costPerMeter"
-      ],
-      "detail": "updateLaceItemController reads [sourcingStrategy, width, quantityPerGarment, wastagePercent, greigeCost, readyLaceCost, stockCost, costPerMeter] but updateLaceItemSchema strips them → saved as undefined."
     },
     {
       "type": "PASSTHROUGH_WHOLESALE",

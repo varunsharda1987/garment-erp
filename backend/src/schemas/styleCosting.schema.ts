@@ -165,12 +165,19 @@ export const addLaceItemSchema = z.object({
  * Update Lace Item
  * PUT /api/style-costing/:costingId/lace-items/:itemId
  */
+// Matches updateLaceItemController + the style_costing_lace_items columns. The previous
+// {quantity, unit, rate, costOption} shape referenced fields that are not columns at all, so every
+// real edit (width, wastage, the four cost components) was stripped and silently lost.
 export const updateLaceItemSchema = z.object({
-  quantity: z.number().positive().optional(),
-  unit: z.string().max(20).optional(),
-  rate: z.number().nonnegative().optional(),
-  costOption: z.enum(['STOCK', 'READY', 'GREIGE_PROCESSING']).optional(),
-  processingCost: z.number().nonnegative().optional().nullable(),
+  sourcingStrategy: z.enum(['STOCK_REUSE', 'READY_LACE', 'GREIGE_PROCESSED']).optional(),
+  width: z.coerce.number().nonnegative().optional(),
+  quantityPerGarment: z.coerce.number().nonnegative().optional(),
+  wastagePercent: z.coerce.number().min(0).max(100).optional(),
+  greigeCost: z.coerce.number().nonnegative().optional().nullable(),
+  processingCost: z.coerce.number().nonnegative().optional().nullable(),
+  readyLaceCost: z.coerce.number().nonnegative().optional().nullable(),
+  stockCost: z.coerce.number().nonnegative().optional().nullable(),
+  costPerMeter: z.coerce.number().nonnegative().optional(),
   remarks: z.string().max(500).optional().nullable(),
 });
 
@@ -198,9 +205,14 @@ export const bulkAddLaceItemsSchema = z.object({
  * Calculate Lace Options
  * POST /api/style-costing/:costingId/lace-items/calculate-options
  */
+// Matches calculateLaceOptions(). The old {laceId, quantity} shape stripped everything the
+// controller requires, so it always threw 'Missing required fields: laceId, quantityPerGarment'.
 export const calculateLaceOptionsSchema = z.object({
   laceId: z.string().uuid('Invalid lace ID'),
-  quantity: z.number().positive('Quantity must be positive'),
+  quantityPerGarment: z.coerce.number().nonnegative('Quantity per garment must be 0 or greater'),
+  wastagePercent: z.coerce.number().min(0).max(100), // required: 0 is valid (no wastage)
+  orderQuantity: z.coerce.number().nonnegative().optional(),
+  styleId: z.string().uuid('Invalid style ID').optional(),
 });
 
 // ============================================================================

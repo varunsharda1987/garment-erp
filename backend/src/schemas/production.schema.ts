@@ -248,6 +248,10 @@ export const createStitchingIssueSchema = z.object({
 export const updateStitchingIssueSchema = z.object({
   managerId: z.string().uuid().optional().nullable(),
   remarks: z.string().max(1000).optional(),
+  // Same as the finishing equivalent: real columns the controller converts and writes, previously
+  // stripped so the dates could never be edited.
+  issueDate: z.coerce.date().optional(),
+  expectedCompletionDate: z.coerce.date().optional().nullable(),
 });
 
 /**
@@ -339,6 +343,10 @@ export const createFinishingIssueSchema = z.object({
 export const updateFinishingIssueSchema = z.object({
   managerId: z.string().uuid().optional().nullable(),
   remarks: z.string().max(1000).optional(),
+  // Real columns the controller explicitly converts and writes; they were absent here, so Zod
+  // stripped them and the dates could never be edited.
+  issueDate: z.coerce.date().optional(),
+  expectedCompletionDate: z.coerce.date().optional().nullable(),
 });
 
 /**

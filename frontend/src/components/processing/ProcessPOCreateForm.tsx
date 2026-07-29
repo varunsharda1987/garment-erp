@@ -97,8 +97,9 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
   useEffect(() => {
     if (styleData && selectedLabDip) {
       // Find the style_fabric entry that matches the selected fabric
-      const styleFabrics = (styleData as any).styleFabrics || (styleData as any).components || [];
-      const matchingFabric = styleFabrics.find((sf: any) => sf.fabricId === selectedLabDip.fabricId);
+      // Serializer maps style_fabrics → fabrics
+      const fabrics = (styleData as any).fabrics || (styleData as any).components || [];
+      const matchingFabric = fabrics.find((sf: any) => sf.fabricId === selectedLabDip.fabricId);
 
       if (matchingFabric?.cutableWidth) {
         setExpectedFinishedWidth(Number(matchingFabric.cutableWidth));

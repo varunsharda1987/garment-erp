@@ -209,10 +209,20 @@ function loadSchemas() {
   const schemas = new Map();
   const byName = new Map(); // exportName -> [keys] (fallback when the import can't be resolved)
   const loadErrors = [];
-  const files = fs.readdirSync(SCHEMAS_DIR).filter((f) => f.endsWith('.ts'));
+  // Not every Zod schema lives in schemas/ — e.g. CreateCostSheetSchema/UpdateCostSheetSchema are
+  // exported from controllers/style-costing.utils.ts and are the REAL schemas those routes validate
+  // against. Scanning only schemas/ reported them as "unresolvable" instead of checking them.
+  const sources = [
+    ...fs.readdirSync(SCHEMAS_DIR).filter((f) => f.endsWith('.ts')).map((f) => [SCHEMAS_DIR, f]),
+    ...fs
+      .readdirSync(CONTROLLERS_DIR)
+      .filter((f) => f.endsWith('.ts') && /\.utils\.ts$|schema/i.test(f))
+      .map((f) => [CONTROLLERS_DIR, f]),
+  ];
+  const files = sources.map(([, f]) => f);
 
-  for (const file of files) {
-    const full = path.join(SCHEMAS_DIR, file);
+  for (const [dir, file] of sources) {
+    const full = path.join(dir, file);
     let mod;
     try {
       mod = require(full);

@@ -3,8 +3,8 @@
 > The diagnosis lives in [START_HERE.md](START_HERE.md) / [FINDINGS_INDEX.md](FINDINGS_INDEX.md) / [REPAIR_PLAN.md](REPAIR_PLAN.md).
 > **This file tracks what has actually been fixed, merged, and what's next** — so any session can resume.
 > Last updated: 2026-07-29. Integration branch: **`main`**.
-> ⚠ **13 commits are LOCAL-ONLY (not pushed to origin)** — prod is deployed locally via `npm run deploy`, so pushing
-> is optional/for backup. Everything below marked 2026-07-29 is live on local prod but not yet on GitHub.
+> ⚠ **The 2026-07-29 work is committed LOCALLY but not pushed to origin** (check with `git rev-list --count origin/main..main`).
+> Prod is deployed locally via `npm run deploy`, so pushing is optional / for backup only.
 
 ---
 

@@ -51,13 +51,22 @@ export const validateBody = <T extends ZodSchema>(schema: T) => {
 export const validateQuery = <T extends ZodSchema>(schema: T) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Validate query params - store result in req.validatedQuery since req.query is read-only
+      // Validate query params. The COERCED result lives ONLY on req.validatedQuery.
+      //
+      // Under Express 5, `req.query` is a prototype getter that re-parses the URL on every access,
+      // so the previous "copy the validated values back onto req.query" loop wrote to a throwaway
+      // object and was silently discarded. It has been removed because it implied a guarantee that
+      // did not hold. Do NOT reinstate it, and do NOT shadow req.query with the validated object:
+      // controllers today correctly treat req.query as RAW STRINGS (e.g.
+      // `req.query.isActive === 'true'` in productCategory.controller), so making coercion land
+      // would silently invert those comparisons and break working filters.
+      //
+      // Rule for controllers: if you need the coerced/defaulted value, read
+      //   (req as any).validatedQuery ?? req.query
+      // Reading req.query directly gives you the raw string — which is fine as long as you convert
+      // it yourself, as the existing controllers do.
       const validated = schema.parse(req.query) as Record<string, unknown>;
       req.validatedQuery = validated;
-      // Also copy validated values back to query object properties
-      Object.keys(validated).forEach((key) => {
-        (req.query as Record<string, unknown>)[key] = validated[key];
-      });
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {

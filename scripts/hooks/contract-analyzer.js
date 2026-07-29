@@ -473,6 +473,25 @@ function parseControllers() {
       while ((q = qre.exec(body))) queryFields.add(q[1]);
       const usesValidatedQuery = /validatedQuery/.test(body);
 
+      // Which query fields does the controller RE-CONVERT itself?
+      // req.query yields raw strings (Express 5 — the coerced copy lives only on req.validatedQuery),
+      // and the controllers here correctly convert them: parseInt(page), String(x) === 'true', etc.
+      // Those are NOT bugs — flagging them produced ~50 findings for code that works. Only a
+      // controller that TRUSTS the schema's coercion and uses the raw value directly is at risk
+      // (that is what caused the patternPart count() 500).
+      const querySafe = new Set();
+      for (const f of queryFields) {
+        const e = f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const reCoerced = new RegExp(
+          `(?:parseInt|parseFloat|Number|String|Boolean)\\s*\\(\\s*(?:req\\.query\\.)?${e}\\b` +
+            `|\\b${e}\\s*===\\s*['"]` +
+            `|req\\.query\\.${e}\\s*===\\s*['"]` +
+            `|\\b${e}\\s+as\\s+(?:string|unknown)` +
+            `|req\\.query\\.${e}\\s+as\\s+(?:string|unknown)`
+        );
+        if (reCoerced.test(body)) querySafe.add(f);
+      }
+
       // Keyed by `file::name` — 47 controller function names collide across files (getById in 13
       // files, create/delete in 11), so a bare-name map compared ~9% of routes against the WRONG
       // controller body.
@@ -483,6 +502,7 @@ function parseControllers() {
         fields: [...fields],
         wholesale,
         queryFields: [...queryFields],
+        querySafe: [...querySafe],
         usesValidatedQuery,
         line: lineOf(src, m.index),
       };
@@ -660,7 +680,10 @@ function analyze() {
     const { entry: fn } = resolveVia(controllers, ctrlByName, r.imports, r.handler);
     if (!fn || fn.usesValidatedQuery) continue;
     const coerced = Object.keys(schema.fields).filter(
-      (f) => /coerce|number|boolean|date|pipe|transform/i.test(schema.fields[f].type) && fn.queryFields.includes(f)
+      (f) =>
+        /coerce|number|boolean|date|pipe|transform/i.test(schema.fields[f].type) &&
+        fn.queryFields.includes(f) &&
+        !(fn.querySafe || []).includes(f) // controller already converts it itself — not a bug
     );
     if (coerced.length) {
       findings.push({

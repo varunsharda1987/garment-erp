@@ -68,6 +68,7 @@ import {
   QuotationForm,
   QuotationDetail,
   CreditNoteList,
+  CreditNoteDetail,
   DebitNoteList,
   GSTReports,
   TDSList,
@@ -481,6 +482,7 @@ function App() {
 
               {/* Credit & Debit Notes */}
               <Route path="/credit-notes" element={<CreditNoteList />} />
+              <Route path="/credit-notes/:id" element={<CreditNoteDetail />} />
               <Route path="/debit-notes" element={<DebitNoteList />} />
 
               {/* GST Reports */}

@@ -152,6 +152,7 @@ export const QuotationList = lazy(() => import('../pages/QuotationList'));
 export const QuotationForm = lazy(() => import('../pages/QuotationForm'));
 export const QuotationDetail = lazy(() => import('../pages/QuotationDetail'));
 export const CreditNoteList = lazy(() => import('../pages/CreditNoteList'));
+export const CreditNoteDetail = lazy(() => import('../pages/CreditNoteDetail'));
 export const DebitNoteList = lazy(() => import('../pages/DebitNoteList'));
 export const GSTReports = lazy(() => import('../pages/GSTReports'));
 export const TDSList = lazy(() => import('../pages/TDSList'));

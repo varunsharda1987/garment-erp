@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toast } from 'sonner';
@@ -87,6 +88,7 @@ interface CreditNoteLineItem {
 // ---------------------------------------------------------------------------
 
 export default function CreditNoteList() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { isAdmin } = usePermissions();
 
@@ -266,7 +268,11 @@ export default function CreditNoteList() {
                 </TableHeader>
                 <TableBody>
                   {creditNotes.map((cn) => (
-                    <TableRow key={cn.id}>
+                    <TableRow
+                      key={cn.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => navigate(`/credit-notes/${cn.id}`)}
+                    >
                       <TableCell className="font-mono text-sm font-medium">{cn.creditNoteNumber}</TableCell>
                       <TableCell>
                         <div className="text-sm font-medium">
@@ -287,9 +293,7 @@ export default function CreditNoteList() {
                       <TableCell>
                         <Badge className={getStatusBadgeClasses(cn.status)}>{DocumentStatusLabels[cn.status]}</Badge>
                       </TableCell>
-                      <TableCell className="text-right">
-                        {/* Credit-note detail view (/credit-notes/:id) is not built yet —
-                            the row-click and View button were dead nav (B12-05). Deferred. */}
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                         <div className="flex justify-end gap-1">
                           {cn.status === 'DRAFT' && (
                             <>

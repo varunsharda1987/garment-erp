@@ -91,22 +91,29 @@ export const copyCostSheetSchema = z.object({
  * Update Actuals
  * PATCH /api/style-costing/:id/actuals
  */
+// Matches updateActuals() and the style_costing *_actual columns. The previous names
+// (actualFabricCost/actualTrimCost/actualLaborCost/actualOverheadCost) described a 4-bucket cost
+// model that does not exist in this DB and shared NO field with the controller, so every actual-cost
+// value was silently discarded while the API still returned 200 'Actuals updated'.
 export const updateActualsSchema = z.object({
-  actualFabricCost: z.number().nonnegative().optional(),
-  actualTrimCost: z.number().nonnegative().optional(),
-  actualLaborCost: z.number().nonnegative().optional(),
-  actualOverheadCost: z.number().nonnegative().optional(),
-  remarks: z.string().max(500).optional(),
+  fabricActual: z.coerce.number().nonnegative().optional(),
+  trimsActual: z.coerce.number().nonnegative().optional(),
+  cmtActual: z.coerce.number().nonnegative().optional(),
+  embroideryActual: z.coerce.number().nonnegative().optional(),
+  accessoriesActual: z.coerce.number().nonnegative().optional(),
+  totalActual: z.coerce.number().nonnegative().optional(),
 });
 
 /**
  * Approve Variance
  * POST /api/style-costing/variance/:id/approve
  */
+// The controller reads { action: 'APPROVE' | 'REJECT', notes }. The previous `approved` boolean was
+// stripped on the way in and the controller then threw 'Action must be either APPROVE or REJECT',
+// so the endpoint could never succeed either way.
 export const approveVarianceSchema = z.object({
-  approved: z.boolean(),
-  remarks: z.string().max(500).optional(),
-  rejectionReason: z.string().max(500).optional(),
+  action: z.enum(['APPROVE', 'REJECT']),
+  notes: z.string().max(500).optional(),
 });
 
 /**

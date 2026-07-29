@@ -307,27 +307,47 @@ export const fabricQuerySchema = z.object({
  * Create CAD Entry
  * POST /api/fabric-greige/cad
  */
+// Mirrors fabric-cad.controller (createCAD) and the fabric_width_cad columns. The previous shape
+// (greigeWidth/cadValue/shrinkage/wastage/remarks) described a different model entirely — none of
+// those are columns here — so 11 of 13 fields were stripped and the create then failed its own
+// required-field check on cutableWidth.
 export const createCADSchema = z.object({
   fabricId: z.string().uuid('Invalid fabric ID'),
-  greigeWidth: z.number().positive('Greige width is required'),
-  cadValue: z.number().positive().optional(),
-  shrinkage: z.number().min(0).max(50).optional(),
-  wastage: z.number().min(0).max(50).optional(),
+  cutableWidth: z.coerce.number().positive('Cutable width is required'),
+  widthUnit: z.string().max(20).optional(),
+  cadMeters: z.coerce.number().nonnegative().optional().nullable(),
+  cadYards: z.coerce.number().nonnegative().optional().nullable(),
+  cadWastagePercent: z.coerce.number().min(0).max(100).optional(),
+  markerEfficiency: z.coerce.number().min(0).max(100).optional().nullable(),
+  supplierAvailability: z.string().max(200).optional().nullable(),
+  priceDifferential: z.coerce.number().optional().nullable(),
+  markerPlanFile: z.string().max(500).optional().nullable(),
+  markerLengthMeters: z.coerce.number().nonnegative().optional().nullable(),
+  piecesPerMarker: z.number().int().nonnegative().optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
   isPreferred: z.boolean().optional().default(false),
-  remarks: z.string().max(500).optional(),
 });
 
 /**
  * Update CAD Entry
  * PUT /api/fabric-greige/cad/:id
  */
+// Same field set as createCADSchema, all optional. Previously every editable field was stripped, so
+// a CAD update returned 200 while changing nothing (only isPreferred ever applied).
 export const updateCADSchema = z.object({
-  greigeWidth: z.number().positive().optional(),
-  cadValue: z.number().positive().optional(),
-  shrinkage: z.number().min(0).max(50).optional(),
-  wastage: z.number().min(0).max(50).optional(),
+  cutableWidth: z.coerce.number().positive().optional(),
+  widthUnit: z.string().max(20).optional(),
+  cadMeters: z.coerce.number().nonnegative().optional().nullable(),
+  cadYards: z.coerce.number().nonnegative().optional().nullable(),
+  cadWastagePercent: z.coerce.number().min(0).max(100).optional(),
+  markerEfficiency: z.coerce.number().min(0).max(100).optional().nullable(),
+  supplierAvailability: z.string().max(200).optional().nullable(),
+  priceDifferential: z.coerce.number().optional().nullable(),
+  markerPlanFile: z.string().max(500).optional().nullable(),
+  markerLengthMeters: z.coerce.number().nonnegative().optional().nullable(),
+  piecesPerMarker: z.number().int().nonnegative().optional().nullable(),
+  notes: z.string().max(1000).optional().nullable(),
   isPreferred: z.boolean().optional(),
-  remarks: z.string().max(500).optional().nullable(),
 });
 
 /**

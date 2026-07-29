@@ -215,64 +215,6 @@
       "handler": "updateAccessoryPreset"
     },
     {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "POST /cad",
-      "file": "backend/src/controllers/fabric-cad.controller.ts:65",
-      "schema": "createCADSchema (fabricGreige.schema.ts)",
-      "fields": [
-        "cutableWidth",
-        "widthUnit",
-        "cadMeters",
-        "cadYards",
-        "cadWastagePercent",
-        "markerEfficiency",
-        "supplierAvailability",
-        "priceDifferential",
-        "markerPlanFile",
-        "markerLengthMeters",
-        "piecesPerMarker",
-        "notes"
-      ],
-      "detail": "createCAD reads [cutableWidth, widthUnit, cadMeters, cadYards, cadWastagePercent, markerEfficiency, supplierAvailability, priceDifferential, markerPlanFile, markerLengthMeters, piecesPerMarker, notes] but createCADSchema strips them → saved as undefined."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /cad",
-      "file": "backend/src/schemas/fabricGreige.schema.ts",
-      "schema": "createCADSchema",
-      "fields": [
-        "greigeWidth"
-      ],
-      "detail": "createCADSchema REQUIRES [greigeWidth] but createCAD never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "PUT /cad/:id",
-      "file": "backend/src/controllers/fabric-cad.controller.ts:173",
-      "schema": "updateCADSchema (fabricGreige.schema.ts)",
-      "fields": [
-        "cutableWidth",
-        "widthUnit",
-        "cadMeters",
-        "cadYards",
-        "cadWastagePercent",
-        "markerEfficiency",
-        "supplierAvailability",
-        "priceDifferential",
-        "markerPlanFile",
-        "markerLengthMeters",
-        "piecesPerMarker",
-        "notes"
-      ],
-      "detail": "updateCAD reads [cutableWidth, widthUnit, cadMeters, cadYards, cadWastagePercent, markerEfficiency, supplierAvailability, priceDifferential, markerPlanFile, markerLengthMeters, piecesPerMarker, notes] but updateCADSchema strips them → saved as undefined."
-    },
-    {
       "type": "REQUIRED_UNUSED",
       "severity": "MEDIUM",
       "symptom": "400-blocks-valid-input",
@@ -708,48 +650,6 @@
       "route": "PUT /:id",
       "file": "backend/src/routes/styleCosting.routes.ts:112",
       "detail": "validateBody(UpdateCostSheetSchema) but that export could not be loaded/introspected."
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "PATCH /:id/actuals",
-      "file": "backend/src/controllers/style-costing-approval.controller.ts:620",
-      "schema": "updateActualsSchema (styleCosting.schema.ts)",
-      "fields": [
-        "fabricActual",
-        "trimsActual",
-        "cmtActual",
-        "embroideryActual",
-        "accessoriesActual",
-        "totalActual"
-      ],
-      "detail": "updateActuals reads [fabricActual, trimsActual, cmtActual, embroideryActual, accessoriesActual, totalActual] but updateActualsSchema strips them → saved as undefined."
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "POST /variance/:id/approve",
-      "file": "backend/src/controllers/style-costing-approval.controller.ts:673",
-      "schema": "approveVarianceSchema (styleCosting.schema.ts)",
-      "fields": [
-        "action",
-        "notes"
-      ],
-      "detail": "approveVariance reads [action, notes] but approveVarianceSchema strips them → saved as undefined."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /variance/:id/approve",
-      "file": "backend/src/schemas/styleCosting.schema.ts",
-      "schema": "approveVarianceSchema",
-      "fields": [
-        "approved"
-      ],
-      "detail": "approveVarianceSchema REQUIRES [approved] but approveVariance never reads them → callers must send dead fields or get 400."
     },
     {
       "type": "PASSTHROUGH_WHOLESALE",

@@ -122,10 +122,12 @@ export const updateBankAccount = async (req: Request, res: Response): Promise<vo
     swiftCode,
     accountType,
     accountHolderName,
-    currentBalance,
     currency,
     isPrimaryAccount,
   } = req.body;
+  // currentBalance is deliberately NOT editable here (owner decision): a balance must only ever move
+  // through transactions, never by hand. It is seeded from openingBalance on create and then left
+  // alone — the update below does not touch the column.
 
   const existing = await prisma.bank_accounts.findUnique({ where: { id } });
   if (!existing) {
@@ -157,7 +159,7 @@ export const updateBankAccount = async (req: Request, res: Response): Promise<vo
       swiftCode: swiftCode || null,
       accountType: accountType as BankAccountType,
       accountHolderName,
-      currentBalance: currentBalance ? parseFloat(currentBalance) : existing.currentBalance,
+      // currentBalance intentionally omitted — see note above; Prisma leaves the column untouched.
       currency: currency || 'INR',
       isPrimaryAccount,
     },

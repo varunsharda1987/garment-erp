@@ -83,18 +83,6 @@
       "detail": "loginSchema REQUIRES [email, password] but login never reads them → callers must send dead fields or get 400."
     },
     {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "PUT /:id",
-      "file": "backend/src/controllers/bankAccounts.controller.ts:115",
-      "schema": "updateBankAccountSchema (bankAccounts.schema.ts)",
-      "fields": [
-        "currentBalance"
-      ],
-      "detail": "updateBankAccount reads [currentBalance] but updateBankAccountSchema strips them → saved as undefined."
-    },
-    {
       "type": "REQUIRED_UNUSED",
       "severity": "MEDIUM",
       "symptom": "400-blocks-valid-input",
@@ -367,31 +355,6 @@
         "actualQuantity"
       ],
       "detail": "completeStageSchema REQUIRES [actualQuantity] but completeStage never reads them → callers must send dead fields or get 400."
-    },
-    {
-      "type": "SILENT_DROP",
-      "severity": "HIGH",
-      "symptom": "silent-data-loss",
-      "route": "POST /:id/rework",
-      "file": "backend/src/controllers/processingStage.controller.ts:105",
-      "schema": "markForReworkSchema (processing.schema.ts)",
-      "fields": [
-        "reason"
-      ],
-      "detail": "markForRework reads [reason] but markForReworkSchema strips them → saved as undefined."
-    },
-    {
-      "type": "REQUIRED_UNUSED",
-      "severity": "MEDIUM",
-      "symptom": "400-blocks-valid-input",
-      "route": "POST /:id/rework",
-      "file": "backend/src/schemas/processing.schema.ts",
-      "schema": "markForReworkSchema",
-      "fields": [
-        "reworkQuantity",
-        "reworkReason"
-      ],
-      "detail": "markForReworkSchema REQUIRES [reworkQuantity, reworkReason] but markForRework never reads them → callers must send dead fields or get 400."
     },
     {
       "type": "NO_VALIDATION",

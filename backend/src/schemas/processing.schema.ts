@@ -85,10 +85,13 @@ export const completeStageSchema = z.object({
  * Mark for Rework
  * POST /api/processing-stages/:id/rework
  */
+// Both fields are now genuinely recorded (owner decision 2026-07-29: the rework quantity must be
+// captured, not just the reason) — processing_stage gained a reworkQuantity column and the
+// controller/service persist both. `remarks` was removed: processing_stage has no column for it, so
+// accepting it only promised storage that never happened.
 export const markForReworkSchema = z.object({
-  reworkQuantity: z.number().positive('Rework quantity must be positive'),
+  reworkQuantity: z.coerce.number().positive('Rework quantity must be positive'),
   reworkReason: z.string().min(1, 'Rework reason is required').max(500),
-  remarks: z.string().max(500).optional(),
 });
 
 /**

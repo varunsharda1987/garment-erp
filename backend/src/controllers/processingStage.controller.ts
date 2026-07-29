@@ -122,13 +122,15 @@ export async function completeStage(req: Request, res: Response) {
  */
 export async function markForRework(req: Request, res: Response) {
   const { id } = req.params;
-  const { reason } = req.body;
+  // Field names match markForReworkSchema (which already required these); the controller previously
+  // read a `reason` key the schema stripped, so every call 400'd and the quantity was never recorded.
+  const { reworkQuantity, reworkReason } = req.body;
 
-  if (!reason) {
+  if (!reworkReason) {
     throw new ValidationError('Rework reason is required');
   }
 
-  const stage = await processingStageService.markForRework(id, reason);
+  const stage = await processingStageService.markForRework(id, reworkReason, reworkQuantity);
   res.status(200).json({
     success: true,
     message: 'Stage marked for rework',

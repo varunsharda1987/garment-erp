@@ -5563,6 +5563,7 @@ model processing_stage {
   processingCost         Decimal               @db.Decimal(10, 2)
   qualityNotes           String?
   reworkReason           String?
+  reworkQuantity         Decimal?              @db.Decimal(10, 2)
   createdAt              DateTime              @default(now())
   updatedAt              DateTime              @updatedAt
   deliveries             processing_delivery[]

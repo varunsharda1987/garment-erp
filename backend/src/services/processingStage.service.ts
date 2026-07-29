@@ -451,12 +451,14 @@ class ProcessingStageService {
   /**
    * Mark stage for rework
    */
-  async markForRework(id: string, reason: string) {
+  async markForRework(id: string, reason: string, reworkQuantity?: number) {
     const stage = await prisma.processing_stage.update({
       where: { id },
       data: {
         status: 'REWORK_REQUIRED',
         reworkReason: reason,
+        // How much is going back for rework — previously not captured at all.
+        ...(reworkQuantity !== undefined && reworkQuantity !== null ? { reworkQuantity } : {}),
       },
       include: {
         processor: {

@@ -16,9 +16,15 @@
 name: Deploy to Production
 
 on:
-  push:
-    branches:
-      - main
+  # Deploy only AFTER the "Test" workflow (lint + typecheck + guardrails + docker build)
+  # succeeds on main. This gates production behind a green build: a failing check now
+  # BLOCKS the deploy instead of racing it in parallel. Previously this triggered directly
+  # on `push` to main with no dependency, so a red build still shipped to prod.
+  # Manual deploys remain available via the "Run workflow" button (workflow_dispatch).
+  workflow_run:
+    workflows: ["Test"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:  # Allow manual trigger
 
 env:
@@ -28,6 +34,10 @@ jobs:
   deploy:
     name: Deploy to Server
     runs-on: ubuntu-latest
+    # Guard: run only when the triggering "Test" run PASSED, or on a manual dispatch.
+    # If Test failed, this workflow still starts but the job is skipped — so prod is never
+    # updated from a red build.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Checkout code

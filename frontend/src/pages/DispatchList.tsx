@@ -478,7 +478,11 @@ export default function DispatchList() {
                   </TableHeader>
                   <TableBody>
                     {asnApplications.map((asn) => (
-                      <TableRow key={asn.id}>
+                      <TableRow
+                        key={asn.id}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => navigate(`/manufacturing/dispatch/asn/${asn.id}`)}
+                      >
                         <TableCell className="font-medium">{asn.asnNumber}</TableCell>
                         <TableCell>{asn.order?.orderNumber || '-'}</TableCell>
                         <TableCell>{format(new Date(asn.requestedShipDate), 'dd MMM yyyy')}</TableCell>
@@ -497,12 +501,8 @@ export default function DispatchList() {
                           )}
                         </TableCell>
                         <TableCell>{getASNStatusBadge(asn.status)}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1">
-                            {/* View button hidden (finding B10-04): the /manufacturing/dispatch/asn/:id
-                                route and ASN detail page do not exist yet, so this only landed on
-                                NotFound. Deferred for a real build (see deferredBuilds). The
-                                Approve/Reject/Reschedule lifecycle is driven inline via dialogs below. */}
                             {asn.status === 'PENDING' && (
                               <Button
                                 variant="ghost"

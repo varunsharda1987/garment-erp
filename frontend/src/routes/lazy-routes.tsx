@@ -395,6 +395,7 @@ export const DispatchList = lazy(() => import('../pages/DispatchList'));
 export const DispatchDeliveryNoteForm = lazy(() => import('../pages/DispatchDeliveryNoteForm'));
 export const DispatchDeliveryNoteDetail = lazy(() => import('../pages/DispatchDeliveryNoteDetail'));
 export const DispatchPODForm = lazy(() => import('../pages/DispatchPODForm'));
+export const ASNDetail = lazy(() => import('../pages/ASNDetail'));
 
 // ============================================================================
 // Document Generation

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,8 +35,8 @@ import {
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { QualityCheckDialog, ReturnUnprocessedDialog } from '@/components/processing';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { notify } from '@/lib/notify';
 import {
   Droplets,
   Plus,
@@ -71,13 +71,8 @@ type Column<T> = {
 };
 
 export default function DyeingList() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  // Lab-dip and process-PO create/edit/detail/QC/return screens are not built yet (deferred).
-  // Inform the user instead of routing to the NotFound page.
-  const notImplemented = () =>
-    notify.info('Coming soon', {
-      description: 'Lab-dip and process-PO create/detail/QC/return screens are not yet available.',
-    });
 
   const [activeTab, setActiveTab] = useState<'lab-dips' | 'process-pos'>(
     (searchParams.get('tab') as 'lab-dips' | 'process-pos') || 'lab-dips'
@@ -122,6 +117,14 @@ export default function DyeingList() {
   const [updateStockDialogOpen, setUpdateStockDialogOpen] = useState(false);
   const [selectedPOForStock, setSelectedPOForStock] = useState<ProcessPO | null>(null);
   const [stockLoading, setStockLoading] = useState(false);
+
+  // Quality Check dialog state
+  const [qcDialogOpen, setQcDialogOpen] = useState(false);
+  const [selectedPOForQC, setSelectedPOForQC] = useState<ProcessPO | null>(null);
+
+  // Return Unprocessed dialog state
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [selectedPOForReturn, setSelectedPOForReturn] = useState<ProcessPO | null>(null);
 
   useEffect(() => {
     if (activeTab === 'lab-dips') {
@@ -318,6 +321,18 @@ export default function DyeingList() {
     }
   };
 
+  // ---- Quality Check ----
+  const openQCDialog = (po: ProcessPO) => {
+    setSelectedPOForQC(po);
+    setQcDialogOpen(true);
+  };
+
+  // ---- Return Unprocessed ----
+  const openReturnDialog = (po: ProcessPO) => {
+    setSelectedPOForReturn(po);
+    setReturnDialogOpen(true);
+  };
+
   // Lab Dip columns
   const labDipColumns: Column<DyeLabDip>[] = [
     {
@@ -424,7 +439,7 @@ export default function DyeingList() {
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
-              notImplemented();
+              navigate(`/manufacturing/dyeing/lab-dips/${item.id}`);
             }}
             title="View details"
           >
@@ -437,7 +452,7 @@ export default function DyeingList() {
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  notImplemented();
+                  navigate(`/manufacturing/dyeing/lab-dips/${item.id}`);
                 }}
                 title="Edit"
               >
@@ -630,7 +645,7 @@ export default function DyeingList() {
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                notImplemented();
+                navigate(`/manufacturing/dyeing/process-pos/${item.id}`);
               }}
               title="View details"
             >
@@ -673,7 +688,7 @@ export default function DyeingList() {
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  notImplemented();
+                  openQCDialog(item);
                 }}
                 className="text-primary hover:text-primary hover:bg-primary/10"
                 title="Quality Check"
@@ -703,7 +718,7 @@ export default function DyeingList() {
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  notImplemented();
+                  openReturnDialog(item);
                 }}
                 className="text-warning hover:text-yellow-700 hover:bg-warning-muted"
                 title="Return Unprocessed"
@@ -744,11 +759,11 @@ export default function DyeingList() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={notImplemented}>
+          <Button variant="outline" onClick={() => navigate('/manufacturing/dyeing/lab-dips/new')}>
             <Beaker className="h-4 w-4 mr-2" />
             New Lab Dip
           </Button>
-          <Button onClick={notImplemented}>
+          <Button onClick={() => navigate('/manufacturing/dyeing/process-pos/new')}>
             <Plus className="h-4 w-4 mr-2" />
             New Process PO
           </Button>
@@ -900,7 +915,7 @@ export default function DyeingList() {
                   data={labDips}
                   keyExtractor={(item) => item.id}
                   loading={isLoading}
-                  onRowClick={() => notImplemented()}
+                  onRowClick={(labDip) => navigate(`/manufacturing/dyeing/lab-dips/${labDip.id}`)}
                   emptyState={{
                     title: 'No lab dips found',
                     description: 'Get started by creating a new lab dip',
@@ -982,7 +997,7 @@ export default function DyeingList() {
                   data={processPOs}
                   keyExtractor={(item) => item.id}
                   loading={isLoading}
-                  onRowClick={() => notImplemented()}
+                  onRowClick={(item) => navigate(`/manufacturing/dyeing/process-pos/${item.id}`)}
                   emptyState={{
                     title: 'No process POs found',
                     description: 'Get started by creating a new process PO',
@@ -1251,6 +1266,30 @@ export default function DyeingList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Quality Check Dialog */}
+      <QualityCheckDialog
+        open={qcDialogOpen}
+        onOpenChange={setQcDialogOpen}
+        processPO={selectedPOForQC}
+        processType="DYEING"
+        onSuccess={() => {
+          fetchProcessPOs();
+          fetchSummary();
+        }}
+      />
+
+      {/* Return Unprocessed Dialog */}
+      <ReturnUnprocessedDialog
+        open={returnDialogOpen}
+        onOpenChange={setReturnDialogOpen}
+        processPO={selectedPOForReturn}
+        processType="DYEING"
+        onSuccess={() => {
+          fetchProcessPOs();
+          fetchSummary();
+        }}
+      />
     </div>
   );
 }

@@ -185,7 +185,13 @@ import {
   SampleDetail,
   SampleForm,
   PrintingList,
+  PrintLabDipCreate,
+  PrintLabDipDetail,
+  PrintProcessPOCreate,
   DyeingList,
+  DyeLabDipCreate,
+  DyeLabDipDetail,
+  DyeProcessPOCreate,
   CuttingList,
   CuttingForm,
   CuttingChart,
@@ -574,9 +580,15 @@ function App() {
 
               {/* Printing (Manufacturing - Fabric Processing) */}
               <Route path="/manufacturing/printing" element={<PrintingList />} />
+              <Route path="/manufacturing/printing/lab-dips/new" element={<PrintLabDipCreate />} />
+              <Route path="/manufacturing/printing/lab-dips/:id" element={<PrintLabDipDetail />} />
+              <Route path="/manufacturing/printing/process-pos/new" element={<PrintProcessPOCreate />} />
 
               {/* Dyeing (Manufacturing - Fabric Processing) */}
               <Route path="/manufacturing/dyeing" element={<DyeingList />} />
+              <Route path="/manufacturing/dyeing/lab-dips/new" element={<DyeLabDipCreate />} />
+              <Route path="/manufacturing/dyeing/lab-dips/:id" element={<DyeLabDipDetail />} />
+              <Route path="/manufacturing/dyeing/process-pos/new" element={<DyeProcessPOCreate />} />
 
               {/* Cutting (Manufacturing - Production) */}
               <Route path="/manufacturing/cutting" element={<CuttingList />} />

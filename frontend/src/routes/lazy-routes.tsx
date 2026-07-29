@@ -361,11 +361,17 @@ export const SampleForm = lazy(() => import('../pages/SampleForm'));
 // Printing (Manufacturing - Fabric Processing)
 // ============================================================================
 export const PrintingList = lazy(() => import('../pages/PrintingList'));
+export const PrintLabDipCreate = lazy(() => import('../pages/printing/PrintLabDipCreate'));
+export const PrintLabDipDetail = lazy(() => import('../pages/printing/PrintLabDipDetail'));
+export const PrintProcessPOCreate = lazy(() => import('../pages/printing/PrintProcessPOCreate'));
 
 // ============================================================================
 // Dyeing (Manufacturing - Fabric Processing)
 // ============================================================================
 export const DyeingList = lazy(() => import('../pages/DyeingList'));
+export const DyeLabDipCreate = lazy(() => import('../pages/dyeing/DyeLabDipCreate'));
+export const DyeLabDipDetail = lazy(() => import('../pages/dyeing/DyeLabDipDetail'));
+export const DyeProcessPOCreate = lazy(() => import('../pages/dyeing/DyeProcessPOCreate'));
 
 // ============================================================================
 // Cutting (Manufacturing - Production)

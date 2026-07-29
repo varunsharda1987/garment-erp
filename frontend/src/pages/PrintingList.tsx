@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,8 +34,8 @@ import {
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { QualityCheckDialog, ReturnUnprocessedDialog } from '@/components/processing';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { notify } from '@/lib/notify';
 import {
   Printer,
   Plus,
@@ -52,6 +52,7 @@ import {
   Factory,
   PackageCheck,
   ArrowDownToLine,
+  Undo,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { differenceInCalendarDays } from 'date-fns';
@@ -66,13 +67,8 @@ type Column<T> = {
 };
 
 export default function PrintingList() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  // Lab-dip and process-PO create/edit/detail/QC/return screens are not built yet (deferred).
-  // Inform the user instead of routing to the NotFound page.
-  const notImplemented = () =>
-    notify.info('Coming soon', {
-      description: 'Lab-dip and process-PO create/detail/QC/return screens are not yet available.',
-    });
 
   const [activeTab, setActiveTab] = useState<'lab-dips' | 'process-pos'>(
     (searchParams.get('tab') as 'lab-dips' | 'process-pos') || 'lab-dips'
@@ -117,6 +113,14 @@ export default function PrintingList() {
   const [updateStockDialogOpen, setUpdateStockDialogOpen] = useState(false);
   const [selectedPOForStock, setSelectedPOForStock] = useState<ProcessPO | null>(null);
   const [stockLoading, setStockLoading] = useState(false);
+
+  // Quality Check dialog state
+  const [qcDialogOpen, setQcDialogOpen] = useState(false);
+  const [selectedPOForQC, setSelectedPOForQC] = useState<ProcessPO | null>(null);
+
+  // Return Unprocessed dialog state
+  const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [selectedPOForReturn, setSelectedPOForReturn] = useState<ProcessPO | null>(null);
 
   // Process PO status filter
   const [processPOsStatusFilter, setProcessPOsStatusFilter] = useState<string>('all');
@@ -324,6 +328,18 @@ export default function PrintingList() {
     }
   };
 
+  // ---- Quality Check ----
+  const openQCDialog = (po: ProcessPO) => {
+    setSelectedPOForQC(po);
+    setQcDialogOpen(true);
+  };
+
+  // ---- Return Unprocessed ----
+  const openReturnDialog = (po: ProcessPO) => {
+    setSelectedPOForReturn(po);
+    setReturnDialogOpen(true);
+  };
+
   // Lab Dip columns
   const labDipColumns: Column<LabDip>[] = [
     {
@@ -412,7 +428,7 @@ export default function PrintingList() {
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
-              notImplemented();
+              navigate(`/manufacturing/printing/lab-dips/${item.id}`);
             }}
             title="View details"
           >
@@ -425,7 +441,7 @@ export default function PrintingList() {
                 size="sm"
                 onClick={(e) => {
                   e.stopPropagation();
-                  notImplemented();
+                  navigate(`/manufacturing/printing/lab-dips/${item.id}`);
                 }}
                 title="Edit"
               >
@@ -594,7 +610,7 @@ export default function PrintingList() {
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
-              notImplemented();
+              navigate(`/manufacturing/printing/process-pos/${item.id}`);
             }}
             title="View details"
           >
@@ -647,7 +663,7 @@ export default function PrintingList() {
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                notImplemented();
+                openQCDialog(item);
               }}
               className="text-primary hover:text-primary hover:bg-primary/10"
               title="Quality Check"
@@ -670,19 +686,19 @@ export default function PrintingList() {
               <PackageCheck className="h-4 w-4" />
             </Button>
           )}
-          {/* Return Unprocessed — available when AT_MILL */}
-          {item.processPOStatus === 'AT_MILL' && (
+          {/* Return Unprocessed — available when AT_MILL or RECEIVED */}
+          {(item.processPOStatus === 'AT_MILL' || item.processPOStatus === 'RECEIVED') && (
             <Button
               variant="ghost"
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                notImplemented();
+                openReturnDialog(item);
               }}
               className="text-warning hover:text-yellow-700 hover:bg-warning-muted"
               title="Return Unprocessed"
             >
-              <RefreshCcw className="h-4 w-4" />
+              <Undo className="h-4 w-4" />
             </Button>
           )}
           {/* Delete — available when DRAFT */}
@@ -717,11 +733,11 @@ export default function PrintingList() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={notImplemented}>
+          <Button variant="outline" onClick={() => navigate('/manufacturing/printing/lab-dips/new')}>
             <Droplets className="h-4 w-4 mr-2" />
             New Lab Dip
           </Button>
-          <Button onClick={notImplemented}>
+          <Button onClick={() => navigate('/manufacturing/printing/process-pos/new')}>
             <Plus className="h-4 w-4 mr-2" />
             New Process PO
           </Button>
@@ -873,7 +889,7 @@ export default function PrintingList() {
                   data={labDips}
                   keyExtractor={(item) => item.id}
                   loading={isLoading}
-                  onRowClick={() => notImplemented()}
+                  onRowClick={(labDip) => navigate(`/manufacturing/printing/lab-dips/${labDip.id}`)}
                   emptyState={{
                     title: 'No lab dips found',
                     description: 'Get started by creating a new lab dip',
@@ -955,7 +971,7 @@ export default function PrintingList() {
                   data={processPOs}
                   keyExtractor={(item) => item.id}
                   loading={isLoading}
-                  onRowClick={() => notImplemented()}
+                  onRowClick={(item) => navigate(`/manufacturing/printing/process-pos/${item.id}`)}
                   emptyState={{
                     title: 'No process POs found',
                     description: 'Get started by creating a new process PO',
@@ -1231,6 +1247,30 @@ export default function PrintingList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Quality Check Dialog */}
+      <QualityCheckDialog
+        open={qcDialogOpen}
+        onOpenChange={setQcDialogOpen}
+        processPO={selectedPOForQC}
+        processType="PRINTING"
+        onSuccess={() => {
+          fetchProcessPOs();
+          fetchSummary();
+        }}
+      />
+
+      {/* Return Unprocessed Dialog */}
+      <ReturnUnprocessedDialog
+        open={returnDialogOpen}
+        onOpenChange={setReturnDialogOpen}
+        processPO={selectedPOForReturn}
+        processType="PRINTING"
+        onSuccess={() => {
+          fetchProcessPOs();
+          fetchSummary();
+        }}
+      />
     </div>
   );
 }

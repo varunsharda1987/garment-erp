@@ -19,6 +19,9 @@
  */
 const { execSync } = require('child_process');
 const http = require('http');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 const C = { cyan: '\x1b[36m', green: '\x1b[32m', red: '\x1b[31m', yellow: '\x1b[33m', reset: '\x1b[0m' };
 const run = (cmd, opts = {}) => {
@@ -50,7 +53,52 @@ const health = () =>
     setTimeout(ping, 3000);
   });
 
+/**
+ * MANDATORY SAFETY GUARD — do not remove.
+ * This machine runs ONE shared PM2 daemon for several businesses (garment-erp, kasya-b2b, harleen,
+ * inward). If the pm2 CLI version differs from the RUNNING daemon version, any pm2 command — even a
+ * single-app `pm2 restart <name>` — makes the CLI kill and respawn the whole daemon, taking every
+ * business down at once. That is exactly what caused the 2026-07-28 outage.
+ * The daemon version is read from ~/.pm2/pm2.log (no pm2 command needed), so the guard is itself safe.
+ */
+function assertPm2VersionsMatch() {
+  let cli;
+  try {
+    cli = execSync('pm2 -v', { encoding: 'utf-8' }).trim().split('\n').pop().trim();
+  } catch {
+    console.error(`${C.red}Could not read the pm2 CLI version — aborting rather than risk the daemon.${C.reset}`);
+    process.exit(1);
+  }
+  const logPath = path.join(os.homedir(), '.pm2', 'pm2.log');
+  let daemon = null;
+  try {
+    const lines = fs.readFileSync(logPath, 'utf-8').split('\n').filter((l) => l.includes('PM2 version'));
+    if (lines.length) daemon = lines[lines.length - 1].split(':').pop().trim();
+  } catch {
+    /* log unreadable — handled below */
+  }
+  if (!daemon) {
+    console.error(
+      `${C.red}Could not determine the RUNNING pm2 daemon version from ${logPath}.${C.reset}\n` +
+        `Aborting: a CLI/daemon mismatch would restart every app on this machine.`
+    );
+    process.exit(1);
+  }
+  if (cli !== daemon) {
+    console.error(
+      `\n${C.red}✗ ABORTING — pm2 CLI (${cli}) != running daemon (${daemon}).${C.reset}\n` +
+        `Running any pm2 command now would respawn the shared daemon and take down\n` +
+        `garment-erp, kasya-b2b, harleen and inward together.\n` +
+        `Resyncing needs a deliberate 'pm2 update' (which itself restarts everything) — your call.`
+    );
+    process.exit(1);
+  }
+  console.log(`${C.green}✓ pm2 CLI and daemon both ${cli} — safe to restart a single app${C.reset}`);
+}
+
 (async () => {
+  assertPm2VersionsMatch();
+
   // 1) Build both (running app keeps serving the old dist until restart)
   run('npm --prefix backend run build');
   run('npm --prefix frontend run build');

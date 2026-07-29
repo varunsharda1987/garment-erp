@@ -413,6 +413,166 @@ export const approveCADPlanSchema = z.object({
 });
 
 // ============================================================================
+// STANDALONE COMPONENT / FABRIC / ACCESSORY / PROCESS BODY SCHEMAS
+// ============================================================================
+// These validate the granular endpoints handled by styleComponent.controller.ts
+// (POST /styles/:styleId/components, PUT /styles/components/:id, etc.).
+// Field lists mirror exactly what the controller destructures from req.body —
+// anything else is stripped, so keep them in sync when the controller changes.
+// NOTE: distinct from the nested styleComponentSchema/styleFabricSchema above,
+// which describe the arrays embedded in a create/update style payload.
+
+// --- Components (style_components) ---
+
+export const createComponentSchema = z.object({
+  componentName: z.string().min(1, 'Component name is required'),
+  componentType: z.string().min(1, 'Component type is required'),
+  sortOrder: z.coerce.number().int().optional().nullable(),
+});
+
+export const updateComponentSchema = z.object({
+  componentName: z.string().optional(),
+  componentType: z.string().optional(),
+  sortOrder: z.coerce.number().int().optional(),
+});
+
+// --- Fabrics (style_fabrics) ---
+
+export const createComponentFabricSchema = z.object({
+  fabricName: z.string().min(1, 'Fabric name is required'),
+  fabricType: z.string().min(1, 'Fabric type is required'),
+  fabricColor: z.string().optional().nullable(),
+  fabricGSM: z.string().optional().nullable(), // stored as String in style_fabrics
+  cadAverageMeters: z.coerce.number().nonnegative().optional().nullable(),
+  cadAverageYards: z.coerce.number().nonnegative().optional().nullable(),
+  supplierName: z.string().optional().nullable(),
+  unitPrice: z.coerce.number().nonnegative().optional().nullable(),
+});
+
+export const updateComponentFabricSchema = z.object({
+  fabricName: z.string().optional().nullable(),
+  fabricType: z.string().optional().nullable(),
+  fabricColor: z.string().optional().nullable(),
+  fabricGSM: z.string().optional().nullable(),
+  cadAverageMeters: z.coerce.number().nonnegative().optional().nullable(),
+  cadAverageYards: z.coerce.number().nonnegative().optional().nullable(),
+  supplierName: z.string().optional().nullable(),
+  unitPrice: z.coerce.number().nonnegative().optional().nullable(),
+});
+
+// --- Accessories (style_accessories) ---
+
+export const createComponentAccessorySchema = z.object({
+  accessoryName: z.string().min(1, 'Accessory name is required'),
+  accessoryType: z.string().min(1, 'Accessory type is required'),
+  quantityPerPiece: z.coerce.number().nonnegative(),
+  unit: z.string().min(1, 'Unit is required'),
+  supplierName: z.string().optional().nullable(),
+  unitPrice: z.coerce.number().nonnegative().optional().nullable(),
+});
+
+export const updateComponentAccessorySchema = z.object({
+  // accessoryName / accessoryType / quantityPerPiece / unit are NOT NULL in the DB,
+  // so they may be omitted but never explicitly nulled.
+  accessoryName: z.string().optional(),
+  accessoryType: z.string().optional(),
+  quantityPerPiece: z.coerce.number().nonnegative().optional(),
+  unit: z.string().optional(),
+  supplierName: z.string().optional().nullable(),
+  unitPrice: z.coerce.number().nonnegative().optional().nullable(),
+});
+
+// --- Processes (style_processes) ---
+// processType is a Prisma enum column; the controller falls back to processName
+// when processType is omitted, so processType stays optional here.
+
+export const createStyleProcessSchema = z.object({
+  processName: z.string().min(1, 'Process name is required'),
+  processType: ProcessTypeEnum.optional(),
+  isRequired: z.boolean().optional(),
+  sortOrder: z.coerce.number().int().optional().nullable(),
+  supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
+  estimatedCost: coerceAnyToNumber.optional(),
+  estimatedDays: z.coerce.number().int().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
+export const updateStyleProcessSchema = z.object({
+  processName: z.string().optional(),
+  processType: ProcessTypeEnum.optional(),
+  isRequired: z.boolean().optional(),
+  sortOrder: z.coerce.number().int().optional(),
+  supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
+  estimatedCost: coerceAnyToNumber.optional(),
+  estimatedDays: z.coerce.number().int().optional().nullable(),
+  notes: z.string().optional().nullable(),
+});
+
+// ============================================================================
+// STYLE COMMENT SCHEMAS (routes in style-comment.routes.ts)
+// ============================================================================
+
+/**
+ * Create Style Comment
+ * POST /api/styles/:styleId/comments
+ * styleId comes from the URL and userId from the authenticated user — neither is read from the body.
+ * `.trim()` runs before `.min(1)` so a whitespace-only comment is rejected the same way the
+ * controller's own guard rejects it (but with a clean 400 instead of a thrown ValidationError).
+ */
+export const createStyleCommentSchema = z.object({
+  comment: z.string().trim().min(1, 'Comment text is required'),
+  // Optional reply target; the UI sends `replyToId || undefined`. style_comments ids are UUIDs
+  // (see styleAndCommentIdParamSchema above).
+  parentId: z.string().uuid('Invalid parent comment ID').optional().nullable(),
+});
+
+/**
+ * Update Style Comment
+ * PATCH /api/styles/:styleId/comments/:commentId
+ */
+export const updateStyleCommentSchema = z.object({
+  comment: z.string().trim().min(1, 'Comment text is required'),
+});
+
+// ============================================================================
+// STYLE MATERIAL BOM SCHEMAS (routes in style-material-bom.routes.ts)
+// ============================================================================
+
+// Matches the Prisma MaterialUsageCategory enum exactly.
+export const MaterialUsageCategoryEnum = z.enum(['GARMENT_TRIM', 'VALUE_ADDITION', 'PACKAGING']);
+
+/**
+ * Add Material to Style BOM
+ * POST /api/styles/:styleId/materials
+ * The controller resolves materialType/materialId/unitPrice/totalCost itself from `materialCode`'s
+ * prefix (LACE-, BTN-, THR-, ZIP-, ELA-, LBL-, PKG-), so only these six fields come from the body.
+ * quantityPerGarment is coerced because the controller feeds it to parseFloat() before writing it to
+ * a Decimal(10,4) column — a non-numeric string produced NaN and 500'd in Prisma.
+ */
+export const addStyleMaterialBOMSchema = z.object({
+  materialCode: z.string().trim().min(1, 'Material code is required').max(100),
+  usageCategory: MaterialUsageCategoryEnum,
+  componentName: z.string().max(200, 'Component name must not exceed 200 characters').trim().optional().nullable(),
+  quantityPerGarment: z.coerce.number().positive('Quantity per garment must be positive'),
+  unit: z.string().trim().min(1, 'Unit is required').max(50),
+  notes: z.string().max(1000, 'Notes must not exceed 1000 characters').trim().optional().nullable(),
+});
+
+/**
+ * Update Style BOM Item
+ * PUT /api/styles/:styleId/materials/:bomId
+ * All fields optional — the controller falls back to the existing row for anything left undefined.
+ * materialCode/usageCategory are intentionally absent: the controller does not read them on update.
+ */
+export const updateStyleMaterialBOMSchema = z.object({
+  componentName: z.string().max(200, 'Component name must not exceed 200 characters').trim().optional().nullable(),
+  quantityPerGarment: z.coerce.number().positive('Quantity per garment must be positive').optional(),
+  unit: z.string().trim().min(1, 'Unit must not be empty').max(50).optional(),
+  notes: z.string().max(1000, 'Notes must not exceed 1000 characters').trim().optional().nullable(),
+  isActive: z.boolean().optional(),
+});
+
+// ============================================================================
 // TYPE EXPORTS
 // ============================================================================
 
@@ -423,6 +583,18 @@ export type StyleIdParam = z.infer<typeof styleIdParamSchema>;
 export type CreateStyleVariantsInput = z.infer<typeof createStyleVariantsSchema>;
 export type UpdateCADGroupingInput = z.infer<typeof updateCADGroupingSchema>;
 export type ApproveCADPlanInput = z.infer<typeof approveCADPlanSchema>;
+export type CreateStyleCommentInput = z.infer<typeof createStyleCommentSchema>;
+export type UpdateStyleCommentInput = z.infer<typeof updateStyleCommentSchema>;
+export type AddStyleMaterialBOMInput = z.infer<typeof addStyleMaterialBOMSchema>;
+export type UpdateStyleMaterialBOMInput = z.infer<typeof updateStyleMaterialBOMSchema>;
+export type CreateComponentInput = z.infer<typeof createComponentSchema>;
+export type UpdateComponentInput = z.infer<typeof updateComponentSchema>;
+export type CreateComponentFabricInput = z.infer<typeof createComponentFabricSchema>;
+export type UpdateComponentFabricInput = z.infer<typeof updateComponentFabricSchema>;
+export type CreateComponentAccessoryInput = z.infer<typeof createComponentAccessorySchema>;
+export type UpdateComponentAccessoryInput = z.infer<typeof updateComponentAccessorySchema>;
+export type CreateStyleProcessInput = z.infer<typeof createStyleProcessSchema>;
+export type UpdateStyleProcessInput = z.infer<typeof updateStyleProcessSchema>;
 
 // Individual type exports for nested schemas
 export type StyleFabric = z.infer<typeof styleFabricSchema>;

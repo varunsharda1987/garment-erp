@@ -31,6 +31,7 @@ import {
   saveMatrixSchema,
   saveLaceMatrixSchema,
   copyRatesSchema,
+  addGreigeSchema,
   lookupRateSchema,
   lookupLaceRateSchema,
   processorIdParamSchema,
@@ -78,6 +79,7 @@ router.post('/copy', validateBody(copyRatesSchema), asyncHandler(copyRates));
 router.post(
   '/processors/:processorId/greiges/:greigeId',
   validateParams(processorGreigeParamSchema),
+  validateBody(addGreigeSchema),
   asyncHandler(addGreige)
 );
 

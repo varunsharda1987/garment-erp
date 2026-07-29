@@ -8,6 +8,7 @@ import { validateBody } from '../middleware/validation.middleware';
 import { UserRole } from '@prisma/client';
 import multer from 'multer';
 import {
+  importStylesSchema,
   retryImportSchema,
   createStyleStockSchema,
   bulkStockQuerySchema,
@@ -51,7 +52,10 @@ router.use(authenticateToken);
 router.post(
   '/import',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
+  // multer MUST run before validateBody: it is what parses the multipart body into req.body
+  // (the CSV/XLSX itself goes to req.file and is not validated here).
   upload.single('file'),
+  validateBody(importStylesSchema),
   asyncHandler((req: Request, res: Response) => StyleImportController.importStyles(req, res))
 );
 

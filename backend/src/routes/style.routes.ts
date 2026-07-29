@@ -45,6 +45,17 @@ import {
   styleIdParamSchema,
   styleIdAsStyleIdParamSchema,
   componentIdParamSchema,
+  createStyleVariantsSchema,
+  updateCADGroupingSchema,
+  approveCADPlanSchema,
+  createComponentSchema,
+  updateComponentSchema,
+  createComponentFabricSchema,
+  updateComponentFabricSchema,
+  createComponentAccessorySchema,
+  updateComponentAccessorySchema,
+  createStyleProcessSchema,
+  updateStyleProcessSchema,
 } from '../schemas/style.schema';
 import { idParamSchema } from '../schemas/common.schema';
 import { UserRole } from '@prisma/client';
@@ -187,6 +198,7 @@ router.post(
   '/:id/variants',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(styleIdParamSchema),
+  validateBody(createStyleVariantsSchema),
   asyncHandler(createStyleVariants)
 );
 
@@ -218,6 +230,7 @@ router.post(
   '/:id/cad-groups',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(styleIdParamSchema),
+  validateBody(updateCADGroupingSchema),
   asyncHandler(updateCADGrouping)
 );
 
@@ -230,6 +243,7 @@ router.put(
   '/:id/approve-cad',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(styleIdParamSchema),
+  validateBody(approveCADPlanSchema),
   asyncHandler(approveCADPlan)
 );
 
@@ -270,6 +284,7 @@ router.post(
   '/:styleId/components',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(styleIdAsStyleIdParamSchema),
+  validateBody(createComponentSchema),
   asyncHandler(createComponent)
 );
 
@@ -282,6 +297,7 @@ router.put(
   '/components/:id',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(idParamSchema),
+  validateBody(updateComponentSchema),
   asyncHandler(updateComponent)
 );
 
@@ -310,6 +326,7 @@ router.post(
   '/components/:componentId/fabrics',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(componentIdParamSchema),
+  validateBody(createComponentFabricSchema),
   asyncHandler(createFabric)
 );
 
@@ -322,6 +339,7 @@ router.put(
   '/fabrics/:id',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(idParamSchema),
+  validateBody(updateComponentFabricSchema),
   asyncHandler(updateFabric)
 );
 
@@ -350,6 +368,7 @@ router.post(
   '/components/:componentId/accessories',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(componentIdParamSchema),
+  validateBody(createComponentAccessorySchema),
   asyncHandler(createAccessory)
 );
 
@@ -362,6 +381,7 @@ router.put(
   '/accessories/:id',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(idParamSchema),
+  validateBody(updateComponentAccessorySchema),
   asyncHandler(updateAccessory)
 );
 
@@ -390,6 +410,7 @@ router.post(
   '/:styleId/processes',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(styleIdAsStyleIdParamSchema),
+  validateBody(createStyleProcessSchema),
   asyncHandler(createProcess)
 );
 
@@ -402,6 +423,7 @@ router.put(
   '/processes/:id',
   authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(idParamSchema),
+  validateBody(updateStyleProcessSchema),
   asyncHandler(updateProcess)
 );
 

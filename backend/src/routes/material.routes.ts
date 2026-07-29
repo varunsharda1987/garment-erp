@@ -17,6 +17,7 @@ import {
   updateMaterialSchema,
   materialQuerySchema,
   materialIdParamSchema,
+  createCategorySchema,
 } from '../schemas/material.schema';
 import { asyncHandler } from '../middleware/error.middleware';
 
@@ -44,7 +45,7 @@ router.get('/categories', asyncHandler(getAllCategories));
  * @desc    Create material category
  * @access  Private (Authenticated users)
  */
-router.post('/categories', asyncHandler(createCategory));
+router.post('/categories', validateBody(createCategorySchema), asyncHandler(createCategory));
 
 /**
  * @route   POST /api/materials

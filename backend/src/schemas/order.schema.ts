@@ -61,6 +61,21 @@ export const updateOrderStatusSchema = z.object({
   reason: z.string().max(500).optional(),
 });
 
+// Cancel order with options.
+// POST /orders/:id/cancel — the controller reads ONLY `laceHandling` and `cancellationReason`, and
+// defaults BOTH ('RELEASE_TO_STOCK' / 'Order cancelled'), so both are optional here.
+// laceHandling mirrors LaceHandlingOption in order.service.ts (there is no Prisma enum for it).
+// The body is normalised from undefined/null to {}: under Express 5 / body-parser 2 a POST sent with
+// no body at all leaves req.body === undefined, and this endpoint is legitimately callable that way —
+// a bare z.object() would 400 a request that works today.
+export const cancelOrderSchema = z.preprocess(
+  (body) => (body === undefined || body === null ? {} : body),
+  z.object({
+    laceHandling: z.enum(['RELEASE_TO_STOCK', 'RETURN_TO_SUPPLIER']).optional(),
+    cancellationReason: z.string().max(500).optional(),
+  })
+);
+
 // Order query params schema
 export const orderQuerySchema = z.object({
   customerId: z.string().uuid().optional(),
@@ -82,4 +97,5 @@ export const orderQuerySchema = z.object({
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 export type UpdateOrderInput = z.infer<typeof updateOrderSchema>;
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
+export type CancelOrderInput = z.infer<typeof cancelOrderSchema>;
 export type OrderQueryInput = z.infer<typeof orderQuerySchema>;

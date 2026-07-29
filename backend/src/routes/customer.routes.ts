@@ -20,6 +20,7 @@ import {
   customerQuerySchema,
   customerIdParamSchema,
 } from '../schemas/customer.schema';
+import { createAccessoryPresetSchema, updateAccessoryPresetSchema } from '../schemas/customerAccessories.schema';
 import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/error.middleware';
 
@@ -102,6 +103,7 @@ router.post(
   '/:id/accessory-presets',
   authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER),
   validateParams(customerIdParamSchema),
+  validateBody(createAccessoryPresetSchema),
   asyncHandler(createAccessoryPreset)
 );
 
@@ -114,6 +116,7 @@ router.put(
   '/:id/accessory-presets/:presetId',
   authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER),
   validateParams(customerIdParamSchema),
+  validateBody(updateAccessoryPresetSchema),
   asyncHandler(updateAccessoryPreset)
 );
 

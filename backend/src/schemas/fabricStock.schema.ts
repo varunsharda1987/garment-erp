@@ -173,14 +173,11 @@ export const createGreigeStockSchema = z.object({
  * PATCH /api/greige/stock/:stockId
  */
 export const updateGreigeStockSchema = z.object({
-  warehouseId: z.string().uuid('Invalid warehouse ID').optional(),
-  lotNumber: z.string().max(50).optional().nullable(),
-  rollNumber: z.string().max(50).optional().nullable(),
-  width: z.number().positive().optional().nullable(),
-  gsm: z.number().positive().optional().nullable(),
-  rate: z.number().nonnegative().optional().nullable(),
-  status: StockStatusEnum.optional(),
+  purchaseCost: z.number().nonnegative().optional().nullable(),
+  weightedAvgCost: z.number().nonnegative().optional().nullable(),
   qualityGrade: z.string().max(20).optional().nullable(),
+  warehouseLocation: z.string().max(255).optional().nullable(),
+  rollNumbers: z.string().max(500).optional().nullable(),
   remarks: z.string().max(500).optional().nullable(),
 });
 

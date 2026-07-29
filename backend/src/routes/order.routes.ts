@@ -21,6 +21,7 @@ import {
   createOrderSchema,
   updateOrderSchema,
   updateOrderStatusSchema,
+  cancelOrderSchema,
   orderQuerySchema,
 } from '../schemas/order.schema';
 import { idParamSchema } from '../schemas/common.schema';
@@ -77,6 +78,7 @@ router.post(
   '/:id/cancel',
   authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER),
   validateParams(idParamSchema),
+  validateBody(cancelOrderSchema),
   asyncHandler(cancelOrderWithOptions)
 );
 router.get('/:id/lace-allocations', validateParams(idParamSchema), asyncHandler(getOrderLaceAllocations));

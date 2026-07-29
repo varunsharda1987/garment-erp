@@ -131,6 +131,7 @@ router.patch(
  * DELETE /api/conversations/:id
  * Soft delete a conversation
  */
+// no-body: soft delete keyed off the :id param; no req.body read
 router.delete(
   '/:id',
   validateParams(idParamSchema),

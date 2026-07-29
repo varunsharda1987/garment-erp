@@ -66,6 +66,7 @@ router.get(
  * POST /api/ai-admin/initialize
  * Initialize embedding service
  */
+// no-body: boots embedding service from env config; no req.body read
 router.post(
   '/initialize',
   asyncHandler(async (req: Request, res: Response) => {
@@ -117,6 +118,7 @@ router.get(
  * POST /api/ai-admin/index/guides
  * Index process guides and help documents
  */
+// no-body: reindex trigger for all process guides; no req.body read
 router.post(
   '/index/guides',
   asyncHandler(async (req: Request, res: Response) => {
@@ -139,6 +141,7 @@ router.post(
  * POST /api/ai-admin/index/styles
  * Index styles from database
  */
+// no-body: reindex trigger for all DB styles; no req.body read
 router.post(
   '/index/styles',
   asyncHandler(async (req: Request, res: Response) => {
@@ -161,6 +164,7 @@ router.post(
  * POST /api/ai-admin/index/all
  * Full reindex of all content
  */
+// no-body: full-reindex trigger, every source; no req.body read
 router.post(
   '/index/all',
   asyncHandler(async (req: Request, res: Response) => {
@@ -211,6 +215,7 @@ router.post(
  * DELETE /api/ai-admin/documents/:type
  * Delete all documents of a specific type
  */
+// no-body: keyed entirely off the :type URL param; no req.body read
 router.delete(
   '/documents/:type',
   asyncHandler(async (req: Request, res: Response) => {

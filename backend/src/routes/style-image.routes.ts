@@ -16,7 +16,7 @@ import {
   reorderImages,
   getImageTypes,
 } from '../controllers/style-image.controller';
-import { updateImageSchema, reorderImagesSchema } from '../schemas/styleImage.schema';
+import { uploadImageSchema, updateImageSchema, reorderImagesSchema } from '../schemas/styleImage.schema';
 
 const router = Router();
 
@@ -29,7 +29,10 @@ router.post(
   '/:styleId/images',
   authenticateToken,
   validateParams(styleIdParamSchema),
+  // multer MUST run before validateBody: it is what parses the multipart body into req.body
+  // (the file itself goes to req.file and is not validated here).
   uploadStyleImage,
+  validateBody(uploadImageSchema),
   asyncHandler(uploadImage)
 );
 router.post(

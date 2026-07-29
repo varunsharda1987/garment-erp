@@ -102,7 +102,43 @@ export const receiveChallanSchema = z.object({
   remarks: z.string().max(1000, 'Remarks must not exceed 1000 characters').trim().optional(),
 });
 
+/**
+ * Greige Outward Challan Schema
+ * POST /api/challans/greige-outward
+ *
+ * Mirrors CreateGreigeOutwardChallanInput in challan.service.ts minus `userId`, which the controller
+ * derives from the authenticated user (req.user.userId) and must NOT be accepted from the body.
+ * IDs are validated as non-empty strings (not .uuid()) because the service only does findUnique
+ * lookups with them — an unknown id yields a clean "not found", while a non-string reached Prisma.
+ */
+export const createGreigeOutwardChallanSchema = z.object({
+  materialRequirementId: z.string().min(1, 'Material requirement ID is required').trim(),
+  fabricProcessingId: z.string().min(1, 'Fabric processing ID is required').trim(),
+  orderId: z.string().min(1).trim().optional(),
+});
+
+/**
+ * Split Production Run Schema
+ * POST /api/production-runs/:id/split (route lives in challan.routes.ts)
+ *
+ * Mirrors SplitInput[] in production-run-split.service.ts. `quantity` must be a whole number because
+ * the service sums the splits and compares them to work_orders.totalQuantity (Int) before writing
+ * each child's totalQuantity — a float or a numeric string could never match and 500'd in Prisma.
+ * The service itself rejects <2 splits, so min(2) only converts an existing failure into a clean 400.
+ */
+const splitEntrySchema = z.object({
+  quantity: z.coerce.number().int('Split quantity must be a whole number').positive('Split quantity must be positive'),
+  fabricLotInfo: z.record(z.string(), z.unknown()).optional().nullable(),
+  remarks: z.string().max(1000, 'Remarks must not exceed 1000 characters').trim().optional(),
+});
+
+export const splitProductionRunSchema = z.object({
+  splits: z.array(splitEntrySchema).min(2, 'At least 2 splits are required'),
+});
+
 // Type exports for use in controllers
 export type CreateChallanInput = z.infer<typeof createChallanSchema>;
 export type QuickIssueChallanInput = z.infer<typeof quickIssueChallanSchema>;
 export type ReceiveChallanInput = z.infer<typeof receiveChallanSchema>;
+export type CreateGreigeOutwardChallanInput = z.infer<typeof createGreigeOutwardChallanSchema>;
+export type SplitProductionRunInput = z.infer<typeof splitProductionRunSchema>;

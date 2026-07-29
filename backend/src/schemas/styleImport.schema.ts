@@ -12,6 +12,39 @@ import { z } from 'zod';
 // ============================================================================
 
 /**
+ * A boolean that survives multipart/form-data, where EVERY field arrives as a string.
+ * Accepts real booleans (JSON callers) and the strings 'true'/'1'/'false'/'0'/''.
+ * NOTE: plain `z.coerce.boolean()` is wrong here — Boolean('false') === true.
+ */
+const multipartBoolean = z.preprocess((v) => {
+  if (typeof v === 'string') {
+    if (v === 'true' || v === '1') return true;
+    if (v === 'false' || v === '0' || v === '') return false;
+  }
+  return v;
+}, z.boolean().optional());
+
+/**
+ * Import Styles — MULTIPART (multipart/form-data)
+ * POST /api/styles/import
+ *
+ * ⚠ This body is parsed by multer (`upload.single('file')` in style-import.routes.ts), so
+ * validateBody MUST be mounted AFTER it. The CSV/XLSX FILE lives on `req.file` and is never part of
+ * req.body — this schema only covers the two option flags the controller destructures.
+ *
+ * Both are optional; the frontend appends each key only when the user ticks it (and always as the
+ * string 'true'). The whole body is normalised from undefined/null to {} so a file-only import,
+ * with no option fields at all, cannot 400.
+ */
+export const importStylesSchema = z.preprocess(
+  (body) => (body === undefined || body === null ? {} : body),
+  z.object({
+    overwriteExisting: multipartBoolean,
+    skipDuplicates: multipartBoolean,
+  })
+);
+
+/**
  * Retry Import
  * POST /api/styles/import/:batchId/retry
  */
@@ -84,6 +117,7 @@ export const createGreigeStockSchema = z.object({
 // Type Exports
 // ============================================================================
 
+export type ImportStylesInput = z.infer<typeof importStylesSchema>;
 export type RetryImportInput = z.infer<typeof retryImportSchema>;
 export type StyleStockEntryInput = z.infer<typeof styleStockEntrySchema>;
 export type CreateStyleStockInput = z.infer<typeof createStyleStockSchema>;

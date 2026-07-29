@@ -186,8 +186,14 @@ const { actualField, optionalField } = req.body;  // ← Matches schema!
 When defining types for API responses in frontend (`frontend/src/types/`), always use camelCase for nested relation properties to match the serialized response.
 
 ## Running the App
-- Frontend: `cd frontend && npm run dev`
-- Backend: `cd backend && npm run dev`
+The app runs via PM2 (auto-managed, no manual start needed):
+- **Frontend:** http://localhost:3000 (LAN: http://192.168.1.24:3000)
+- **Backend API:** http://localhost:5000
+
+PM2 commands (user-run only):
+- `pm2 start ecosystem.config.js` — Start all services
+- `pm2 logs` — View logs
+- `pm2 restart all` — Restart after deploy
 
 ## New Module Checklist
 
@@ -711,7 +717,7 @@ The `playwright` MCP server provides browser automation capabilities. **Use this
 - Says "open the browser", "navigate to", "click on"
 
 **Local URLs:**
-- Frontend: `http://localhost:5173`
+- Frontend: `http://localhost:3000`
 - Backend API: `http://localhost:5000`
 
 **Available tools:**

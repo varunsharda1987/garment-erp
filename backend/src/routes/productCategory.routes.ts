@@ -37,6 +37,9 @@ import {
   reorderCategoriesSchema,
   levelParamSchema,
   categoryComponentParamSchema,
+  setDefaultComponentsSchema,
+  addDefaultComponentSchema,
+  updateDefaultComponentSchema,
 } from '../schemas/productCategory.schema';
 import { UserRole } from '@prisma/client';
 
@@ -145,6 +148,7 @@ router.post(
   '/:id/default-components',
   authorize(UserRole.ADMIN),
   validateParams(productCategoryIdParamSchema),
+  validateBody(setDefaultComponentsSchema),
   asyncHandler(setDefaultComponents)
 );
 
@@ -157,6 +161,7 @@ router.post(
   '/:id/default-components/add',
   authorize(UserRole.ADMIN),
   validateParams(productCategoryIdParamSchema),
+  validateBody(addDefaultComponentSchema),
   asyncHandler(addDefaultComponent)
 );
 
@@ -169,6 +174,7 @@ router.put(
   '/:categoryId/default-components/:componentId',
   authorize(UserRole.ADMIN),
   validateParams(categoryComponentParamSchema),
+  validateBody(updateDefaultComponentSchema),
   asyncHandler(updateDefaultComponent)
 );
 

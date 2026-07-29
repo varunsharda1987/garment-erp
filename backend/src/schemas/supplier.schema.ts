@@ -86,11 +86,11 @@ export const createSupplierSchema = z
       .optional(),
     rating: z
       .union([
-        z.number().int().min(0).max(5),
+        z.number().min(0).max(5),
         z
           .string()
-          .transform((val) => (val === '' ? undefined : parseInt(val, 10)))
-          .pipe(z.number().int().min(0).max(5).optional()),
+          .transform((val) => (val === '' ? undefined : parseFloat(val)))
+          .pipe(z.number().min(0).max(5).optional()),
         z.undefined(),
       ])
       .optional(),
@@ -148,11 +148,11 @@ export const updateSupplierSchema = z
       .optional(),
     rating: z
       .union([
-        z.number().int().min(0).max(5),
+        z.number().min(0).max(5),
         z
           .string()
-          .transform((val) => (val === '' ? undefined : parseInt(val, 10)))
-          .pipe(z.number().int().min(0).max(5).optional()),
+          .transform((val) => (val === '' ? undefined : parseFloat(val)))
+          .pipe(z.number().min(0).max(5).optional()),
         z.undefined(),
       ])
       .optional(),

@@ -103,6 +103,29 @@ export const copyRatesSchema = z
   .passthrough();
 
 // ============================================================================
+// ADD GREIGE SCHEMA
+// ============================================================================
+
+/**
+ * Add Greige Row
+ * POST /api/rate-cards/processors/:processorId/greiges/:greigeId
+ *
+ * processorId/greigeId come from the route params (validated by processorGreigeParamSchema);
+ * the body carries ONLY processingType (+ printingType for PRINTING) — exactly what the
+ * controller destructures.
+ *
+ * printingType stays OPTIONAL here on purpose: the controller already enforces
+ * "required when processingType === 'PRINTING'" with a specific 400 message, and the frontend
+ * omits the field entirely for DYEING. Its values match the Prisma `PrintingType` enum.
+ */
+export const addGreigeSchema = z
+  .object({
+    processingType: z.enum(['DYEING', 'PRINTING']),
+    printingType: z.enum(['PIGMENT', 'PROCIAN', 'DISCHARGE', 'PIGMENT_DISCHARGE']).optional(),
+  })
+  .passthrough();
+
+// ============================================================================
 // LOOKUP SCHEMAS
 // ============================================================================
 
@@ -160,5 +183,6 @@ export type UpdateSlabsInput = z.infer<typeof updateSlabsSchema>;
 export type SaveMatrixInput = z.infer<typeof saveMatrixSchema>;
 export type SaveLaceMatrixInput = z.infer<typeof saveLaceMatrixSchema>;
 export type CopyRatesInput = z.infer<typeof copyRatesSchema>;
+export type AddGreigeInput = z.infer<typeof addGreigeSchema>;
 export type LookupRateInput = z.infer<typeof lookupRateSchema>;
 export type LookupLaceRateInput = z.infer<typeof lookupLaceRateSchema>;

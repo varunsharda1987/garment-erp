@@ -53,6 +53,8 @@ router.put(
 );
 
 // Soft delete material
+// no-body: deleteMaterial reads only req.params.id (soft-deletes via materialMasterService.softDelete)
+// and returns 204 — it never touches req.body, so there is nothing to validate.
 router.delete('/:id', validateParams(materialIdParamSchema), asyncHandler(materialMasterController.deleteMaterial));
 
 // Supplier management

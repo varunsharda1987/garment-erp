@@ -150,6 +150,7 @@ IMPORTANT:
  * POST /api/ai/insights
  * Get AI insights about current ERP state
  */
+// no-body: prompt is hard-coded in the handler; no req.body read
 router.post(
   '/insights',
   asyncHandler(async (req: Request, res: Response) => {

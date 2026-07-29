@@ -13,6 +13,8 @@ import {
 } from '../controllers/report.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
+import { validateBody } from '../middleware/validation.middleware';
+import { generateReportSchema, cleanupReportsSchema } from '../schemas/report.schema';
 
 const router = Router();
 
@@ -35,6 +37,7 @@ router.get('/types', asyncHandler(getReportTypes));
 router.post(
   '/generate',
   authorize('ADMIN', 'PRODUCTION_MANAGER', 'INVENTORY', 'ACCOUNTS'),
+  validateBody(generateReportSchema),
   asyncHandler(generateReport)
 );
 
@@ -62,6 +65,6 @@ router.get(
  * @body    { daysToKeep?: number }
  * @access  Admin only
  */
-router.post('/cleanup', authorize('ADMIN'), asyncHandler(cleanupReports));
+router.post('/cleanup', authorize('ADMIN'), validateBody(cleanupReportsSchema), asyncHandler(cleanupReports));
 
 export default router;

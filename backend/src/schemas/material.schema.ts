@@ -146,8 +146,10 @@ export const categoryQuerySchema = z.object({
  */
 export const createCategorySchema = z.object({
   name: z
+    // min(1), not min(2): this schema was only just wired to POST /materials/categories, which
+    // previously had no validation at all — a 1-character category name worked and must keep working.
     .string()
-    .min(2, 'Category name must be at least 2 characters')
+    .min(1, 'Category name is required')
     .max(100, 'Category name must not exceed 100 characters')
     .trim(),
   description: z.string().trim().optional(),

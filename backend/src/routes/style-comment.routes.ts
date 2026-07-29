@@ -5,7 +5,7 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateParams } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import {
   createComment,
   getComments,
@@ -13,7 +13,12 @@ import {
   deleteComment,
   getRecentActivity,
 } from '../controllers/style-comment.controller';
-import { styleIdAsStyleIdParamSchema, styleAndCommentIdParamSchema } from '../schemas/style.schema';
+import {
+  styleIdAsStyleIdParamSchema,
+  styleAndCommentIdParamSchema,
+  createStyleCommentSchema,
+  updateStyleCommentSchema,
+} from '../schemas/style.schema';
 
 const router = Router();
 
@@ -31,12 +36,14 @@ router.post(
   '/:styleId/comments',
   authenticateToken,
   validateParams(styleIdAsStyleIdParamSchema),
+  validateBody(createStyleCommentSchema),
   asyncHandler(createComment)
 );
 router.patch(
   '/:styleId/comments/:commentId',
   authenticateToken,
   validateParams(styleAndCommentIdParamSchema),
+  validateBody(updateStyleCommentSchema),
   asyncHandler(updateComment)
 );
 router.delete(

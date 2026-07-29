@@ -5,7 +5,7 @@ import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { idParamSchema, warehouseIdParamSchema, countIdAndItemIdParamSchema } from '../schemas/common.schema';
-import { updateCountItemSchema } from '../schemas/stockCount.schema';
+import { createStockCountSchema, updateCountItemSchema } from '../schemas/stockCount.schema';
 
 const router = express.Router();
 
@@ -23,7 +23,7 @@ router.get('/:id/variance', validateParams(idParamSchema), asyncHandler(stockCou
 router.get('/:id', validateParams(idParamSchema), asyncHandler(stockCountController.getStockCountById));
 
 // POST routes
-router.post('/', asyncHandler(stockCountController.createStockCount));
+router.post('/', validateBody(createStockCountSchema), asyncHandler(stockCountController.createStockCount));
 router.post('/:id/start', validateParams(idParamSchema), asyncHandler(stockCountController.startCounting));
 router.post('/:id/verify', validateParams(idParamSchema), asyncHandler(stockCountController.verifyStockCount));
 router.post('/:id/approve', validateParams(idParamSchema), asyncHandler(stockCountController.approveStockCount));

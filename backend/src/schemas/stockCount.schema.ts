@@ -8,6 +8,26 @@
 import { z } from 'zod';
 
 /**
+ * Create Stock Count
+ * POST /api/stock-counts
+ *
+ * Mirrors exactly what the controller destructures from req.body:
+ * warehouseId, countType, countDate, remarks, materialIds (countedById comes from req.user).
+ * `countType` matches the Prisma `CountType` enum exactly.
+ * `countDate` is z.coerce.date() (NOT .datetime()): the form sends a bare 'YYYY-MM-DD' from
+ * <input type="date">, and the controller feeds the value straight into `new Date(...)`.
+ * The "materialIds required for PARTIAL/SPOT_CHECK" rule is left to the controller/service,
+ * which already raise a specific 400 for it.
+ */
+export const createStockCountSchema = z.object({
+  warehouseId: z.string().uuid('Invalid warehouse ID'),
+  countType: z.enum(['FULL', 'PARTIAL', 'CYCLE', 'SPOT_CHECK']),
+  countDate: z.coerce.date().optional(),
+  remarks: z.string().max(500).optional(),
+  materialIds: z.array(z.string().uuid('Invalid material ID')).optional(),
+});
+
+/**
  * Update Count Item
  * PUT /api/stock-counts/:countId/items/:itemId
  * Controller feeds physicalQuantity straight into `new Decimal(...)`, so it MUST be a
@@ -22,4 +42,5 @@ export const updateCountItemSchema = z.object({
 // Type Exports
 // ============================================================================
 
+export type CreateStockCountInput = z.infer<typeof createStockCountSchema>;
 export type UpdateCountItemInput = z.infer<typeof updateCountItemSchema>;

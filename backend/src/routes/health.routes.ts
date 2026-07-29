@@ -236,6 +236,7 @@ router.get('/version', (req: Request, res: Response) => {
  *       200:
  *         description: Cleanup results
  */
+// no-body: runs all file-cleanup tasks; no req.body read
 router.post(
   '/cleanup',
   authenticateToken,

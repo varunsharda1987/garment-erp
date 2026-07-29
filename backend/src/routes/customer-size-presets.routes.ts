@@ -11,8 +11,13 @@ import {
 } from '../controllers/customer-size-presets.controller';
 import { asyncHandler } from '../middleware/error.middleware';
 import { authenticateToken } from '../middleware/auth.middleware';
-import { validateParams } from '../middleware/validation.middleware';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { customerIdParamSchema, customerIdAndPresetIdParamSchema } from '../schemas/common.schema';
+import {
+  createCustomerSizePresetSchema,
+  updateCustomerSizePresetSchema,
+  cloneCustomerSizePresetSchema,
+} from '../schemas/customerSizePresets.schema';
 
 const router = express.Router();
 
@@ -44,6 +49,7 @@ router.get(
 router.post(
   '/customers/:customerId/size-category-presets',
   validateParams(customerIdParamSchema),
+  validateBody(createCustomerSizePresetSchema),
   asyncHandler(createPreset)
 );
 
@@ -51,6 +57,7 @@ router.post(
 router.put(
   '/customers/:customerId/size-category-presets/:presetId',
   validateParams(customerIdAndPresetIdParamSchema),
+  validateBody(updateCustomerSizePresetSchema),
   asyncHandler(updatePreset)
 );
 
@@ -62,6 +69,7 @@ router.delete(
 );
 
 // Set a preset as default
+// no-body: controller reads only :customerId/:presetId
 router.post(
   '/customers/:customerId/size-category-presets/:presetId/set-default',
   validateParams(customerIdAndPresetIdParamSchema),
@@ -72,6 +80,7 @@ router.post(
 router.post(
   '/customers/:customerId/size-category-presets/:presetId/clone',
   validateParams(customerIdAndPresetIdParamSchema),
+  validateBody(cloneCustomerSizePresetSchema),
   asyncHandler(clonePreset)
 );
 

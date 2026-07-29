@@ -153,6 +153,65 @@ export const reorderCategoriesSchema = z.object({
   ),
 });
 
+// ============================================================================
+// CATEGORY COMPONENT DEFAULTS
+// Persistence target: prisma model `category_component_defaults`
+//   componentMasterId String (FK -> component_masters.id, uuid)
+//   isRequired Boolean @default(false), sortOrder Int @default(0),
+//   defaultCount Int @default(1), notes String?
+// ============================================================================
+
+/**
+ * One default-component entry.
+ * Mirrors `ComponentDefaultInput` in the service and the frontend type of the same name.
+ */
+export const componentDefaultInputSchema = z.object({
+  componentMasterId: z.string().uuid('Invalid component master ID format'),
+  isRequired: z.boolean().optional(),
+  sortOrder: z.number().int('Sort order must be an integer').min(0, 'Sort order must be non-negative').optional(),
+  defaultCount: z
+    .number()
+    .int('Default count must be an integer')
+    .min(1, 'Default count must be at least 1')
+    .optional(),
+  notes: z.string().optional().nullable(),
+});
+
+/**
+ * Set default components for a category (bulk replace)
+ * POST /api/product-categories/:id/default-components
+ *
+ * `components` is optional (controller falls back to `[]`) and may legitimately be
+ * an empty array — that is how the UI clears all defaults for a category.
+ */
+export const setDefaultComponentsSchema = z.object({
+  components: z.array(componentDefaultInputSchema).optional(),
+});
+
+/**
+ * Add a single default component to a category
+ * POST /api/product-categories/:id/default-components/add
+ */
+export const addDefaultComponentSchema = componentDefaultInputSchema;
+
+/**
+ * Update a default component
+ * PUT /api/product-categories/:categoryId/default-components/:componentId
+ *
+ * The controller forwards `req.body` wholesale to the service, which only reads
+ * these four fields. `componentMasterId` is taken from the URL, not the body.
+ */
+export const updateDefaultComponentSchema = z.object({
+  isRequired: z.boolean().optional(),
+  sortOrder: z.number().int('Sort order must be an integer').min(0, 'Sort order must be non-negative').optional(),
+  defaultCount: z
+    .number()
+    .int('Default count must be an integer')
+    .min(1, 'Default count must be at least 1')
+    .optional(),
+  notes: z.string().optional().nullable(),
+});
+
 // Type exports for TypeScript
 export type CreateProductCategoryInput = z.infer<typeof createProductCategorySchema>;
 export type UpdateProductCategoryInput = z.infer<typeof updateProductCategorySchema>;
@@ -161,3 +220,7 @@ export type ProductCategoryIdParam = z.infer<typeof productCategoryIdParamSchema
 export type LevelParam = z.infer<typeof levelParamSchema>;
 export type CategoryComponentParam = z.infer<typeof categoryComponentParamSchema>;
 export type ReorderCategoriesInput = z.infer<typeof reorderCategoriesSchema>;
+export type ComponentDefaultInput = z.infer<typeof componentDefaultInputSchema>;
+export type SetDefaultComponentsInput = z.infer<typeof setDefaultComponentsSchema>;
+export type AddDefaultComponentInput = z.infer<typeof addDefaultComponentSchema>;
+export type UpdateDefaultComponentInput = z.infer<typeof updateDefaultComponentSchema>;

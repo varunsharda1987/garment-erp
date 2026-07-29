@@ -15,34 +15,26 @@ import { z } from 'zod';
  * Save Tech Specs
  * PUT /api/styles/:styleId/tech-specs
  */
+// NOTE: these fields mirror EXACTLY what style-tech-specs.controller.ts reads from req.body
+// and what the style_tech_specs Prisma model persists. They previously diverged completely, so
+// Zod silently stripped 8 of 10 fields on every save (200 OK, data lost). Keep this in lockstep
+// with the controller + model.
 export const saveTechSpecsSchema = z.object({
-  // Garment details
-  garmentType: z.string().max(100).optional(),
-  silhouette: z.string().max(100).optional(),
-  sleeveType: z.string().max(100).optional(),
-  necklineType: z.string().max(100).optional(),
-  hemType: z.string().max(100).optional(),
-  fitType: z.string().max(100).optional(),
+  // Lengths — Decimal(10,2)? in the DB; accept a number or numeric string, allow null/absent
+  overallLength: z.coerce.number().nonnegative().nullable().optional(),
+  topLength: z.coerce.number().nonnegative().nullable().optional(),
+  bottomLength: z.coerce.number().nonnegative().nullable().optional(),
+  lengthUnit: z.string().max(20).optional(),
 
-  // Construction details
-  constructionMethod: z.string().max(100).optional(),
-  seamType: z.string().max(100).optional(),
-  finishType: z.string().max(100).optional(),
+  // Style attributes (String? in the DB)
+  sleeveType: z.string().max(100).nullable().optional(),
+  collarType: z.string().max(100).nullable().optional(),
+  fitType: z.string().max(100).nullable().optional(),
+  closureType: z.string().max(100).nullable().optional(),
 
-  // Measurements (JSON object for size-wise measurements)
-  measurements: z.record(z.string(), z.unknown()).optional(),
-
-  // Wash care
-  washCare: z.array(z.string()).optional(),
-  careInstructions: z.string().max(1000).optional(),
-
-  // Additional specs
-  packingInstructions: z.string().max(1000).optional(),
-  qualityNotes: z.string().max(1000).optional(),
-  specialInstructions: z.string().max(2000).optional(),
-
-  // Custom specs (key-value pairs)
-  customSpecs: z.record(z.string(), z.unknown()).optional(),
+  // Notes (Text? in the DB)
+  designNotes: z.string().max(2000).nullable().optional(),
+  constructionNotes: z.string().max(2000).nullable().optional(),
 });
 
 // ============================================================================

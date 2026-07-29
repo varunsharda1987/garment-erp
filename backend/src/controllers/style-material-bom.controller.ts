@@ -704,11 +704,9 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
     throw new NotFoundError('Style', styleId);
   }
 
-  // Fetch material details by code
-  const materialData = await getMaterialByCode(req, res);
-
-  // This is a simplified approach - in real implementation, we'd call the function differently
-  // For now, let's fetch the material based on the code prefix
+  // Resolve the material master from the code prefix (below). Do NOT call the res-writing
+  // getMaterialByCode() handler internally — it reads req.params.materialCode (absent on this
+  // route), which threw a 400 before any of this ran and made the endpoint dead-on-arrival.
 
   let materialId: string | undefined;
   let masterRecordId: string | undefined;

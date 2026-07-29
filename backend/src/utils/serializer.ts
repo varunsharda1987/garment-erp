@@ -526,7 +526,16 @@ export function applyRelationMappings<T = unknown>(data: unknown): T {
       }
 
       // Check if this key has a custom mapping
-      const mappedKey = RELATION_MAPPINGS[key] || key;
+      let mappedKey = RELATION_MAPPINGS[key] || key;
+
+      // Cardinality guard: customers/styles/suppliers map to a SINGULAR (belongs-to) name, but the
+      // same snake_case key is ALSO used for has-many ARRAYS. Singularizing an array ships it under
+      // the singular key so the frontend's plural read returns undefined — the root cause of the
+      // BH-0207 supplier-link-wiping data-loss bug. Keep the plural key when the value is an array;
+      // still singularize a single belongs-to object.
+      if (Array.isArray(value) && (key === 'customers' || key === 'styles' || key === 'suppliers')) {
+        mappedKey = key;
+      }
 
       if (debugEnabled && mappedKey !== key) {
         logDebug(`  [Mapping] ${key} → ${mappedKey}`);

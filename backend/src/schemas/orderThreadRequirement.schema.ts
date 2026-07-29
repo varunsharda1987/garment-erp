@@ -56,7 +56,7 @@ export const checkShortageSchema = z.object({
 export const generateThreadPOSchema = z.object({
   requirementIds: z.array(z.string().uuid()).min(1, 'At least one requirement ID is required'),
   supplierId: z.string().uuid('Invalid supplier ID'),
-  expectedDeliveryDate: z.string().datetime().optional(),
+  expectedDeliveryDate: z.coerce.date().optional(), // <input type=date> sends YYYY-MM-DD; controller wraps in new Date()
   remarks: z.string().max(500).optional(),
 });
 

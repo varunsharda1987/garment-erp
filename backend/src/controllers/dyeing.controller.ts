@@ -504,7 +504,136 @@ export const requestResubmit = async (req: Request, res: Response, _next: NextFu
     where: { id },
     data: {
       status: 'RESUBMIT',
+      resubmissionCount: (existing.resubmissionCount || 0) + 1,
       remarks: remarks ? `${existing.remarks || ''}\n[Resubmit Request] ${remarks}` : existing.remarks,
+    },
+    include: labDipInclude,
+  });
+
+  res.json({ data: transformLabDip(labDip as any) });
+};
+
+// ============================================
+// BUYER APPROVAL WORKFLOW
+// ============================================
+
+// Send lab dip to buyer for approval
+export const sendToBuyer = async (req: Request, res: Response, _next: NextFunction) => {
+  const { id } = req.params;
+  const { sentToBuyerDate, remarks } = req.body;
+
+  const existing = await prisma.lab_dips.findUnique({
+    where: { id },
+  });
+
+  if (!existing) {
+    throw new NotFoundError('Lab dip', id);
+  }
+
+  if (existing.status !== 'APPROVED') {
+    throw new ValidationError('Lab dip must be internally approved before sending to buyer');
+  }
+
+  const labDip = await prisma.lab_dips.update({
+    where: { id },
+    data: {
+      sentToBuyerDate: sentToBuyerDate ? new Date(sentToBuyerDate) : new Date(),
+      buyerApprovalStatus: 'PENDING',
+      remarks: remarks ? `${existing.remarks || ''}\n[Sent to Buyer] ${remarks}` : existing.remarks,
+    },
+    include: labDipInclude,
+  });
+
+  res.json({ data: transformLabDip(labDip as any) });
+};
+
+// Buyer approves lab dip
+export const buyerApprove = async (req: Request, res: Response, _next: NextFunction) => {
+  const { id } = req.params;
+  const { buyerRemarks } = req.body;
+
+  const existing = await prisma.lab_dips.findUnique({
+    where: { id },
+  });
+
+  if (!existing) {
+    throw new NotFoundError('Lab dip', id);
+  }
+
+  if (existing.buyerApprovalStatus !== 'PENDING') {
+    throw new ValidationError('Lab dip must be pending buyer approval');
+  }
+
+  const labDip = await prisma.lab_dips.update({
+    where: { id },
+    data: {
+      buyerApprovalStatus: 'APPROVED',
+      buyerApprovalDate: new Date(),
+      buyerRemarks,
+      remarks: buyerRemarks ? `${existing.remarks || ''}\n[Buyer Approved] ${buyerRemarks}` : existing.remarks,
+    },
+    include: labDipInclude,
+  });
+
+  res.json({ data: transformLabDip(labDip as any) });
+};
+
+// Buyer rejects lab dip
+export const buyerReject = async (req: Request, res: Response, _next: NextFunction) => {
+  const { id } = req.params;
+  const { buyerRemarks } = req.body;
+
+  const existing = await prisma.lab_dips.findUnique({
+    where: { id },
+  });
+
+  if (!existing) {
+    throw new NotFoundError('Lab dip', id);
+  }
+
+  if (existing.buyerApprovalStatus !== 'PENDING') {
+    throw new ValidationError('Lab dip must be pending buyer approval');
+  }
+
+  const labDip = await prisma.lab_dips.update({
+    where: { id },
+    data: {
+      buyerApprovalStatus: 'REJECTED',
+      buyerApprovalDate: new Date(),
+      buyerRemarks,
+      remarks: buyerRemarks ? `${existing.remarks || ''}\n[Buyer Rejected] ${buyerRemarks}` : existing.remarks,
+    },
+    include: labDipInclude,
+  });
+
+  res.json({ data: transformLabDip(labDip as any) });
+};
+
+// Buyer requests resubmission
+export const buyerRequestResubmit = async (req: Request, res: Response, _next: NextFunction) => {
+  const { id } = req.params;
+  const { buyerRemarks } = req.body;
+
+  const existing = await prisma.lab_dips.findUnique({
+    where: { id },
+  });
+
+  if (!existing) {
+    throw new NotFoundError('Lab dip', id);
+  }
+
+  if (existing.buyerApprovalStatus !== 'PENDING') {
+    throw new ValidationError('Lab dip must be pending buyer approval');
+  }
+
+  const labDip = await prisma.lab_dips.update({
+    where: { id },
+    data: {
+      buyerApprovalStatus: 'RESUBMIT_REQUIRED',
+      buyerApprovalDate: new Date(),
+      buyerRemarks,
+      resubmissionCount: (existing.resubmissionCount || 0) + 1,
+      remarks: buyerRemarks ? `${existing.remarks || ''}\n[Buyer Resubmit Required] ${buyerRemarks}` : existing.remarks,
     },
     include: labDipInclude,
   });
@@ -1412,6 +1541,7 @@ export const getProcessPOById = async (req: Request, res: Response, _next: NextF
 };
 
 // 3. Create Process PO (PO + Job Work Order together)
+// Supports both lab-dip-based (traditional) and style-based (direct) creation
 export const createProcessPO = async (req: Request, res: Response, _next: NextFunction) => {
   const userId = req.user?.userId;
   if (!userId) {
@@ -1420,6 +1550,9 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
 
   const {
     labDipId,
+    styleId: directStyleId,
+    fabricId: directFabricId,
+    processorId: directProcessorId,
     greigeStockLotId,
     fabricStockLotId,
     qtySentMeters,
@@ -1431,30 +1564,79 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     remarks,
   } = req.body;
 
-  if (!labDipId || !qtySentMeters || !sentWidthInches || !agreedRatePerMeter) {
-    throw new ValidationError('Missing required fields: labDipId, qtySentMeters, sentWidthInches, agreedRatePerMeter');
+  // Validate required fields
+  if (!qtySentMeters || !sentWidthInches || !agreedRatePerMeter) {
+    throw new ValidationError('Missing required fields: qtySentMeters, sentWidthInches, agreedRatePerMeter');
   }
 
   if (!greigeStockLotId && !fabricStockLotId) {
     throw new ValidationError('Either greigeStockLotId or fabricStockLotId is required');
   }
 
-  // Validate lab dip exists and is APPROVED
-  const labDip = await prisma.lab_dips.findUnique({
-    where: { id: labDipId },
-    include: {
-      style: { select: { id: true, styleCode: true, styleName: true } },
-      fabric: { select: { id: true, fabricCode: true, fabricName: true } },
-      processor: { select: { id: true, name: true, code: true } },
-    },
-  });
-
-  if (!labDip) {
-    throw new NotFoundError('Lab dip', labDipId);
+  // Either labDipId OR (styleId + fabricId + processorId) must be provided
+  if (!labDipId && (!directStyleId || !directFabricId || !directProcessorId)) {
+    throw new ValidationError('Either labDipId OR (styleId, fabricId, and processorId) must be provided');
   }
 
-  if (labDip.status !== 'APPROVED') {
-    throw new ValidationError('Lab dip must be approved before creating a Process PO');
+  // Resolve style, fabric, processor - either from lab dip or direct input
+  let resolvedStyleId: string;
+  let resolvedFabricId: string;
+  let resolvedProcessorId: string;
+  let labDip: any = null;
+
+  if (labDipId) {
+    // Lab-dip-based creation - validate lab dip exists and is APPROVED
+    labDip = await prisma.lab_dips.findUnique({
+      where: { id: labDipId },
+      include: {
+        style: { select: { id: true, styleCode: true, styleName: true } },
+        fabric: { select: { id: true, fabricCode: true, fabricName: true } },
+        processor: { select: { id: true, name: true, code: true } },
+      },
+    });
+
+    if (!labDip) {
+      throw new NotFoundError('Lab dip', labDipId);
+    }
+
+    if (labDip.status !== 'APPROVED') {
+      throw new ValidationError('Lab dip must be approved before creating a Process PO');
+    }
+
+    resolvedStyleId = labDip.styleId;
+    resolvedFabricId = labDip.fabricId;
+    resolvedProcessorId = labDip.processorId;
+  } else {
+    // Style-based creation - validate style, fabric, processor exist
+    const [style, fabric, processor] = await Promise.all([
+      prisma.styles.findUnique({
+        where: { id: directStyleId },
+        select: { id: true, styleCode: true, styleName: true },
+      }),
+      prisma.fabric_master.findUnique({
+        where: { id: directFabricId },
+        select: { id: true, fabricCode: true, fabricName: true },
+      }),
+      prisma.suppliers.findUnique({ where: { id: directProcessorId }, select: { id: true, name: true, code: true } }),
+    ]);
+
+    if (!style) throw new NotFoundError('Style', directStyleId);
+    if (!fabric) throw new NotFoundError('Fabric', directFabricId);
+    if (!processor) throw new NotFoundError('Processor', directProcessorId);
+
+    resolvedStyleId = directStyleId;
+    resolvedFabricId = directFabricId;
+    resolvedProcessorId = directProcessorId;
+
+    // Create a mock labDip object for compatibility with downstream code
+    labDip = {
+      styleId: directStyleId,
+      fabricId: directFabricId,
+      processorId: directProcessorId,
+      style,
+      fabric,
+      processor,
+    };
   }
 
   // Validate stock source (greige_stock preferred, fabric_stock as fallback)
@@ -1489,7 +1671,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     // If no fabricStockLotId provided, find or use the first available fabric stock
     // as a placeholder (fabricStockLotId is required by schema)
     const fallbackStock = await prisma.fabric_stock.findFirst({
-      where: { fabricId: labDip.fabricId },
+      where: { fabricId: resolvedFabricId },
       select: { id: true },
     });
     if (!fallbackStock) {
@@ -1497,7 +1679,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       // Using RESERVED status to indicate this is not yet available for use
       const placeholderStock = await prisma.fabric_stock.create({
         data: {
-          fabricId: labDip.fabricId,
+          fabricId: resolvedFabricId,
           finishedWidth: new Prisma.Decimal(sentWidthInches),
           cutableWidth: new Prisma.Decimal(Math.max(sentWidthInches - 2, 0)),
           quantityAvailable: new Prisma.Decimal(0),
@@ -1533,7 +1715,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       data: {
         id: poId,
         poNumber,
-        supplierId: labDip.processorId,
+        supplierId: resolvedProcessorId,
         poDate: new Date(),
         expectedDeliveryDate: expectedReturnDate
           ? new Date(expectedReturnDate)
@@ -1573,10 +1755,10 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       data: {
         jobWorkNumber,
         processType: 'DYEING',
-        labDipId,
-        styleId: labDip.styleId,
-        fabricId: labDip.fabricId,
-        processorId: labDip.processorId,
+        labDipId: labDipId || null, // Now optional for style-based PO
+        styleId: resolvedStyleId,
+        fabricId: resolvedFabricId,
+        processorId: resolvedProcessorId,
         fabricStockLotId: validatedFabricStockLotId,
         greigeStockLotId: greigeStockLotId || null,
         purchaseOrderId: po.id,

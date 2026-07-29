@@ -48,7 +48,7 @@ export default function ReturnUnprocessedDialog({
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen && processPO) {
       // Default to full sent quantity
-      setReturnedQtyMeters(Number(processPO.qtySentMeters));
+      setReturnedQtyMeters(Number(processPO.jobWorkOrder?.qtySentMeters || 0));
       setReturnDate(today);
       setRemarks('');
     }
@@ -100,8 +100,9 @@ export default function ReturnUnprocessedDialog({
 
   if (!processPO) return null;
 
-  const sentQty = Number(processPO.qtySentMeters);
-  const receivedQty = Number(processPO.qtyReceivedMeters || 0);
+  const jwo = processPO.jobWorkOrder;
+  const sentQty = Number(jwo?.qtySentMeters || 0);
+  const receivedQty = Number(jwo?.qtyReceivedMeters || 0);
   const remainingAtMill = sentQty - receivedQty;
 
   return (
@@ -112,7 +113,9 @@ export default function ReturnUnprocessedDialog({
             <Undo className="h-5 w-5 text-warning" />
             Return Unprocessed
           </DialogTitle>
-          <DialogDescription>Return unprocessed fabric for {processPO.jobWorkNumber}</DialogDescription>
+          <DialogDescription>
+            Return unprocessed fabric for {jwo?.jobWorkNumber || processPO.poNumber}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">

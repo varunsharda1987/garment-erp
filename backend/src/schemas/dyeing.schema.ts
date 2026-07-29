@@ -174,13 +174,19 @@ export const dyeJobQuerySchema = z.object({
  * Create Process PO
  * POST /api/dyeing/process-pos or /api/printing/process-pos
  *
+ * Style-based: Can create PO directly from style without lab dip approval.
+ * If labDipId is not provided, styleId, fabricId, and processorId are required.
+ *
  * Controller destructures:
- * labDipId, greigeStockLotId, fabricStockLotId, qtySentMeters, sentWidthInches, agreedRatePerMeter,
- * expectedReturnDate, expectedShrinkage, fabricType, remarks
+ * labDipId, styleId, fabricId, processorId, greigeStockLotId, fabricStockLotId, qtySentMeters,
+ * sentWidthInches, agreedRatePerMeter, expectedReturnDate, expectedShrinkage, fabricType, remarks
  */
 export const createProcessPoSchema = z
   .object({
-    labDipId: z.string().uuid('Invalid lab dip ID'),
+    labDipId: z.string().uuid('Invalid lab dip ID').optional(), // Now optional - style-based PO
+    styleId: z.string().uuid('Invalid style ID').optional(), // Required if no labDipId
+    fabricId: z.string().uuid('Invalid fabric ID').optional(), // Required if no labDipId
+    processorId: z.string().uuid('Invalid processor ID').optional(), // Required if no labDipId
     greigeStockLotId: z.string().uuid('Invalid greige stock lot ID').optional(),
     fabricStockLotId: z.string().uuid('Invalid fabric stock lot ID').optional(),
     qtySentMeters: z.number().positive('Quantity must be positive'),
@@ -191,7 +197,10 @@ export const createProcessPoSchema = z
     fabricType: z.string().max(50).optional().default('GREIGE'),
     remarks: z.string().max(500).optional(),
   })
-  .passthrough();
+  .passthrough()
+  .refine((data) => data.labDipId || (data.styleId && data.fabricId && data.processorId), {
+    message: 'Either labDipId OR (styleId, fabricId, and processorId) must be provided',
+  });
 
 /**
  * Process PO Query Params
@@ -303,20 +312,28 @@ export const processPoActionSchema = z
 // ============================================================================
 
 /**
- * Approve Lab Dip
- * POST /api/dyeing/lab-dips/:id/approve or /api/printing/lab-dips/:id/approve
+ * Lab Dip Actions (Approve/Reject/Resubmit/SendToBuyer/BuyerApprove/BuyerReject)
+ * POST /api/dyeing/lab-dips/:id/approve, reject, resubmit, send-to-buyer, buyer-approve, buyer-reject
  *
- * Controller destructures: approvedSampleNo, colorMatchRating, remarks
+ * approve: approvedSampleNo, colorMatchRating, remarks
+ * reject: rejectionReason, remarks
+ * resubmit: remarks
+ * sendToBuyer: sentToBuyerDate, remarks
+ * buyerApprove: buyerRemarks
+ * buyerReject: buyerRemarks
  */
 export const labDipActionSchema = z
   .object({
     approvedSampleNo: z.string().max(50).optional(),
     colorMatchRating: z.number().min(1).max(5).optional(),
-    remarks: z.string().max(500).optional(),
-    // For reject action
     rejectionReason: z.string().max(500).optional(),
+    sentToBuyerDate: z.coerce.date().optional(),
+    buyerRemarks: z.string().max(500).optional(),
+    remarks: z.string().max(500).optional(),
   })
   .passthrough();
+
+export const BuyerApprovalStatusEnum = z.enum(['NOT_SENT', 'PENDING', 'APPROVED', 'REJECTED', 'RESUBMIT_REQUIRED']);
 
 /**
  * Send to Mill / Receive from Mill / Quality Check

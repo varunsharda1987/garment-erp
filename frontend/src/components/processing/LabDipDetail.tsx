@@ -16,7 +16,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/dialog';
 import { dyeLabDipService } from '@/services/dyeing.service';
 import { labDipService as printLabDipService } from '@/services/printing.service';
-import type { LabDipStatus } from '@/types/printing.types';
+import type { LabDip } from '@/types/printing.types';
 import { LabDipStatusLabels, LabDipStatusColors } from '@/types/printing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { cn } from '@/lib/utils';
@@ -353,15 +353,15 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Design/Artwork</p>
-                <p className="font-medium">{labDip.designArtwork || '-'}</p>
+                <p className="font-medium">{(labDip as LabDip).designArtwork || '-'}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Print Method</p>
-                <p className="font-medium">{labDip.printMethod?.replace('_', ' ') || '-'}</p>
+                <p className="font-medium">{(labDip as LabDip).printMethod?.replace('_', ' ') || '-'}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Print Chemistry</p>
-                <p className="font-medium">{labDip.printChemistry || '-'}</p>
+                <p className="font-medium">{(labDip as LabDip).printChemistry || '-'}</p>
               </div>
             </div>
           )}

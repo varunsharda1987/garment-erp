@@ -1,8 +1,8 @@
 // Shared Lab Dip Create Form - works for both Dyeing and Printing
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Beaker, Search, Loader2, Check, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, Beaker, Loader2, Check, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -104,7 +104,7 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
   // Color search query (dyeing only)
   const { data: colorsData, isLoading: colorsLoading } = useQuery({
     queryKey: ['colors-search', colorSearch],
-    queryFn: () => colorService.search({ q: colorSearch, limit: 20 }),
+    queryFn: () => colorService.search({ search: colorSearch, limit: 20 }),
     enabled: processType === 'DYEING' && (colorOpen || colorSearch.length >= 2),
   });
 
@@ -119,6 +119,7 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
     mutationFn: async (data: CreateLabDipRequest) => {
       if (processType === 'DYEING') {
         return dyeLabDipService.createLabDip({
+          processType: 'DYEING',
           styleId: data.styleId,
           fabricId: data.fabricId,
           processorId: data.processorId,
@@ -130,6 +131,7 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
         });
       } else {
         return printLabDipService.createLabDip({
+          processType: 'PRINTING',
           styleId: data.styleId,
           fabricId: data.fabricId,
           processorId: data.processorId,

@@ -28,6 +28,11 @@ import {
   requestResubmit,
   getApprovedLabDips,
   searchLabDips,
+  // Buyer approval endpoints
+  sendToBuyer,
+  buyerApprove,
+  buyerReject,
+  buyerRequestResubmit,
   // Dye Job endpoints
   getAllDyeJobs,
   getDyeJobById,
@@ -142,6 +147,32 @@ router.post(
   validateParams(idParamSchema),
   validateBody(labDipActionSchema),
   asyncHandler(requestResubmit)
+);
+
+// Buyer approval workflow
+router.post(
+  '/lab-dips/:id/send-to-buyer',
+  validateParams(idParamSchema),
+  validateBody(labDipActionSchema),
+  asyncHandler(sendToBuyer)
+);
+router.post(
+  '/lab-dips/:id/buyer-approve',
+  validateParams(idParamSchema),
+  validateBody(labDipActionSchema),
+  asyncHandler(buyerApprove)
+);
+router.post(
+  '/lab-dips/:id/buyer-reject',
+  validateParams(idParamSchema),
+  validateBody(labDipActionSchema),
+  asyncHandler(buyerReject)
+);
+router.post(
+  '/lab-dips/:id/buyer-resubmit',
+  validateParams(idParamSchema),
+  validateBody(labDipActionSchema),
+  asyncHandler(buyerRequestResubmit)
 );
 
 // ============================================

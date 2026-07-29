@@ -63,7 +63,7 @@ export default function QualityCheckDialog({
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen && processPO) {
       // Pre-fill actual rate with agreed rate
-      setActualRate(processPO.agreedRatePerMeter);
+      setActualRate(processPO.jobWorkOrder?.agreedRatePerMeter);
       setQualityGrade('');
       setColorMatchStatus('');
       setDefectMeters(0);
@@ -118,7 +118,9 @@ export default function QualityCheckDialog({
 
   if (!processPO) return null;
 
-  const receivedQty = Number(processPO.qtyReceivedMeters || 0);
+  const jwo = processPO.jobWorkOrder;
+  const receivedQty = Number(jwo?.qtyReceivedMeters || 0);
+  const agreedRate = Number(jwo?.agreedRatePerMeter || 0);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -128,7 +130,9 @@ export default function QualityCheckDialog({
             <CheckCircle className="h-5 w-5 text-primary" />
             Quality Check
           </DialogTitle>
-          <DialogDescription>Record quality check results for {processPO.jobWorkNumber}</DialogDescription>
+          <DialogDescription>
+            Record quality check results for {jwo?.jobWorkNumber || processPO.poNumber}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -140,7 +144,7 @@ export default function QualityCheckDialog({
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Agreed Rate:</span>
-              <span className="font-medium">₹{Number(processPO.agreedRatePerMeter).toFixed(2)}/m</span>
+              <span className="font-medium">₹{agreedRate.toFixed(2)}/m</span>
             </div>
           </div>
 
@@ -219,9 +223,7 @@ export default function QualityCheckDialog({
               onChange={(e) => setActualRate(e.target.value ? parseFloat(e.target.value) : undefined)}
               placeholder="Same as agreed if unchanged"
             />
-            <p className="text-xs text-muted-foreground">
-              Leave blank to use agreed rate (₹{Number(processPO.agreedRatePerMeter).toFixed(2)})
-            </p>
+            <p className="text-xs text-muted-foreground">Leave blank to use agreed rate (₹{agreedRate.toFixed(2)})</p>
           </div>
 
           {/* Remarks */}

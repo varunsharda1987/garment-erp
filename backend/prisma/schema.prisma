@@ -6422,7 +6422,7 @@ model carton_skus {
 
 /// Lab Dip - Lab dip tracking for printing/dyeing
 model lab_dips {
-  id               String            @id @default(uuid())
+  id               String          @id @default(uuid())
   labDipNumber     String
   processType      String
   styleId          String
@@ -6436,24 +6436,32 @@ model lab_dips {
   submissionDate   DateTime
   expectedDate     DateTime?
   receivedDate     DateTime?
-  status           LabDipStatus      @default(PENDING)
+  status           LabDipStatus    @default(PENDING)
   approvedById     String?
   approvalDate     DateTime?
   approvedSampleNo String?
   rejectionReason  String?
   colorMatchRating String?
   remarks          String?
-  createdById      String
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  isActive         Boolean           @default(true)
-  jobWorkOrders    job_work_orders[]
-  approvedBy       users?            @relation("LabDipApprover", fields: [approvedById], references: [id])
-  createdBy        users             @relation("LabDipCreator", fields: [createdById], references: [id])
-  fabric           fabric_master     @relation(fields: [fabricId], references: [id])
-  processor        suppliers         @relation("LabDipProcessor", fields: [processorId], references: [id])
-  style            styles            @relation(fields: [styleId], references: [id])
-  targetColor      color_master?     @relation(fields: [targetColorId], references: [id])
+
+  // Buyer approval workflow
+  sentToBuyerDate     DateTime?
+  buyerApprovalStatus BuyerApprovalStatus @default(NOT_SENT)
+  buyerApprovalDate   DateTime?
+  buyerRemarks        String?
+  resubmissionCount   Int                 @default(0)
+
+  createdById   String
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  isActive      Boolean           @default(true)
+  jobWorkOrders job_work_orders[]
+  approvedBy    users?            @relation("LabDipApprover", fields: [approvedById], references: [id])
+  createdBy     users             @relation("LabDipCreator", fields: [createdById], references: [id])
+  fabric        fabric_master     @relation(fields: [fabricId], references: [id])
+  processor     suppliers         @relation("LabDipProcessor", fields: [processorId], references: [id])
+  style         styles            @relation(fields: [styleId], references: [id])
+  targetColor   color_master?     @relation(fields: [targetColorId], references: [id])
 
   @@index([styleId])
   @@index([processType])
@@ -6465,7 +6473,7 @@ model job_work_orders {
   id                     String                            @id @default(uuid())
   jobWorkNumber          String
   processType            String
-  labDipId               String
+  labDipId               String? // Optional - Process PO can be style-based without lab dip
   styleId                String
   fabricId               String
   processorId            String
@@ -6512,7 +6520,7 @@ model job_work_orders {
   fabric                 fabric_master                     @relation(fields: [fabricId], references: [id])
   finishedFabric         fabric_master?                    @relation("JobWorkFinishedFabric", fields: [finishedFabricId], references: [id])
   fabricStockLot         fabric_stock                      @relation(fields: [fabricStockLotId], references: [id])
-  labDip                 lab_dips                          @relation(fields: [labDipId], references: [id])
+  labDip                 lab_dips?                         @relation(fields: [labDipId], references: [id])
   processor              suppliers                         @relation("JobWorkProcessor", fields: [processorId], references: [id])
   style                  styles                            @relation(fields: [styleId], references: [id])
   workOrder              work_orders?                      @relation("JobWorkForWorkOrder", fields: [workOrderId], references: [id])
@@ -9360,6 +9368,14 @@ enum LabDipStatus {
   APPROVED
   REJECTED
   RESUBMIT
+}
+
+enum BuyerApprovalStatus {
+  NOT_SENT
+  PENDING
+  APPROVED
+  REJECTED
+  RESUBMIT_REQUIRED
 }
 
 enum JobWorkStatus {

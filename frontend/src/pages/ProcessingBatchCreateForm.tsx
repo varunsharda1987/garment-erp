@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { processingBatchService } from '@/services/processingBatch.service';
+import processingBatchService from '@/services/processingBatch.service';
 import { greigeService, fabricService } from '@/services/fabricGreigeService';
 import { getAllLace } from '@/services/lace.service';
 import type { MaterialType, CreateProcessingBatchDTO } from '@/types/processing.types';

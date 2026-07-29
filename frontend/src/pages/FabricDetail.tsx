@@ -12,6 +12,7 @@ import { fabricService } from '../services/fabricGreigeService';
 import type { FabricMaster, FabricWidthCAD, FabricStyleAllocation } from '../types/fabric-greige.types';
 import { logError } from '../lib/logger';
 import AllocatedStylesCard from '../components/fabric/AllocatedStylesCard';
+import FabricWidthCADDialog from '../components/fabric/FabricWidthCADDialog';
 import api from '@/lib/api';
 
 interface FabricStock {
@@ -44,6 +45,7 @@ export default function FabricDetail() {
   const [allocations, setAllocations] = useState<FabricStyleAllocation[]>([]);
   const [loadingAllocations, setLoadingAllocations] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [widthCADDialogOpen, setWidthCADDialogOpen] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -465,20 +467,24 @@ export default function FabricDetail() {
         )}
 
         {/* Width CADs */}
-        {widthCADs.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Width CAD Options</span>
-                {/*
-                  B01-02: "Add CAD" button hidden. It navigated to /fabric/:id/cad/new,
-                  which is not a registered route (no width-CAD create page exists yet).
-                  Deferred: needs a dedicated Fabric Width CAD create form/dialog wired to
-                  POST /fabric-management/cad. Do not repoint to /cad-planning (a different module).
-                */}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Width CAD Options ({widthCADs.length})</span>
+              <Button size="sm" onClick={() => setWidthCADDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-1" />
+                Add CAD
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {widthCADs.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                <Ruler className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>No width CAD options defined yet.</p>
+                <p className="text-sm">Add CAD values for different fabric widths.</p>
+              </div>
+            ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-muted">
@@ -525,9 +531,9 @@ export default function FabricDetail() {
                   </tbody>
                 </table>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            )}
+          </CardContent>
+        </Card>
 
         {/* Stock Entries */}
         {stockEntries.length > 0 && (
@@ -682,6 +688,15 @@ export default function FabricDetail() {
         description={`Are you sure you want to delete ${fabric.fabricName}? This action cannot be undone.`}
         confirmText="Delete"
         variant="destructive"
+      />
+
+      {/* Width CAD Dialog */}
+      <FabricWidthCADDialog
+        open={widthCADDialogOpen}
+        onOpenChange={setWidthCADDialogOpen}
+        fabricId={fabric.id}
+        fabricCode={fabric.fabricCode}
+        onSuccess={() => fetchFabricDetails()}
       />
     </>
   );

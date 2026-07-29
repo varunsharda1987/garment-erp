@@ -28,6 +28,11 @@ import {
   requestResubmit,
   getApprovedLabDips,
   searchLabDips,
+  // Buyer approval endpoints
+  sendToBuyer,
+  buyerApprove,
+  buyerReject,
+  buyerRequestResubmit,
   // Print Job endpoints
   getAllPrintJobs,
   getPrintJobById,
@@ -142,6 +147,32 @@ router.post(
   validateParams(idParamSchema),
   validateBody(printLabDipActionSchema),
   asyncHandler(requestResubmit)
+);
+
+// Buyer approval actions
+router.post(
+  '/lab-dips/:id/send-to-buyer',
+  validateParams(idParamSchema),
+  validateBody(printLabDipActionSchema),
+  asyncHandler(sendToBuyer)
+);
+router.post(
+  '/lab-dips/:id/buyer-approve',
+  validateParams(idParamSchema),
+  validateBody(printLabDipActionSchema),
+  asyncHandler(buyerApprove)
+);
+router.post(
+  '/lab-dips/:id/buyer-reject',
+  validateParams(idParamSchema),
+  validateBody(printLabDipActionSchema),
+  asyncHandler(buyerReject)
+);
+router.post(
+  '/lab-dips/:id/buyer-resubmit',
+  validateParams(idParamSchema),
+  validateBody(printLabDipActionSchema),
+  asyncHandler(buyerRequestResubmit)
 );
 
 // ============================================

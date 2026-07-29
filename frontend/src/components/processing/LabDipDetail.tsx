@@ -14,6 +14,9 @@ import {
   Palette,
   Factory,
   FileText,
+  Send,
+  UserCheck,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,6 +64,9 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
   // Dialog states
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [sendToBuyerDialogOpen, setSendToBuyerDialogOpen] = useState(false);
+  const [buyerApproveDialogOpen, setBuyerApproveDialogOpen] = useState(false);
+  const [buyerRejectDialogOpen, setBuyerRejectDialogOpen] = useState(false);
 
   // Approve form
   const [approvedSampleNo, setApprovedSampleNo] = useState('');
@@ -70,6 +76,11 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
   // Reject form
   const [rejectionReason, setRejectionReason] = useState('');
   const [rejectRemarks, setRejectRemarks] = useState('');
+
+  // Buyer approval forms
+  const [sentToBuyerDate, setSentToBuyerDate] = useState(new Date().toISOString().split('T')[0]);
+  const [sendToBuyerRemarks, setSendToBuyerRemarks] = useState('');
+  const [buyerRemarks, setBuyerRemarks] = useState('');
 
   // Fetch lab dip
   const {
@@ -158,6 +169,82 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
     onError: (err) => handleApiError(err, 'Failed to mark for resubmission'),
   });
 
+  // Send to buyer mutation
+  const sendToBuyerMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error('No ID');
+      const data = { sentToBuyerDate, remarks: sendToBuyerRemarks || undefined };
+      if (processType === 'DYEING') {
+        return dyeLabDipService.sendToBuyer(id, data);
+      } else {
+        return printLabDipService.sendToBuyer(id, data);
+      }
+    },
+    onSuccess: () => {
+      handleApiSuccess('Sent to buyer for approval');
+      queryClient.invalidateQueries({ queryKey: ['lab-dip', processType, id] });
+      setSendToBuyerDialogOpen(false);
+      setSendToBuyerRemarks('');
+    },
+    onError: (err) => handleApiError(err, 'Failed to send to buyer'),
+  });
+
+  // Buyer approve mutation
+  const buyerApproveMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error('No ID');
+      if (processType === 'DYEING') {
+        return dyeLabDipService.buyerApprove(id, { buyerRemarks: buyerRemarks || undefined });
+      } else {
+        return printLabDipService.buyerApprove(id, { buyerRemarks: buyerRemarks || undefined });
+      }
+    },
+    onSuccess: () => {
+      handleApiSuccess('Buyer approved the lab dip');
+      queryClient.invalidateQueries({ queryKey: ['lab-dip', processType, id] });
+      setBuyerApproveDialogOpen(false);
+      setBuyerRemarks('');
+    },
+    onError: (err) => handleApiError(err, 'Failed to record buyer approval'),
+  });
+
+  // Buyer reject mutation
+  const buyerRejectMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error('No ID');
+      if (!buyerRemarks) throw new Error('Remarks required');
+      if (processType === 'DYEING') {
+        return dyeLabDipService.buyerReject(id, { buyerRemarks });
+      } else {
+        return printLabDipService.buyerReject(id, { buyerRemarks });
+      }
+    },
+    onSuccess: () => {
+      handleApiSuccess('Buyer rejected the lab dip');
+      queryClient.invalidateQueries({ queryKey: ['lab-dip', processType, id] });
+      setBuyerRejectDialogOpen(false);
+      setBuyerRemarks('');
+    },
+    onError: (err) => handleApiError(err, 'Failed to record buyer rejection'),
+  });
+
+  // Buyer resubmit mutation
+  const buyerResubmitMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error('No ID');
+      if (processType === 'DYEING') {
+        return dyeLabDipService.buyerRequestResubmit(id);
+      } else {
+        return printLabDipService.buyerRequestResubmit(id);
+      }
+    },
+    onSuccess: () => {
+      handleApiSuccess('Marked for buyer resubmission');
+      queryClient.invalidateQueries({ queryKey: ['lab-dip', processType, id] });
+    },
+    onError: (err) => handleApiError(err, 'Failed to request buyer resubmission'),
+  });
+
   const resetApproveFo = () => {
     setApprovedSampleNo('');
     setColorMatchRating('');
@@ -192,6 +279,13 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
   const canApprove = labDip?.status === 'PENDING' || labDip?.status === 'SUBMITTED' || labDip?.status === 'RESUBMIT';
   const canReject = labDip?.status === 'PENDING' || labDip?.status === 'SUBMITTED' || labDip?.status === 'RESUBMIT';
   const canRequestResubmit = labDip?.status === 'REJECTED';
+
+  // Buyer approval flags (only available after internal approval)
+  const buyerStatus = (labDip as any)?.buyerApprovalStatus;
+  const canSendToBuyer = labDip?.status === 'APPROVED' && (!buyerStatus || buyerStatus === 'NOT_SENT');
+  const canBuyerApprove = buyerStatus === 'PENDING';
+  const canBuyerReject = buyerStatus === 'PENDING';
+  const canBuyerResubmit = buyerStatus === 'REJECTED' || buyerStatus === 'RESUBMIT_REQUIRED';
 
   if (isLoading) {
     return (
@@ -412,7 +506,7 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-success">
               <CheckCircle className="h-5 w-5" />
-              Approval Details
+              Internal Approval Details
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -436,6 +530,118 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
                 </p>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Buyer Approval Section (shown after internal approval) */}
+      {labDip.status === 'APPROVED' && (
+        <Card
+          className={cn(
+            'border-2',
+            buyerStatus === 'APPROVED' && 'border-success',
+            buyerStatus === 'REJECTED' && 'border-destructive',
+            buyerStatus === 'PENDING' && 'border-warning',
+            buyerStatus === 'RESUBMIT_REQUIRED' && 'border-orange-500'
+          )}
+        >
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <UserCheck className="h-5 w-5" />
+                Buyer Approval
+                {buyerStatus && (
+                  <Badge
+                    className={cn(
+                      buyerStatus === 'NOT_SENT' && 'bg-muted text-muted-foreground',
+                      buyerStatus === 'PENDING' && 'bg-warning text-warning-foreground',
+                      buyerStatus === 'APPROVED' && 'bg-success text-success-foreground',
+                      buyerStatus === 'REJECTED' && 'bg-destructive text-destructive-foreground',
+                      buyerStatus === 'RESUBMIT_REQUIRED' && 'bg-orange-500 text-white'
+                    )}
+                  >
+                    {buyerStatus === 'NOT_SENT' && 'Not Sent'}
+                    {buyerStatus === 'PENDING' && 'Pending'}
+                    {buyerStatus === 'APPROVED' && 'Approved'}
+                    {buyerStatus === 'REJECTED' && 'Rejected'}
+                    {buyerStatus === 'RESUBMIT_REQUIRED' && 'Resubmit Required'}
+                  </Badge>
+                )}
+              </CardTitle>
+              <div className="flex gap-2">
+                {canSendToBuyer && (
+                  <Button size="sm" onClick={() => setSendToBuyerDialogOpen(true)}>
+                    <Send className="h-4 w-4 mr-2" />
+                    Send to Buyer
+                  </Button>
+                )}
+                {canBuyerApprove && (
+                  <Button
+                    size="sm"
+                    className="bg-success hover:bg-success/90"
+                    onClick={() => setBuyerApproveDialogOpen(true)}
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Buyer Approved
+                  </Button>
+                )}
+                {canBuyerReject && (
+                  <Button size="sm" variant="destructive" onClick={() => setBuyerRejectDialogOpen(true)}>
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Buyer Rejected
+                  </Button>
+                )}
+                {canBuyerResubmit && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => buyerResubmitMutation.mutate()}
+                    disabled={buyerResubmitMutation.isPending}
+                  >
+                    {buyerResubmitMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    <RefreshCcw className="h-4 w-4 mr-2" />
+                    Request Resubmit
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Sent to Buyer Date</p>
+                <p className="font-medium">
+                  {(labDip as any).sentToBuyerDate
+                    ? format(new Date((labDip as any).sentToBuyerDate), 'dd MMM yyyy')
+                    : '-'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Buyer Approval Date</p>
+                <p className="font-medium">
+                  {(labDip as any).buyerApprovalDate
+                    ? format(new Date((labDip as any).buyerApprovalDate), 'dd MMM yyyy')
+                    : '-'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Resubmission Count</p>
+                <p className="font-medium">{(labDip as any).resubmissionCount || 0}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Buyer Remarks</p>
+                <p className="font-medium">{(labDip as any).buyerRemarks || '-'}</p>
+              </div>
+            </div>
+            {!buyerStatus || buyerStatus === 'NOT_SENT' ? (
+              <div className="mt-4 p-3 bg-muted/50 rounded-lg flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  This lab dip has been internally approved. Send to buyer for final approval before proceeding with
+                  bulk production.
+                </p>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       )}
@@ -591,6 +797,128 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
             <Button onClick={handleReject} disabled={rejectMutation.isPending} variant="destructive">
               {rejectMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send to Buyer Dialog */}
+      <Dialog open={sendToBuyerDialogOpen} onOpenChange={setSendToBuyerDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send to Buyer</DialogTitle>
+            <DialogDescription>Send this lab dip sample to buyer for approval</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="sentToBuyerDate">Sent Date *</Label>
+              <Input
+                id="sentToBuyerDate"
+                type="date"
+                value={sentToBuyerDate}
+                onChange={(e) => setSentToBuyerDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sendToBuyerRemarks">Remarks</Label>
+              <Textarea
+                id="sendToBuyerRemarks"
+                value={sendToBuyerRemarks}
+                onChange={(e) => setSendToBuyerRemarks(e.target.value)}
+                placeholder="Optional remarks for tracking..."
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSendToBuyerDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => sendToBuyerMutation.mutate()}
+              disabled={sendToBuyerMutation.isPending || !sentToBuyerDate}
+            >
+              {sendToBuyerMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Send className="h-4 w-4 mr-2" />
+              Send to Buyer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Buyer Approve Dialog */}
+      <Dialog open={buyerApproveDialogOpen} onOpenChange={setBuyerApproveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Buyer Approval</DialogTitle>
+            <DialogDescription>Confirm that the buyer has approved this lab dip</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="buyerApproveRemarks">Buyer Remarks</Label>
+              <Textarea
+                id="buyerApproveRemarks"
+                value={buyerRemarks}
+                onChange={(e) => setBuyerRemarks(e.target.value)}
+                placeholder="Any feedback or notes from the buyer..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBuyerApproveDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => buyerApproveMutation.mutate()}
+              disabled={buyerApproveMutation.isPending}
+              className="bg-success hover:bg-success/90"
+            >
+              {buyerApproveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Confirm Approval
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Buyer Reject Dialog */}
+      <Dialog open={buyerRejectDialogOpen} onOpenChange={setBuyerRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Record Buyer Rejection</DialogTitle>
+            <DialogDescription>Record that the buyer has rejected this lab dip</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="buyerRejectRemarks">Buyer Remarks *</Label>
+              <Textarea
+                id="buyerRejectRemarks"
+                value={buyerRemarks}
+                onChange={(e) => setBuyerRemarks(e.target.value)}
+                placeholder="Reason for rejection from buyer..."
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBuyerRejectDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!buyerRemarks) {
+                  handleApiError(new Error('Remarks required'), 'Please provide buyer remarks');
+                  return;
+                }
+                buyerRejectMutation.mutate();
+              }}
+              disabled={buyerRejectMutation.isPending || !buyerRemarks}
+              variant="destructive"
+            >
+              {buyerRejectMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <XCircle className="h-4 w-4 mr-2" />
+              Confirm Rejection
             </Button>
           </DialogFooter>
         </DialogContent>

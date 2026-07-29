@@ -95,6 +95,30 @@ export const labDipService = {
     });
     return response.data.data;
   },
+
+  // Send to buyer for approval
+  async sendToBuyer(id: string, data: { sentToBuyerDate: string; remarks?: string }): Promise<LabDip> {
+    const response = await api.post<{ data: LabDip }>(`/printing/lab-dips/${id}/send-to-buyer`, data);
+    return response.data.data;
+  },
+
+  // Record buyer approval
+  async buyerApprove(id: string, data: { buyerRemarks?: string }): Promise<LabDip> {
+    const response = await api.post<{ data: LabDip }>(`/printing/lab-dips/${id}/buyer-approve`, data);
+    return response.data.data;
+  },
+
+  // Record buyer rejection
+  async buyerReject(id: string, data: { buyerRemarks: string }): Promise<LabDip> {
+    const response = await api.post<{ data: LabDip }>(`/printing/lab-dips/${id}/buyer-reject`, data);
+    return response.data.data;
+  },
+
+  // Request buyer resubmit
+  async buyerRequestResubmit(id: string): Promise<LabDip> {
+    const response = await api.post<{ data: LabDip }>(`/printing/lab-dips/${id}/buyer-resubmit`);
+    return response.data.data;
+  },
 };
 
 // ============================================

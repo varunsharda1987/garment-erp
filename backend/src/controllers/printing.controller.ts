@@ -596,6 +596,135 @@ export const searchLabDips = async (req: Request, res: Response, _next: NextFunc
 };
 
 // ============================================
+// BUYER APPROVAL ENDPOINTS
+// ============================================
+
+// Send to buyer for approval
+export const sendToBuyer = async (req: Request, res: Response, _next: NextFunction) => {
+  const { id } = req.params;
+  const { sentToBuyerDate, remarks } = req.body;
+
+  const existing = await prisma.lab_dips.findUnique({
+    where: { id },
+  });
+
+  if (!existing) {
+    throw new NotFoundError('Lab dip', id);
+  }
+
+  if (existing.status !== 'APPROVED') {
+    throw new ValidationError('Can only send approved lab dips to buyer');
+  }
+
+  const labDip = await prisma.lab_dips.update({
+    where: { id },
+    data: {
+      sentToBuyerDate: sentToBuyerDate ? new Date(sentToBuyerDate) : new Date(),
+      buyerApprovalStatus: 'PENDING',
+      remarks: remarks ? `${existing.remarks || ''}\n[Sent to Buyer] ${remarks}` : existing.remarks,
+    },
+    include: labDipInclude,
+  });
+
+  res.json({ data: transformLabDip(labDip as any) });
+};
+
+// Record buyer approval
+export const buyerApprove = async (req: Request, res: Response, _next: NextFunction) => {
+  const { id } = req.params;
+  const { buyerRemarks } = req.body;
+
+  const existing = await prisma.lab_dips.findUnique({
+    where: { id },
+  });
+
+  if (!existing) {
+    throw new NotFoundError('Lab dip', id);
+  }
+
+  if (existing.buyerApprovalStatus !== 'PENDING') {
+    throw new ValidationError('Lab dip is not pending buyer approval');
+  }
+
+  const labDip = await prisma.lab_dips.update({
+    where: { id },
+    data: {
+      buyerApprovalStatus: 'APPROVED',
+      buyerApprovalDate: new Date(),
+      buyerRemarks,
+    },
+    include: labDipInclude,
+  });
+
+  res.json({ data: transformLabDip(labDip as any) });
+};
+
+// Record buyer rejection
+export const buyerReject = async (req: Request, res: Response, _next: NextFunction) => {
+  const { id } = req.params;
+  const { buyerRemarks } = req.body;
+
+  if (!buyerRemarks) {
+    throw new ValidationError('Buyer remarks are required');
+  }
+
+  const existing = await prisma.lab_dips.findUnique({
+    where: { id },
+  });
+
+  if (!existing) {
+    throw new NotFoundError('Lab dip', id);
+  }
+
+  if (existing.buyerApprovalStatus !== 'PENDING') {
+    throw new ValidationError('Lab dip is not pending buyer approval');
+  }
+
+  const labDip = await prisma.lab_dips.update({
+    where: { id },
+    data: {
+      buyerApprovalStatus: 'REJECTED',
+      buyerApprovalDate: new Date(),
+      buyerRemarks,
+    },
+    include: labDipInclude,
+  });
+
+  res.json({ data: transformLabDip(labDip as any) });
+};
+
+// Request buyer resubmit
+export const buyerRequestResubmit = async (req: Request, res: Response, _next: NextFunction) => {
+  const { id } = req.params;
+
+  const existing = await prisma.lab_dips.findUnique({
+    where: { id },
+  });
+
+  if (!existing) {
+    throw new NotFoundError('Lab dip', id);
+  }
+
+  if (existing.buyerApprovalStatus !== 'REJECTED' && existing.buyerApprovalStatus !== 'RESUBMIT_REQUIRED') {
+    throw new ValidationError('Can only request resubmit for rejected lab dips');
+  }
+
+  const labDip = await prisma.lab_dips.update({
+    where: { id },
+    data: {
+      buyerApprovalStatus: 'NOT_SENT',
+      buyerApprovalDate: null,
+      buyerRemarks: null,
+      sentToBuyerDate: null,
+      resubmissionCount: (existing.resubmissionCount || 0) + 1,
+    },
+    include: labDipInclude,
+  });
+
+  res.json({ data: transformLabDip(labDip as any) });
+};
+
+// ============================================
 // JOB WORK ORDER (PRINT JOB) ENDPOINTS
 // ============================================
 

@@ -121,7 +121,8 @@ export default function LabDipBatchCreateForm({ backPath }: LabDipBatchCreateFor
                   fabricId: sf.fabricId || null,
                   fabricName: sf.fabricName || sf.fabric?.fabricName || 'No fabric',
                   fabricCode: sf.fabric?.fabricCode || null,
-                  greigeName: sf.greigeName || sf.selectedGreige?.greigeName || null,
+                  greigeName:
+                    sf.selectedGreige?.greigeName || sf.cadRows?.[0]?.greige?.greigeName || sf.greigeName || null,
                   colorMasterId: sf.colorMasterId || sf.colorMaster?.id || null,
                   colorName: sf.colorMaster?.colorName || null,
                   printDesign: sf.printDesign || null,

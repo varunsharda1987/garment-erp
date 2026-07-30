@@ -401,10 +401,19 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
                             <span>{sf.fabricName || sf.fabric?.fabricName || 'No fabric'}</span>
                           </div>
                           <div className="text-xs text-muted-foreground flex gap-2">
-                            {sf.greigeName && <span>Greige: {sf.greigeName}</span>}
+                            {(sf.selectedGreige?.greigeName ||
+                              sf.cadRows?.[0]?.greige?.greigeName ||
+                              sf.greigeName) && (
+                              <span>
+                                Greige:{' '}
+                                {sf.selectedGreige?.greigeName || sf.cadRows?.[0]?.greige?.greigeName || sf.greigeName}
+                              </span>
+                            )}
                             {sf.colorMaster && <span>Color: {sf.colorMaster.colorName}</span>}
                             {sf.printDesign && <span>Design: {sf.printDesign}</span>}
-                            {!sf.greigeName && !sf.colorMaster && !sf.printDesign && <span>No details defined</span>}
+                            {!(sf.selectedGreige?.greigeName || sf.cadRows?.[0]?.greige?.greigeName || sf.greigeName) &&
+                              !sf.colorMaster &&
+                              !sf.printDesign && <span>No details defined</span>}
                           </div>
                         </div>
                       </SelectItem>

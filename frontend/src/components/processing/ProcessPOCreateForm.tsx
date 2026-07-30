@@ -742,7 +742,10 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                               </TableCell>
                               <TableCell>{sf.fabricName || sf.fabric?.fabricName || 'No fabric'}</TableCell>
                               <TableCell className="text-muted-foreground">
-                                {sf.selectedGreige?.greigeName || sf.greigeName || '-'}
+                                {sf.selectedGreige?.greigeName ||
+                                  sf.cadRows?.[0]?.greige?.greigeName ||
+                                  sf.greigeName ||
+                                  '-'}
                               </TableCell>
                               <TableCell>
                                 {sf._processType === 'DYEING'

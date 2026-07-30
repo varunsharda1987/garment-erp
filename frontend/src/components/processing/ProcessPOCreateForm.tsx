@@ -139,11 +139,11 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
   // Enable when style + fabric (from styleFabrics OR searched fabric) is selected
   const hasFabricSelected = !!selectedStyleFabric || !!selectedFabric;
   const { data: processorsResponse, isLoading: processorsLoading } = useQuery({
-    queryKey: ['processors-search', processorSearch, processType],
+    queryKey: ['processors-search', processorSearch],
     queryFn: () =>
       getAllSuppliers({
         search: processorSearch,
-        category: processType === 'DYEING' ? 'DYEING' : 'PRINTING',
+        category: 'DYEING_PRINTING', // Both dyeing and printing use same processor category
         limit: 20,
       }),
     enabled: createMode === 'style-based' && !!selectedStyle && hasFabricSelected,
@@ -740,8 +740,10 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                                   {sf._processType === 'DYEING' ? '🎨 Dyed' : '🖨 Printed'}
                                 </Badge>
                               </TableCell>
-                              <TableCell>{sf.fabricName || 'No fabric'}</TableCell>
-                              <TableCell className="text-muted-foreground">{sf.greigeName || '-'}</TableCell>
+                              <TableCell>{sf.fabricName || sf.fabric?.fabricName || 'No fabric'}</TableCell>
+                              <TableCell className="text-muted-foreground">
+                                {sf.selectedGreige?.greigeName || sf.greigeName || '-'}
+                              </TableCell>
                               <TableCell>
                                 {sf._processType === 'DYEING'
                                   ? sf.colorMaster?.colorName || 'No color'

@@ -197,7 +197,8 @@ export async function getStyleFabrics(req: Request, res: Response) {
                       cutableWidth: 'asc',
                     },
                   },
-                  // Include stock entries to get actual stock cost
+                  // Include ALL available stock lots: latest lot drives readyFabricCost,
+                  // the full list drives total + per-width stock availability (MRP parity)
                   fabricStock: {
                     where: {
                       status: 'AVAILABLE',
@@ -206,11 +207,11 @@ export async function getStyleFabrics(req: Request, res: Response) {
                     orderBy: {
                       receivedDate: 'desc',
                     },
-                    take: 1, // Most recent stock entry
                     select: {
                       id: true,
                       weightedAvgCost: true,
                       quantityAvailable: true,
+                      cutableWidth: true,
                     },
                   },
                 },
@@ -380,12 +381,44 @@ export async function getStyleFabrics(req: Request, res: Response) {
   for (const component of style.style_components || []) {
     for (const styleFabric of component.style_fabrics || []) {
       // Get ready fabric cost - prioritize stock cost over fabric_master cost
-      const latestStock = styleFabric.fabric?.fabricStock?.[0];
+      const availableLots = styleFabric.fabric?.fabricStock || [];
+      const latestStock = availableLots[0]; // orderBy receivedDate desc → most recent lot
       const readyFabricCost = latestStock?.weightedAvgCost
         ? Number(latestStock.weightedAvgCost)
         : styleFabric.fabric?.costPerMeter
           ? Number(styleFabric.fabric.costPerMeter)
           : null;
+
+      // Total available finished-fabric stock across ALL lots (display-only on the costing page)
+      const stockAvailableTotal = availableLots.reduce(
+        (sum: number, lot: { quantityAvailable: unknown }) => sum + Number(lot.quantityAvailable || 0),
+        0
+      );
+
+      // Width-matched stock (±0.5" tolerance — same rule MRP uses when allocating fabric_stock),
+      // plus quantity-weighted WAC of the matched lots. Suggestive only; allocation happens at MRP.
+      const stockAtWidthFor = (
+        width: number | null
+      ): { stockAtWidth: number | null; stockWacAtWidth: number | null } => {
+        if (width == null || availableLots.length === 0) return { stockAtWidth: null, stockWacAtWidth: null };
+        let qtySum = 0;
+        let costQtySum = 0;
+        let costQtyWeight = 0;
+        for (const lot of availableLots) {
+          const lotWidth = lot.cutableWidth != null ? Number(lot.cutableWidth) : null;
+          if (lotWidth == null || Math.abs(lotWidth - width) > 0.5) continue;
+          const qty = Number(lot.quantityAvailable || 0);
+          qtySum += qty;
+          if (lot.weightedAvgCost != null) {
+            costQtySum += qty * Number(lot.weightedAvgCost);
+            costQtyWeight += qty;
+          }
+        }
+        return {
+          stockAtWidth: qtySum > 0 ? qtySum : null,
+          stockWacAtWidth: costQtyWeight > 0 ? costQtySum / costQtyWeight : null,
+        };
+      };
 
       // Base fabric data shared by all width variants
       const baseFabricData = {
@@ -403,7 +436,8 @@ export async function getStyleFabrics(req: Request, res: Response) {
         numberOfColors: styleFabric.numberOfColors || null,
         readyFabricCost,
         readyFabricCostSource: latestStock?.weightedAvgCost ? 'STOCK' : 'FABRIC_MASTER',
-        stockAvailable: latestStock ? Number(latestStock.quantityAvailable) : null,
+        // Total available across ALL lots (was: latest lot only — no consumers relied on that)
+        stockAvailable: stockAvailableTotal > 0 ? stockAvailableTotal : null,
       };
 
       // Get CAD rows from CAD Planning (linked via styleFabricId)
@@ -475,6 +509,7 @@ export async function getStyleFabrics(req: Request, res: Response) {
             ...baseFabricData,
             cadMeters, // Per-piece consumption from cadAverage
             width, // Cutable width for this variant
+            ...stockAtWidthFor(width), // stockAtWidth + stockWacAtWidth (display-only, MRP-consistent)
             purpose: cadRow.purpose || null, // PLANNING, COSTING, PRODUCTION
             greigeId: greige?.id || null,
             greigeName: greige?.greigeName || null,
@@ -573,6 +608,7 @@ export async function getStyleFabrics(req: Request, res: Response) {
           ...baseFabricData,
           cadMeters,
           width,
+          ...stockAtWidthFor(width),
           purpose: null,
           greigeId: greige?.id || null,
           greigeName: greige?.greigeName || null,

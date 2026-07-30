@@ -133,9 +133,18 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
             // Filter by fabricFinishType matching processType
             const finishType = sf.fabricFinishType;
             if (processType === 'DYEING' && finishType === 'DYED') {
-              allStyleFabrics.push(sf);
+              // Add component context to the fabric entry
+              allStyleFabrics.push({
+                ...sf,
+                _componentType: comp.componentType,
+                _componentName: comp.componentMaster?.name || comp.componentType,
+              });
             } else if (processType === 'PRINTING' && finishType === 'PRINTED') {
-              allStyleFabrics.push(sf);
+              allStyleFabrics.push({
+                ...sf,
+                _componentType: comp.componentType,
+                _componentName: comp.componentMaster?.name || comp.componentType,
+              });
             }
           }
         }
@@ -162,6 +171,7 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
           colorCode: selectedStyleFabric.colorMaster.colorCode,
           colorName: selectedStyleFabric.colorMaster.colorName,
           hexCode: selectedStyleFabric.colorMaster.hexCode,
+          colorFamily: selectedStyleFabric.colorMaster.colorFamily || null,
         });
       }
       // For printing: auto-fill design artwork
@@ -187,7 +197,6 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
     mutationFn: async (data: CreateLabDipRequest) => {
       if (processType === 'DYEING') {
         return dyeLabDipService.createLabDip({
-          processType: 'DYEING',
           styleId: data.styleId,
           fabricId: data.fabricId,
           processorId: data.processorId,
@@ -385,12 +394,18 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
                   <SelectContent>
                     {styleFabrics.map((sf) => (
                       <SelectItem key={sf.id} value={sf.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{sf.fabric?.fabricCode || sf.fabricName || 'Unknown'}</span>
-                          {sf.colorMaster && (
-                            <span className="text-muted-foreground text-xs">({sf.colorMaster.colorName})</span>
-                          )}
-                          {sf.printDesign && <span className="text-muted-foreground text-xs">({sf.printDesign})</span>}
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{sf._componentName || sf._componentType}</span>
+                            <span className="text-muted-foreground">-</span>
+                            <span>{sf.fabricName || sf.fabric?.fabricName || 'No fabric'}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground flex gap-2">
+                            {sf.greigeName && <span>Greige: {sf.greigeName}</span>}
+                            {sf.colorMaster && <span>Color: {sf.colorMaster.colorName}</span>}
+                            {sf.printDesign && <span>Design: {sf.printDesign}</span>}
+                            {!sf.greigeName && !sf.colorMaster && !sf.printDesign && <span>No details defined</span>}
+                          </div>
                         </div>
                       </SelectItem>
                     ))}

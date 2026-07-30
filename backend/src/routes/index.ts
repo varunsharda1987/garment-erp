@@ -131,6 +131,7 @@ import processorRateCardV2Routes from './processor-rate-card-v2.routes';
 import serviceRequirementRoutes from './service-requirement.routes';
 import unifiedPORoutes from './unified-po.routes';
 import challanRoutes from './challan.routes';
+import manufacturingRoutes from './manufacturing.routes';
 // Design Hub routes
 import styleImageRoutes from './style-image.routes';
 import styleCommentRoutes from './style-comment.routes';
@@ -371,6 +372,9 @@ export function createApiRouter(): Router {
 
   // Dispatch (Manufacturing)
   router.use('/dispatch', dispatchRoutes);
+
+  // Manufacturing Control Center (Alerts + Vendor Tracker)
+  router.use('/manufacturing', manufacturingRoutes);
 
   // Testing Module (Labs, Templates, FPT, GPT)
   router.use('/testing-labs', testingLabsRoutes);

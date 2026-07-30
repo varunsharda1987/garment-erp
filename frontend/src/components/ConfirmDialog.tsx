@@ -18,6 +18,8 @@ interface ConfirmDialogProps {
   cancelText?: string;
   onConfirm: () => void;
   variant?: 'default' | 'destructive';
+  /** Disables both buttons while the confirmed action (e.g. a mutation) is running */
+  isLoading?: boolean;
 }
 
 export default function ConfirmDialog({
@@ -29,6 +31,7 @@ export default function ConfirmDialog({
   cancelText = 'Cancel',
   onConfirm,
   variant = 'default',
+  isLoading = false,
 }: ConfirmDialogProps) {
   const handleConfirm = () => {
     onConfirm();
@@ -43,14 +46,15 @@ export default function ConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{cancelText}</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading}>{cancelText}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
+            disabled={isLoading}
             className={
               variant === 'destructive' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''
             }
           >
-            {confirmText}
+            {isLoading ? 'Please wait…' : confirmText}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

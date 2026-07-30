@@ -458,10 +458,16 @@ export interface CreateProcessPORequest {
   qtySentMeters: number;
   sentWidthInches: number;
   agreedRatePerMeter: number;
+  isRateTbd?: boolean; // True when rate=0 is intentional TBD
   expectedReturnDate?: string;
   expectedShrinkage?: number;
   fabricType?: string;
   remarks?: string;
+  // Auto-send fields (Create & Send one-click)
+  autoSend?: boolean; // If true, immediately send to mill after creation
+  sentDate?: string;
+  challanNumber?: string;
+  vehicleNumber?: string;
 }
 
 export interface ProcessPOListResponse {

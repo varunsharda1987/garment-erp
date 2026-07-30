@@ -17,7 +17,6 @@ import type { MaterialType, CreateProcessingBatchDTO } from '@/types/processing.
 import type { GreigeMaster, FabricMaster } from '@/types/fabric-greige.types';
 import type { Lace } from '@/types/lace.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { cn } from '@/lib/utils';
 
 type MaterialItem = { id: string; code: string; name: string; composition?: string };
 
@@ -71,8 +70,8 @@ export default function ProcessingBatchCreateForm() {
       return greigeData.data.map((g: GreigeMaster) => ({
         id: g.id,
         code: g.greigeCode,
-        name: g.name,
-        composition: g.composition,
+        name: g.greigeName,
+        composition: g.composition ?? undefined,
       }));
     }
     if (materialType === 'FABRIC' && fabricData?.data) {
@@ -80,7 +79,7 @@ export default function ProcessingBatchCreateForm() {
         id: f.id,
         code: f.fabricCode,
         name: f.fabricName,
-        composition: f.composition,
+        composition: f.composition ?? undefined,
       }));
     }
     if (materialType === 'LACE' && laceData?.data) {
@@ -88,7 +87,7 @@ export default function ProcessingBatchCreateForm() {
         id: l.id,
         code: l.laceCode,
         name: l.laceName,
-        composition: l.composition,
+        composition: l.composition ?? undefined,
       }));
     }
     return [];

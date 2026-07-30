@@ -14,7 +14,11 @@
     "allowSyntheticDefaultImports": true,
     "typeRoots": ["./node_modules/@types", "./src/types"],
     "incremental": true,
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo"
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tsbuildinfo",
+    // TYPE GATE (do not remove — smart-check verifies this flag). tsc's default is to emit
+    // JS even when type errors exist, so `npm run build || true` + pm2 restart could ship a
+    // broken dist/. With this flag a failed typecheck produces NO dist at all.
+    "noEmitOnError": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "src/__tests__/**/*", "src/**/_incomplete/**/*", "src/**/_pending_schema/**/*"]

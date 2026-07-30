@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { ArrowLeft, FileText, Search, Package, Calendar, Box, Loader2, Plus, Minus, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, FileText, Search, Package, Calendar, Loader2, Plus, Minus, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,6 @@ import { getAllOrders, getOrderById } from '@/services/order.service';
 import type { Order, OrderItem, OrderItemBreakup } from '@/types/order.types';
 import type { CreateASNRequest } from '@/types/dispatch.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { cn } from '@/lib/utils';
 
 interface SKULine {
   styleId: string;

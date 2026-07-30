@@ -1,5 +1,5 @@
 // Stock Count Detail - Physical inventory count execution workflow
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -22,24 +22,13 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { PageHeader } from '@/components/PageHeader';
 import { StatusBadge } from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import stockCountService from '@/services/stockCount.service';
-import type { StockCount, StockCountItem, CountStatus } from '@/types/inventory.types';
+import type { StockCountItem, CountStatus } from '@/types/inventory.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 
 const STATUS_CONFIG: Record<
@@ -87,7 +76,6 @@ export default function StockCountDetail() {
     data: stockCount,
     isLoading,
     error,
-    refetch,
   } = useQuery({
     queryKey: ['stock-count', id],
     queryFn: () => stockCountService.getById(id!),

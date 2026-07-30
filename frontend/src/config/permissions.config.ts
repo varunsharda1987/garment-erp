@@ -142,6 +142,7 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
 
   // Manufacturing
   '/samples': 'samples',
+  '/manufacturing/processing': 'printing',
   '/manufacturing/printing': 'printing',
   '/manufacturing/dyeing': 'dyeing',
   '/manufacturing/cutting': 'cutting',

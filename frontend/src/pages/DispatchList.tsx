@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Truck,
   Plus,
@@ -33,6 +33,7 @@ import { ASNActionDialog, type ASNAction } from '@/components/dispatch/ASNAction
 import { format } from 'date-fns';
 
 export default function DispatchList() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('delivery-notes');
 
   // Delivery Notes state

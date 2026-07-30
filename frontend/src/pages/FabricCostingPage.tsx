@@ -30,6 +30,7 @@ import { Badge } from '../components/ui/badge';
 import { Label } from '../components/ui/label';
 import { Switch } from '../components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip';
 import {
   Dialog,
   DialogContent,
@@ -81,6 +82,155 @@ const parseGreigeName = (name: string | null | undefined): { line1: string; line
   }
   return { line1: name, line2: '' };
 };
+
+// Per-row quantity input that commits on blur/Enter, not per keystroke.
+// The table groups rows by quantity (nestedGroups qtyKey) — committing per keystroke changed the
+// row's group key, which remounted the DOM subtree and killed input focus after every digit.
+// Keeping a local draft while focused means the row only regroups once, when editing is done.
+function RowQtyInput({
+  rowQuantity,
+  effectiveGlobalQty,
+  className,
+  onCommit,
+}: {
+  rowQuantity: number | undefined;
+  effectiveGlobalQty: number;
+  className?: string;
+  onCommit: (qty: number | undefined) => void;
+}) {
+  const [draft, setDraft] = useState(rowQuantity != null ? String(rowQuantity) : '');
+  const focusedRef = useRef(false);
+
+  // Sync from prop only when not focused (covers refetch-after-save updating rowQuantity)
+  useEffect(() => {
+    if (!focusedRef.current) {
+      setDraft(rowQuantity != null ? String(rowQuantity) : '');
+    }
+  }, [rowQuantity]);
+
+  const commit = () => {
+    const n = parseInt(draft, 10);
+    // empty/0/garbage → undefined = fall back to global order quantity
+    onCommit(Number.isFinite(n) && n > 0 ? n : undefined);
+  };
+
+  return (
+    <Input
+      type="number"
+      min="1"
+      className={className}
+      value={draft}
+      placeholder={effectiveGlobalQty > 0 ? String(effectiveGlobalQty) : '-'}
+      onChange={(e) => setDraft(e.target.value)}
+      onFocus={() => {
+        focusedRef.current = true;
+      }}
+      onBlur={() => {
+        focusedRef.current = false;
+        commit();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+      }}
+      title="Order quantity for this row (leave empty to use global quantity)"
+    />
+  );
+}
+
+// Finished-fabric stock indicator — DISPLAY ONLY. Numbers here are indicative for planning;
+// actual stock allocation and PO quantities are decided at Material Requisition (MRP),
+// which uses the same width ±0.5" matching rule against fabric_stock.
+function StockBadge({ row, effectiveQty }: { row: FabricCostingRow; effectiveQty: number }) {
+  const stockM = row.stockAtWidth;
+  if (!stockM || stockM <= 0) return null;
+
+  const coversPcs = row.cadMeters > 0 ? Math.floor(stockM / row.cadMeters) : null;
+  const toProcurePcs = coversPcs != null && effectiveQty > 0 ? Math.max(0, effectiveQty - coversPcs) : null;
+  const coversAll = toProcurePcs === 0;
+
+  // Indicative blended ₹/m: stock portion at its WAC + procured portion at this row's calculated cost
+  let blended: number | null = null;
+  if (
+    coversPcs != null &&
+    toProcurePcs != null &&
+    toProcurePcs > 0 &&
+    effectiveQty > 0 &&
+    row.stockWacAtWidth != null &&
+    row.totalCostPerMeter != null
+  ) {
+    const stockPcsUsed = Math.min(coversPcs, effectiveQty);
+    const stockMeters = stockPcsUsed * row.cadMeters;
+    const procureMeters = toProcurePcs * row.cadMeters;
+    const totalMeters = stockMeters + procureMeters;
+    if (totalMeters > 0) {
+      blended = (stockMeters * row.stockWacAtWidth + procureMeters * row.totalCostPerMeter) / totalMeters;
+    }
+  }
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge
+            variant="outline"
+            className={`text-[9px] px-1 py-0 flex-shrink-0 cursor-help ${
+              coversAll
+                ? 'bg-success-muted text-success border-success/20'
+                : 'bg-warning-muted text-warning border-warning/20'
+            }`}
+          >
+            Stock: {stockM.toLocaleString(undefined, { maximumFractionDigits: 0 })}m
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-[260px] text-xs">
+          <div className="space-y-1">
+            <p className="font-semibold">
+              {stockM.toLocaleString(undefined, { maximumFractionDigits: 1 })} m in stock at this width
+            </p>
+            {coversPcs != null && (
+              <p>
+                Covers ~{coversPcs.toLocaleString()} pcs
+                {effectiveQty > 0 && toProcurePcs != null && (
+                  <>
+                    {' · '}
+                    {coversAll ? (
+                      <span className="text-success">covers full quantity</span>
+                    ) : (
+                      <>
+                        to procure ~{toProcurePcs.toLocaleString()} pcs (~
+                        {(toProcurePcs * row.cadMeters).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        m)
+                      </>
+                    )}
+                  </>
+                )}
+              </p>
+            )}
+            {row.stockWacAtWidth != null && (
+              <p>
+                Stock WAC: ₹
+                {row.stockWacAtWidth.toLocaleString('en-IN', {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                })}
+                /m
+              </p>
+            )}
+            {blended != null && (
+              <p>
+                Indicative blended: ₹
+                {blended.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/m
+              </p>
+            )}
+            <p className="text-muted-foreground pt-1 border-t border-border/50">
+              Indicative only — actual allocation &amp; PO happen at Material Requisition (MRP)
+            </p>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 export default function FabricCostingPage() {
   const navigate = useNavigate();
@@ -400,6 +550,10 @@ export default function FabricCostingPage() {
               // Ready fabric cost from fabric_master
               readyFabricCost: fabric.readyFabricCost,
 
+              // Finished-fabric stock at this width (display-only)
+              stockAtWidth: fabric.stockAtWidth ?? null,
+              stockWacAtWidth: fabric.stockWacAtWidth ?? null,
+
               // Cost input mode from saved data
               costInputMode: ((cs.costInputMode || fabric.costInputMode) as CostInputMode) || 'BUILD_UP',
 
@@ -493,6 +647,10 @@ export default function FabricCostingPage() {
 
             // Ready fabric cost from fabric_master
             readyFabricCost: fabric.readyFabricCost,
+
+            // Finished-fabric stock at this width (display-only)
+            stockAtWidth: fabric.stockAtWidth ?? null,
+            stockWacAtWidth: fabric.stockWacAtWidth ?? null,
 
             // Default to Landed Price mode if ready fabric cost is available, otherwise Build-up
             costInputMode: hasReadyFabricCost ? ('LANDED_PRICE' as CostInputMode) : ('BUILD_UP' as CostInputMode),
@@ -1633,6 +1791,22 @@ export default function FabricCostingPage() {
             </Card>
           )}
 
+          {/* Stock notice — informational only; allocation happens at MRP */}
+          {(() => {
+            const fabricsWithStock = new Set(fabricRows.filter((r) => (r.stockAtWidth ?? 0) > 0).map((r) => r.fabricId))
+              .size;
+            if (fabricsWithStock === 0) return null;
+            return (
+              <div className="mb-3 flex items-center gap-2 text-xs text-info bg-info-muted border border-info/20 rounded-md px-3 py-2">
+                <Info className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>
+                  {fabricsWithStock} fabric{fabricsWithStock !== 1 ? 's have' : ' has'} finished stock available — see
+                  the row badges. Stock is allocated at Material Requisition (MRP), not here; figures are indicative.
+                </span>
+              </div>
+            );
+          })()}
+
           <Card className="overflow-x-auto">
             <Table className="w-full table-fixed">
               <TableHeader>
@@ -1776,6 +1950,10 @@ export default function FabricCostingPage() {
                                                           ₹{row.readyFabricCost}
                                                         </Badge>
                                                       )}
+                                                      <StockBadge
+                                                        row={row}
+                                                        effectiveQty={row.rowQuantity || orderQuantity}
+                                                      />
                                                     </div>
                                                     {parsed.line2 && (
                                                       <p className="text-[10px] text-muted-foreground">
@@ -1876,18 +2054,11 @@ export default function FabricCostingPage() {
 
                                           {/* Qty (pcs) */}
                                           <TableCell className="px-1 text-center">
-                                            <Input
-                                              type="number"
+                                            <RowQtyInput
+                                              rowQuantity={row.rowQuantity}
+                                              effectiveGlobalQty={orderQuantity}
                                               className="h-7 w-full text-xs text-center px-1"
-                                              value={
-                                                row.rowQuantity ?? row.savedOrderQuantityPcs ?? orderQuantity ?? ''
-                                              }
-                                              onChange={(e) => {
-                                                const newQty = parseInt(e.target.value) || undefined;
-                                                updateRow(index, { rowQuantity: newQty });
-                                              }}
-                                              placeholder={orderQuantity?.toString() || '-'}
-                                              title="Order quantity for this row (leave empty to use global quantity)"
+                                              onCommit={(qty) => updateRow(index, { rowQuantity: qty })}
                                             />
                                           </TableCell>
 
@@ -2352,6 +2523,7 @@ export default function FabricCostingPage() {
                                                   ₹{row.readyFabricCost}
                                                 </Badge>
                                               )}
+                                              <StockBadge row={row} effectiveQty={row.rowQuantity || orderQuantity} />
                                             </div>
                                             {parsed.line2 && (
                                               <p className="text-[10px] text-muted-foreground">{parsed.line2}</p>
@@ -2445,16 +2617,11 @@ export default function FabricCostingPage() {
 
                                   {/* Row Quantity */}
                                   <TableCell className="px-1 text-center">
-                                    <Input
-                                      type="number"
-                                      min="1"
+                                    <RowQtyInput
+                                      rowQuantity={row.rowQuantity}
+                                      effectiveGlobalQty={orderQuantity}
                                       className="w-20 text-center text-xs h-7 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                      value={row.rowQuantity || orderQuantity}
-                                      onChange={(e) =>
-                                        updateRow(index, {
-                                          rowQuantity: parseInt(e.target.value) || 1,
-                                        })
-                                      }
+                                      onCommit={(qty) => updateRow(index, { rowQuantity: qty })}
                                     />
                                   </TableCell>
 

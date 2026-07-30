@@ -246,8 +246,12 @@ export interface FabricForCosting {
   readyFabricCost: number | null;
   // Source of the ready fabric cost
   readyFabricCostSource: 'STOCK' | 'FABRIC_MASTER';
-  // Stock availability in meters
+  // TOTAL available finished-fabric stock across all AVAILABLE lots (meters, display-only)
   stockAvailable: number | null;
+  // Stock at THIS row's width ±0.5" (meters) — same tolerance MRP uses when allocating
+  stockAtWidth?: number | null;
+  // Quantity-weighted WAC (₹/m) of the width-matched lots (suggestive only)
+  stockWacAtWidth?: number | null;
   // Cost input mode (from saved costing data)
   costInputMode?: CostInputMode | null;
   // Processing batch group color ID (for combined rate slab lookup)
@@ -314,6 +318,11 @@ export interface FabricCostingRow {
 
   // Ready fabric cost from fabric_master (for direct purchase without processing)
   readyFabricCost: number | null;
+
+  // Finished-fabric stock at this row's width ±0.5" (meters) — display-only, allocation happens at MRP
+  stockAtWidth?: number | null;
+  // Quantity-weighted WAC (₹/m) of the width-matched stock lots (suggestive only)
+  stockWacAtWidth?: number | null;
 
   // Cost input mode
   costInputMode: CostInputMode;

@@ -16,7 +16,7 @@ import { workOrderService } from '@/services/workOrder.service';
 import { styleService } from '@/services/style.service';
 import { customerService } from '@/services/customer.service';
 import type { CreateGarmentPhysicalTestInput } from '@/types/testing.types';
-import type { WorkOrder } from '@/types/workOrder.types';
+import type { WorkOrder } from '@/types/production.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 
 interface SelectableItem {
@@ -71,14 +71,14 @@ export default function GarmentPhysicalTestForm() {
   // Fetch styles
   const { data: stylesData, isLoading: stylesLoading } = useQuery({
     queryKey: ['styles-search', styleSearch],
-    queryFn: () => styleService.search(styleSearch, 20),
+    queryFn: () => styleService.getAllStyles(1, 20, styleSearch),
     enabled: styleSearchOpen || !!styleSearch,
   });
 
   // Fetch customers
   const { data: customersData, isLoading: customersLoading } = useQuery({
     queryKey: ['customers-search', customerSearch],
-    queryFn: () => customerService.search({ search: customerSearch, limit: 20 }),
+    queryFn: () => customerService.getAllCustomers({ search: customerSearch, limit: 20 }),
     enabled: customerSearchOpen || !!customerSearch,
   });
 
@@ -95,7 +95,7 @@ export default function GarmentPhysicalTestForm() {
     name: l.labName,
   }));
 
-  const styles: SelectableItem[] = (stylesData || []).map(
+  const styles: SelectableItem[] = (stylesData?.data || []).map(
     (s: { id: string; styleCode: string; styleName: string }) => ({
       id: s.id,
       code: s.styleCode,
@@ -103,13 +103,11 @@ export default function GarmentPhysicalTestForm() {
     })
   );
 
-  const customers: SelectableItem[] = (customersData?.data || []).map(
-    (c: { id: string; customerCode: string; name: string }) => ({
-      id: c.id,
-      code: c.customerCode,
-      name: c.name,
-    })
-  );
+  const customers: SelectableItem[] = (customersData?.data || []).map((c) => ({
+    id: c.id,
+    code: c.code,
+    name: c.name,
+  }));
 
   // Auto-fill style when work order is selected
   const handleWorkOrderSelect = (wo: SelectableItem) => {

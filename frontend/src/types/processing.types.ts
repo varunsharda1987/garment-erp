@@ -503,3 +503,94 @@ export interface ApiResponse<T> {
   data?: T;
   count?: number;
 }
+
+// ============================================
+// Unified Processing Types (Dyeing & Printing Lists)
+// ============================================
+
+import type { DyeLabDip, DyeingSummary } from './dyeing.types';
+import type { LabDip as PrintLabDip, PrintingSummary, ProcessPO } from './printing.types';
+
+// Re-export common types
+export type { ProcessPO, ProcessPOStatus, ProcessPOQueryParams } from './printing.types';
+export { ProcessPOStatusLabels, ProcessPOStatusColors } from './printing.types';
+export { LabDipStatusLabels, LabDipStatusColors } from './printing.types';
+
+// Process type for unified display
+export type UnifiedProcessType = 'DYEING' | 'PRINTING';
+
+// Unified Lab Dip - union type with discriminator
+export type UnifiedLabDip = (DyeLabDip & { _processType: 'DYEING' }) | (PrintLabDip & { _processType: 'PRINTING' });
+
+// Unified Process PO with discriminator
+export type UnifiedProcessPO = ProcessPO & { _processType: UnifiedProcessType };
+
+// Type guards
+export function isDyeLabDip(item: UnifiedLabDip): item is DyeLabDip & { _processType: 'DYEING' } {
+  return item._processType === 'DYEING';
+}
+
+export function isPrintLabDip(item: UnifiedLabDip): item is PrintLabDip & { _processType: 'PRINTING' } {
+  return item._processType === 'PRINTING';
+}
+
+// Combined summary for unified page
+export interface UnifiedProcessingSummary {
+  totalLabDips: number;
+  totalProcessPOs: number;
+  labDipsPending: number;
+  labDipsApproved: number;
+  atMill: number;
+  received: number;
+  qualityChecked: number;
+  dyeingCount: number;
+  printingCount: number;
+}
+
+// Query params for unified list
+export interface UnifiedProcessingQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  processType?: UnifiedProcessType | 'ALL';
+  status?: string;
+  styleId?: string;
+  processorId?: string;
+  fromDate?: string;
+  toDate?: string;
+}
+
+// UI Labels for process type badges
+export const UnifiedProcessTypeLabels: Record<UnifiedProcessType, string> = {
+  DYEING: 'Dyeing',
+  PRINTING: 'Printing',
+};
+
+export const UnifiedProcessTypeColors: Record<UnifiedProcessType, string> = {
+  DYEING: 'bg-blue-100 text-blue-800',
+  PRINTING: 'bg-purple-100 text-purple-800',
+};
+
+// Helper to merge summaries from both services
+export function mergeProcessingSummaries(
+  dyeSummary: DyeingSummary | null,
+  printSummary: PrintingSummary | null
+): UnifiedProcessingSummary {
+  return {
+    totalLabDips: (dyeSummary?.total || 0) + (printSummary?.total || 0),
+    totalProcessPOs:
+      (dyeSummary?.atMill || 0) +
+      (dyeSummary?.received || 0) +
+      (dyeSummary?.qualityChecked || 0) +
+      (printSummary?.atMill || 0) +
+      (printSummary?.received || 0) +
+      (printSummary?.qualityChecked || 0),
+    labDipsPending: (dyeSummary?.labDipsPending || 0) + (printSummary?.labDipsPending || 0),
+    labDipsApproved: (dyeSummary?.labDipsApproved || 0) + (printSummary?.labDipsApproved || 0),
+    atMill: (dyeSummary?.atMill || 0) + (printSummary?.atMill || 0),
+    received: (dyeSummary?.received || 0) + (printSummary?.received || 0),
+    qualityChecked: (dyeSummary?.qualityChecked || 0) + (printSummary?.qualityChecked || 0),
+    dyeingCount: dyeSummary?.total || 0,
+    printingCount: printSummary?.total || 0,
+  };
+}

@@ -57,8 +57,8 @@ export class SaleOrderController {
     const so = await saleOrderService.create({
       customerId,
       styleId: styleId || null,
-      expectedShipDate: expectedShipDate ? new Date(expectedShipDate) : undefined,
-      buyerDeadline: buyerDeadline ? new Date(buyerDeadline) : undefined,
+      expectedShipDate: expectedShipDate ? new Date(expectedShipDate) : null,
+      buyerDeadline: buyerDeadline ? new Date(buyerDeadline) : null,
       remarks,
       createdById: userId,
       items,
@@ -73,8 +73,8 @@ export class SaleOrderController {
 
     const so = await saleOrderService.update(id, {
       styleId,
-      expectedShipDate: expectedShipDate ? new Date(expectedShipDate) : undefined,
-      buyerDeadline: buyerDeadline ? new Date(buyerDeadline) : undefined,
+      expectedShipDate: expectedShipDate ? new Date(expectedShipDate) : null,
+      buyerDeadline: buyerDeadline ? new Date(buyerDeadline) : null,
       remarks,
       items,
     });

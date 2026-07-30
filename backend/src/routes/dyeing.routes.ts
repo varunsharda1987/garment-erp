@@ -4,6 +4,7 @@ import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createLabDipSchema,
+  bulkCreateLabDipSchema,
   updateLabDipSchema,
   labDipQuerySchema,
   labDipActionSchema,
@@ -21,6 +22,7 @@ import {
   getAllLabDips,
   getLabDipById,
   createLabDip,
+  bulkCreateLabDips,
   updateLabDip,
   deleteLabDip,
   approveLabDip,
@@ -117,6 +119,9 @@ router.post(
 router.get('/lab-dips/search', asyncHandler(searchLabDips));
 router.get('/lab-dips/approved', asyncHandler(getApprovedLabDips));
 router.get('/lab-dips', validateQuery(labDipQuerySchema), asyncHandler(getAllLabDips));
+
+// Bulk create (must be before :id routes)
+router.post('/lab-dips/bulk', validateBody(bulkCreateLabDipSchema), asyncHandler(bulkCreateLabDips));
 
 // CRUD
 router.get('/lab-dips/:id', validateParams(idParamSchema), asyncHandler(getLabDipById));

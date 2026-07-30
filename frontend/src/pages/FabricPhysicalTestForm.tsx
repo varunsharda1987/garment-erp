@@ -73,14 +73,14 @@ export default function FabricPhysicalTestForm() {
   // Fetch styles
   const { data: stylesData, isLoading: stylesLoading } = useQuery({
     queryKey: ['styles-search', styleSearch],
-    queryFn: () => styleService.search(styleSearch, 20),
+    queryFn: () => styleService.getAllStyles(1, 20, styleSearch),
     enabled: styleSearchOpen || !!styleSearch,
   });
 
   // Fetch customers
   const { data: customersData, isLoading: customersLoading } = useQuery({
     queryKey: ['customers-search', customerSearch],
-    queryFn: () => customerService.search({ search: customerSearch, limit: 20 }),
+    queryFn: () => customerService.getAllCustomers({ search: customerSearch, limit: 20 }),
     enabled: customerSearchOpen || !!customerSearch,
   });
 
@@ -97,7 +97,7 @@ export default function FabricPhysicalTestForm() {
     name: l.labName,
   }));
 
-  const styles: SelectableItem[] = (stylesData || []).map(
+  const styles: SelectableItem[] = (stylesData?.data || []).map(
     (s: { id: string; styleCode: string; styleName: string }) => ({
       id: s.id,
       code: s.styleCode,
@@ -105,18 +105,16 @@ export default function FabricPhysicalTestForm() {
     })
   );
 
-  const customers: SelectableItem[] = (customersData?.data || []).map(
-    (c: { id: string; customerCode: string; name: string }) => ({
-      id: c.id,
-      code: c.customerCode,
-      name: c.name,
-    })
-  );
+  const customers: SelectableItem[] = (customersData?.data || []).map((c) => ({
+    id: c.id,
+    code: c.code,
+    name: c.name,
+  }));
 
   // Create mutation
   const createMutation = useMutation({
     mutationFn: (data: CreateFabricPhysicalTestInput) => fabricPhysicalTestsService.create(data),
-    onSuccess: (response) => {
+    onSuccess: () => {
       handleApiSuccess('Fabric physical test created successfully');
       navigate(`/fabric-physical-tests`);
     },

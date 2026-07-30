@@ -6,7 +6,6 @@ import {
   FileText,
   Building2,
   Calendar,
-  User,
   CheckCircle2,
   XCircle,
   AlertTriangle,
@@ -25,17 +24,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Separator } from '@/components/ui/separator';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { creditNoteService } from '@/services/creditNote.service';
-import type { CreditNote, DocumentStatus } from '@/types/creditNote.types';
 import { CreditNoteReasonLabels, DocumentStatusLabels, DocumentStatusColors } from '@/types/creditNote.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
 import { useState } from 'react';
-
-const STATUS_CONFIG: Record<DocumentStatus, { variant: 'secondary' | 'success' | 'destructive'; label: string }> = {
-  DRAFT: { variant: 'secondary', label: 'Draft' },
-  APPROVED: { variant: 'success', label: 'Approved' },
-  CANCELLED: { variant: 'destructive', label: 'Cancelled' },
-};
 
 export default function CreditNoteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -125,8 +117,6 @@ export default function CreditNoteDetail() {
       </div>
     );
   }
-
-  const statusConfig = STATUS_CONFIG[creditNote.status] || STATUS_CONFIG.DRAFT;
 
   return (
     <div className="container mx-auto py-6 space-y-6">

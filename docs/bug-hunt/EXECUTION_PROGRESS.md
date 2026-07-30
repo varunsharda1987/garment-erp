@@ -2,7 +2,7 @@
 
 > The diagnosis lives in [START_HERE.md](START_HERE.md) / [FINDINGS_INDEX.md](FINDINGS_INDEX.md) / [REPAIR_PLAN.md](REPAIR_PLAN.md).
 > **This file tracks what has actually been fixed, merged, and what's next** — so any session can resume.
-> Last updated: 2026-07-29. Integration branch: **`main`**.
+> Last updated: 2026-07-30. Integration branch: **`main`**.
 > ⚠ **The 2026-07-29 work is committed LOCALLY but not pushed to origin** (check with `git rev-list --count origin/main..main`).
 > Prod is deployed locally via `npm run deploy`, so pushing is optional / for backup only.
 
@@ -52,12 +52,12 @@ frontend-detail doc; this file tracks phase-level status.
 
 | # | Layer | Why this position | What gets checked | Status |
 |---|---|---|---|---|
-| **2.0** | **Validation-contract integrity** (added 2026-07-29) | **Owner's #1 recurring pain — Zod/schema-drift/middleware bugs that silently lose data. Earlier passes were LLM SAMPLING (capped ~15 findings/area); this is the mechanical full sweep** | Every route ↔ Zod schema ↔ controller ↔ frontend-type triple via `scripts/hooks/contract-analyzer.js` (runtime Zod introspection, route-file pairing). Classes: silent-drop, required-but-unused (400), Express-5 `validatedQuery` discard, passthrough mass-assignment, no-validation | 🔄 **IN PROGRESS** — analyzer built + 371 findings inventoried ([`docs/contract-audit/`](../contract-audit/00-summary.md)); fixes batching now |
+| **2.0** | **Validation-contract integrity** (added 2026-07-29) | **Owner's #1 recurring pain — Zod/schema-drift/middleware bugs that silently lose data. Earlier passes were LLM SAMPLING (capped ~15 findings/area); this is the mechanical full sweep** | Every route ↔ Zod schema ↔ controller ↔ frontend-type triple via `scripts/hooks/contract-analyzer.js` (runtime Zod introspection, route-file pairing). Classes: silent-drop, required-but-unused (400), Express-5 `validatedQuery` discard, passthrough mass-assignment, no-validation | ✅ **DONE** 2026-07-30 — analyzer v2 found 161 findings; all 5 verified LIVE breakages + all 22 SILENT_DROP items FIXED (schemas rewritten with comments documenting each fix). Remaining: 57 QUERY_COERCION_LOST (Express-5 middleware quirk, low-severity), 46 NO_VALIDATION (report-only risk), 31 REQUIRED_UNUSED (400s on never-used paths) |
 | 2.1 | Security | App is live on the internet; a hole here loses everything | RBAC depth per role (not just authenticated-vs-not), file upload + `file-access` middleware, injection surface, JWT/session handling, secrets rotation follow-through (BH-0251 said .env was in git history — verify rotation happened), CORS/helmet | ✅ DONE 2026-07-29 — 1 CRIT + 7 HIGH fixed (de046808, ee58145a, c3ea6ccf). ⚠ **secret rotation DEFERRED by owner** (JWT key still in git history) |
 | 2.2 | Database integrity | Real data entered daily; silent corruption compounds | Orphaned rows, FK/constraint gaps (original hunt: ZERO check constraints on 576 money/qty columns — verify the deferred-constraints work covered the rest), DB-vs-Prisma enum drift, duplicates; run existing drift monitors as baseline | 🔄 partial 2026-07-29 — FK/cascade/constraint pass done; **pending: unique-constraint migrations for styleCode / colorName / workOrderNumber (racy check-then-insert today; needs owner-run migration + duplicate scan first)** |
-| 2.3 | B2B contract | LIVE external consumer (House of Kasya app) | Actual payload/read-back shapes vs `docs/B2B_INTEGRATION_GUIDE.md`; automate as a check | ⬜ |
-| 2.4 | API orphans | Cheap — call-graph exists | Mine `docs/frontend-review/data/join.json` (2,222 calls ↔ 1,193 endpoints) for orphan/dead endpoints | ⬜ |
-| 2.5 | Infra / CI | Protects everything above | CI to actually run Jest + Playwright; backup→restore drill (incl. `seed-code-sequences.ts` re-run rule + drift monitors post-restore) | 🔄 partial 2026-07-29 — **CI was RED for days; now GREEN** (61a75509, a7ac49ba): lint made report-only (hygiene-only failures), guardrails job missing frontend deps, Dockerfile ran `npm ci` before copying prisma/. Auto-deploy PAUSED to manual (`workflow_dispatch`) — DO droplet not in use, prod is deployed locally via `npm run deploy`. **Still pending: wire Jest/Playwright into CI** |
+| 2.3 | B2B contract | LIVE external consumer (House of Kasya app) | Actual payload/read-back shapes vs `docs/B2B_INTEGRATION_GUIDE.md`; automate as a check | 🔄 partial 2026-07-30 — 2 bugs fixed (remarks silent-drop + date-clearing); see DONE log |
+| 2.4 | API orphans | Cheap — call-graph exists | Mine `docs/frontend-review/data/join.json` (2,222 calls ↔ 1,193 endpoints) for orphan/dead endpoints | 🔄 audited 2026-07-30 — 15 orphaned route files identified, documented for later cleanup |
+| 2.5 | Infra / CI | Protects everything above | CI to actually run Jest + Playwright; backup→restore drill (incl. `seed-code-sequences.ts` re-run rule + drift monitors post-restore) | 🔄 partial 2026-07-30 — Jest/Vitest NOW WIRED into CI (report-only; tests are stale). Blocking gates: TypeScript + guardrails + Docker build. **Still pending:** fix stale tests (pagination/transaction/component API changes), wire Playwright E2E (needs Postgres service + server orchestration) |
 | 2.6 | Performance | LAST — perf numbers meaningless on near-empty DB | Prisma slow-query logging, vite bundle analyzer, N+1 scan on heaviest pages | ⬜ |
 
 ### Standing rules (every phase)
@@ -71,6 +71,53 @@ frontend-detail doc; this file tracks phase-level status.
 ---
 
 ## ✅ DONE — fixed, committed, on `main` (pushed)
+
+### 2026-07-30 — Phase 2.3 B2B contract + Phase 2.4 API orphan audit (LOCAL commits, not deployed)
+
+- **B2B contract bugs fixed** (saleOrder.service.ts, saleOrder.controller.ts):
+  - **BUG 1 (HIGH):** `sale_order_items.remarks` was **silently dropped** — Zod schema accepted `remarks`, but TypeScript
+    service interfaces lacked it, so Prisma never received item remarks. Impact: B2B app sends colour names in `remarks`
+    when no matching `colorId` — factory staff couldn't see what colour was ordered. **FIX:** added `remarks?: string` to
+    both `SOCreateInput.items` and `SOUpdateInput.items` arrays.
+  - **BUG 2 (MEDIUM):** `expectedShipDate` + `buyerDeadline` **could not be cleared** — controller used
+    `expectedShipDate ? new Date(x) : undefined`, but `undefined` in Prisma update means "don't change". When B2B sent
+    `null` to clear the date, old date persisted. **FIX:** changed both to use `null` instead of `undefined`.
+  - **Backend compiles clean** (`tsc --noEmit` passes). Frontend has 43 errors in user's WIP folders (`processing/`,
+    `dyeing/`, `printing/`) — unrelated to these fixes; user building those in another terminal.
+
+- **API orphan audit completed** — 15 orphaned route files identified (registered but no frontend usage):
+  - **Deprecated:** `costSheetPOGeneration.routes.ts` (explicitly commented out in index.ts)
+  - **Keep for future:** `fabric-processing.routes.ts` (user's greige→processor plan), `unified-po.routes.ts`,
+    `report.routes.ts`
+  - **Candidates for removal:** `processingDelivery/Movement/Stage.routes.ts`, `laceIssueNote.routes.ts`,
+    `laceCosting.routes.ts`, `ai-admin.routes.ts`, `order-label.routes.ts`, `trim-stock.routes.ts`, `jobs.routes.ts`,
+    `audit.routes.ts`, `fabric-procurement.routes.ts`
+  - **Decision:** document only, don't delete now — focus on B2B bugs which are LIVE.
+
+- **CI test wiring** (Phase 2.5, test.yml):
+  - Added `test-backend-unit` job: runs Jest on `__tests__/unit/` (pure utility tests, no DB)
+  - Added `test-frontend-unit` job: runs Vitest component tests
+  - Both are **report-only** (`continue-on-error: true`) — tests are stale from API changes:
+    - `pagination.test.ts`: `hasMore` property removed, `parseSortParams` signature changed
+    - `transaction.test.ts`: `withRetryableTransaction` signature changed
+    - Frontend: Pagination/SearchInput component API drift, test timeouts
+  - Tests run in CI, failures visible in logs, but do NOT block the pipeline
+  - **Still pending:** fix the stale tests, wire Playwright E2E (needs Postgres service)
+
+- **Phase 2.0 contract-integrity VERIFIED COMPLETE** — audited the 161 findings from `docs/contract-audit/00-summary.md`:
+  - All 5 "verified LIVE breakages" are FIXED (comments in schemas document each):
+    - Thread quantity conversion (trimMasters.schema.ts:178-186)
+    - Thread-PO supplier fetch (orderThreadRequirement.schema.ts:67-71)
+    - Style image reorder (styleImage.schema.ts:72-75)
+    - Order inheritance toggle (orderItems.schema.ts:30-36)
+    - CAD width select (orderItems.schema.ts:18-23)
+  - All 22 SILENT_DROP items FIXED (schema fields now match controller reads):
+    - fabric-CAD 12 fields (fabricGreige.schema.ts:310-329)
+    - style-costing actuals 6 fields (styleCosting.schema.ts:94-105)
+    - variance approve action/notes (styleCosting.schema.ts:111-119)
+    - lace calculate-options (styleCosting.schema.ts:213-223)
+    - And others — each has a comment explaining the old vs new shape
+  - Remaining low-priority: 57 QUERY_COERCION_LOST (Express-5 quirk), 46 NO_VALIDATION, 31 REQUIRED_UNUSED
 
 ### 2026-07-29 — Phase 2.1 Security + Phase 2.0 contract integrity (LOCAL commits, deployed to local prod)
 

@@ -51,6 +51,35 @@ export const dyeLabDipService = {
     return response.data.data;
   },
 
+  // Bulk create lab dips (unified for both DYEING and PRINTING)
+  async bulkCreateLabDips(data: {
+    styleId: string;
+    submissionDate?: string;
+    labDips: Array<{
+      styleFabricId: string;
+      processType: 'DYEING' | 'PRINTING';
+      processorId: string;
+      targetColorId?: string;
+      colorReference?: string;
+      designArtwork?: string;
+      printMethod?: string;
+      printChemistry?: string;
+      expectedDate?: string;
+      remarks?: string;
+    }>;
+  }): Promise<{
+    data: DyeLabDip[];
+    message: string;
+    summary: { total: number; dyeing: number; printing: number };
+  }> {
+    const response = await api.post<{
+      data: DyeLabDip[];
+      message: string;
+      summary: { total: number; dyeing: number; printing: number };
+    }>('/dyeing/lab-dips/bulk', data);
+    return response.data;
+  },
+
   // Update lab dip
   async updateLabDip(id: string, data: UpdateDyeLabDipRequest): Promise<DyeLabDip> {
     const response = await api.put<DyeLabDipResponse>(`/dyeing/lab-dips/${id}`, data);

@@ -38,17 +38,9 @@ import {
 } from '@/components/ui/dialog';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { asnService } from '@/services/dispatch.service';
-import type { ASNApplication, ASNStatus, ApproveASNRequest } from '@/types/dispatch.types';
+import type { ApproveASNRequest } from '@/types/dispatch.types';
 import { ASNStatusLabels, ASNStatusColors } from '@/types/dispatch.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-
-const STATUS_CONFIG: Record<ASNStatus, { variant: 'secondary' | 'info' | 'success' | 'destructive' | 'warning' }> = {
-  PENDING: { variant: 'secondary' },
-  APPLIED: { variant: 'info' },
-  APPROVED: { variant: 'success' },
-  REJECTED: { variant: 'destructive' },
-  RESCHEDULE: { variant: 'warning' },
-};
 
 export default function ASNDetail() {
   const { id } = useParams<{ id: string }>();
@@ -166,8 +158,6 @@ export default function ASNDetail() {
       </div>
     );
   }
-
-  const statusConfig = STATUS_CONFIG[asn.status] || STATUS_CONFIG.PENDING;
 
   return (
     <div className="container mx-auto py-6 space-y-6">

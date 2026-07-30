@@ -1,6 +1,6 @@
-// Dye Lab Dip Create Page - Thin wrapper around shared LabDipCreateForm
-import LabDipCreateForm from '@/components/processing/LabDipCreateForm';
+// Dye Lab Dip Create Page - Unified batch form for both dyeing and printing
+import LabDipBatchCreateForm from '@/components/processing/LabDipBatchCreateForm';
 
 export default function DyeLabDipCreate() {
-  return <LabDipCreateForm processType="DYEING" backPath="/manufacturing/dyeing" title="New Dye Lab Dip" />;
+  return <LabDipBatchCreateForm backPath="/manufacturing/dyeing" />;
 }

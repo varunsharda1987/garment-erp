@@ -99,23 +99,41 @@ function assertPm2VersionsMatch() {
 (async () => {
   assertPm2VersionsMatch();
 
-  // 1) Build both (running app keeps serving the old dist until restart)
-  run('npm --prefix backend run build');
+  // 1) Build both (running app keeps serving the old dist until restart).
+  // The backend build can legitimately fail when a schema change landed but the Prisma client
+  // hasn't been regenerated yet (generate needs the API stopped for the Windows file lock, and
+  // it runs in step 3 — AFTER this build). Instead of dead-ending on that chicken-and-egg, defer
+  // the failure and RETRY the build once, after migrate+generate, against the fresh client.
+  let backendBuildNeedsRetry = false;
+  try {
+    run('npm --prefix backend run build');
+  } catch {
+    backendBuildNeedsRetry = true;
+    console.warn(
+      `\n${C.yellow}⚠ backend build failed — if this is a stale Prisma client after a schema change,` +
+        ` it will be retried after migrate+generate. If the retry also fails, it is a real code error.${C.reset}`
+    );
+  }
   run('npm --prefix frontend run build');
 
   // 2) Stop API for the Prisma client lock (non-fatal: if already stopped / name differs, continue)
   tryRun('pm2 stop garment-erp-api');
 
-  // 3) Migrate + regenerate — but ALWAYS restart the API afterwards
+  // 3) Migrate + regenerate (+ deferred build retry) — but ALWAYS restart the API afterwards
   let migrateOk = true;
   try {
     run('npx prisma migrate deploy', { cwd: 'backend' });
     run('npx prisma generate', { cwd: 'backend' });
+    if (backendBuildNeedsRetry) {
+      // Fresh client is in place now. noEmitOnError guarantees a failed retry leaves the OLD
+      // dist untouched, so the finally-restart below safely brings back the previous version.
+      run('npm --prefix backend run build');
+    }
   } catch {
     migrateOk = false;
-    console.error(`\n${C.red}⚠ migrate/generate failed — restarting the API anyway; fix the error above and re-run npm run deploy${C.reset}`);
+    console.error(`\n${C.red}⚠ migrate/generate/build failed — restarting the API anyway; fix the error above and re-run npm run deploy${C.reset}`);
   } finally {
-    // 4) Bring the API back (freshly built dist + regenerated client)
+    // 4) Bring the API back (freshly built dist + regenerated client; or the old dist on failure)
     run('pm2 restart garment-erp-api');
   }
 

@@ -677,6 +677,14 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     },
                   },
                 },
+                selectedGreige: {
+                  select: {
+                    id: true,
+                    greigeCode: true,
+                    greigeName: true,
+                    greigeWidth: true,
+                  },
+                },
               },
             },
             style_accessories: true,

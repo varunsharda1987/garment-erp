@@ -6,8 +6,8 @@ import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 interface SOCreateInput {
   customerId: string;
   styleId?: string | null; // Primary style for the order
-  expectedShipDate?: Date;
-  buyerDeadline?: Date; // Buyer's required completion date
+  expectedShipDate?: Date | null;
+  buyerDeadline?: Date | null; // Buyer's required completion date
   remarks?: string;
   createdById: string;
   items: Array<{
@@ -16,12 +16,13 @@ interface SOCreateInput {
     sizeId: string;
     quantity: number;
     unitPrice: number;
+    remarks?: string;
   }>;
 }
 
 interface SOUpdateInput {
   styleId?: string | null; // Primary style for the order
-  expectedShipDate?: Date;
+  expectedShipDate?: Date | null;
   buyerDeadline?: Date | null; // Buyer's required completion date
   remarks?: string;
   items?: Array<{
@@ -30,6 +31,7 @@ interface SOUpdateInput {
     sizeId: string;
     quantity: number;
     unitPrice: number;
+    remarks?: string;
   }>;
 }
 

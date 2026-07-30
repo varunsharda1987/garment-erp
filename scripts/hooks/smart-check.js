@@ -625,6 +625,49 @@ function checkPrismaSafety() {
   return true;
 }
 
+/**
+ * Check: the type-gates themselves must stay in place (guard-the-guard) — BLOCKING.
+ * History: a deployable frontend dist/ was once produced via bare `npx vite build`, which
+ * skips tsc entirely. The gates that close that class of bypass are:
+ *   1. frontend/vite.config.ts    — the 'enforce-typecheck' plugin runs `tsc -b` INSIDE vite build
+ *   2. backend/tsconfig.json      — "noEmitOnError": true (tsc's default emits JS despite type errors)
+ * This check fails the commit/CI if either gate is removed or renamed. There is no baseline
+ * and no escape hatch on purpose: removing a gate must be a loud, deliberate act.
+ */
+function checkBuildGates() {
+  console.log(`\n${c.cyan}Checking build type-gates are in place...${c.reset}`);
+  const root = process.cwd();
+  const gates = [
+    {
+      file: 'frontend/vite.config.ts',
+      needle: 'enforce-typecheck',
+      why: "the 'enforce-typecheck' vite plugin makes `vite build` run tsc — without it, bare `npx vite build` ships an unchecked bundle",
+    },
+    {
+      file: 'backend/tsconfig.json',
+      needle: /"noEmitOnError"\s*:\s*true/,
+      why: 'without "noEmitOnError": true, tsc emits dist/ even when the typecheck fails',
+    },
+  ];
+  let ok = true;
+  for (const g of gates) {
+    let content = '';
+    try {
+      content = fs.readFileSync(path.join(root, g.file), 'utf-8');
+    } catch {
+      /* missing file handled below */
+    }
+    const present = typeof g.needle === 'string' ? content.includes(g.needle) : g.needle.test(content);
+    if (!present) {
+      console.log(`${c.red}  ✗ Type-gate missing in ${g.file}${c.reset}`);
+      console.log(`${c.dim}    ${g.why}${c.reset}`);
+      ok = false;
+    }
+  }
+  if (ok) console.log(`${c.green}  ✓ Build type-gates present (vite enforce-typecheck + backend noEmitOnError)${c.reset}`);
+  return ok;
+}
+
 // ============================================================================
 // MAIN
 // ============================================================================
@@ -661,6 +704,7 @@ function runAllModeChecks() {
 
   console.log(`\n${c.bright}Running guardrails across the whole repo (CI mode)...${c.reset}`);
   let ok = true;
+  if (!checkBuildGates()) ok = false;
   if (!checkSchemaControllerAlignment()) ok = false;
   if (!checkRouteValidation(routeFiles)) ok = false;
   if (!checkEnumDrift(schemaFiles)) ok = false;
@@ -731,6 +775,10 @@ function main() {
   let checksRun = 0;
 
   // Run relevant checks based on what changed
+
+  // Always: the type-gates themselves must stay in place (3 cheap file reads)
+  checksRun++;
+  if (!checkBuildGates()) allPassed = false;
 
   // Schema or Controller or Route changes → basic sync + field alignment (BLOCKING + ratchet)
   if (categories.schemas.length || categories.controllers.length || categories.routes.length) {

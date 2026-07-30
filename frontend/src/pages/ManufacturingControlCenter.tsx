@@ -1,0 +1,367 @@
+/**
+ * Manufacturing Control Center
+ * Alerts dashboard showing problems that need attention + vendor tracking
+ */
+
+import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { PageHeader } from '@/components/PageHeader';
+import { LoadingSpinner } from '@/components/LoadingSpinner';
+import {
+  AlertTriangle,
+  Clock,
+  Package,
+  RefreshCw,
+  ChevronRight,
+  Factory,
+  Truck,
+  FlaskConical,
+  FileCheck,
+  Scissors,
+  ArrowRight,
+  CheckCircle,
+} from 'lucide-react';
+import {
+  manufacturingAlertsService,
+  type AlertCount,
+  type VendorSummary,
+} from '@/services/manufacturingAlerts.service';
+
+const ALERT_CONFIG: Record<string, { label: string; icon: React.ElementType; route: string; description: string }> = {
+  overdueLabDips: {
+    label: 'Overdue Lab Dips',
+    icon: FlaskConical,
+    route: '/manufacturing/dyeing?status=SUBMITTED',
+    description: 'Lab dips sent to mill but not received',
+  },
+  overdueProcessPOs: {
+    label: 'Overdue Process POs',
+    icon: Factory,
+    route: '/processing/batches?status=AT_MILL',
+    description: 'Fabric at mill past expected return date',
+  },
+  overdueExternalWork: {
+    label: 'Overdue External Work',
+    icon: Truck,
+    route: '/manufacturing/smocking',
+    description: 'Smocking/Handwork/Embroidery past due',
+  },
+  stuckCutting: {
+    label: 'Stuck Cutting Batches',
+    icon: Scissors,
+    route: '/manufacturing/cutting?status=IN_PROGRESS',
+    description: 'Cutting batches with no progress in 7+ days',
+  },
+  qualityFailures: {
+    label: 'Quality Failures',
+    icon: AlertTriangle,
+    route: '/testing?result=FAIL',
+    description: 'Failed FPT/GPT tests needing resolution',
+  },
+  pendingApprovals: {
+    label: 'Pending Buyer Approvals',
+    icon: FileCheck,
+    route: '/manufacturing/dyeing?buyerApproval=PENDING',
+    description: 'Lab dips awaiting buyer approval',
+  },
+  overdueChallans: {
+    label: 'Overdue Challans',
+    icon: Package,
+    route: '/manufacturing/challans?status=ISSUED',
+    description: 'Outward challans not yet returned',
+  },
+};
+
+function AlertRow({ alertKey, alert, onClick }: { alertKey: string; alert: AlertCount; onClick: () => void }) {
+  const config = ALERT_CONFIG[alertKey];
+  if (!config || alert.count === 0) return null;
+
+  const Icon = config.icon;
+  const isUrgent = alert.oldestDays >= 14;
+  const isWarning = alert.oldestDays >= 7 && alert.oldestDays < 14;
+
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center justify-between p-4 hover:bg-muted/50 transition-colors border-b last:border-b-0"
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className={`p-2 rounded-lg ${
+            isUrgent
+              ? 'bg-destructive/10 text-destructive'
+              : isWarning
+                ? 'bg-warning/10 text-warning'
+                : 'bg-muted text-muted-foreground'
+          }`}
+        >
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="text-left">
+          <div className="font-medium text-foreground flex items-center gap-2">
+            {config.label}
+            <Badge variant={isUrgent ? 'destructive' : isWarning ? 'secondary' : 'outline'} className="ml-1">
+              {alert.count}
+            </Badge>
+          </div>
+          <div className="text-sm text-muted-foreground">{config.description}</div>
+        </div>
+      </div>
+      <div className="flex items-center gap-4">
+        <div className="text-right">
+          <div
+            className={`text-sm font-medium ${
+              isUrgent ? 'text-destructive' : isWarning ? 'text-warning' : 'text-muted-foreground'
+            }`}
+          >
+            Oldest: {alert.oldestDays} days
+          </div>
+        </div>
+        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+      </div>
+    </button>
+  );
+}
+
+function VendorStatusBadge({ status }: { status: VendorSummary['status'] }) {
+  const variants: Record<VendorSummary['status'], { className: string; label: string }> = {
+    ON_TRACK: { className: 'bg-success/10 text-success border-success/20', label: 'On Track' },
+    DUE_SOON: { className: 'bg-warning/10 text-warning border-warning/20', label: 'Due Soon' },
+    OVERDUE: { className: 'bg-destructive/10 text-destructive border-destructive/20', label: 'Overdue' },
+  };
+  const v = variants[status];
+  return (
+    <Badge variant="outline" className={v.className}>
+      {v.label}
+    </Badge>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  variant = 'default',
+  onClick,
+}: {
+  title: string;
+  value: number;
+  icon: React.ElementType;
+  variant?: 'default' | 'warning' | 'danger';
+  onClick?: () => void;
+}) {
+  const bgColors = {
+    default: 'bg-muted',
+    warning: 'bg-warning/10',
+    danger: 'bg-destructive/10',
+  };
+  const textColors = {
+    default: 'text-muted-foreground',
+    warning: 'text-warning',
+    danger: 'text-destructive',
+  };
+
+  return (
+    <Card className={`${onClick ? 'cursor-pointer hover:shadow-md transition-shadow' : ''}`} onClick={onClick}>
+      <CardContent className="pt-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <p className={`text-3xl font-bold ${value > 0 ? textColors[variant] : 'text-foreground'}`}>{value}</p>
+          </div>
+          <div className={`p-3 rounded-full ${bgColors[variant]}`}>
+            <Icon className={`h-6 w-6 ${textColors[variant]}`} />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function ManufacturingControlCenter() {
+  const navigate = useNavigate();
+
+  const { data, isLoading, refetch, dataUpdatedAt } = useQuery({
+    queryKey: ['manufacturing-alerts'],
+    queryFn: manufacturingAlertsService.getAlerts,
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <LoadingSpinner />
+      </div>
+    );
+  }
+
+  const alerts = data?.alerts;
+  const vendorSummary = data?.vendorSummary || [];
+  const quickStats = data?.quickStats;
+
+  const hasAlerts = alerts && Object.values(alerts).some((a) => a.count > 0);
+  const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
+
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      <PageHeader title="Manufacturing Control Center">
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Refresh
+        </Button>
+      </PageHeader>
+
+      <p className="text-muted-foreground -mt-4 mb-4">What needs your attention right now</p>
+
+      {lastUpdated && <p className="text-xs text-muted-foreground">Last updated: {lastUpdated.toLocaleTimeString()}</p>}
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Alerts"
+          value={quickStats?.totalAlerts || 0}
+          icon={AlertTriangle}
+          variant={quickStats?.totalAlerts ? 'danger' : 'default'}
+        />
+        <StatCard title="Items with Vendors" value={quickStats?.itemsWithVendors || 0} icon={Package} />
+        <StatCard
+          title="Due This Week"
+          value={quickStats?.dueThisWeek || 0}
+          icon={Clock}
+          variant={quickStats?.dueThisWeek ? 'warning' : 'default'}
+        />
+        <StatCard
+          title="Overdue"
+          value={quickStats?.overdue || 0}
+          icon={AlertTriangle}
+          variant={quickStats?.overdue ? 'danger' : 'default'}
+        />
+      </div>
+
+      {/* Alerts Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            Alerts Requiring Action
+          </CardTitle>
+          <CardDescription>Click any alert to view and resolve the items</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          {hasAlerts ? (
+            <div className="divide-y">
+              {alerts &&
+                Object.entries(alerts).map(([key, alert]) => (
+                  <AlertRow
+                    key={key}
+                    alertKey={key}
+                    alert={alert}
+                    onClick={() => navigate(ALERT_CONFIG[key]?.route || '/')}
+                  />
+                ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center text-muted-foreground">
+              <CheckCircle className="h-12 w-12 mx-auto mb-4 text-success" />
+              <p className="text-lg font-medium">All Clear!</p>
+              <p className="text-sm">No manufacturing alerts at this time.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Vendor Tracker Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Truck className="h-5 w-5" />
+            Materials with External Vendors
+          </CardTitle>
+          <CardDescription>Track materials at mills and processors</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {vendorSummary.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Vendor</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Items</TableHead>
+                    <TableHead className="text-right">Qty</TableHead>
+                    <TableHead className="text-right">Oldest</TableHead>
+                    <TableHead>Expected Back</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {vendorSummary.map((vendor, idx) => (
+                    <TableRow
+                      key={`${vendor.vendorId}-${vendor.type}-${idx}`}
+                      className={vendor.status === 'OVERDUE' ? 'bg-destructive/5' : ''}
+                    >
+                      <TableCell className="font-medium">{vendor.vendorName}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{vendor.type}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">{vendor.itemsOut}</TableCell>
+                      <TableCell className="text-right">
+                        {vendor.totalQty.toLocaleString('en-IN')} {vendor.unit}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span
+                          className={
+                            vendor.oldestSendoutDays >= 14
+                              ? 'text-destructive font-medium'
+                              : vendor.oldestSendoutDays >= 7
+                                ? 'text-warning font-medium'
+                                : ''
+                          }
+                        >
+                          {vendor.oldestSendoutDays} days
+                        </span>
+                      </TableCell>
+                      <TableCell>{vendor.nextExpectedBack || '-'}</TableCell>
+                      <TableCell>
+                        <VendorStatusBadge status={vendor.status} />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            // Navigate to appropriate list filtered by vendor
+                            const routes: Record<string, string> = {
+                              DYEING: `/manufacturing/dyeing`,
+                              PRINTING: `/manufacturing/printing`,
+                              SMOCKING: `/manufacturing/smocking`,
+                              HANDWORK: `/manufacturing/handwork`,
+                              EMBROIDERY_PIECE: `/embroidery-stock/pieces`,
+                            };
+                            navigate(routes[vendor.type] || '/processing/batches');
+                          }}
+                        >
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="p-8 text-center text-muted-foreground">
+              <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No materials currently with external vendors.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

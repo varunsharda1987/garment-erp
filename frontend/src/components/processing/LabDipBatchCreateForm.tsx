@@ -123,8 +123,8 @@ export default function LabDipBatchCreateForm({ backPath }: LabDipBatchCreateFor
                   fabricCode: sf.fabric?.fabricCode || null,
                   greigeName:
                     sf.selectedGreige?.greigeName || sf.cadRows?.[0]?.greige?.greigeName || sf.greigeName || null,
-                  colorMasterId: sf.colorMasterId || sf.colorMaster?.id || null,
-                  colorName: sf.colorMaster?.colorName || null,
+                  colorMasterId: sf.colorMasterId || sf.colorMaster?.id || sf.cadRows?.[0]?.batchGroupColor?.id || null,
+                  colorName: sf.colorMaster?.colorName || sf.cadRows?.[0]?.batchGroupColor?.colorName || null,
                   printDesign: sf.printDesign || null,
                   // Defaults for editable fields
                   processorId: '',

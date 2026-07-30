@@ -749,7 +749,9 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                               </TableCell>
                               <TableCell>
                                 {sf._processType === 'DYEING'
-                                  ? sf.colorMaster?.colorName || 'No color'
+                                  ? sf.colorMaster?.colorName ||
+                                    sf.cadRows?.[0]?.batchGroupColor?.colorName ||
+                                    'No color'
                                   : sf.printDesign || 'No design'}
                               </TableCell>
                             </TableRow>

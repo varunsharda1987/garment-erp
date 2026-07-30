@@ -685,7 +685,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                     greigeWidth: true,
                   },
                 },
-                // Include CAD rows to get greige linked at CAD level
+                // Include CAD rows to get greige and color linked at CAD level
                 cadRows: {
                   select: {
                     id: true,
@@ -697,8 +697,15 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                         greigeWidth: true,
                       },
                     },
+                    batchGroupColor: {
+                      select: {
+                        id: true,
+                        colorCode: true,
+                        colorName: true,
+                      },
+                    },
                   },
-                  take: 1, // Only need first CAD row for greige info
+                  take: 1, // Only need first CAD row for greige/color info
                 },
               },
             },

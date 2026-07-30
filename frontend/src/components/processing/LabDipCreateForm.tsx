@@ -409,10 +409,14 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
                                 {sf.selectedGreige?.greigeName || sf.cadRows?.[0]?.greige?.greigeName || sf.greigeName}
                               </span>
                             )}
-                            {sf.colorMaster && <span>Color: {sf.colorMaster.colorName}</span>}
+                            {(sf.colorMaster?.colorName || sf.cadRows?.[0]?.batchGroupColor?.colorName) && (
+                              <span>
+                                Color: {sf.colorMaster?.colorName || sf.cadRows?.[0]?.batchGroupColor?.colorName}
+                              </span>
+                            )}
                             {sf.printDesign && <span>Design: {sf.printDesign}</span>}
                             {!(sf.selectedGreige?.greigeName || sf.cadRows?.[0]?.greige?.greigeName || sf.greigeName) &&
-                              !sf.colorMaster &&
+                              !(sf.colorMaster?.colorName || sf.cadRows?.[0]?.batchGroupColor?.colorName) &&
                               !sf.printDesign && <span>No details defined</span>}
                           </div>
                         </div>

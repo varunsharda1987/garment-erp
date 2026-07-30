@@ -11,6 +11,7 @@ import {
   quickIssueChallanController,
   resolveRateController,
   splitProductionRunController,
+  getTodaySummaryController,
 } from '../controllers/challan.controller';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
@@ -34,6 +35,7 @@ router.use('/production-runs', authenticateToken);
 
 // Challan routes
 router.get('/challans/stats', asyncHandler(getChallanStatsController));
+router.get('/challans/today-summary', asyncHandler(getTodaySummaryController));
 router.post(
   '/challans/greige-outward',
   validateBody(createGreigeOutwardChallanSchema),

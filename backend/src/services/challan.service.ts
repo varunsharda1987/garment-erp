@@ -71,6 +71,10 @@ export interface ChallanFilters {
   search?: string;
   limit?: number;
   offset?: number;
+  // New filters for greige dept register
+  itemType?: string; // GREIGE, FABRIC, LACE, THREAD, etc.
+  processorId?: string; // Filter by toId (vendor/mill)
+  todayOnly?: boolean; // Filter to today's challans only
 }
 
 export interface ReceiveChallanInput {
@@ -492,7 +496,22 @@ export async function getChallans(filters: ChallanFilters) {
   if (filters.productionRunId) where.productionRunId = filters.productionRunId;
   if (filters.purchaseOrderId) where.purchaseOrderId = filters.purchaseOrderId;
 
-  if (filters.fromDate || filters.toDate) {
+  // Processor/mill filter (toId)
+  if (filters.processorId) where.toId = filters.processorId;
+
+  // Item type filter (filter challans that have at least one item of this type)
+  if (filters.itemType) {
+    where.items = { some: { itemType: filters.itemType } };
+  }
+
+  // Today only filter
+  if (filters.todayOnly) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    where.challanDate = { gte: today, lt: tomorrow };
+  } else if (filters.fromDate || filters.toDate) {
     where.challanDate = {};
     if (filters.fromDate) where.challanDate.gte = filters.fromDate;
     if (filters.toDate) where.challanDate.lte = filters.toDate;
@@ -540,6 +559,89 @@ export async function getChallans(filters: ChallanFilters) {
   ]);
 
   return { challans, total };
+}
+
+/**
+ * Get today's challan summary grouped by processor (for greige dept register)
+ * Returns OUTWARD challans issued today, grouped by processor with totals
+ */
+export async function getTodaySummary() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  // Get all OUTWARD challans issued today to vendors
+  const challans = await prisma.challans.findMany({
+    where: {
+      challanType: 'OUTWARD',
+      challanDate: { gte: today, lt: tomorrow },
+      toType: 'VENDOR',
+    },
+    include: {
+      items: {
+        select: {
+          id: true,
+          itemType: true,
+          description: true,
+          quantity: true,
+          unit: true,
+          rate: true,
+        },
+      },
+    },
+  });
+
+  // Group by processor (toId + toName)
+  const byProcessor: Record<
+    string,
+    {
+      processorId: string;
+      processorName: string;
+      challanCount: number;
+      totalQuantity: number;
+      totalValue: number;
+      itemTypes: Set<string>;
+    }
+  > = {};
+
+  for (const challan of challans) {
+    const key = challan.toId || challan.toName;
+    if (!byProcessor[key]) {
+      byProcessor[key] = {
+        processorId: challan.toId || '',
+        processorName: challan.toName,
+        challanCount: 0,
+        totalQuantity: 0,
+        totalValue: 0,
+        itemTypes: new Set(),
+      };
+    }
+    byProcessor[key].challanCount++;
+    byProcessor[key].totalQuantity += Number(challan.totalQuantity);
+
+    for (const item of challan.items) {
+      byProcessor[key].itemTypes.add(item.itemType);
+      byProcessor[key].totalValue += Number(item.quantity) * Number(item.rate || 0);
+    }
+  }
+
+  // Convert to array and serialize itemTypes
+  const summary = Object.values(byProcessor).map((p) => ({
+    processorId: p.processorId,
+    processorName: p.processorName,
+    challanCount: p.challanCount,
+    totalQuantity: p.totalQuantity,
+    totalValue: p.totalValue,
+    itemTypes: Array.from(p.itemTypes),
+  }));
+
+  return {
+    date: today.toISOString().split('T')[0],
+    totalChallans: challans.length,
+    totalQuantity: challans.reduce((sum, c) => sum + Number(c.totalQuantity), 0),
+    byProcessor: summary,
+  };
 }
 
 export async function receiveChallan(id: string, input: ReceiveChallanInput) {

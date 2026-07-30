@@ -5,6 +5,7 @@ import type {
   ChallanStats,
   CreateChallanInput,
   ReceiveChallanInput,
+  TodaySummary,
 } from '@/types/challan.types';
 
 const BASE_URL = '/challans';
@@ -72,6 +73,12 @@ export const challanService = {
       });
     }
     const { data } = await api.get(`${BASE_URL}/stats?${params.toString()}`);
+    return data.data;
+  },
+
+  // Get today's outward challan summary (greige dept register)
+  async getTodaySummary(): Promise<TodaySummary> {
+    const { data } = await api.get(`${BASE_URL}/today-summary`);
     return data.data;
   },
 

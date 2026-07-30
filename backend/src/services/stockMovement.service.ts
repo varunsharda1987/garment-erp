@@ -1199,6 +1199,707 @@ class StockMovementService {
       },
     };
   }
+
+  /**
+   * Get pending inward items across all external sources
+   * Used by unified stock movement dashboard
+   */
+  async getPendingInward(filters: {
+    sourceType?: string;
+    processorId?: string;
+    overdueOnly?: boolean;
+    page?: number;
+    limit?: number;
+  }) {
+    const { page = 1, limit = 50, sourceType, processorId, overdueOnly } = filters;
+
+    interface PendingItem {
+      id: string;
+      documentNumber: string;
+      sourceType: string;
+      sourceId: string;
+      partyId: string;
+      partyCode: string;
+      partyName: string;
+      partyType: 'SUPPLIER' | 'PROCESSOR';
+      materialDescription: string;
+      qtyOrdered: number;
+      qtyCompleted: number;
+      qtyPending: number;
+      unit: string;
+      documentDate: Date;
+      expectedDate: Date | null;
+      daysOut: number | null;
+      isOverdue: boolean;
+      actionRoute: string;
+      actionLabel: string;
+    }
+
+    const results: PendingItem[] = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 1. Purchase POs (sent or partially received)
+    if (!sourceType || sourceType === 'PURCHASE') {
+      const pendingPOs = await prisma.purchase_orders.findMany({
+        where: {
+          status: { in: ['SENT', 'PARTIALLY_RECEIVED'] },
+          ...(processorId && { supplierId: processorId }),
+        },
+        include: {
+          suppliers: { select: { id: true, code: true, name: true } },
+          purchase_order_items: {
+            include: {
+              materials: { select: { name: true, code: true } },
+            },
+          },
+        },
+        orderBy: { expectedDeliveryDate: 'asc' },
+        take: 200,
+      });
+
+      for (const po of pendingPOs) {
+        const items = po.purchase_order_items;
+        const totalOrdered = items.reduce((sum: number, i) => sum + Number(i.orderedQuantity), 0);
+        const totalReceived = items.reduce((sum: number, i) => sum + Number(i.receivedQuantity || 0), 0);
+        const pending = totalOrdered - totalReceived;
+
+        if (pending <= 0) continue;
+
+        const expected = po.expectedDeliveryDate;
+        const isOverdue = expected ? expected < today : false;
+
+        if (overdueOnly && !isOverdue) continue;
+
+        const materialDesc =
+          items.length === 1
+            ? items[0].materials?.name || po.poCategory || 'Material'
+            : `${items.length} items (${po.poCategory || 'General'})`;
+
+        results.push({
+          id: po.id,
+          documentNumber: po.poNumber,
+          sourceType: 'PURCHASE',
+          sourceId: po.id,
+          partyId: po.suppliers?.id || '',
+          partyCode: po.suppliers?.code || '',
+          partyName: po.suppliers?.name || 'Unknown',
+          partyType: 'SUPPLIER',
+          materialDescription: materialDesc,
+          qtyOrdered: totalOrdered,
+          qtyCompleted: totalReceived,
+          qtyPending: pending,
+          unit: items[0]?.unit || 'PCS',
+          documentDate: po.poDate,
+          expectedDate: expected,
+          daysOut: expected ? Math.floor((today.getTime() - expected.getTime()) / 86400000) : null,
+          isOverdue,
+          actionRoute: `/procurement/grn/new?poId=${po.id}`,
+          actionLabel: 'Create GRN',
+        });
+      }
+    }
+
+    // 2. Dyeing Process POs (at mill)
+    if (!sourceType || sourceType === 'DYEING') {
+      const dyeingPOs = await prisma.job_work_orders.findMany({
+        where: {
+          status: 'AT_MILL',
+          processType: 'DYEING',
+          ...(processorId && { processorId }),
+        },
+        include: {
+          processor: { select: { id: true, code: true, name: true } },
+          fabric: {
+            select: {
+              fabricName: true,
+              greige: { select: { greigeName: true } },
+            },
+          },
+        },
+        orderBy: { sentDate: 'asc' },
+        take: 200,
+      });
+
+      for (const job of dyeingPOs) {
+        const sentDate = job.sentDate || job.createdAt;
+        const daysOut = Math.floor((today.getTime() - sentDate.getTime()) / 86400000);
+        const isOverdue = daysOut > 14;
+
+        if (overdueOnly && !isOverdue) continue;
+
+        const greigeName = job.fabric?.greige?.greigeName || job.fabric?.fabricName || 'Greige';
+
+        results.push({
+          id: job.id,
+          documentNumber: job.jobWorkNumber || job.id.slice(0, 8),
+          sourceType: 'DYEING',
+          sourceId: job.id,
+          partyId: job.processor?.id || '',
+          partyCode: job.processor?.code || '',
+          partyName: job.processor?.name || 'Unknown Mill',
+          partyType: 'PROCESSOR',
+          materialDescription: `${greigeName} → Dyed Fabric`,
+          qtyOrdered: Number(job.qtySentMeters),
+          qtyCompleted: Number(job.qtyReceivedMeters || 0),
+          qtyPending: Number(job.qtySentMeters) - Number(job.qtyReceivedMeters || 0),
+          unit: 'MTR',
+          documentDate: sentDate,
+          expectedDate: job.expectedReturnDate,
+          daysOut,
+          isOverdue,
+          actionRoute: `/manufacturing/processing?tab=process-pos&id=${job.id}`,
+          actionLabel: 'Receive',
+        });
+      }
+    }
+
+    // 3. Printing Process POs (at mill)
+    if (!sourceType || sourceType === 'PRINTING') {
+      const printingPOs = await prisma.job_work_orders.findMany({
+        where: {
+          status: 'AT_MILL',
+          processType: 'PRINTING',
+          ...(processorId && { processorId }),
+        },
+        include: {
+          processor: { select: { id: true, code: true, name: true } },
+          fabric: {
+            select: {
+              fabricName: true,
+              greige: { select: { greigeName: true } },
+            },
+          },
+        },
+        orderBy: { sentDate: 'asc' },
+        take: 200,
+      });
+
+      for (const job of printingPOs) {
+        const sentDate = job.sentDate || job.createdAt;
+        const daysOut = Math.floor((today.getTime() - sentDate.getTime()) / 86400000);
+        const isOverdue = daysOut > 14;
+
+        if (overdueOnly && !isOverdue) continue;
+
+        const fabricName = job.fabric?.fabricName || job.fabric?.greige?.greigeName || 'Fabric';
+
+        results.push({
+          id: job.id,
+          documentNumber: job.jobWorkNumber || job.id.slice(0, 8),
+          sourceType: 'PRINTING',
+          sourceId: job.id,
+          partyId: job.processor?.id || '',
+          partyCode: job.processor?.code || '',
+          partyName: job.processor?.name || 'Unknown Mill',
+          partyType: 'PROCESSOR',
+          materialDescription: `${fabricName} → Printed`,
+          qtyOrdered: Number(job.qtySentMeters),
+          qtyCompleted: Number(job.qtyReceivedMeters || 0),
+          qtyPending: Number(job.qtySentMeters) - Number(job.qtyReceivedMeters || 0),
+          unit: 'MTR',
+          documentDate: sentDate,
+          expectedDate: job.expectedReturnDate,
+          daysOut,
+          isOverdue,
+          actionRoute: `/manufacturing/processing?tab=process-pos&id=${job.id}`,
+          actionLabel: 'Receive',
+        });
+      }
+    }
+
+    // 4. Lace Processing (active batches) - no processor filter, batch-level tracking
+    if (!sourceType || sourceType === 'LACE_PROCESSING') {
+      const laceBatches = await prisma.processing_batch.findMany({
+        where: {
+          materialType: 'LACE',
+          overallStatus: { in: ['ACTIVE', 'IN_PROGRESS'] },
+        },
+        include: {
+          laceMaster: { select: { laceName: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+        take: 200,
+      });
+
+      for (const batch of laceBatches) {
+        const sentDate = batch.createdAt;
+        const daysOut = Math.floor((today.getTime() - sentDate.getTime()) / 86400000);
+        const isOverdue = daysOut > 14;
+
+        if (overdueOnly && !isOverdue) continue;
+
+        results.push({
+          id: batch.id,
+          documentNumber: batch.batchNumber || batch.id.slice(0, 8),
+          sourceType: 'LACE_PROCESSING',
+          sourceId: batch.id,
+          partyId: '',
+          partyCode: '',
+          partyName: 'Lace Processor',
+          partyType: 'PROCESSOR',
+          materialDescription: batch.laceMaster?.laceName || 'Lace Processing',
+          qtyOrdered: Number(batch.totalQuantitySent),
+          qtyCompleted: Number(batch.totalQuantityReceived || 0),
+          qtyPending: Number(batch.totalQuantitySent) - Number(batch.totalQuantityReceived || 0),
+          unit: 'MTR',
+          documentDate: sentDate,
+          expectedDate: null,
+          daysOut,
+          isOverdue,
+          actionRoute: `/manufacturing/processing-batches/${batch.id}`,
+          actionLabel: 'Complete',
+        });
+      }
+    }
+
+    // 5. Embroidery (fabric roll) send-outs
+    if (!sourceType || sourceType === 'EMBROIDERY_FABRIC') {
+      const embroideryFabric = await prisma.embroidery_send_out.findMany({
+        where: {
+          status: 'SENT',
+          ...(processorId && { supplierId: processorId }),
+        },
+        include: {
+          supplier: { select: { id: true, code: true, name: true } },
+          sourceFabricStock: {
+            include: {
+              fabricMaster: { select: { fabricName: true } },
+            },
+          },
+        },
+        orderBy: { sendDate: 'asc' },
+        take: 200,
+      });
+
+      for (const sendOut of embroideryFabric) {
+        const sentDate = sendOut.sendDate || sendOut.createdAt;
+        const daysOut = Math.floor((today.getTime() - sentDate.getTime()) / 86400000);
+        const isOverdue = daysOut > 7;
+
+        if (overdueOnly && !isOverdue) continue;
+
+        results.push({
+          id: sendOut.id,
+          documentNumber: sendOut.id.slice(0, 8),
+          sourceType: 'EMBROIDERY_FABRIC',
+          sourceId: sendOut.id,
+          partyId: sendOut.supplier?.id || '',
+          partyCode: sendOut.supplier?.code || '',
+          partyName: sendOut.supplier?.name || 'Unknown Vendor',
+          partyType: 'PROCESSOR',
+          materialDescription: sendOut.sourceFabricStock?.fabricMaster?.fabricName || 'Fabric Embroidery',
+          qtyOrdered: Number(sendOut.quantitySent),
+          qtyCompleted: Number(sendOut.quantityReceived || 0),
+          qtyPending: Number(sendOut.quantitySent) - Number(sendOut.quantityReceived || 0),
+          unit: sendOut.unit || 'MTR',
+          documentDate: sentDate,
+          expectedDate: sendOut.expectedReturnDate,
+          daysOut,
+          isOverdue,
+          actionRoute: `/embroidery-stock/receive/${sendOut.id}`,
+          actionLabel: 'Receive',
+        });
+      }
+    }
+
+    // 6. External Process Send-outs (Embroidery Piece, Smocking, Handwork)
+    const externalProcessTypes = ['EMBROIDERY_PIECE', 'SMOCKING', 'HANDWORK'];
+    for (const processType of externalProcessTypes) {
+      if (sourceType && sourceType !== processType) continue;
+
+      const sendOuts = await prisma.external_process_send_outs.findMany({
+        where: {
+          status: 'SENT',
+          processType: processType as any,
+          ...(processorId && { supplierId: processorId }),
+        },
+        include: {
+          supplier: { select: { id: true, code: true, name: true } },
+          style: { select: { styleCode: true, styleName: true } },
+        },
+        orderBy: { sendDate: 'asc' },
+        take: 100,
+      });
+
+      for (const sendOut of sendOuts) {
+        const sentDate = sendOut.sendDate || sendOut.createdAt;
+        const daysOut = Math.floor((today.getTime() - sentDate.getTime()) / 86400000);
+        const isOverdue = daysOut > 7;
+
+        if (overdueOnly && !isOverdue) continue;
+
+        const routePrefix =
+          processType === 'EMBROIDERY_PIECE'
+            ? '/embroidery-stock/piece-receive'
+            : processType === 'SMOCKING'
+              ? '/manufacturing/smocking/receive'
+              : '/manufacturing/handwork/receive';
+
+        results.push({
+          id: sendOut.id,
+          documentNumber: sendOut.batchNumber || sendOut.id.slice(0, 8),
+          sourceType: processType,
+          sourceId: sendOut.id,
+          partyId: sendOut.supplier?.id || '',
+          partyCode: sendOut.supplier?.code || '',
+          partyName: sendOut.supplier?.name || 'Unknown Vendor',
+          partyType: 'PROCESSOR',
+          materialDescription: `${sendOut.style?.styleCode || 'Style'} - ${processType.replace('_', ' ')}`,
+          qtyOrdered: Number(sendOut.quantitySent),
+          qtyCompleted: Number(sendOut.quantityReceived || 0),
+          qtyPending: Number(sendOut.quantitySent) - Number(sendOut.quantityReceived || 0),
+          unit: sendOut.unit || 'PCS',
+          documentDate: sentDate,
+          expectedDate: sendOut.expectedReturnDate,
+          daysOut,
+          isOverdue,
+          actionRoute: `${routePrefix}/${sendOut.id}`,
+          actionLabel: 'Receive',
+        });
+      }
+    }
+
+    // Sort by overdue first, then by days out
+    results.sort((a, b) => {
+      if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1;
+      return (b.daysOut || 0) - (a.daysOut || 0);
+    });
+
+    const total = results.length;
+    const skip = (page - 1) * limit;
+    const paginatedResults = results.slice(skip, skip + limit);
+
+    return {
+      data: paginatedResults,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  /**
+   * Get pending outward items (drafts awaiting send)
+   * Used by unified stock movement dashboard
+   */
+  async getPendingOutward(filters: { sourceType?: string; processorId?: string; page?: number; limit?: number }) {
+    const { page = 1, limit = 50, sourceType, processorId } = filters;
+
+    interface PendingOutwardItem {
+      id: string;
+      documentNumber: string;
+      sourceType: string;
+      sourceId: string;
+      partyId: string;
+      partyCode: string;
+      partyName: string;
+      materialDescription: string;
+      quantity: number;
+      unit: string;
+      createdDate: Date;
+      actionRoute: string;
+      actionLabel: string;
+    }
+
+    const results: PendingOutwardItem[] = [];
+
+    // 1. Dyeing Process PO Drafts (READY_TO_SEND status)
+    if (!sourceType || sourceType === 'DYEING') {
+      const dyeingDrafts = await prisma.job_work_orders.findMany({
+        where: {
+          status: 'READY_TO_SEND',
+          processType: 'DYEING',
+          ...(processorId && { processorId }),
+        },
+        include: {
+          processor: { select: { id: true, code: true, name: true } },
+          fabric: {
+            select: {
+              fabricName: true,
+              greige: { select: { greigeName: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      });
+
+      for (const job of dyeingDrafts) {
+        const greigeName = job.fabric?.greige?.greigeName || job.fabric?.fabricName || 'Greige';
+        results.push({
+          id: job.id,
+          documentNumber: job.jobWorkNumber || job.id.slice(0, 8),
+          sourceType: 'DYEING',
+          sourceId: job.id,
+          partyId: job.processor?.id || '',
+          partyCode: job.processor?.code || '',
+          partyName: job.processor?.name || 'Select Mill',
+          materialDescription: greigeName,
+          quantity: Number(job.qtySentMeters || 0),
+          unit: 'MTR',
+          createdDate: job.createdAt,
+          actionRoute: `/manufacturing/processing?tab=process-pos&id=${job.id}`,
+          actionLabel: 'Send to Mill',
+        });
+      }
+    }
+
+    // 2. Printing Process PO Drafts (READY_TO_SEND status)
+    if (!sourceType || sourceType === 'PRINTING') {
+      const printingDrafts = await prisma.job_work_orders.findMany({
+        where: {
+          status: 'READY_TO_SEND',
+          processType: 'PRINTING',
+          ...(processorId && { processorId }),
+        },
+        include: {
+          processor: { select: { id: true, code: true, name: true } },
+          fabric: {
+            select: {
+              fabricName: true,
+              greige: { select: { greigeName: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      });
+
+      for (const job of printingDrafts) {
+        const fabricName = job.fabric?.fabricName || job.fabric?.greige?.greigeName || 'Fabric';
+        results.push({
+          id: job.id,
+          documentNumber: job.jobWorkNumber || job.id.slice(0, 8),
+          sourceType: 'PRINTING',
+          sourceId: job.id,
+          partyId: job.processor?.id || '',
+          partyCode: job.processor?.code || '',
+          partyName: job.processor?.name || 'Select Mill',
+          materialDescription: fabricName,
+          quantity: Number(job.qtySentMeters || 0),
+          unit: 'MTR',
+          createdDate: job.createdAt,
+          actionRoute: `/manufacturing/processing?tab=process-pos&id=${job.id}`,
+          actionLabel: 'Send to Mill',
+        });
+      }
+    }
+
+    // 3. Lace Processing Drafts (pending batches) - no processor on batch
+    if (!sourceType || sourceType === 'LACE_PROCESSING') {
+      const laceDrafts = await prisma.processing_batch.findMany({
+        where: {
+          materialType: 'LACE',
+          overallStatus: 'PENDING',
+        },
+        include: {
+          laceMaster: { select: { laceName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      });
+
+      for (const batch of laceDrafts) {
+        results.push({
+          id: batch.id,
+          documentNumber: batch.batchNumber || batch.id.slice(0, 8),
+          sourceType: 'LACE_PROCESSING',
+          sourceId: batch.id,
+          partyId: '',
+          partyCode: '',
+          partyName: 'Select Processor',
+          materialDescription: batch.laceMaster?.laceName || 'Lace for Processing',
+          quantity: Number(batch.totalQuantitySent || 0),
+          unit: 'MTR',
+          createdDate: batch.createdAt,
+          actionRoute: `/manufacturing/processing-batches/${batch.id}`,
+          actionLabel: 'Send',
+        });
+      }
+    }
+
+    // 4. Embroidery (fabric) Drafts
+    if (!sourceType || sourceType === 'EMBROIDERY_FABRIC') {
+      const embroideryDrafts = await prisma.embroidery_send_out.findMany({
+        where: {
+          status: 'DRAFT',
+          ...(processorId && { supplierId: processorId }),
+        },
+        include: {
+          supplier: { select: { id: true, code: true, name: true } },
+          sourceFabricStock: {
+            include: {
+              fabricMaster: { select: { fabricName: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      });
+
+      for (const sendOut of embroideryDrafts) {
+        results.push({
+          id: sendOut.id,
+          documentNumber: sendOut.id.slice(0, 8),
+          sourceType: 'EMBROIDERY_FABRIC',
+          sourceId: sendOut.id,
+          partyId: sendOut.supplier?.id || '',
+          partyCode: sendOut.supplier?.code || '',
+          partyName: sendOut.supplier?.name || 'Select Vendor',
+          materialDescription: sendOut.sourceFabricStock?.fabricMaster?.fabricName || 'Fabric for Embroidery',
+          quantity: Number(sendOut.quantitySent || 0),
+          unit: sendOut.unit || 'MTR',
+          createdDate: sendOut.createdAt,
+          actionRoute: `/embroidery-stock/send-out`,
+          actionLabel: 'Send',
+        });
+      }
+    }
+
+    // 5. External Process Drafts (Embroidery Piece, Smocking, Handwork)
+    const externalProcessTypes = ['EMBROIDERY_PIECE', 'SMOCKING', 'HANDWORK'];
+    for (const processType of externalProcessTypes) {
+      if (sourceType && sourceType !== processType) continue;
+
+      const drafts = await prisma.external_process_send_outs.findMany({
+        where: {
+          status: 'DRAFT',
+          processType: processType as any,
+          ...(processorId && { supplierId: processorId }),
+        },
+        include: {
+          supplier: { select: { id: true, code: true, name: true } },
+          style: { select: { styleCode: true, styleName: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      });
+
+      const routePrefix =
+        processType === 'EMBROIDERY_PIECE'
+          ? '/embroidery-stock/piece-send-out'
+          : processType === 'SMOCKING'
+            ? '/manufacturing/smocking/send-out'
+            : '/manufacturing/handwork/send-out';
+
+      for (const sendOut of drafts) {
+        results.push({
+          id: sendOut.id,
+          documentNumber: sendOut.batchNumber || sendOut.id.slice(0, 8),
+          sourceType: processType,
+          sourceId: sendOut.id,
+          partyId: sendOut.supplier?.id || '',
+          partyCode: sendOut.supplier?.code || '',
+          partyName: sendOut.supplier?.name || 'Select Vendor',
+          materialDescription: `${sendOut.style?.styleCode || 'Style'} - ${processType.replace('_', ' ')}`,
+          quantity: Number(sendOut.quantitySent || 0),
+          unit: sendOut.unit || 'PCS',
+          createdDate: sendOut.createdAt,
+          actionRoute: routePrefix,
+          actionLabel: 'Send',
+        });
+      }
+    }
+
+    // Sort by creation date desc
+    results.sort((a, b) => b.createdDate.getTime() - a.createdDate.getTime());
+
+    const total = results.length;
+    const skip = (page - 1) * limit;
+    const paginatedResults = results.slice(skip, skip + limit);
+
+    return {
+      data: paginatedResults,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  /**
+   * Get today's stock movement summary for dashboard
+   */
+  async getDashboardTodaySummary() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    // Today's inward movements (GRN + Process PO receives)
+    const [grnCount, dyeingReceived, printingReceived, externalReceived] = await Promise.all([
+      prisma.goods_receiving_notes.count({
+        where: { receivingDate: { gte: today, lt: tomorrow } },
+      }),
+      prisma.job_work_orders.count({
+        where: {
+          receivedDate: { gte: today, lt: tomorrow },
+          processType: 'DYEING',
+        },
+      }),
+      prisma.job_work_orders.count({
+        where: {
+          receivedDate: { gte: today, lt: tomorrow },
+          processType: 'PRINTING',
+        },
+      }),
+      prisma.external_process_send_outs.count({
+        where: {
+          actualReturnDate: { gte: today, lt: tomorrow },
+        },
+      }),
+    ]);
+
+    // Today's outward movements (challans + Process PO sends)
+    const [challanCount, dyeingSent, printingSent, externalSent] = await Promise.all([
+      prisma.challans.count({
+        where: {
+          challanDate: { gte: today, lt: tomorrow },
+          challanType: 'OUTWARD',
+          status: 'ISSUED',
+        },
+      }),
+      prisma.job_work_orders.count({
+        where: {
+          sentDate: { gte: today, lt: tomorrow },
+          processType: 'DYEING',
+          status: { in: ['AT_MILL', 'RECEIVED'] },
+        },
+      }),
+      prisma.job_work_orders.count({
+        where: {
+          sentDate: { gte: today, lt: tomorrow },
+          processType: 'PRINTING',
+          status: { in: ['AT_MILL', 'RECEIVED'] },
+        },
+      }),
+      prisma.external_process_send_outs.count({
+        where: {
+          sendDate: { gte: today, lt: tomorrow },
+          status: { in: ['SENT', 'PARTIALLY_RECEIVED', 'RECEIVED'] },
+        },
+      }),
+    ]);
+
+    // Overdue items
+    const overdueInward = await this.getPendingInward({ overdueOnly: true, limit: 1000 });
+
+    return {
+      date: today.toISOString().split('T')[0],
+      received: {
+        total: grnCount + dyeingReceived + printingReceived + externalReceived,
+        grn: grnCount,
+        dyeing: dyeingReceived,
+        printing: printingReceived,
+        external: externalReceived,
+      },
+      sent: {
+        total: challanCount + dyeingSent + printingSent + externalSent,
+        challans: challanCount,
+        dyeing: dyeingSent,
+        printing: printingSent,
+        external: externalSent,
+      },
+      overdue: {
+        total: overdueInward.pagination.total,
+      },
+    };
+  }
 }
 
 export default new StockMovementService();

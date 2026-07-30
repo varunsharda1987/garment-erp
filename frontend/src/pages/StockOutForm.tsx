@@ -1,8 +1,21 @@
-// Quick Issue Form - Issue materials via challan (Stock Out with proper tracking)
-// 4-step wizard: Issue Type → Supplier/Dept → Add Items (multi-item) → Review & Submit
+// Stock Out Form - Issue materials via challan (purpose-first flow)
+// 3 purposes: Purchase Return (to supplier) | Internal Issue (dept to dept) | Send for Processing (redirects to Process PO)
+// Processing is handled via Process PO for proper job work tracking - this form only handles returns and internal transfers
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, X, ArrowRightLeft, ArrowUpRight, Info, Plus, Trash2 } from 'lucide-react';
+import {
+  Send,
+  X,
+  ArrowRightLeft,
+  Info,
+  Plus,
+  Trash2,
+  Undo2,
+  Factory,
+  Beaker,
+  AlertTriangle,
+  Warehouse as WarehouseIcon,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -171,11 +184,16 @@ export default function StockOutForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Issue purpose (purpose-first flow)
+  type IssuePurpose = 'PURCHASE_RETURN' | 'INTERNAL' | 'PROCESSING' | '';
+  const [issuePurpose, setIssuePurpose] = useState<IssuePurpose>('');
+
   // Form state
   const [challanType, setChallanType] = useState<ChallanType>('OUTWARD');
   const [challanDate, setChallanDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [warehouseId, setWarehouseId] = useState('');
   const [warehouseName, setWarehouseName] = useState('');
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [remarks, setRemarks] = useState('');
 
   // Destination
@@ -369,6 +387,7 @@ export default function StockOutForm() {
   const loadWarehouses = async () => {
     try {
       const data = await warehouseService.getAll({ isActive: true });
+      setWarehouses(data);
       // Auto-select first RAW_MATERIAL warehouse, fallback to first active
       const defaultWh = data.find((w: Warehouse) => w.warehouseType === 'RAW_MATERIAL') || data[0];
       if (defaultWh && !warehouseId) {
@@ -588,7 +607,8 @@ export default function StockOutForm() {
 
   return (
     <div className="container mx-auto py-6">
-      <PageHeader title="Quick Issue (Stock Out via Challan)" />
+      <PageHeader title="Stock Out" />
+      <p className="text-muted-foreground -mt-4 mb-4">Return materials to suppliers or transfer to departments</p>
 
       {error && (
         <Alert variant="destructive" className="mb-4">
@@ -603,70 +623,152 @@ export default function StockOutForm() {
       )}
 
       <form onSubmit={handleSubmit}>
-        {/* Step 1: Issue Type */}
+        {/* Step 1: What are you issuing for? (Purpose-First) */}
         <Card className="mb-4">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg">Step 1: Issue Type</CardTitle>
+            <CardTitle className="text-lg">Step 1: What are you issuing for?</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              <Label>
-                Issue Type <span className="text-destructive">*</span>
-              </Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant={challanType === 'OUTWARD' ? 'default' : 'outline'}
-                  onClick={() => {
-                    setChallanType('OUTWARD');
-                    setSupplierId('');
-                    setSupplierName('');
-                  }}
-                  className="flex-1"
-                >
-                  <ArrowUpRight className="mr-2 h-4 w-4" />
-                  Outward (To Supplier / Processor)
-                </Button>
-                <Button
-                  type="button"
-                  variant={challanType === 'INTERNAL' ? 'default' : 'outline'}
-                  onClick={() => {
-                    setChallanType('INTERNAL');
-                    setDepartment('');
-                  }}
-                  className="flex-1"
-                >
-                  <ArrowRightLeft className="mr-2 h-4 w-4" />
-                  Internal (Dept to Dept)
-                </Button>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              {/* Purchase Return */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIssuePurpose('PURCHASE_RETURN');
+                  setChallanType('OUTWARD');
+                  setSupplierId('');
+                  setSupplierName('');
+                }}
+                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                  issuePurpose === 'PURCHASE_RETURN'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <Undo2 className="h-8 w-8 mb-2 text-orange-600" />
+                <h3 className="font-semibold">Purchase Return</h3>
+                <p className="text-sm text-muted-foreground">
+                  Return materials to your material suppliers (defective, excess, wrong shipment)
+                </p>
+              </button>
+
+              {/* Internal Issue */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIssuePurpose('INTERNAL');
+                  setChallanType('INTERNAL');
+                  setDepartment('');
+                }}
+                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                  issuePurpose === 'INTERNAL' ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <ArrowRightLeft className="h-8 w-8 mb-2 text-blue-600" />
+                <h3 className="font-semibold">Internal Issue</h3>
+                <p className="text-sm text-muted-foreground">
+                  Transfer materials between departments (Cutting, Stitching, etc.)
+                </p>
+              </button>
+
+              {/* Send for Processing */}
+              <button
+                type="button"
+                onClick={() => setIssuePurpose('PROCESSING')}
+                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                  issuePurpose === 'PROCESSING'
+                    ? 'border-primary bg-primary/5'
+                    : 'border-border hover:border-primary/50'
+                }`}
+              >
+                <Beaker className="h-8 w-8 mb-2 text-purple-600" />
+                <h3 className="font-semibold">Send for Processing</h3>
+                <p className="text-sm text-muted-foreground">Send greige/fabric to dyeing or printing mills</p>
+              </button>
+            </div>
+
+            {/* Processing redirect banner */}
+            {issuePurpose === 'PROCESSING' && (
+              <Alert className="bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800">
+                <Factory className="h-4 w-4 text-purple-600" />
+                <AlertDescription className="flex items-center justify-between">
+                  <span>
+                    Processing issuance uses the <strong>Process PO</strong> workflow for proper job work tracking.
+                  </span>
+                  <Button type="button" onClick={() => navigate('/manufacturing/processing')} className="ml-4">
+                    <Beaker className="h-4 w-4 mr-2" />
+                    Go to Dyeing & Printing
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Warehouse selector + Date (only for non-processing purposes) */}
+            {issuePurpose && issuePurpose !== 'PROCESSING' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t">
+                <div className="space-y-2">
+                  <Label htmlFor="warehouseId">
+                    <WarehouseIcon className="h-4 w-4 inline mr-1" />
+                    Issue From Warehouse <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={warehouseId}
+                    onValueChange={(v) => {
+                      setWarehouseId(v);
+                      const wh = warehouses.find((w) => w.id === v);
+                      setWarehouseName(wh ? `${wh.warehouseCode} - ${wh.warehouseName}` : '');
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select warehouse" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {warehouses.map((wh) => (
+                        <SelectItem key={wh.id} value={wh.id}>
+                          {wh.warehouseCode} - {wh.warehouseName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="challanDate">
+                    Challan Date <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="challanDate"
+                    type="date"
+                    value={challanDate}
+                    onChange={(e) => setChallanDate(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
-            <div className="space-y-2 mt-4">
-              <Label htmlFor="challanDate">
-                Challan Date <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="challanDate"
-                type="date"
-                value={challanDate}
-                onChange={(e) => setChallanDate(e.target.value)}
-                className="w-48"
-              />
-            </div>
+            )}
+
+            {/* Stock deduction warning */}
+            {issuePurpose && issuePurpose !== 'PROCESSING' && (
+              <Alert className="mt-4 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800 dark:text-amber-200">
+                  <strong>Stock deducts immediately</strong> when you submit. The challan is created and issued in one
+                  step.
+                </AlertDescription>
+              </Alert>
+            )}
           </CardContent>
         </Card>
 
-        {/* Step 2: Select Destination (Supplier for OUTWARD, Department for INTERNAL) */}
-        {challanType && (
+        {/* Step 2: Select Destination (Supplier for Purchase Return, Department for Internal) */}
+        {issuePurpose && issuePurpose !== 'PROCESSING' && (
           <Card className="mb-4">
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">
-                Step 2: {challanType === 'OUTWARD' ? 'Select Supplier' : 'Select Department'}
+                Step 2: {issuePurpose === 'PURCHASE_RETURN' ? 'Select Supplier to Return To' : 'Select Department'}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {/* OUTWARD: Supplier selection */}
-              {challanType === 'OUTWARD' && (
+              {/* PURCHASE_RETURN: Supplier selection */}
+              {issuePurpose === 'PURCHASE_RETURN' && (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {/* Supplier Search (Primary) */}

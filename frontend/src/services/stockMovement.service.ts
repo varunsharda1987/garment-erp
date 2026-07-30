@@ -235,4 +235,149 @@ export interface UnifiedMovement {
   sourceNumber: string;
 }
 
+// Pending Inward Item (unified dashboard)
+export interface PendingInwardItem {
+  id: string;
+  documentNumber: string;
+  sourceType: string;
+  sourceId: string;
+  partyId: string;
+  partyCode: string;
+  partyName: string;
+  partyType: 'SUPPLIER' | 'PROCESSOR';
+  materialDescription: string;
+  qtyOrdered: number;
+  qtyCompleted: number;
+  qtyPending: number;
+  unit: string;
+  documentDate: string;
+  expectedDate: string | null;
+  daysOut: number | null;
+  isOverdue: boolean;
+  actionRoute: string;
+  actionLabel: string;
+}
+
+// Pending Outward Item (unified dashboard)
+export interface PendingOutwardItem {
+  id: string;
+  documentNumber: string;
+  sourceType: string;
+  sourceId: string;
+  partyId: string;
+  partyCode: string;
+  partyName: string;
+  materialDescription: string;
+  quantity: number;
+  unit: string;
+  createdDate: string;
+  actionRoute: string;
+  actionLabel: string;
+}
+
+// Dashboard Summary
+export interface DashboardSummary {
+  date: string;
+  received: {
+    total: number;
+    grn: number;
+    dyeing: number;
+    printing: number;
+    external: number;
+  };
+  sent: {
+    total: number;
+    challans: number;
+    dyeing: number;
+    printing: number;
+    external: number;
+  };
+  overdue: {
+    total: number;
+  };
+}
+
+// Source type options for filters
+export const SOURCE_TYPES = [
+  { value: 'PURCHASE', label: 'Purchase PO' },
+  { value: 'DYEING', label: 'Dyeing' },
+  { value: 'PRINTING', label: 'Printing' },
+  { value: 'LACE_PROCESSING', label: 'Lace Processing' },
+  { value: 'EMBROIDERY_FABRIC', label: 'Embroidery (Fabric)' },
+  { value: 'EMBROIDERY_PIECE', label: 'Embroidery (Piece)' },
+  { value: 'SMOCKING', label: 'Smocking' },
+  { value: 'HANDWORK', label: 'Handwork' },
+];
+
+// Extended service methods for dashboard
+export const stockMovementDashboardService = {
+  /**
+   * Get pending inward items across all external sources
+   */
+  async getPendingInward(filters?: {
+    sourceType?: string;
+    processorId?: string;
+    overdueOnly?: boolean;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    data: PendingInwardItem[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  }> {
+    const params = new URLSearchParams();
+    if (filters?.sourceType) params.append('sourceType', filters.sourceType);
+    if (filters?.processorId) params.append('processorId', filters.processorId);
+    if (filters?.overdueOnly) params.append('overdueOnly', 'true');
+    if (filters?.page) params.append('page', String(filters.page));
+    if (filters?.limit) params.append('limit', String(filters.limit));
+
+    const response = await api.get<{
+      success: boolean;
+      data: PendingInwardItem[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }>(`${BASE_URL}/pending-inward${params.toString() ? '?' + params.toString() : ''}`);
+    return {
+      data: response.data.data || [],
+      pagination: response.data.pagination || { page: 1, limit: 50, total: 0, totalPages: 0 },
+    };
+  },
+
+  /**
+   * Get pending outward items (drafts awaiting send)
+   */
+  async getPendingOutward(filters?: {
+    sourceType?: string;
+    processorId?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    data: PendingOutwardItem[];
+    pagination: { page: number; limit: number; total: number; totalPages: number };
+  }> {
+    const params = new URLSearchParams();
+    if (filters?.sourceType) params.append('sourceType', filters.sourceType);
+    if (filters?.processorId) params.append('processorId', filters.processorId);
+    if (filters?.page) params.append('page', String(filters.page));
+    if (filters?.limit) params.append('limit', String(filters.limit));
+
+    const response = await api.get<{
+      success: boolean;
+      data: PendingOutwardItem[];
+      pagination: { page: number; limit: number; total: number; totalPages: number };
+    }>(`${BASE_URL}/pending-outward${params.toString() ? '?' + params.toString() : ''}`);
+    return {
+      data: response.data.data || [],
+      pagination: response.data.pagination || { page: 1, limit: 50, total: 0, totalPages: 0 },
+    };
+  },
+
+  /**
+   * Get today's dashboard summary
+   */
+  async getDashboardSummary(): Promise<DashboardSummary> {
+    const response = await api.get<{ success: boolean; data: DashboardSummary }>(`${BASE_URL}/dashboard-summary`);
+    return response.data.data;
+  },
+};
+
 export default stockMovementService;

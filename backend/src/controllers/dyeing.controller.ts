@@ -349,6 +349,124 @@ export const createLabDip = async (req: Request, res: Response, _next: NextFunct
   res.status(201).json({ data: transformLabDip(labDip as any), message: 'Lab dip created successfully' });
 };
 
+// Generate lab dip number for a specific process type
+const generateLabDipNumberForProcess = async (
+  styleCode: string,
+  processType: 'DYEING' | 'PRINTING'
+): Promise<string> => {
+  const processPrefix = processType === 'DYEING' ? 'LDD' : 'LDP';
+  const prefix = `${processPrefix}-${styleCode}`;
+  await seedScopedSequenceIfMissing(prefix, async () => {
+    const rows = await prisma.lab_dips.findMany({
+      where: { labDipNumber: { startsWith: `${prefix}-` } },
+      select: { labDipNumber: true },
+    });
+    return maxNumericSuffix(
+      rows.map((r) => r.labDipNumber),
+      prefix
+    );
+  });
+  return generateAtomicMasterCode(prefix, 3);
+};
+
+/**
+ * Bulk Create Lab Dips (Unified for DYEING + PRINTING)
+ * POST /api/lab-dips/bulk
+ * Creates multiple lab dips at once for a single style.
+ */
+export const bulkCreateLabDips = async (req: Request, res: Response, _next: NextFunction) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
+  }
+
+  const { styleId, submissionDate, labDips } = req.body;
+
+  // Get style for labDipNumber
+  const style = await prisma.styles.findUnique({
+    where: { id: styleId },
+    select: { styleCode: true },
+  });
+
+  if (!style) {
+    throw new NotFoundError('Style', styleId);
+  }
+
+  if (!labDips || !Array.isArray(labDips) || labDips.length === 0) {
+    throw new ValidationError('At least one lab dip is required');
+  }
+
+  // Create all lab dips in a transaction
+  const createdLabDips = await prisma.$transaction(async (tx) => {
+    const results: any[] = [];
+
+    for (const item of labDips) {
+      const {
+        styleFabricId,
+        processType,
+        processorId,
+        targetColorId,
+        colorReference,
+        designArtwork,
+        printMethod,
+        printChemistry,
+        expectedDate,
+        remarks,
+      } = item;
+
+      // Get the style_fabric to find fabricId
+      const styleFabric = await tx.style_fabrics.findUnique({
+        where: { id: styleFabricId },
+        select: { fabricId: true },
+      });
+
+      if (!styleFabric?.fabricId) {
+        throw new ValidationError(
+          `Style fabric ${styleFabricId} does not have a linked fabric. Please define fabric in style first.`
+        );
+      }
+
+      // Generate lab dip number based on process type
+      const labDipNumber = await generateLabDipNumberForProcess(style.styleCode, processType);
+
+      const labDip = await tx.lab_dips.create({
+        data: {
+          labDipNumber,
+          processType,
+          styleId,
+          fabricId: styleFabric.fabricId,
+          targetColorId: processType === 'DYEING' ? targetColorId : undefined,
+          colorReference: processType === 'DYEING' ? colorReference : undefined,
+          designArtwork: processType === 'PRINTING' ? designArtwork : undefined,
+          printMethod: processType === 'PRINTING' ? printMethod : undefined,
+          printChemistry: processType === 'PRINTING' ? printChemistry : undefined,
+          processorId,
+          submissionDate: submissionDate ? new Date(submissionDate) : new Date(),
+          expectedDate: expectedDate ? new Date(expectedDate) : undefined,
+          remarks,
+          status: 'PENDING',
+          createdById: userId,
+        },
+        include: labDipInclude,
+      });
+
+      results.push(transformLabDip(labDip as any));
+    }
+
+    return results;
+  });
+
+  res.status(201).json({
+    data: createdLabDips,
+    message: `${createdLabDips.length} lab dip(s) created successfully`,
+    summary: {
+      total: createdLabDips.length,
+      dyeing: createdLabDips.filter((l) => l.processType === 'DYEING').length,
+      printing: createdLabDips.filter((l) => l.processType === 'PRINTING').length,
+    },
+  });
+};
+
 // Update lab dip
 export const updateLabDip = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
@@ -1558,10 +1676,16 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     qtySentMeters,
     sentWidthInches,
     agreedRatePerMeter,
+    isRateTbd = false,
     expectedReturnDate,
     expectedShrinkage,
     fabricType = 'GREIGE',
     remarks,
+    // Auto-send fields (Create & Send one-click)
+    autoSend = false,
+    sentDate,
+    challanNumber,
+    vehicleNumber,
   } = req.body;
 
   // Validate required fields
@@ -1768,6 +1892,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         expectedReturnDate: expectedReturnDate ? new Date(expectedReturnDate) : null,
         expectedShrinkage,
         agreedRatePerMeter,
+        isRateTbd, // Explicit TBD marker when rate=0 is intentional
         remarks,
         status: 'READY_TO_SEND',
         createdById: userId,
@@ -1780,13 +1905,156 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       include: processPOInclude,
     });
 
-    return fullPO;
+    return { fullPO, job, labDip };
   });
+
+  // If autoSend is true, immediately execute the send logic
+  if (autoSend && result.fullPO) {
+    const poId = result.fullPO.id;
+    const job = result.job;
+
+    // 1. Consume greige stock
+    if (job.greigeStockLotId) {
+      await greigeStockService.consumeGreigeStock(job.greigeStockLotId, Number(job.qtySentMeters), userId);
+    }
+
+    // 2. Auto-create finished fabric_master (reuse exact sendToMill pattern)
+    let finishedFabricId: string | null = null;
+    const colorName = result.labDip?.targetColor?.colorName || result.labDip?.colorReference || 'Unknown';
+    const colorCode = result.labDip?.targetColor?.colorCode || null;
+    const greigeId = result.labDip?.fabric?.greigeId || null;
+    const finishType = 'DYED';
+
+    // Check if a matching fabric_master already exists
+    if (greigeId) {
+      const existingFabric = await prisma.fabric_master.findFirst({
+        where: { greigeId, colorName, finishType, isActive: true },
+      });
+      if (existingFabric) finishedFabricId = existingFabric.id;
+    }
+
+    if (!finishedFabricId) {
+      // Generate fabric code
+      const styleCode = result.labDip?.style?.styleCode || 'STK';
+      const prefix = `FAB-${styleCode}-`;
+      const existingCodes = await prisma.fabric_master.findMany({
+        where: { fabricCode: { startsWith: prefix } },
+        select: { fabricCode: true },
+        orderBy: { fabricCode: 'desc' },
+        take: 1,
+      });
+      let nextSeq = 1;
+      if (existingCodes.length > 0) {
+        const seqMatch = existingCodes[0].fabricCode.match(/-(\d+)$/);
+        if (seqMatch) nextSeq = parseInt(seqMatch[1]) + 1;
+      }
+      const fabricCode = `${prefix}${String(nextSeq).padStart(3, '0')}`;
+
+      // Build fabric name
+      const greige = result.labDip?.fabric?.greige;
+      const greigeGeneric = greige?.genericGreigeName || greige?.greigeName?.split('/')[0]?.trim() || 'Fabric';
+      const widthStr = `${Number(job.sentWidthInches)}"`;
+      const fabricName = [styleCode, greigeGeneric, 'Dyed', colorName, widthStr].filter(Boolean).join(' - ');
+
+      const newFabric = await prisma.fabric_master.create({
+        data: {
+          fabricCode,
+          fabricName,
+          greigeId,
+          greigeName: greige?.greigeName || null,
+          genericGreigeName: greige?.genericGreigeName || null,
+          colorName,
+          colorCode,
+          finishType,
+          actualWidth: job.sentWidthInches,
+          cutableWidth: new Prisma.Decimal(Number(job.sentWidthInches) - 2),
+          composition: greige?.composition || null,
+          yarnCount: greige?.yarnCount || null,
+          styleReference: styleCode,
+          source: 'AUTO_FROM_JOB_WORK',
+          isGeneric: false,
+          isActive: true,
+          createdById: userId,
+        },
+      });
+      finishedFabricId = newFabric.id;
+    }
+
+    // 3. Auto-create OUTWARD challan
+    let outwardChallanId: string | null = null;
+    try {
+      const challan = await createChallan({
+        challanType: 'OUTWARD',
+        challanDate: sentDate ? new Date(sentDate) : new Date(),
+        fromType: 'WAREHOUSE',
+        fromName: 'Main Warehouse',
+        toType: 'VENDOR',
+        toId: result.fullPO.supplierId,
+        toName: result.fullPO.suppliers?.name || 'Mill',
+        purchaseOrderId: poId,
+        vehicleNumber,
+        issuedById: userId,
+        unit: Unit.METER,
+        remarks: challanNumber ? `Manual challan ref: ${challanNumber}` : undefined,
+        items: [
+          {
+            itemType: 'GREIGE',
+            fabricId: job.fabricId,
+            greigeStockId: job.greigeStockLotId || undefined,
+            description: `Greige fabric for Dyeing - ${result.labDip?.style?.styleCode || ''}`,
+            quantity: Number(job.qtySentMeters),
+            unit: Unit.METER,
+            rate: Number(job.agreedRatePerMeter),
+          },
+        ],
+      });
+      outwardChallanId = challan.id;
+    } catch (challanError) {
+      logger.error('Failed to create outward challan for dyeing auto-send', {
+        error: challanError,
+        jobId: job.id,
+        greigeStockLotId: job.greigeStockLotId,
+      });
+    }
+
+    // 4. Update job work order to AT_MILL
+    await prisma.job_work_orders.update({
+      where: { id: job.id },
+      data: {
+        sentDate: sentDate ? new Date(sentDate) : new Date(),
+        challanNumber,
+        vehicleNumber,
+        finishedFabricId,
+        outwardChallanId,
+        status: 'AT_MILL',
+      },
+    });
+
+    // 5. Update PO status to SENT
+    await prisma.purchase_orders.update({
+      where: { id: poId },
+      data: { status: 'SENT' },
+    });
+
+    // Re-fetch full PO after send
+    const finalPO = await prisma.purchase_orders.findUnique({
+      where: { id: poId },
+      include: processPOInclude,
+    });
+
+    return res.status(201).json({
+      data: {
+        ...finalPO,
+        processPOStatus: computeProcessPOStatus(finalPO),
+      },
+      message: 'Dyeing process PO created and sent to mill successfully',
+    });
+  }
 
   res.status(201).json({
     data: {
-      ...result,
-      processPOStatus: computeProcessPOStatus(result),
+      ...result.fullPO,
+      processPOStatus: computeProcessPOStatus(result.fullPO),
     },
     message: 'Dyeing process PO created successfully',
   });

@@ -129,8 +129,13 @@ export const NAV_GROUPS: NavGroup[] = [
         permission: 'processingBatches',
       },
       'divider',
-      { title: 'Printing', path: '/manufacturing/printing', iconName: 'Beaker', permission: 'printing' },
-      { title: 'Dyeing', path: '/manufacturing/dyeing', iconName: 'Droplets', permission: 'dyeing' },
+      {
+        title: 'Dyeing & Printing',
+        path: '/manufacturing/processing',
+        iconName: 'Beaker',
+        permission: 'printing',
+        keywords: ['dyeing', 'printing', 'lab dip', 'process po', 'mill', 'processing'],
+      },
       { title: 'Cutting', path: '/manufacturing/cutting', iconName: 'Scissors', permission: 'cutting' },
       { title: 'Embroidery', path: '/embroidery-stock', iconName: 'Sparkles', permission: 'embroideryStock' },
       {
@@ -165,6 +170,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { title: 'Greige Stock', path: '/greige-stock', iconName: 'Package', permission: 'greigeFabricStock' },
       { title: 'Fabric Stock', path: '/fabric-stock', iconName: 'Package', permission: 'greigeFabricStock' },
       'divider',
+      {
+        title: 'Movement Dashboard',
+        path: '/inventory/movement-dashboard',
+        iconName: 'LayoutDashboard',
+        permission: 'stockMovements',
+        keywords: ['pending', 'inward', 'outward', 'external', 'processor', 'receive', 'send'],
+      },
       {
         title: 'Material Movements',
         path: '/inventory/movements',

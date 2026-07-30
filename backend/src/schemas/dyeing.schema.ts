@@ -59,6 +59,37 @@ export const createLabDipSchema = z
   .passthrough();
 
 /**
+ * Bulk Create Lab Dips (Unified for DYEING + PRINTING)
+ * POST /api/lab-dips/bulk
+ *
+ * Creates multiple lab dips at once for a single style.
+ * Handles both DYED and PRINTED fabrics in one request.
+ */
+export const bulkCreateLabDipSchema = z.object({
+  styleId: z.string().uuid('Invalid style ID'),
+  submissionDate: z.string().optional(),
+  labDips: z
+    .array(
+      z.object({
+        styleFabricId: z.string().uuid('Invalid style fabric ID'),
+        processType: z.enum(['DYEING', 'PRINTING']),
+        processorId: z.string().uuid('Invalid processor ID'),
+        // For DYEING
+        targetColorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional(),
+        colorReference: z.string().max(200).optional(),
+        // For PRINTING
+        designArtwork: z.string().max(200).optional(),
+        printMethod: z.string().max(100).optional(),
+        printChemistry: z.string().max(100).optional(),
+        // Common
+        expectedDate: z.string().optional().nullable(),
+        remarks: z.string().max(500).optional(),
+      })
+    )
+    .min(1, 'At least one lab dip is required'),
+});
+
+/**
  * Update Lab Dip
  * PUT /api/dyeing/lab-dips/:id or /api/printing/lab-dips/:id
  *
@@ -179,7 +210,8 @@ export const dyeJobQuerySchema = z.object({
  *
  * Controller destructures:
  * labDipId, styleId, fabricId, processorId, greigeStockLotId, fabricStockLotId, qtySentMeters,
- * sentWidthInches, agreedRatePerMeter, expectedReturnDate, expectedShrinkage, fabricType, remarks
+ * sentWidthInches, agreedRatePerMeter, isRateTbd, expectedReturnDate, expectedShrinkage, fabricType,
+ * remarks, autoSend, sentDate, challanNumber, vehicleNumber
  */
 export const createProcessPoSchema = z
   .object({
@@ -192,15 +224,50 @@ export const createProcessPoSchema = z
     qtySentMeters: z.number().positive('Quantity must be positive'),
     sentWidthInches: z.number().positive('Width must be positive'),
     agreedRatePerMeter: z.number().nonnegative('Rate cannot be negative'),
+    isRateTbd: z.boolean().optional().default(false), // Explicit TBD marker when rate=0 is intentional
     expectedReturnDate: z.string().optional().nullable(),
     expectedShrinkage: z.number().min(0).max(100).optional(),
     fabricType: z.string().max(50).optional().default('GREIGE'),
     remarks: z.string().max(500).optional(),
+    // Auto-send fields (Create & Send one-click)
+    autoSend: z.boolean().optional().default(false), // If true, immediately send to mill after creation
+    sentDate: z.string().optional(), // Used when autoSend=true
+    challanNumber: z.string().max(100).optional(), // Used when autoSend=true
+    vehicleNumber: z.string().max(50).optional(), // Used when autoSend=true
   })
   .passthrough()
   .refine((data) => data.labDipId || (data.styleId && data.fabricId && data.processorId), {
     message: 'Either labDipId OR (styleId, fabricId, and processorId) must be provided',
   });
+
+/**
+ * Bulk Create Process POs (Unified for DYEING + PRINTING)
+ * POST /api/process-pos/bulk
+ *
+ * Creates multiple process POs at once for a single style.
+ */
+export const bulkCreateProcessPoSchema = z.object({
+  styleId: z.string().uuid('Invalid style ID'),
+  processPOs: z
+    .array(
+      z.object({
+        styleFabricId: z.string().uuid('Invalid style fabric ID'),
+        processType: z.enum(['DYEING', 'PRINTING']),
+        processorId: z.string().uuid('Invalid processor ID'),
+        greigeStockLotId: z.string().uuid('Invalid greige stock lot ID').optional(),
+        qtySentMeters: z.number().positive('Quantity must be positive'),
+        sentWidthInches: z.number().positive('Width must be positive'),
+        agreedRatePerMeter: z.number().nonnegative('Rate cannot be negative'),
+        expectedReturnDate: z.string().optional().nullable(),
+        expectedShrinkage: z.number().min(0).max(100).optional(),
+        // For PRINTING
+        printMethod: z.string().max(100).optional(),
+        printChemistry: z.string().max(100).optional(),
+        remarks: z.string().max(500).optional(),
+      })
+    )
+    .min(1, 'At least one process PO is required'),
+});
 
 /**
  * Process PO Query Params
@@ -374,6 +441,7 @@ export const dyeJobActionSchema = z
 // ============================================================================
 
 export type CreateLabDipInput = z.infer<typeof createLabDipSchema>;
+export type BulkCreateLabDipInput = z.infer<typeof bulkCreateLabDipSchema>;
 export type UpdateLabDipInput = z.infer<typeof updateLabDipSchema>;
 export type LabDipQueryInput = z.infer<typeof labDipQuerySchema>;
 
@@ -382,6 +450,7 @@ export type UpdateDyeJobInput = z.infer<typeof updateDyeJobSchema>;
 export type DyeJobQueryInput = z.infer<typeof dyeJobQuerySchema>;
 
 export type CreateProcessPoInput = z.infer<typeof createProcessPoSchema>;
+export type BulkCreateProcessPoInput = z.infer<typeof bulkCreateProcessPoSchema>;
 export type ProcessPoQueryInput = z.infer<typeof processPoQuerySchema>;
 export type ProcessPoActionInput = z.infer<typeof processPoActionSchema>;
 export type SendProcessPoInput = z.infer<typeof sendProcessPoSchema>;

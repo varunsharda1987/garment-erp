@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ArrowLeft, FileText, Loader2, Check, ChevronsUpDown, Info } from 'lucide-react';
+import { ArrowLeft, FileText, Loader2, Check, ChevronsUpDown, Info, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,6 +14,8 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { dyeLabDipService, dyeProcessPOService } from '@/services/dyeing.service';
 import {
   labDipService as printLabDipService,
@@ -55,6 +58,13 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
   const [styleOpen, setStyleOpen] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState<any | null>(null);
 
+  // All fabrics from style (unified view - both DYED and PRINTED)
+  const [styleFabrics, setStyleFabrics] = useState<any[]>([]);
+  const [selectedStyleFabric, setSelectedStyleFabric] = useState<any | null>(null);
+  const [isLoadingStyleFabrics, setIsLoadingStyleFabrics] = useState(false);
+
+  // Fabric selection - styleFabrics table with fallback to search all fabrics
+  const [useOtherFabric, setUseOtherFabric] = useState(false);
   const [fabricSearch, setFabricSearch] = useState('');
   const [fabricOpen, setFabricOpen] = useState(false);
   const [selectedFabric, setSelectedFabric] = useState<any | null>(null);
@@ -73,8 +83,12 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
   const [expectedFinishedWidth, setExpectedFinishedWidth] = useState<number>(0); // From CAD or manual
   const [expectedShrinkage, setExpectedShrinkage] = useState<number>(0);
   const [agreedRatePerMeter, setAgreedRatePerMeter] = useState<number>(0);
+  const [isRateTbd, setIsRateTbd] = useState(false); // Explicit TBD when rate=0 is intentional
   const [expectedReturnDate, setExpectedReturnDate] = useState('');
   const [remarks, setRemarks] = useState('');
+
+  // Track which submit action is in progress
+  const [submitAction, setSubmitAction] = useState<'create' | 'create-send' | null>(null);
 
   // Reset selections when mode changes
   const handleModeChange = (mode: CreateMode) => {
@@ -88,6 +102,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
     setExpectedFinishedWidth(0);
     setExpectedShrinkage(0);
     setAgreedRatePerMeter(0);
+    setIsRateTbd(false);
     setExpectedReturnDate('');
     setRemarks('');
   };
@@ -113,14 +128,16 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
   });
   const stylesData = stylesResponse?.data || [];
 
-  // Fetch fabrics (for style-based mode)
+  // Fetch fabrics (for searching all fabrics when "other" is selected)
   const { data: fabricsData, isLoading: fabricsLoading } = useQuery({
     queryKey: ['fabrics-search', fabricSearch],
     queryFn: () => fabricService.getAll({ search: fabricSearch, limit: 20 }),
-    enabled: createMode === 'style-based' && !!selectedStyle,
+    enabled: createMode === 'style-based' && useOtherFabric && fabricSearch.length >= 2,
   });
 
   // Fetch processors (mills for dyeing/printing)
+  // Enable when style + fabric (from styleFabrics OR searched fabric) is selected
+  const hasFabricSelected = !!selectedStyleFabric || !!selectedFabric;
   const { data: processorsResponse, isLoading: processorsLoading } = useQuery({
     queryKey: ['processors-search', processorSearch, processType],
     queryFn: () =>
@@ -129,7 +146,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
         category: processType === 'DYEING' ? 'DYEING' : 'PRINTING',
         limit: 20,
       }),
-    enabled: createMode === 'style-based' && !!selectedStyle && !!selectedFabric,
+    enabled: createMode === 'style-based' && !!selectedStyle && hasFabricSelected,
   });
   const processorsData = processorsResponse?.data || [];
 
@@ -147,7 +164,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
   // Fetch available greige stock
   // Note: Greige stock is filtered by greigeId (not fabricId) - the fabric in lab dip is the finished spec
   const shouldShowGreigeStock =
-    createMode === 'lab-dip' ? !!selectedLabDip : !!selectedStyle && !!selectedFabric && !!selectedProcessor;
+    createMode === 'lab-dip' ? !!selectedLabDip : !!selectedStyle && hasFabricSelected && !!selectedProcessor;
 
   const { data: greigeStockData, isLoading: greigeStockLoading } = useQuery({
     queryKey: ['available-greige-stock'],
@@ -163,8 +180,67 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
     enabled: !!styleIdForFetch,
   });
 
+  // Extract all style fabrics when style is selected (unified view)
+  useEffect(() => {
+    if (selectedStyle && createMode === 'style-based') {
+      setIsLoadingStyleFabrics(true);
+      styleService
+        .getStyleById(selectedStyle.id)
+        .then((fullStyle: any) => {
+          const rows: any[] = [];
+          const components = fullStyle.components || fullStyle.styleComponents || [];
+
+          for (const comp of components) {
+            const compFabrics = comp.fabrics || comp.styleFabrics || [];
+            for (const sf of compFabrics) {
+              const finishType = sf.fabricFinishType as 'DYED' | 'PRINTED';
+              if (finishType === 'DYED' || finishType === 'PRINTED') {
+                rows.push({
+                  ...sf,
+                  _componentType: comp.componentType,
+                  _componentName: comp.componentMaster?.name || comp.componentType,
+                  _processType: finishType === 'DYED' ? 'DYEING' : 'PRINTING',
+                });
+              }
+            }
+          }
+          setStyleFabrics(rows);
+        })
+        .finally(() => setIsLoadingStyleFabrics(false));
+    } else {
+      setStyleFabrics([]);
+      setSelectedStyleFabric(null);
+    }
+  }, [selectedStyle, createMode]);
+
+  // When a style fabric is selected, set the fabric and derive process type
+  useEffect(() => {
+    if (selectedStyleFabric) {
+      // Set the fabric for compatibility with existing form logic
+      if (selectedStyleFabric.fabric) {
+        setSelectedFabric(selectedStyleFabric.fabric);
+      } else if (selectedStyleFabric.fabricId) {
+        setSelectedFabric({
+          id: selectedStyleFabric.fabricId,
+          fabricCode: selectedStyleFabric.fabricName || 'Unknown',
+          fabricName: selectedStyleFabric.fabricName || 'Unknown',
+        });
+      }
+      // Get cutableWidth from style fabric
+      if (selectedStyleFabric.cutableWidth) {
+        setExpectedFinishedWidth(Number(selectedStyleFabric.cutableWidth));
+      }
+    }
+  }, [selectedStyleFabric]);
+
   // When lab dip or style+fabric is selected, try to get expected width from CAD
   useEffect(() => {
+    // For style-based mode, prefer styleFabric (already has cutableWidth) over searched fabric
+    if (createMode === 'style-based' && selectedStyleFabric?.cutableWidth) {
+      setExpectedFinishedWidth(Number(selectedStyleFabric.cutableWidth));
+      return;
+    }
+
     const fabricIdToMatch = createMode === 'lab-dip' ? selectedLabDip?.fabricId : selectedFabric?.id;
     if (styleData && fabricIdToMatch) {
       // Find the style_fabric entry that matches the selected fabric
@@ -176,7 +252,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
         setExpectedFinishedWidth(Number(matchingFabric.cutableWidth));
       }
     }
-  }, [styleData, selectedLabDip, selectedFabric, createMode]);
+  }, [styleData, selectedLabDip, selectedFabric, selectedStyleFabric, createMode]);
 
   // When greige stock is selected, update greige width
   useEffect(() => {
@@ -202,10 +278,14 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
 
   const greigeStockItems = greigeStockData || [];
 
+  // Derive effective process type from selected style fabric or prop
+  const effectiveProcessType =
+    createMode === 'style-based' && selectedStyleFabric?._processType ? selectedStyleFabric._processType : processType;
+
   // Create mutation
   const createMutation = useMutation({
     mutationFn: async (data: CreateProcessPORequest) => {
-      if (processType === 'DYEING') {
+      if (effectiveProcessType === 'DYEING') {
         return dyeProcessPOService.create(data);
       } else {
         return printProcessPOService.create(data);
@@ -218,7 +298,10 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
     onError: (err) => handleApiError(err, 'Failed to create Process PO'),
   });
 
-  const handleSubmit = () => {
+  const handleSubmit = (autoSend = false) => {
+    // Track which action was clicked
+    setSubmitAction(autoSend ? 'create-send' : 'create');
+
     // Validate based on mode
     if (createMode === 'lab-dip') {
       if (!selectedLabDip) {
@@ -230,8 +313,8 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
         handleApiError(new Error('No style'), 'Please select a style');
         return;
       }
-      if (!selectedFabric) {
-        handleApiError(new Error('No fabric'), 'Please select a fabric');
+      if (!selectedStyleFabric && !selectedFabric) {
+        handleApiError(new Error('No fabric'), 'Please select a fabric from the table');
         return;
       }
       if (!selectedProcessor) {
@@ -269,22 +352,26 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
             qtySentMeters,
             sentWidthInches: expectedFinishedWidth,
             agreedRatePerMeter,
+            isRateTbd,
             expectedReturnDate: expectedReturnDate || undefined,
             expectedShrinkage: expectedShrinkage || undefined,
             remarks: remarks || undefined,
+            autoSend,
           }
         : {
             // Style-based PO (no lab dip)
             styleId: selectedStyle!.id,
-            fabricId: selectedFabric!.id,
+            fabricId: selectedStyleFabric?.fabricId || selectedFabric!.id,
             processorId: selectedProcessor!.id,
             greigeStockLotId: selectedGreigeStock.id,
             qtySentMeters,
             sentWidthInches: expectedFinishedWidth,
             agreedRatePerMeter,
+            isRateTbd,
             expectedReturnDate: expectedReturnDate || undefined,
             expectedShrinkage: expectedShrinkage || undefined,
             remarks: remarks || undefined,
+            autoSend,
           };
 
     createMutation.mutate(request);
@@ -510,76 +597,176 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
               </Popover>
             </div>
 
-            {/* Fabric Selector */}
+            {/* Fabric Table - Unified view showing all fabrics from style */}
             {selectedStyle && (
-              <div className="space-y-2">
-                <Label>Fabric *</Label>
-                <Popover open={fabricOpen} onOpenChange={setFabricOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={fabricOpen}
-                      className="w-full justify-between"
-                    >
-                      {selectedFabric ? (
-                        <span className="truncate">
-                          {selectedFabric.fabricCode} - {selectedFabric.fabricName}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">Select fabric...</span>
-                      )}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[500px] p-0" align="start">
-                    <Command shouldFilter={false}>
-                      <CommandInput
-                        placeholder="Search fabrics..."
-                        value={fabricSearch}
-                        onValueChange={setFabricSearch}
-                      />
-                      <CommandList>
-                        {fabricsLoading && (
-                          <div className="p-4 flex items-center justify-center">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          </div>
-                        )}
-                        <CommandEmpty>No fabrics found</CommandEmpty>
-                        <CommandGroup>
-                          {(fabricsData || []).map((fabric: any) => (
-                            <CommandItem
-                              key={fabric.id}
-                              value={fabric.id}
-                              onSelect={() => {
-                                setSelectedFabric(fabric);
+              <div className="space-y-2 col-span-2">
+                <Label>Select Fabric *</Label>
+                {isLoadingStyleFabrics ? (
+                  <div className="flex items-center justify-center p-4">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
+                ) : styleFabrics.length === 0 || useOtherFabric ? (
+                  // No style fabrics OR user chose to search other fabrics
+                  <div className="space-y-2">
+                    {useOtherFabric && styleFabrics.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setUseOtherFabric(false);
+                          setSelectedFabric(null);
+                        }}
+                        className="text-xs text-muted-foreground"
+                      >
+                        ← Back to style fabrics
+                      </Button>
+                    )}
+                    <Popover open={fabricOpen} onOpenChange={setFabricOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={fabricOpen}
+                          className="w-full justify-between"
+                        >
+                          {selectedFabric ? (
+                            <span className="truncate">
+                              {selectedFabric.fabricCode} - {selectedFabric.fabricName}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">Search fabrics...</span>
+                          )}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[500px] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput
+                            placeholder="Search fabrics..."
+                            value={fabricSearch}
+                            onValueChange={setFabricSearch}
+                          />
+                          <CommandList>
+                            {fabricsLoading && (
+                              <div className="p-4 flex items-center justify-center">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              </div>
+                            )}
+                            <CommandEmpty>No fabrics found</CommandEmpty>
+                            <CommandGroup>
+                              {(fabricsData?.data || []).map((fabric: any) => (
+                                <CommandItem
+                                  key={fabric.id}
+                                  value={fabric.id}
+                                  onSelect={() => {
+                                    setSelectedFabric(fabric);
+                                    setSelectedStyleFabric(null);
+                                    setSelectedProcessor(null);
+                                    setSelectedGreigeStock(null);
+                                    setFabricOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      'mr-2 h-4 w-4',
+                                      selectedFabric?.id === fabric.id ? 'opacity-100' : 'opacity-0'
+                                    )}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{fabric.fabricCode}</span>
+                                    <span className="text-sm text-muted-foreground">{fabric.fabricName}</span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                    {styleFabrics.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        No fabrics defined in style. Search all fabrics above.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  // Show style fabrics table with "Search other..." option
+                  <div className="space-y-2">
+                    <div className="border rounded overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-10"></TableHead>
+                            <TableHead>Component</TableHead>
+                            <TableHead>Process</TableHead>
+                            <TableHead>Fabric</TableHead>
+                            <TableHead>Greige</TableHead>
+                            <TableHead>Color/Design</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {styleFabrics.map((sf) => (
+                            <TableRow
+                              key={sf.id}
+                              className={cn(
+                                'cursor-pointer hover:bg-muted/50',
+                                selectedStyleFabric?.id === sf.id && 'bg-primary/10'
+                              )}
+                              onClick={() => {
+                                setSelectedStyleFabric(sf);
+                                setSelectedFabric(null);
+                                setUseOtherFabric(false);
                                 setSelectedProcessor(null);
                                 setSelectedGreigeStock(null);
-                                setFabricOpen(false);
                               }}
                             >
-                              <Check
-                                className={cn(
-                                  'mr-2 h-4 w-4',
-                                  selectedFabric?.id === fabric.id ? 'opacity-100' : 'opacity-0'
-                                )}
-                              />
-                              <div className="flex flex-col">
-                                <span className="font-medium">{fabric.fabricCode}</span>
-                                <span className="text-sm text-muted-foreground">{fabric.fabricName}</span>
-                              </div>
-                            </CommandItem>
+                              <TableCell>
+                                <div
+                                  className={cn(
+                                    'w-4 h-4 rounded-full border-2',
+                                    selectedStyleFabric?.id === sf.id
+                                      ? 'border-primary bg-primary'
+                                      : 'border-muted-foreground'
+                                  )}
+                                >
+                                  {selectedStyleFabric?.id === sf.id && (
+                                    <Check className="w-3 h-3 text-primary-foreground" />
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="font-medium">{sf._componentName}</TableCell>
+                              <TableCell>
+                                <Badge variant={sf._processType === 'DYEING' ? 'default' : 'secondary'}>
+                                  {sf._processType === 'DYEING' ? '🎨 Dyed' : '🖨 Printed'}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>{sf.fabricName || 'No fabric'}</TableCell>
+                              <TableCell className="text-muted-foreground">{sf.greigeName || '-'}</TableCell>
+                              <TableCell>
+                                {sf._processType === 'DYEING'
+                                  ? sf.colorMaster?.colorName || 'No color'
+                                  : sf.printDesign || 'No design'}
+                              </TableCell>
+                            </TableRow>
                           ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setUseOtherFabric(true)}
+                      className="text-xs text-muted-foreground"
+                    >
+                      Search other fabrics...
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Processor Selector */}
-            {selectedStyle && selectedFabric && (
+            {selectedStyle && (selectedStyleFabric || selectedFabric) && (
               <div className="space-y-2">
                 <Label>Processor/Mill *</Label>
                 <Popover open={processorOpen} onOpenChange={setProcessorOpen}>
@@ -836,7 +1023,21 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                   value={agreedRatePerMeter || ''}
                   onChange={(e) => setAgreedRatePerMeter(parseFloat(e.target.value) || 0)}
                   placeholder="e.g., 25.00"
+                  disabled={isRateTbd}
                 />
+                <div className="flex items-center space-x-2 mt-2">
+                  <Checkbox
+                    id="isRateTbd"
+                    checked={isRateTbd}
+                    onCheckedChange={(checked) => {
+                      setIsRateTbd(checked === true);
+                      if (checked) setAgreedRatePerMeter(0);
+                    }}
+                  />
+                  <Label htmlFor="isRateTbd" className="text-sm font-normal cursor-pointer text-muted-foreground">
+                    Rate to be decided (TBD)
+                  </Label>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -882,11 +1083,23 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Rate</p>
-                <p className="font-medium">₹{agreedRatePerMeter.toFixed(2)}/m</p>
+                {isRateTbd ? (
+                  <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                    TBD
+                  </Badge>
+                ) : (
+                  <p className="font-medium">₹{agreedRatePerMeter.toFixed(2)}/m</p>
+                )}
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Estimated Cost</p>
-                <p className="font-medium">₹{(qtySentMeters * agreedRatePerMeter).toFixed(2)}</p>
+                {isRateTbd ? (
+                  <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                    TBD
+                  </Badge>
+                ) : (
+                  <p className="font-medium">₹{(qtySentMeters * agreedRatePerMeter).toFixed(2)}</p>
+                )}
               </div>
             </div>
           </CardContent>
@@ -899,17 +1112,38 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
           Cancel
         </Button>
         <Button
-          onClick={handleSubmit}
+          variant="outline"
+          onClick={() => handleSubmit(false)}
           disabled={
             createMutation.isPending ||
-            (createMode === 'lab-dip' ? !selectedLabDip : !selectedStyle || !selectedFabric || !selectedProcessor) ||
+            (createMode === 'lab-dip'
+              ? !selectedLabDip
+              : !selectedStyle || (!selectedStyleFabric && !selectedFabric) || !selectedProcessor) ||
             !selectedGreigeStock ||
             qtySentMeters <= 0 ||
             expectedFinishedWidth <= 0
           }
         >
-          {createMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          Create Process PO
+          {createMutation.isPending && submitAction === 'create' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          Create as Draft
+        </Button>
+        <Button
+          onClick={() => handleSubmit(true)}
+          disabled={
+            createMutation.isPending ||
+            (createMode === 'lab-dip'
+              ? !selectedLabDip
+              : !selectedStyle || (!selectedStyleFabric && !selectedFabric) || !selectedProcessor) ||
+            !selectedGreigeStock ||
+            qtySentMeters <= 0 ||
+            expectedFinishedWidth <= 0
+          }
+        >
+          {createMutation.isPending && submitAction === 'create-send' && (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          )}
+          <Send className="h-4 w-4 mr-2" />
+          Create & Send to Mill
         </Button>
       </div>
     </div>

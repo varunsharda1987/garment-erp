@@ -78,6 +78,7 @@ import {
   WarehouseForm,
   StockLevelList,
   StockMovementList,
+  StockMovementDashboard,
   StockInForm,
   StockOutForm,
   StockTransferForm,
@@ -163,6 +164,7 @@ import {
   EmbroideryAvailableStock,
   EmbroideryStockSendOut,
   EmbroideryStockReceive,
+  ManufacturingControlCenter,
   SmockingDashboard,
   SmockingSendOut,
   SmockingReceive,
@@ -192,6 +194,7 @@ import {
   DyeLabDipCreate,
   DyeLabDipDetail,
   DyeProcessPOCreate,
+  ProcessingList,
   CuttingList,
   CuttingForm,
   CuttingChart,
@@ -515,6 +518,7 @@ function App() {
               <Route path="/inventory/warehouses" element={<WarehouseList />} />
               <Route path="/inventory/warehouses/new" element={<WarehouseForm />} />
               <Route path="/inventory/warehouses/:id/edit" element={<WarehouseForm />} />
+              <Route path="/inventory/movement-dashboard" element={<StockMovementDashboard />} />
               <Route path="/inventory/movements" element={<StockMovementList />} />
               <Route path="/inventory/movements/stock-in" element={<StockInForm />} />
               <Route path="/inventory/movements/stock-out" element={<StockOutForm />} />
@@ -578,6 +582,9 @@ function App() {
               <Route path="/samples/:id" element={<SampleDetail />} />
               <Route path="/samples/:id/edit" element={<SampleForm />} />
 
+              {/* Manufacturing Control Center (Alerts + Vendor Tracker) */}
+              <Route path="/manufacturing" element={<ManufacturingControlCenter />} />
+
               {/* Printing (Manufacturing - Fabric Processing) */}
               <Route path="/manufacturing/printing" element={<PrintingList />} />
               <Route path="/manufacturing/printing/lab-dips/new" element={<PrintLabDipCreate />} />
@@ -589,6 +596,11 @@ function App() {
               <Route path="/manufacturing/dyeing/lab-dips/new" element={<DyeLabDipCreate />} />
               <Route path="/manufacturing/dyeing/lab-dips/:id" element={<DyeLabDipDetail />} />
               <Route path="/manufacturing/dyeing/process-pos/new" element={<DyeProcessPOCreate />} />
+
+              {/* Unified Processing (Dyeing & Printing Combined) */}
+              <Route path="/manufacturing/processing" element={<ProcessingList />} />
+              <Route path="/manufacturing/processing/lab-dips/new" element={<DyeLabDipCreate />} />
+              <Route path="/manufacturing/processing/process-pos/new" element={<DyeProcessPOCreate />} />
 
               {/* Cutting (Manufacturing - Production) */}
               <Route path="/manufacturing/cutting" element={<CuttingList />} />

@@ -189,6 +189,26 @@ export interface ChallanFilters {
   search?: string;
   limit?: number;
   offset?: number;
+  // New filters for greige dept register
+  itemType?: string;
+  processorId?: string;
+  todayOnly?: boolean;
+}
+
+export interface TodaySummaryProcessor {
+  processorId: string;
+  processorName: string;
+  challanCount: number;
+  totalQuantity: number;
+  totalValue: number;
+  itemTypes: string[];
+}
+
+export interface TodaySummary {
+  date: string;
+  totalChallans: number;
+  totalQuantity: number;
+  byProcessor: TodaySummaryProcessor[];
 }
 
 export interface ChallanStats {

@@ -28,6 +28,9 @@ router.use(authenticateToken);
 // GET routes
 router.get('/', validateQuery(stockMovementQuerySchema), asyncHandler(stockMovementController.getAllMovements));
 router.get('/unified', asyncHandler(stockMovementController.getUnifiedMovements));
+router.get('/pending-inward', asyncHandler(stockMovementController.getPendingInward));
+router.get('/pending-outward', asyncHandler(stockMovementController.getPendingOutward));
+router.get('/dashboard-summary', asyncHandler(stockMovementController.getDashboardSummary));
 router.get(
   '/material/:materialId/history',
   validateParams(materialIdParamSchema),

@@ -6488,6 +6488,7 @@ model job_work_orders {
   expectedReturnDate     DateTime?
   expectedShrinkage      Decimal?                          @db.Decimal(5, 2)
   agreedRatePerMeter     Decimal                           @db.Decimal(10, 2)
+  isRateTbd              Boolean                           @default(false) // True when rate=0 is intentional TBD
   qtyReceivedMeters      Decimal?                          @db.Decimal(10, 2)
   receivedWidthInches    Decimal?                          @db.Decimal(10, 2)
   receivedDate           DateTime?

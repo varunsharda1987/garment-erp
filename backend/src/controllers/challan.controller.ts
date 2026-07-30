@@ -9,6 +9,7 @@ import {
   getChallanStats,
   createGreigeOutwardChallan,
   quickIssueChallan,
+  getTodaySummary,
 } from '../services/challan.service';
 import { resolveRate } from '../services/po-rate-resolver.service';
 import { NotFoundError, ValidationError } from '../errors';
@@ -58,8 +59,21 @@ export async function getChallanByIdController(req: Request, res: Response) {
  * GET /api/challans
  */
 export async function getChallansController(req: Request, res: Response) {
-  const { challanType, status, orderId, productionRunId, purchaseOrderId, fromDate, toDate, search, limit, offset } =
-    req.query;
+  const {
+    challanType,
+    status,
+    orderId,
+    productionRunId,
+    purchaseOrderId,
+    fromDate,
+    toDate,
+    search,
+    limit,
+    offset,
+    itemType,
+    processorId,
+    todayOnly,
+  } = req.query;
 
   const result = await getChallans({
     challanType: challanType as any,
@@ -72,6 +86,9 @@ export async function getChallansController(req: Request, res: Response) {
     search: search as string,
     limit: limit ? parseInt(limit as string, 10) : undefined,
     offset: offset ? parseInt(offset as string, 10) : undefined,
+    itemType: itemType as string,
+    processorId: processorId as string,
+    todayOnly: todayOnly === 'true',
   });
 
   return res.json({
@@ -83,6 +100,15 @@ export async function getChallansController(req: Request, res: Response) {
       offset: offset ? parseInt(offset as string, 10) : 0, // legacy: frontend uses offset-based pagination
     },
   });
+}
+
+/**
+ * GET /api/challans/today-summary
+ * Returns today's outward challan summary grouped by processor (greige dept register)
+ */
+export async function getTodaySummaryController(_req: Request, res: Response) {
+  const summary = await getTodaySummary();
+  return res.json({ success: true, data: summary });
 }
 
 /**

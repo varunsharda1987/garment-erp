@@ -166,6 +166,7 @@ export const WarehouseList = lazy(() => import('../pages/WarehouseList'));
 export const WarehouseForm = lazy(() => import('../pages/WarehouseForm'));
 export const StockLevelList = lazy(() => import('../pages/StockLevelList'));
 export const StockMovementList = lazy(() => import('../pages/StockMovementList'));
+export const StockMovementDashboard = lazy(() => import('../pages/StockMovementDashboard'));
 export const StockInForm = lazy(() => import('../pages/StockInForm'));
 export const StockOutForm = lazy(() => import('../pages/StockOutForm'));
 export const StockTransferForm = lazy(() => import('../pages/StockTransferForm'));
@@ -326,6 +327,11 @@ export const EmbroideryStockSendOut = lazy(() => import('../pages/EmbroideryStoc
 export const EmbroideryStockReceive = lazy(() => import('../pages/EmbroideryStockReceive'));
 
 // ============================================================================
+// Manufacturing Control Center (Alerts + Vendor Tracker)
+// ============================================================================
+export const ManufacturingControlCenter = lazy(() => import('../pages/ManufacturingControlCenter'));
+
+// ============================================================================
 // External Process (Smocking, Handwork)
 // ============================================================================
 export const SmockingDashboard = lazy(() => import('../pages/SmockingDashboard'));
@@ -372,6 +378,11 @@ export const DyeingList = lazy(() => import('../pages/DyeingList'));
 export const DyeLabDipCreate = lazy(() => import('../pages/dyeing/DyeLabDipCreate'));
 export const DyeLabDipDetail = lazy(() => import('../pages/dyeing/DyeLabDipDetail'));
 export const DyeProcessPOCreate = lazy(() => import('../pages/dyeing/DyeProcessPOCreate'));
+
+// ============================================================================
+// Unified Processing (Dyeing & Printing Combined)
+// ============================================================================
+export const ProcessingList = lazy(() => import('../pages/ProcessingList'));
 
 // ============================================================================
 // Cutting (Manufacturing - Production)

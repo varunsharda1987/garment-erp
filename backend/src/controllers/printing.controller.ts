@@ -1603,41 +1603,131 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
 
   const {
     labDipId,
+    styleId: directStyleId,
+    fabricId: directFabricId,
+    processorId: directProcessorId,
     greigeStockLotId,
     fabricStockLotId,
     qtySentMeters,
     sentWidthInches,
     agreedRatePerMeter,
+    isRateTbd = false,
     expectedReturnDate,
     expectedShrinkage,
     fabricType = 'GREIGE',
     remarks,
+    // Auto-send fields (Create & Send one-click)
+    autoSend = false,
+    sentDate,
+    challanNumber,
+    vehicleNumber,
   } = req.body;
 
-  if (!labDipId || !qtySentMeters || !sentWidthInches || !agreedRatePerMeter) {
-    throw new ValidationError('Missing required fields: labDipId, qtySentMeters, sentWidthInches, agreedRatePerMeter');
+  if (!qtySentMeters || !sentWidthInches || agreedRatePerMeter === undefined) {
+    throw new ValidationError('Missing required fields: qtySentMeters, sentWidthInches, agreedRatePerMeter');
+  }
+
+  // Either labDipId OR (styleId + fabricId + processorId) must be provided
+  if (!labDipId && (!directStyleId || !directFabricId || !directProcessorId)) {
+    throw new ValidationError('Either labDipId OR (styleId, fabricId, and processorId) must be provided');
   }
 
   if (!greigeStockLotId && !fabricStockLotId) {
     throw new ValidationError('Either greigeStockLotId or fabricStockLotId is required');
   }
 
-  // Validate lab dip exists and is APPROVED
-  const labDip = await prisma.lab_dips.findUnique({
-    where: { id: labDipId },
-    include: {
-      style: { select: { id: true, styleCode: true, styleName: true } },
-      fabric: { select: { id: true, fabricCode: true, fabricName: true } },
-      processor: { select: { id: true, name: true, code: true } },
-    },
-  });
+  // Resolve style, fabric, processor - either from lab dip or direct input
+  let resolvedStyleId: string;
+  let resolvedFabricId: string;
+  let resolvedProcessorId: string;
+  let labDip: any = null;
 
-  if (!labDip) {
-    throw new NotFoundError('Lab dip', labDipId);
-  }
+  if (labDipId) {
+    // Lab-dip-based creation - validate lab dip exists and is APPROVED
+    labDip = await prisma.lab_dips.findUnique({
+      where: { id: labDipId },
+      include: {
+        style: { select: { id: true, styleCode: true, styleName: true } },
+        fabric: {
+          select: {
+            id: true,
+            fabricCode: true,
+            fabricName: true,
+            greigeId: true,
+            greige: {
+              select: {
+                id: true,
+                greigeCode: true,
+                greigeName: true,
+                genericGreigeName: true,
+                composition: true,
+                yarnCount: true,
+              },
+            },
+          },
+        },
+        processor: { select: { id: true, name: true, code: true } },
+        targetColor: { select: { colorName: true, colorCode: true } },
+      },
+    });
 
-  if (labDip.status !== 'APPROVED') {
-    throw new ValidationError('Lab dip must be approved before creating a Process PO');
+    if (!labDip) {
+      throw new NotFoundError('Lab dip', labDipId);
+    }
+
+    if (labDip.status !== 'APPROVED') {
+      throw new ValidationError('Lab dip must be approved before creating a Process PO');
+    }
+
+    resolvedStyleId = labDip.styleId;
+    resolvedFabricId = labDip.fabricId;
+    resolvedProcessorId = labDip.processorId;
+  } else {
+    // Style-based creation - validate style, fabric, processor exist
+    const [style, fabric, processor] = await Promise.all([
+      prisma.styles.findUnique({
+        where: { id: directStyleId },
+        select: { id: true, styleCode: true, styleName: true },
+      }),
+      prisma.fabric_master.findUnique({
+        where: { id: directFabricId },
+        select: {
+          id: true,
+          fabricCode: true,
+          fabricName: true,
+          greigeId: true,
+          greige: {
+            select: {
+              id: true,
+              greigeCode: true,
+              greigeName: true,
+              genericGreigeName: true,
+              composition: true,
+              yarnCount: true,
+            },
+          },
+        },
+      }),
+      prisma.suppliers.findUnique({ where: { id: directProcessorId }, select: { id: true, name: true, code: true } }),
+    ]);
+
+    if (!style) throw new NotFoundError('Style', directStyleId);
+    if (!fabric) throw new NotFoundError('Fabric', directFabricId);
+    if (!processor) throw new NotFoundError('Processor', directProcessorId);
+
+    resolvedStyleId = directStyleId;
+    resolvedFabricId = directFabricId;
+    resolvedProcessorId = directProcessorId;
+
+    // Create a mock labDip object for compatibility with downstream code
+    labDip = {
+      styleId: directStyleId,
+      fabricId: directFabricId,
+      processorId: directProcessorId,
+      style,
+      fabric,
+      processor,
+    };
   }
 
   // Validate stock source (greige_stock preferred, fabric_stock as fallback)
@@ -1672,7 +1762,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     // If no fabricStockLotId provided, find or use the first available fabric stock
     // as a placeholder (fabricStockLotId is required by schema)
     const fallbackStock = await prisma.fabric_stock.findFirst({
-      where: { fabricId: labDip.fabricId },
+      where: { fabricId: resolvedFabricId },
       select: { id: true },
     });
     if (!fallbackStock) {
@@ -1680,7 +1770,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       // Using RESERVED status to indicate this is not yet available for use
       const placeholderStock = await prisma.fabric_stock.create({
         data: {
-          fabricId: labDip.fabricId,
+          fabricId: resolvedFabricId,
           finishedWidth: new Prisma.Decimal(sentWidthInches),
           cutableWidth: new Prisma.Decimal(Math.max(sentWidthInches - 2, 0)),
           quantityAvailable: new Prisma.Decimal(0),
@@ -1716,7 +1806,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       data: {
         id: poId,
         poNumber,
-        supplierId: labDip.processorId,
+        supplierId: resolvedProcessorId,
         poDate: new Date(),
         expectedDeliveryDate: expectedReturnDate
           ? new Date(expectedReturnDate)
@@ -1756,10 +1846,10 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       data: {
         jobWorkNumber,
         processType: 'PRINTING',
-        labDipId,
-        styleId: labDip.styleId,
-        fabricId: labDip.fabricId,
-        processorId: labDip.processorId,
+        labDipId: labDipId || null, // Now optional for style-based PO
+        styleId: resolvedStyleId,
+        fabricId: resolvedFabricId,
+        processorId: resolvedProcessorId,
         fabricStockLotId: validatedFabricStockLotId,
         greigeStockLotId: greigeStockLotId || null,
         purchaseOrderId: po.id,
@@ -1769,6 +1859,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         expectedReturnDate: expectedReturnDate ? new Date(expectedReturnDate) : null,
         expectedShrinkage,
         agreedRatePerMeter,
+        isRateTbd, // Explicit TBD marker when rate=0 is intentional
         remarks,
         status: 'READY_TO_SEND',
         createdById: userId,
@@ -1781,13 +1872,154 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       include: processPOInclude,
     });
 
-    return fullPO;
+    return { fullPO, job, labDip };
   });
+
+  // If autoSend is true, immediately execute the send logic
+  if (autoSend && result.fullPO) {
+    const poId = result.fullPO.id;
+    const job = result.job;
+
+    // 1. Consume greige stock
+    if (job.greigeStockLotId) {
+      await greigeStockService.consumeGreigeStock(job.greigeStockLotId, Number(job.qtySentMeters), userId);
+    }
+
+    // 2. Auto-create finished fabric_master (for printing: PRINTED finish type)
+    let finishedFabricId: string | null = null;
+    const colorName = result.labDip?.designArtwork || 'Printed';
+    const greigeId = result.labDip?.fabric?.greigeId || null;
+    const finishType = 'PRINTED';
+
+    // Check if a matching fabric_master already exists
+    if (greigeId) {
+      const existingFabric = await prisma.fabric_master.findFirst({
+        where: { greigeId, colorName, finishType, isActive: true },
+      });
+      if (existingFabric) finishedFabricId = existingFabric.id;
+    }
+
+    if (!finishedFabricId) {
+      // Generate fabric code
+      const styleCode = result.labDip?.style?.styleCode || 'STK';
+      const prefix = `FAB-${styleCode}-`;
+      const existingCodes = await prisma.fabric_master.findMany({
+        where: { fabricCode: { startsWith: prefix } },
+        select: { fabricCode: true },
+        orderBy: { fabricCode: 'desc' },
+        take: 1,
+      });
+      let nextSeq = 1;
+      if (existingCodes.length > 0) {
+        const seqMatch = existingCodes[0].fabricCode.match(/-(\d+)$/);
+        if (seqMatch) nextSeq = parseInt(seqMatch[1]) + 1;
+      }
+      const fabricCode = `${prefix}${String(nextSeq).padStart(3, '0')}`;
+
+      // Build fabric name
+      const greige = result.labDip?.fabric?.greige;
+      const greigeGeneric = greige?.genericGreigeName || greige?.greigeName?.split('/')[0]?.trim() || 'Fabric';
+      const widthStr = `${Number(job.sentWidthInches)}"`;
+      const fabricName = [styleCode, greigeGeneric, 'Printed', colorName, widthStr].filter(Boolean).join(' - ');
+
+      const newFabric = await prisma.fabric_master.create({
+        data: {
+          fabricCode,
+          fabricName,
+          greigeId,
+          greigeName: greige?.greigeName || null,
+          genericGreigeName: greige?.genericGreigeName || null,
+          colorName,
+          finishType,
+          actualWidth: job.sentWidthInches,
+          cutableWidth: new Prisma.Decimal(Number(job.sentWidthInches) - 2),
+          composition: greige?.composition || null,
+          yarnCount: greige?.yarnCount || null,
+          styleReference: styleCode,
+          source: 'AUTO_FROM_JOB_WORK',
+          isGeneric: false,
+          isActive: true,
+          createdById: userId,
+        },
+      });
+      finishedFabricId = newFabric.id;
+    }
+
+    // 3. Auto-create OUTWARD challan
+    let outwardChallanId: string | null = null;
+    try {
+      const challan = await createChallan({
+        challanType: 'OUTWARD',
+        challanDate: sentDate ? new Date(sentDate) : new Date(),
+        fromType: 'WAREHOUSE',
+        fromName: 'Main Warehouse',
+        toType: 'VENDOR',
+        toId: result.fullPO.supplierId,
+        toName: result.fullPO.suppliers?.name || 'Mill',
+        purchaseOrderId: poId,
+        vehicleNumber,
+        issuedById: userId,
+        unit: Unit.METER,
+        remarks: challanNumber ? `Manual challan ref: ${challanNumber}` : undefined,
+        items: [
+          {
+            itemType: 'GREIGE',
+            fabricId: job.fabricId,
+            greigeStockId: job.greigeStockLotId || undefined,
+            description: `Greige fabric for Printing - ${result.labDip?.style?.styleCode || ''}`,
+            quantity: Number(job.qtySentMeters),
+            unit: Unit.METER,
+            rate: Number(job.agreedRatePerMeter),
+          },
+        ],
+      });
+      outwardChallanId = challan.id;
+    } catch (challanError) {
+      logger.error('Failed to create outward challan for printing auto-send', {
+        error: challanError,
+        jobId: job.id,
+        greigeStockLotId: job.greigeStockLotId,
+      });
+    }
+
+    // 4. Update job work order to AT_MILL
+    await prisma.job_work_orders.update({
+      where: { id: job.id },
+      data: {
+        sentDate: sentDate ? new Date(sentDate) : new Date(),
+        challanNumber,
+        vehicleNumber,
+        finishedFabricId,
+        outwardChallanId,
+        status: 'AT_MILL',
+      },
+    });
+
+    // 5. Update PO status to SENT
+    await prisma.purchase_orders.update({
+      where: { id: poId },
+      data: { status: 'SENT' },
+    });
+
+    // Re-fetch full PO after send
+    const finalPO = await prisma.purchase_orders.findUnique({
+      where: { id: poId },
+      include: processPOInclude,
+    });
+
+    return res.status(201).json({
+      data: {
+        ...finalPO,
+        processPOStatus: computeProcessPOStatus(finalPO),
+      },
+      message: 'Printing process PO created and sent to mill successfully',
+    });
+  }
 
   res.status(201).json({
     data: {
-      ...result,
-      processPOStatus: computeProcessPOStatus(result),
+      ...result.fullPO,
+      processPOStatus: computeProcessPOStatus(result.fullPO),
     },
     message: 'Printing process PO created successfully',
   });

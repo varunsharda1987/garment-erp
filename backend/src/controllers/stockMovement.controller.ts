@@ -524,3 +524,66 @@ export const createProcessorReturn = async (req: Request, res: Response) => {
     },
   });
 };
+
+/**
+ * @route GET /api/stock-movements/pending-inward
+ * @desc Get all pending inward items across external sources (POs, Process POs, Send-outs)
+ * @access Private
+ */
+export const getPendingInward = async (req: Request, res: Response) => {
+  const { sourceType, processorId, overdueOnly, page, limit } = req.query;
+
+  const filters = {
+    sourceType: sourceType as string | undefined,
+    processorId: processorId as string | undefined,
+    overdueOnly: overdueOnly === 'true',
+    page: page ? parseInt(page as string) : 1,
+    limit: limit ? parseInt(limit as string) : 50,
+  };
+
+  const result = await stockMovementService.getPendingInward(filters);
+
+  res.json({
+    success: true,
+    data: result.data,
+    pagination: result.pagination,
+  });
+};
+
+/**
+ * @route GET /api/stock-movements/pending-outward
+ * @desc Get all pending outward items (drafts awaiting send)
+ * @access Private
+ */
+export const getPendingOutward = async (req: Request, res: Response) => {
+  const { sourceType, processorId, page, limit } = req.query;
+
+  const filters = {
+    sourceType: sourceType as string | undefined,
+    processorId: processorId as string | undefined,
+    page: page ? parseInt(page as string) : 1,
+    limit: limit ? parseInt(limit as string) : 50,
+  };
+
+  const result = await stockMovementService.getPendingOutward(filters);
+
+  res.json({
+    success: true,
+    data: result.data,
+    pagination: result.pagination,
+  });
+};
+
+/**
+ * @route GET /api/stock-movements/dashboard-summary
+ * @desc Get today's stock movement summary for dashboard
+ * @access Private
+ */
+export const getDashboardSummary = async (_req: Request, res: Response) => {
+  const summary = await stockMovementService.getDashboardTodaySummary();
+
+  res.json({
+    success: true,
+    data: summary,
+  });
+};

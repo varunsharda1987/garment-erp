@@ -1,16 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { useQuery } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { challanService } from '@/services/challan.service';
-import type { Challan, ChallanFilters } from '@/types/challan.types';
-import { ChallanTypeLabels, ChallanTypeColors, ChallanStatusLabels, ChallanStatusColors } from '@/types/challan.types';
+import type { Challan, ChallanFilters, TodaySummary } from '@/types/challan.types';
+import {
+  ChallanTypeLabels,
+  ChallanTypeColors,
+  ChallanStatusLabels,
+  ChallanStatusColors,
+  CHALLAN_ITEM_TYPES,
+} from '@/types/challan.types';
 import DataTable, { type Column } from '@/components/DataTable';
 import { handleApiError } from '@/lib/api-error-handler';
-import { Plus, Eye, FileText, ArrowRight } from 'lucide-react';
+import { Plus, Eye, FileText, ArrowRight, Calendar, Package, Factory, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function ChallanList() {
@@ -22,15 +30,28 @@ export default function ChallanList() {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>(searchParams.get('challanType') || 'all');
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all');
-  // Scope the list to a production run when arriving from a work-order drill-down link
+  const [itemTypeFilter, setItemTypeFilter] = useState<string>('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [showTodayOnly, setShowTodayOnly] = useState(false);
   const productionRunId = searchParams.get('productionRunId') || '';
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
+  // Today's summary query
+  const {
+    data: todaySummary,
+    isLoading: summaryLoading,
+    refetch: refetchSummary,
+  } = useQuery<TodaySummary>({
+    queryKey: ['challan-today-summary'],
+    queryFn: () => challanService.getTodaySummary(),
+  });
+
   useEffect(() => {
     loadChallans();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typeFilter, statusFilter, page, search, productionRunId]);
+  }, [typeFilter, statusFilter, itemTypeFilter, page, search, productionRunId, fromDate, toDate, showTodayOnly]);
 
   async function loadChallans() {
     try {
@@ -41,8 +62,15 @@ export default function ChallanList() {
       };
       if (typeFilter !== 'all') filters.challanType = typeFilter as ChallanFilters['challanType'];
       if (statusFilter !== 'all') filters.status = statusFilter as ChallanFilters['status'];
+      if (itemTypeFilter !== 'all') filters.itemType = itemTypeFilter;
       if (productionRunId) filters.productionRunId = productionRunId;
       if (search) filters.search = search;
+      if (showTodayOnly) {
+        filters.todayOnly = true;
+      } else {
+        if (fromDate) filters.fromDate = fromDate;
+        if (toDate) filters.toDate = toDate;
+      }
 
       const result = await challanService.getChallans(filters);
       setChallans(result.data);
@@ -86,6 +114,27 @@ export default function ChallanList() {
           <span className="font-medium">{challan.toName}</span>
         </div>
       ),
+    },
+    {
+      key: 'itemTypes',
+      header: 'Items',
+      render: (challan) => {
+        const types = [...new Set(challan.items?.map((i) => i.itemType) || [])];
+        return (
+          <div className="flex gap-1 flex-wrap">
+            {types.slice(0, 2).map((type) => (
+              <Badge key={type} variant="outline" className="text-xs">
+                {CHALLAN_ITEM_TYPES.find((t) => t.value === type)?.label || type}
+              </Badge>
+            ))}
+            {types.length > 2 && (
+              <Badge variant="outline" className="text-xs">
+                +{types.length - 2}
+              </Badge>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: 'challanDate',
@@ -137,6 +186,26 @@ export default function ChallanList() {
     },
   ];
 
+  const clearFilters = () => {
+    setTypeFilter('all');
+    setStatusFilter('all');
+    setItemTypeFilter('all');
+    setFromDate('');
+    setToDate('');
+    setShowTodayOnly(false);
+    setSearch('');
+    setPage(1);
+  };
+
+  const hasActiveFilters =
+    typeFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    itemTypeFilter !== 'all' ||
+    fromDate ||
+    toDate ||
+    showTodayOnly ||
+    search;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -153,6 +222,63 @@ export default function ChallanList() {
         </Button>
       </div>
 
+      {/* Today's Summary Card */}
+      {todaySummary && todaySummary.totalChallans > 0 && (
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-blue-200 dark:border-blue-800">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-blue-600" />
+                <CardTitle className="text-lg">Today's Outward Issuance</CardTitle>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => refetchSummary()}
+                disabled={summaryLoading}
+                className="h-8"
+              >
+                <RefreshCw className={`h-4 w-4 ${summaryLoading ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+            <CardDescription>
+              {todaySummary.date} — {todaySummary.totalChallans} challan
+              {todaySummary.totalChallans !== 1 ? 's' : ''}, {todaySummary.totalQuantity.toLocaleString()} total units
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {todaySummary.byProcessor.map((proc) => (
+                <div
+                  key={proc.processorId || proc.processorName}
+                  className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-blue-100 dark:border-blue-900"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Factory className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium text-sm truncate">{proc.processorName}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Package className="h-3 w-3" />
+                    <span>{proc.totalQuantity.toLocaleString()} units</span>
+                    <span>•</span>
+                    <span>
+                      {proc.challanCount} challan{proc.challanCount !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="flex gap-1 mt-2 flex-wrap">
+                    {proc.itemTypes.slice(0, 2).map((type) => (
+                      <Badge key={type} variant="secondary" className="text-xs py-0">
+                        {CHALLAN_ITEM_TYPES.find((t) => t.value === type)?.label || type}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Production-run drill-down filter indicator */}
       {productionRunId && (
         <div className="flex items-center gap-2">
@@ -168,57 +294,129 @@ export default function ChallanList() {
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <Input
-              placeholder="Search challans..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="w-64"
-            />
-            <Select
-              value={typeFilter}
-              onValueChange={(v) => {
-                setTypeFilter(v);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="All Types" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                {Object.entries(ChallanTypeLabels).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={statusFilter}
-              onValueChange={(v) => {
-                setStatusFilter(v);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="w-48">
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {Object.entries(ChallanStatusLabels).map(([key, label]) => (
-                  <SelectItem key={key} value={key}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <span className="text-sm text-muted-foreground ml-auto">
-              {total} challan{total !== 1 ? 's' : ''}
-            </span>
+          <div className="space-y-3">
+            {/* First row: Search + Quick filters */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <Input
+                placeholder="Search challans, processor, remarks..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="w-64"
+              />
+              <Select
+                value={typeFilter}
+                onValueChange={(v) => {
+                  setTypeFilter(v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {Object.entries(ChallanTypeLabels).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={statusFilter}
+                onValueChange={(v) => {
+                  setStatusFilter(v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  {Object.entries(ChallanStatusLabels).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select
+                value={itemTypeFilter}
+                onValueChange={(v) => {
+                  setItemTypeFilter(v);
+                  setPage(1);
+                }}
+              >
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="All Items" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Item Types</SelectItem>
+                  {CHALLAN_ITEM_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              )}
+              <span className="text-sm text-muted-foreground ml-auto">
+                {total} challan{total !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {/* Second row: Date filters */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <Button
+                variant={showTodayOnly ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => {
+                  setShowTodayOnly(!showTodayOnly);
+                  if (!showTodayOnly) {
+                    setFromDate('');
+                    setToDate('');
+                  }
+                  setPage(1);
+                }}
+              >
+                <Calendar className="h-4 w-4 mr-1" />
+                Today Only
+              </Button>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm text-muted-foreground">From:</Label>
+                <Input
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => {
+                    setFromDate(e.target.value);
+                    setShowTodayOnly(false);
+                    setPage(1);
+                  }}
+                  className="w-36 h-8"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm text-muted-foreground">To:</Label>
+                <Input
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => {
+                    setToDate(e.target.value);
+                    setShowTodayOnly(false);
+                    setPage(1);
+                  }}
+                  className="w-36 h-8"
+                />
+              </div>
+            </div>
           </div>
         </CardHeader>
         <CardContent>

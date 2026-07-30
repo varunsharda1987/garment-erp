@@ -188,10 +188,10 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
         .getStyleById(selectedStyle.id)
         .then((fullStyle: any) => {
           const rows: any[] = [];
-          const components = fullStyle.components || fullStyle.styleComponents || [];
+          const components = fullStyle.components || []; // serializer converts style_components → components
 
           for (const comp of components) {
-            const compFabrics = comp.fabrics || comp.styleFabrics || [];
+            const compFabrics = comp.fabrics || []; // serializer converts style_fabrics → fabrics
             for (const sf of compFabrics) {
               const finishType = sf.fabricFinishType as 'DYED' | 'PRINTED';
               if (finishType === 'DYED' || finishType === 'PRINTED') {

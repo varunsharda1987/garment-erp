@@ -36,8 +36,9 @@ export const getAllSuppliers = async (req: Request, res: Response): Promise<void
   const rating = req.query.rating ? parseInt(req.query.rating as string) : undefined;
   const category = req.query.category as string;
 
-  // Use cache for simple queries without search
-  const useCache = !search && !rating && page === 1;
+  // Use cache for simple queries without search or category filter
+  // Category queries need fresh results as category is not part of cache key
+  const useCache = !search && !rating && !category && page === 1;
   const cacheKey = useCache ? `${cacheKeys.suppliers.all}:${limit}` : null;
 
   const result = cacheKey

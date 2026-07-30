@@ -123,12 +123,12 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
   useEffect(() => {
     if (selectedStyle) {
       styleService.getStyleById(selectedStyle.id).then((fullStyle: any) => {
-        // Extract fabrics from style_components → style_fabrics
+        // Extract fabrics from components → fabrics (serializer converts style_components/style_fabrics)
         const allStyleFabrics: any[] = [];
-        const components = fullStyle.components || fullStyle.styleComponents || [];
+        const components = fullStyle.components || [];
 
         for (const comp of components) {
-          const compFabrics = comp.fabrics || comp.styleFabrics || [];
+          const compFabrics = comp.fabrics || [];
           for (const sf of compFabrics) {
             // Filter by fabricFinishType matching processType
             const finishType = sf.fabricFinishType;

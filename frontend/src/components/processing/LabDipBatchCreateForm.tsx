@@ -103,12 +103,12 @@ export default function LabDipBatchCreateForm({ backPath }: LabDipBatchCreateFor
       styleService
         .getStyleById(selectedStyle.id)
         .then((fullStyle: any) => {
-          // Extract ALL fabrics from style_components → style_fabrics
+          // Extract ALL fabrics from components → fabrics (serializer converts style_components/style_fabrics)
           const rows: FabricRow[] = [];
-          const components = fullStyle.components || fullStyle.styleComponents || [];
+          const components = fullStyle.components || [];
 
           for (const comp of components) {
-            const compFabrics = comp.fabrics || comp.styleFabrics || [];
+            const compFabrics = comp.fabrics || [];
             for (const sf of compFabrics) {
               // Include both DYED and PRINTED
               const finishType = sf.fabricFinishType as 'DYED' | 'PRINTED';

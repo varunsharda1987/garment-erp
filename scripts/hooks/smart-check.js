@@ -417,9 +417,12 @@ function checkConsoleLogs(tsFiles) {
 function checkDocLinks(docFiles) {
   console.log(`\n${c.cyan}Checking documentation links...${c.reset}`);
 
+  // Exclude archived docs - they contain historical cross-references that may be broken
+  const activeDocFiles = docFiles.filter(f => !f.includes('docs/archive/'));
+
   const brokenLinks = [];
 
-  for (const file of docFiles) {
+  for (const file of activeDocFiles) {
     const fullPath = path.join(process.cwd(), file);
     if (!fs.existsSync(fullPath)) continue;
 

@@ -28,16 +28,18 @@ export const createInvoice = async (req: Request, res: Response): Promise<void> 
  * GET /api/invoices
  */
 export const getAllInvoices = async (req: Request, res: Response): Promise<void> => {
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
-  const search = req.query.search as string;
-  const status = req.query.status as InvoiceStatus;
-  const customerId = req.query.customerId as string;
-  const orderId = req.query.orderId as string;
-  const fromDate = req.query.fromDate as string;
-  const toDate = req.query.toDate as string;
-  const sortBy = req.query.sortBy as string;
-  const sortOrder = req.query.sortOrder as 'asc' | 'desc';
+  // BUG-FIN2 fix: Use validatedQuery (Zod-coerced) instead of raw req.query
+  const query = (req as any).validatedQuery ?? req.query;
+  const page = parseInt(query.page as string) || 1;
+  const limit = parseInt(query.limit as string) || 10;
+  const search = query.search as string;
+  const status = query.status as InvoiceStatus;
+  const customerId = query.customerId as string;
+  const orderId = query.orderId as string;
+  const fromDate = query.fromDate as string;
+  const toDate = query.toDate as string;
+  const sortBy = query.sortBy as string;
+  const sortOrder = query.sortOrder as 'asc' | 'desc';
 
   const result = await invoiceService.getInvoices({
     page,

@@ -124,7 +124,7 @@ export interface GreigeUpdateData {
   defaultCutableWidth?: number | null;
   expectedFinishedWidthMin?: number | null;
   expectedFinishedWidthMax?: number | null;
-  averageShrinkagePercent?: number;
+  averageShrinkagePercent?: number | null;
   gsmRange?: string | null;
   costPerMeter?: number | null;
   moq?: number | null;

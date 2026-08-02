@@ -86,7 +86,8 @@ export const updateMachinePartSchema = z
  *
  * Controller destructures: data, createStock
  * Each data row: partName, partNumber, category, machine, brand, model, specifications, pricePerUnit, description
- * Plus optional stock fields: stockQuantity, reorderLevel, maxLevel, locationCode
+ * Plus optional stock fields: stockQuantity, purchaseCost (used for trim stock creation)
+ * Note: reorderLevel, maxLevel, locationCode are accepted but not currently used by controller
  */
 export const bulkImportMachinePartsSchema = z
   .object({
@@ -104,6 +105,7 @@ export const bulkImportMachinePartsSchema = z
             pricePerUnit: z.number().nonnegative().optional(),
             description: z.string().max(500).optional(),
             stockQuantity: z.number().nonnegative().optional(),
+            purchaseCost: z.number().nonnegative().optional(),
             reorderLevel: z.number().nonnegative().optional(),
             maxLevel: z.number().nonnegative().optional(),
             locationCode: z.string().max(50).optional(),
@@ -128,7 +130,7 @@ export const machinePartQuerySchema = z.object({
   supplierId: z.string().uuid().optional(),
   isActive: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
 });
 

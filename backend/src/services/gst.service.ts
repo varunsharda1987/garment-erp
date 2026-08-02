@@ -235,7 +235,8 @@ class GSTServiceClass {
       unitPrice,
     });
 
-    // decimal.js math per bug-hunt financial-gst-13 (raw float * / toFixed drifted paise)
+    // BUG-INV9 fix: decimal.js math throughout to avoid floating point precision issues
+    // (raw float * / toFixed drifted paise — bug-hunt financial-gst-13)
     let cgstRate = 0,
       cgstAmount = 0;
     let sgstRate = 0,
@@ -247,8 +248,10 @@ class GSTServiceClass {
       igstRate = gstRate;
       igstAmount = roundToCent(percentOf(lineTotal, gstRate)).toNumber();
     } else {
-      cgstRate = gstRate / 2;
-      sgstRate = gstRate / 2;
+      // BUG-INV9 fix: use decimal.js for rate splitting to avoid floating point issues
+      const halfRate = toCurrency(gstRate).dividedBy(2);
+      cgstRate = roundToCent(halfRate).toNumber();
+      sgstRate = roundToCent(halfRate).toNumber();
       cgstAmount = roundToCent(percentOf(lineTotal, cgstRate)).toNumber();
       sgstAmount = roundToCent(percentOf(lineTotal, sgstRate)).toNumber();
     }
@@ -258,11 +261,11 @@ class GSTServiceClass {
     return {
       hsnCode: hsnSacCode || null,
       gstRate,
-      cgstRate: roundToCent(cgstRate).toNumber(),
+      cgstRate,
       cgstAmount,
-      sgstRate: roundToCent(sgstRate).toNumber(),
+      sgstRate,
       sgstAmount,
-      igstRate: roundToCent(igstRate).toNumber(),
+      igstRate,
       igstAmount,
       taxAmount,
     };
@@ -485,6 +488,7 @@ class GSTServiceClass {
 
       const isInterstate = supplierStateId !== customerStateId;
 
+      // BUG-INV9 fix: use decimal.js to avoid floating point rounding errors
       let cgst = 0,
         sgst = 0,
         igst = 0;
@@ -494,24 +498,25 @@ class GSTServiceClass {
 
       if (isInterstate) {
         igstRate = taxRate;
-        igst = (amount * taxRate) / 100;
+        igst = roundToCent(percentOf(amount, taxRate)).toNumber();
       } else {
-        cgstRate = taxRate / 2;
-        sgstRate = taxRate / 2;
-        cgst = (amount * cgstRate) / 100;
-        sgst = (amount * sgstRate) / 100;
+        const halfRate = toCurrency(taxRate).dividedBy(2);
+        cgstRate = roundToCent(halfRate).toNumber();
+        sgstRate = roundToCent(halfRate).toNumber();
+        cgst = roundToCent(percentOf(amount, cgstRate)).toNumber();
+        sgst = roundToCent(percentOf(amount, sgstRate)).toNumber();
       }
 
-      const totalTax = cgst + sgst + igst;
+      const totalTax = roundToCent(addCurrency(cgst, sgst, igst)).toNumber();
 
       return {
-        cgst: parseFloat(cgst.toFixed(2)),
-        sgst: parseFloat(sgst.toFixed(2)),
-        igst: parseFloat(igst.toFixed(2)),
-        cgstRate: parseFloat(cgstRate.toFixed(2)),
-        sgstRate: parseFloat(sgstRate.toFixed(2)),
-        igstRate: parseFloat(igstRate.toFixed(2)),
-        totalTax: parseFloat(totalTax.toFixed(2)),
+        cgst,
+        sgst,
+        igst,
+        cgstRate,
+        sgstRate,
+        igstRate,
+        totalTax,
         isInterstate,
       };
     } catch (error) {

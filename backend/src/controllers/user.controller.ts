@@ -2,6 +2,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import prisma from '../config/database';
+import { BCRYPT_ROUNDS } from '../config/security.config';
 import { UserRole, Prisma } from '@prisma/client';
 import { logInfo } from '../utils/logger';
 import { NotFoundError, ValidationError, ConflictError, ForbiddenError, UnauthorizedError } from '../errors';
@@ -124,7 +125,7 @@ export const createUser = async (req: Request, res: Response): Promise<void> => 
   }
 
   // Hash password
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
   // Create user (auto-approved when admin creates)
   const user = await prisma.users.create({
@@ -213,7 +214,7 @@ export const updateUser = async (req: Request, res: Response): Promise<void> => 
 
   // Hash new password if provided
   if (password) {
-    updateData.password = await bcrypt.hash(password, 10);
+    updateData.password = await bcrypt.hash(password, BCRYPT_ROUNDS);
   }
 
   // Update user
@@ -339,15 +340,62 @@ export const permanentDeleteUser = async (req: Request, res: Response): Promise<
     throw new ValidationError('You cannot delete your own account');
   }
 
-  // Hard delete the user
-  await prisma.users.delete({
-    where: { id },
-  });
+  // BUG-AUTH10 fix: Check for related records before attempting delete
+  // to provide clear error messages about what's blocking deletion
+  const relatedRecords = await prisma.$transaction([
+    prisma.orders.count({ where: { OR: [{ createdById: id }, { approvedById: id }] } }),
+    prisma.purchase_orders.count({ where: { OR: [{ createdById: id }, { approvedById: id }] } }),
+    prisma.goods_receiving_notes.count({ where: { OR: [{ receivedById: id }, { approvedById: id }] } }),
+    prisma.material_requisitions.count({ where: { OR: [{ issuedById: id }, { receivedById: id }] } }),
+    prisma.production_plans.count({ where: { OR: [{ createdById: id }, { approvedById: id }] } }),
+    prisma.work_orders.count({ where: { OR: [{ createdById: id }, { approvedById: id }] } }),
+    prisma.material_master.count({ where: { createdById: id } }),
+  ]);
+
+  const [ordersCount, poCount, grnCount, mrCount, ppCount, woCount, materialCount] = relatedRecords;
+  const totalRelated = ordersCount + poCount + grnCount + mrCount + ppCount + woCount + materialCount;
+
+  if (totalRelated > 0) {
+    // Build a descriptive list of what's blocking deletion
+    const blockingItems: string[] = [];
+    if (ordersCount > 0) blockingItems.push(`${ordersCount} order(s)`);
+    if (poCount > 0) blockingItems.push(`${poCount} purchase order(s)`);
+    if (grnCount > 0) blockingItems.push(`${grnCount} GRN(s)`);
+    if (mrCount > 0) blockingItems.push(`${mrCount} material requisition(s)`);
+    if (ppCount > 0) blockingItems.push(`${ppCount} production plan(s)`);
+    if (woCount > 0) blockingItems.push(`${woCount} work order(s)`);
+    if (materialCount > 0) blockingItems.push(`${materialCount} material(s)`);
+
+    throw new ValidationError(
+      `Cannot permanently delete user "${existingUser.email}". ` +
+        `User has ${totalRelated} related record(s): ${blockingItems.join(', ')}. ` +
+        `Consider deactivating the user instead, or reassign these records to another user first.`
+    );
+  }
+
+  // BUG-AUTH10 fix: Wrap delete in try-catch for any unexpected FK constraints
+  try {
+    await prisma.users.delete({
+      where: { id },
+    });
+  } catch (error) {
+    // Handle Prisma foreign key constraint error
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003') {
+      const constraintField = (error.meta?.field_name as string) || 'unknown';
+      throw new ValidationError(
+        `Cannot permanently delete user "${existingUser.email}". ` +
+          `Foreign key constraint violation on "${constraintField}". ` +
+          `The user has related records that must be removed or reassigned first.`
+      );
+    }
+    // Re-throw unexpected errors
+    throw error;
+  }
 
   logInfo(`User permanently deleted: ${existingUser.email} by ${req.user?.userId}`);
 
   res.status(200).json({
-    message: 'User permanently deleted',
+    message: `User "${existingUser.email}" has been permanently deleted`,
   });
 };
 
@@ -390,9 +438,17 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
   }
 
   // Hash new password
-  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
 
   // Update password
+  // TODO [BUG-AUTH2]: Password change does not invalidate existing sessions.
+  // Current JWT tokens remain valid after password change, which is a security gap.
+  // Recommended implementation:
+  // 1. Add `tokenVersion` (int) field to users table
+  // 2. Include tokenVersion in JWT payload
+  // 3. Increment tokenVersion here after password change
+  // 4. Validate tokenVersion in auth middleware (reject if mismatch)
+  // Alternative: maintain a token blacklist in Redis for invalidated tokens
   await prisma.users.update({
     where: { id },
     data: { password: hashedPassword },

@@ -27,8 +27,21 @@ export const createThreadStockSchema = z.object({
   receivedDate: z.coerce.date().optional(),
 });
 
+/**
+ * Thread Stock Query Params
+ * GET /api/thread-stock
+ */
+export const threadStockQuerySchema = z.object({
+  threadId: z.string().uuid().optional(),
+  status: z.enum(['AVAILABLE', 'RESERVED', 'EXHAUSTED', 'ISSUED', 'PENDING_RETURN']).optional(),
+  minQuantity: z.string().transform(Number).pipe(z.number().nonnegative()).optional(),
+  warehouseLocation: z.string().max(255).optional(),
+  packagingType: z.string().max(50).optional(),
+});
+
 // ============================================================================
 // Type Exports
 // ============================================================================
 
 export type CreateThreadStockInput = z.infer<typeof createThreadStockSchema>;
+export type ThreadStockQueryInput = z.infer<typeof threadStockQuerySchema>;

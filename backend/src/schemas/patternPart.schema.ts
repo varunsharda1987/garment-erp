@@ -86,15 +86,15 @@ export const updateComponentPatternPartSchema = z.object({
 /**
  * Pattern Part Query Params
  * GET /api/pattern-parts
+ * BUG-PP4 fix: category field was removed as dead code - service only uses page, limit, search, isActive
  */
 export const patternPartQuerySchema = z.object({
   page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
   limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
   search: z.string().max(100).optional(),
-  category: z.string().max(50).optional(),
   isActive: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
 });
 
@@ -104,6 +104,11 @@ export const patternPartQuerySchema = z.object({
 
 export const patternPartIdParamSchema = z.object({
   id: z.string().uuid('Invalid pattern part ID'),
+});
+
+// bug-hunt: param schema for routes using :patternPartId
+export const patternPartIdRouteParamSchema = z.object({
+  patternPartId: z.string().uuid('Invalid pattern part ID'),
 });
 
 export const patternPartCodeParamSchema = z.object({

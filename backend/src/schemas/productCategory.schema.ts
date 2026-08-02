@@ -106,7 +106,7 @@ export const productCategoryQuerySchema = z.object({
 
   isActive: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .pipe(z.boolean())
     .optional(),
 

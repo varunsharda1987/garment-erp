@@ -7,6 +7,8 @@ import { FabricSupplierInput, FabricWhereClause, FabricUpdateData } from '../typ
 import { materialService } from '../services/material.service';
 import { getDerivedOnHandMap } from '../services/helpers/derived-stock.helper';
 import { ValidationError, NotFoundError } from '../errors';
+import { systemSettingsService } from '../services/system-settings.service';
+import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 
 /**
  * Fabric Master Controller
@@ -15,6 +17,9 @@ import { ValidationError, NotFoundError } from '../errors';
 
 // Get all fabric masters with pagination and filters
 export const getAllFabricMasters = async (req: Request, res: Response) => {
+  // BUG-FM7: Use req.validatedQuery (coerced by Zod) instead of req.query (raw strings)
+  // This avoids redundant parseInt calls and NaN from parseInt(undefined)
+  const validated = (req as any).validatedQuery ?? req.query;
   const {
     page = 1,
     limit = 50,
@@ -24,10 +29,11 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
     isActive = 'true',
     colorName = '',
     finishType = '',
-  } = req.query;
+  } = validated;
 
-  const pageNum = parseInt(page as string);
-  const limitNum = parseInt(limit as string);
+  // page and limit are already numbers from Zod transform, no parseInt needed
+  const pageNum = typeof page === 'number' ? page : 1;
+  const limitNum = typeof limit === 'number' ? limit : 50;
   const skip = (pageNum - 1) * limitNum;
 
   // Build where clause
@@ -344,7 +350,7 @@ export const createFabricMaster = async (req: Request, res: Response) => {
       description,
       notes,
       imageUrl,
-      isGeneric: isGeneric !== false,
+      isGeneric: isGeneric ?? false,
       isActive,
       createdById: userId,
       suppliers: {
@@ -384,7 +390,8 @@ export const createFabricMaster = async (req: Request, res: Response) => {
     },
   });
 
-  // Auto-create corresponding materials record (same pattern as fabric.service.ts)
+  // BUG-MM3 fix: Auto-create materials record - fail the entire operation if this fails
+  // (swallowing the error would create orphan fabric without materials entry)
   try {
     await materialService.createFromMaster(
       { id: fabricMaster.id, code: fabricMaster.fabricCode, name: fabricMaster.fabricName },
@@ -392,6 +399,11 @@ export const createFabricMaster = async (req: Request, res: Response) => {
     );
   } catch (err) {
     logError('Failed to auto-create materials record for fabric', err);
+    // Delete the fabric we just created since materials record failed
+    await prisma.fabric_master.delete({ where: { id: fabricMaster.id } });
+    throw new Error(
+      `Failed to create materials record for fabric: ${err instanceof Error ? err.message : 'Unknown error'}`
+    );
   }
 
   res.status(201).json({ data: fabricMaster, message: 'Fabric master created successfully' });
@@ -497,7 +509,7 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
     description,
     notes,
     imageUrl,
-    isGeneric: isGeneric !== false,
+    ...(isGeneric !== undefined && { isGeneric: isGeneric === true }),
     isActive,
   };
 
@@ -550,12 +562,16 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
     },
   });
 
-  // Sync materials.code if fabricCode changed (same pattern as button/elastic/lace controllers)
+  // BUG-MM13 fix: sync code to materials
+  const syncUpdates: { code?: string; name?: string } = {};
   if (fabricCode && fabricCode !== existingFabric.fabricCode) {
-    await prisma.materials.updateMany({
-      where: { fabricId: id },
-      data: { code: fabricCode },
-    });
+    syncUpdates.code = fabricCode;
+  }
+  if (fabricName && fabricName !== existingFabric.fabricName) {
+    syncUpdates.name = fabricName;
+  }
+  if (syncUpdates.code || syncUpdates.name) {
+    await syncMasterToMaterials(id, 'FABRIC', syncUpdates);
   }
 
   res.json(updatedFabric);
@@ -828,6 +844,9 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
   // Get current count for code generation
   const currentCount = await prisma.fabric_master.count();
 
+  // BUG-GR8 fix: Use configurable cutable width deduction from system settings
+  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+
   for (let i = 0; i < fabrics.length; i++) {
     try {
       const fabric = fabrics[i];
@@ -908,8 +927,8 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
         fabricName = parts.join(' - ');
       }
 
-      // Calculate cutable width (default: actualWidth - 2")
-      const cutableWidth = fabric.cutableWidth || parseFloat(fabric.actualWidth) - 2;
+      // BUG-GR8 fix: Calculate cutable width using configurable deduction from system settings
+      const cutableWidth = fabric.cutableWidth || parseFloat(fabric.actualWidth) - cutableWidthDeduction;
 
       // Check if fabric code already exists
       const existingFabric = await prisma.fabric_master.findFirst({

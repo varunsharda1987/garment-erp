@@ -40,6 +40,8 @@ export type OrderBOMItemUsageCategory = 'GARMENT_TRIM' | 'PACKAGING' | 'VALUE_AD
  * Order BOM item input for creation
  */
 export interface OrderBOMItemInput {
+  // BUG-ORD12: Optional id for identifying existing items during updates
+  id?: string;
   materialType: OrderBOMItemMaterialType;
   materialId?: string; // Generic materials table
   buttonId?: string;

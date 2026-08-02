@@ -137,6 +137,8 @@ export const updateWorkOrder = async (req: Request, res: Response) => {
 
   const updateData: UpdateWorkOrderDTO = {
     ...req.body,
+    // BUG-WO7 fix: Pass user role for status transition validation
+    userRole: req.user?.role,
   };
 
   // Convert date strings to Date objects if present

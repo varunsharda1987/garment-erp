@@ -25,6 +25,7 @@ export interface TransitionResult {
 
 // Map of entity → current status → allowed next statuses
 const TRANSITIONS: Record<string, Record<string, string[]>> = {
+  // BUG-WO7: 'order' entity used for both orders and work_orders (same OrderStatus enum)
   order: {
     PENDING: ['IN_PRODUCTION', 'CANCELLED', 'SPLIT'],
     IN_PRODUCTION: ['COMPLETED', 'CANCELLED'],

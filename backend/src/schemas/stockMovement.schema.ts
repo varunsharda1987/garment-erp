@@ -237,6 +237,10 @@ export const materialWarehouseParamSchema = z.object({
 // Type Exports (inferred from schemas)
 // ============================================================================
 
+// Enum types
+export type AdjustmentReason = z.infer<typeof AdjustmentReasonEnum>;
+export type ItemType = z.infer<typeof ItemTypeEnum>;
+
 export type CreateStockInInput = z.infer<typeof createStockInSchema>;
 export type BulkStockInItemInput = z.infer<typeof bulkStockInItemSchema>;
 export type CreateBulkStockInInput = z.infer<typeof createBulkStockInSchema>;

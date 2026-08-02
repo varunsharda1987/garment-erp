@@ -1,19 +1,32 @@
 // Style Component controller
+// BUG-CM7 fix: Type safety via Zod inferred types
+// All req.body access uses type assertions from validated Zod schemas.
+// Routes use validateBody(schema) middleware, guaranteeing the shape before
+// the controller executes. Types are exported from ../schemas/style.schema.ts
+// as z.infer<typeof schemaName>.
+
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { ValidationError } from '../errors';
+import type {
+  CreateComponentInput,
+  UpdateComponentInput,
+  CreateComponentFabricInput,
+  UpdateComponentFabricInput,
+  CreateComponentAccessoryInput,
+  UpdateComponentAccessoryInput,
+  CreateStyleProcessInput,
+  UpdateStyleProcessInput,
+} from '../schemas/style.schema';
 
 /**
  * Create component for a style
  * POST /api/styles/:styleId/components
+ * Body validated by validateBody(createComponentSchema) at the route layer
  */
 export const createComponent = async (req: Request, res: Response): Promise<void> => {
   const { styleId } = req.params;
-  const { componentName, componentType, sortOrder } = req.body;
-
-  if (!componentName || !componentType) {
-    throw new ValidationError('componentName and componentType are required');
-  }
+  const { componentName, componentType, sortOrder } = req.body as CreateComponentInput;
 
   // Look up componentMasterId by name (case-insensitive)
   const componentMaster = await prisma.component_masters.findFirst({
@@ -50,10 +63,11 @@ export const createComponent = async (req: Request, res: Response): Promise<void
 /**
  * Update component
  * PUT /api/components/:id
+ * Body validated by validateBody(updateComponentSchema) at the route layer
  */
 export const updateComponent = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { componentName, componentType, sortOrder } = req.body;
+  const { componentName, componentType, sortOrder } = req.body as UpdateComponentInput;
 
   const component = await prisma.style_components.update({
     where: { id },
@@ -93,15 +107,48 @@ export const deleteComponent = async (req: Request, res: Response): Promise<void
 /**
  * Create fabric for a component
  * POST /api/components/:componentId/fabrics
+ * BUG-S2 fix: now handles all 22+ style_fabrics fields instead of just 8
+ * Body validated by validateBody(createComponentFabricSchema) at the route layer
  */
 export const createFabric = async (req: Request, res: Response): Promise<void> => {
   const { componentId } = req.params;
-  const { fabricName, fabricType, fabricColor, fabricGSM, cadAverageMeters, cadAverageYards, supplierName, unitPrice } =
-    req.body;
-
-  if (!fabricName || !fabricType) {
-    throw new ValidationError('fabricName and fabricType are required');
-  }
+  const {
+    // Required fields
+    fabricName,
+    fabricType,
+    // Optional basic fields
+    fabricColor,
+    fabricGSM,
+    cadAverageMeters,
+    cadAverageYards,
+    supplierName,
+    unitPrice,
+    // FK references
+    fabricId,
+    fabricCADId,
+    embroideryId,
+    selectedGreigeId,
+    colorMasterId,
+    // Fabric identification
+    fabricFinishType,
+    greigeName,
+    genericGreigeName,
+    printDesign,
+    // CAD & costing fields
+    cadGroupKey,
+    quantityNeeded,
+    cutableWidth,
+    fabricCostPerMeter,
+    embroideryCostPerMeter,
+    totalCostPerMeter,
+    // Embroidery & cutting
+    hasEmbroidery,
+    allowCombinedCutting,
+    numberOfColors,
+    averagingMode,
+    // Notes
+    notes,
+  } = req.body as CreateComponentFabricInput;
 
   const fabric = await prisma.style_fabrics.create({
     data: {
@@ -114,6 +161,31 @@ export const createFabric = async (req: Request, res: Response): Promise<void> =
       cadAverageYards,
       supplierName,
       unitPrice,
+      // FK references
+      fabricId,
+      fabricCADId,
+      embroideryId,
+      selectedGreigeId,
+      colorMasterId,
+      // Fabric identification
+      fabricFinishType,
+      greigeName,
+      genericGreigeName,
+      printDesign,
+      // CAD & costing
+      cadGroupKey,
+      quantityNeeded,
+      cutableWidth,
+      fabricCostPerMeter,
+      embroideryCostPerMeter,
+      totalCostPerMeter,
+      // Embroidery & cutting
+      hasEmbroidery: hasEmbroidery ?? false,
+      allowCombinedCutting: allowCombinedCutting ?? true,
+      numberOfColors,
+      averagingMode,
+      // Notes
+      notes,
     },
   });
 
@@ -126,11 +198,47 @@ export const createFabric = async (req: Request, res: Response): Promise<void> =
 /**
  * Update fabric (including CAD averages)
  * PUT /api/fabrics/:id
+ * BUG-S2 fix: now handles all 22+ style_fabrics fields instead of just 8
+ * Body validated by validateBody(updateComponentFabricSchema) at the route layer
  */
 export const updateFabric = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { fabricName, fabricType, fabricColor, fabricGSM, cadAverageMeters, cadAverageYards, supplierName, unitPrice } =
-    req.body;
+  const {
+    // Basic fields
+    fabricName,
+    fabricType,
+    fabricColor,
+    fabricGSM,
+    cadAverageMeters,
+    cadAverageYards,
+    supplierName,
+    unitPrice,
+    // FK references
+    fabricId,
+    fabricCADId,
+    embroideryId,
+    selectedGreigeId,
+    colorMasterId,
+    // Fabric identification
+    fabricFinishType,
+    greigeName,
+    genericGreigeName,
+    printDesign,
+    // CAD & costing fields
+    cadGroupKey,
+    quantityNeeded,
+    cutableWidth,
+    fabricCostPerMeter,
+    embroideryCostPerMeter,
+    totalCostPerMeter,
+    // Embroidery & cutting
+    hasEmbroidery,
+    allowCombinedCutting,
+    numberOfColors,
+    averagingMode,
+    // Notes
+    notes,
+  } = req.body as UpdateComponentFabricInput;
 
   const fabric = await prisma.style_fabrics.update({
     where: { id },
@@ -143,6 +251,31 @@ export const updateFabric = async (req: Request, res: Response): Promise<void> =
       cadAverageYards,
       supplierName,
       unitPrice,
+      // FK references
+      fabricId,
+      fabricCADId,
+      embroideryId,
+      selectedGreigeId,
+      colorMasterId,
+      // Fabric identification
+      fabricFinishType,
+      greigeName,
+      genericGreigeName,
+      printDesign,
+      // CAD & costing
+      cadGroupKey,
+      quantityNeeded,
+      cutableWidth,
+      fabricCostPerMeter,
+      embroideryCostPerMeter,
+      totalCostPerMeter,
+      // Embroidery & cutting
+      hasEmbroidery,
+      allowCombinedCutting,
+      numberOfColors,
+      averagingMode,
+      // Notes
+      notes,
     },
   });
 
@@ -171,14 +304,12 @@ export const deleteFabric = async (req: Request, res: Response): Promise<void> =
 /**
  * Create accessory for a component
  * POST /api/components/:componentId/accessories
+ * Body validated by validateBody(createComponentAccessorySchema) at the route layer
  */
 export const createAccessory = async (req: Request, res: Response): Promise<void> => {
   const { componentId } = req.params;
-  const { accessoryName, accessoryType, quantityPerPiece, unit, supplierName, unitPrice } = req.body;
-
-  if (!accessoryName || !accessoryType || !quantityPerPiece || !unit) {
-    throw new ValidationError('accessoryName, accessoryType, quantityPerPiece, and unit are required');
-  }
+  const { accessoryName, accessoryType, quantityPerPiece, unit, supplierName, unitPrice } =
+    req.body as CreateComponentAccessoryInput;
 
   const accessory = await prisma.style_accessories.create({
     data: {
@@ -201,10 +332,12 @@ export const createAccessory = async (req: Request, res: Response): Promise<void
 /**
  * Update accessory
  * PUT /api/accessories/:id
+ * Body validated by validateBody(updateComponentAccessorySchema) at the route layer
  */
 export const updateAccessory = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { accessoryName, accessoryType, quantityPerPiece, unit, supplierName, unitPrice } = req.body;
+  const { accessoryName, accessoryType, quantityPerPiece, unit, supplierName, unitPrice } =
+    req.body as UpdateComponentAccessoryInput;
 
   const accessory = await prisma.style_accessories.update({
     where: { id },
@@ -243,20 +376,18 @@ export const deleteAccessory = async (req: Request, res: Response): Promise<void
 /**
  * Create process for a style
  * POST /api/styles/:styleId/processes
+ * Body validated by validateBody(createStyleProcessSchema) at the route layer
  */
 export const createProcess = async (req: Request, res: Response): Promise<void> => {
   const { styleId } = req.params;
-  const { processName, processType, isRequired, sortOrder, supplierId, estimatedCost, estimatedDays, notes } = req.body;
-
-  if (!processName) {
-    throw new ValidationError('processName is required');
-  }
+  const { processName, processType, isRequired, sortOrder, supplierId, estimatedCost, estimatedDays, notes } =
+    req.body as CreateStyleProcessInput;
 
   const process = await prisma.style_processes.create({
     data: {
       styleId,
       processName,
-      processType: processType || processName,
+      processType: processType ?? (processName as any), // processType required by Prisma enum
       isRequired: isRequired !== false,
       sortOrder: sortOrder || 0,
       supplierId,
@@ -275,10 +406,12 @@ export const createProcess = async (req: Request, res: Response): Promise<void> 
 /**
  * Update process
  * PUT /api/processes/:id
+ * Body validated by validateBody(updateStyleProcessSchema) at the route layer
  */
 export const updateProcess = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { processName, processType, isRequired, sortOrder, supplierId, estimatedCost, estimatedDays, notes } = req.body;
+  const { processName, processType, isRequired, sortOrder, supplierId, estimatedCost, estimatedDays, notes } =
+    req.body as UpdateStyleProcessInput;
 
   const process = await prisma.style_processes.update({
     where: { id },

@@ -37,6 +37,8 @@ export const calculateGSTSchema = z.object({
  */
 export const getDefaultRateSchema = z.object({
   hsnCode: z.string().max(20).optional(),
+  // BUG-FIN4: Add unitPrice for price-based apparel GST slab (5% ≤₹2,500 / 18% >₹2,500)
+  unitPrice: z.number().positive().optional(),
 });
 
 /**

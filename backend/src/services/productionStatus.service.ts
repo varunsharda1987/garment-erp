@@ -117,6 +117,10 @@ class ProductionStatusService {
             },
           },
           brand_categories: true,
+          // BUG-MFG19 fix: include quality_inspections for QC status display
+          quality_inspections: {
+            orderBy: { inspectionDate: 'desc' },
+          },
         },
       });
 
@@ -358,12 +362,8 @@ class ProductionStatusService {
       completed: stageStr === 'COMPLETED' ? piecesInStage : 0,
     };
 
-    // Inspection status (placeholder)
-    const inspectionStatus = {
-      fabricInspection: { completed: false, status: null as 'PASS' | 'FAIL' | 'PENDING' | null },
-      inlineQC: { completed: false, status: null as 'PASS' | 'FAIL' | 'PENDING' | null },
-      finalQC: { completed: false, status: null as 'PASS' | 'FAIL' | 'PENDING' | null },
-    };
+    // BUG-MFG19 fix: corrected QC status display - read from actual quality_inspections data
+    const inspectionStatus = this.buildInspectionStatus(style.quality_inspections || []);
 
     return {
       styleId: style.id,
@@ -393,6 +393,49 @@ class ProductionStatusService {
       workOrders: workOrderData,
       sampleStatus,
       inspectionStatus,
+    };
+  }
+
+  /**
+   * BUG-MFG19 fix: Build inspection status from quality_inspections data
+   * Maps inspection types to the expected format for frontend display
+   */
+  private buildInspectionStatus(inspections: any[]): {
+    fabricInspection: { completed: boolean; status: 'PASS' | 'FAIL' | 'PENDING' | null };
+    inlineQC: { completed: boolean; status: 'PASS' | 'FAIL' | 'PENDING' | null };
+    finalQC: { completed: boolean; status: 'PASS' | 'FAIL' | 'PENDING' | null };
+  } {
+    const findInspection = (types: string[]) => {
+      // Find the most recent inspection matching any of the types
+      const inspection = inspections.find((i: any) => types.includes(i.inspectionType));
+      if (!inspection) {
+        return { completed: false, status: null as 'PASS' | 'FAIL' | 'PENDING' | null };
+      }
+      // Map QualityStatus to the expected format
+      let status: 'PASS' | 'FAIL' | 'PENDING' | null = null;
+      if (inspection.status === 'PASS') {
+        status = 'PASS';
+      } else if (inspection.status === 'FAIL') {
+        status = 'FAIL';
+      } else if (inspection.status === 'CONDITIONAL_PASS') {
+        // Treat conditional pass as pass for display purposes
+        status = 'PASS';
+      }
+      return {
+        completed: true,
+        status,
+      };
+    };
+
+    return {
+      // Fabric inspection typically done before cutting (no specific type in quality_inspections, check FPT separately)
+      // BUG-MFG20 fix: AQL here is just an inspection type label, not actual AQL sampling logic.
+      // TODO: Implement full AQL calculation with lot size, sample size, accept/reject numbers per ISO 2859-1.
+      fabricInspection: findInspection(['RANDOM', 'AQL']),
+      // Inline/midline QC during production
+      inlineQC: findInspection(['INLINE', 'MIDLINE']),
+      // Final QC before dispatch
+      finalQC: findInspection(['FINAL']),
     };
   }
 

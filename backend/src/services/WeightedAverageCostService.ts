@@ -5,15 +5,20 @@
  * Business Rule: Stock valuation uses weighted average cost method
  *
  * Formula: New WAC = (Existing Value + New Purchase Value) / (Existing Qty + New Qty)
+ *
+ * BUG-ELS5 fix: Uses decimal.js via currency utility to avoid floating point errors
  */
 
 import { Prisma, StockEntryType } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
+import { toCurrency, toNumber, roundToCent, calculateWeightedAverageCost as calcWAC } from '../utils/currency';
 
 export class WeightedAverageCostService {
   /**
    * Calculate new weighted average cost (pure function for testing)
+   *
+   * BUG-ELS5 fix: Uses decimal.js to avoid floating point errors
    *
    * @param currentQty - Current stock quantity
    * @param currentAvgCost - Current weighted average cost
@@ -32,16 +37,15 @@ export class WeightedAverageCostService {
       return currentAvgCost;
     }
 
-    const existingValue = currentQty * currentAvgCost;
-    const newValue = newQty * newCost;
-    const totalValue = existingValue + newValue;
-    const totalQuantity = currentQty + newQty;
-
-    return Math.round((totalValue / totalQuantity) * 100) / 100;
+    // BUG-ELS5 fix: Use decimal.js for precise calculation
+    const result = calcWAC(currentQty, currentAvgCost, newQty, newCost);
+    return toNumber(roundToCent(result));
   }
 
   /**
    * Calculate weighted average from array of transactions (pure function for testing)
+   *
+   * BUG-ELS5 fix: Uses decimal.js to avoid floating point errors
    *
    * @param transactions - Array of quantity and cost pairs
    * @returns Weighted average cost
@@ -51,19 +55,20 @@ export class WeightedAverageCostService {
       return 0;
     }
 
-    let totalValue = 0;
-    let totalQuantity = 0;
+    // BUG-ELS5 fix: Use decimal.js for precise calculation
+    let totalValue = toCurrency(0);
+    let totalQuantity = toCurrency(0);
 
     for (const txn of transactions) {
-      totalValue += txn.quantity * txn.unitCost;
-      totalQuantity += txn.quantity;
+      totalValue = totalValue.plus(toCurrency(txn.quantity).times(toCurrency(txn.unitCost)));
+      totalQuantity = totalQuantity.plus(toCurrency(txn.quantity));
     }
 
-    if (totalQuantity === 0) {
+    if (totalQuantity.isZero()) {
       return 0;
     }
 
-    return Math.round((totalValue / totalQuantity) * 100) / 100;
+    return toNumber(roundToCent(totalValue.dividedBy(totalQuantity)));
   }
 
   /**
@@ -323,17 +328,23 @@ export class WeightedAverageCostService {
         },
       });
 
-      let totalQuantity = 0;
-      let totalValue = 0;
+      // BUG-ELS5 fix: Use decimal.js for precise valuation calculations
+      let totalQuantityDec = toCurrency(0);
+      let totalValueDec = toCurrency(0);
 
       for (const stock of stocks) {
-        const qty = Number(stock.quantityAvailable);
-        const cost = Number(stock.weightedAvgCost);
-        totalQuantity += qty;
-        totalValue += qty * cost;
+        // BUG-ELS5 fix: Convert Prisma Decimal to number before using decimal.js
+        const qty = toCurrency(Number(stock.quantityAvailable));
+        const cost = toCurrency(Number(stock.weightedAvgCost));
+        totalQuantityDec = totalQuantityDec.plus(qty);
+        totalValueDec = totalValueDec.plus(qty.times(cost));
       }
 
-      const weightedAvgCost = totalQuantity > 0 ? totalValue / totalQuantity : 0;
+      const totalQuantity = toNumber(totalQuantityDec);
+      const totalValue = toNumber(roundToCent(totalValueDec));
+      const weightedAvgCost = totalQuantityDec.isZero()
+        ? 0
+        : toNumber(roundToCent(totalValueDec.dividedBy(totalQuantityDec)));
 
       return {
         fabricId,
@@ -341,17 +352,22 @@ export class WeightedAverageCostService {
         fabricName: stocks[0]?.fabricMaster?.fabricName,
         totalQuantity,
         totalValue,
-        weightedAvgCost: Math.round(weightedAvgCost * 100) / 100,
+        weightedAvgCost,
         stockRecords: stocks.length,
-        stocks: stocks.map((s) => ({
-          id: s.id,
-          quantity: Number(s.quantityAvailable),
-          cost: Number(s.weightedAvgCost),
-          value: Number(s.quantityAvailable) * Number(s.weightedAvgCost),
-          qualityGrade: s.qualityGrade,
-          receivedDate: s.receivedDate,
-          agingDays: s.agingDays,
-        })),
+        stocks: stocks.map((s) => {
+          // BUG-ELS5 fix: Use decimal.js for per-stock value calculation
+          const qty = toCurrency(Number(s.quantityAvailable));
+          const cost = toCurrency(Number(s.weightedAvgCost));
+          return {
+            id: s.id,
+            quantity: toNumber(qty),
+            cost: toNumber(cost),
+            value: toNumber(roundToCent(qty.times(cost))),
+            qualityGrade: s.qualityGrade,
+            receivedDate: s.receivedDate,
+            agingDays: s.agingDays,
+          };
+        }),
       };
     } catch (error) {
       logError('Error getting stock valuation:', error);
@@ -387,26 +403,28 @@ export class WeightedAverageCostService {
       let updated = 0;
 
       // Recalculate for each fabric
+      // BUG-ELS5 fix: Use decimal.js for precise WAC recalculation
       for (const [fId, fabricStocks] of fabricGroups.entries()) {
-        let runningQuantity = 0;
-        let runningValue = 0;
+        let runningQuantity = toCurrency(0);
+        let runningValue = toCurrency(0);
 
         for (const stock of fabricStocks) {
-          const qty = Number(stock.quantityAvailable);
-          const purchaseCost = Number(stock.purchaseCost);
+          // BUG-ELS5 fix: Convert Prisma Decimal to number before using decimal.js
+          const qty = toCurrency(Number(stock.quantityAvailable));
+          const purchaseCost = toCurrency(Number(stock.purchaseCost));
 
           // Add to running totals
-          runningValue += qty * purchaseCost;
-          runningQuantity += qty;
+          runningValue = runningValue.plus(qty.times(purchaseCost));
+          runningQuantity = runningQuantity.plus(qty);
 
           // Calculate new WAC
-          const newWAC = runningQuantity > 0 ? runningValue / runningQuantity : 0;
+          const newWAC = runningQuantity.isZero() ? 0 : toNumber(roundToCent(runningValue.dividedBy(runningQuantity)));
 
           // Update stock record
           await prisma.fabric_stock.update({
             where: { id: stock.id },
             data: {
-              weightedAvgCost: Math.round(newWAC * 100) / 100,
+              weightedAvgCost: newWAC,
             },
           });
 

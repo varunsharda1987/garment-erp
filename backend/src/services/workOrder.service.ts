@@ -12,6 +12,7 @@ import {
   toNumber,
 } from '../utils/currency';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
+import { validateTransition } from '../utils/stateMachine'; // BUG-WO7 fix
 
 // Completion stages: the finishing flow's packing-complete writes READY_TO_SHIP (with real issued
 // quantities) and nothing in the shipped UI writes PACKING — keying on PACKING alone left the
@@ -61,6 +62,8 @@ export interface UpdateWorkOrderDTO {
   priority?: Priority;
   remarks?: string;
   approvedById?: string;
+  // BUG-WO7 fix: userRole for status transition validation (ADMIN can override)
+  userRole?: string;
 }
 
 export interface WorkOrderFilters {
@@ -484,11 +487,79 @@ class WorkOrderService {
    * Update a work order
    */
   async updateWorkOrder(id: string, data: UpdateWorkOrderDTO) {
+    // BUG-WO7 fix: Validate status transition if status change is requested
+    if (data.status) {
+      const currentWorkOrder = await prisma.work_orders.findUnique({
+        where: { id },
+        select: { status: true, workOrderNumber: true },
+      });
+
+      if (!currentWorkOrder) {
+        throw new Error('Work order not found');
+      }
+
+      // Extract userRole from data (not persisted to DB)
+      const { userRole, ...updateData } = data;
+
+      // Validate the transition using state machine
+      const transitionResult = validateTransition('order', currentWorkOrder.status, data.status, userRole);
+
+      if (!transitionResult.valid) {
+        throw new Error(
+          transitionResult.message || `Invalid status transition from ${currentWorkOrder.status} to ${data.status}`
+        );
+      }
+
+      // Log admin override if applicable
+      if (transitionResult.isAdminOverride) {
+        logger.warn(
+          `Admin override: Work order ${currentWorkOrder.workOrderNumber} status changed from ${currentWorkOrder.status} to ${data.status}`
+        );
+      }
+
+      // Perform update without userRole
+      const workOrder = await prisma.work_orders.update({
+        where: { id },
+        data: updateData,
+        include: {
+          orders: {
+            select: {
+              id: true,
+              orderNumber: true,
+              customers: {
+                select: {
+                  id: true,
+                  name: true,
+                  code: true,
+                },
+              },
+            },
+          },
+          styles: {
+            select: {
+              id: true,
+              styleCode: true,
+              styleName: true,
+            },
+          },
+          warehouses: {
+            select: {
+              id: true,
+              warehouseCode: true,
+              warehouseName: true,
+            },
+          },
+        },
+      });
+
+      return workOrder;
+    }
+
+    // No status change - simple update (exclude userRole from DB write)
+    const { userRole: _userRole, ...updateData } = data;
     const workOrder = await prisma.work_orders.update({
       where: { id },
-      data: {
-        ...data,
-      },
+      data: updateData,
       include: {
         orders: {
           select: {

@@ -7,6 +7,9 @@ import { logWarn } from '../utils/logger';
 /**
  * Generic Trim Controller
  * Handles CRUD operations for all new trim types using configuration
+ *
+ * BUG-GT5: See genericTrim.schema.ts and frontend/src/types/genericTrim.types.ts
+ * for documentation on the intentional generic-backend/typed-frontend architecture.
  */
 
 // Configuration for each trim type
@@ -221,10 +224,10 @@ export const getAll = async (req: Request, res: Response) => {
     throw new ValidationError(`Invalid trim type: ${trimType}`);
   }
 
-  const { page = 1, limit = 10, search = '', isActive } = req.query;
+  const { page = 1, limit = 10, search = '', isActive } = (req as any).validatedQuery || req.query;
 
-  const pageNum = Number(page);
-  const limitNum = Number(limit);
+  const pageNum = Number(page) || 1;
+  const limitNum = Math.max(1, Number(limit) || 10);
   const offset = (pageNum - 1) * limitNum;
 
   const model = getPrismaModel(config.model);
@@ -441,6 +444,28 @@ export const update = async (req: Request, res: Response) => {
     },
   });
 
+  // Sync materials record if name or isActive changed
+  const fkField = TRIM_TYPE_FK_MAP[trimType];
+  if (fkField) {
+    const nameField = config.nameField;
+    const newName = updateData[nameField] as string | undefined;
+    const newIsActive = updateData.isActive as boolean | undefined;
+
+    // Only update if something changed
+    if (newName !== undefined || newIsActive !== undefined) {
+      const materialUpdateData: Record<string, string | boolean> = {};
+      if (newName !== undefined) materialUpdateData.name = newName.trim();
+      if (newIsActive !== undefined) materialUpdateData.isActive = newIsActive;
+
+      if (Object.keys(materialUpdateData).length > 0) {
+        await prisma.materials.updateMany({
+          where: { [fkField]: id },
+          data: materialUpdateData,
+        });
+      }
+    }
+  }
+
   res.json({
     data: updated,
     message: `${config.displayName} updated successfully`,
@@ -466,11 +491,20 @@ export const remove = async (req: Request, res: Response) => {
     throw new NotFoundError(config.displayName, id);
   }
 
-  // Soft delete
+  // Soft delete trim master
   await model.update({
     where: { id },
     data: { isActive: false },
   });
+
+  // Also deactivate the corresponding materials record
+  const fkField = TRIM_TYPE_FK_MAP[trimType];
+  if (fkField) {
+    await prisma.materials.updateMany({
+      where: { [fkField]: id },
+      data: { isActive: false },
+    });
+  }
 
   res.json({ message: `${config.displayName} deleted successfully` });
 };

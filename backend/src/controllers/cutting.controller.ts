@@ -9,6 +9,8 @@ import { calculateCadAverage } from './cad-planning.utils';
 import { createChallan, issueChallan, createFabricReturnChallan } from '../services/challan.service';
 import { logInfo } from '../utils/logger';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
+// BUG-CUT5 fix: Import decimal.js utilities for precision calculations
+import { toCurrency, subtractCurrency, divideCurrency, toNumber } from '../utils/currency';
 
 // Re-export sub-controllers so existing imports from routes continue to work
 export { addCuttingLay, getCuttingLays, deleteCuttingLay } from './cutting-lay.controller';
@@ -297,7 +299,14 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
         },
       });
       if (stock && Number(stock.quantityAvailable) > 0) {
-        const fabricNeeded = cadAvg && totalPieces > 0 ? totalPieces * cadAvg : Number(stock.quantityAvailable);
+        // BUG-MFG2 fix: Never default to issuing entire stock. Skip if we can't calculate need.
+        if (!cadAvg || totalPieces <= 0) {
+          logInfo(
+            `Skipping fabric ${stock.fabricMaster?.fabricCode}: no CAD average (${cadAvg}) or totalPieces (${totalPieces})`
+          );
+          continue;
+        }
+        const fabricNeeded = totalPieces * cadAvg;
         const issueQty = Math.min(fabricNeeded, Number(stock.quantityAvailable));
         const desc =
           `${stock.fabricMaster?.fabricCode || ''} ${stock.fabricMaster?.fabricName || ''} - Batch ${batch.batchNumber}`.trim();
@@ -649,7 +658,7 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
 
     const returnChallan = await createFabricReturnChallan({
       workOrderId: existing.workOrderId,
-      issuedById: req.user?.id || existing.createdById,
+      issuedById: req.user?.userId || existing.createdById,
       items: returnItems,
       remarks: `Fabric return from cutting batch ${existing.batchNumber} completion`,
     });
@@ -678,32 +687,36 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
     });
   }
 
+  // BUG-CUT5 fix: Use decimal.js for precision in cutting calculations
   // Total actual consumption
-  const totalActualConsumption = Math.max(0, totalFabricIssued - totalFabricReturned);
+  const totalActualConsumption = Math.max(0, toNumber(subtractCurrency(totalFabricIssued, totalFabricReturned)));
 
   // If no challans found (legacy), fall back to lay-based fabricConsumed
   const consumptionForAvg = totalFabricIssued > 0 ? totalActualConsumption : Number(existing.fabricConsumed);
 
+  // BUG-CUT5 fix: Use decimal.js for precision in average, variance, and wastage calculations
   // Calculate actual average
   let calcActualAverage = actualAverage;
   if (!calcActualAverage && totalCut > 0 && consumptionForAvg > 0) {
-    calcActualAverage = consumptionForAvg / totalCut;
+    calcActualAverage = toNumber(divideCurrency(consumptionForAvg, totalCut));
   }
 
   // Calculate variance from CAD
   let varianceFromCad: number | null = null;
   let variancePercent: number | null = null;
   if (calcActualAverage && Number(existing.cadAverageUsed) > 0) {
-    varianceFromCad = calcActualAverage - Number(existing.cadAverageUsed);
-    variancePercent = (varianceFromCad / Number(existing.cadAverageUsed)) * 100;
+    const cadAvgUsed = toCurrency(existing.cadAverageUsed);
+    varianceFromCad = toNumber(subtractCurrency(calcActualAverage, cadAvgUsed));
+    variancePercent = toNumber(divideCurrency(varianceFromCad, cadAvgUsed).times(100));
   }
 
   // Calculate wastage: issued - actual consumption
   let wastageMeters: number | null = null;
   let wastagePercent: number | null = null;
   if (totalFabricIssued > 0 && consumptionForAvg > 0) {
-    wastageMeters = Math.max(0, totalFabricIssued - consumptionForAvg);
-    wastagePercent = (wastageMeters / totalFabricIssued) * 100;
+    const wastage = subtractCurrency(totalFabricIssued, consumptionForAvg);
+    wastageMeters = Math.max(0, toNumber(wastage));
+    wastagePercent = toNumber(divideCurrency(wastageMeters, totalFabricIssued).times(100));
   }
 
   const batch = await prisma.cutting_batches.update({
@@ -845,14 +858,16 @@ export const resumeCuttingBatch = async (req: Request, res: Response) => {
   res.json({ data: transformCuttingBatch(batch) });
 };
 
-// Cancel cutting batch
+// Cancel cutting batch (BUG-MFG3 fix: restore fabric when cancelling)
 export const cancelCuttingBatch = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { reason } = req.body;
 
   const existing = await prisma.cutting_batches.findUnique({
     where: { id },
-    select: { status: true },
+    include: {
+      additionalFabrics: true,
+    },
   });
 
   if (!existing) {
@@ -863,16 +878,56 @@ export const cancelCuttingBatch = async (req: Request, res: Response) => {
     throw new ValidationError('Cannot cancel completed batches');
   }
 
-  const batch = await prisma.cutting_batches.update({
-    where: { id },
-    data: {
-      status: 'ON_HOLD',
-      remarks: reason ? `CANCELLED: ${reason}` : 'CANCELLED',
-    },
-    include: batchIncludeOptions,
+  // BUG-MFG3 fix: Restore fabric stock when cancelling (same logic as delete)
+  const fabricsRestored: Array<{ fabricStockId: string; quantityRestored: number }> = [];
+
+  const batch = await prisma.$transaction(async (tx) => {
+    // Restore primary fabric stock (from fabricStockId on batch)
+    const primaryQuantity = Number(existing.fabricIssued || existing.fabricConsumed || 0);
+    if (primaryQuantity > 0 && existing.fabricStockId) {
+      await tx.fabric_stock.update({
+        where: { id: existing.fabricStockId },
+        data: {
+          quantityAvailable: { increment: primaryQuantity },
+          quantityConsumed: { decrement: primaryQuantity },
+          status: 'AVAILABLE',
+        },
+      });
+      fabricsRestored.push({ fabricStockId: existing.fabricStockId, quantityRestored: primaryQuantity });
+      logInfo(`Restored ${primaryQuantity}m to primary fabric stock ${existing.fabricStockId} (cancelled)`);
+    }
+
+    // Restore additional fabrics
+    for (const fabric of existing.additionalFabrics) {
+      const quantityToRestore = Number(fabric.fabricIssued || fabric.fabricConsumed || 0);
+      if (quantityToRestore > 0) {
+        await tx.fabric_stock.update({
+          where: { id: fabric.fabricStockId },
+          data: {
+            quantityAvailable: { increment: quantityToRestore },
+            quantityConsumed: { decrement: quantityToRestore },
+            status: 'AVAILABLE',
+          },
+        });
+        fabricsRestored.push({ fabricStockId: fabric.fabricStockId, quantityRestored: quantityToRestore });
+        logInfo(`Restored ${quantityToRestore}m to additional fabric stock ${fabric.fabricStockId} (cancelled)`);
+      }
+    }
+
+    // Zero out consumed quantities on the batch itself
+    return tx.cutting_batches.update({
+      where: { id },
+      data: {
+        status: 'ON_HOLD',
+        remarks: reason ? `CANCELLED: ${reason}` : 'CANCELLED',
+        fabricConsumed: 0,
+        fabricIssued: 0,
+      },
+      include: batchIncludeOptions,
+    });
   });
 
-  res.json({ data: transformCuttingBatch(batch) });
+  res.json({ data: transformCuttingBatch(batch), fabricsRestored });
 };
 
 // Generate transfer slip

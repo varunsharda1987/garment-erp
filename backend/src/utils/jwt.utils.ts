@@ -14,6 +14,14 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 
 /**
  * Generate a JWT token
+ *
+ * TODO [BUG-AUTH6]: No token refresh mechanism exists. Current implementation uses 7-day
+ * access tokens with no refresh flow. Security improvement would be:
+ * 1. Use short-lived access tokens (15-30 min)
+ * 2. Issue refresh tokens (stored securely, longer validity)
+ * 3. Add /auth/refresh endpoint to exchange refresh token for new access token
+ * 4. Implement refresh token rotation to prevent replay attacks
+ * Requires: database table for refresh tokens, frontend interceptor for auto-refresh
  */
 export const generateToken = (payload: JWTPayload): string => {
   return jwt.sign(payload, JWT_SECRET, {

@@ -437,19 +437,52 @@ export const updateComponentSchema = z.object({
 });
 
 // --- Fabrics (style_fabrics) ---
+// BUG-S2 fix: align with full style_fabrics table fields (was only 8 fields, now 22+)
 
 export const createComponentFabricSchema = z.object({
+  // Required fields
   fabricName: z.string().min(1, 'Fabric name is required'),
   fabricType: z.string().min(1, 'Fabric type is required'),
+  // Optional basic fields
   fabricColor: z.string().optional().nullable(),
   fabricGSM: z.string().optional().nullable(), // stored as String in style_fabrics
   cadAverageMeters: z.coerce.number().nonnegative().optional().nullable(),
   cadAverageYards: z.coerce.number().nonnegative().optional().nullable(),
   supplierName: z.string().optional().nullable(),
   unitPrice: z.coerce.number().nonnegative().optional().nullable(),
+  // FK references
+  fabricId: z.string().uuid().optional().nullable(),
+  fabricCADId: z.string().uuid().optional().nullable(),
+  embroideryId: z.string().refine(isValidIdFormat, { message: 'Invalid embroidery ID format' }).optional().nullable(),
+  selectedGreigeId: z.string().uuid().optional().nullable(),
+  colorMasterId: z
+    .string()
+    .refine(isValidIdFormat, { message: 'Invalid color master ID format' })
+    .optional()
+    .nullable(),
+  // Fabric identification
+  fabricFinishType: FabricFinishTypeEnum.optional().nullable(),
+  greigeName: z.string().optional().nullable(),
+  genericGreigeName: z.string().optional().nullable(),
+  printDesign: z.string().optional().nullable(),
+  // CAD & costing fields
+  cadGroupKey: z.string().optional().nullable(),
+  quantityNeeded: z.coerce.number().nonnegative().optional().nullable(),
+  cutableWidth: z.coerce.number().nonnegative().optional().nullable(),
+  fabricCostPerMeter: z.coerce.number().nonnegative().optional().nullable(),
+  embroideryCostPerMeter: z.coerce.number().nonnegative().optional().nullable(),
+  totalCostPerMeter: z.coerce.number().nonnegative().optional().nullable(),
+  // Embroidery & cutting
+  hasEmbroidery: z.boolean().optional().default(false),
+  allowCombinedCutting: z.boolean().optional().default(true),
+  numberOfColors: z.coerce.number().int().nonnegative().optional().nullable(),
+  averagingMode: z.string().optional().nullable(),
+  // Notes
+  notes: z.string().optional().nullable(),
 });
 
 export const updateComponentFabricSchema = z.object({
+  // All fields optional for updates
   fabricName: z.string().optional().nullable(),
   fabricType: z.string().optional().nullable(),
   fabricColor: z.string().optional().nullable(),
@@ -458,6 +491,35 @@ export const updateComponentFabricSchema = z.object({
   cadAverageYards: z.coerce.number().nonnegative().optional().nullable(),
   supplierName: z.string().optional().nullable(),
   unitPrice: z.coerce.number().nonnegative().optional().nullable(),
+  // FK references
+  fabricId: z.string().uuid().optional().nullable(),
+  fabricCADId: z.string().uuid().optional().nullable(),
+  embroideryId: z.string().refine(isValidIdFormat, { message: 'Invalid embroidery ID format' }).optional().nullable(),
+  selectedGreigeId: z.string().uuid().optional().nullable(),
+  colorMasterId: z
+    .string()
+    .refine(isValidIdFormat, { message: 'Invalid color master ID format' })
+    .optional()
+    .nullable(),
+  // Fabric identification
+  fabricFinishType: FabricFinishTypeEnum.optional().nullable(),
+  greigeName: z.string().optional().nullable(),
+  genericGreigeName: z.string().optional().nullable(),
+  printDesign: z.string().optional().nullable(),
+  // CAD & costing fields
+  cadGroupKey: z.string().optional().nullable(),
+  quantityNeeded: z.coerce.number().nonnegative().optional().nullable(),
+  cutableWidth: z.coerce.number().nonnegative().optional().nullable(),
+  fabricCostPerMeter: z.coerce.number().nonnegative().optional().nullable(),
+  embroideryCostPerMeter: z.coerce.number().nonnegative().optional().nullable(),
+  totalCostPerMeter: z.coerce.number().nonnegative().optional().nullable(),
+  // Embroidery & cutting
+  hasEmbroidery: z.boolean().optional(),
+  allowCombinedCutting: z.boolean().optional(),
+  numberOfColors: z.coerce.number().int().nonnegative().optional().nullable(),
+  averagingMode: z.string().optional().nullable(),
+  // Notes
+  notes: z.string().optional().nullable(),
 });
 
 // --- Accessories (style_accessories) ---

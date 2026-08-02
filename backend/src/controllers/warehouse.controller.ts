@@ -2,7 +2,7 @@
 import { Request, Response } from 'express';
 import warehouseService, { CreateWarehouseDTO, UpdateWarehouseDTO } from '../services/warehouse.service';
 import { WarehouseType } from '@prisma/client';
-import { NotFoundError, ValidationError, ConflictError } from '../errors';
+import { ValidationError } from '../errors';
 
 /**
  * @route GET /api/warehouses
@@ -75,23 +75,11 @@ export const createWarehouse = async (req: Request, res: Response) => {
     throw new ValidationError('User not authenticated');
   }
 
+  // Body already validated by validateBody(createWarehouseSchema) at route layer
   const warehouseData: CreateWarehouseDTO = {
     ...req.body,
     createdById: userId,
   };
-
-  // Validation
-  if (!warehouseData.warehouseCode) {
-    throw new ValidationError('Warehouse code is required');
-  }
-
-  if (!warehouseData.warehouseName) {
-    throw new ValidationError('Warehouse name is required');
-  }
-
-  if (!warehouseData.warehouseType) {
-    throw new ValidationError('Warehouse type is required');
-  }
 
   const warehouse = await warehouseService.createWarehouse(warehouseData);
 

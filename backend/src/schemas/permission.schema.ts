@@ -57,9 +57,19 @@ export const bulkUpdatePermissionsSchema = z.object({
 /**
  * Reset to Defaults
  * POST /api/permissions/reset-defaults
+ * BUG-ADM4 fix: require explicit confirmation for dangerous reset operation
  */
 export const resetDefaultsSchema = z.object({
   confirmReset: z.literal(true, { message: 'Must confirm reset by setting confirmReset to true' }),
+});
+
+/**
+ * Seed Permissions
+ * POST /api/permissions/seed
+ * BUG-ADM4 fix: require explicit confirmation for seed operation
+ */
+export const seedPermissionsSchema = z.object({
+  confirmSeed: z.literal(true, { message: 'Must confirm seed by setting confirmSeed to true' }),
 });
 
 // ============================================================================
@@ -69,3 +79,4 @@ export const resetDefaultsSchema = z.object({
 export type TogglePermissionInput = z.infer<typeof togglePermissionSchema>;
 export type BulkUpdatePermissionsInput = z.infer<typeof bulkUpdatePermissionsSchema>;
 export type ResetDefaultsInput = z.infer<typeof resetDefaultsSchema>;
+export type SeedPermissionsInput = z.infer<typeof seedPermissionsSchema>;

@@ -11,6 +11,8 @@ import {
 } from '../types/greige.types';
 import { ValidationError, NotFoundError } from '../errors';
 import { generateCode } from '../utils/code-generator';
+import { materialService } from '../services/material.service';
+import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 
 /**
  * Greige Master Controller
@@ -42,8 +44,8 @@ export const getAllGreigeMasters = async (req: Request, res: Response) => {
     weaveType = '',
   } = req.query;
 
-  const pageNum = parseInt(page as string);
-  const limitNum = parseInt(limit as string);
+  const pageNum = Math.max(1, parseInt(page as string) || 1);
+  const limitNum = Math.max(1, parseInt(limit as string) || 50);
   const skip = (pageNum - 1) * limitNum;
 
   // Build where clause
@@ -212,6 +214,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
     greigeQuality,
     weaver,
     greigeWidth,
+    defaultCutableWidth,
     expectedFinishedWidthMin,
     expectedFinishedWidthMax,
     averageShrinkagePercent,
@@ -268,6 +271,7 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
       greigeQuality: greigeQuality || null,
       weaver: weaver || null,
       greigeWidth: parseFloat(greigeWidth),
+      defaultCutableWidth: defaultCutableWidth ? parseFloat(defaultCutableWidth) : null,
       expectedFinishedWidthMin: expectedFinishedWidthMin ? parseFloat(expectedFinishedWidthMin) : null,
       expectedFinishedWidthMax: expectedFinishedWidthMax ? parseFloat(expectedFinishedWidthMax) : null,
       averageShrinkagePercent: averageShrinkagePercent ? parseFloat(averageShrinkagePercent) : null,
@@ -333,6 +337,7 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
     greigeQuality,
     weaver,
     greigeWidth,
+    defaultCutableWidth,
     expectedFinishedWidthMin,
     expectedFinishedWidthMax,
     averageShrinkagePercent,
@@ -391,9 +396,16 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
     greigeQuality: greigeQuality !== undefined ? greigeQuality || null : undefined,
     weaver: weaver !== undefined ? weaver || null : undefined,
     greigeWidth: greigeWidth ? parseFloat(greigeWidth) : undefined,
+    defaultCutableWidth:
+      defaultCutableWidth !== undefined ? (defaultCutableWidth ? parseFloat(defaultCutableWidth) : null) : undefined,
     expectedFinishedWidthMin: expectedFinishedWidthMin ? parseFloat(expectedFinishedWidthMin) : null,
     expectedFinishedWidthMax: expectedFinishedWidthMax ? parseFloat(expectedFinishedWidthMax) : null,
-    averageShrinkagePercent: averageShrinkagePercent ? parseFloat(averageShrinkagePercent) : undefined,
+    averageShrinkagePercent:
+      averageShrinkagePercent !== undefined
+        ? averageShrinkagePercent
+          ? parseFloat(averageShrinkagePercent)
+          : null
+        : undefined,
     gsmRange,
     costPerMeter: costPerMeter !== undefined ? (costPerMeter ? parseFloat(costPerMeter) : null) : undefined,
     moq: moq !== undefined ? (moq ? parseInt(moq) : null) : undefined,
@@ -451,6 +463,18 @@ export const updateGreigeMaster = async (req: Request, res: Response) => {
       },
     },
   });
+
+  // BUG-MM13 fix: sync code to materials
+  const syncUpdates: { code?: string; name?: string } = {};
+  if (greigeCode && greigeCode !== existingGreige.greigeCode) {
+    syncUpdates.code = greigeCode;
+  }
+  if (greigeName && greigeName !== existingGreige.greigeName) {
+    syncUpdates.name = greigeName;
+  }
+  if (syncUpdates.code || syncUpdates.name) {
+    await syncMasterToMaterials(id, 'GREIGE', syncUpdates);
+  }
 
   res.json(updatedGreige);
 };
@@ -608,12 +632,30 @@ export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
     try {
       const greige = greiges[i];
 
-      // Validate required fields
-      if (!greige.greigeName || !greige.composition || !greige.greigeWidth || !greige.defaultCutableWidth) {
+      // BUG-GR6 fix: aligned validation with single create
+      // Validate required fields (same as createGreigeMaster)
+      if (!greige.greigeName || !greige.composition || !greige.greigeWidth) {
         results.failed++;
         results.errors.push({
           row: i + 2, // Excel row (header is row 1)
-          error: 'Missing required fields: greigeName, composition, greigeWidth, or defaultCutableWidth',
+          error: 'Missing required fields: greigeName, composition, or greigeWidth',
+        });
+        continue;
+      }
+
+      // BUG-GR6 fix: Check for duplicate name + quality combination (same as createGreigeMaster)
+      const duplicateNameQuality = await prisma.greige_master.findFirst({
+        where: {
+          greigeName: greige.greigeName,
+          greigeQuality: greige.greigeQuality || null,
+          isActive: true,
+        },
+      });
+      if (duplicateNameQuality) {
+        results.failed++;
+        results.errors.push({
+          row: i + 2,
+          error: `A greige with name "${greige.greigeName}" and quality "${greige.greigeQuality || 'None'}" already exists (${duplicateNameQuality.greigeCode}). Use a different quality or edit the existing entry.`,
         });
         continue;
       }
@@ -622,31 +664,44 @@ export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
       // create / getNextGreigeCode) — the old count()-based numbering raced and duplicated codes
       const greigeCode = await generateCode('GRG', 'greige_master', 'greigeCode');
 
-      // Create greige master
-      await prisma.greige_master.create({
-        data: {
-          greigeCode,
-          greigeName: greige.greigeName,
-          genericGreigeName: greige.genericGreigeName || null,
-          yarnCount: greige.yarnCount || null,
-          construction: greige.construction || null,
-          composition: greige.composition,
-          weaveType: greige.weaveType || null,
-          greigeWidth: parseFloat(greige.greigeWidth),
-          defaultCutableWidth: greige.defaultCutableWidth ? parseFloat(greige.defaultCutableWidth) : null,
-          expectedFinishedWidthMin: greige.expectedFinishedWidthMin
-            ? parseFloat(greige.expectedFinishedWidthMin)
-            : null,
-          expectedFinishedWidthMax: greige.expectedFinishedWidthMax
-            ? parseFloat(greige.expectedFinishedWidthMax)
-            : null,
-          averageShrinkagePercent: greige.averageShrinkagePercent ? parseFloat(greige.averageShrinkagePercent) : null,
-          gsmRange: greige.gsmRange || null,
-          description: greige.description || null,
-          notes: greige.notes || null,
-          isActive: greige.isActive !== false,
-          createdById: userId,
-        },
+      // Create greige master + materials record in transaction (BUG-GR1 fix)
+      // BUG-GR6 fix: aligned validation - includes greigeQuality and weaver like single create
+      await prisma.$transaction(async (tx) => {
+        const created = await tx.greige_master.create({
+          data: {
+            greigeCode,
+            greigeName: greige.greigeName,
+            genericGreigeName: greige.genericGreigeName || null,
+            yarnCount: greige.yarnCount || null,
+            construction: greige.construction || null,
+            composition: greige.composition,
+            weaveType: greige.weaveType || null,
+            // BUG-GR6 fix: greigeQuality and weaver now supported in bulk import
+            greigeQuality: greige.greigeQuality || null,
+            weaver: greige.weaver || null,
+            greigeWidth: parseFloat(greige.greigeWidth),
+            defaultCutableWidth: greige.defaultCutableWidth ? parseFloat(greige.defaultCutableWidth) : null,
+            expectedFinishedWidthMin: greige.expectedFinishedWidthMin
+              ? parseFloat(greige.expectedFinishedWidthMin)
+              : null,
+            expectedFinishedWidthMax: greige.expectedFinishedWidthMax
+              ? parseFloat(greige.expectedFinishedWidthMax)
+              : null,
+            averageShrinkagePercent: greige.averageShrinkagePercent ? parseFloat(greige.averageShrinkagePercent) : null,
+            gsmRange: greige.gsmRange || null,
+            description: greige.description || null,
+            notes: greige.notes || null,
+            isActive: greige.isActive !== false,
+            createdById: userId,
+          },
+        });
+
+        // Create corresponding materials record (same as greige.service.ts:220)
+        await materialService.createFromMaster(
+          { id: created.id, code: greigeCode, name: greige.greigeName },
+          'GREIGE',
+          tx
+        );
       });
 
       results.created++;
@@ -712,7 +767,7 @@ export const exportGreigeMasters = async (req: Request, res: Response) => {
       'GSM Range': greige.gsmRange || '',
       'Expected Finished Width Min': greige.expectedFinishedWidthMin ? Number(greige.expectedFinishedWidthMin) : '',
       'Expected Finished Width Max': greige.expectedFinishedWidthMax ? Number(greige.expectedFinishedWidthMax) : '',
-      'Average Shrinkage %': Number(greige.averageShrinkagePercent),
+      'Average Shrinkage %': greige.averageShrinkagePercent ?? '',
       Description: greige.description || '',
       Notes: greige.notes || '',
       Suppliers: greige.suppliers.map((s) => `${s.supplier.code} - ${s.supplier.name}`).join('; '),

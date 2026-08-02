@@ -21,6 +21,7 @@ import prisma from '../config/database';
 import { getGreigeWAC } from './helpers/derived-stock.helper';
 import { lookupRate, getAllDyeingPrintingProcessors } from './processor-rate-v2.service';
 import type { ProcessingTypeV2, RateLookupResult } from '../types/processor-rate-v2.types';
+import { toCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency'; // BUG-FAB12 fix
 
 export interface FabricCostOptions {
   fabricId: string;
@@ -138,7 +139,8 @@ export async function calculateFabricCost(options: FabricCostOptions): Promise<F
     throw new Error(`Fabric not found: ${fabricId}`);
   }
 
-  const totalMetersNeeded = cadMeters * (orderQuantity || 1);
+  // BUG-FAB12 fix: use decimal.js for precision
+  const totalMetersNeeded = toNumber(multiplyCurrency(cadMeters, orderQuantity || 1));
 
   // Option 1: Check stock availability
   const stockOption = await checkStockAvailability(fabricId, width, totalMetersNeeded, styleId);
@@ -271,7 +273,8 @@ async function checkStockAvailability(
 
   const stock = stockLots[0];
   const wac = Number(stock.weightedAvgCost);
-  const totalCost = wac * quantityNeeded;
+  // BUG-FAB12 fix: use decimal.js for precision
+  const totalCost = toNumber(multiplyCurrency(wac, quantityNeeded));
 
   return {
     available: true,
@@ -349,7 +352,8 @@ async function getReadyFabricCost(fabricId: string, quantityNeeded: number, fabr
     readyFabricCost: cost,
     procurementId,
     supplierName,
-    totalCost: cost * quantityNeeded,
+    // BUG-FAB12 fix: use decimal.js for precision
+    totalCost: toNumber(multiplyCurrency(cost, quantityNeeded)),
     details,
     rateSource,
     procurementDate,
@@ -464,7 +468,8 @@ async function calculateGreigeProcessingCost(
   if (!processingType) {
     return {
       available: false,
-      greigeCost: greigeCostPerMeter * quantityNeeded,
+      // BUG-FAB12 fix: use decimal.js for precision
+      greigeCost: toNumber(multiplyCurrency(greigeCostPerMeter, quantityNeeded)),
       processingCost: null,
       processorId: null,
       processorName: null,
@@ -508,7 +513,8 @@ async function calculateGreigeProcessingCost(
   if (!bestRate) {
     return {
       available: false,
-      greigeCost: greigeCostPerMeter * quantityNeeded,
+      // BUG-FAB12 fix: use decimal.js for precision
+      greigeCost: toNumber(multiplyCurrency(greigeCostPerMeter, quantityNeeded)),
       processingCost: null,
       processorId: null,
       processorName: null,
@@ -531,8 +537,9 @@ async function calculateGreigeProcessingCost(
   }
 
   const processingCostPerMeter = bestRate.ratePerMeter;
-  const totalPerMeter = greigeCostPerMeter + processingCostPerMeter;
-  const totalCost = totalPerMeter * quantityNeeded;
+  // BUG-FAB12 fix: use decimal.js for precision
+  const totalPerMeter = toNumber(addCurrency(greigeCostPerMeter, processingCostPerMeter));
+  const totalCost = toNumber(multiplyCurrency(totalPerMeter, quantityNeeded));
 
   // Use greige last updated as the reference date
   const rateCardEffectiveDate: string | null = null;
@@ -540,7 +547,8 @@ async function calculateGreigeProcessingCost(
 
   return {
     available: true,
-    greigeCost: greigeCostPerMeter * quantityNeeded,
+    // BUG-FAB12 fix: use decimal.js for precision
+    greigeCost: toNumber(multiplyCurrency(greigeCostPerMeter, quantityNeeded)),
     processingCost: bestRate.totalCost,
     processorId: bestRate.processorId,
     processorName: bestRate.processorName,

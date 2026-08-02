@@ -5,6 +5,7 @@ import logger, { logInfo } from '../utils/logger';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
 import { cachedQuery, cacheKeys, cacheTTL } from '../lib/cache';
+import { toCurrency, multiplyCurrency, divideCurrency, toNumber } from '../utils/currency'; // BUG-CAD8 fix
 import {
   ALL_PARTS_CODE,
   ALL_PARTS_LEGACY_MARKER,
@@ -307,9 +308,11 @@ export async function calculateCADCost(req: Request, res: Response) {
   }
 
   const wastagePercent = Number(cad.cadWastagePercent);
-  const effectiveConsumption = cadConsumption * (1 + wastagePercent / 100);
-  const totalCost = effectiveConsumption * fabricRate;
-  const costPerMeter = unit === 'meters' ? fabricRate : fabricRate / 0.9144; // yards to meters
+  // BUG-CAD8 fix: use decimal.js for safe arithmetic
+  const wastageMultiplier = toCurrency(1).plus(toCurrency(wastagePercent).dividedBy(100));
+  const effectiveConsumption = toNumber(toCurrency(cadConsumption).times(wastageMultiplier));
+  const totalCost = toNumber(multiplyCurrency(effectiveConsumption, fabricRate));
+  const costPerMeter = toNumber(unit === 'meters' ? toCurrency(fabricRate) : divideCurrency(fabricRate, 0.9144)); // yards to meters
 
   const result: CADCostResult = {
     cadId,
@@ -1953,6 +1956,16 @@ export async function getCADTableData(req: Request, res: Response) {
       include: {
         style_components: {
           include: {
+            // BUG-PP10 fix: include componentMaster relation for ID-based lookup
+            componentMaster: {
+              include: {
+                patternParts: {
+                  include: {
+                    patternPart: true,
+                  },
+                },
+              },
+            },
             style_fabrics: {
               include: {
                 fabric: true,
@@ -2165,30 +2178,73 @@ export async function getCADTableData(req: Request, res: Response) {
     };
   });
 
-  // Get component pattern parts (from component master definitions)
-  // First, find component masters that match the componentNames from style_components
-  const componentNames = style.style_components.map((c: any) => c.componentName);
-  const componentMasters = await prisma.component_masters.findMany({
-    where: {
-      OR: componentNames.map((n: string) => ({ name: { equals: n, mode: 'insensitive' as const } })),
-    },
-    select: { id: true, name: true },
+  // BUG-PP10 fix: Get component pattern parts (prefer ID-based lookup via componentMasterId FK)
+  // Components with componentMasterId already have pattern parts included via the relation.
+  // Fall back to name-based lookup only for legacy data where componentMasterId is null.
+  const componentsWithMaster = style.style_components.filter((c: any) => c.componentMaster);
+  const componentsWithoutMaster = style.style_components.filter((c: any) => !c.componentMaster);
+
+  // For components WITH componentMasterId, extract pattern parts directly from the relation
+  const componentMasterIds: string[] = componentsWithMaster.map((c: any) => c.componentMasterId);
+  const componentNameToIdMap = new Map<string, string>();
+  componentsWithMaster.forEach((c: any) => {
+    componentNameToIdMap.set(c.componentName.toLowerCase(), c.componentMasterId);
   });
 
-  // Create a map of componentName -> componentMasterId for quick lookup (case-insensitive)
-  const componentNameToIdMap = new Map(componentMasters.map((cm) => [cm.name.toLowerCase(), cm.id]));
+  // Collect pattern parts from components that already have the relation loaded
+  const componentPatternParts: Array<{
+    patternPart: { id: string; code: string; name: string };
+    component: { id: string; name: string };
+  }> = [];
 
-  // Now get pattern parts using the component master IDs
-  const componentMasterIds = componentMasters.map((cm) => cm.id);
-  const componentPatternParts = await prisma.component_pattern_parts.findMany({
-    where: {
-      componentId: { in: componentMasterIds },
-    },
-    include: {
-      patternPart: true,
-      component: { select: { id: true, name: true } },
-    },
+  componentsWithMaster.forEach((comp: any) => {
+    if (comp.componentMaster?.patternParts) {
+      comp.componentMaster.patternParts.forEach((pp: any) => {
+        componentPatternParts.push({
+          patternPart: pp.patternPart,
+          component: { id: comp.componentMaster.id, name: comp.componentMaster.name },
+        });
+      });
+    }
   });
+
+  // Legacy fallback: for components WITHOUT componentMasterId, do name-based lookup
+  if (componentsWithoutMaster.length > 0) {
+    const legacyComponentNames = componentsWithoutMaster.map((c: any) => c.componentName);
+    const legacyComponentMasters = await prisma.component_masters.findMany({
+      where: {
+        OR: legacyComponentNames.map((n: string) => ({ name: { equals: n, mode: 'insensitive' as const } })),
+        isActive: true,
+      },
+      select: { id: true, name: true },
+    });
+
+    // Add to maps
+    legacyComponentMasters.forEach((cm) => {
+      componentMasterIds.push(cm.id);
+      componentNameToIdMap.set(cm.name.toLowerCase(), cm.id);
+    });
+
+    // Fetch pattern parts for legacy components
+    if (legacyComponentMasters.length > 0) {
+      const legacyPatternParts = await prisma.component_pattern_parts.findMany({
+        where: {
+          componentId: { in: legacyComponentMasters.map((cm) => cm.id) },
+        },
+        include: {
+          patternPart: true,
+          component: { select: { id: true, name: true } },
+        },
+      });
+      componentPatternParts.push(...legacyPatternParts);
+    }
+
+    if (legacyComponentNames.length > 0) {
+      console.warn(
+        `[cad-planning] ${legacyComponentNames.length} components without componentMasterId: ${legacyComponentNames.join(', ')}. Consider setting componentMasterId on style_components.`
+      );
+    }
+  }
 
   // Build CAD rows from existing data
   const cadRows: Array<{
@@ -3272,7 +3328,11 @@ export async function updateCADTableRow(req: Request, res: Response) {
   // Update CAD entry
   const updateData: Prisma.fabric_width_cadUpdateInput = {};
 
-  if (purpose !== undefined) updateData.purpose = purpose;
+  if (purpose !== undefined) {
+    updateData.purpose = purpose;
+    // BUG-FC7 fix: Sync purposeEnum when purpose is updated to prevent drift
+    updateData.purposeEnum = purpose as any;
+  }
   if (partId !== undefined) {
     // Check if this is an "All Parts" selection
     const isAllPartsLegacy = partId === ALL_PARTS_LEGACY_MARKER;
@@ -4095,8 +4155,8 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
     searchAll = 'false', // When true, search across all statuses
   } = req.query;
 
-  const pageNum = parseInt(page as string, 10);
-  const limitNum = parseInt(limit as string, 10);
+  const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
+  const limitNum = Math.max(1, parseInt(limit as string, 10) || 20);
   const skip = (pageNum - 1) * limitNum;
 
   // Build where clause

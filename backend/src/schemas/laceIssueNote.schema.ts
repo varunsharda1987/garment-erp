@@ -11,7 +11,8 @@ import { z } from 'zod';
 // Enums
 // ============================================================================
 
-export const IssueNoteStatusEnum = z.enum(['OPEN', 'PARTIAL', 'CLOSED']);
+// BUG-LC4 FIX: Aligned with Prisma lace_issue_note.status values
+export const IssueNoteStatusEnum = z.enum(['ISSUED', 'PARTIALLY_RETURNED', 'CLOSED']);
 
 // ============================================================================
 // LACE ISSUE NOTE SCHEMAS

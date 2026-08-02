@@ -1,4 +1,5 @@
 // Stock Count Service - Physical inventory count management
+// BUG-DASH3 fix: Import proper error classes for correct HTTP status codes
 import { CountType, CountStatus, Unit, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import prisma from '../config/database';
@@ -6,6 +7,7 @@ import stockMovementService from './stockMovement.service';
 import stockLevelService from './stockLevel.service';
 import { getDerivedStockDetailed, getDerivedValuation, DerivedStockDetailedRow } from './helpers/derived-stock.helper';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
+import { NotFoundError, ValidationError, BusinessError } from '../errors';
 
 export interface CreateStockCountDTO {
   warehouseId: string;
@@ -61,7 +63,7 @@ class StockCountService {
     } else if (data.countType === 'PARTIAL' || data.countType === 'SPOT_CHECK') {
       // Specific materials
       if (!data.materialIds || data.materialIds.length === 0) {
-        throw new Error('Material IDs required for PARTIAL or SPOT_CHECK counts');
+        throw new ValidationError('Material IDs required for PARTIAL or SPOT_CHECK counts');
       }
 
       const requestedIds = new Set(data.materialIds);
@@ -82,7 +84,7 @@ class StockCountService {
         select: { id: true },
       });
       if (!warehouse) {
-        throw new Error('Warehouse not found');
+        throw new NotFoundError('Warehouse', data.warehouseId);
       }
 
       // Generate count number
@@ -182,6 +184,7 @@ class StockCountService {
 
   /**
    * Get stock count by ID
+   * BUG-DASH3 fix: Uses NotFoundError for proper 404 response
    */
   async getStockCountById(id: string) {
     const stockCount = await prisma.stock_counts.findUnique({
@@ -212,7 +215,7 @@ class StockCountService {
     });
 
     if (!stockCount) {
-      throw new Error(`Stock count not found with ID: ${id}`);
+      throw new NotFoundError('Stock count', id);
     }
 
     return stockCount;
@@ -230,11 +233,11 @@ class StockCountService {
     });
 
     if (!item) {
-      throw new Error(`Count item not found with ID: ${itemId}`);
+      throw new NotFoundError('Count item', itemId);
     }
 
     if (item.stock_counts.status !== 'DRAFT' && item.stock_counts.status !== 'IN_PROGRESS') {
-      throw new Error('Cannot update count item after count is completed');
+      throw new BusinessError('Cannot update count item after count is completed');
     }
 
     // Calculate variance
@@ -308,11 +311,11 @@ class StockCountService {
     });
 
     if (!stockCount) {
-      throw new Error(`Stock count not found with ID: ${id}`);
+      throw new NotFoundError('Stock count', id);
     }
 
     if (stockCount.status !== 'COUNTED') {
-      throw new Error('Stock count must be fully counted before verification');
+      throw new BusinessError('Stock count must be fully counted before verification');
     }
 
     const updated = await prisma.stock_counts.update({
@@ -345,11 +348,11 @@ class StockCountService {
       });
 
       if (!stockCount) {
-        throw new Error(`Stock count not found with ID: ${id}`);
+        throw new NotFoundError('Stock count', id);
       }
 
       if (stockCount.status !== 'VERIFIED') {
-        throw new Error('Stock count must be verified before approval');
+        throw new BusinessError('Stock count must be verified before approval');
       }
 
       // Apply adjustments for all items with variance
@@ -359,15 +362,19 @@ class StockCountService {
         if (item.variance && !new Decimal(item.variance.toString()).eq(0)) {
           const varianceQty = new Decimal(item.variance.toString());
 
-          // Create stock adjustment
-          const adjustment = await stockMovementService.createStockAdjustment({
-            materialId: item.materialId,
-            warehouseId: stockCount.warehouseId,
-            adjustmentQuantity: varianceQty,
-            unit: item.unit,
-            reason: `Physical count adjustment - Count #${stockCount.countNumber}`,
-            performedById: approvedById,
-          });
+          // Create stock adjustment (pass tx for transaction integrity)
+          const adjustment = await stockMovementService.createStockAdjustment(
+            {
+              materialId: item.materialId,
+              warehouseId: stockCount.warehouseId,
+              adjustmentQuantity: varianceQty,
+              unit: item.unit,
+              reason: 'CORRECTION',
+              remarks: `Physical count adjustment - Count #${stockCount.countNumber}`,
+              performedById: approvedById,
+            },
+            tx
+          );
 
           adjustments.push(adjustment);
         }
@@ -408,11 +415,11 @@ class StockCountService {
     });
 
     if (!stockCount) {
-      throw new Error(`Stock count not found with ID: ${id}`);
+      throw new NotFoundError('Stock count', id);
     }
 
     if (stockCount.status === 'APPROVED') {
-      throw new Error('Cannot cancel approved stock count');
+      throw new BusinessError('Cannot cancel approved stock count');
     }
 
     const cancelled = await prisma.stock_counts.update({
@@ -452,7 +459,7 @@ class StockCountService {
     });
 
     if (!stockCount) {
-      throw new Error(`Stock count not found with ID: ${id}`);
+      throw new NotFoundError('Stock count', id);
     }
 
     const varianceItems = stockCount.stock_count_items.filter(

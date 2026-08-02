@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { createLaceStock } from '../services/laceStock.service';
+import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 
 // Type for supplier input
 interface LaceSupplierInput {
@@ -755,12 +756,10 @@ export const updateLace = async (req: Request, res: Response) => {
     },
   });
 
-  // Also update material name if laceName changed
-  if (finalLaceName) {
-    await prisma.materials.updateMany({
-      where: { laceId: id },
-      data: { name: finalLaceName },
-    });
+  // BUG-MM13 fix: sync code to materials
+  // Note: laceCode is not updated (auto-generated), only sync name changes
+  if (finalLaceName && finalLaceName !== existing.laceName) {
+    await syncMasterToMaterials(id, 'LACE', { name: finalLaceName });
   }
 
   // Transform response
@@ -828,7 +827,7 @@ export const deleteLace = async (req: Request, res: Response) => {
  */
 export const bulkImportLace = async (req: Request, res: Response) => {
   const { data, createStock = false } = req.body;
-  const userId = (req as any).user?.id || 'system';
+  const userId = (req as any).user?.userId || 'system';
 
   if (!Array.isArray(data) || data.length === 0) {
     throw new ValidationError('Data array is required');

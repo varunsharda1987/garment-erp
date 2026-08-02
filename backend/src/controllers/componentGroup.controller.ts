@@ -39,10 +39,12 @@ export class ComponentGroupController {
    * GET /api/component-groups
    */
   async getComponentGroups(req: Request, res: Response) {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 50;
-    const search = req.query.search as string | undefined;
-    const isActive = req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
+    // Use validated query (coerced by Zod via validateQuery middleware)
+    const query = (req as any).validatedQuery ?? req.query;
+    const page = query.page as number;
+    const limit = query.limit as number;
+    const search = query.search as string | undefined;
+    const isActive = query.isActive as boolean | undefined;
 
     const result = await componentGroupService.getComponentGroups(page, limit, search, isActive);
 

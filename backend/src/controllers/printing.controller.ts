@@ -8,6 +8,10 @@ import { generateUnifiedPONumber } from '../utils/po-number-generator';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { randomUUID } from 'crypto';
 import logger from '../utils/logger';
+// BUG-INV3 fix: Import material sync helpers for processor receipt stock_levels sync
+import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
+// BUG-PRT5 fix: Import decimal.js helpers for safe cost calculations
+import { toCurrency, addCurrency, multiplyCurrency, divideCurrency, toNumber } from '../utils/currency';
 
 // ============================================
 // Atomic scoped numbering helpers
@@ -448,6 +452,7 @@ export const deleteLabDip = async (req: Request, res: Response, _next: NextFunct
 };
 
 // Approve lab dip
+// BUG-DYE4 fix: colorMatchRating uses aligned 4-level scale: Excellent, Good, Acceptable, Poor
 export const approveLabDip = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const userId = req.user?.userId;
@@ -1188,9 +1193,14 @@ export const receiveFromMill = async (req: Request, res: Response, _next: NextFu
     }
   }
 
-  // Calculate shrinkage
+  // BUG-PRT5 fix: Use decimal.js for shrinkage calculation
   const sentMeters = Number(existing.qtySentMeters);
-  const actualShrinkage = sentMeters > 0 ? ((sentMeters - actualMeters) / sentMeters) * 100 : 0;
+  const actualShrinkage =
+    sentMeters > 0
+      ? toNumber(
+          divideCurrency(multiplyCurrency(toCurrency(sentMeters).minus(toCurrency(actualMeters)), 100), sentMeters)
+        )
+      : 0;
 
   // Calculate width variance
   const widthVariance = receivedWidthInches - Number(existing.sentWidthInches);
@@ -1302,9 +1312,10 @@ export const updateStock = async (req: Request, res: Response, _next: NextFuncti
   const receivedWidth = Number(existing.receivedWidthInches || existing.sentWidthInches);
   const cutableWidth = receivedWidth > 2 ? receivedWidth - 2 : receivedWidth;
 
-  const processingRate = Number(existing.actualRate || existing.agreedRatePerMeter);
-  const sourceCost = existing.fabricStockLot?.purchaseCost ? Number(existing.fabricStockLot.purchaseCost) : 0;
-  const totalCostPerMeter = processingRate + sourceCost;
+  // BUG-PRT5 fix: Use decimal.js for cost calculations
+  const processingRate = toCurrency(existing.actualRate || existing.agreedRatePerMeter);
+  const sourceCost = toCurrency(existing.fabricStockLot?.purchaseCost);
+  const totalCostPerMeter = toNumber(addCurrency(processingRate, sourceCost));
 
   const qualityGrade = existing.qualityGrade === 'Reject' ? 'B' : existing.qualityGrade || 'A';
 
@@ -1347,8 +1358,9 @@ export const updateStock = async (req: Request, res: Response, _next: NextFuncti
         status: 'AVAILABLE',
         stockType: 'PLANNED_STOCK',
         fabricFinishType: 'PRINTED',
-        weightedAvgCost: new Prisma.Decimal(totalCostPerMeter * 0.5),
-        purchaseCost: new Prisma.Decimal(totalCostPerMeter * 0.5),
+        // BUG-PRT5 fix: Use decimal.js for defect cost calculation
+        weightedAvgCost: new Prisma.Decimal(toNumber(multiplyCurrency(totalCostPerMeter, 0.5))),
+        purchaseCost: new Prisma.Decimal(toNumber(multiplyCurrency(totalCostPerMeter, 0.5))),
         qualityGrade: 'B',
         defectMeters: new Prisma.Decimal(defectMeters),
         receivedDate: existing.receivedDate || new Date(),
@@ -1797,8 +1809,8 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     // Generate PO number
     const poNumber = await generateUnifiedPONumber();
 
-    // Calculate totals
-    const totalAmount = qtySentMeters * agreedRatePerMeter;
+    // BUG-PRT5 fix: Use decimal.js for total amount calculation
+    const totalAmount = toNumber(multiplyCurrency(qtySentMeters, agreedRatePerMeter));
 
     // Create purchase order
     const poId = randomUUID();
@@ -2352,9 +2364,14 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
     }
   }
 
-  // Calculate shrinkage
+  // BUG-PRT5 fix: Use decimal.js for shrinkage calculation
   const sentMeters = Number(job.qtySentMeters);
-  const actualShrinkage = sentMeters > 0 ? ((sentMeters - actualMeters) / sentMeters) * 100 : 0;
+  const actualShrinkage =
+    sentMeters > 0
+      ? toNumber(
+          divideCurrency(multiplyCurrency(toCurrency(sentMeters).minus(toCurrency(actualMeters)), 100), sentMeters)
+        )
+      : 0;
 
   // Calculate width variance
   const widthVariance = receivedWidthInches - Number(job.sentWidthInches);
@@ -2536,14 +2553,13 @@ export const updateStockProcessPO = async (req: Request, res: Response, _next: N
   const receivedWidth = Number(job.receivedWidthInches || job.sentWidthInches);
   const cutableWidth = receivedWidth > 2 ? receivedWidth - 2 : receivedWidth;
 
-  const processingRate = Number(job.actualRate || job.agreedRatePerMeter);
+  // BUG-PRT5 fix: Use decimal.js for cost calculations
+  const processingRate = toCurrency(job.actualRate || job.agreedRatePerMeter);
   // Use greige stock cost if available, fall back to fabric stock cost
   const sourceCost = job.greigeStockLot?.purchaseCost
-    ? Number(job.greigeStockLot.purchaseCost)
-    : job.fabricStockLot?.purchaseCost
-      ? Number(job.fabricStockLot.purchaseCost)
-      : 0;
-  const totalCostPerMeter = processingRate + sourceCost;
+    ? toCurrency(job.greigeStockLot.purchaseCost)
+    : toCurrency(job.fabricStockLot?.purchaseCost);
+  const totalCostPerMeter = toNumber(addCurrency(processingRate, sourceCost));
 
   const qualityGrade = job.qualityGrade === 'Reject' ? 'B' : job.qualityGrade || 'A';
 
@@ -2570,6 +2586,16 @@ export const updateStockProcessPO = async (req: Request, res: Response, _next: N
     },
   });
 
+  // BUG-INV3 fix: Sync stock_levels when receiving processed fabric from mill
+  try {
+    const materialId = await ensureMaterialRecord(job.finishedFabricId, 'FABRIC');
+    await syncStockLevelQuantity(materialId, goodQty, undefined, 'METER');
+    logger.info(`[receiveProcessPO] Synced stock_levels for fabric ${job.finishedFabricId}, qty: ${goodQty}`);
+  } catch (syncErr) {
+    logger.error('[receiveProcessPO] Failed to sync stock_levels:', syncErr);
+    // Don't throw - fabric_stock was created successfully, stock_levels sync is secondary
+  }
+
   const defectMetersNum = Number(job.defectMeters || 0);
   let defectStockId: string | null = null;
   if (defectMetersNum > 0 && qualityGrade !== 'B') {
@@ -2586,8 +2612,9 @@ export const updateStockProcessPO = async (req: Request, res: Response, _next: N
         status: 'AVAILABLE',
         stockType: 'PLANNED_STOCK',
         fabricFinishType: 'PRINTED',
-        weightedAvgCost: new Prisma.Decimal(totalCostPerMeter * 0.5),
-        purchaseCost: new Prisma.Decimal(totalCostPerMeter * 0.5),
+        // BUG-PRT5 fix: Use decimal.js for defect cost calculation
+        weightedAvgCost: new Prisma.Decimal(toNumber(multiplyCurrency(totalCostPerMeter, 0.5))),
+        purchaseCost: new Prisma.Decimal(toNumber(multiplyCurrency(totalCostPerMeter, 0.5))),
         qualityGrade: 'B',
         defectMeters: new Prisma.Decimal(defectMetersNum),
         receivedDate: job.receivedDate || new Date(),
@@ -2596,6 +2623,15 @@ export const updateStockProcessPO = async (req: Request, res: Response, _next: N
       },
     });
     defectStockId = defectStock.id;
+
+    // BUG-INV3 fix: Also sync stock_levels for defect stock
+    try {
+      const materialId = await ensureMaterialRecord(job.finishedFabricId, 'FABRIC');
+      await syncStockLevelQuantity(materialId, defectMetersNum, undefined, 'METER');
+      logger.info(`[receiveProcessPO] Synced stock_levels for defect fabric, qty: ${defectMetersNum}`);
+    } catch (syncErr) {
+      logger.error('[receiveProcessPO] Failed to sync defect stock_levels:', syncErr);
+    }
   }
 
   // Update job status to STOCK_UPDATED

@@ -11,9 +11,10 @@ import { z } from 'zod';
 // Column Config Schema
 // ============================================================================
 
+// BUG-ET2/ET3 fix: schema used field/header but frontend uses fieldName/displayName
 const ColumnConfigItemSchema = z.object({
-  field: z.string().min(1).max(100),
-  header: z.string().max(100).optional(),
+  fieldName: z.string().min(1).max(100),
+  displayName: z.string().max(100).optional(),
   width: z.number().positive().optional(),
   format: z.string().max(50).optional(),
   sortOrder: z.number().int().nonnegative().optional(),
@@ -50,9 +51,10 @@ export const updateTemplateSchema = z.object({
 /**
  * Query Templates
  * GET /api/templates
+ * BUG-ET10 fix: module is REQUIRED in schema (not just controller) for consistent validation
  */
 export const templateQuerySchema = z.object({
-  module: z.string().max(100).optional(),
+  module: z.string().min(1, 'Module name is required').max(100),
 });
 
 // ============================================================================

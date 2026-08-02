@@ -670,7 +670,9 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
               cadWastagePercent: costingCad.cadWastagePercent,
               markerEfficiency: costingCad.markerEfficiency,
               // RAW_MATERIAL_CALCULATION purpose
+              // BUG-FC7 fix: sync purpose fields - always set both purpose and purposeEnum together
               purpose: 'RAW_MATERIAL_CALCULATION',
+              purposeEnum: 'RAW_MATERIAL_CALCULATION' as any,
               // Link to order - these fields use @map in schema
               clonedFromOrderId: id,
               clonedFromCadId: costingCad.id,

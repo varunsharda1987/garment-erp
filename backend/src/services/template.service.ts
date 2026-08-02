@@ -1,6 +1,7 @@
 // Template Service - Manages export templates
 import prisma from '../config/database';
 import { ExportColumn } from './export.service';
+import { NotFoundError } from '../errors';
 
 export interface CreateTemplateDTO {
   moduleName: string;
@@ -129,8 +130,9 @@ class TemplateService {
   async updateTemplate(id: string, data: UpdateTemplateDTO) {
     const template = await prisma.export_templates.findUnique({ where: { id } });
 
+    // BUG-ET7 fix: Use NotFoundError for proper 404 status instead of generic Error
     if (!template) {
-      throw new Error('Template not found');
+      throw new NotFoundError('Template', id);
     }
 
     // If setting as default, unset other default templates for this module
@@ -188,8 +190,9 @@ class TemplateService {
    * Get all available modules (hardcoded list based on our system)
    */
   getAvailableModules() {
+    // BUG-ET4 fix: Only modules with fetchModuleData() handlers in export.controller.ts should be listed here.
+    // 'users' was removed because it's not implemented in export controller (would throw "Module not supported").
     return [
-      { value: 'users', label: 'Users' },
       { value: 'customers', label: 'Customers' },
       { value: 'suppliers', label: 'Suppliers' },
       { value: 'materials', label: 'Materials' },

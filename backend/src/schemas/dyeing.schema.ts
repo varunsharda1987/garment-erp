@@ -392,7 +392,9 @@ export const processPoActionSchema = z
 export const labDipActionSchema = z
   .object({
     approvedSampleNo: z.string().max(50).optional(),
-    colorMatchRating: z.number().min(1).max(5).optional(),
+    // BUG-DYE4 fix: colorMatchRating scale aligned with printing module
+    // Both modules use the same 4-level scale: Excellent, Good, Acceptable, Poor
+    colorMatchRating: z.enum(['Excellent', 'Good', 'Acceptable', 'Poor']).optional(),
     rejectionReason: z.string().max(500).optional(),
     sentToBuyerDate: z.coerce.date().optional(),
     buyerRemarks: z.string().max(500).optional(),

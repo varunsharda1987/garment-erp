@@ -21,6 +21,7 @@ import WeightedAverageCostService from '../services/WeightedAverageCostService';
 import { logInfo, logWarn, logDebug } from '../utils/logger';
 import { NotFoundError, ValidationError } from '../errors';
 import { syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
+import { systemSettingsService } from '../services/system-settings.service';
 import type {
   CreateFabricStockInput,
   UpdateFabricStockInput,
@@ -61,6 +62,9 @@ export const createFabricStock = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
   logInfo('Parsed data:', data);
   logInfo('User ID:', userId);
+
+  // BUG-GR8 fix: Use configurable cutable width deduction from system settings
+  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
 
   // Validate fabric exists
   const fabric = await prisma.fabric_master.findUnique({
@@ -124,7 +128,7 @@ export const createFabricStock = async (req: Request, res: Response) => {
         connect: { id: userId },
       },
       finishedWidth: new Prisma.Decimal(data.width),
-      cutableWidth: new Prisma.Decimal(data.width - 2), // Default cutable = finished - 2
+      cutableWidth: new Prisma.Decimal(data.width - cutableWidthDeduction), // BUG-GR8 fix: configurable deduction
       quantityAvailable: new Prisma.Decimal(data.quantityAvailable),
       quantityReserved: new Prisma.Decimal(0),
       quantityConsumed: new Prisma.Decimal(0),
@@ -1336,6 +1340,20 @@ export const deleteStock = async (req: Request, res: Response) => {
       where: { stockId: id },
     });
     logInfo(`Deleted ${transactionCount} stock transaction(s) for stock ${id}`);
+  }
+
+  // BUG-INV2 fix: Sync stock_levels before deleting fabric_stock
+  // Find the materials record linked to this fabric and decrement stock_levels
+  const material = await prisma.materials.findFirst({
+    where: { fabricId: existingStock.fabricId },
+    select: { id: true },
+  });
+  if (material) {
+    const quantityToRemove = -Number(existingStock.quantityAvailable);
+    await syncStockLevelQuantity(material.id, quantityToRemove);
+    logInfo(`Stock levels synced: removed ${-quantityToRemove}m for material ${material.id}`);
+  } else {
+    logWarn(`No materials record found for fabricId ${existingStock.fabricId} - stock_levels not synced`);
   }
 
   // 8. Perform hard delete of stock

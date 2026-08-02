@@ -360,37 +360,146 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
     logDebug(`Filtered BOM: ${combinedMaterialBOM.length} -> ${validMaterialBOM.length} valid items`);
 
+    // BUG-S3 fix: Validate FK references BEFORE creating BOM records (matching UPDATE path behavior)
+    // Map to store resolved packaging IDs (materialId -> packagingId)
+    const resolvedPackagingIds = new Map<string, string>();
+
+    for (const bom of validMaterialBOM) {
+      if (bom.materialType === 'LABEL' && bom.materialId) {
+        const exists = await this.prisma.label_master.findUnique({
+          where: { id: bom.materialId },
+          select: { id: true },
+        });
+        if (!exists) {
+          throw new ValidationError(`Label with ID "${bom.materialId}" not found. Please select a valid label.`);
+        }
+      }
+      if (bom.materialType === 'PACKAGING' && bom.materialId) {
+        // For PACKAGING, materialId could be:
+        // 1. A direct packagingId (from preset items that are already resolved)
+        // 2. A materials table ID (from manually added items via unified materials)
+
+        // First, check if it's a direct packaging_master ID (preset items)
+        const directPackaging = await this.prisma.packaging_master.findUnique({
+          where: { id: bom.materialId },
+          select: { id: true, packagingName: true },
+        });
+
+        if (directPackaging) {
+          // It's already a resolved packagingId from preset
+          resolvedPackagingIds.set(bom.materialId, directPackaging.id);
+          logDebug(
+            `[CREATE] Packaging already resolved (preset): ${bom.materialId} (${directPackaging.packagingName})`
+          );
+        } else {
+          // Not a direct packaging ID, try to resolve from materials table
+          const material = await this.prisma.materials.findUnique({
+            where: { id: bom.materialId },
+            select: { packagingId: true, name: true },
+          });
+          if (!material?.packagingId) {
+            throw new ValidationError(
+              `Packaging material "${bom.materialId}" not found or has no packaging reference. Please select valid packaging.`
+            );
+          }
+          // Store the resolved packagingId for use when creating the BOM record
+          resolvedPackagingIds.set(bom.materialId, material.packagingId);
+          logDebug(
+            `[CREATE] Resolved packaging from materials: ${bom.materialId} -> ${material.packagingId} (${material.name})`
+          );
+        }
+      }
+      // Validate BUTTON
+      if (bom.materialType === 'BUTTON' && bom.materialId) {
+        const exists = await this.prisma.button_master.findUnique({
+          where: { id: bom.materialId },
+          select: { id: true },
+        });
+        if (!exists) {
+          throw new ValidationError(`Button with ID "${bom.materialId}" not found. Please select a valid button.`);
+        }
+      }
+      // Validate ZIPPER
+      if (bom.materialType === 'ZIPPER' && bom.materialId) {
+        const exists = await this.prisma.zipper_master.findUnique({
+          where: { id: bom.materialId },
+          select: { id: true },
+        });
+        if (!exists) {
+          throw new ValidationError(`Zipper with ID "${bom.materialId}" not found. Please select a valid zipper.`);
+        }
+      }
+      // Validate ELASTIC
+      if (bom.materialType === 'ELASTIC' && bom.materialId) {
+        const exists = await this.prisma.elastic_master.findUnique({
+          where: { id: bom.materialId },
+          select: { id: true },
+        });
+        if (!exists) {
+          throw new ValidationError(`Elastic with ID "${bom.materialId}" not found. Please select a valid elastic.`);
+        }
+      }
+      // Validate LACE
+      if (bom.materialType === 'LACE' && bom.materialId) {
+        const exists = await this.prisma.lace_master.findUnique({
+          where: { id: bom.materialId },
+          select: { id: true },
+        });
+        if (!exists) {
+          throw new ValidationError(`Lace with ID "${bom.materialId}" not found. Please select a valid lace.`);
+        }
+      }
+      // Validate THREAD (if materialId is provided; auto-thread can be null)
+      if (bom.materialType === 'THREAD' && bom.materialId) {
+        const exists = await this.prisma.thread_master.findUnique({
+          where: { id: bom.materialId },
+          select: { id: true },
+        });
+        if (!exists) {
+          throw new ValidationError(`Thread with ID "${bom.materialId}" not found. Please select a valid thread.`);
+        }
+      }
+    }
+
     const materialBomCreate =
       validMaterialBOM.length > 0
         ? {
-            create: validMaterialBOM.map((bom, idx) => ({
-              id: randomUUID(),
-              materialType: bom.materialType,
-              usageCategory: bom.usageCategory || 'GARMENT_TRIM',
-              // Set the appropriate FK based on materialType
-              // Use null if materialId is empty/undefined to avoid FK violations
-              buttonId: bom.materialType === 'BUTTON' && bom.materialId ? bom.materialId : null,
-              threadId: bom.materialType === 'THREAD' && bom.materialId ? bom.materialId : null,
-              zipperId: bom.materialType === 'ZIPPER' && bom.materialId ? bom.materialId : null,
-              elasticId: bom.materialType === 'ELASTIC' && bom.materialId ? bom.materialId : null,
-              laceId: bom.materialType === 'LACE' && bom.materialId ? bom.materialId : null,
-              labelId: bom.materialType === 'LABEL' && bom.materialId ? bom.materialId : null,
-              packagingId: bom.materialType === 'PACKAGING' && bom.materialId ? bom.materialId : null,
-              // Generic trim FK fields (DRAWSTRING, HOOK_EYE, SNAP_BUTTON, etc.)
-              ...buildGenericTrimFkFields(bom.materialType, bom.materialId || null),
-              componentName: bom.componentName || null,
-              quantityPerGarment:
-                Number(bom.quantityPerGarment || 0) > 0
-                  ? parseFloat(String(bom.quantityPerGarment))
-                  : bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING'
-                    ? 1
-                    : 0,
-              unit: bom.unit || Unit.PIECE,
-              unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
-              totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
-              notes: bom.notes || null,
-              sortOrder: idx,
-            })),
+            create: validMaterialBOM.map((bom, idx) => {
+              // For PACKAGING, use the resolved packagingId from the validation step
+              const resolvedPackagingId =
+                bom.materialType === 'PACKAGING' && bom.materialId
+                  ? resolvedPackagingIds.get(bom.materialId) || null
+                  : null;
+
+              return {
+                id: randomUUID(),
+                materialType: bom.materialType,
+                usageCategory: bom.usageCategory || 'GARMENT_TRIM',
+                // Set the appropriate FK based on materialType
+                // Use null if materialId is empty/undefined to avoid FK violations
+                buttonId: bom.materialType === 'BUTTON' && bom.materialId ? bom.materialId : null,
+                threadId: bom.materialType === 'THREAD' && bom.materialId ? bom.materialId : null,
+                zipperId: bom.materialType === 'ZIPPER' && bom.materialId ? bom.materialId : null,
+                elasticId: bom.materialType === 'ELASTIC' && bom.materialId ? bom.materialId : null,
+                laceId: bom.materialType === 'LACE' && bom.materialId ? bom.materialId : null,
+                labelId: bom.materialType === 'LABEL' && bom.materialId ? bom.materialId : null,
+                packagingId: resolvedPackagingId,
+                // Generic trim FK fields (DRAWSTRING, HOOK_EYE, SNAP_BUTTON, etc.)
+                ...buildGenericTrimFkFields(bom.materialType, bom.materialId || null),
+                componentName: bom.componentName || null,
+                quantityPerGarment:
+                  Number(bom.quantityPerGarment || 0) > 0
+                    ? parseFloat(String(bom.quantityPerGarment))
+                    : bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING'
+                      ? 1
+                      : 0,
+                unit: bom.unit || Unit.PIECE,
+                unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
+                totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
+                notes: bom.notes || null,
+                sortOrder: idx,
+              };
+            }),
           }
         : undefined;
 
@@ -1017,6 +1126,58 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       // Fabrics are now ONLY handled via components[].fabrics[] (nested)
       // This prevents duplicate data paths that were overwriting each other
 
+      // Re-link orphaned CAD records to new fabrics (after component replacement)
+      // This ensures CAD planning data is preserved when style components are updated
+      if (data.components !== undefined) {
+        const orphanedCADs = await tx.fabric_width_cad.findMany({
+          where: {
+            costingStyleId: id,
+            styleFabricId: null,
+          },
+          include: { greige: { select: { genericGreigeName: true } } },
+        });
+
+        if (orphanedCADs.length > 0) {
+          const newFabrics = await tx.style_fabrics.findMany({
+            where: { style_components: { styleId: id } },
+            include: { style_components: { select: { componentName: true } } },
+          });
+
+          // Group orphaned CADs by purpose and greige to distribute correctly
+          const cadsByPurpose = new Map<string, typeof orphanedCADs>();
+          for (const cad of orphanedCADs) {
+            const key = `${cad.purpose}_${cad.greige?.genericGreigeName || ''}`;
+            if (!cadsByPurpose.has(key)) cadsByPurpose.set(key, []);
+            cadsByPurpose.get(key)!.push(cad);
+          }
+
+          // Re-link: for each purpose-greige group, distribute CADs across matching fabrics
+          for (const [, cads] of cadsByPurpose) {
+            const sortedCADs = cads.sort((a, b) => Number(a.cadMeters) - Number(b.cadMeters));
+            const genericGreige = cads[0]?.greige?.genericGreigeName?.toLowerCase();
+
+            // Find fabrics matching this greige
+            const matchingFabrics = newFabrics.filter((f) => f.genericGreigeName?.toLowerCase() === genericGreige);
+
+            // Distribute CADs across matching fabrics (round-robin if more CADs than fabrics)
+            for (let i = 0; i < sortedCADs.length; i++) {
+              const cad = sortedCADs[i];
+              const fabric = matchingFabrics[i % matchingFabrics.length];
+              if (fabric) {
+                await tx.fabric_width_cad.update({
+                  where: { id: cad.id },
+                  data: {
+                    styleFabricId: fabric.id,
+                    componentName: fabric.style_components?.componentName || null,
+                  },
+                });
+              }
+            }
+          }
+          logDebug(`[UPDATE] Re-linked ${orphanedCADs.length} orphaned CAD records to new fabrics`);
+        }
+      }
+
       // Handle processes replacement if provided
       if (data.processes !== undefined) {
         await tx.style_processes.deleteMany({
@@ -1220,6 +1381,54 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
               logDebug(
                 `[UPDATE] Resolved packaging from materials: ${bom.materialId} -> ${material.packagingId} (${material.name})`
               );
+            }
+          }
+          // BUG-S3 fix: Validate remaining FK references (matching CREATE path behavior)
+          if (bom.materialType === 'BUTTON' && bom.materialId) {
+            const exists = await tx.button_master.findUnique({
+              where: { id: bom.materialId },
+              select: { id: true },
+            });
+            if (!exists) {
+              throw new ValidationError(`Button with ID "${bom.materialId}" not found. Please select a valid button.`);
+            }
+          }
+          if (bom.materialType === 'ZIPPER' && bom.materialId) {
+            const exists = await tx.zipper_master.findUnique({
+              where: { id: bom.materialId },
+              select: { id: true },
+            });
+            if (!exists) {
+              throw new ValidationError(`Zipper with ID "${bom.materialId}" not found. Please select a valid zipper.`);
+            }
+          }
+          if (bom.materialType === 'ELASTIC' && bom.materialId) {
+            const exists = await tx.elastic_master.findUnique({
+              where: { id: bom.materialId },
+              select: { id: true },
+            });
+            if (!exists) {
+              throw new ValidationError(
+                `Elastic with ID "${bom.materialId}" not found. Please select a valid elastic.`
+              );
+            }
+          }
+          if (bom.materialType === 'LACE' && bom.materialId) {
+            const exists = await tx.lace_master.findUnique({
+              where: { id: bom.materialId },
+              select: { id: true },
+            });
+            if (!exists) {
+              throw new ValidationError(`Lace with ID "${bom.materialId}" not found. Please select a valid lace.`);
+            }
+          }
+          if (bom.materialType === 'THREAD' && bom.materialId) {
+            const exists = await tx.thread_master.findUnique({
+              where: { id: bom.materialId },
+              select: { id: true },
+            });
+            if (!exists) {
+              throw new ValidationError(`Thread with ID "${bom.materialId}" not found. Please select a valid thread.`);
             }
           }
         }
@@ -1771,7 +1980,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     const cadIds = fabricCADMappings.map((m) => m.fabricCADId);
     const cadRecords = await this.prisma.fabric_width_cad.findMany({
       where: { id: { in: cadIds } },
-      select: { id: true, cadAverage: true, patternPartId: true, greigeId: true },
+      // BUG-CS5 FIX: Include fabricId - CAD rows can use either greigeId (greige processing) OR fabricId (ready fabric)
+      select: { id: true, cadAverage: true, patternPartId: true, greigeId: true, fabricId: true },
     });
 
     const cadMap = new Map(cadRecords.map((c) => [c.id, c]));
@@ -1794,11 +2004,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       );
     }
 
-    // Validate all CAD records have a greige/fabric selected
-    const rowsWithoutGreige = cadRecords.filter((c) => !c.greigeId);
-    if (rowsWithoutGreige.length > 0) {
+    // Validate all CAD records have EITHER greige OR fabric selected
+    // BUG-CS5 FIX: Previously only checked greigeId, blocking approval for ready-fabric styles
+    const rowsWithoutFabricSource = cadRecords.filter((c) => !c.greigeId && !c.fabricId);
+    if (rowsWithoutFabricSource.length > 0) {
       throw new ValidationError(
-        `Cannot approve: ${rowsWithoutGreige.length} CAD row(s) are missing a Greige/Fabric selection. Please select a Greige/Fabric for all rows before approving.`
+        `Cannot approve: ${rowsWithoutFabricSource.length} CAD row(s) are missing a Greige/Fabric selection. Please select a Greige or Fabric for all rows before approving.`
       );
     }
 

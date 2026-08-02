@@ -132,9 +132,13 @@ router.post(
   '/default-rate',
   validateBody(getDefaultRateSchema),
   asyncHandler(async (req: Request, res: Response) => {
-    const { hsnCode } = req.body;
+    const { hsnCode, unitPrice } = req.body;
 
-    const defaultRate = gstService.getDefaultGSTRate(hsnCode);
+    // BUG-FIN4 fix: Use async getGSTRate() for database-driven lookup + price slab
+    const defaultRate = await gstService.getGSTRate({
+      hsnSacCode: hsnCode,
+      unitPrice: unitPrice || undefined,
+    });
 
     res.json({
       success: true,

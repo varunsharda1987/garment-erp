@@ -147,7 +147,7 @@ export async function convertUnitsToAll(
   }
 
   const spec = await getPackagingSpec(ply, packagingType);
-  const totalBoxes = units / spec.unitsPerBox;
+  const totalBoxes = spec.unitsPerBox > 0 ? units / spec.unitsPerBox : 0;
   const totalMeters = units * spec.metersPerUnit;
 
   return {
@@ -179,8 +179,8 @@ export async function convertMetersToAll(
   }
 
   const spec = await getPackagingSpec(ply, packagingType);
-  const totalUnits = meters / spec.metersPerUnit;
-  const totalBoxes = totalUnits / spec.unitsPerBox;
+  const totalUnits = spec.metersPerUnit > 0 ? meters / spec.metersPerUnit : 0;
+  const totalBoxes = spec.unitsPerBox > 0 ? totalUnits / spec.unitsPerBox : 0;
 
   return {
     totalUnits,

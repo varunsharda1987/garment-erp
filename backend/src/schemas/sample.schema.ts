@@ -248,7 +248,7 @@ export const sampleQuerySchema = z.object({
   toDate: z.coerce.date().optional(),
   pendingApproval: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
 });
 

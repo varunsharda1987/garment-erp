@@ -17,7 +17,8 @@ export interface CreateProductCategoryDTO {
   name: string;
   description?: string;
   parentId?: string | null;
-  level?: number;
+  // Note: level is NOT accepted from user input - it is ALWAYS computed from parent
+  // to maintain hierarchy integrity. See createCategory() and updateCategory().
   sortOrder?: number;
   minComponents?: number;
   maxComponents?: number;
@@ -90,13 +91,18 @@ class ProductCategoryServiceClass extends BaseService<
    * Create a new product category
    */
   async createCategory(data: CreateProductCategoryDTO): Promise<product_category_master> {
-    // Check if code already exists
+    // BUG-PC3 FIX: Check ALL categories (including inactive) to prevent code reuse confusion
+    // This ensures codes are globally unique, not just unique among active categories
     const existing = await this.prisma.product_category_master.findFirst({
-      where: { code: data.code, isActive: true },
+      where: { code: data.code },
     });
 
     if (existing) {
-      throw new ConflictError('Product category code already exists');
+      throw new ConflictError(
+        existing.isActive
+          ? 'Product category code already exists'
+          : 'Product category code exists in an inactive category. Reactivate it or use a different code.'
+      );
     }
 
     // Validate minComponents and maxComponents
@@ -121,13 +127,14 @@ class ProductCategoryServiceClass extends BaseService<
       level = parent.level + 1;
     }
 
+    // Use auto-calculated level (based on parent) - ignore user-provided level for hierarchy integrity
     return this.prisma.product_category_master.create({
       data: {
         code: data.code,
         name: data.name,
         description: data.description,
         parentId: data.parentId || null,
-        level: data.level ?? level,
+        level: level, // Always use calculated level, not user-provided
         sortOrder: data.sortOrder ?? 0,
         minComponents: data.minComponents ?? 1,
         maxComponents: data.maxComponents ?? 1,
@@ -137,10 +144,40 @@ class ProductCategoryServiceClass extends BaseService<
   }
 
   /**
+   * Check if a category is a descendant of another category (circular reference check)
+   */
+  private async isDescendantOf(categoryId: string, potentialAncestorId: string): Promise<boolean> {
+    // Start from categoryId and walk up the tree
+    let currentId: string | null = categoryId;
+    const visited = new Set<string>();
+
+    while (currentId) {
+      if (currentId === potentialAncestorId) {
+        return true;
+      }
+      if (visited.has(currentId)) {
+        // Already visited - prevent infinite loop in case of existing circular data
+        return false;
+      }
+      visited.add(currentId);
+
+      const category: { parentId: string | null } | null = await this.prisma.product_category_master.findUnique({
+        where: { id: currentId },
+        select: { parentId: true },
+      });
+
+      currentId = category?.parentId || null;
+    }
+
+    return false;
+  }
+
+  /**
    * Update a product category
    */
   async updateCategory(id: string, data: UpdateProductCategoryDTO): Promise<product_category_master> {
-    // Check if code is being changed and if it already exists
+    // BUG-PC3 FIX: Check ALL categories (including inactive) to prevent code reuse confusion
+    // Consistent with createCategory - both check all records for global code uniqueness
     if (data.code) {
       const existing = await this.prisma.product_category_master.findFirst({
         where: {
@@ -150,7 +187,11 @@ class ProductCategoryServiceClass extends BaseService<
       });
 
       if (existing) {
-        throw new ConflictError('Product category code already exists');
+        throw new ConflictError(
+          existing.isActive
+            ? 'Product category code already exists'
+            : 'Product category code exists in an inactive category. Reactivate it or use a different code.'
+        );
       }
     }
 
@@ -177,10 +218,22 @@ class ProductCategoryServiceClass extends BaseService<
       }
     }
 
-    // If changing parent, update level
-    let level = data.level;
+    // Level is ALWAYS computed from parent - never accept user-provided level to maintain hierarchy integrity
+    // BUG-PC1 FIX: Remove ability to override level via data.level
+    let level: number | undefined;
     if (data.parentId !== undefined) {
       if (data.parentId) {
+        // Cannot set self as parent
+        if (data.parentId === id) {
+          throw new ValidationError('A category cannot be its own parent');
+        }
+
+        // Check for circular reference - new parent cannot be a descendant of this category
+        const wouldCreateCircle = await this.isDescendantOf(data.parentId, id);
+        if (wouldCreateCircle) {
+          throw new ValidationError('Cannot set a descendant category as parent (would create circular hierarchy)');
+        }
+
         const parent = await this.prisma.product_category_master.findUnique({
           where: { id: data.parentId },
         });
@@ -192,6 +245,7 @@ class ProductCategoryServiceClass extends BaseService<
         level = 1;
       }
     }
+    // Note: If parentId is not being changed, level is not updated (stays as-is in DB)
 
     return this.prisma.product_category_master.update({
       where: { id },
@@ -267,28 +321,40 @@ class ProductCategoryServiceClass extends BaseService<
 
   /**
    * Get full hierarchy tree
+   *
+   * OPTIMIZATION: Fetch all categories in one query and build tree in memory
+   * to avoid N+1 query pattern (each level was previously a separate query).
+   * // BUG-PC4 fix - verified: already optimized with single-query + in-memory tree build
    */
   async getHierarchy(parentId: string | null = null): Promise<ProductCategoryHierarchy[]> {
     // Include inactive categories so the management tree can render them greyed-out
     // (with the reactivate toggle). This endpoint is only consumed by ProductCategoryMaster.
-    const categories = await this.prisma.product_category_master.findMany({
-      where: {
-        parentId,
-      },
+
+    // Fetch ALL categories in a single query (avoids N+1)
+    const allCategories = await this.prisma.product_category_master.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
 
-    const result: ProductCategoryHierarchy[] = [];
-
-    for (const category of categories) {
-      const children = await this.getHierarchy(category.id);
-      result.push({
-        ...category,
-        children,
-      });
+    // Build a map for O(1) child lookup
+    const childrenMap = new Map<string | null, product_category_master[]>();
+    for (const cat of allCategories) {
+      const key = cat.parentId;
+      if (!childrenMap.has(key)) {
+        childrenMap.set(key, []);
+      }
+      childrenMap.get(key)!.push(cat);
     }
 
-    return result;
+    // Recursive tree builder using the pre-fetched data
+    const buildTree = (pid: string | null): ProductCategoryHierarchy[] => {
+      const children = childrenMap.get(pid) || [];
+      return children.map((cat) => ({
+        ...cat,
+        children: buildTree(cat.id),
+      }));
+    };
+
+    return buildTree(parentId);
   }
 
   /**

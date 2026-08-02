@@ -158,12 +158,31 @@ class GarmentPhysicalTestsService {
       }
     }
 
+    if (receivedDateFrom || receivedDateTo) {
+      where.testResultReceivedDate = {};
+      if (receivedDateFrom) {
+        where.testResultReceivedDate.gte = new Date(receivedDateFrom);
+      }
+      if (receivedDateTo) {
+        where.testResultReceivedDate.lte = new Date(receivedDateTo);
+      }
+    }
+
     if (pendingApproval) {
-      where.AND = [{ overallTestResult: 'FAIL' }, { approvedById: null }, { adminOverride: false }];
+      where.AND = where.AND
+        ? [
+            ...(where.AND as Array<object>),
+            { overallTestResult: 'FAIL' },
+            { approvedById: null },
+            { adminOverride: false },
+          ]
+        : [{ overallTestResult: 'FAIL' }, { approvedById: null }, { adminOverride: false }];
     }
 
     if (pendingBuyerApproval) {
-      where.AND = [{ buyerApprovalRequired: true }, { buyerApprovedDate: null }];
+      where.AND = where.AND
+        ? [...(where.AND as Array<object>), { buyerApprovalRequired: true }, { buyerApprovedDate: null }]
+        : [{ buyerApprovalRequired: true }, { buyerApprovedDate: null }];
     }
 
     if (isRetest !== undefined) {

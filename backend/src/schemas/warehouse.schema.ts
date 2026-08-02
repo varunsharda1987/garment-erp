@@ -76,7 +76,7 @@ export const warehouseQuerySchema = z.object({
   warehouseType: WarehouseTypeEnum.optional(),
   isActive: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
   search: z.string().max(100).optional(),
 });

@@ -16,7 +16,16 @@ export interface PatternPartGroupResponse {
   name: string;
 }
 
+// BUG-PP6 fix: Type alias to document the Date/string duality.
+// Prisma returns Date objects, but JSON.stringify (in response serialization)
+// converts them to ISO-8601 strings. Frontend should treat these as strings.
+// Using this alias makes the intent explicit and searchable.
+type DateOrISOString = Date | string;
+
 // Response type
+// BUG-PP6 fix: createdAt/updatedAt use DateOrISOString to document the Prisma Date
+// vs JSON-serialized ISO string duality. Service layer receives Date, API consumers
+// receive string after serialization.
 export interface PatternPartResponse {
   id: string;
   code: string;
@@ -24,8 +33,8 @@ export interface PatternPartResponse {
   description: string | null;
   sortOrder: number;
   isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: DateOrISOString;
+  updatedAt: DateOrISOString;
   _count?: {
     componentPatternParts: number;
   };
@@ -33,6 +42,9 @@ export interface PatternPartResponse {
 }
 
 // Component Pattern Part Response
+// BUG-PP6 fix: createdAt/updatedAt use DateOrISOString to document the Prisma Date
+// vs JSON-serialized ISO string duality. Service layer receives Date, API consumers
+// receive string after serialization.
 export interface ComponentPatternPartResponse {
   id: string;
   componentId: string;
@@ -40,8 +52,8 @@ export interface ComponentPatternPartResponse {
   quantity: number;
   isRequired: boolean;
   notes: string | null;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: DateOrISOString;
+  updatedAt: DateOrISOString;
   patternPart?: PatternPartResponse;
 }
 

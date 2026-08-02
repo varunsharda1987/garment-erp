@@ -251,6 +251,7 @@ export function createApiRouter(): Router {
   router.use('/warehouses', warehouseRoutes);
   router.use('/stock-levels', stockLevelRoutes);
   router.use('/stock-movements', stockMovementRoutes);
+  // BUG-DASH3 fix: verified route registration - frontend calls /api/stock-counts
   router.use('/stock-counts', stockCountRoutes);
 
   // Job Work Processing

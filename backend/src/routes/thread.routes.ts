@@ -20,6 +20,7 @@ import {
   bulkImportThreadSchema,
   trimMasterQuerySchema,
   trimMasterIdParamSchema,
+  threadMasterStockQuerySchema,
 } from '../schemas/trimMasters.schema';
 
 const router = Router();
@@ -43,14 +44,20 @@ router.get('/template', asyncHandler(downloadTemplate));
  * @desc    Convert thread quantities (boxes ↔ units ↔ meters)
  * @access  Private
  */
-router.post('/convert', validateBody(convertThreadSchema), threadConversionController.convertThreadQuantity);
+// BUG-INV9 fix: added asyncHandler
+router.post(
+  '/convert',
+  validateBody(convertThreadSchema),
+  asyncHandler(threadConversionController.convertThreadQuantity)
+);
 
 /**
  * @route   GET /api/materials/thread/packaging-specs
  * @desc    Get all packaging specifications
  * @access  Private
  */
-router.get('/packaging-specs', threadConversionController.getPackagingSpecs);
+// BUG-INV9 fix: added asyncHandler
+router.get('/packaging-specs', asyncHandler(threadConversionController.getPackagingSpecs));
 
 /**
  * @route   POST /api/materials/thread/bulk-import
@@ -64,8 +71,14 @@ router.post('/bulk-import', validateBody(bulkImportThreadSchema), asyncHandler(b
  * @desc    Get thread stock information
  * @access  Private
  * @query   requiredUnits, warehouseId
+ * BUG-TH5 FIX: Added validateQuery to prevent parseFloat("abc") → NaN
  */
-router.get('/:id/stock', validateParams(trimMasterIdParamSchema), asyncHandler(getThreadStock));
+router.get(
+  '/:id/stock',
+  validateParams(trimMasterIdParamSchema),
+  validateQuery(threadMasterStockQuerySchema),
+  asyncHandler(getThreadStock)
+);
 
 // ============================================
 // COLLECTION ROUTES (generic, no params)

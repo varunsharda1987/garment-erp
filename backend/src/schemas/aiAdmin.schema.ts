@@ -30,9 +30,29 @@ export const updateRagConfigSchema = z.object({
   minSimilarity: z.number().min(0).max(1).optional(),
 });
 
+/**
+ * Delete Documents by Type
+ * DELETE /api/ai-admin/documents/:type
+ * BUG-ADM4 fix: require explicit confirmation for dangerous delete operation
+ */
+export const deleteDocumentsSchema = z.object({
+  confirmDelete: z.literal(true, { message: 'Must confirm delete by setting confirmDelete to true' }),
+});
+
+/**
+ * Full Reindex
+ * POST /api/ai-admin/index/all
+ * BUG-ADM4 fix: require explicit confirmation for potentially disruptive reindex
+ */
+export const fullReindexSchema = z.object({
+  confirmReindex: z.literal(true, { message: 'Must confirm full reindex by setting confirmReindex to true' }),
+});
+
 // ============================================================================
 // Type Exports
 // ============================================================================
 
 export type SearchDocumentsInput = z.infer<typeof searchDocumentsSchema>;
 export type UpdateRagConfigInput = z.infer<typeof updateRagConfigSchema>;
+export type DeleteDocumentsInput = z.infer<typeof deleteDocumentsSchema>;
+export type FullReindexInput = z.infer<typeof fullReindexSchema>;

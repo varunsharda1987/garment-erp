@@ -27,11 +27,11 @@ export const createColor = async (req: Request, res: Response): Promise<void> =>
  * GET /api/colors
  */
 export const getAllColors = async (req: Request, res: Response): Promise<void> => {
-  const query = req.query as unknown as ColorQueryInput;
+  const query = ((req as any).validatedQuery ?? req.query) as ColorQueryInput;
 
   const result = await ColorService.getAllColors({
     page: Number(query.page) || 1,
-    limit: Number(query.limit) || 10,
+    limit: Math.max(1, Number(query.limit) || 10),
     search: query.search,
     sortBy: query.sortBy,
     sortOrder: query.sortOrder,
@@ -118,14 +118,11 @@ export const getColorFamilies = async (_req: Request, res: Response): Promise<vo
 /**
  * Bulk import colors
  * POST /api/colors/bulk-import
+ * BUG-COL3 Fix: Removed dead validation - route middleware already validates via colorBulkImportSchema
  */
 export const bulkImportColors = async (req: Request, res: Response): Promise<void> => {
   const { colors } = req.body;
-
-  if (!colors || !Array.isArray(colors) || colors.length === 0) {
-    throw new ValidationError('Colors array is required and must not be empty');
-  }
-
+  // Validation is handled by validateBody(colorBulkImportSchema) middleware in routes
   const result = await ColorService.bulkImport(colors);
 
   res.json({

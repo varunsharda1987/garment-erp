@@ -1,58 +1,19 @@
 /**
  * Season Master Controller
  * Handles HTTP requests for season master operations
+ * BUG-SEA5 Fix: Removed duplicate type definitions, now imports from schema
  */
 
 import { Request, Response } from 'express';
 import { SeasonService } from '../services/season.service';
-import { NotFoundError, ConflictError, ValidationError } from '../errors';
-import type { SeasonType } from '../types/season.types';
 import { SEASON_TYPES, SEASON_TYPE_NAMES } from '../types/season.types';
-
-/**
- * Query input types
- */
-interface SeasonQueryInput {
-  page?: string;
-  limit?: string;
-  search?: string;
-  year?: string;
-  seasonType?: SeasonType;
-  isActive?: string;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
-interface SeasonSearchInput {
-  search?: string;
-  year?: string;
-  seasonType?: SeasonType;
-  limit?: string | number;
-}
-
-interface CreateSeasonInput {
-  code: string;
-  name: string;
-  year: number;
-  seasonType: SeasonType;
-  sortOrder?: number;
-  isActive?: boolean;
-}
-
-interface UpdateSeasonInput {
-  code?: string;
-  name?: string;
-  year?: number;
-  seasonType?: SeasonType;
-  sortOrder?: number;
-  isActive?: boolean;
-}
-
-interface GenerateSeasonsInput {
-  startYear: number;
-  endYear: number;
-  seasonTypes?: SeasonType[];
-}
+import type {
+  CreateSeasonInput,
+  UpdateSeasonInput,
+  GenerateSeasonsInput,
+  SeasonQueryInput,
+  SeasonSearchInput,
+} from '../schemas/season.schema';
 
 /**
  * Create new season
@@ -73,17 +34,18 @@ export const createSeason = async (req: Request, res: Response): Promise<void> =
  * GET /api/seasons
  */
 export const getAllSeasons = async (req: Request, res: Response): Promise<void> => {
-  const query = req.query as unknown as SeasonQueryInput;
+  // Use validatedQuery (transformed values) or fallback to raw query
+  const query = ((req as any).validatedQuery ?? req.query) as SeasonQueryInput;
 
   const result = await SeasonService.getAllSeasons({
-    page: Number(query.page) || 1,
-    limit: Number(query.limit) || 50,
+    page: query.page || 1,
+    limit: query.limit || 50,
     search: query.search,
-    sortBy: query.sortBy,
-    sortOrder: query.sortOrder,
-    year: query.year ? Number(query.year) : undefined,
+    sortBy: query.sortBy as string | undefined,
+    sortOrder: query.sortOrder as 'asc' | 'desc' | undefined,
+    year: query.year,
     seasonType: query.seasonType,
-    isActive: query.isActive !== undefined ? String(query.isActive) === 'true' : undefined,
+    isActive: query.isActive,
   });
 
   res.json({
@@ -138,12 +100,13 @@ export const deleteSeason = async (req: Request, res: Response): Promise<void> =
  * GET /api/seasons/search
  */
 export const searchSeasons = async (req: Request, res: Response): Promise<void> => {
-  const query = req.query as unknown as SeasonSearchInput;
+  // Use validatedQuery (transformed values) or fallback to raw query
+  const query = ((req as any).validatedQuery ?? req.query) as SeasonSearchInput;
   const seasons = await SeasonService.searchSeasons({
     search: query.search,
-    year: query.year ? Number(query.year) : undefined,
+    year: query.year,
     seasonType: query.seasonType,
-    limit: query.limit ? Number(query.limit) : 50,
+    limit: query.limit || 50,
   });
 
   res.json({
@@ -169,21 +132,14 @@ export const getSeasonTypes = async (_req: Request, res: Response): Promise<void
 /**
  * Generate seasons for year range
  * POST /api/seasons/generate
+ * BUG-SEA6 Fix: Removed redundant manual validation - Zod schema handles all validation
  */
 export const generateSeasons = async (req: Request, res: Response): Promise<void> => {
   const data: GenerateSeasonsInput = req.body;
-
-  if (!data.startYear || !data.endYear) {
-    throw new ValidationError('startYear and endYear are required');
-  }
-
-  if (data.startYear > data.endYear) {
-    throw new ValidationError('startYear must be less than or equal to endYear');
-  }
-
-  if (data.endYear - data.startYear > 20) {
-    throw new ValidationError('Year range cannot exceed 20 years');
-  }
+  // Validation is handled by validateBody(generateSeasonsSchema) middleware in routes:
+  // - startYear and endYear are required (z.number())
+  // - endYear >= startYear (.refine)
+  // - Year range <= 20 years (.refine)
 
   const result = await SeasonService.generateSeasons(data);
 

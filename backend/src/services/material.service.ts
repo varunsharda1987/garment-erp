@@ -382,10 +382,14 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
     }
 
     // Build update data
+    // Note: Use Prisma relation pattern for categoryId
+    // If categoryId is explicitly provided, connect to new category; if undefined, don't change
     const updateData: Prisma.materialsUpdateInput = {
       code: data.code,
       name: data.name,
-      material_categories: data.categoryId ? { connect: { id: data.categoryId } } : undefined,
+      ...(data.categoryId !== undefined && {
+        material_categories: data.categoryId ? { connect: { id: data.categoryId } } : undefined,
+      }),
       description: data.description,
       specifications: data.specifications,
       unit: data.unit,
@@ -798,7 +802,8 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       return existing.id;
     }
 
-    // Create the category (with race-condition handling)
+    // BUG-MM8 fix: Race-safe category creation for high-concurrency bulk imports.
+    // Uses catch-P2002-and-retry pattern to handle concurrent creates of the same category.
     try {
       const category = await client.material_categories.create({
         data: {
@@ -814,6 +819,7 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
       logInfo(`Auto-created material category for ${type}`, { id: category.id });
       return category.id;
     } catch (err: any) {
+      // P2002 = unique constraint violation (another process created it first)
       if (err?.code === 'P2002') {
         const justCreated = await client.material_categories.findFirst({
           where: { OR: [{ id }, { name }] },

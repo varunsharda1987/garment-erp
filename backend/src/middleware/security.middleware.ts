@@ -20,6 +20,27 @@ export const generalLimiter = rateLimit({
  * Development: 100 login/register attempts per 15 minutes per IP (for E2E testing)
  * Production: 5 login/register attempts per 15 minutes per IP
  * Only counts failed attempts (skipSuccessfulRequests: true)
+ *
+ * BUG-AUTH11 fix: ARCHITECTURE LIMITATION - Per-Account Rate Limiting Not Implemented
+ * ==================================================================================
+ * Current behavior: Rate limiting is IP-based ONLY. This protects against brute force
+ * from a single IP, but does NOT protect against distributed attacks where an attacker
+ * uses multiple IPs to target a single account.
+ *
+ * Vulnerability: Attacker with 1000 IPs x 5 attempts each = 5000 attempts on one account
+ *
+ * To properly implement per-account rate limiting would require:
+ * 1. Add to `users` table: failedLoginAttempts (Int), lockedUntil (DateTime?), lastFailedLogin (DateTime?)
+ * 2. In auth.controller.ts login():
+ *    - Check if account is locked (lockedUntil > now) BEFORE password check
+ *    - On failed login: increment failedLoginAttempts, set lastFailedLogin
+ *    - If failedLoginAttempts >= threshold: set lockedUntil = now + lockout duration
+ *    - On successful login: reset failedLoginAttempts to 0, clear lockedUntil
+ * 3. Add admin endpoint to unlock accounts manually
+ * 4. Optional: progressive backoff (longer lockouts for repeated lockouts)
+ *
+ * Risk assessment: LOW for this internal LAN app (attackers need network access).
+ * Higher priority for internet-facing deployments.
  */
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes

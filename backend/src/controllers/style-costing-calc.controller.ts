@@ -4,6 +4,7 @@ import { logInfo, logWarn } from '../utils/logger';
 import { costingService } from '../services/costing.service';
 import { FabricDetail, TrimDetail, EmbroideryDetail, AccessoryDetail } from './style-costing.utils';
 import { UnauthorizedError, NotFoundError, ValidationError } from '../errors';
+import { multiplyCurrency, addCurrency, toNumber, toCurrency, Decimal } from '../utils/currency'; // BUG-SMP5 fix
 
 // ============================================================================
 // CALCULATION OPERATIONS
@@ -125,9 +126,9 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
     logWarn(`Cost sheet already exists for style ${styleId}, returning preview only`);
   }
 
-  // Fetch COSTING CAD data directly from fabric_width_cad by costingStyleId
-  // This is where Fabric Costing saves data (not through styleFabricId)
-  const costingCadRows = await prisma.fabric_width_cad.findMany({
+  // Fetch CAD data directly from fabric_width_cad by costingStyleId
+  // Priority: COSTING > RAW_MATERIAL_CALCULATION (fallback if COSTING doesn't exist)
+  let costingCadRows = await prisma.fabric_width_cad.findMany({
     where: {
       costingStyleId: styleId,
       purpose: 'COSTING',
@@ -139,8 +140,29 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
     orderBy: { updatedAt: 'desc' },
   });
 
+  // Fallback to RAW_MATERIAL_CALCULATION if no COSTING CAD exists
+  // This allows cost sheet to work when only RM CAD is available
+  if (costingCadRows.length === 0) {
+    costingCadRows = await prisma.fabric_width_cad.findMany({
+      where: {
+        costingStyleId: styleId,
+        purpose: 'RAW_MATERIAL_CALCULATION',
+        approvalStatus: 'APPROVED', // Only use approved RM CAD
+      },
+      include: {
+        fabric: { select: { fabricName: true } },
+        greige: { select: { greigeName: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    if (costingCadRows.length > 0) {
+      logInfo(`Using RAW_MATERIAL_CALCULATION CAD as fallback for cost sheet (styleId: ${styleId})`);
+    }
+  }
+
   // Calculate fabric costs from COSTING CAD rows
-  let totalFabricCost = 0;
+  // BUG-SMP5 fix: use decimal.js for aggregation
+  let totalFabricCostDec = new Decimal(0);
   const fabricDetails: FabricDetail[] = [];
 
   // Group by componentName to avoid duplicates (take latest per component)
@@ -176,8 +198,10 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
       continue;
     }
 
-    const fabricCost = fabricAverage * fabricRate;
-    totalFabricCost += fabricCost;
+    // BUG-SMP5 fix: use decimal.js for precision
+    const fabricCostDec = multiplyCurrency(fabricAverage, fabricRate);
+    const fabricCost = toNumber(fabricCostDec);
+    totalFabricCostDec = totalFabricCostDec.plus(fabricCostDec);
 
     fabricDetails.push({
       fabricName: cadRow.fabric?.fabricName || cadRow.greige?.greigeName || cadRow.componentName || 'Unknown Fabric',
@@ -242,8 +266,10 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
         continue;
       }
 
-      const fabricCost = fabricAverage * fabricRate;
-      totalFabricCost += fabricCost;
+      // BUG-SMP5 fix: use decimal.js for precision
+      const fabricCostDec = multiplyCurrency(fabricAverage, fabricRate);
+      const fabricCost = toNumber(fabricCostDec);
+      totalFabricCostDec = totalFabricCostDec.plus(fabricCostDec);
 
       fabricDetails.push({
         fabricName: cadRow.fabric?.fabricName || cadRow.greige?.greigeName || cadRow.componentName || 'Unknown Fabric',
@@ -280,8 +306,10 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
           styleFabric.unitPrice?.toString() || styleFabric.fabricCostPerMeter?.toString() || '0'
         );
 
-        const fabricCost = fabricAverage * fabricRate;
-        totalFabricCost += fabricCost;
+        // BUG-SMP5 fix: use decimal.js for precision
+        const fabricCostDec = multiplyCurrency(fabricAverage, fabricRate);
+        const fabricCost = toNumber(fabricCostDec);
+        totalFabricCostDec = totalFabricCostDec.plus(fabricCostDec);
 
         fabricDetails.push({
           fabricName: styleFabric.fabric?.fabricName || styleFabric.fabricName || 'Unknown',
@@ -295,9 +323,10 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
   }
 
   // Calculate material costs from BOM
-  let totalTrimsCost = 0;
-  let totalAccessoriesCost = 0;
-  let totalEmbroideryMaterialCost = 0;
+  // BUG-SMP5 fix: use decimal.js for aggregation
+  let totalTrimsCostDec = new Decimal(0);
+  let totalAccessoriesCostDec = new Decimal(0);
+  let totalEmbroideryMaterialCostDec = new Decimal(0);
   const trimsDetails: TrimDetail[] = [];
   const accessoriesDetails: AccessoryDetail[] = [];
   const embroideryDetails: EmbroideryDetail[] = [];
@@ -348,7 +377,9 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
 
     // Use BOM unitPrice if set, otherwise fallback to master price
     const unitPrice = parseFloat(bom.unitPrice?.toString() || '0') || masterPrice;
-    const total = quantity * unitPrice;
+    // BUG-SMP5 fix: use decimal.js for precision
+    const totalDec = multiplyCurrency(quantity, unitPrice);
+    const total = toNumber(totalDec);
 
     logInfo(`Processing BOM item: ${materialName}`, {
       quantity,
@@ -393,7 +424,8 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
         otherDecorativeId: bom.otherDecorativeId || undefined,
         otherFunctionalId: bom.otherFunctionalId || undefined,
       });
-      totalTrimsCost += total;
+      // BUG-SMP5 fix: aggregate with decimal.js
+      totalTrimsCostDec = totalTrimsCostDec.plus(totalDec);
     } else if (bom.usageCategory === 'PACKAGING') {
       accessoriesDetails.push({
         accessoryName: materialName,
@@ -401,7 +433,8 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
         accessoryRate: unitPrice,
         accessoryTotal: total,
       });
-      totalAccessoriesCost += total;
+      // BUG-SMP5 fix: aggregate with decimal.js
+      totalAccessoriesCostDec = totalAccessoriesCostDec.plus(totalDec);
     } else if (bom.usageCategory === 'VALUE_ADDITION') {
       // VALUE_ADDITION materials (special lace, embroidery materials) go to embroidery
       embroideryDetails.push({
@@ -410,7 +443,8 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
         embroideryRate: unitPrice,
         embroideryTotal: total,
       });
-      totalEmbroideryMaterialCost += total;
+      // BUG-SMP5 fix: aggregate with decimal.js
+      totalEmbroideryMaterialCostDec = totalEmbroideryMaterialCostDec.plus(totalDec);
     } else {
       // Bug fix: Uncategorized materials default to trims to ensure nothing is lost
       logWarn(`BOM item "${materialName}" has no usageCategory (${bom.usageCategory}), defaulting to trims`);
@@ -445,15 +479,17 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
         otherDecorativeId: bom.otherDecorativeId || undefined,
         otherFunctionalId: bom.otherFunctionalId || undefined,
       });
-      totalTrimsCost += total;
+      // BUG-SMP5 fix: aggregate with decimal.js
+      totalTrimsCostDec = totalTrimsCostDec.plus(totalDec);
     }
   }
 
   // Calculate process costs
-  let totalProcessingCost = 0;
+  // BUG-SMP5 fix: use decimal.js for aggregation
+  let totalProcessingCostDec = new Decimal(0);
   for (const process of style.style_processes) {
     if (process.estimatedCost) {
-      totalProcessingCost += parseFloat(process.estimatedCost.toString());
+      totalProcessingCostDec = totalProcessingCostDec.plus(toCurrency(process.estimatedCost.toString()));
     }
   }
 
@@ -483,8 +519,15 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
   });
 
   // Calculate total from all sources
-  const grandTotal =
-    totalFabricCost + totalTrimsCost + totalEmbroideryMaterialCost + totalAccessoriesCost + totalProcessingCost;
+  // BUG-SMP5 fix: use decimal.js for aggregation and convert to number for response
+  const totalFabricCost = toNumber(totalFabricCostDec);
+  const totalTrimsCost = toNumber(totalTrimsCostDec);
+  const totalEmbroideryMaterialCost = toNumber(totalEmbroideryMaterialCostDec);
+  const totalAccessoriesCost = toNumber(totalAccessoriesCostDec);
+  const totalProcessingCost = toNumber(totalProcessingCostDec);
+  const grandTotal = toNumber(
+    addCurrency(totalFabricCost, totalTrimsCost, totalEmbroideryMaterialCost, totalAccessoriesCost, totalProcessingCost)
+  );
 
   // Return preview data WITHOUT creating in database
   // The frontend will use this to pre-fill the form, then user submits to actually create

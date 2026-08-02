@@ -23,6 +23,7 @@ export const createInvoiceSchema = z.object({
   subtotal: z
     .number()
     .nonnegative('Subtotal must be non-negative')
+    .max(100000000, 'Subtotal cannot exceed 10 crore')
     .or(z.string().transform((val) => parseFloat(val))),
 
   // taxAmount/totalAmount are auto-calculated by the service (per-item when `items` are supplied,
@@ -36,11 +37,12 @@ export const createInvoiceSchema = z.object({
     .or(z.string().transform((val) => parseFloat(val)))
     .optional(),
 
-  taxRate: z.number().nonnegative('Tax rate must be non-negative').optional(),
+  taxRate: z.number().nonnegative('Tax rate must be non-negative').max(100, 'Tax rate cannot exceed 100%').optional(),
 
   totalAmount: z
     .number()
     .positive('Total amount must be positive')
+    .max(100000000, 'Total amount cannot exceed 10 crore')
     .or(z.string().transform((val) => parseFloat(val)))
     .optional(),
 
@@ -55,10 +57,12 @@ export const createInvoiceSchema = z.object({
         quantity: z
           .number()
           .positive('Quantity must be positive')
+          .max(1000000, 'Quantity cannot exceed 10 lakh units')
           .or(z.string().transform((val) => parseFloat(val))),
         unitPrice: z
           .number()
           .nonnegative('Unit price must be non-negative')
+          .max(10000000, 'Unit price cannot exceed 1 crore')
           .or(z.string().transform((val) => parseFloat(val))),
         remarks: z.string().optional(),
       })
@@ -80,18 +84,21 @@ export const updateInvoiceSchema = z.object({
   subtotal: z
     .number()
     .nonnegative('Subtotal must be non-negative')
+    .max(100000000, 'Subtotal cannot exceed 10 crore')
     .or(z.string().transform((val) => parseFloat(val)))
     .optional(),
 
   taxAmount: z
     .number()
     .nonnegative('Tax amount must be non-negative')
+    .max(50000000, 'Tax amount cannot exceed 5 crore')
     .or(z.string().transform((val) => parseFloat(val)))
     .optional(),
 
   totalAmount: z
     .number()
     .positive('Total amount must be positive')
+    .max(100000000, 'Total amount cannot exceed 10 crore')
     .or(z.string().transform((val) => parseFloat(val)))
     .optional(),
 

@@ -98,6 +98,8 @@ class FabricPhysicalTestsService {
       overallTestResult,
       sentDateFrom,
       sentDateTo,
+      receivedDateFrom,
+      receivedDateTo,
       isRetest,
       pendingApproval,
     } = options;
@@ -134,6 +136,16 @@ class FabricPhysicalTestsService {
       }
       if (sentDateTo) {
         where.sentToLabDate.lte = new Date(sentDateTo);
+      }
+    }
+
+    if (receivedDateFrom || receivedDateTo) {
+      where.testResultReceivedDate = {};
+      if (receivedDateFrom) {
+        where.testResultReceivedDate.gte = new Date(receivedDateFrom);
+      }
+      if (receivedDateTo) {
+        where.testResultReceivedDate.lte = new Date(receivedDateTo);
       }
     }
 

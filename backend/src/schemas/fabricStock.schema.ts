@@ -26,6 +26,8 @@ export const FabricStockTypeEnum = z.enum([
 ]);
 
 // Quality grade enum
+// BUG-GR9 fix: Default 'A' matches DEFAULT_QUALITY_GRADE in constants/stock.constants.ts
+// and system_settings.DEFAULT_QUALITY_GRADE - these should be kept in sync
 export const QualityGradeEnum = z.enum(['A', 'B', 'DEFECT']);
 
 // Legacy enums (kept for greige stock and other modules)

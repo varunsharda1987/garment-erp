@@ -39,8 +39,8 @@ export const upsertSystemSettingSchema = z.object({
   category: SettingCategoryEnum.optional(),
   dataType: SettingDataTypeEnum.optional().default('STRING'),
   description: z.string().max(500).optional(),
+  // isSystem marks settings that cannot be deleted (e.g. FABRIC_DEFAULT_WASTAGE_PERCENT)
   isSystem: z.boolean().optional().default(false),
-  isEncrypted: z.boolean().optional().default(false),
 });
 
 /**
@@ -52,7 +52,7 @@ export const systemSettingsQuerySchema = z.object({
   search: z.string().max(100).optional(),
   isSystem: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
 });
 

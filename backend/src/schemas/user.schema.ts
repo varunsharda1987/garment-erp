@@ -32,9 +32,18 @@ export const UserRoleEnum = z.enum([
  * Create User
  * POST /api/users
  */
+// Password complexity regex patterns
+const passwordComplexity = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .max(100)
+  .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Password must contain at least one number');
+
 export const createUserSchema = z.object({
   email: z.string().email('Invalid email format').max(255),
-  password: z.string().min(6, 'Password must be at least 6 characters').max(100),
+  password: passwordComplexity,
   firstName: z.string().min(1, 'First name is required').max(100),
   lastName: z.string().min(1, 'Last name is required').max(100),
   phone: z.string().max(20).optional(),
@@ -54,7 +63,7 @@ export const updateUserSchema = z.object({
   phone: z.string().max(20).optional().nullable(),
   whatsappNumber: z.string().max(20).optional().nullable(),
   department: z.string().max(100).optional().nullable(),
-  password: z.string().min(6, 'Password must be at least 6 characters').max(100).optional(),
+  password: passwordComplexity.optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -104,7 +113,7 @@ export const userQuerySchema = z.object({
   role: UserRoleEnum.optional(),
   isActive: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
 });
 

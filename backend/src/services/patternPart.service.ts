@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import {
   CreatePatternPartInput,
@@ -8,7 +9,23 @@ import {
   PatternPartResponse,
   PatternPartListResponse,
   ComponentPatternPartResponse,
+  PatternPartGroupResponse,
 } from '../types/patternPart.types';
+
+/**
+ * Prisma type for pattern_part_master with standard includes.
+ * Used instead of `any` in transformPatternPartResponse.
+ */
+type PatternPartWithIncludes = Prisma.pattern_part_masterGetPayload<{
+  include: {
+    _count: { select: { componentPatternParts: true } };
+    patternPartGroups: {
+      include: {
+        componentGroup: { select: { id: true; code: true; name: true } };
+      };
+    };
+  };
+}>;
 
 export class PatternPartService {
   /**
@@ -64,11 +81,11 @@ export class PatternPartService {
   /**
    * Transform pattern part response to include componentGroups array
    */
-  private transformPatternPartResponse(patternPart: any): PatternPartResponse {
+  private transformPatternPartResponse(patternPart: PatternPartWithIncludes): PatternPartResponse {
     const { patternPartGroups, ...rest } = patternPart;
     return {
       ...rest,
-      componentGroups: patternPartGroups?.map((ppg: any) => ppg.componentGroup) || [],
+      componentGroups: patternPartGroups?.map((ppg): PatternPartGroupResponse => ppg.componentGroup) || [],
     };
   }
 
@@ -81,7 +98,8 @@ export class PatternPartService {
     search?: string,
     isActive?: boolean
   ): Promise<PatternPartListResponse> {
-    const where: any = {};
+    // BUG-PP9 fix: replaced `any` with proper Prisma type
+    const where: Prisma.pattern_part_masterWhereInput = {};
 
     if (search) {
       where.OR = [

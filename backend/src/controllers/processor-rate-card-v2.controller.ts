@@ -329,8 +329,9 @@ export async function getSummary(req: Request, res: Response) {
 export async function lookupRate(req: Request, res: Response) {
   const { processorId, processingType, printingType, greigeId, quantityMeters } = req.body;
 
-  if (!processorId || !processingType || !greigeId || !quantityMeters) {
-    throw new ValidationError('processorId, processingType, greigeId, and quantityMeters are required');
+  // BUG-PRC2 fix: processorId is optional - service falls back to SYSTEM_DEFAULT
+  if (!processingType || !greigeId || !quantityMeters) {
+    throw new ValidationError('processingType, greigeId, and quantityMeters are required');
   }
 
   if (!['DYEING', 'PRINTING'].includes(processingType)) {

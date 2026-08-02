@@ -4,7 +4,7 @@ import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { createAgencySchema, updateAgencySchema } from '../schemas/agency.schema';
 import { authenticateToken } from '../middleware/auth.middleware';
-import { idParamSchema } from '../schemas/common.schema';
+import { flexIdParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -18,7 +18,7 @@ router.get('/search', asyncHandler(agencyController.search.bind(agencyController
 router.get('/', asyncHandler(agencyController.getAll.bind(agencyController)));
 
 // GET /api/agencies/:id - Get agency by ID
-router.get('/:id', validateParams(idParamSchema), asyncHandler(agencyController.getById.bind(agencyController)));
+router.get('/:id', validateParams(flexIdParamSchema), asyncHandler(agencyController.getById.bind(agencyController)));
 
 // POST /api/agencies - Create new agency
 router.post('/', validateBody(createAgencySchema), asyncHandler(agencyController.create.bind(agencyController)));
@@ -26,12 +26,12 @@ router.post('/', validateBody(createAgencySchema), asyncHandler(agencyController
 // PUT /api/agencies/:id - Update agency
 router.put(
   '/:id',
-  validateParams(idParamSchema),
+  validateParams(flexIdParamSchema),
   validateBody(updateAgencySchema),
   asyncHandler(agencyController.update.bind(agencyController))
 );
 
 // DELETE /api/agencies/:id - Delete agency
-router.delete('/:id', validateParams(idParamSchema), asyncHandler(agencyController.delete.bind(agencyController)));
+router.delete('/:id', validateParams(flexIdParamSchema), asyncHandler(agencyController.delete.bind(agencyController)));
 
 export default router;

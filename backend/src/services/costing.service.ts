@@ -8,6 +8,7 @@ import { style_costing, Prisma } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError, BusinessError } from '../errors';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
+import { multiplyCurrency, toNumber, addCurrency, sumByField, percentOf, toCurrency, Decimal } from '../utils/currency'; // BUG-FAB12 fix, BUG-COST6 fix
 
 // ============================================
 // Types
@@ -442,8 +443,13 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     const totalProcessingCost = this.calculateProcessCosts(style);
 
     // Calculate subtotal including embroidery
-    const subtotal =
-      totalFabricCost + totalTrimsCost + totalAccessoriesCost + totalEmbroideryCost + totalProcessingCost;
+    // BUG-COST6 fix: use decimal.js for aggregation
+    const subtotal = toNumber(
+      addCurrency(totalFabricCost, totalTrimsCost, totalAccessoriesCost, totalEmbroideryCost, totalProcessingCost)
+    );
+    const totalMaterialCost = toNumber(
+      addCurrency(totalFabricCost, totalTrimsCost, totalAccessoriesCost, totalEmbroideryCost)
+    );
 
     // Create cost sheet
     const costSheet = await this.prisma.style_costing.create({
@@ -454,7 +460,7 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         fabricCost: totalFabricCost,
         trimsCost: totalTrimsCost,
         accessoriesCost: totalAccessoriesCost,
-        totalMaterialCost: totalFabricCost + totalTrimsCost + totalAccessoriesCost + totalEmbroideryCost,
+        totalMaterialCost,
         totalProcessingCost,
         cuttingCost: 0,
         stitchingCost: 0,
@@ -505,31 +511,38 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
   // Private Helper Methods
   // ============================================
 
+  // BUG-COST6 fix: use decimal.js for all aggregations to avoid floating-point errors
   private calculateCosts(data: CreateCostSheetDTO | ReturnType<typeof this.mergeWithExisting>): CostCalculationResult {
-    const fabricTotal = data.fabricDetails.reduce((sum, f) => sum + f.fabricTotal, 0);
-    const trimsTotal = data.trimsDetails.reduce((sum, t) => sum + t.trimTotal, 0);
-    const cmtTotal = Object.values(data.cmtCosts).reduce((sum, c) => sum + c, 0);
-    const embroideryTotal = (data.embroideryDetails || []).reduce((sum, e) => sum + e.embroideryTotal, 0);
-    const accessoriesTotal = (data.accessoriesDetails || []).reduce((sum, a) => sum + a.accessoryTotal, 0);
+    const fabricTotalDec = sumByField(data.fabricDetails, 'fabricTotal');
+    const trimsTotalDec = sumByField(data.trimsDetails, 'trimTotal');
+    const cmtTotalDec = addCurrency(...Object.values(data.cmtCosts));
+    const embroideryTotalDec = sumByField(data.embroideryDetails || [], 'embroideryTotal');
+    const accessoriesTotalDec = sumByField(data.accessoriesDetails || [], 'accessoryTotal');
 
-    const subtotal = fabricTotal + trimsTotal + cmtTotal + embroideryTotal + accessoriesTotal;
+    const subtotalDec = fabricTotalDec
+      .plus(trimsTotalDec)
+      .plus(cmtTotalDec)
+      .plus(embroideryTotalDec)
+      .plus(accessoriesTotalDec);
     const valueLossPercent = data.valueLossPercent ?? 2;
-    const valueLossAmount = (subtotal * valueLossPercent) / 100;
-    const totalAfterValueLoss = subtotal + valueLossAmount;
+    // percentOf expects number, so convert subtotalDec
+    const valueLossAmountDec = percentOf(toNumber(subtotalDec), valueLossPercent);
+    const totalAfterValueLossDec = subtotalDec.plus(valueLossAmountDec);
     const markupPercent = data.markupPercent ?? 15;
-    const markupAmount = (totalAfterValueLoss * markupPercent) / 100;
-    const totalProductCost = totalAfterValueLoss + markupAmount;
+    // percentOf expects number, so convert totalAfterValueLossDec
+    const markupAmountDec = percentOf(toNumber(totalAfterValueLossDec), markupPercent);
+    const totalProductCostDec = totalAfterValueLossDec.plus(markupAmountDec);
 
     return {
-      fabricTotal,
-      trimsTotal,
-      cmtTotal,
-      embroideryTotal,
-      accessoriesTotal,
-      subtotal,
-      valueLossAmount,
-      markupAmount,
-      totalProductCost,
+      fabricTotal: toNumber(fabricTotalDec),
+      trimsTotal: toNumber(trimsTotalDec),
+      cmtTotal: toNumber(cmtTotalDec),
+      embroideryTotal: toNumber(embroideryTotalDec),
+      accessoriesTotal: toNumber(accessoriesTotalDec),
+      subtotal: toNumber(subtotalDec),
+      valueLossAmount: toNumber(valueLossAmountDec),
+      markupAmount: toNumber(markupAmountDec),
+      totalProductCost: toNumber(totalProductCostDec),
     };
   }
 
@@ -583,7 +596,8 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
       }>;
     }>;
   }): { fabricDetails: FabricDetail[]; totalFabricCost: number } {
-    let totalFabricCost = 0;
+    // BUG-COST6 fix: use decimal.js for aggregation
+    let totalFabricCostDec = new Decimal(0);
     const fabricDetails: FabricDetail[] = [];
 
     for (const component of style.style_components) {
@@ -596,8 +610,11 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         const cad = styleFabric.fabricCAD;
         if (!cad) continue;
 
-        const fabricCost =
-          parseFloat(cad.cadMeters?.toString() || '0') * parseFloat(styleFabric.unitPrice?.toString() || '0');
+        // BUG-FAB12 fix: use decimal.js for precision
+        const fabricCostDec = multiplyCurrency(
+          cad.cadMeters?.toString() || '0',
+          styleFabric.unitPrice?.toString() || '0'
+        );
 
         fabricDetails.push({
           fabricId: styleFabric.fabricId || undefined,
@@ -605,14 +622,15 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
           fabricWidth: parseFloat(cad.cutableWidth?.toString() || '0'),
           fabricAverage: parseFloat(cad.cadMeters?.toString() || '0'),
           fabricRate: parseFloat(styleFabric.unitPrice?.toString() || '0'),
-          fabricTotal: fabricCost,
+          fabricTotal: toNumber(fabricCostDec),
         });
 
-        totalFabricCost += fabricCost;
+        // BUG-COST6 fix: aggregate with decimal.js
+        totalFabricCostDec = totalFabricCostDec.plus(fabricCostDec);
       }
     }
 
-    return { fabricDetails, totalFabricCost };
+    return { fabricDetails, totalFabricCost: toNumber(totalFabricCostDec) };
   }
 
   private calculateMaterialCosts(style: {
@@ -634,15 +652,18 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     totalTrimsCost: number;
     totalAccessoriesCost: number;
   } {
-    let totalTrimsCost = 0;
-    let totalAccessoriesCost = 0;
+    // BUG-COST6 fix: use decimal.js for aggregation
+    let totalTrimsCostDec = new Decimal(0);
+    let totalAccessoriesCostDec = new Decimal(0);
     const trimsDetails: TrimDetail[] = [];
     const accessoriesDetails: AccessoryDetail[] = [];
 
     for (const bom of style.style_material_bom) {
       const quantity = parseFloat(bom.quantityPerGarment?.toString() || '0');
       const unitPrice = parseFloat(bom.unitPrice?.toString() || '0');
-      const total = quantity * unitPrice;
+      // BUG-FAB12 fix: use decimal.js for precision
+      const totalDec = multiplyCurrency(quantity, unitPrice);
+      const total = toNumber(totalDec);
 
       // Get material name — needed before logging
       let materialName = 'Unknown';
@@ -667,7 +688,8 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
           trimRate: unitPrice,
           trimTotal: total,
         });
-        totalTrimsCost += total;
+        // BUG-COST6 fix: aggregate with decimal.js
+        totalTrimsCostDec = totalTrimsCostDec.plus(totalDec);
       } else if (bom.usageCategory === 'PACKAGING') {
         accessoriesDetails.push({
           accessoryName: materialName,
@@ -675,23 +697,30 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
           accessoryRate: unitPrice,
           accessoryTotal: total,
         });
-        totalAccessoriesCost += total;
+        // BUG-COST6 fix: aggregate with decimal.js
+        totalAccessoriesCostDec = totalAccessoriesCostDec.plus(totalDec);
       }
     }
 
-    return { trimsDetails, accessoriesDetails, totalTrimsCost, totalAccessoriesCost };
+    return {
+      trimsDetails,
+      accessoriesDetails,
+      totalTrimsCost: toNumber(totalTrimsCostDec),
+      totalAccessoriesCost: toNumber(totalAccessoriesCostDec),
+    };
   }
 
   private calculateProcessCosts(style: { style_processes: Array<{ estimatedCost: unknown }> }): number {
-    let totalProcessingCost = 0;
+    // BUG-COST6 fix: use decimal.js for aggregation
+    let totalProcessingCostDec = new Decimal(0);
 
     for (const process of style.style_processes) {
       if (process.estimatedCost) {
-        totalProcessingCost += parseFloat(process.estimatedCost.toString());
+        totalProcessingCostDec = totalProcessingCostDec.plus(toCurrency(process.estimatedCost.toString()));
       }
     }
 
-    return totalProcessingCost;
+    return toNumber(totalProcessingCostDec);
   }
 
   /**
@@ -717,7 +746,8 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
       }>;
     }>;
   }): { embroideryDetails: EmbroideryDetail[]; totalEmbroideryCost: number } {
-    let totalEmbroideryCost = 0;
+    // BUG-COST6 fix: use decimal.js for aggregation
+    let totalEmbroideryCostDec = new Decimal(0);
     const embroideryDetails: EmbroideryDetail[] = [];
     const processedEmbroideries = new Set<string>();
 
@@ -742,7 +772,9 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         const embroideryRate = embroidery.costPerMeter ? parseFloat(embroidery.costPerMeter.toString()) : 0;
 
         // Calculate embroidery cost: CAD meters * embroidery rate per meter
-        const embroideryCost = cadMeters * embroideryRate;
+        // BUG-FAB12 fix: use decimal.js for precision
+        const embroideryCostDec = multiplyCurrency(cadMeters, embroideryRate);
+        const embroideryCost = toNumber(embroideryCostDec);
 
         if (embroideryCost > 0) {
           embroideryDetails.push({
@@ -752,12 +784,13 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
             embroideryTotal: embroideryCost,
           });
 
-          totalEmbroideryCost += embroideryCost;
+          // BUG-COST6 fix: aggregate with decimal.js
+          totalEmbroideryCostDec = totalEmbroideryCostDec.plus(embroideryCostDec);
         }
       }
     }
 
-    return { embroideryDetails, totalEmbroideryCost };
+    return { embroideryDetails, totalEmbroideryCost: toNumber(totalEmbroideryCostDec) };
   }
 
   // ============================================
@@ -825,7 +858,8 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     }
 
     // Calculate fabric budget from CAD data
-    let fabricBudget = 0;
+    // BUG-COST6 fix: use decimal.js for aggregation
+    let fabricBudgetDec = new Decimal(0);
     let fabricSource = 'No CAD data available';
     const cadRows = await this.prisma.fabric_width_cad.findMany({
       where: {
@@ -841,25 +875,27 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
 
     if (cadRows.length > 0) {
       for (const cad of cadRows) {
-        const greigeCost = Number(cad.greigeCostPerMeter) || 0;
-        const processingCost = Number(cad.processingPricePerMeter) || 0;
-        const consumption = Number(cad.cadMeters) || 0;
-        if (greigeCost === 0) {
+        // Convert Prisma Decimal to string for toCurrency
+        const greigeCostDec = toCurrency(cad.greigeCostPerMeter?.toString());
+        const processingCostDec = toCurrency(cad.processingPricePerMeter?.toString());
+        const consumptionDec = toCurrency(cad.cadMeters?.toString());
+        if (greigeCostDec.isZero()) {
           logWarn(`[Costing] CAD row has ₹0 greige cost — fabric budget will be understated.`);
         }
-        if (processingCost === 0) {
+        if (processingCostDec.isZero()) {
           logWarn(`[Costing] CAD row has ₹0 processing cost — fabric budget will be understated.`);
         }
-        if (consumption === 0) {
+        if (consumptionDec.isZero()) {
           logWarn(`[Costing] CAD row has 0 meters consumption — fabric budget will be ₹0.`);
         }
-        fabricBudget += (greigeCost + processingCost) * consumption;
+        // BUG-COST6 fix: use decimal.js for calculation
+        fabricBudgetDec = fabricBudgetDec.plus(greigeCostDec.plus(processingCostDec).times(consumptionDec));
       }
       fabricSource = `Calculated from ${cadRows.length} CAD row(s)`;
     } else {
       // Fallback to style_fabrics unit prices
       const { totalFabricCost } = this.calculateFabricCosts(style);
-      fabricBudget = totalFabricCost;
+      fabricBudgetDec = toCurrency(totalFabricCost);
       fabricSource = 'Calculated from style fabric unit prices';
     }
 
@@ -880,7 +916,8 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
       totalEmbroideryCost > 0 ? 'Calculated from style embroidery settings' : 'No embroidery data available';
 
     // Calculate CMT budget from style processes with rate card lookup
-    let cmtBudget = 0;
+    // BUG-COST6 fix: use decimal.js for aggregation
+    let cmtBudgetDec = new Decimal(0);
     let cmtSource = 'No process data available';
 
     if (style.style_processes.length > 0) {
@@ -895,27 +932,29 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
         orderBy: { createdAt: 'desc' },
       });
 
-      const rateMap = new Map<string, number>();
+      const rateMap = new Map<string, Decimal>();
       for (const card of rateCards) {
         if (!rateMap.has(card.processingType)) {
-          const rateValue = Number(card.ratePerMeter) || 0;
-          if (rateValue === 0) {
+          // Convert Prisma Decimal to string for toCurrency
+          const rateValueDec = toCurrency(card.ratePerMeter?.toString());
+          if (rateValueDec.isZero()) {
             logWarn(
               `[Costing] Rate card for '${card.processingType}' has ₹0 rate — processing budget will be understated.`
             );
           }
-          rateMap.set(card.processingType, rateValue);
+          rateMap.set(card.processingType, rateValueDec);
         }
       }
 
       for (const process of style.style_processes as any[]) {
-        const rate = rateMap.get(process.processType) || Number(process.estimatedCost) || 0;
-        if (rate === 0) {
+        const rateDec = rateMap.get(process.processType) || toCurrency(process.estimatedCost);
+        if (rateDec.isZero()) {
           logWarn(
             `[Costing] Process '${process.processType}' has ₹0 rate (no rate card, no estimate) — CMT budget will be understated.`
           );
         }
-        cmtBudget += rate;
+        // BUG-COST6 fix: aggregate with decimal.js
+        cmtBudgetDec = cmtBudgetDec.plus(rateDec);
       }
 
       cmtSource =
@@ -924,7 +963,17 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
           : `Estimated from ${style.style_processes.length} process(es)`;
     }
 
-    const totalBudget = fabricBudget + totalTrimsCost + cmtBudget + totalEmbroideryCost + totalAccessoriesCost;
+    // BUG-COST6 fix: use decimal.js for final aggregation
+    const fabricBudget = toNumber(fabricBudgetDec);
+    const cmtBudget = toNumber(cmtBudgetDec);
+    const totalBudgetDec = addCurrency(
+      fabricBudget,
+      totalTrimsCost,
+      cmtBudget,
+      totalEmbroideryCost,
+      totalAccessoriesCost
+    );
+    const totalBudget = toNumber(totalBudgetDec);
 
     logInfo('Budget suggestions calculated', {
       styleId,

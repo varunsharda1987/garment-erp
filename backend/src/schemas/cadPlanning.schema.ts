@@ -13,7 +13,15 @@ import { z } from 'zod';
 
 export const CADPurposeEnum = z.enum(['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION']);
 
+export const CADApprovalStatusEnum = z.enum(['PENDING', 'APPROVED', 'REJECTED']);
+
 export const VarianceActionEnum = z.enum(['APPROVE', 'REJECT']);
+
+// BUG-CAD10 fix: added Zod enum for type safety
+export const VarianceApprovalStatusEnum = z.enum(['NOT_REQUIRED', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED']);
+
+// BUG-CAD10 fix: added Zod enum for type safety
+export const GreigeRateSourceEnum = z.enum(['PROCUREMENT', 'STOCK_VALUATION', 'GREIGE_MASTER', 'MANUAL_OVERRIDE']);
 
 // ============================================================================
 // CAD GENERATION & CALCULATION
@@ -55,13 +63,19 @@ export const calculateCADCostSchema = z.object({
  * Select Greige for Group
  * POST /api/cad-planning/:styleId/select-greige
  */
-export const selectGreigeForGroupSchema = z.object({
-  fabricGroupKey: z.string().max(100).optional(),
-  groupKey: z.string().max(100).optional(),
-  greigeId: z.string().uuid('Invalid greige ID'),
-  genericGreigeName: z.string().max(200).optional(),
-  averagingMode: z.enum(['COMBINED', 'SEPARATE']).optional(),
-});
+export const selectGreigeForGroupSchema = z
+  .object({
+    fabricGroupKey: z.string().max(100).optional(),
+    groupKey: z.string().max(100).optional(),
+    greigeId: z.string().uuid('Invalid greige ID'),
+    genericGreigeName: z.string().max(200).optional(),
+    averagingMode: z.enum(['COMBINED', 'SEPARATE']).optional(),
+  })
+  // BUG-CAD9 fix: normalize fabricGroupKey to groupKey
+  .transform((data) => ({
+    ...data,
+    groupKey: data.groupKey ?? data.fabricGroupKey,
+  }));
 
 // ============================================================================
 // CAD ROW OPERATIONS
@@ -138,18 +152,24 @@ export const updateCADTableRowSchema = z.object({
  * Add CAD Width (Legacy)
  * POST /api/cad-planning/:styleId/add-width
  */
-export const addCADWidthSchema = z.object({
-  fabricGroupKey: z.string().max(100).optional(),
-  groupKey: z.string().max(100).optional(),
-  greigeId: z.string().uuid('Invalid greige ID'),
-  greigeWidth: z.number().positive().optional(),
-  fabricId: z.string().uuid('Invalid fabric ID').optional(),
-  cutableWidth: z.number().positive().optional(),
-  componentName: z.string().max(200).optional(),
-  // Real PrintDirection column the controller reads; stripped here, so it always fell back to the
-  // TWO_WAY default and a ONE_WAY selection was silently lost.
-  printDirection: z.enum(['ONE_WAY', 'TWO_WAY']).optional(),
-});
+export const addCADWidthSchema = z
+  .object({
+    fabricGroupKey: z.string().max(100).optional(),
+    groupKey: z.string().max(100).optional(),
+    greigeId: z.string().uuid('Invalid greige ID'),
+    greigeWidth: z.number().positive().optional(),
+    fabricId: z.string().uuid('Invalid fabric ID').optional(),
+    cutableWidth: z.number().positive().optional(),
+    componentName: z.string().max(200).optional(),
+    // Real PrintDirection column the controller reads; stripped here, so it always fell back to the
+    // TWO_WAY default and a ONE_WAY selection was silently lost.
+    printDirection: z.enum(['ONE_WAY', 'TWO_WAY']).optional(),
+  })
+  // BUG-CAD9 fix: normalize fabricGroupKey to groupKey
+  .transform((data) => ({
+    ...data,
+    groupKey: data.groupKey ?? data.fabricGroupKey,
+  }));
 
 /**
  * Update CAD Values with Breakdown
@@ -166,6 +186,7 @@ export const updateCADValuesWithBreakdownSchema = z.object({
   cadWastagePercent: z.number().min(0).max(100).optional(),
   layerMarginMeters: z.number().nonnegative().optional(),
   markerLengthMeters: z.number().positive().optional(),
+  piecesPerMarker: z.number().int().positive().optional(),
   processingPricePerMeter: z.number().nonnegative().optional(),
   markerEfficiency: z.number().min(0).max(100).optional(),
   markerPlanFile: z.string().max(500).optional().nullable(),
@@ -320,6 +341,13 @@ export const approveProductionVarianceSchema = z.object({
   notes: z.string().max(500).optional(),
 });
 
+/**
+ * Sync BOM Fabric from CAD
+ * POST /api/cad-planning/:styleId/sync-bom-fabric
+ * No body required - triggers sync based on styleId param
+ */
+export const syncBomFabricSchema = z.object({}).strict();
+
 // ============================================================================
 // PATTERN PARTS
 // ============================================================================
@@ -329,15 +357,18 @@ export const approveProductionVarianceSchema = z.object({
  * POST /api/cad-planning/:styleId/fabrics/:fabricId/pattern-parts
  */
 export const assignPatternPartsSchema = z.object({
-  patternPartIds: z.array(z.string().uuid()).min(1, 'At least one pattern part is required').optional(),
+  // BUG-PP2 fix: patternPartIds was never read by controller, removed
   patternParts: z
     .array(
       z.object({
-        id: z.string().uuid(),
+        // BUG-PP1 fix: schema used 'id' but controller expects 'patternPartId'
+        patternPartId: z.string().uuid(),
+        quantity: z.number().positive().optional(),
         goesToEmbroidery: z.boolean().optional(),
+        notes: z.string().max(500).optional().nullable(),
       })
     )
-    .optional(),
+    .min(1, 'At least one pattern part is required'),
 });
 
 /**
@@ -429,3 +460,8 @@ export type AssignPatternPartsInput = z.infer<typeof assignPatternPartsSchema>;
 export type AssignPatternPartsFromComponentInput = z.infer<typeof assignPatternPartsFromComponentSchema>;
 export type UpdatePatternPartAssignmentInput = z.infer<typeof updatePatternPartAssignmentSchema>;
 export type CreateOrUpdateEmbroideryCadInput = z.infer<typeof createOrUpdateEmbroideryCadSchema>;
+export type CADApprovalStatusType = z.infer<typeof CADApprovalStatusEnum>;
+export type SyncBomFabricInput = z.infer<typeof syncBomFabricSchema>;
+// BUG-CAD10 fix: added type exports for new enums
+export type VarianceApprovalStatusType = z.infer<typeof VarianceApprovalStatusEnum>;
+export type GreigeRateSourceType = z.infer<typeof GreigeRateSourceEnum>;

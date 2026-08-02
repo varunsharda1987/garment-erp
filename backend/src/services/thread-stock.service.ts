@@ -6,6 +6,7 @@ import { Prisma, StockStatus, SpecializedStockTransactionType, TransactionRefere
 import prisma from '../config/database';
 import { logInfo, logError } from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { multiplyCurrency, divideCurrency, toNumber } from '../utils/currency'; // BUG-THR6 fix
 
 export interface CreateThreadStockDTO {
   threadId: string;
@@ -71,13 +72,13 @@ class ThreadStockService {
         throw new Error(`Thread with ID ${data.threadId} not found`);
       }
 
-      const unit = data.unit || thread.packagingType || 'SPOOL';
-      const metersPerUnit = data.metersPerUnit || Number(thread.metersPerUnit) || 5000;
-      const unitsPerBox = data.unitsPerBox || Number(thread.unitsPerBox) || 12;
+      const unit = data.unit ?? thread.packagingType ?? 'SPOOL';
+      const metersPerUnit = data.metersPerUnit ?? Number(thread.metersPerUnit) ?? 5000;
+      const unitsPerBox = data.unitsPerBox ?? Number(thread.unitsPerBox) ?? 12;
 
-      // Calculate derived quantities
-      const metersAvailable = data.quantity * metersPerUnit;
-      const boxesAvailable = unitsPerBox > 0 ? data.quantity / unitsPerBox : 0;
+      // Calculate derived quantities - BUG-THR6 fix: use decimal.js to prevent floating-point errors
+      const metersAvailable = toNumber(multiplyCurrency(data.quantity, metersPerUnit));
+      const boxesAvailable = toNumber(divideCurrency(data.quantity, unitsPerBox)); // divideCurrency returns 0 if divisor is 0
 
       // Create thread stock record
       const cost = data.purchaseCost ?? 0;

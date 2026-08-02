@@ -1,9 +1,21 @@
 // Greige Stock Service - Manage raw greige inventory directly
 // This service uses the dedicated greige_stock table (not proxy fabric_master records)
-import { Prisma, StockStatus, SpecializedStockTransactionType, TransactionReferenceType } from '@prisma/client';
+import {
+  Prisma,
+  PrismaClient,
+  StockStatus,
+  SpecializedStockTransactionType,
+  TransactionReferenceType,
+} from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo, logError, logDebug } from '../utils/logger';
-import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { ensureMaterialRecord, syncStockLevelQuantity, getDefaultWarehouseId } from './helpers/material-sync.helper';
+import { systemSettingsService } from './system-settings.service';
+// BUG-GRE5 fix: Import decimal.js utilities for precise WAC/valuation calculations
+import { toCurrency, toNumber, roundToCent } from '../utils/currency';
+
+// Type for Prisma transaction client (used when operations need to be atomic with caller's transaction)
+type TransactionClient = Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>;
 
 export interface CreateGreigeStockDTO {
   greigeId: string;
@@ -24,7 +36,7 @@ export interface CreateGreigeStockDTO {
   foldLengthCm?: number; // "L" - fold length in cm (e.g., 97)
   thanCount?: number; // Number of thans in this lot
   skipMaterialSync?: boolean; // Skip ensureMaterialRecord/syncStockLevelQuantity when called from stock routing
-  tx?: any; // Transaction client - use this instead of global prisma when provided
+  tx?: TransactionClient; // Transaction client - use this instead of global prisma when provided
 }
 
 export interface GreigeStockItem {
@@ -120,6 +132,16 @@ class GreigeStockService {
           ? nominalQty * (data.foldLengthCm / 100)
           : nominalQty; // If no fold length or L=100, actual = nominal
 
+      // Get configurable defaults from system settings
+      const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+      const defaultQualityGrade = await systemSettingsService.getString('GREIGE_DEFAULT_QUALITY_GRADE', 'A');
+
+      // A lot MUST carry a warehouse: NULL-warehouse lots are invisible to derived_stock_view
+      // (every stock page reads it), and the ledger sync then lands at a warehouse the lot
+      // doesn't reference — permanent lot↔ledger disagreement (GRG-0006 class). When the form
+      // doesn't name one, use the same company-default fallback the sync helper uses.
+      const lotWarehouseId = data.warehouseId || (await getDefaultWarehouseId(client)) || null;
+
       // Create procurement record for traceability
       // Use ACTUAL quantity for financial calculation
       const procurement = await client.fabric_procurement.create({
@@ -132,7 +154,10 @@ class GreigeStockService {
           unit: 'meters',
           width: new Prisma.Decimal(data.width),
           ratePerUnit: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
-          totalCost: data.purchaseCost ? new Prisma.Decimal(actualQty * data.purchaseCost) : new Prisma.Decimal(0), // ACTUAL × rate
+          // BUG-GRE5 fix: Use decimal.js for precise total cost calculation
+          totalCost: data.purchaseCost
+            ? new Prisma.Decimal(toNumber(toCurrency(actualQty).times(toCurrency(data.purchaseCost))))
+            : new Prisma.Decimal(0), // ACTUAL × rate
           orderedForStyleId: null, // Generic, not style-specific
           isStockPurchase: true,
           processingRequired: false,
@@ -155,16 +180,18 @@ class GreigeStockService {
           quantityConsumed: new Prisma.Decimal(0),
           unit: 'meters',
           greigeWidth: new Prisma.Decimal(data.width),
-          cutableWidth: data.cutableWidth ? new Prisma.Decimal(data.cutableWidth) : new Prisma.Decimal(data.width - 2), // Default cutable = width - 2
+          cutableWidth: data.cutableWidth
+            ? new Prisma.Decimal(data.cutableWidth)
+            : new Prisma.Decimal(data.width - cutableWidthDeduction), // Default cutable = width - configurable deduction
           purchaseCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : null,
           weightedAvgCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : null,
           procurementId: procurement.id,
           supplierId: userSupplierId,
           sourceType: data.sourceType || 'MANUAL', // Track source: GRN, MANUAL, or ADJUSTMENT
-          warehouseId: data.warehouseId || null,
+          warehouseId: lotWarehouseId,
           warehouseLocation: data.warehouseLocation || null,
           rollNumbers: data.rollNumbers || null,
-          qualityGrade: data.qualityGrade || 'A',
+          qualityGrade: data.qualityGrade || defaultQualityGrade,
           receivedDate: data.receivedDate || new Date(),
           invoiceNumber: data.invoiceNumber || null,
           invoiceDate: data.invoiceDate || null,
@@ -190,11 +217,12 @@ class GreigeStockService {
         },
       });
 
-      // Ensure materials record exists + sync stock_levels with ACTUAL quantity
+      // Ensure materials record exists + sync stock_levels with ACTUAL quantity — at the SAME
+      // warehouse the lot was stamped with, so lot and ledger can never disagree on location.
       // Skip when called from stock routing (parent already handles this)
       if (!data.skipMaterialSync) {
-        await ensureMaterialRecord(data.greigeId, 'GREIGE');
-        await syncStockLevelQuantity(data.greigeId, actualQty, data.warehouseId);
+        await ensureMaterialRecord(data.greigeId, 'GREIGE', data.tx);
+        await syncStockLevelQuantity(data.greigeId, actualQty, lotWarehouseId || undefined, undefined, data.tx);
       }
 
       logInfo(
@@ -337,6 +365,12 @@ class GreigeStockService {
    */
   async getGreigeStockSummary(): Promise<GreigeStockSummary> {
     try {
+      // BUG-GR10 fix: Aging threshold is configurable via system settings.
+      // Setting key: STOCK_AGING_THRESHOLD_DAYS (default: 180 days)
+      // Stock older than this threshold is flagged as "aging" in dashboard summaries.
+      const agingThresholdDays = await systemSettingsService.getNumber('STOCK_AGING_THRESHOLD_DAYS', 180);
+      const defaultQualityGrade = await systemSettingsService.getString('GREIGE_DEFAULT_QUALITY_GRADE', 'A');
+
       const stocks = await prisma.greige_stock.findMany({
         where: {
           status: 'AVAILABLE',
@@ -351,35 +385,37 @@ class GreigeStockService {
         },
       });
 
-      let totalMeters = 0;
-      let totalValue = 0;
+      // BUG-GRE5 fix: Use decimal.js for precise valuation calculations to avoid floating point errors
+      let totalMetersDec = toCurrency(0);
+      let totalValueDec = toCurrency(0);
       let agingStockCount = 0;
       const byQualityGrade: Record<string, number> = {};
 
       stocks.forEach((stock) => {
-        const quantity = Number(stock.quantityAvailable);
-        const cost = Number(stock.weightedAvgCost || stock.purchaseCost || 0);
+        // BUG-GRE5 fix: Convert Prisma Decimal to decimal.js for precise arithmetic
+        const quantity = toCurrency(Number(stock.quantityAvailable));
+        const cost = toCurrency(Number(stock.weightedAvgCost || stock.purchaseCost || 0));
 
-        totalMeters += quantity;
-        totalValue += quantity * cost;
+        totalMetersDec = totalMetersDec.plus(quantity);
+        totalValueDec = totalValueDec.plus(quantity.times(cost));
 
         // Track by quality grade
-        const grade = stock.qualityGrade || 'A';
-        byQualityGrade[grade] = (byQualityGrade[grade] || 0) + quantity;
+        const grade = stock.qualityGrade || defaultQualityGrade;
+        byQualityGrade[grade] = (byQualityGrade[grade] || 0) + toNumber(quantity);
 
-        // Check aging (>180 days)
+        // Check aging using configurable threshold
         const agingDays = stock.receivedDate
           ? Math.floor((Date.now() - new Date(stock.receivedDate).getTime()) / (1000 * 60 * 60 * 24))
           : 0;
 
-        if (agingDays >= 180) {
+        if (agingDays >= agingThresholdDays) {
           agingStockCount++;
         }
       });
 
       return {
-        totalMeters: Math.round(totalMeters * 100) / 100,
-        totalValue: Math.round(totalValue * 100) / 100,
+        totalMeters: toNumber(roundToCent(totalMetersDec)),
+        totalValue: toNumber(roundToCent(totalValueDec)),
         agingStockCount,
         totalItems: stocks.length,
         byQualityGrade,
@@ -445,7 +481,7 @@ class GreigeStockService {
   /**
    * Consume greige stock (after processing)
    */
-  async consumeGreigeStock(stockId: string, quantity: number, userId: string, tx?: any) {
+  async consumeGreigeStock(stockId: string, quantity: number, userId: string, tx?: TransactionClient) {
     try {
       // When a caller's transaction is supplied, run every write on it so the consumption commits/rolls
       // back atomically with the caller (e.g. challan issuance); otherwise use the global client.
@@ -501,7 +537,11 @@ class GreigeStockService {
           quantity: new Prisma.Decimal(-quantity),
           balanceAfter: new Prisma.Decimal(newAvailable),
           costPerUnit: costPerUnit !== null ? new Prisma.Decimal(costPerUnit) : null,
-          totalValue: costPerUnit !== null ? new Prisma.Decimal(quantity * costPerUnit) : null,
+          // BUG-GRE5 fix: Use decimal.js for precise totalValue calculation
+          totalValue:
+            costPerUnit !== null
+              ? new Prisma.Decimal(toNumber(toCurrency(quantity).times(toCurrency(costPerUnit))))
+              : null,
           referenceType: 'CHALLAN',
           notes: `Consumed via challan issuance`,
           performedById: userId,
@@ -638,6 +678,7 @@ class GreigeStockService {
 
   /**
    * Delete a greige stock entry (checks dependencies first)
+   * BUG-INV2 fix: Syncs stock_levels before deletion to prevent orphan quantities
    */
   async deleteGreigeStock(stockId: string) {
     const existing = await prisma.greige_stock.findUnique({
@@ -657,6 +698,20 @@ class GreigeStockService {
 
     if (existing._count.challanItems > 0) {
       throw new Error(`Cannot delete: ${existing._count.challanItems} challan item(s) reference this stock entry`);
+    }
+
+    // BUG-INV2 fix: Sync stock_levels before deleting greige_stock
+    // Find the materials record linked to this greige and decrement stock_levels
+    const material = await prisma.materials.findFirst({
+      where: { greigeId: existing.greigeId },
+      select: { id: true },
+    });
+    if (material) {
+      const quantityToRemove = -Number(existing.quantityAvailable);
+      await syncStockLevelQuantity(material.id, quantityToRemove, existing.warehouseId || undefined);
+      logInfo(`Stock levels synced: removed ${-quantityToRemove}m for material ${material.id}`);
+    } else {
+      logDebug(`No materials record found for greigeId ${existing.greigeId} - stock_levels not synced`);
     }
 
     await prisma.greige_stock.delete({ where: { id: stockId } });
@@ -711,16 +766,26 @@ class GreigeStockService {
         quantity: new Prisma.Decimal(data.adjustmentType === 'INCREASE' ? data.quantity : -data.quantity),
         balanceAfter: new Prisma.Decimal(newQty),
         costPerUnit: costPerUnit !== null ? new Prisma.Decimal(costPerUnit) : null,
-        totalValue: costPerUnit !== null ? new Prisma.Decimal(data.quantity * costPerUnit) : null,
+        // BUG-GRE5 fix: Use decimal.js for precise totalValue calculation
+        totalValue:
+          costPerUnit !== null
+            ? new Prisma.Decimal(toNumber(toCurrency(data.quantity).times(toCurrency(costPerUnit))))
+            : null,
         referenceType: 'MANUAL',
         notes: `${data.reason}${data.remarks ? ' - ' + data.remarks : ''}`,
         performedById: userId,
       },
     });
 
-    // Sync stock_levels
+    // Sync stock_levels - find materialId by greigeId FK
     const adjustChange = data.adjustmentType === 'INCREASE' ? data.quantity : -data.quantity;
-    await syncStockLevelQuantity(existing.greigeId, adjustChange, existing.warehouseId || undefined);
+    const material = await prisma.materials.findFirst({
+      where: { greigeId: existing.greigeId },
+      select: { id: true },
+    });
+    if (material) {
+      await syncStockLevelQuantity(material.id, adjustChange, existing.warehouseId || undefined);
+    }
 
     logInfo(
       `Stock adjustment: ${data.adjustmentType} ${data.quantity}m on ${existing.greige.greigeCode} (${stockId}). ` +
@@ -884,7 +949,11 @@ class GreigeStockService {
         quantity: new Prisma.Decimal(-sentQuantity),
         balanceAfter: new Prisma.Decimal(newAvailable),
         costPerUnit: costPerUnit !== null ? new Prisma.Decimal(costPerUnit) : null,
-        totalValue: costPerUnit !== null ? new Prisma.Decimal(sentQuantity * costPerUnit) : null,
+        // BUG-GRE5 fix: Use decimal.js for precise totalValue calculation
+        totalValue:
+          costPerUnit !== null
+            ? new Prisma.Decimal(toNumber(toCurrency(sentQuantity).times(toCurrency(costPerUnit))))
+            : null,
         referenceType: options?.referenceType || 'PROCESSING_DELIVERY',
         referenceId: options?.referenceId,
         notes:
@@ -988,7 +1057,11 @@ class GreigeStockService {
         quantity: new Prisma.Decimal(-receivedQuantity),
         balanceAfter: new Prisma.Decimal(remainingAtProcessor),
         costPerUnit: costPerUnit !== null ? new Prisma.Decimal(costPerUnit) : null,
-        totalValue: costPerUnit !== null ? new Prisma.Decimal(receivedQuantity * costPerUnit) : null,
+        // BUG-GRE5 fix: Use decimal.js for precise totalValue calculation
+        totalValue:
+          costPerUnit !== null
+            ? new Prisma.Decimal(toNumber(toCurrency(receivedQuantity).times(toCurrency(costPerUnit))))
+            : null,
         referenceType: options?.referenceType || 'PROCESSING_DELIVERY',
         referenceId: options?.referenceId,
         notes:

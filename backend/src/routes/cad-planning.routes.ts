@@ -97,6 +97,7 @@ import {
   assignPatternPartsFromComponentSchema,
   updatePatternPartAssignmentSchema,
   createOrUpdateEmbroideryCadSchema,
+  syncBomFabricSchema,
 } from '../schemas/cadPlanning.schema';
 
 const router = Router();
@@ -279,10 +280,12 @@ router.post(
  * @desc    Sync BOM items' fabricId from existing PRODUCTION CAD rows (fixes stale data)
  * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
  */
+// BUG-CAD7 fix: added body validation (empty strict schema)
 router.post(
   '/:styleId/sync-bom-fabric',
   validateParams(styleIdParamSchema),
   authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(syncBomFabricSchema),
   asyncHandler(syncBomFabricFromCAD)
 );
 

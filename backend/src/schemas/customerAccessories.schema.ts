@@ -74,7 +74,7 @@ export const cloneAccessoryPresetSchema = z.object({
 export const accessoryPresetQuerySchema = z.object({
   isActive: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
 });
 

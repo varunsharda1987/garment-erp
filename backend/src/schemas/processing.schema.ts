@@ -37,8 +37,8 @@ export const createProcessingStageSchema = z.object({
   sequenceNumber: z.number().int().positive().optional(),
   expectedQuantity: z.number().positive('Quantity must be positive'),
   unit: z.string().max(20).optional().default('PIECE'),
-  expectedStartDate: z.string().datetime().optional(),
-  expectedEndDate: z.string().datetime().optional(),
+  expectedStartDate: z.coerce.date().optional(),
+  expectedEndDate: z.coerce.date().optional(),
   rate: z.number().nonnegative().optional(),
   remarks: z.string().max(500).optional(),
 });
@@ -54,10 +54,10 @@ export const updateProcessingStageSchema = z.object({
   expectedQuantity: z.number().positive().optional(),
   actualQuantity: z.number().nonnegative().optional(),
   unit: z.string().max(20).optional(),
-  expectedStartDate: z.string().datetime().optional().nullable(),
-  expectedEndDate: z.string().datetime().optional().nullable(),
-  actualStartDate: z.string().datetime().optional().nullable(),
-  actualEndDate: z.string().datetime().optional().nullable(),
+  expectedStartDate: z.coerce.date().optional().nullable(),
+  expectedEndDate: z.coerce.date().optional().nullable(),
+  actualStartDate: z.coerce.date().optional().nullable(),
+  actualEndDate: z.coerce.date().optional().nullable(),
   rate: z.number().nonnegative().optional().nullable(),
   remarks: z.string().max(500).optional().nullable(),
 });
@@ -79,7 +79,7 @@ export const completeStageSchema = z.object({
   // completeStage(id) takes no quantity today, so requiring it rejected the natural empty-body call.
   // NOTE: if completion should record an actual quantity, that needs a column + service change.
   actualQuantity: z.coerce.number().nonnegative('Quantity cannot be negative').optional(),
-  completedDate: z.string().datetime().optional(),
+  completedDate: z.coerce.date().optional(),
   remarks: z.string().max(500).optional(),
 });
 
@@ -124,7 +124,7 @@ export const createProcessingMovementSchema = z.object({
   toStageId: z.string().uuid('Invalid to stage ID'),
   quantity: z.number().positive('Quantity must be positive'),
   unit: z.string().max(20).optional().default('PIECE'),
-  dispatchDate: z.string().datetime().optional(),
+  dispatchDate: z.coerce.date().optional(),
   vehicleNumber: z.string().max(50).optional(),
   driverName: z.string().max(100).optional(),
   driverContact: z.string().max(20).optional(),
@@ -139,7 +139,7 @@ export const createProcessingMovementSchema = z.object({
 export const updateProcessingMovementSchema = z.object({
   quantity: z.number().positive().optional(),
   unit: z.string().max(20).optional(),
-  dispatchDate: z.string().datetime().optional().nullable(),
+  dispatchDate: z.coerce.date().optional().nullable(),
   vehicleNumber: z.string().max(50).optional().nullable(),
   driverName: z.string().max(100).optional().nullable(),
   driverContact: z.string().max(20).optional().nullable(),
@@ -154,7 +154,7 @@ export const updateProcessingMovementSchema = z.object({
 export const markAsDeliveredSchema = z.object({
   // Not read by the deliver handler; required only forced callers to send a dead field.
   deliveredQuantity: z.coerce.number().nonnegative('Delivered quantity cannot be negative').optional(),
-  deliveredDate: z.string().datetime().optional(),
+  deliveredDate: z.coerce.date().optional(),
   receivedBy: z.string().max(100).optional(),
   remarks: z.string().max(500).optional(),
 });
@@ -186,7 +186,7 @@ export const createProcessingDeliverySchema = z.object({
   movementId: z.string().uuid('Invalid movement ID').optional(),
   quantity: z.number().positive('Quantity must be positive'),
   unit: z.string().max(20).optional().default('PIECE'),
-  deliveryDate: z.string().datetime().optional(),
+  deliveryDate: z.coerce.date().optional(),
   challanNumber: z.string().max(50).optional(),
   remarks: z.string().max(500).optional(),
 });
@@ -198,7 +198,7 @@ export const createProcessingDeliverySchema = z.object({
 export const updateProcessingDeliverySchema = z.object({
   quantity: z.number().positive().optional(),
   unit: z.string().max(20).optional(),
-  deliveryDate: z.string().datetime().optional().nullable(),
+  deliveryDate: z.coerce.date().optional().nullable(),
   challanNumber: z.string().max(50).optional().nullable(),
   remarks: z.string().max(500).optional().nullable(),
 });
@@ -222,7 +222,7 @@ export const performQCSchema = z.object({
 export const acceptDeliverySchema = z.object({
   // Controller reads nothing from the body — keep optional so an empty POST /accept passes.
   acceptedQuantity: z.number().nonnegative('Accepted quantity cannot be negative').optional(),
-  acceptedDate: z.string().datetime().optional(),
+  acceptedDate: z.coerce.date().optional(),
   remarks: z.string().max(500).optional(),
 });
 
@@ -233,7 +233,7 @@ export const acceptDeliverySchema = z.object({
 export const rejectDeliverySchema = z.object({
   // Controller reads only { reason }.
   reason: z.string().min(1, 'Rejection reason is required').max(500),
-  rejectedDate: z.string().datetime().optional(),
+  rejectedDate: z.coerce.date().optional(),
   remarks: z.string().max(500).optional(),
 });
 

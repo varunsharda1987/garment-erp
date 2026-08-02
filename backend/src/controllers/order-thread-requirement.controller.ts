@@ -181,7 +181,7 @@ export async function getStats(req: Request, res: Response) {
  */
 export async function generatePO(req: Request, res: Response) {
   const { requirementIds, supplierId, expectedDeliveryDate, remarks } = req.body;
-  const createdById = req.user?.id || 'system';
+  const createdById = req.user?.userId || 'system';
 
   if (!requirementIds?.length || !supplierId || !expectedDeliveryDate) {
     throw new ValidationError('requirementIds, supplierId, and expectedDeliveryDate are required');

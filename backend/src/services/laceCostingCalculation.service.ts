@@ -19,6 +19,7 @@ import prisma from '../config/database';
 import { logWarn } from '../utils/logger';
 import { lookupLaceRate } from './processor-rate-v2.service';
 import { isLabDipApproved, getApprovedLabDipsForLace } from './laceLabDip.service';
+import { toCurrency, multiplyCurrency, addCurrency, divideCurrency, percentOf, toNumber } from '../utils/currency'; // BUG-FAB12 fix
 
 export interface LaceCostOptions {
   laceId: string;
@@ -169,8 +170,11 @@ export async function calculateLaceCost(options: LaceCostOptions): Promise<LaceC
   }
 
   // Calculate quantities
-  const effectiveQuantity = quantityPerGarment * (1 + wastagePercent / 100);
-  const totalQuantityNeeded = effectiveQuantity * orderQuantity;
+  // BUG-FAB12 fix: use decimal.js for precision
+  const wastageFraction = toNumber(divideCurrency(wastagePercent, 100));
+  const wastageMultiplier = toNumber(addCurrency(1, wastageFraction));
+  const effectiveQuantity = toNumber(multiplyCurrency(quantityPerGarment, wastageMultiplier));
+  const totalQuantityNeeded = toNumber(multiplyCurrency(effectiveQuantity, orderQuantity));
 
   // Option 1: Check stock availability
   const stockOption = await checkLaceStockAvailability(laceId, totalQuantityNeeded, styleId);
@@ -334,7 +338,8 @@ async function checkLaceStockAvailability(
 
   const stock = stockLots[0];
   const wac = Number(stock.weightedAvgCost);
-  const totalCost = wac * quantityNeeded;
+  // BUG-FAB12 fix: use decimal.js for precision
+  const totalCost = toNumber(multiplyCurrency(wac, quantityNeeded));
 
   return {
     available: true,
@@ -365,8 +370,8 @@ async function getReadyLaceCost(laceId: string, quantityNeeded: number, lace: an
   let rateSource: ReadyLaceOption['rateSource'] = null;
   let lastUpdated: string | null = null;
 
-  if (preferredSupplier?.price) {
-    cost = Number(preferredSupplier.price);
+  if (preferredSupplier?.pricePerMeter) {
+    cost = Number(preferredSupplier.pricePerMeter);
     supplierId = preferredSupplier.supplierId;
     supplierName = preferredSupplier.supplier?.name || null;
     rateSource = 'SUPPLIER_PRICE';
@@ -394,7 +399,8 @@ async function getReadyLaceCost(laceId: string, quantityNeeded: number, lace: an
     readyLaceCost: cost,
     supplierId,
     supplierName,
-    totalCost: cost * quantityNeeded,
+    // BUG-FAB12 fix: use decimal.js for precision
+    totalCost: toNumber(multiplyCurrency(cost, quantityNeeded)),
     details: supplierName ? `₹${cost.toFixed(2)}/m from ${supplierName}` : `₹${cost.toFixed(2)}/m (Lace Master rate)`,
     rateSource,
     lastUpdated,
@@ -590,7 +596,8 @@ async function calculateGreigeLaceProcessingCost(
             `Invalid shrinkage ${shrinkagePercent}% on the processor rate card: must be below 100% (it is a divisor in costing).`
           );
         }
-        greigeQuantityNeeded = quantityNeeded / shrinkageFactor;
+        // BUG-FAB12 fix: use decimal.js for precision
+        greigeQuantityNeeded = toNumber(divideCurrency(quantityNeeded, shrinkageFactor));
       }
     }
   }
@@ -624,7 +631,8 @@ async function calculateGreigeLaceProcessingCost(
               `Invalid shrinkage ${shrinkagePercent}% on the processor rate card: must be below 100% (it is a divisor in costing).`
             );
           }
-          greigeQuantityNeeded = quantityNeeded / shrinkageFactor;
+          // BUG-FAB12 fix: use decimal.js for precision
+          greigeQuantityNeeded = toNumber(divideCurrency(quantityNeeded, shrinkageFactor));
         }
         if (!labDipApproved) {
           // Only override processor if no approved lab dip
@@ -697,10 +705,12 @@ async function calculateGreigeLaceProcessingCost(
   }
 
   // Calculate total costs
-  const greigeTotalCost = greigeCostPerMeter * greigeQuantityNeeded;
-  const processingTotalCost = processingCostPerMeter * greigeQuantityNeeded;
-  const effectiveCostPerMeter = (greigeCostPerMeter + processingCostPerMeter) / shrinkageFactor;
-  const totalCost = effectiveCostPerMeter * quantityNeeded;
+  // BUG-FAB12 fix: use decimal.js for precision
+  const greigeTotalCost = toNumber(multiplyCurrency(greigeCostPerMeter, greigeQuantityNeeded));
+  const processingTotalCost = toNumber(multiplyCurrency(processingCostPerMeter, greigeQuantityNeeded));
+  const combinedCostPerMeter = toNumber(addCurrency(greigeCostPerMeter, processingCostPerMeter));
+  const effectiveCostPerMeter = toNumber(divideCurrency(combinedCostPerMeter, shrinkageFactor));
+  const totalCost = toNumber(multiplyCurrency(effectiveCostPerMeter, quantityNeeded));
 
   return {
     available: true,

@@ -23,11 +23,23 @@ export async function calculateSingleFabricCost(req: Request, res: Response) {
     throw new ValidationError('Missing required fields: fabricId, cadMeters, width');
   }
 
+  // BUG-FC6 fix: Add NaN guards for parseFloat/parseInt
+  const parsedCadMeters = parseFloat(cadMeters);
+  const parsedWidth = parseFloat(width);
+  const parsedOrderQty = orderQuantity ? parseInt(orderQuantity, 10) : undefined;
+
+  if (isNaN(parsedCadMeters) || isNaN(parsedWidth)) {
+    throw new ValidationError('cadMeters and width must be valid numbers');
+  }
+  if (parsedOrderQty !== undefined && isNaN(parsedOrderQty)) {
+    throw new ValidationError('orderQuantity must be a valid number');
+  }
+
   const result = await calculateFabricCost({
     fabricId,
-    cadMeters: parseFloat(cadMeters),
-    width: parseFloat(width),
-    orderQuantity: orderQuantity ? parseInt(orderQuantity) : undefined,
+    cadMeters: parsedCadMeters,
+    width: parsedWidth,
+    orderQuantity: parsedOrderQty,
     styleId,
   });
 
@@ -844,7 +856,9 @@ export async function saveFabricCosting(req: Request, res: Response) {
             clonedFromCadId: costing.cloneFromCadId,
             // Costing-owned fields from request
             costingStyleId: styleId,
+            // BUG-FC7 fix: sync purpose fields - always set both purpose and purposeEnum together
             purpose: costing.purpose || sourceRecord.purpose || 'COSTING',
+            purposeEnum: (costing.purpose || sourceRecord.purpose || 'COSTING') as any,
             greigeId: costing.greigeId || sourceRecord.greigeId,
             greigeCostPerMeter: costing.greigeCostPerMeter ? parseFloat(costing.greigeCostPerMeter) : null,
             transportCostPerMeter: costing.transportCostPerMeter ? parseFloat(costing.transportCostPerMeter) : null,
@@ -885,11 +899,14 @@ export async function saveFabricCosting(req: Request, res: Response) {
       }
 
       // Prepare COST-ONLY data (fields owned by Fabric Costing)
+      // BUG-FC7 fix: sync purpose fields - determine resolved purpose once, then set both fields
+      const resolvedPurpose = costing.purpose || existingCad.purpose || 'COSTING';
       const costingData = {
         // Link to style for Options page (CRITICAL - without this, data won't appear on Options page)
         costingStyleId: styleId,
         // Workflow purpose mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
-        purpose: costing.purpose || existingCad.purpose || 'COSTING',
+        purpose: resolvedPurpose,
+        purposeEnum: resolvedPurpose as any,
         // Fabric Costing ONLY updates these cost-related fields
         styleFabricId: costing.styleFabricId || existingCad.styleFabricId,
         greigeId: costing.greigeId || existingCad.greigeId,
@@ -1310,7 +1327,7 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
     where.purpose = purpose;
   }
 
-  const options = await prisma.fabric_width_cad.findMany({
+  let options = await prisma.fabric_width_cad.findMany({
     where,
     include: {
       processor: { select: { id: true, name: true, code: true } },
@@ -1334,6 +1351,40 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
       { totalCostPerMeter: 'asc' },
     ],
   });
+
+  // Fallback: If COSTING purpose requested but no results, try RAW_MATERIAL_CALCULATION
+  // This allows cost sheet to work when only RM CAD is available
+  if (options.length === 0 && purpose === 'COSTING') {
+    options = await prisma.fabric_width_cad.findMany({
+      where: {
+        costingStyleId: styleId,
+        totalCostPerMeter: { not: null },
+        purpose: 'RAW_MATERIAL_CALCULATION',
+        approvalStatus: 'APPROVED',
+      },
+      include: {
+        processor: { select: { id: true, name: true, code: true } },
+        greige: { select: { id: true, greigeName: true, greigeCode: true } },
+        patternPart: { select: { id: true, code: true, name: true } },
+        styleFabric: {
+          select: {
+            id: true,
+            hasEmbroidery: true,
+            fabricName: true,
+            fabricFinishType: true,
+            printDesign: true,
+            colorMaster: { select: { colorName: true } },
+          },
+        },
+      },
+      orderBy: [
+        { componentName: 'asc' },
+        { styleFabricId: 'asc' },
+        { patternPartId: 'asc' },
+        { totalCostPerMeter: 'asc' },
+      ],
+    });
+  }
 
   // Group by component + styleFabric (so each fabric assignment can be approved independently)
   // This allows same base fabric with different properties (e.g., embroidery) to be separate groups
@@ -1478,7 +1529,9 @@ export async function promoteCostingOption(req: Request, res: Response) {
   const promoted = await prisma.fabric_width_cad.create({
     data: {
       ...data,
+      // BUG-FC7 fix: sync purpose fields - always set both purpose and purposeEnum together
       purpose: targetPurpose,
+      purposeEnum: targetPurpose as any,
       approvalStatus: 'PENDING', // Needs approval in new stage
       approvedBy: null,
       approvedAt: null,

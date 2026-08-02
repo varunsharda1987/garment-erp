@@ -46,6 +46,7 @@ interface CostSheetTrimDetail {
   bomId?: string;
   unit?: string;
   materialType?: string;
+  isNotApplicable?: boolean;
   threadId?: string;
   buttonId?: string;
   zipperId?: string;
@@ -80,6 +81,7 @@ interface CostSheetAccessoryDetail {
   packagingId?: string;
   materialId?: string;
   materialType?: string;
+  isNotApplicable?: boolean;
 }
 
 // ============================================
@@ -349,6 +351,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           otherTapeId?: string;
           otherDecorativeId?: string;
           otherFunctionalId?: string;
+          isNotApplicable?: boolean;
         }>) || [];
       const csAccessories =
         (costSheet.accessoriesDetails as unknown as Array<{
@@ -359,6 +362,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           packagingId?: string;
           materialId?: string;
           materialType?: string;
+          isNotApplicable?: boolean;
         }>) || [];
 
       if (csTrims.length > 0 || csAccessories.length > 0) {
@@ -371,8 +375,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         let sortOrder = 0;
 
         // Create style_material_bom records from trimsDetails
+        // BUG-ORD4 fix: Skip trims marked "Not Applicable" on cost sheet
         for (const trim of csTrims) {
-          if (!trim.trimName) continue;
+          if (!trim.trimName || trim.isNotApplicable) continue;
           const materialType = this.detectMaterialTypeFromName(trim.trimName, trim.materialType);
 
           await this.prisma.style_material_bom.create({
@@ -419,8 +424,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         }
 
         // Create style_material_bom records from accessoriesDetails
+        // BUG-ORD4 fix: Skip accessories marked "Not Applicable" on cost sheet
         for (const acc of csAccessories) {
-          if (!acc.accessoryName) continue;
+          if (!acc.accessoryName || acc.isNotApplicable) continue;
           const materialType = this.detectMaterialTypeFromName(acc.accessoryName, acc.materialType);
 
           await this.prisma.style_material_bom.create({
@@ -568,6 +574,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
             otherTapeId?: string;
             otherDecorativeId?: string;
             otherFunctionalId?: string;
+            isNotApplicable?: boolean;
           }>) || [];
 
     const accessoriesDetails =
@@ -592,6 +599,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
             packagingId?: string;
             materialId?: string;
             materialType?: string;
+            isNotApplicable?: boolean;
           }>) || [];
 
     logDebug('[OrderBOM] Trim/Accessory source', {
@@ -706,8 +714,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       let fallbackSortOrder = 100; // Start after fabric items
 
       // Create BOM items from trimsDetails JSON
+      // BUG-ORD4 fix: Skip trims marked "Not Applicable" on cost sheet
       for (const trim of trimsDetails) {
-        if (!trim.trimName) continue;
+        if (!trim.trimName || trim.isNotApplicable) continue;
         const materialType = this.detectMaterialTypeFromName(trim.trimName, trim.materialType);
         const quantityPerGarment = trim.trimQuantity || 1;
         const totalQuantity = quantityPerGarment * orderQuantity;
@@ -763,8 +772,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       }
 
       // Create BOM items from accessoriesDetails JSON
+      // BUG-ORD4 fix: Skip accessories marked "Not Applicable" on cost sheet
       for (const acc of accessoriesDetails) {
-        if (!acc.accessoryName) continue;
+        if (!acc.accessoryName || acc.isNotApplicable) continue;
         const materialType = this.detectMaterialTypeFromName(acc.accessoryName, acc.materialType);
         const quantityPerGarment = acc.accessoryQuantity || 1;
         const totalQuantity = quantityPerGarment * orderQuantity;
@@ -1114,6 +1124,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     // Calculate total material cost
     const totalMaterialCost = bomItems.reduce((sum, item) => sum + (item.totalCost || 0), 0);
 
+    // BUG-S3 fix: Validate all FK IDs before creating BOM items
+    await this.validateBomItemFKs(bomItems);
+
     // Create Order BOM in transaction
     const orderBOM = await this.prisma.$transaction(async (tx) => {
       // Deactivate previous BOMs for this order/style
@@ -1388,7 +1401,8 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       bomItemId: string;
       newCadId: string;
     }>;
-    userId: string;
+    // BUG-ORD10 fix: standardized user ID property (was 'userId', now 'createdById' for consistency)
+    createdById: string;
   }): Promise<order_bom> {
     logDebug('Creating BOM version with width change', {
       orderBomId: input.orderBomId,
@@ -1561,7 +1575,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           totalMaterialCost,
           sourceCostSheetId: currentBOM.sourceCostSheetId,
           copiedFromOrderId: currentBOM.copiedFromOrderId,
-          createdById: input.userId,
+          createdById: input.createdById,
         },
       });
 
@@ -2013,6 +2027,164 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
   // ============================================
   // Private Helper Methods
   // ============================================
+
+  /**
+   * BUG-S3 fix: Validate all FK IDs in BOM items before creating them
+   * This prevents FK constraint violations and provides better error messages
+   */
+  private async validateBomItemFKs(
+    bomItems: Array<{
+      fabricId?: string | null;
+      greigeId?: string | null;
+      laceId?: string | null;
+      buttonId?: string | null;
+      threadId?: string | null;
+      zipperId?: string | null;
+      elasticId?: string | null;
+      labelId?: string | null;
+      packagingId?: string | null;
+      materialId?: string | null;
+      componentName?: string;
+      materialType?: string;
+    }>
+  ): Promise<void> {
+    // Collect unique IDs for each FK type
+    const fabricIds = new Set<string>();
+    const greigeIds = new Set<string>();
+    const laceIds = new Set<string>();
+    const buttonIds = new Set<string>();
+    const threadIds = new Set<string>();
+    const zipperIds = new Set<string>();
+    const elasticIds = new Set<string>();
+    const labelIds = new Set<string>();
+    const packagingIds = new Set<string>();
+    const materialIds = new Set<string>();
+
+    for (const item of bomItems) {
+      if (item.fabricId) fabricIds.add(item.fabricId);
+      if (item.greigeId) greigeIds.add(item.greigeId);
+      if (item.laceId) laceIds.add(item.laceId);
+      if (item.buttonId) buttonIds.add(item.buttonId);
+      if (item.threadId) threadIds.add(item.threadId);
+      if (item.zipperId) zipperIds.add(item.zipperId);
+      if (item.elasticId) elasticIds.add(item.elasticId);
+      if (item.labelId) labelIds.add(item.labelId);
+      if (item.packagingId) packagingIds.add(item.packagingId);
+      if (item.materialId) materialIds.add(item.materialId);
+    }
+
+    const invalidIds: string[] = [];
+
+    // Validate each FK type in parallel
+    const validations = await Promise.all([
+      fabricIds.size > 0
+        ? this.prisma.fabric_master
+            .findMany({ where: { id: { in: [...fabricIds] } }, select: { id: true } })
+            .then((found) => {
+              const foundIds = new Set(found.map((f) => f.id));
+              for (const id of fabricIds) {
+                if (!foundIds.has(id)) invalidIds.push(`fabricId: ${id}`);
+              }
+            })
+        : Promise.resolve(),
+      greigeIds.size > 0
+        ? this.prisma.greige_master
+            .findMany({ where: { id: { in: [...greigeIds] } }, select: { id: true } })
+            .then((found) => {
+              const foundIds = new Set(found.map((f) => f.id));
+              for (const id of greigeIds) {
+                if (!foundIds.has(id)) invalidIds.push(`greigeId: ${id}`);
+              }
+            })
+        : Promise.resolve(),
+      laceIds.size > 0
+        ? this.prisma.lace_master
+            .findMany({ where: { id: { in: [...laceIds] } }, select: { id: true } })
+            .then((found) => {
+              const foundIds = new Set(found.map((f) => f.id));
+              for (const id of laceIds) {
+                if (!foundIds.has(id)) invalidIds.push(`laceId: ${id}`);
+              }
+            })
+        : Promise.resolve(),
+      buttonIds.size > 0
+        ? this.prisma.button_master
+            .findMany({ where: { id: { in: [...buttonIds] } }, select: { id: true } })
+            .then((found) => {
+              const foundIds = new Set(found.map((f) => f.id));
+              for (const id of buttonIds) {
+                if (!foundIds.has(id)) invalidIds.push(`buttonId: ${id}`);
+              }
+            })
+        : Promise.resolve(),
+      threadIds.size > 0
+        ? this.prisma.thread_master
+            .findMany({ where: { id: { in: [...threadIds] } }, select: { id: true } })
+            .then((found) => {
+              const foundIds = new Set(found.map((f) => f.id));
+              for (const id of threadIds) {
+                if (!foundIds.has(id)) invalidIds.push(`threadId: ${id}`);
+              }
+            })
+        : Promise.resolve(),
+      zipperIds.size > 0
+        ? this.prisma.zipper_master
+            .findMany({ where: { id: { in: [...zipperIds] } }, select: { id: true } })
+            .then((found) => {
+              const foundIds = new Set(found.map((f) => f.id));
+              for (const id of zipperIds) {
+                if (!foundIds.has(id)) invalidIds.push(`zipperId: ${id}`);
+              }
+            })
+        : Promise.resolve(),
+      elasticIds.size > 0
+        ? this.prisma.elastic_master
+            .findMany({ where: { id: { in: [...elasticIds] } }, select: { id: true } })
+            .then((found) => {
+              const foundIds = new Set(found.map((f) => f.id));
+              for (const id of elasticIds) {
+                if (!foundIds.has(id)) invalidIds.push(`elasticId: ${id}`);
+              }
+            })
+        : Promise.resolve(),
+      labelIds.size > 0
+        ? this.prisma.label_master
+            .findMany({ where: { id: { in: [...labelIds] } }, select: { id: true } })
+            .then((found) => {
+              const foundIds = new Set(found.map((f) => f.id));
+              for (const id of labelIds) {
+                if (!foundIds.has(id)) invalidIds.push(`labelId: ${id}`);
+              }
+            })
+        : Promise.resolve(),
+      packagingIds.size > 0
+        ? this.prisma.packaging_master
+            .findMany({ where: { id: { in: [...packagingIds] } }, select: { id: true } })
+            .then((found) => {
+              const foundIds = new Set(found.map((f) => f.id));
+              for (const id of packagingIds) {
+                if (!foundIds.has(id)) invalidIds.push(`packagingId: ${id}`);
+              }
+            })
+        : Promise.resolve(),
+      materialIds.size > 0
+        ? this.prisma.materials
+            .findMany({ where: { id: { in: [...materialIds] } }, select: { id: true } })
+            .then((found) => {
+              const foundIds = new Set(found.map((f) => f.id));
+              for (const id of materialIds) {
+                if (!foundIds.has(id)) invalidIds.push(`materialId: ${id}`);
+              }
+            })
+        : Promise.resolve(),
+    ]);
+
+    if (invalidIds.length > 0) {
+      throw new ValidationError(
+        `Invalid material references in BOM: ${invalidIds.slice(0, 5).join(', ')}${invalidIds.length > 5 ? ` and ${invalidIds.length - 5} more` : ''}`
+      );
+    }
+  }
 
   private getMaterialName(material: {
     materialType?: string | null;

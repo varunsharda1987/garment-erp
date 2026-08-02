@@ -12,6 +12,7 @@ import {
   updateAccessoryPreset,
   deleteAccessoryPreset,
 } from '../controllers/customer.controller';
+import { getDefaultAccessoryPreset } from '../controllers/customer-accessories.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -93,6 +94,18 @@ router.get(
  * @access  Protected - All authenticated users
  */
 router.get('/:id/accessory-presets', validateParams(customerIdParamSchema), asyncHandler(getCustomerAccessoryPresets));
+
+/**
+ * @route   GET /api/customers/:id/accessory-presets/default
+ * @desc    Get the default accessory preset for a customer
+ * @access  Protected - All authenticated users
+ * BUG-CU1 fix: route was missing
+ */
+router.get(
+  '/:id/accessory-presets/default',
+  validateParams(customerIdParamSchema),
+  asyncHandler(getDefaultAccessoryPreset)
+);
 
 /**
  * @route   POST /api/customers/:id/accessory-presets

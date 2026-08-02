@@ -110,7 +110,7 @@ export const createFabricPhysicalTestSchema = z
     customerId: z.string().uuid().optional(),
 
     // Test Sending
-    sentToLabDate: z.string().datetime().optional(),
+    sentToLabDate: z.coerce.date().optional(),
     testingLabId: z.string().uuid().optional(),
     sampleQuantity: z.number().positive().optional(),
     batchNumber: z.string().max(100).optional(),
@@ -127,7 +127,7 @@ export const createFabricPhysicalTestSchema = z
 
 export const updateFabricPhysicalTestSchema = z.object({
   // Test Sending
-  sentToLabDate: z.string().datetime().optional().nullable(),
+  sentToLabDate: z.coerce.date().optional().nullable(),
   testingLabId: z.string().uuid().optional().nullable(),
   sampleQuantity: z.number().positive().optional().nullable(),
   batchNumber: z.string().max(100).optional().nullable(),
@@ -140,7 +140,7 @@ export const updateFabricPhysicalTestSchema = z.object({
 
   // Test Results - Core
   testReportNumber: z.string().max(100).optional().nullable(),
-  testResultReceivedDate: z.string().datetime().optional().nullable(),
+  testResultReceivedDate: z.coerce.date().optional().nullable(),
   testedGSM: z.number().int().positive().optional().nullable(),
   gsmTestResult: z.nativeEnum(TestResult).optional().nullable(),
   gsmVariance: z.number().optional().nullable(),
@@ -174,7 +174,7 @@ export const updateFabricPhysicalTestSchema = z.object({
 export const retestFabricSchema = z.object({
   originalTestId: z.string().uuid(),
   retestReason: z.string().min(1, 'Retest reason is required').max(500),
-  sentToLabDate: z.string().datetime().optional(),
+  sentToLabDate: z.coerce.date().optional(),
   testingLabId: z.string().uuid().optional(),
   sampleQuantity: z.number().positive().optional(),
 });
@@ -197,10 +197,10 @@ export const fabricPhysicalTestQuerySchema = z.object({
   customerId: z.string().uuid().optional(),
   testingLabId: z.string().uuid().optional(),
   overallTestResult: z.nativeEnum(TestResult).optional(),
-  sentDateFrom: z.string().datetime().optional(),
-  sentDateTo: z.string().datetime().optional(),
-  receivedDateFrom: z.string().datetime().optional(),
-  receivedDateTo: z.string().datetime().optional(),
+  sentDateFrom: z.coerce.date().optional(),
+  sentDateTo: z.coerce.date().optional(),
+  receivedDateFrom: z.coerce.date().optional(),
+  receivedDateTo: z.coerce.date().optional(),
   isRetest: z
     .string()
     .optional()
@@ -223,10 +223,9 @@ export const createGarmentPhysicalTestSchema = z.object({
   colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional(),
 
   // Test Sending
-  sentToLabDate: z.string().datetime().optional(),
+  sentToLabDate: z.coerce.date().optional(),
   testingLabId: z.string().uuid().optional(),
   sampleQuantity: z.number().positive().optional(),
-  batchNumber: z.string().max(100).optional(),
 
   // Buyer approval config
   buyerApprovalRequired: z.boolean().optional().default(false),
@@ -234,10 +233,9 @@ export const createGarmentPhysicalTestSchema = z.object({
 
 export const updateGarmentPhysicalTestSchema = z.object({
   // Test Sending
-  sentToLabDate: z.string().datetime().optional().nullable(),
+  sentToLabDate: z.coerce.date().optional().nullable(),
   testingLabId: z.string().uuid().optional().nullable(),
   sampleQuantity: z.number().positive().optional().nullable(),
-  batchNumber: z.string().max(100).optional().nullable(),
 
   // Dimensional Stability
   prewashLength: z.number().positive().optional().nullable(),
@@ -263,8 +261,7 @@ export const updateGarmentPhysicalTestSchema = z.object({
   // Additional Tests
   pilling: z.string().max(50).optional().nullable(),
   spirality: z.number().optional().nullable(),
-  fabricWeight: z.number().positive().optional().nullable(),
-  appearance: z.string().max(200).optional().nullable(),
+  apparenceAfterWash: z.string().max(200).optional().nullable(),
   testReportUrl: z.string().url().optional().nullable(),
 
   // Overall Status
@@ -283,7 +280,7 @@ export const updateGarmentPhysicalTestSchema = z.object({
 export const retestGarmentSchema = z.object({
   originalTestId: z.string().uuid(),
   retestReason: z.string().min(1, 'Retest reason is required').max(500),
-  sentToLabDate: z.string().datetime().optional(),
+  sentToLabDate: z.coerce.date().optional(),
   testingLabId: z.string().uuid().optional(),
   sampleQuantity: z.number().positive().optional(),
 });
@@ -311,10 +308,10 @@ export const garmentPhysicalTestQuerySchema = z.object({
   customerId: z.string().uuid().optional(),
   testingLabId: z.string().uuid().optional(),
   overallTestResult: z.nativeEnum(TestResult).optional(),
-  sentDateFrom: z.string().datetime().optional(),
-  sentDateTo: z.string().datetime().optional(),
-  receivedDateFrom: z.string().datetime().optional(),
-  receivedDateTo: z.string().datetime().optional(),
+  sentDateFrom: z.coerce.date().optional(),
+  sentDateTo: z.coerce.date().optional(),
+  receivedDateFrom: z.coerce.date().optional(),
+  receivedDateTo: z.coerce.date().optional(),
   isRetest: z
     .string()
     .optional()

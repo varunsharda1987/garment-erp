@@ -95,22 +95,6 @@ export {
   type MovementQueryInput,
 } from './stock.schema';
 
-// Fabric schemas
-export {
-  createGreigeSchema,
-  updateGreigeSchema,
-  createFabricSchema,
-  updateFabricSchema,
-  fabricQuerySchema,
-  createFabricCADSchema,
-  updateFabricCADSchema,
-  FabricType,
-  FabricStatus,
-  type CreateGreigeInput,
-  type UpdateGreigeInput,
-  type CreateFabricInput,
-  type UpdateFabricInput,
-  type FabricQueryInput,
-  type CreateFabricCADInput,
-  type UpdateFabricCADInput,
-} from './fabric.schema';
+// Fabric schemas - NOTE: Use fabricGreige.schema.ts instead (fabric.schema.ts is DEPRECATED)
+// The active fabric/greige schemas are in fabricGreige.schema.ts and used by fabric-greige.routes.ts
+// fabric.schema.ts is stale and should not be used for new code

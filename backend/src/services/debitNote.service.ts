@@ -3,7 +3,7 @@ import { Prisma, DebitNoteReason, DocumentStatus } from '@prisma/client';
 import { gstService } from './gst.service';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { generateAtomicDebitNoteNumber } from '../utils/atomicCodeGenerator';
-import { roundToCent, multiplyCurrency, addCurrency } from '../utils/currency';
+import { roundToCent, multiplyCurrency, addCurrency, toCurrency, subtractCurrency } from '../utils/currency';
 
 // ============================================
 // Types
@@ -97,7 +97,7 @@ export class DebitNoteService {
     const totalAmount = roundToCent(addCurrency(subtotal, totalTax)).toNumber();
     const debitNoteNumber = await this.generateDebitNoteNumber();
 
-    // Validate: cumulative debit notes must not exceed PO total (if linked to PO)
+    // BUG-DN5 fix: Validate cumulative debit notes using decimal.js to avoid floating point errors
     if (data.poId) {
       const existingDebitNotes = await prisma.debit_notes.aggregate({
         where: {
@@ -106,19 +106,23 @@ export class DebitNoteService {
         },
         _sum: { totalAmount: true },
       });
-      const existingTotal = Number(existingDebitNotes._sum.totalAmount || 0);
+      const existingTotal = toCurrency(existingDebitNotes._sum.totalAmount);
 
       const po = await prisma.purchase_orders.findUnique({
         where: { id: data.poId },
         select: { totalAmount: true },
       });
-      const poTotal = Number(po?.totalAmount || 0);
+      const poTotal = toCurrency(po?.totalAmount);
 
-      if (poTotal > 0 && existingTotal + totalAmount > poTotal) {
+      // Use decimal.js comparisons to avoid floating point precision issues
+      const cumulativeTotal = addCurrency(existingTotal.toNumber(), totalAmount);
+      const remaining = subtractCurrency(poTotal.toNumber(), existingTotal.toNumber());
+
+      if (poTotal.gt(0) && cumulativeTotal.gt(poTotal)) {
         throw new Error(
           `Debit note total (₹${totalAmount.toFixed(2)}) would exceed PO amount. ` +
-            `PO total: ₹${poTotal}, existing debit notes: ₹${existingTotal.toFixed(2)}, ` +
-            `remaining allowance: ₹${(poTotal - existingTotal).toFixed(2)}`
+            `PO total: ₹${poTotal.toFixed(2)}, existing debit notes: ₹${existingTotal.toFixed(2)}, ` +
+            `remaining allowance: ₹${remaining.toFixed(2)}`
         );
       }
     }

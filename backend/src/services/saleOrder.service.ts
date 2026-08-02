@@ -21,6 +21,7 @@ interface SOCreateInput {
 }
 
 interface SOUpdateInput {
+  customerId?: string; // BUG-ORD5 fix: Allow changing customer on draft orders
   styleId?: string | null; // Primary style for the order
   expectedShipDate?: Date | null;
   buyerDeadline?: Date | null; // Buyer's required completion date
@@ -181,6 +182,8 @@ export class SaleOrderService {
         return tx.sale_orders.update({
           where: { id },
           data: {
+            // BUG-ORD5 fix: Include customerId in update
+            ...(data.customerId && { customerId: data.customerId }),
             styleId: data.styleId,
             expectedShipDate: data.expectedShipDate,
             buyerDeadline: data.buyerDeadline,
@@ -195,6 +198,8 @@ export class SaleOrderService {
       return tx.sale_orders.update({
         where: { id },
         data: {
+          // BUG-ORD5 fix: Include customerId in update
+          ...(data.customerId && { customerId: data.customerId }),
           styleId: data.styleId,
           expectedShipDate: data.expectedShipDate,
           buyerDeadline: data.buyerDeadline,

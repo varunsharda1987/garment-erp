@@ -14,34 +14,34 @@ import { z } from 'zod';
 /**
  * Create Lookup
  * POST /api/lookups
+ *
+ * Note: code is optional - controller auto-generates from value if not provided
+ * Note: isActive is always true on create (controller hardcodes it)
  */
 export const createLookupSchema = z
   .object({
     category: z.string().min(1, 'Category is required').max(100),
-    code: z.string().min(1, 'Code is required').max(50),
+    code: z.string().min(1).max(50).optional(), // Auto-generated from value if not provided
     value: z.string().min(1, 'Value is required').max(200),
     description: z.string().max(500).optional(),
     sortOrder: z.number().int().nonnegative().optional(),
-    isDefault: z.boolean().optional().default(false),
-    isActive: z.boolean().optional().default(true),
-    metadata: z.record(z.string(), z.unknown()).optional(),
   })
   .passthrough();
 
 /**
  * Update Lookup
  * PUT /api/lookups/:id
+ *
+ * Note: category is not updatable (part of unique constraint)
+ * Controller uses: value, code, description, sortOrder, isActive
  */
 export const updateLookupSchema = z
   .object({
-    category: z.string().min(1).max(100).optional(),
-    code: z.string().min(1).max(50).optional(),
     value: z.string().min(1).max(200).optional(),
+    code: z.string().min(1).max(50).optional(),
     description: z.string().max(500).optional().nullable(),
     sortOrder: z.number().int().nonnegative().optional(),
-    isDefault: z.boolean().optional(),
     isActive: z.boolean().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional().nullable(),
   })
   .passthrough();
 
@@ -66,7 +66,7 @@ export const lookupQuerySchema = z.object({
   category: z.string().max(100).optional(),
   isActive: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
   search: z.string().max(100).optional(),
 });

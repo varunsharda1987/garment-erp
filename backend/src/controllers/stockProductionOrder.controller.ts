@@ -44,7 +44,7 @@ export class StockProductionOrderController {
 
   async create(req: Request, res: Response) {
     const { styleId, totalQuantity, targetDate, priority, remarks, items } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       throw new UnauthorizedError();
     }
@@ -94,7 +94,7 @@ export class StockProductionOrderController {
 
   async approve(req: Request, res: Response) {
     const { id } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       throw new UnauthorizedError();
     }
@@ -105,7 +105,7 @@ export class StockProductionOrderController {
 
   async generateWorkOrders(req: Request, res: Response) {
     const { id } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       throw new UnauthorizedError();
     }

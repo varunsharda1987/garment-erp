@@ -589,10 +589,34 @@ function packagingTypeToUnit(packagingType: ThreadPackagingType): Unit {
  * Each requirement row becomes one PO item
  */
 export async function generatePOFromRequirements(input: GenerateThreadPOInput) {
-  // Fetch all selected requirements
-  const requirements = await prisma.order_thread_requirements.findMany({
+  // BUG-ORD3 fix: prevent duplicate PO creation
+  // Check if any requirements already have PO items linked (status = PO_GENERATED or beyond)
+  const alreadyProcessed = await prisma.order_thread_requirements.findMany({
     where: {
       id: { in: input.requirementIds },
+      status: { in: ['PO_GENERATED', 'RECEIVED'] },
+    },
+    select: { id: true },
+  });
+
+  // Filter out requirements that already have POs
+  const alreadyProcessedIds = new Set(alreadyProcessed.map((r) => r.id));
+  const effectiveReqIds = input.requirementIds.filter((id) => !alreadyProcessedIds.has(id));
+
+  if (alreadyProcessed.length > 0 && effectiveReqIds.length === 0) {
+    throw new Error(
+      `All selected thread requirements already have Purchase Orders generated. No duplicate PO created.`
+    );
+  }
+
+  if (alreadyProcessed.length > 0) {
+    console.warn(`[Thread MRP] BUG-ORD3: Skipping ${alreadyProcessed.length} requirement(s) that already have POs`);
+  }
+
+  // Fetch all selected requirements (using filtered IDs)
+  const requirements = await prisma.order_thread_requirements.findMany({
+    where: {
+      id: { in: effectiveReqIds },
       status: 'PENDING',
     },
     include: {

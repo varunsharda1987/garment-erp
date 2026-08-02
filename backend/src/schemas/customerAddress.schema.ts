@@ -114,7 +114,7 @@ export const customerAddressQuerySchema = z.object({
   addressType: CustomerAddressTypeEnum.optional(),
   isActive: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
 });
 

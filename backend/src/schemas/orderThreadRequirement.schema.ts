@@ -81,9 +81,10 @@ export const threadRequirementQuerySchema = z.object({
   orderId: z.string().uuid().optional(),
   styleId: z.string().uuid().optional(),
   threadId: z.string().uuid().optional(),
+  status: z.enum(['PENDING', 'PO_GENERATED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED']).optional(),
   hasShortage: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
   search: z.string().max(100).optional(),
 });

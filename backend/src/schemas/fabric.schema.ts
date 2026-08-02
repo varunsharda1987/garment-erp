@@ -1,7 +1,16 @@
 /**
- * Fabric & Greige Validation Schemas
+ * @deprecated This file is STALE. Use fabricGreige.schema.ts instead.
  *
- * Zod schemas for fabric and greige management endpoints.
+ * BUG-FM6 fix: Verified stale - zero imports found. Safe to delete in future cleanup.
+ *
+ * The fabric-greige.routes.ts uses schemas from fabricGreige.schema.ts which are
+ * the current, maintained schemas for fabric and greige endpoints. This file was
+ * created earlier but never used in routes and has drifted from the actual data model.
+ *
+ * DO NOT USE these schemas for new code. They are kept only for reference.
+ *
+ * Original description:
+ * Fabric & Greige Validation Schemas - Zod schemas for fabric and greige management endpoints.
  */
 
 import { z } from 'zod';

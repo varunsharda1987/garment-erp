@@ -588,7 +588,9 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
       printDirection: sourceCAD?.printDirection || 'TWO_WAY',
 
       // Purpose and status
+      // BUG-FC7 fix: sync purpose fields - always set both purpose and purposeEnum together
       purpose: 'PRODUCTION',
+      purposeEnum: 'PRODUCTION' as any,
       approvalStatus: 'PENDING',
 
       // Stock integration

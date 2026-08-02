@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
+import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 
 // Type for supplier input
 interface MachinePartSupplierInput {
@@ -345,12 +346,10 @@ export const updateMachinePart = async (req: Request, res: Response) => {
     },
   });
 
-  // Update material name if partName changed
-  if (partName) {
-    await prisma.materials.updateMany({
-      where: { machinePartId: id },
-      data: { name: partName },
-    });
+  // BUG-MM13 fix: sync code to materials
+  // Note: partCode is not updated (auto-generated), only sync name changes
+  if (partName && partName !== existing.partName) {
+    await syncMasterToMaterials(id, 'MACHINE_PART', { name: partName });
   }
 
   // Transform response
@@ -413,7 +412,7 @@ export const deleteMachinePart = async (req: Request, res: Response) => {
  */
 export const bulkImportMachineParts = async (req: Request, res: Response) => {
   const { data, createStock = false } = req.body;
-  const userId = (req as any).user?.id || 'system';
+  const userId = (req as any).user?.userId || 'system';
 
   if (!data || !Array.isArray(data) || data.length === 0) {
     throw new ValidationError('No data provided for import');

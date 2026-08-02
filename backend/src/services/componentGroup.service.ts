@@ -26,8 +26,9 @@ export class ComponentGroupService {
         code: data.code,
         name: data.name,
         description: data.description || null,
-        sortOrder: data.sortOrder || 0,
-        isActive: data.isActive !== undefined ? data.isActive : true,
+        // sortOrder and isActive have Zod defaults (0 and true) applied at validation
+        sortOrder: data.sortOrder,
+        isActive: data.isActive,
       },
       include: {
         _count: {

@@ -8,6 +8,8 @@ import { generateUnifiedPONumber } from '../utils/po-number-generator';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { randomUUID } from 'crypto';
 import logger from '../utils/logger';
+import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
+import { systemSettingsService } from '../services/system-settings.service';
 
 // ============================================
 // Atomic scoped numbering helpers
@@ -529,6 +531,7 @@ export const deleteLabDip = async (req: Request, res: Response, _next: NextFunct
 };
 
 // Approve lab dip
+// BUG-DYE4 fix: colorMatchRating uses aligned 4-level scale: Excellent, Good, Acceptable, Poor
 export const approveLabDip = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const userId = req.user?.userId;
@@ -961,7 +964,7 @@ export const createDyeJob = async (req: Request, res: Response, _next: NextFunct
     throw new ValidationError('Insufficient fabric stock');
   }
 
-  const jobWorkNumber = await generateJobWorkNumber((labDip as any).style.styleCode);
+  const jobWorkNumber = await generateJobWorkNumber((labDip as any).style?.styleCode || 'UNKNOWN');
 
   const job = await prisma.job_work_orders.create({
     data: {
@@ -1066,6 +1069,9 @@ export const sendToMill = async (req: Request, res: Response, _next: NextFunctio
   if (!userId) {
     throw new UnauthorizedError();
   }
+
+  // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
+  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
 
   const existing = await prisma.job_work_orders.findUnique({
     where: { id },
@@ -1187,7 +1193,7 @@ export const sendToMill = async (req: Request, res: Response, _next: NextFunctio
         colorCode,
         finishType,
         actualWidth: existing.sentWidthInches, // Placeholder, updated on receive
-        cutableWidth: new Prisma.Decimal(Number(existing.sentWidthInches) - 2),
+        cutableWidth: new Prisma.Decimal(Math.max(Number(existing.sentWidthInches) - cutableWidthDeduction, 0)),
         composition: greige?.composition || null,
         yarnCount: greige?.yarnCount || null,
         styleReference: styleCode,
@@ -1227,6 +1233,9 @@ export const receiveFromMill = async (req: Request, res: Response, _next: NextFu
     thanCount,
     foldLengthCm,
   } = req.body;
+
+  // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
+  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
 
   const existing = await prisma.job_work_orders.findUnique({
     where: { id },
@@ -1269,7 +1278,7 @@ export const receiveFromMill = async (req: Request, res: Response, _next: NextFu
       where: { id: existing.finishedFabricId },
       data: {
         actualWidth: receivedWidthInches,
-        cutableWidth: new Prisma.Decimal(receivedWidthInches - 2),
+        cutableWidth: new Prisma.Decimal(Math.max(receivedWidthInches - cutableWidthDeduction, 0)),
       },
     });
   }
@@ -1337,6 +1346,9 @@ export const updateStock = async (req: Request, res: Response, _next: NextFuncti
     throw new UnauthorizedError();
   }
 
+  // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
+  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+
   const existing = await prisma.job_work_orders.findUnique({
     where: { id },
     include: {
@@ -1360,7 +1372,8 @@ export const updateStock = async (req: Request, res: Response, _next: NextFuncti
   // Calculate good qty (total received minus defects)
   const goodQty = Number(existing.qtyReceivedMeters) - Number(existing.defectMeters || 0);
   const receivedWidth = Number(existing.receivedWidthInches || existing.sentWidthInches);
-  const cutableWidth = receivedWidth > 2 ? receivedWidth - 2 : receivedWidth;
+  // BUG-DYE9 fix: Use configurable cutable width deduction
+  const cutableWidth = Math.max(receivedWidth - cutableWidthDeduction, 0);
 
   // Calculate cost: processing rate + source greige/fabric cost
   const processingRate = Number(existing.actualRate || existing.agreedRatePerMeter);
@@ -1392,6 +1405,15 @@ export const updateStock = async (req: Request, res: Response, _next: NextFuncti
       createdById: userId,
     },
   });
+
+  // BUG-INV3 fix: Sync stock_levels when receiving processed fabric from mill
+  try {
+    const materialId = await ensureMaterialRecord(existing.finishedFabricId, 'FABRIC');
+    await syncStockLevelQuantity(materialId, goodQty, undefined, 'METER');
+    logger.info(`[receiveAtMill] Synced stock_levels for fabric ${existing.finishedFabricId}, qty: ${goodQty}`);
+  } catch (syncErr) {
+    logger.error('[receiveAtMill] Failed to sync stock_levels:', syncErr);
+  }
 
   // If there are defect meters, create a separate B-grade stock entry
   const defectMeters = Number(existing.defectMeters || 0);
@@ -1688,6 +1710,9 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     vehicleNumber,
   } = req.body;
 
+  // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
+  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+
   // Validate required fields
   if (!qtySentMeters || !sentWidthInches || !agreedRatePerMeter) {
     throw new ValidationError('Missing required fields: qtySentMeters, sentWidthInches, agreedRatePerMeter');
@@ -1805,7 +1830,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         data: {
           fabricId: resolvedFabricId,
           finishedWidth: new Prisma.Decimal(sentWidthInches),
-          cutableWidth: new Prisma.Decimal(Math.max(sentWidthInches - 2, 0)),
+          cutableWidth: new Prisma.Decimal(Math.max(sentWidthInches - cutableWidthDeduction, 0)),
           quantityAvailable: new Prisma.Decimal(0),
           quantityReserved: new Prisma.Decimal(0),
           quantityConsumed: new Prisma.Decimal(0),
@@ -1967,7 +1992,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
           colorCode,
           finishType,
           actualWidth: job.sentWidthInches,
-          cutableWidth: new Prisma.Decimal(Number(job.sentWidthInches) - 2),
+          cutableWidth: new Prisma.Decimal(Math.max(Number(job.sentWidthInches) - cutableWidthDeduction, 0)), // BUG-DYE9 fix
           composition: greige?.composition || null,
           yarnCount: greige?.yarnCount || null,
           styleReference: styleCode,
@@ -2112,6 +2137,9 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
     throw new UnauthorizedError();
   }
 
+  // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
+  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+
   const po = await prisma.purchase_orders.findUnique({
     where: { id },
     include: {
@@ -2235,7 +2263,7 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
         colorCode,
         finishType,
         actualWidth: job.sentWidthInches,
-        cutableWidth: new Prisma.Decimal(Number(job.sentWidthInches) - 2),
+        cutableWidth: new Prisma.Decimal(Math.max(Number(job.sentWidthInches) - cutableWidthDeduction, 0)), // BUG-DYE9 fix
         composition: greige?.composition || null,
         yarnCount: greige?.yarnCount || null,
         styleReference: styleCode,
@@ -2335,6 +2363,9 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
     throw new UnauthorizedError();
   }
 
+  // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
+  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+
   const po = await prisma.purchase_orders.findUnique({
     where: { id },
     include: {
@@ -2396,7 +2427,7 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
       where: { id: job.finishedFabricId },
       data: {
         actualWidth: receivedWidthInches,
-        cutableWidth: new Prisma.Decimal(receivedWidthInches - 2),
+        cutableWidth: new Prisma.Decimal(Math.max(receivedWidthInches - cutableWidthDeduction, 0)), // BUG-DYE9 fix
       },
     });
   }
@@ -2532,6 +2563,9 @@ export const updateStockProcessPO = async (req: Request, res: Response, _next: N
     throw new UnauthorizedError();
   }
 
+  // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
+  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+
   const po = await prisma.purchase_orders.findUnique({
     where: { id },
     include: {
@@ -2565,7 +2599,7 @@ export const updateStockProcessPO = async (req: Request, res: Response, _next: N
 
   const goodQty = Number(job.qtyReceivedMeters) - Number(job.defectMeters || 0);
   const receivedWidth = Number(job.receivedWidthInches || job.sentWidthInches);
-  const cutableWidth = receivedWidth > 2 ? receivedWidth - 2 : receivedWidth;
+  const cutableWidth = Math.max(receivedWidth - cutableWidthDeduction, 0); // BUG-DYE9 fix
 
   const processingRate = Number(job.actualRate || job.agreedRatePerMeter);
   // Use greige stock cost if available, fall back to fabric stock cost

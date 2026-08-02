@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
+import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 
 // Type for supplier input
 interface ZipperSupplierInput {
@@ -34,6 +35,15 @@ export const createZipper = async (req: Request, res: Response) => {
     description,
     suppliers = [], // Array of supplier relationships
   } = req.body;
+
+  // BUG-ZP4: Check for duplicate supplierIds before proceeding
+  if (suppliers && suppliers.length > 0) {
+    const supplierIds = suppliers.map((s: ZipperSupplierInput) => s.supplierId);
+    const uniqueSupplierIds = new Set(supplierIds);
+    if (supplierIds.length !== uniqueSupplierIds.size) {
+      throw new ValidationError('Duplicate suppliers are not allowed. Each supplier can only be linked once.');
+    }
+  }
 
   // Auto-generate zipper code
   const zipperCode = await generateCode('ZIP', 'zipper_master', 'zipperCode');
@@ -67,13 +77,14 @@ export const createZipper = async (req: Request, res: Response) => {
       zipperName: finalZipperName,
       supplierCode: supplierCode || null,
       buyerCode: buyerCode || null,
-      length: length ? parseFloat(length) : null,
+      // BUG-ZP3: Guard against NaN from parseFloat
+      length: length && !isNaN(parseFloat(length)) ? parseFloat(length) : null,
       teethType: teethType || null,
       color: color || null,
       brand: brand || null,
       sliderType: sliderType || null,
-      tapeWidth: tapeWidth ? parseFloat(tapeWidth) : null,
-      pricePerPiece: pricePerPiece ? parseFloat(pricePerPiece) : null,
+      tapeWidth: tapeWidth && !isNaN(parseFloat(tapeWidth)) ? parseFloat(tapeWidth) : null,
+      pricePerPiece: pricePerPiece && !isNaN(parseFloat(pricePerPiece)) ? parseFloat(pricePerPiece) : null,
       supplierId: supplierId || null,
       description: description || null,
       isActive: true,
@@ -84,7 +95,12 @@ export const createZipper = async (req: Request, res: Response) => {
           isPreferred: s.isPreferred || false,
           isActive: s.isActive !== undefined ? s.isActive : true,
           notes: s.notes || null,
-          pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
+          // BUG-ZP3: Guard against NaN from parseFloat
+          pricePerPiece: s.pricePerPiece
+            ? isNaN(parseFloat(String(s.pricePerPiece)))
+              ? null
+              : parseFloat(String(s.pricePerPiece))
+            : null,
         })),
       },
     },
@@ -134,18 +150,27 @@ export const createZipper = async (req: Request, res: Response) => {
  * Includes suppliers
  */
 export const getAllZipper = async (req: Request, res: Response) => {
-  const { page = 1, limit = 10, search = '', supplierId = '' } = req.query;
+  const { page = 1, limit = 10, search = '', supplierId = '', isActive } = req.query;
 
   const pageNum = Number(page);
   const limitNum = Number(limit);
   const offset = (pageNum - 1) * limitNum;
 
-  // Build where clause
+  // Build where clause - default to active only, but allow showing inactive via query param
   const where: {
-    isActive: boolean;
+    isActive?: boolean;
     OR?: Array<{ [key: string]: { contains: string; mode: 'insensitive' } }>;
     zipperSuppliers?: { some: { supplierId: string; isActive: boolean } };
-  } = { isActive: true };
+  } = {};
+
+  // Only filter by isActive if explicitly provided, otherwise default to true
+  if (isActive === 'false') {
+    where.isActive = false;
+  } else if (isActive === 'all') {
+    // Don't filter by isActive - show all
+  } else {
+    where.isActive = true;
+  }
 
   if (search) {
     where.OR = [
@@ -300,6 +325,13 @@ export const updateZipper = async (req: Request, res: Response) => {
 
   // Update suppliers if provided (delete-and-recreate pattern)
   if (suppliers !== undefined && Array.isArray(suppliers)) {
+    // BUG-ZP4: Check for duplicate supplierIds before proceeding
+    const supplierIds = suppliers.map((s: ZipperSupplierInput) => s.supplierId);
+    const uniqueSupplierIds = new Set(supplierIds);
+    if (supplierIds.length !== uniqueSupplierIds.size) {
+      throw new ValidationError('Duplicate suppliers are not allowed. Each supplier can only be linked once.');
+    }
+
     // Delete existing supplier relationships
     await prisma.zipper_suppliers.deleteMany({
       where: { zipperId: id },
@@ -314,7 +346,12 @@ export const updateZipper = async (req: Request, res: Response) => {
           isPreferred: s.isPreferred || false,
           isActive: s.isActive !== undefined ? s.isActive : true,
           notes: s.notes || null,
-          pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
+          // BUG-ZP3: Guard against NaN from parseFloat
+          pricePerPiece: s.pricePerPiece
+            ? isNaN(parseFloat(String(s.pricePerPiece)))
+              ? null
+              : parseFloat(String(s.pricePerPiece))
+            : null,
         })),
       });
     }
@@ -327,13 +364,18 @@ export const updateZipper = async (req: Request, res: Response) => {
       ...(zipperName !== undefined && { zipperName }),
       ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
       ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
-      ...(length !== undefined && { length: length ? parseFloat(length) : null }),
+      // BUG-ZP3: Guard against NaN from parseFloat
+      ...(length !== undefined && { length: length && !isNaN(parseFloat(length)) ? parseFloat(length) : null }),
       ...(teethType !== undefined && { teethType: teethType || null }),
       ...(color !== undefined && { color: color || null }),
       ...(brand !== undefined && { brand: brand || null }),
       ...(sliderType !== undefined && { sliderType: sliderType || null }),
-      ...(tapeWidth !== undefined && { tapeWidth: tapeWidth ? parseFloat(tapeWidth) : null }),
-      ...(pricePerPiece !== undefined && { pricePerPiece: pricePerPiece ? parseFloat(pricePerPiece) : null }),
+      ...(tapeWidth !== undefined && {
+        tapeWidth: tapeWidth && !isNaN(parseFloat(tapeWidth)) ? parseFloat(tapeWidth) : null,
+      }),
+      ...(pricePerPiece !== undefined && {
+        pricePerPiece: pricePerPiece && !isNaN(parseFloat(pricePerPiece)) ? parseFloat(pricePerPiece) : null,
+      }),
       ...(supplierId !== undefined && { supplierId: supplierId || null }),
       ...(description !== undefined && { description: description || null }),
       ...(isActive !== undefined && { isActive }),
@@ -361,12 +403,10 @@ export const updateZipper = async (req: Request, res: Response) => {
     },
   });
 
-  // Also update material name if zipperName changed
-  if (zipperName) {
-    await prisma.materials.updateMany({
-      where: { zipperId: id },
-      data: { name: zipperName },
-    });
+  // BUG-MM13 fix: sync code to materials
+  // Note: zipperCode is not updated (auto-generated), only sync name changes
+  if (zipperName && zipperName !== existing.zipperName) {
+    await syncMasterToMaterials(id, 'ZIPPER', { name: zipperName });
   }
 
   // Transform response
@@ -435,7 +475,7 @@ export const deleteZipper = async (req: Request, res: Response) => {
  */
 export const bulkImportZipper = async (req: Request, res: Response) => {
   const { data, createStock = false } = req.body;
-  const userId = (req as any).user?.id || 'system';
+  const userId = req.user?.userId || 'system';
 
   if (!Array.isArray(data) || data.length === 0) {
     throw new ValidationError('Data array is required');
@@ -487,13 +527,15 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
             zipperName: row.zipperName,
             supplierCode: row.supplierCode || null,
             buyerCode: row.buyerCode || null,
-            length: row.length ? parseFloat(row.length) : null,
+            // BUG-ZP3: Guard against NaN from parseFloat
+            length: row.length && !isNaN(parseFloat(row.length)) ? parseFloat(row.length) : null,
             teethType: row.teethType || null,
             color: row.color || null,
             brand: row.brand || null,
             sliderType: row.sliderType || null,
-            tapeWidth: row.tapeWidth ? parseFloat(row.tapeWidth) : null,
-            pricePerPiece: row.pricePerPiece ? parseFloat(row.pricePerPiece) : null,
+            tapeWidth: row.tapeWidth && !isNaN(parseFloat(row.tapeWidth)) ? parseFloat(row.tapeWidth) : null,
+            pricePerPiece:
+              row.pricePerPiece && !isNaN(parseFloat(row.pricePerPiece)) ? parseFloat(row.pricePerPiece) : null,
             description: row.description || null,
             isActive: true,
           },
@@ -518,14 +560,17 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
 
       // Create stock if requested - using specialized zipper_stock table
       let stockCreated = false;
-      if (createStock && row.stockQuantity && row.stockQuantity > 0 && defaultWarehouse) {
+      const stockQty = row.stockQuantity ? parseFloat(row.stockQuantity) : 0;
+      if (createStock && !isNaN(stockQty) && stockQty > 0 && defaultWarehouse) {
+        const purchaseCost = row.purchaseCost ? parseFloat(row.purchaseCost) : 0;
         await trimStockService.createTrimStock(
           {
             trimType: 'ZIPPER',
             masterId: zipperRecord.id,
-            quantity: parseFloat(row.stockQuantity),
+            quantity: stockQty,
             unit: 'PIECE',
-            purchaseCost: row.purchaseCost ? parseFloat(row.purchaseCost) : 0,
+            // BUG-ZP3: Guard against NaN from parseFloat
+            purchaseCost: isNaN(purchaseCost) ? 0 : purchaseCost,
             warehouseId: defaultWarehouse.id,
             sourceType: 'IMPORT',
           },
@@ -568,6 +613,7 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
 
 /**
  * Download Excel template for bulk import
+ * // BUG-ZP6 fix: description field included in template (verified present)
  */
 export const downloadTemplate = async (req: Request, res: Response) => {
   const template = {
@@ -582,6 +628,7 @@ export const downloadTemplate = async (req: Request, res: Response) => {
       { name: 'sliderType', required: false, description: 'Slider type (Auto-lock, Pin-lock) (Optional)' },
       { name: 'tapeWidth', required: false, description: 'Tape width in mm (Optional)' },
       { name: 'pricePerPiece', required: false, description: 'Price per piece (Optional)' },
+      { name: 'description', required: false, description: 'Description/notes (Optional)' },
       { name: 'stockQuantity', required: false, description: 'Initial stock quantity (Optional)' },
       { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' },
     ],
@@ -597,6 +644,7 @@ export const downloadTemplate = async (req: Request, res: Response) => {
         sliderType: 'Auto-lock',
         tapeWidth: 25.0,
         pricePerPiece: 5.5,
+        description: 'Heavy duty metal zipper for jackets',
         stockQuantity: 500,
         locationCode: 'WH-01',
       },

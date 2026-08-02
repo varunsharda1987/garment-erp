@@ -8,29 +8,35 @@ export interface CreateWarehouseDTO {
   warehouseCode: string;
   warehouseName: string;
   warehouseType: WarehouseType;
-  address?: string;
-  city?: string;
-  state?: string;
-  pincode?: string;
-  contactPerson?: string;
-  contactPhone?: string;
-  capacity?: number;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  pincode?: string | null;
+  contactPerson?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  capacity?: number | null;
   isActive?: boolean;
+  isVirtual?: boolean;
   createdById: string;
-  supplierId?: string;
+  supplierId?: string | null;
 }
 
 export interface UpdateWarehouseDTO {
   warehouseName?: string;
   warehouseType?: WarehouseType;
-  address?: string;
-  city?: string;
-  state?: string;
-  pincode?: string;
-  contactPerson?: string;
-  contactPhone?: string;
-  capacity?: number;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  pincode?: string | null;
+  contactPerson?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  capacity?: number | null;
   isActive?: boolean;
+  isVirtual?: boolean;
   supplierId?: string | null;
 }
 
@@ -62,11 +68,14 @@ class WarehouseService {
         address: data.address,
         city: data.city,
         state: data.state,
+        country: data.country,
         pincode: data.pincode,
         contactPerson: data.contactPerson,
         contactPhone: data.contactPhone,
+        contactEmail: data.contactEmail,
         capacity: data.capacity,
         isActive: data.isActive ?? true,
+        isVirtual: data.isVirtual ?? false,
         createdById: data.createdById,
         supplierId: data.supplierId || null,
       },
@@ -228,11 +237,14 @@ class WarehouseService {
         address: data.address,
         city: data.city,
         state: data.state,
+        country: data.country,
         pincode: data.pincode,
         contactPerson: data.contactPerson,
         contactPhone: data.contactPhone,
+        contactEmail: data.contactEmail,
         capacity: data.capacity,
         isActive: data.isActive,
+        isVirtual: data.isVirtual,
         ...(data.supplierId !== undefined && { supplierId: data.supplierId }),
       },
       include: {
@@ -300,7 +312,22 @@ class WarehouseService {
     }
 
     // T2-1 Stage C: derived on-hand + valuation for this warehouse instead of hand-maintained stock_levels.stockValue.
-    const { rows, totalValue } = await getDerivedValuation({ warehouseId: id });
+    // BUG-WH10 FIX: Proper error handling to surface issues instead of silent failures
+    let rows: Awaited<ReturnType<typeof getDerivedValuation>>['rows'] = [];
+    let totalValue = 0;
+
+    try {
+      const valuation = await getDerivedValuation({ warehouseId: id });
+      rows = valuation.rows;
+      totalValue = valuation.totalValue;
+    } catch (error) {
+      // Log the error for debugging but return empty stock data rather than failing silently
+      console.error(`[WarehouseService] Error fetching stock summary for warehouse ${id}:`, error);
+      // Re-throw with context so the controller can handle it properly
+      throw new Error(
+        `Failed to retrieve stock summary for warehouse ${warehouse.warehouseCode}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
 
     const summary = {
       warehouseId: warehouse.id,

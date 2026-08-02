@@ -516,6 +516,23 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       throw new NotFoundError('Order', id);
     }
 
+    // BUG-ORD8 fix: Prevent cancelling orders with completed/dispatched work orders
+    const completedWorkOrders = await this.prisma.work_orders.findMany({
+      where: {
+        orderId: id,
+        status: { in: ['COMPLETED', 'DISPATCHED', 'SPLIT'] },
+      },
+      select: { id: true, workOrderNumber: true, status: true },
+    });
+
+    if (completedWorkOrders.length > 0) {
+      const statusSummary = completedWorkOrders.map((wo) => `${wo.workOrderNumber} (${wo.status})`).join(', ');
+      throw new BusinessError(
+        `Cannot cancel order: ${completedWorkOrders.length} work order(s) have been completed or dispatched: ${statusSummary}. ` +
+          `Please handle completed production before cancelling.`
+      );
+    }
+
     // Use transaction to cancel order, work orders, deactivate BOMs, and handle lace
     await this.prisma.$transaction(async (tx) => {
       // Cancel the order

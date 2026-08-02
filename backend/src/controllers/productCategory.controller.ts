@@ -24,20 +24,16 @@ export const createProductCategory = async (req: Request, res: Response): Promis
  * GET /api/product-categories
  */
 export const getAllProductCategories = async (req: Request, res: Response): Promise<void> => {
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 100;
-  const search = req.query.search as string;
-  const parentId = req.query.parentId === 'null' ? null : (req.query.parentId as string | undefined);
-  const level = req.query.level ? parseInt(req.query.level as string) : undefined;
-  const isActive = req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined;
+  // Use validated query from Zod middleware (z.coerce handles parsing)
+  const query = (req as any).validatedQuery ?? req.query;
 
   const result = await productCategoryService.findAllWithFilters({
-    page,
-    limit,
-    search,
-    parentId,
-    level,
-    isActive,
+    page: query.page ?? 1,
+    limit: query.limit ?? 100,
+    search: query.search,
+    parentId: query.parentId,
+    level: query.level,
+    isActive: query.isActive,
   });
 
   res.status(200).json(result);

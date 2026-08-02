@@ -30,7 +30,7 @@ class SystemSettingsController {
 
   async upsert(req: Request, res: Response) {
     const { key } = req.params;
-    const { value, dataType, category, description } = req.body;
+    const { value, dataType, category, description, isSystem } = req.body;
 
     if (value === undefined || value === null) {
       throw new ValidationError('Value is required');
@@ -41,6 +41,7 @@ class SystemSettingsController {
       dataType,
       category,
       description,
+      isSystem,
     });
     res.json(setting);
   }

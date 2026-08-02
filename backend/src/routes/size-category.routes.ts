@@ -7,8 +7,12 @@ import {
   deleteSizeCategory,
 } from '../controllers/size-category.controller';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateParams } from '../middleware/validation.middleware';
-import { createSizeCategorySchema, updateSizeCategorySchema } from '../schemas/sizeCategory.schema';
+import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
+import {
+  createSizeCategorySchema,
+  updateSizeCategorySchema,
+  sizeCategoryQuerySchema,
+} from '../schemas/sizeCategory.schema';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { idParamSchema } from '../schemas/common.schema';
 
@@ -18,7 +22,8 @@ const router = Router();
 router.use(authenticateToken);
 
 // GET /api/size-categories - Get all size categories
-router.get('/', asyncHandler(getAllSizeCategories));
+// BUG-MM7 fix: added validation
+router.get('/', validateQuery(sizeCategoryQuerySchema), asyncHandler(getAllSizeCategories));
 
 // GET /api/size-categories/:id - Get size category by ID
 router.get('/:id', validateParams(idParamSchema), asyncHandler(getSizeCategoryById));

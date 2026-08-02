@@ -9,6 +9,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter } from '../types/prisma.types';
 import { materialService } from './material.service';
+import { syncMasterToMaterials } from './helpers/material-sync.helper';
 
 // ============================================
 // Types
@@ -553,6 +554,18 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
         },
       },
     });
+
+    // BUG-MM13 fix: sync code to materials
+    const syncUpdates: { code?: string; name?: string } = {};
+    if (data.fabricCode && data.fabricCode !== existingFabric.fabricCode) {
+      syncUpdates.code = data.fabricCode;
+    }
+    if (data.fabricName && data.fabricName !== existingFabric.fabricName) {
+      syncUpdates.name = data.fabricName;
+    }
+    if (syncUpdates.code || syncUpdates.name) {
+      await syncMasterToMaterials(id, 'FABRIC', syncUpdates);
+    }
 
     logInfo('Fabric master updated', { id });
     return updatedFabric;

@@ -8,6 +8,8 @@ import greigeStockService from './greige-stock.service';
 import fabricStockService from './fabric-stock.service';
 import stockMovementService from './stockMovement.service';
 import { syncStockLevelQuantity } from './helpers/material-sync.helper';
+// BUG-CHN5 fix: Use decimal.js for quantity calculations to avoid floating-point errors
+import { toCurrency, subtractCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
 
 // ============================================
 // TYPES
@@ -110,7 +112,10 @@ export async function createChallan(input: CreateChallanInput, outerTx?: Prisma.
   const run = async (tx: Prisma.TransactionClient) => {
     const challanNumber = await generateChallanNumber(tx);
 
-    const totalQuantity = input.items.reduce((sum, item) => sum + item.quantity, 0);
+    // BUG-CHN5 fix: Use decimal.js for safe quantity summation
+    const totalQuantity = toNumber(
+      input.items.reduce((sum, item) => sum.plus(toCurrency(item.quantity)), toCurrency(0))
+    );
 
     const challan = await tx.challans.create({
       data: {
@@ -217,7 +222,10 @@ export async function issueChallan(id: string, userId?: string) {
             });
 
             if (processorWarehouse) {
-              // Create new greige stock entry at processor's warehouse
+              // Create new greige stock entry at processor's warehouse.
+              // warehouseId must be the FK, not just the display name — a NULL-warehouse lot is
+              // invisible to derived_stock_view, so the transferred stock vanished from every
+              // stock page while the source consumption still deducted the ledger (GRG-0006 −500m).
               await tx.greige_stock.create({
                 data: {
                   greigeId: originalStock.greigeId,
@@ -234,6 +242,7 @@ export async function issueChallan(id: string, userId?: string) {
                   procurementId: originalStock.procurementId, // Preserve procurement link
                   sourceChallanId: existing.id,
                   sourceType: 'TRANSFER',
+                  warehouseId: processorWarehouse.id,
                   warehouseLocation: processorWarehouse.warehouseName,
                   qualityGrade: originalStock.qualityGrade,
                   receivedDate: new Date(),
@@ -242,6 +251,12 @@ export async function issueChallan(id: string, userId?: string) {
                   createdById: effectiveUserId,
                 },
               });
+
+              // NOTE (on-hand semantics, T2-1): processor-held lots are deliberately EXCLUDED
+              // from on-hand — derived_stock_view filters processorId IS NULL AND sourceType
+              // != 'TRANSFER'. So the source consumption's ledger debit is the whole story:
+              // issued greige leaves on-hand and returns as fabric via GRN. Do NOT credit the
+              // ledger here — that would recreate ledger↔derived drift on every transfer.
 
               // Create audit trail for the transfer
               await tx.greige_stock_transaction.create({
@@ -266,7 +281,8 @@ export async function issueChallan(id: string, userId?: string) {
             where: { id: item.fabricStockId },
           });
           if (!fabricStock) throw new Error(`Fabric stock ${item.fabricStockId} not found`);
-          const newAvailable = Number(fabricStock.quantityAvailable) - qty;
+          // BUG-CHN5 fix: Use decimal.js for safe subtraction
+          const newAvailable = toNumber(subtractCurrency(fabricStock.quantityAvailable, qty));
           if (newAvailable < 0)
             throw new Error(
               `Insufficient fabric stock. Available: ${fabricStock.quantityAvailable}, Requested: ${qty}`
@@ -296,7 +312,8 @@ export async function issueChallan(id: string, userId?: string) {
             where: { id: item.laceStockId },
           });
           if (!laceStock) throw new Error(`Lace stock ${item.laceStockId} not found`);
-          const newAvailable = Number(laceStock.quantityAvailable) - qty;
+          // BUG-CHN5 fix: Use decimal.js for safe subtraction
+          const newAvailable = toNumber(subtractCurrency(laceStock.quantityAvailable, qty));
           if (newAvailable < 0)
             throw new Error(`Insufficient lace stock. Available: ${laceStock.quantityAvailable}, Requested: ${qty}`);
 
@@ -334,7 +351,8 @@ export async function issueChallan(id: string, userId?: string) {
             where: { id: item.threadStockId },
           });
           if (!threadStock) throw new Error(`Thread stock ${item.threadStockId} not found`);
-          const newAvailable = Number(threadStock.quantityAvailable) - qty;
+          // BUG-CHN5 fix: Use decimal.js for safe subtraction
+          const newAvailable = toNumber(subtractCurrency(threadStock.quantityAvailable, qty));
           if (newAvailable < 0)
             throw new Error(
               `Insufficient thread stock. Available: ${threadStock.quantityAvailable}, Requested: ${qty}`
@@ -348,8 +366,12 @@ export async function issueChallan(id: string, userId?: string) {
               isActive: true,
             },
           });
-          const newMeters = spec ? newAvailable * Number(spec.metersPerUnit) : null;
-          const newBoxes = spec && spec.unitsPerBox > 0 ? newAvailable / spec.unitsPerBox : null;
+          // BUG-CHN5 fix: Use decimal.js for safe multiplication/division
+          const newMeters = spec ? toNumber(multiplyCurrency(newAvailable, spec.metersPerUnit)) : null;
+          const newBoxes =
+            spec && spec.unitsPerBox > 0
+              ? toNumber(toCurrency(newAvailable).dividedBy(toCurrency(spec.unitsPerBox)))
+              : null;
 
           await tx.thread_stock.update({
             where: { id: item.threadStockId },
@@ -618,11 +640,15 @@ export async function getTodaySummary() {
       };
     }
     byProcessor[key].challanCount++;
-    byProcessor[key].totalQuantity += Number(challan.totalQuantity);
+    // BUG-CHN5 fix: Use decimal.js for safe addition
+    byProcessor[key].totalQuantity = toNumber(addCurrency(byProcessor[key].totalQuantity, challan.totalQuantity));
 
     for (const item of challan.items) {
       byProcessor[key].itemTypes.add(item.itemType);
-      byProcessor[key].totalValue += Number(item.quantity) * Number(item.rate || 0);
+      // BUG-CHN5 fix: Use decimal.js for safe multiplication and addition
+      byProcessor[key].totalValue = toNumber(
+        addCurrency(byProcessor[key].totalValue, multiplyCurrency(item.quantity, item.rate || 0))
+      );
     }
   }
 
@@ -639,7 +665,8 @@ export async function getTodaySummary() {
   return {
     date: today.toISOString().split('T')[0],
     totalChallans: challans.length,
-    totalQuantity: challans.reduce((sum, c) => sum + Number(c.totalQuantity), 0),
+    // BUG-CHN5 fix: Use decimal.js for safe summation
+    totalQuantity: toNumber(challans.reduce((sum, c) => sum.plus(toCurrency(c.totalQuantity)), toCurrency(0))),
     byProcessor: summary,
   };
 }
@@ -710,11 +737,14 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
       );
     }
 
-    const totalReceived = allItems.reduce(
-      (sum, item) => sum + (item.receivedQty !== null ? Number(item.receivedQty) : 0),
-      0
+    // BUG-CHN5 fix: Use decimal.js for safe summation
+    const totalReceived = toNumber(
+      allItems.reduce(
+        (sum, item) => sum.plus(item.receivedQty !== null ? toCurrency(item.receivedQty) : toCurrency(0)),
+        toCurrency(0)
+      )
     );
-    const totalExpected = allItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+    const totalExpected = toNumber(allItems.reduce((sum, item) => sum.plus(toCurrency(item.quantity)), toCurrency(0)));
 
     // Determine status
     const allReceived = allItems.every(
@@ -1060,7 +1090,10 @@ export async function createGreigeOutwardChallan(input: CreateGreigeOutwardChall
 
     // 4. Create the challan
     const challanNumber = await generateChallanNumber(tx);
-    const totalQuantity = itemsToCreate.reduce((sum, item) => sum + item.quantity, 0);
+    // BUG-CHN5 fix: Use decimal.js for safe summation
+    const totalQuantity = toNumber(
+      itemsToCreate.reduce((sum, item) => sum.plus(toCurrency(item.quantity)), toCurrency(0))
+    );
 
     const challan = await tx.challans.create({
       data: {
@@ -1149,7 +1182,10 @@ export async function createFabricReturnChallan(input: CreateFabricReturnInput) 
     }
 
     const challanNumber = await generateChallanNumber(tx);
-    const totalQuantity = input.items.reduce((sum, item) => sum + item.quantity, 0);
+    // BUG-CHN5 fix: Use decimal.js for safe summation
+    const totalQuantity = toNumber(
+      input.items.reduce((sum, item) => sum.plus(toCurrency(item.quantity)), toCurrency(0))
+    );
 
     const challan = await tx.challans.create({
       data: {

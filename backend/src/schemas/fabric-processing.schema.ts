@@ -26,6 +26,8 @@ export const sendForProcessingSchema = z.object({
   expectedReturnDate: z.coerce.date().optional(),
   batchNumber: z.string().optional(),
   processSpecifications: z.string().optional(),
+  // BUG-DASH11: Optional greige stock ID to debit when sending for processing
+  greigeStockId: z.string().uuid().optional(),
 });
 
 export type SendForProcessingInput = z.infer<typeof sendForProcessingSchema>;
@@ -39,6 +41,8 @@ export const receiveFinishedFabricSchema = z.object({
   finishedFabricId: z.string().uuid(),
   actualReturnDate: z.coerce.date(),
   qualityNotes: z.string().optional(),
+  // BUG-DASH11: Optional warehouse ID for crediting fabric stock
+  warehouseId: z.string().uuid().optional(),
 });
 
 export type ReceiveFinishedFabricInput = z.infer<typeof receiveFinishedFabricSchema>;

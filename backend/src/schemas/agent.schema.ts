@@ -3,6 +3,10 @@
  *
  * Zod schemas for agent master CRUD operations.
  * These are the SINGLE SOURCE OF TRUTH for field definitions.
+ *
+ * ALIGNED with Prisma schema (agents model) and controller fields:
+ * - name, phone, email, address, agencyId, isActive
+ * - code is auto-generated (AGT-XXX), not user input
  */
 
 import { z } from 'zod';
@@ -14,51 +18,29 @@ import { z } from 'zod';
 /**
  * Create Agent
  * POST /api/agents
- * Field names match frontend CreateAgentRequest
+ * Fields match Prisma schema and controller destructuring
  */
 export const createAgentSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200),
-  code: z.string().max(50).optional(),
-  contactPerson: z.string().max(100).optional(),
-  email: z.string().email('Invalid email').max(100).optional(),
   phone: z.string().max(20).optional(),
+  email: z.string().email('Invalid email').max(100).optional(),
   address: z.string().max(500).optional(),
-  city: z.string().max(100).optional(),
-  state: z.string().max(100).optional(),
-  country: z.string().max(100).optional(),
-  pincode: z.string().max(20).optional(),
   agencyId: z.string().uuid('Invalid agency ID').optional().nullable(),
-  commissionRate: z.number().min(0).max(100).optional(),
-  gstNumber: z.string().max(20).optional(),
-  panNumber: z.string().max(20).optional(),
-  bankDetails: z.record(z.string(), z.unknown()).optional(),
   isActive: z.boolean().optional().default(true),
-  remarks: z.string().max(500).optional(),
 });
 
 /**
  * Update Agent
  * PUT /api/agents/:id
- * Field names match frontend UpdateAgentRequest
+ * Fields match Prisma schema and controller destructuring
  */
 export const updateAgentSchema = z.object({
   name: z.string().min(1).max(200).optional(),
-  code: z.string().max(50).optional().nullable(),
-  contactPerson: z.string().max(100).optional().nullable(),
-  email: z.string().email('Invalid email').max(100).optional().nullable(),
   phone: z.string().max(20).optional().nullable(),
+  email: z.string().email('Invalid email').max(100).optional().nullable(),
   address: z.string().max(500).optional().nullable(),
-  city: z.string().max(100).optional().nullable(),
-  state: z.string().max(100).optional().nullable(),
-  country: z.string().max(100).optional().nullable(),
-  pincode: z.string().max(20).optional().nullable(),
   agencyId: z.string().uuid('Invalid agency ID').optional().nullable(),
-  commissionRate: z.number().min(0).max(100).optional().nullable(),
-  gstNumber: z.string().max(20).optional().nullable(),
-  panNumber: z.string().max(20).optional().nullable(),
-  bankDetails: z.record(z.string(), z.unknown()).optional().nullable(),
   isActive: z.boolean().optional(),
-  remarks: z.string().max(500).optional().nullable(),
 });
 
 /**
@@ -71,7 +53,7 @@ export const agentQuerySchema = z.object({
   search: z.string().max(100).optional(),
   isActive: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
 });
 

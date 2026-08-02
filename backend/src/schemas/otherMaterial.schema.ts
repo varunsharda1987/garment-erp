@@ -71,6 +71,8 @@ export const bulkImportOtherMaterialSchema = z.object({
         pricePerUnit: z.number().nonnegative().optional(),
         description: z.string().max(1000).optional(),
         stockQuantity: z.number().nonnegative().optional(),
+        // purchaseCost is used by controller (line 488) when creating trim stock
+        purchaseCost: z.number().nonnegative().optional(),
         reorderLevel: z.number().nonnegative().optional(),
         maxLevel: z.number().nonnegative().optional(),
         locationCode: z.string().max(50).optional(),

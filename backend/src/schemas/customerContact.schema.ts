@@ -74,7 +74,7 @@ export const customerContactQuerySchema = z.object({
   customerId: z.string().uuid('Invalid customer ID format').optional(),
   isActive: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
 });
 

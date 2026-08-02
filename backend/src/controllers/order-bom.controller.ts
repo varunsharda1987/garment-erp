@@ -564,10 +564,11 @@ export const changeWidth = async (req: Request, res: Response) => {
     throw new UnauthorizedError('User not authenticated');
   }
 
+  // BUG-ORD10 fix: standardized user ID property to createdById
   const newBom = await orderBomService.createVersionWithWidthChange({
     orderBomId: id,
     fabricItemChanges: validatedData.fabricItemChanges,
-    userId,
+    createdById: userId,
   });
 
   res.status(201).json({

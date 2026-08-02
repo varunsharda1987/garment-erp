@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import crypto from 'crypto';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
+import { toCurrency, toNumber, Decimal } from '../utils/currency'; // BUG-POD5 fix
 
 // ============================================
 // Helper Functions
@@ -405,16 +406,19 @@ export const createDeliveryNote = async (req: Request, res: Response) => {
                 delivery_note_items: { select: { quantity: true } },
               },
             });
-            let returnedQty = 0;
+            // BUG-POD5 fix: use decimal.js for safe quantity arithmetic
+            let returnedQtyDec = new Decimal(0);
             for (const n of podNotes) {
               const pod = n.delivery_notes_ext?.pod;
               if (!pod) continue;
               if (pod.deliveryStatus === 'REJECTED') {
-                returnedQty += n.delivery_note_items.reduce((s, i) => s + i.quantity, 0);
+                const itemsTotal = n.delivery_note_items.reduce((s, i) => s + i.quantity, 0);
+                returnedQtyDec = returnedQtyDec.plus(itemsTotal);
               } else {
-                returnedQty += Number(pod.shortageQty || 0);
+                returnedQtyDec = returnedQtyDec.plus(toCurrency(pod.shortageQty));
               }
             }
+            const returnedQty = toNumber(returnedQtyDec);
 
             // Order-total backstop (also covers legacy orders without SKU breakups)
             const totalOrdered = order.order_items.reduce((sum, oi) => sum + oi.totalQuantity, 0);
@@ -915,34 +919,37 @@ export const recordPOD = async (req: Request, res: Response) => {
     // records (same rows the creation deducted), and the allocation quantities are reduced so a later
     // note-delete cannot double-restore. Header-level shortage has no per-SKU detail, so restoration
     // is greedy across allocations — exact in aggregate.
-    let restored = 0;
-    const wantRestore =
+    // BUG-POD5 fix: use decimal.js for safe quantity arithmetic
+    let restoredDec = new Decimal(0);
+    const wantRestoreDec =
       deliveryStatus === 'REJECTED'
-        ? Number.MAX_SAFE_INTEGER
+        ? new Decimal(Number.MAX_SAFE_INTEGER)
         : deliveryStatus === 'PARTIAL'
-          ? Number(shortageQty || 0)
-          : 0;
-    if (wantRestore > 0) {
+          ? toCurrency(shortageQty)
+          : new Decimal(0);
+    if (wantRestoreDec.gt(0)) {
       const allocations = await tx.delivery_note_fg_allocations.findMany({
         where: { deliveryNoteId: id, quantity: { gt: 0 } },
         orderBy: { createdAt: 'desc' },
       });
-      let remaining = wantRestore;
+      let remainingDec = wantRestoreDec;
       for (const a of allocations) {
-        if (remaining <= 0) break;
-        const restore = Math.min(a.quantity, remaining);
+        if (remainingDec.lte(0)) break;
+        const restoreDec = Decimal.min(toCurrency(a.quantity), remainingDec);
+        const restoreNum = toNumber(restoreDec);
         await tx.finished_goods_stock.update({
           where: { id: a.fgStockId },
-          data: { quantity: { increment: restore }, lastUpdated: new Date() },
+          data: { quantity: { increment: restoreNum }, lastUpdated: new Date() },
         });
         await tx.delivery_note_fg_allocations.update({
           where: { id: a.id },
-          data: { quantity: { decrement: restore } },
+          data: { quantity: { decrement: restoreNum } },
         });
-        remaining -= restore;
-        restored += restore;
+        remainingDec = remainingDec.minus(restoreDec);
+        restoredDec = restoredDec.plus(restoreDec);
       }
     }
+    const restored = toNumber(restoredDec);
 
     // Note status: DELIVERED marks the end of the journey; the POD row carries the PARTIAL/REJECTED
     // truth, and the dispatch-cap computation nets it (see createDeliveryNote).
@@ -1326,20 +1333,25 @@ export const getOrdersReadyForDispatch = async (req: Request, res: Response) => 
   res.json({
     data: orders.map((order) => {
       const allCartons = order.work_orders.flatMap((wo: any) => wo.carton_packings);
-      const packedPieces = allCartons
+      // BUG-ASN5 fix: use decimal.js for safe quantity arithmetic (consistent with BUG-POD5)
+      const packedPiecesDec = allCartons
         .filter((c: any) => c.status === 'PACKED')
-        .reduce((sum: number, c: any) => sum + c.pcsPerCarton, 0);
-      const dispatchedPieces = allCartons
+        .reduce((sum: Decimal, c: any) => sum.plus(toCurrency(c.pcsPerCarton)), new Decimal(0));
+      const dispatchedPiecesDec = allCartons
         .filter((c: any) => c.status === 'DISPATCHED')
-        .reduce((sum: number, c: any) => sum + c.pcsPerCarton, 0);
+        .reduce((sum: Decimal, c: any) => sum.plus(toCurrency(c.pcsPerCarton)), new Decimal(0));
+      const totalPiecesDec = allCartons.reduce(
+        (sum: Decimal, c: any) => sum.plus(toCurrency(c.pcsPerCarton)),
+        new Decimal(0)
+      );
 
       return {
         id: order.id,
         orderNumber: order.orderNumber,
         customerName: order.customers?.name || '',
-        totalPieces: allCartons.reduce((sum: number, c: any) => sum + c.pcsPerCarton, 0),
-        packedPieces,
-        dispatchedPieces,
+        totalPieces: toNumber(totalPiecesDec), // BUG-ASN5 fix
+        packedPieces: toNumber(packedPiecesDec), // BUG-ASN5 fix
+        dispatchedPieces: toNumber(dispatchedPiecesDec), // BUG-ASN5 fix
       };
     }),
   });

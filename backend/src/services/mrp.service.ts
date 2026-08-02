@@ -13,7 +13,7 @@ import {
   PurchaseOrderStatus,
 } from '@prisma/client';
 import { generateAtomicDocNumber, generateAtomicPONumberInTx } from '../utils/atomicCodeGenerator';
-import { roundToCent } from '../utils/currency';
+import { roundToCent, toCurrency, multiplyCurrency, toNumber } from '../utils/currency';
 import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
 import {
@@ -719,13 +719,41 @@ export async function calculateRequirementsFromOrder(
 
   // Cancel existing non-final requirements for the affected BOMs only (not entire order)
   // This prevents wiping requirements from other styles when recalculating for one style
+  // CRITICAL: Do NOT cancel requirements that have POs generated/sent/partially received
+  // - canceling PO_GENERATED/PO_SENT/PARTIALLY_RECEIVED requirements causes duplicate orders
   const activeBomIds = order.orderBoms.map((b) => b.id);
   if (activeBomIds.length > 0) {
+    // First, find ALL requirements for this order that have active PO links (PO not cancelled)
+    // BUG-ORD3 FIX: Query by orderId alone (not orderBomId) because:
+    // 1. Manual requirements have null orderBomId
+    // 2. The `in` filter doesn't match null values
+    // 3. This caused requirements with PO links to be cancelled -> duplicate POs
+    const linkedReqs = await prisma.requirement_po_links.findMany({
+      where: {
+        material_requirements: {
+          orderId,
+        },
+        purchase_orders: {
+          status: { notIn: ['CANCELLED'] },
+        },
+      },
+      select: { requirementId: true },
+    });
+    const poLinkedIds = linkedReqs.map((l) => l.requirementId);
+
+    // Cancel only requirements:
+    // 1. Belonging to this order AND one of the active BOMs (or null orderBomId for manual reqs)
+    // 2. NOT in terminal/PO-progression statuses
+    // 3. NOT linked to active POs
     await prisma.material_requirements.updateMany({
       where: {
         orderId,
-        orderBomId: { in: activeBomIds },
-        status: { notIn: ['RECEIVED', 'CANCELLED'] },
+        // Include both BOM-linked and manual (null orderBomId) requirements for this order
+        OR: [{ orderBomId: { in: activeBomIds } }, { orderBomId: null }],
+        // Exclude terminal statuses AND PO-progression statuses
+        status: { notIn: ['RECEIVED', 'CANCELLED', 'PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
+        // Also exclude any with active PO links (belt-and-suspenders)
+        id: { notIn: poLinkedIds },
       },
       data: { status: 'CANCELLED' },
     });
@@ -901,9 +929,11 @@ export async function calculateRequirementsFromOrder(
 
       // Calculate total required with wastage
       // Formula: totalRequired = orderQty × qtyPerUnit × (1 + wastage/100)
-      const baseRequired = orderQuantity * quantityPerUnit;
-      const wastageAmount = baseRequired * (wastagePercent / 100);
-      const totalRequired = baseRequired + wastageAmount;
+      // BUG-MRP5 fix: use decimal.js for precision
+      const baseRequiredDecimal = multiplyCurrency(orderQuantity, quantityPerUnit);
+      const wastageAmountDecimal = baseRequiredDecimal.times(toCurrency(wastagePercent).dividedBy(100));
+      const totalRequiredDecimal = baseRequiredDecimal.plus(wastageAmountDecimal);
+      const totalRequired = toNumber(totalRequiredDecimal);
 
       // Get preferred supplier (only available if material relation exists)
       const preferredSupplier = material?.suppliers?.find((s: any) => s.isPreferred);
@@ -1302,6 +1332,33 @@ export async function calculateRequirementsFromOrder(
 
       // First pass: Create/update MATERIAL requirements (including GREIGE)
       for (const req of materialReqs) {
+        // CRITICAL: First check if a requirement already exists with an active PO
+        // (PO_GENERATED, PO_SENT, PARTIALLY_RECEIVED) — do NOT create duplicates
+        const existingWithPO = await tx.material_requirements.findFirst({
+          where: {
+            orderId: req.orderId,
+            orderItemId: req.orderItemId,
+            materialId: req.materialId,
+            requirementType: req.requirementType || 'MATERIAL',
+            colorName: req.colorName || null,
+            status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
+          },
+          include: getRequirementIncludes(),
+        });
+
+        if (existingWithPO) {
+          // Skip - already has an active PO, don't duplicate
+          // Track for GREIGE linking if needed
+          if (req.isGreigeRequirement) {
+            greigeRequirementIds.set(
+              `${req.orderId}-${req.orderItemId}-${req.materialId}-${req.colorName || ''}`,
+              existingWithPO.id
+            );
+          }
+          savedRequirements.push(mapToResponse(existingWithPO));
+          continue;
+        }
+
         // Check if a CANCELLED requirement exists to reuse (prevents overwriting active ones when same greige used twice)
         const existing = await tx.material_requirements.findFirst({
           where: {
@@ -1383,6 +1440,26 @@ export async function calculateRequirementsFromOrder(
         const linkedGreigeId = greigeRequirementIds.get(
           `${req.orderId}-${req.orderItemId}-${req.linkedGreigeMaterialId || req.materialId}-${req.colorName || ''}`
         );
+
+        // CRITICAL: First check if a requirement already exists with an active PO
+        // (PO_GENERATED, PO_SENT, PARTIALLY_RECEIVED) — do NOT create duplicates
+        const existingWithPO = await tx.material_requirements.findFirst({
+          where: {
+            orderId: req.orderId,
+            orderItemId: req.orderItemId,
+            materialId: req.materialId,
+            requirementType: 'PROCESSING',
+            colorName: req.colorName || null,
+            status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
+          },
+          include: getRequirementIncludes(),
+        });
+
+        if (existingWithPO) {
+          // Skip - already has an active PO, don't duplicate
+          savedRequirements.push(mapToResponse(existingWithPO));
+          continue;
+        }
 
         const existing = await tx.material_requirements.findFirst({
           where: {
@@ -1809,8 +1886,13 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
     throw new Error(`Requirement ${data.requirementId} not found`);
   }
 
-  const newAllocated = Number(requirement.allocatedFromStock) + data.quantity;
-  const newShortfall = Math.max(0, Number(requirement.totalRequired) - newAllocated);
+  // BUG-MRP5 fix: use decimal.js for precision in allocation calculations
+  const allocatedFromStockNum = Number(requirement.allocatedFromStock);
+  const totalRequiredNum = Number(requirement.totalRequired);
+  const newAllocatedDecimal = toCurrency(allocatedFromStockNum).plus(toCurrency(data.quantity));
+  const newShortfallDecimal = toCurrency(totalRequiredNum).minus(toNumber(newAllocatedDecimal));
+  const newAllocated = toNumber(newAllocatedDecimal);
+  const newShortfall = Math.max(0, toNumber(newShortfallDecimal));
   let newStatus = requirement.status;
 
   if (newShortfall === 0) {
@@ -1942,10 +2024,51 @@ export async function generatePOFromRequirements(
     itemQuantities,
   } = data;
 
+  // BUG-ORD3 fix: prevent duplicate PO creation
+  // Check if any requirements already have active (non-cancelled) PO links
+  // This is a belt-and-suspenders check in case the status filter below fails
+  const existingPOLinks = await prisma.requirement_po_links.findMany({
+    where: {
+      requirementId: { in: requirementIds },
+      purchase_orders: {
+        status: { notIn: ['CANCELLED'] },
+      },
+    },
+    include: {
+      purchase_orders: { select: { poNumber: true, status: true } },
+      material_requirements: { select: { requirementNumber: true } },
+    },
+  });
+
+  // BUG-ORD3 fix: Use filtered requirement IDs (excluding those with active POs)
+  const alreadyLinkedReqIds = new Set(existingPOLinks.map((link) => link.requirementId));
+  const effectiveReqIds = requirementIds.filter((id) => !alreadyLinkedReqIds.has(id));
+
+  if (existingPOLinks.length > 0) {
+    if (effectiveReqIds.length === 0) {
+      // All requirements already have POs - return info about existing POs instead of error
+      const poNumbers = [...new Set(existingPOLinks.map((l) => l.purchase_orders?.poNumber).filter(Boolean))];
+      throw new Error(
+        `All selected requirements already have active Purchase Orders: ${poNumbers.join(', ')}. ` +
+          `No duplicate PO created.`
+      );
+    }
+
+    // Log warning about skipped requirements
+    const skippedCount = existingPOLinks.length;
+    const skippedReqNumbers = existingPOLinks
+      .map((l) => l.material_requirements?.requirementNumber)
+      .filter(Boolean)
+      .join(', ');
+    logger.warn(
+      `[MRP] BUG-ORD3: Skipping ${skippedCount} requirement(s) that already have active POs: ${skippedReqNumbers}`
+    );
+  }
+
   // Get all requirements
   const requirements = await prisma.material_requirements.findMany({
     where: {
-      id: { in: requirementIds },
+      id: { in: effectiveReqIds },
       status: { in: [MaterialRequirementStatus.PO_REQUIRED, MaterialRequirementStatus.PARTIAL_STOCK] },
     },
     include: {
@@ -3258,7 +3381,15 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
       if (priceRequired) hasZeroPriceItems = true;
 
       const lineTotal = mg.quantity * unitPrice;
-      const gstRate = mat?.gstRate ? Number(mat.gstRate) : gstService.getDefaultGSTRate(mat?.hsnCode || undefined);
+      // BUG-FIN4 fix: Use async getGSTRate() instead of deprecated getDefaultGSTRate()
+      // This enables price-based apparel GST slab (5% ≤₹2,500 / 18% >₹2,500)
+      const gstRate = mat?.gstRate
+        ? Number(mat.gstRate)
+        : await gstService.getGSTRate({
+            hsnSacCode: mat?.hsnCode || undefined,
+            materialId: mg.materialId,
+            unitPrice: unitPrice || undefined,
+          });
 
       // Calculate GST
       let cgstRate = 0,

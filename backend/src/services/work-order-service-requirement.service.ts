@@ -16,6 +16,8 @@ import { logDebug, logInfo, logError } from '../utils/logger';
 import { NotFoundError, BusinessError } from '../errors';
 import { Decimal } from '@prisma/client/runtime/library';
 import { gstService } from './gst.service';
+// BUG-JWO5 fix: Import decimal.js helpers for safe cost calculations
+import { multiplyCurrency, divideCurrency, toNumber } from '../utils/currency';
 
 // ============================================
 // TYPES
@@ -370,7 +372,8 @@ export async function calculateRequirementsFromWorkOrder(input: CalculateService
 
     const preferredProcessorId = rateCard?.processorId || null;
     const estimatedRate = rateCard?.ratePerMeter ? Number(rateCard.ratePerMeter) : null;
-    const estimatedTotal = estimatedRate ? estimatedRate * quantityRequired : null;
+    // BUG-JWO5 fix: use decimal.js for safe cost calculation
+    const estimatedTotal = estimatedRate ? toNumber(multiplyCurrency(estimatedRate, quantityRequired)) : null;
 
     if (estimatedTotal) {
       totalEstimatedCost += estimatedTotal;
@@ -994,7 +997,8 @@ export async function generateServicePO(data: {
   for (const [serviceType, reqs] of serviceGroups.entries()) {
     const totalQuantity = reqs.reduce((sum, req) => sum + Number(req.quantityRequired), 0);
     const totalPrice = reqs.reduce((sum, req) => sum + Number(req.estimatedTotal || 0), 0);
-    const avgUnitPrice = totalQuantity > 0 ? totalPrice / totalQuantity : 0;
+    // BUG-JWO5 fix: use decimal.js for safe division
+    const avgUnitPrice = totalQuantity > 0 ? toNumber(divideCurrency(totalPrice, totalQuantity)) : 0;
 
     if (avgUnitPrice <= 0) {
       throw new BusinessError(
@@ -1050,7 +1054,8 @@ export async function generateServicePO(data: {
     for (const [serviceType, reqs] of serviceGroups.entries()) {
       const totalQuantity = reqs.reduce((sum, req) => sum + Number(req.quantityRequired), 0);
       const totalPrice = reqs.reduce((sum, req) => sum + Number(req.estimatedTotal || 0), 0);
-      const avgUnitPrice = totalQuantity > 0 ? totalPrice / totalQuantity : 0;
+      // BUG-JWO5 fix: use decimal.js for safe division
+      const avgUnitPrice = totalQuantity > 0 ? toNumber(divideCurrency(totalPrice, totalQuantity)) : 0;
 
       // Get SAC code and GST rate for the service type
       const { sacCode, gstRate } = await gstService.getSACCodeForService(serviceType);

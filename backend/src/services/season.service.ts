@@ -21,7 +21,7 @@ import { SEASON_TYPE_NAMES } from '../types/season.types';
  * Input types for season operations
  */
 interface CreateSeasonInput {
-  code: string;
+  code?: string; // Auto-generated if not provided
   name: string;
   year: number;
   seasonType: SeasonType;
@@ -106,9 +106,12 @@ class SeasonServiceClass extends BaseService<SeasonMaster, CreateSeasonInput, Up
       // Calculate sort order if not provided
       const sortOrder = data.sortOrder ?? this.calculateSortOrder(data.year, data.seasonType);
 
+      // Generate code from season type and year if not provided
+      const code = data.code?.toUpperCase() ?? `${data.seasonType}-${data.year}`.toUpperCase();
+
       const season = await prisma.season_master.create({
         data: {
-          code: data.code.toUpperCase(),
+          code,
           name: data.name,
           year: data.year,
           seasonType: data.seasonType,
@@ -406,17 +409,29 @@ class SeasonServiceClass extends BaseService<SeasonMaster, CreateSeasonInput, Up
           return existingSeason;
         }
 
-        // Create new season
-        const name = `${SEASON_TYPE_NAMES[pattern.type]} ${year}`;
-        const newSeason = await this.createSeason({
-          code,
-          name,
-          year,
-          seasonType: pattern.type,
-        });
+        // BUG-MM8 fix: prevent race condition with error handling
+        // Create new season with race-condition handling
+        try {
+          const name = `${SEASON_TYPE_NAMES[pattern.type]} ${year}`;
+          const newSeason = await this.createSeason({
+            code,
+            name,
+            year,
+            seasonType: pattern.type,
+          });
 
-        logInfo('Auto-created season from pattern', { input: trimmed, code, name });
-        return newSeason;
+          logInfo('Auto-created season from pattern', { input: trimmed, code, name });
+          return newSeason;
+        } catch (err: any) {
+          // Handle race condition: another request created the record between our check and create
+          if (err instanceof ConflictError || err?.code === 'P2002') {
+            const justCreated = await this.getByCode(code);
+            if (justCreated) {
+              return justCreated;
+            }
+          }
+          throw err;
+        }
       }
     }
 

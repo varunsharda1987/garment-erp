@@ -23,6 +23,8 @@ export const supplierAssociationSchema = z.object({
   pricePerGross: z.number().nonnegative().optional().nullable(),
   pricePerMeter: z.number().nonnegative().optional().nullable(),
   pricePerUnit: z.number().nonnegative().optional().nullable(),
+  // pricePerHundred is used by label_suppliers and packaging_suppliers
+  pricePerHundred: z.number().nonnegative().optional().nullable(),
   leadTimeDays: z.number().int().nonnegative().optional(),
   moq: z.number().nonnegative().optional(),
 });
@@ -31,17 +33,24 @@ export const supplierAssociationSchema = z.object({
  * Param Validation (shared by all trim masters)
  */
 export const trimMasterIdParamSchema = z.object({
-  id: z.string().uuid('Invalid trim master ID'),
+  id: z.string().min(1, 'ID is required'),
 });
 
 /**
  * Common Query Params (shared by all trim masters)
+ *
+ * NOTE: customerId and brandCategoryId are used by packaging and label controllers
+ * to filter items by customer/brand. They are optional here for shared use.
  */
 export const trimMasterQuerySchema = z.object({
   page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
   limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
   search: z.string().max(100).optional(),
   supplierId: z.string().uuid().optional(),
+  customerId: z.string().uuid().optional(),
+  brandCategoryId: z.string().uuid().optional(),
+  // labelCategory used by Label controller for filtering SEWN_IN, HANGTAG, PRICE_TAG
+  labelCategory: z.enum(['SEWN_IN', 'HANGTAG', 'PRICE_TAG']).optional(),
   isActive: z
     .string()
     .transform((v) => v === 'true')
@@ -62,16 +71,21 @@ export const createButtonSchema = z
     supplierCode: z.string().max(50).optional(),
     buyerCode: z.string().max(50).optional(),
     size: z.string().max(50).optional(),
-    holes: z.number().int().min(0).max(10).optional().nullable(),
+    // Controller does parseInt(holes) - coerce to handle string inputs from forms
+    holes: z.coerce.number().int().min(0).max(10).optional().nullable(),
     color: z.string().max(50).optional(),
     material: z.string().max(100).optional(),
     shape: z.string().max(50).optional(),
-    pricePerPiece: z.number().nonnegative().optional().nullable(),
-    pricePerGross: z.number().nonnegative().optional().nullable(),
+    // Controller does parseFloat on prices - coerce to handle string inputs
+    pricePerPiece: z.coerce.number().nonnegative().optional().nullable(),
+    pricePerGross: z.coerce.number().nonnegative().optional().nullable(),
     supplierId: z.string().uuid().optional().nullable(),
     description: z.string().max(1000).optional(),
     styleCodes: z.array(z.string()).optional(),
     suppliers: z.array(supplierAssociationSchema).optional(),
+    // Bulk import fields - used by bulkImportButtons controller
+    stockQuantity: z.coerce.number().nonnegative().optional().nullable(),
+    purchaseCost: z.coerce.number().nonnegative().optional().nullable(),
   })
   .passthrough();
 
@@ -85,12 +99,14 @@ export const updateButtonSchema = z
     supplierCode: z.string().max(50).optional().nullable(),
     buyerCode: z.string().max(50).optional().nullable(),
     size: z.string().max(50).optional().nullable(),
-    holes: z.number().int().min(0).max(10).optional().nullable(),
+    // Controller does parseInt(holes) - coerce to handle string inputs
+    holes: z.coerce.number().int().min(0).max(10).optional().nullable(),
     color: z.string().max(50).optional().nullable(),
     material: z.string().max(100).optional().nullable(),
     shape: z.string().max(50).optional().nullable(),
-    pricePerPiece: z.number().nonnegative().optional().nullable(),
-    pricePerGross: z.number().nonnegative().optional().nullable(),
+    // Controller does parseFloat on prices - coerce to handle string inputs
+    pricePerPiece: z.coerce.number().nonnegative().optional().nullable(),
+    pricePerGross: z.coerce.number().nonnegative().optional().nullable(),
     supplierId: z.string().uuid().optional().nullable(),
     description: z.string().max(1000).optional().nullable(),
     isActive: z.boolean().optional(),
@@ -128,12 +144,16 @@ export const createThreadSchema = z
   .object({
     threadName: z.string().max(200),
     brand: z.string().max(50).optional(),
-    packagingType: z.enum(['CONE', 'TUBE']).optional(),
+    packagingType: z.enum(['CONE', 'TUBE', 'SPOOL', 'CONE_5K', 'CONE_10K']).optional(),
     piecesPerBox: z.number().int().positive().optional().nullable(),
     metersPerUnit: z.number().positive().optional().nullable(),
     color: z.string().max(50).optional(),
     colorCode: z.string().max(50).optional(),
+    colorId: z.string().uuid().optional().nullable(),
     coneSize: z.string().max(50).optional(),
+    ply: z.number().int().positive().optional().nullable(),
+    materialComposition: z.string().max(200).optional().nullable(),
+    unitsPerBox: z.number().int().positive().optional().nullable(),
     pricePerCone: z.number().nonnegative().optional().nullable(),
     supplierCode: z.string().max(50).optional(),
     buyerCode: z.string().max(50).optional(),
@@ -154,12 +174,16 @@ export const updateThreadSchema = z
   .object({
     threadName: z.string().max(200).optional(),
     brand: z.string().max(50).optional().nullable(),
-    packagingType: z.enum(['CONE', 'TUBE']).optional().nullable(),
+    packagingType: z.enum(['CONE', 'TUBE', 'SPOOL', 'CONE_5K', 'CONE_10K']).optional().nullable(),
     piecesPerBox: z.number().int().positive().optional().nullable(),
     metersPerUnit: z.number().positive().optional().nullable(),
     color: z.string().max(50).optional().nullable(),
     colorCode: z.string().max(50).optional().nullable(),
+    colorId: z.string().uuid().optional().nullable(),
     coneSize: z.string().max(50).optional().nullable(),
+    ply: z.number().int().positive().optional().nullable(),
+    materialComposition: z.string().max(200).optional().nullable(),
+    unitsPerBox: z.number().int().positive().optional().nullable(),
     pricePerCone: z.number().nonnegative().optional().nullable(),
     supplierCode: z.string().max(50).optional().nullable(),
     buyerCode: z.string().max(50).optional().nullable(),
@@ -195,6 +219,22 @@ export const bulkImportThreadSchema = z.object({
   createStock: z.boolean().optional().default(false),
 });
 
+/**
+ * Thread Master Stock Query Params
+ * GET /api/materials/thread/:id/stock
+ *
+ * BUG-TH5 FIX: Validates requiredUnits query param to prevent parseFloat("abc") → NaN
+ * Named threadMasterStockQuerySchema to avoid collision with threadStock.schema.ts
+ */
+export const threadMasterStockQuerySchema = z.object({
+  requiredUnits: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseFloat(v) : undefined))
+    .pipe(z.number().nonnegative('Required units must be non-negative').optional()),
+  warehouseId: z.string().uuid('Invalid warehouse ID').optional(),
+});
+
 // ============================================================================
 // ZIPPER SCHEMAS
 // ============================================================================
@@ -226,7 +266,8 @@ export const createZipperSchema = z
     pricePerPiece: z.number().nonnegative().optional().nullable(),
     supplierId: z.string().uuid().optional().nullable(),
     description: z.string().max(1000).optional(),
-    styleCodes: z.array(z.string()).optional(),
+    // BUG-MM6 FIX: Removed styleCodes - no zipper_style_associations table in Prisma,
+    // controller doesn't handle it, accepting it causes silent data loss
     suppliers: z.array(supplierAssociationSchema).optional(),
   })
   .passthrough();
@@ -272,12 +313,17 @@ export const createElasticSchema = z
     // Domain-specific field names (matching controller/frontend)
     elasticType: z.string().max(50).optional(),
     composition: z.string().max(100).optional(),
-    stretchPercent: z.number().min(0).max(1000).optional().nullable(),
-    width: z.number().positive().optional().nullable(),
+    // Controller does parseFloat(stretchPercent) - coerce to handle string inputs from forms
+    stretchPercent: z.coerce.number().min(0).max(1000).optional().nullable(),
+    // Controller does parseFloat(width) - coerce to handle string inputs from forms
+    width: z.coerce.number().positive().optional().nullable(),
     color: z.string().max(50).optional(),
-    pricePerMeter: z.number().nonnegative().optional().nullable(),
+    // Controller does parseFloat(pricePerMeter) - coerce to handle string inputs from forms
+    pricePerMeter: z.coerce.number().nonnegative().optional().nullable(),
     supplierId: z.string().uuid().optional().nullable(),
     description: z.string().max(1000).optional(),
+    // BUG-BEL6 FIX: Removed styleCodes - no elastic_style_associations table in Prisma,
+    // controller doesn't handle it, accepting it causes silent data loss
     suppliers: z.array(supplierAssociationSchema).optional(),
   })
   .passthrough();
@@ -343,7 +389,8 @@ export const createLabelSchema = z
     pricePerHundred: z.number().nonnegative().optional().nullable(),
     supplierId: z.string().uuid().optional().nullable(),
     description: z.string().max(1000).optional(),
-    styleCodes: z.array(z.string()).optional(),
+    // BUG-BEL2 FIX: Removed styleCodes - no label_style_associations table in Prisma,
+    // controller doesn't handle it, accepting it causes silent data loss
     suppliers: z.array(supplierAssociationSchema).optional(),
   })
   .passthrough();
@@ -398,16 +445,19 @@ export const createLaceSchema = z
     laceType: z.string().max(50).optional(),
     composition: z.string().max(100).optional(),
     design: z.string().max(100).optional(),
-    width: z.number().positive().optional().nullable(),
+    // Controller does parseFloat(width) - coerce to handle string inputs from forms
+    width: z.coerce.number().positive().optional().nullable(),
     color: z.string().max(50).optional(),
-    pricePerMeter: z.number().nonnegative().optional().nullable(),
+    // Controller does parseFloat(pricePerMeter) - coerce to handle string inputs
+    pricePerMeter: z.coerce.number().nonnegative().optional().nullable(),
     description: z.string().max(1000).optional(),
     styleCodes: z.array(z.string()).optional(),
     suppliers: z.array(supplierAssociationSchema).optional(),
     // Greige lace support
     isGreige: z.boolean().optional().default(false),
-    expectedShrinkagePercent: z.number().min(0).max(100).optional().nullable(),
-    costPerMeterGreige: z.number().nonnegative().optional().nullable(),
+    // Controller does parseFloat() on these - coerce to handle string inputs
+    expectedShrinkagePercent: z.coerce.number().min(0).max(100).optional().nullable(),
+    costPerMeterGreige: z.coerce.number().nonnegative().optional().nullable(),
     sourceGreigeLaceId: z.string().uuid().optional().nullable(),
   })
   .passthrough();
@@ -464,7 +514,8 @@ export const createPackagingSchema = z
     pricePerHundred: z.number().nonnegative().optional().nullable(),
     supplierId: z.string().uuid().optional().nullable(),
     description: z.string().max(1000).optional(),
-    styleCodes: z.array(z.string()).optional(),
+    // Removed styleCodes - no packaging_style_associations table in Prisma,
+    // controller doesn't handle it, accepting it causes silent data loss
     suppliers: z.array(supplierAssociationSchema).optional(),
   })
   .passthrough();
@@ -509,3 +560,4 @@ export type UpdateLaceInput = z.infer<typeof updateLaceSchema>;
 export type CreatePackagingInput = z.infer<typeof createPackagingSchema>;
 export type UpdatePackagingInput = z.infer<typeof updatePackagingSchema>;
 export type TrimMasterQueryInput = z.infer<typeof trimMasterQuerySchema>;
+export type ThreadMasterStockQueryInput = z.infer<typeof threadMasterStockQuerySchema>;

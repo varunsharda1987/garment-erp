@@ -3,7 +3,7 @@ import { Prisma, CreditNoteReason, DocumentStatus } from '@prisma/client';
 import { gstService } from './gst.service';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { generateAtomicCreditNoteNumber } from '../utils/atomicCodeGenerator';
-import { roundToCent, multiplyCurrency, addCurrency } from '../utils/currency';
+import { roundToCent, multiplyCurrency, addCurrency, subtractCurrency, toCurrency } from '../utils/currency';
 
 interface CreditNoteCreateInput {
   invoiceId: string;
@@ -136,7 +136,8 @@ export class CreditNoteService {
       const totalTax = totals.totalTax;
       const totalAmount = roundToCent(addCurrency(subtotal, totalTax)).toNumber();
 
-      // Validate: cumulative credit notes must not exceed invoice total
+      // BUG-CN5 fix: Validate cumulative credit notes must not exceed invoice total
+      // Use decimal.js to avoid floating point precision errors in comparisons
       const existingCreditNotes = await tx.credit_notes.aggregate({
         where: {
           invoiceId: data.invoiceId,
@@ -144,19 +145,25 @@ export class CreditNoteService {
         },
         _sum: { totalAmount: true },
       });
-      const existingTotal = Number(existingCreditNotes._sum.totalAmount || 0);
+      // BUG-CN5 fix: convert Prisma Decimals to string for decimal.js
+      const existingTotalStr = existingCreditNotes._sum.totalAmount?.toString() || '0';
+      const existingTotalDec = toCurrency(existingTotalStr);
 
       const invoiceFull = await tx.invoices.findUnique({
         where: { id: data.invoiceId },
         select: { totalAmount: true },
       });
-      const invoiceTotal = Number(invoiceFull?.totalAmount || 0);
+      const invoiceTotalStr = invoiceFull?.totalAmount?.toString() || '0';
+      const invoiceTotalDec = toCurrency(invoiceTotalStr);
 
-      if (existingTotal + totalAmount > invoiceTotal) {
+      // BUG-CN5 fix: use decimal.js for precise comparison (avoids 0.1 + 0.2 != 0.3 issues)
+      const cumulativeTotal = addCurrency(existingTotalStr, totalAmount);
+      if (cumulativeTotal.greaterThan(invoiceTotalDec)) {
+        const remainingAllowance = roundToCent(subtractCurrency(invoiceTotalStr, existingTotalStr));
         throw new Error(
           `Credit note total (₹${totalAmount}) would exceed invoice amount. ` +
-            `Invoice total: ₹${invoiceTotal}, existing credit notes: ₹${existingTotal}, ` +
-            `remaining allowance: ₹${(invoiceTotal - existingTotal).toFixed(2)}`
+            `Invoice total: ₹${invoiceTotalDec.toFixed(2)}, existing credit notes: ₹${existingTotalDec.toFixed(2)}, ` +
+            `remaining allowance: ₹${remainingAllowance.toFixed(2)}`
         );
       }
 
@@ -371,7 +378,9 @@ export class CreditNoteService {
         where: { id: note!.invoiceId },
         data: { balanceAmount: { decrement: note!.totalAmount } },
       });
-      if (Number(inv.balanceAmount) <= 0.005 && inv.status !== 'PAID') {
+      // BUG-PAY4 fix: use decimal.js for balance check precision
+      const invBalanceDec = toCurrency(inv.balanceAmount.toString());
+      if (invBalanceDec.lessThanOrEqualTo(0.005) && inv.status !== 'PAID') {
         await tx.invoices.update({ where: { id: inv.id }, data: { status: 'PAID' } });
       }
 

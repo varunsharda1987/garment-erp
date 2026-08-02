@@ -76,7 +76,8 @@ export const saveMatrixSchema = z
  */
 export const saveLaceMatrixSchema = z
   .object({
-    rates: z.array(RateCellSchema).min(1, 'At least one rate is required'),
+    // Allow empty array for deleting all lace rows (BUG-PRC10: .min(1) was blocking valid delete-all)
+    rates: z.array(RateCellSchema),
     slabs: z.array(SlabDefinitionSchema).optional(),
     deletedLaceIds: z.array(z.string().uuid()).optional(),
   })
@@ -98,7 +99,8 @@ export const copyRatesSchema = z
     printingType: z.string().max(50).optional(),
     copySlabs: z.boolean().optional().default(true),
     copyRates: z.boolean().optional().default(true),
-    overwrite: z.boolean().optional().default(false),
+    // NOTE: The service always deletes target rates before copying (implicit overwrite).
+    // An explicit `overwrite` toggle is not implemented.
   })
   .passthrough();
 

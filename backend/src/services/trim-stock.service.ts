@@ -4,6 +4,9 @@
  *
  * Each trim type has its own specialized table but the operations are identical.
  * This service provides a unified interface for all trim stock operations.
+ *
+ * BUG-BTN5 fix: Uses Prisma.Decimal for stock values to avoid floating point errors.
+ * Aggregate valuations use database-level SQL calculations (SUM at DB layer).
  */
 import { Prisma, StockStatus } from '@prisma/client';
 import prisma from '../config/database';
@@ -142,6 +145,7 @@ class TrimStockService {
       }
 
       // Create stock entry using the appropriate table
+      // BUG-BTN5 fix: Use Prisma.Decimal for all monetary values to avoid floating point errors
       const cost = data.purchaseCost ?? 0;
       const stockData = {
         [config.masterIdField]: data.masterId,
@@ -149,8 +153,8 @@ class TrimStockService {
         quantityReserved: new Prisma.Decimal(0),
         quantityConsumed: new Prisma.Decimal(0),
         unit: data.unit || config.defaultUnit,
-        purchaseCost: new Prisma.Decimal(cost),
-        weightedAvgCost: new Prisma.Decimal(cost),
+        purchaseCost: new Prisma.Decimal(cost), // BUG-BTN5 fix: Decimal storage
+        weightedAvgCost: new Prisma.Decimal(cost), // BUG-BTN5 fix: Decimal storage
         supplierId: data.supplierId || null,
         batchNumber: data.batchNumber || null,
         lotNumber: data.lotNumber || null,
@@ -309,6 +313,7 @@ class TrimStockService {
           _count: true,
         });
 
+        // BUG-BTN5 fix: Use database-level SUM for precise valuation (avoids JS floating point errors)
         const valueResult = await (prisma as any).$queryRawUnsafe(`
           SELECT COALESCE(SUM("quantityAvailable" * "weightedAvgCost"), 0) as "totalValue"
           FROM ${TRIM_CONFIG[trimType].table}

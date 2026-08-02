@@ -6,6 +6,8 @@
 
 import prisma from '../config/database';
 import { Decimal } from '@prisma/client/runtime/library';
+// BUG-PRC7 fix: use decimal.js utilities for precise rate calculations
+import { toCurrency } from '../utils/currency';
 
 // ============================================
 // Types
@@ -69,6 +71,28 @@ function toNumber(value: Decimal | number | null | undefined): number {
   if (value === null || value === undefined) return 0;
   if (typeof value === 'number') return value;
   return value.toNumber();
+}
+
+/**
+ * BUG-PRC7 fix: Compare two rate values with decimal.js precision
+ * Returns true if rates are effectively equal (within 0.001)
+ */
+function ratesAreEqual(rate1: number, rate2: number): boolean {
+  const diff = toCurrency(rate1).minus(toCurrency(rate2));
+  return diff.abs().lessThan(0.001);
+}
+
+/**
+ * BUG-PRC7 fix: Calculate percentage change with decimal.js precision
+ */
+function calculatePercentageChange(costSheetRate: number, currentRate: number): number {
+  if (costSheetRate === 0) return 100;
+  const costDec = toCurrency(costSheetRate);
+  const currDec = toCurrency(currentRate);
+  const changeAmount = currDec.minus(costDec);
+  const percent = changeAmount.dividedBy(costDec).times(100);
+  // Round to 2 decimal places for percentage
+  return percent.toDecimalPlaces(2).toNumber();
 }
 
 function determineSeverity(percentageChange: number): RateChangeSeverity {
@@ -267,10 +291,11 @@ export async function validateCostSheetRates(costSheetId: string): Promise<RateV
       }
     }
 
-    // Compare rates
-    if (Math.abs(currentRate.ratePerMeter - costSheetRate) > 0.001) {
-      const difference = currentRate.ratePerMeter - costSheetRate;
-      const percentageChange = costSheetRate > 0 ? (difference / costSheetRate) * 100 : 100;
+    // BUG-PRC7 fix: Compare rates using decimal.js for precision
+    if (!ratesAreEqual(currentRate.ratePerMeter, costSheetRate)) {
+      // BUG-PRC7 fix: Calculate difference and percentage with decimal.js
+      const difference = toCurrency(currentRate.ratePerMeter).minus(toCurrency(costSheetRate)).toNumber();
+      const percentageChange = calculatePercentageChange(costSheetRate, currentRate.ratePerMeter);
 
       fabricWarnings.push({
         itemType: 'FABRIC',
@@ -318,10 +343,11 @@ export async function validateCostSheetRates(costSheetId: string): Promise<RateV
       }
     }
 
-    // Compare rates
-    if (Math.abs(currentRate.ratePerMeter - costSheetRate) > 0.001) {
-      const difference = currentRate.ratePerMeter - costSheetRate;
-      const percentageChange = costSheetRate > 0 ? (difference / costSheetRate) * 100 : 100;
+    // BUG-PRC7 fix: Compare rates using decimal.js for precision
+    if (!ratesAreEqual(currentRate.ratePerMeter, costSheetRate)) {
+      // BUG-PRC7 fix: Calculate difference and percentage with decimal.js
+      const difference = toCurrency(currentRate.ratePerMeter).minus(toCurrency(costSheetRate)).toNumber();
+      const percentageChange = calculatePercentageChange(costSheetRate, currentRate.ratePerMeter);
 
       laceWarnings.push({
         itemType: 'LACE',

@@ -10,6 +10,7 @@
 import prisma from '../config/database';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { logInfo, logError, logDebug } from '../utils/logger';
+import { syncStockLevelQuantity } from './helpers/material-sync.helper';
 
 // ============================================
 // Types
@@ -210,6 +211,11 @@ export async function recordConsumption(input: RecordConsumptionInput) {
         quantityConsumed: { increment: input.consumedQuantity },
       },
     });
+
+    // BUG-INV3 fix: sync processor consumption to stock_levels
+    if (updated.stock.laceId) {
+      await syncStockLevelQuantity(updated.stock.laceId, -input.consumedQuantity, undefined, 'METER', tx);
+    }
 
     // Create transaction record
     await tx.lace_stock_transaction.create({

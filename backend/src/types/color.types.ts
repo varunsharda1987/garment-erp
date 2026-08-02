@@ -45,6 +45,9 @@ export interface ColorMaster {
 
 /**
  * Create color master request
+ * @deprecated BACKEND ONLY: Not used in backend - service uses Zod-inferred CreateColorInput from color.schema.ts.
+ *             This interface is kept for reference but may be removed in a future cleanup.
+ *             Frontend has its own CreateColorRequest in frontend/src/types/color.types.ts.
  */
 export interface CreateColorRequest {
   colorName: string;
@@ -57,34 +60,11 @@ export interface CreateColorRequest {
 
 /**
  * Update color master request
+ * @deprecated BACKEND ONLY: Not used in backend - service uses Zod-inferred UpdateColorInput from color.schema.ts.
+ *             This interface is kept for reference but may be removed in a future cleanup.
+ *             Frontend has its own UpdateColorRequest in frontend/src/types/color.types.ts.
  */
 export interface UpdateColorRequest extends Partial<CreateColorRequest> {}
-
-// ============================================
-// Query Types
-// ============================================
-
-/**
- * Color query filters
- */
-export interface ColorQueryFilters {
-  page?: string | number;
-  limit?: string | number;
-  search?: string;
-  colorFamily?: string;
-  isActive?: string | boolean;
-  sortBy?: string;
-  sortOrder?: 'asc' | 'desc';
-}
-
-/**
- * Prisma where clause for color queries
- */
-export interface ColorWhereClause {
-  isActive?: boolean;
-  colorFamily?: string;
-  OR?: Array<Record<string, { contains: string; mode: 'insensitive' }>>;
-}
 
 // ============================================
 // Response Types
@@ -92,9 +72,13 @@ export interface ColorWhereClause {
 
 /**
  * Paginated color list response
+ * BUG-COL2 Fix: Changed key from 'colors' to 'data' to match controller response
+ * @deprecated BACKEND ONLY: Not used in backend - controller returns inline object structure.
+ *             This interface is kept for documentation but may be removed in a future cleanup.
+ *             Frontend has its own ColorListResponse in frontend/src/types/color.types.ts.
  */
 export interface ColorListResponse {
-  colors: ColorMaster[];
+  data: ColorMaster[];
   pagination: {
     page: number;
     limit: number;

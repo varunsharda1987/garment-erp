@@ -167,6 +167,7 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       finishingCost: validatedData.cmtCosts.finishingCost,
       buttonAttachmentCost: validatedData.cmtCosts.buttonAttachmentCost,
       handworkCmtCost: validatedData.cmtCosts.handworkCost,
+      smockingCost: validatedData.cmtCosts.smockingCost,
       cmtTotal,
 
       // Embroidery Details
@@ -757,6 +758,7 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     finishingCost: Number(existingCostSheet.finishingCost),
     buttonAttachmentCost: Number(existingCostSheet.buttonAttachmentCost),
     handworkCost: Number(existingCostSheet.handworkCmtCost),
+    smockingCost: Number((existingCostSheet as any).smockingCost || 0),
   };
   const embroideryDetails =
     validatedData.embroideryDetails ||
@@ -819,6 +821,7 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
       finishingCost: cmtCosts.finishingCost,
       buttonAttachmentCost: cmtCosts.buttonAttachmentCost,
       handworkCmtCost: cmtCosts.handworkCost,
+      smockingCost: cmtCosts.smockingCost,
     }),
     cmtTotal,
 

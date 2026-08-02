@@ -3,6 +3,11 @@ import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { logInfo, logError, logWarn, logDebug } from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+// BUG-GR9 fix: Use centralized quality grade default instead of hardcoding 'A'
+import { DEFAULT_QUALITY_GRADE, getQualityGradeOrDefault } from '../constants/stock.constants';
+import { systemSettingsService } from './system-settings.service';
+// BUG-FAB5 fix: Use decimal.js for precise valuation calculations
+import { toCurrency, multiplyCurrency, roundToCent, toNumber, Decimal } from '../utils/currency';
 
 export interface CreateStyleStockDTO {
   styleId: string;
@@ -17,17 +22,6 @@ export interface CreateStyleStockDTO {
   receivedDate?: Date;
   patternPartId?: string;
   fabricFinishType?: 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW';
-}
-
-export interface CreateGenericGreigeStockDTO {
-  greigeId: string;
-  quantity: number;
-  width: number;
-  rollNumbers?: string;
-  warehouseLocation?: string;
-  purchaseCost?: number;
-  receivedDate?: Date;
-  supplierId?: string; // Optional supplier ID
 }
 
 export interface StyleFabricStock {
@@ -102,7 +96,7 @@ class FabricStockService {
             fabricFinishType: data.fabricFinishType || null,
             weightedAvgCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
             purchaseCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
-            qualityGrade: data.qualityGrade || 'A',
+            qualityGrade: getQualityGradeOrDefault(data.qualityGrade), // BUG-GR9 fix
             warehouseLocation: data.warehouseLocation || null,
             rollNumbers: data.rollNumbers || null,
             receivedDate: data.receivedDate || new Date(),
@@ -122,132 +116,6 @@ class FabricStockService {
     } catch (error: unknown) {
       logError('Error creating style stock:', error);
       throw new Error(`Failed to create style stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }
-
-  /**
-   * Create generic greige stock entry (not tied to any style)
-   * @deprecated Use GreigeStockService.createGreigeStock() instead.
-   * This method creates proxy fabric_master records which pollutes the fabric master list.
-   * Kept for backward compatibility during migration.
-   */
-  async createGenericGreigeStock(data: CreateGenericGreigeStockDTO, userId: string) {
-    try {
-      // Validate greige exists
-      const greige = await prisma.greige_master.findUnique({
-        where: { id: data.greigeId },
-      });
-      if (!greige) {
-        throw new Error(`Greige with ID ${data.greigeId} not found`);
-      }
-
-      // Get a default supplier if none provided (use first available supplier or create a generic one)
-      let supplierId = data.supplierId;
-      if (!supplierId) {
-        // Try to find a generic "Stock Entry" supplier, or use the first active supplier
-        const stockEntrySupplier = await prisma.suppliers.findFirst({
-          where: {
-            OR: [{ code: 'STOCK-ENTRY' }, { name: { contains: 'Stock Entry', mode: 'insensitive' } }],
-          },
-        });
-
-        if (stockEntrySupplier) {
-          supplierId = stockEntrySupplier.id;
-        } else {
-          // If no supplier found, get any active supplier as a fallback
-          const anySupplier = await prisma.suppliers.findFirst({
-            where: { isActive: true },
-          });
-
-          if (!anySupplier) {
-            throw new Error('No suppliers found in the system. Please create a supplier first.');
-          }
-
-          supplierId = anySupplier.id;
-        }
-      }
-
-      // Create procurement record
-      const procurement = await prisma.fabric_procurement.create({
-        data: {
-          id: `PROC-GRG-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-          procurementType: 'GREIGE',
-          supplierId: supplierId,
-          greigeId: data.greigeId,
-          quantityPurchased: new Prisma.Decimal(data.quantity),
-          unit: 'meters',
-          width: new Prisma.Decimal(data.width),
-          ratePerUnit: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
-          totalCost: data.purchaseCost ? new Prisma.Decimal(data.quantity * data.purchaseCost) : new Prisma.Decimal(0),
-          orderedForStyleId: null, // Generic, not style-specific
-          isStockPurchase: true,
-          processingRequired: false,
-          status: 'RECEIVED',
-          purchaseDate: data.receivedDate || new Date(),
-          receivedDate: data.receivedDate || new Date(),
-          createdById: userId,
-        },
-      });
-
-      // Create or find a fabric_master entry for this greige (required for fabric_stock FK)
-      // For raw greige, we create a "virtual" fabric entry with the greige specs
-      let fabricMaster = await prisma.fabric_master.findFirst({
-        where: {
-          greigeId: data.greigeId,
-          colorName: 'RAW', // Raw/unfinished greige
-          finishType: 'RAW',
-        },
-      });
-
-      if (!fabricMaster) {
-        // Create a virtual fabric_master for this raw greige
-        fabricMaster = await prisma.fabric_master.create({
-          data: {
-            id: `FAB-RAW-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-            fabricCode: `${greige.greigeCode}-RAW`,
-            fabricName: `${greige.greigeName} (Raw)`,
-            greigeId: data.greigeId,
-            colorName: 'RAW',
-            finishType: 'RAW',
-            actualWidth: new Prisma.Decimal(data.width),
-            isGeneric: true,
-            isActive: true,
-            createdById: userId,
-          },
-        });
-      }
-
-      // Create fabric stock record (greige is stored in fabric_stock too)
-      const fabricStock = await prisma.fabric_stock.create({
-        data: {
-          id: `STOCK-GRG-${Date.now()}-${Math.random().toString(36).substring(7)}`,
-          fabricId: fabricMaster.id, // Use the virtual fabric_master ID
-          finishedWidth: new Prisma.Decimal(data.width),
-          cutableWidth: new Prisma.Decimal(data.width - 2), // Default cutable = finished - 2
-          quantityAvailable: new Prisma.Decimal(data.quantity),
-          quantityReserved: new Prisma.Decimal(0),
-          quantityConsumed: new Prisma.Decimal(0),
-          unit: 'meters',
-          procurementId: procurement.id,
-          originStyleId: null, // Generic greige
-          originOrderId: null,
-          status: 'AVAILABLE',
-          stockType: 'GENERIC',
-          weightedAvgCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
-          purchaseCost: data.purchaseCost ? new Prisma.Decimal(data.purchaseCost) : new Prisma.Decimal(0),
-          qualityGrade: 'A',
-          warehouseLocation: data.warehouseLocation || null,
-          rollNumbers: data.rollNumbers || null,
-          receivedDate: data.receivedDate || new Date(),
-          createdById: userId,
-          agingDays: 0,
-        },
-      });
-
-      return fabricStock;
-    } catch (error: unknown) {
-      logError('Error creating generic greige stock:', error);
-      throw new Error(`Failed to create greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
@@ -783,16 +651,17 @@ class FabricStockService {
         },
       });
 
-      let totalMeters = 0;
-      let totalValue = 0;
+      // BUG-FAB5 fix: Use decimal.js for precise valuation calculations
+      let totalMeters = new Decimal(0);
+      let totalValue = new Decimal(0);
       let agingStockCount = 0;
 
       greigeProcurements.forEach((procurement) => {
-        const quantity = Number(procurement.quantityPurchased);
-        const cost = Number(procurement.ratePerUnit);
+        const quantity = toCurrency(procurement.quantityPurchased);
+        const cost = toCurrency(procurement.ratePerUnit);
 
-        totalMeters += quantity;
-        totalValue += quantity * cost;
+        totalMeters = totalMeters.plus(quantity);
+        totalValue = totalValue.plus(multiplyCurrency(quantity, cost));
 
         const agingDays = procurement.receivedDate
           ? Math.floor((Date.now() - procurement.receivedDate.getTime()) / (1000 * 60 * 60 * 24))
@@ -804,8 +673,8 @@ class FabricStockService {
       });
 
       return {
-        totalMeters: Math.round(totalMeters * 100) / 100,
-        totalValue: Math.round(totalValue * 100) / 100,
+        totalMeters: toNumber(roundToCent(totalMeters)),
+        totalValue: toNumber(roundToCent(totalValue)),
         agingStockCount,
         totalItems: greigeProcurements.length,
       };

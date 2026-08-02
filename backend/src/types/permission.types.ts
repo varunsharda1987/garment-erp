@@ -67,19 +67,28 @@ export interface PermissionMatrixResponse {
 
 /**
  * Audit log entry for permissions
+ * BUG-ADM1 fix: Type now matches actual audit_logs table structure returned by getAuditLog()
  */
 export interface PermissionAuditEntry {
   id: string;
   action: string;
-  role: UserRole;
-  permissionKey: string;
-  oldValue: boolean;
-  newValue: boolean;
-  updatedBy: {
+  entityType: string;
+  entityId: string; // Format: "ROLE:permissionKey"
+  oldValues: {
+    role: UserRole;
+    permissionKey: string;
+    allowed: boolean;
+  } | null;
+  newValues: {
+    role: UserRole;
+    permissionKey: string;
+    allowed: boolean;
+  } | null;
+  users: {
     id: string;
     firstName: string;
     lastName: string;
     email: string;
-  };
-  updatedAt: string;
+  } | null;
+  timestamp: string;
 }

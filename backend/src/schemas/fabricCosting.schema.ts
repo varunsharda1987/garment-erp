@@ -90,15 +90,17 @@ export const saveFabricCostingSchema = z.object({
 /**
  * Get Costing Options Query
  * GET /api/fabric-costing/options
+ *
+ * Aligned with controller (fabric-costing.controller.ts:947-1135)
  */
 export const costingOptionsQuerySchema = z.object({
   page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
   limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
   styleId: z.string().uuid().optional(),
-  isApproved: z
-    .string()
-    .transform((val) => val === 'true')
-    .optional(),
+  customerId: z.string().uuid().optional(),
+  processorId: z.string().uuid().optional(),
+  status: z.enum(['APPROVED', 'PENDING']).optional(),
+  purpose: z.enum(['ALL', 'COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION']).optional(),
   search: z.string().max(100).optional(),
 });
 

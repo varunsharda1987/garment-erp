@@ -46,7 +46,7 @@ const deliveryNoteItemSchema = z.object({
   // stripped them and the insert failed (bug-hunt F5 — delivery-note creation 500'd).
   colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }),
   sizeId: z.string().uuid('Invalid size ID'),
-  quantity: z.number().positive('Quantity must be positive'),
+  quantity: z.number().int('Quantity must be a whole number').positive('Quantity must be positive'), // BUG-DIS5 fix: enforce integer
   cartonCount: z.number().int().nonnegative().optional(),
   grossWeight: z.number().nonnegative().optional(),
   netWeight: z.number().nonnegative().optional(),
@@ -141,7 +141,7 @@ const asnItemSchema = z.object({
   styleId: z.string().uuid('Invalid style ID').optional(),
   variantId: z.string().uuid('Invalid variant ID').optional(),
   skuId: z.string().uuid('Invalid SKU ID').optional(),
-  quantity: z.number().positive('Quantity must be positive').optional(),
+  quantity: z.number().int('Quantity must be a whole number').positive('Quantity must be positive').optional(), // BUG-DIS5 fix: enforce integer
   cartonCount: z.number().int().nonnegative().optional(),
   ssccCode: z.string().max(50).optional(), // EDI: Serial Shipping Container Code
   remarks: z.string().max(500).optional(),

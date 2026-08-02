@@ -3,7 +3,10 @@ import { MovementType, StockTransactionType, Unit, Prisma } from '@prisma/client
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
-import { routeToSpecializedStock } from './helpers/stock-routing.helper';
+import { routeToSpecializedStock, routeFromSpecializedStock } from './helpers/stock-routing.helper';
+import type { AdjustmentReason } from '../schemas/stockMovement.schema';
+// BUG-STK8 fix: Use decimal.js helpers for precision-safe arithmetic
+import { addCurrency, subtractCurrency, multiplyCurrency, toCurrency, toNumber } from '../utils/currency';
 
 export interface CreateStockMovementDTO {
   movementType: MovementType;
@@ -42,7 +45,8 @@ export interface StockAdjustmentDTO {
   warehouseId: string;
   adjustmentQuantity: Decimal; // Positive for increase, negative for decrease
   unit: Unit;
-  reason: string;
+  reason: AdjustmentReason; // Uses enum from schema: DAMAGED, EXPIRED, LOST, FOUND, CORRECTION, OTHER
+  remarks?: string; // Optional descriptive text for audit trail
   performedById: string;
 }
 
@@ -487,6 +491,19 @@ class StockMovementService {
       // Decrease stock inside transaction for atomicity
       await this.decreaseStockInTx(tx, data.materialId, data.warehouseId, data.quantity);
 
+      // Route to specialized stock table (greige_stock, fabric_stock, etc.) using FIFO deduction
+      await routeFromSpecializedStock(
+        {
+          materialId: data.materialId,
+          quantity: Number(data.quantity),
+          warehouseId: data.warehouseId,
+          performedById: data.performedById,
+          referenceType: data.referenceType,
+          referenceId: data.referenceId,
+        },
+        tx
+      );
+
       return movement;
     };
     return outerTx ? run(outerTx) : prisma.$transaction(run);
@@ -550,6 +567,59 @@ class StockMovementService {
         },
       });
 
+      // BUG-STK5 fix: Create stock transactions for transfer (valuation ledger entries)
+      // Transfer OUT from source warehouse
+      if (valuationRate) {
+        const transferValue = new Decimal(data.quantity.toString()).mul(valuationRate.toString());
+        const sourceBalanceQty = availableQty.sub(transferQty);
+        const sourceBalanceValue = sourceStock.stockValue
+          ? new Decimal(sourceStock.stockValue.toString()).sub(transferValue)
+          : new Decimal(0);
+
+        await tx.stock_transactions.create({
+          data: {
+            materialId: data.materialId,
+            warehouseId: data.fromWarehouseId,
+            transactionType: 'OUT',
+            quantity: data.quantity,
+            unit: data.unit,
+            rate: valuationRate,
+            value: transferValue,
+            balanceQuantity: sourceBalanceQty,
+            balanceValue: sourceBalanceValue,
+            referenceType: 'TRANSFER',
+            referenceId: transferOut.id,
+            referenceNumber: `TRANSFER-${transferOut.id.slice(0, 8)}`,
+          },
+        });
+
+        // Transfer IN to destination warehouse - get current balance first
+        const destStock = await tx.stock_levels.findFirst({
+          where: { materialId: data.materialId, warehouseId: data.toWarehouseId },
+        });
+        const destCurrentQty = destStock ? new Decimal(destStock.quantity.toString()) : new Decimal(0);
+        const destCurrentValue = destStock?.stockValue ? new Decimal(destStock.stockValue.toString()) : new Decimal(0);
+        const destNewQty = destCurrentQty.add(data.quantity.toString());
+        const destNewValue = destCurrentValue.add(transferValue);
+
+        await tx.stock_transactions.create({
+          data: {
+            materialId: data.materialId,
+            warehouseId: data.toWarehouseId,
+            transactionType: 'IN',
+            quantity: data.quantity,
+            unit: data.unit,
+            rate: valuationRate,
+            value: transferValue,
+            balanceQuantity: destNewQty,
+            balanceValue: destNewValue,
+            referenceType: 'TRANSFER',
+            referenceId: transferIn.id,
+            referenceNumber: `TRANSFER-${transferIn.id.slice(0, 8)}`,
+          },
+        });
+      }
+
       // Decrease source warehouse stock inside transaction
       await this.decreaseStockInTx(tx, data.materialId, data.fromWarehouseId, data.quantity);
 
@@ -563,6 +633,31 @@ class StockMovementService {
         valuationRate || undefined
       );
 
+      // Route specialized stock: deduct from source warehouse (FIFO)
+      await routeFromSpecializedStock(
+        {
+          materialId: data.materialId,
+          quantity: Number(data.quantity),
+          warehouseId: data.fromWarehouseId,
+          performedById: data.performedById,
+          referenceType: 'TRANSFER',
+          referenceId: transferOut.id,
+        },
+        tx
+      );
+
+      // Route specialized stock: create in destination warehouse
+      await routeToSpecializedStock(
+        {
+          materialId: data.materialId,
+          quantity: Number(data.quantity),
+          rate: valuationRate ? Number(valuationRate) : undefined,
+          warehouseId: data.toWarehouseId,
+          performedById: data.performedById,
+        },
+        tx
+      );
+
       return {
         transferOut,
         transferIn,
@@ -572,14 +667,19 @@ class StockMovementService {
 
   /**
    * Create stock adjustment (increase or decrease with reason)
+   * @param outerTx optional parent transaction — pass it when calling from inside another $transaction
+   * (e.g. approveStockCount) so this write joins that tx instead of opening a separate connection.
    */
-  async createStockAdjustment(data: StockAdjustmentDTO) {
-    return await prisma.$transaction(async (tx) => {
+  async createStockAdjustment(data: StockAdjustmentDTO, outerTx?: Prisma.TransactionClient) {
+    const run = async (tx: Prisma.TransactionClient) => {
       const adjustmentQty = new Decimal(data.adjustmentQuantity.toString());
       const isIncrease = adjustmentQty.gt(0);
       const absoluteQty = adjustmentQty.abs();
 
       let movement;
+
+      // Build remarks: combine enum reason with optional descriptive text
+      const remarksText = data.remarks ? `${data.reason}: ${data.remarks}` : data.reason;
 
       if (isIncrease) {
         // Adjustment IN
@@ -591,7 +691,7 @@ class StockMovementService {
             quantity: absoluteQty,
             unit: data.unit,
             referenceType: 'ADJUSTMENT',
-            remarks: data.reason,
+            remarks: remarksText,
             performedById: data.performedById,
           },
           include: {
@@ -602,6 +702,17 @@ class StockMovementService {
 
         // Increase stock inside transaction
         await this.increaseStockInTx(tx, data.materialId, data.warehouseId, absoluteQty, data.unit);
+
+        // Route to specialized stock table for increase
+        await routeToSpecializedStock(
+          {
+            materialId: data.materialId,
+            quantity: Number(absoluteQty),
+            warehouseId: data.warehouseId,
+            performedById: data.performedById,
+          },
+          tx
+        );
       } else {
         // Adjustment OUT
         movement = await tx.stock_movements.create({
@@ -612,7 +723,7 @@ class StockMovementService {
             quantity: absoluteQty,
             unit: data.unit,
             referenceType: 'ADJUSTMENT',
-            remarks: data.reason,
+            remarks: remarksText,
             performedById: data.performedById,
           },
           include: {
@@ -623,10 +734,25 @@ class StockMovementService {
 
         // Decrease stock inside transaction
         await this.decreaseStockInTx(tx, data.materialId, data.warehouseId, absoluteQty);
+
+        // Route from specialized stock table for decrease (FIFO)
+        await routeFromSpecializedStock(
+          {
+            materialId: data.materialId,
+            quantity: Number(absoluteQty),
+            warehouseId: data.warehouseId,
+            performedById: data.performedById,
+            referenceType: 'ADJUSTMENT',
+            referenceId: movement.id,
+          },
+          tx
+        );
       }
 
       return movement;
-    });
+    };
+
+    return outerTx ? run(outerTx) : prisma.$transaction(run);
   }
 
   /**
@@ -795,6 +921,9 @@ class StockMovementService {
       },
     });
 
+    // BUG-STK8 fix: Use decimal.js for precision-safe value summation
+    const totalValueDecimal = movements.reduce((sum, m) => sum.plus(toCurrency(m.value)), toCurrency(0));
+
     const summary = {
       totalMovements: movements.length,
       stockIn: movements.filter((m) => m.movementType === 'STOCK_IN').length,
@@ -802,9 +931,7 @@ class StockMovementService {
       transfers: movements.filter((m) => m.movementType === 'TRANSFER_IN' || m.movementType === 'TRANSFER_OUT').length,
       adjustments: movements.filter((m) => m.movementType === 'ADJUSTMENT_IN' || m.movementType === 'ADJUSTMENT_OUT')
         .length,
-      totalValue: movements.reduce((sum, m) => {
-        return sum + (m.value ? parseFloat(m.value.toString()) : 0);
-      }, 0),
+      totalValue: toNumber(totalValueDecimal),
       movements,
     };
 
@@ -980,7 +1107,9 @@ class StockMovementService {
 
     for (const gs of greigeStocks) {
       // Initial receipt
-      const totalQty = Number(gs.quantityAvailable) + Number(gs.quantityConsumed) + Number(gs.quantityReserved);
+      // BUG-STK8 fix: Use decimal.js for precision-safe quantity summation
+      const totalQtyDecimal = addCurrency(gs.quantityAvailable, gs.quantityConsumed, gs.quantityReserved);
+      const totalQty = toNumber(totalQtyDecimal);
       if (filters.direction && filters.direction !== 'INWARD') continue;
 
       if (filters.search) {
@@ -990,6 +1119,10 @@ class StockMovementService {
         const supplierMatch = gs.supplier?.name?.toLowerCase().includes(searchLower);
         if (!nameMatch && !codeMatch && !supplierMatch) continue;
       }
+
+      // BUG-STK8 fix: Use decimal.js for precision-safe value calculation
+      const greigeRate = gs.purchaseCost ? toNumber(toCurrency(gs.purchaseCost)) : null;
+      const greigeTotalValue = gs.purchaseCost ? toNumber(multiplyCurrency(totalQty, gs.purchaseCost)) : null;
 
       results.push({
         id: gs.id,
@@ -1002,8 +1135,8 @@ class StockMovementService {
         quantity: totalQty,
         unit: gs.unit,
         invoiceNumber: gs.invoiceNumber,
-        rate: gs.purchaseCost ? Number(gs.purchaseCost) : null,
-        totalValue: gs.purchaseCost ? totalQty * Number(gs.purchaseCost) : null,
+        rate: greigeRate,
+        totalValue: greigeTotalValue,
         sourceType: 'GREIGE_STOCK',
         sourceId: gs.id,
         sourceNumber: gs.procurementId?.slice(0, 8) || gs.id.slice(0, 8),
@@ -1110,6 +1243,14 @@ class StockMovementService {
           }
         }
 
+        // BUG-STK8 fix: Use decimal.js for precision-safe calculations
+        const grnItemRate = item.purchase_order_items?.unitPrice
+          ? toNumber(toCurrency(item.purchase_order_items.unitPrice))
+          : null;
+        const grnItemTotalValue = item.purchase_order_items?.unitPrice
+          ? toNumber(multiplyCurrency(item.purchase_order_items.unitPrice, item.receivedQuantity))
+          : null;
+
         results.push({
           id: item.id,
           date: grn.receivingDate,
@@ -1118,13 +1259,11 @@ class StockMovementService {
           supplierCode: grn.suppliers?.code || null,
           materialName: item.materials?.name || 'Material',
           materialCode: item.materials?.code || '-',
-          quantity: Number(item.receivedQuantity),
+          quantity: toNumber(toCurrency(item.receivedQuantity)),
           unit: item.unit || 'PCS',
           invoiceNumber: grn.invoiceNumber,
-          rate: item.purchase_order_items?.unitPrice ? Number(item.purchase_order_items.unitPrice) : null,
-          totalValue: item.purchase_order_items?.unitPrice
-            ? Number(item.purchase_order_items.unitPrice) * Number(item.receivedQuantity)
-            : null,
+          rate: grnItemRate,
+          totalValue: grnItemTotalValue,
           sourceType: 'GRN',
           sourceId: grn.id,
           sourceNumber: grn.grnNumber,
@@ -1159,8 +1298,10 @@ class StockMovementService {
             }
           }
 
-          const itemRate = item.rate ? Number(item.rate) : null;
-          const itemQty = Number(item.quantity);
+          // BUG-STK8 fix: Use decimal.js for precision-safe calculations
+          const itemRate = item.rate ? toNumber(toCurrency(item.rate)) : null;
+          const itemQty = toNumber(toCurrency(item.quantity));
+          const itemTotalValue = item.rate ? toNumber(multiplyCurrency(item.rate, item.quantity)) : null;
           results.push({
             id: item.id,
             date: challan.challanDate,
@@ -1173,7 +1314,7 @@ class StockMovementService {
             unit: item.unit || 'PCS',
             invoiceNumber: null,
             rate: itemRate,
-            totalValue: itemRate ? itemRate * itemQty : null,
+            totalValue: itemTotalValue,
             sourceType: 'CHALLAN',
             sourceId: challan.id,
             sourceNumber: challan.challanNumber,
@@ -1260,9 +1401,16 @@ class StockMovementService {
 
       for (const po of pendingPOs) {
         const items = po.purchase_order_items;
-        const totalOrdered = items.reduce((sum: number, i) => sum + Number(i.orderedQuantity), 0);
-        const totalReceived = items.reduce((sum: number, i) => sum + Number(i.receivedQuantity || 0), 0);
-        const pending = totalOrdered - totalReceived;
+        // BUG-STK8 fix: Use decimal.js for precision-safe quantity calculations
+        const totalOrderedDecimal = items.reduce((sum, i) => sum.plus(toCurrency(i.orderedQuantity)), toCurrency(0));
+        const totalReceivedDecimal = items.reduce(
+          (sum, i) => sum.plus(toCurrency(i.receivedQuantity || 0)),
+          toCurrency(0)
+        );
+        const pendingDecimal = totalOrderedDecimal.minus(totalReceivedDecimal);
+        const totalOrdered = toNumber(totalOrderedDecimal);
+        const totalReceived = toNumber(totalReceivedDecimal);
+        const pending = toNumber(pendingDecimal);
 
         if (pending <= 0) continue;
 
@@ -1330,6 +1478,11 @@ class StockMovementService {
 
         const greigeName = job.fabric?.greige?.greigeName || job.fabric?.fabricName || 'Greige';
 
+        // BUG-STK8 fix: Use decimal.js for precision-safe quantity calculations
+        const dyeingQtyOrdered = toNumber(toCurrency(job.qtySentMeters));
+        const dyeingQtyCompleted = toNumber(toCurrency(job.qtyReceivedMeters || 0));
+        const dyeingQtyPending = toNumber(subtractCurrency(job.qtySentMeters, job.qtyReceivedMeters || 0));
+
         results.push({
           id: job.id,
           documentNumber: job.jobWorkNumber || job.id.slice(0, 8),
@@ -1340,9 +1493,9 @@ class StockMovementService {
           partyName: job.processor?.name || 'Unknown Mill',
           partyType: 'PROCESSOR',
           materialDescription: `${greigeName} → Dyed Fabric`,
-          qtyOrdered: Number(job.qtySentMeters),
-          qtyCompleted: Number(job.qtyReceivedMeters || 0),
-          qtyPending: Number(job.qtySentMeters) - Number(job.qtyReceivedMeters || 0),
+          qtyOrdered: dyeingQtyOrdered,
+          qtyCompleted: dyeingQtyCompleted,
+          qtyPending: dyeingQtyPending,
           unit: 'MTR',
           documentDate: sentDate,
           expectedDate: job.expectedReturnDate,
@@ -1384,6 +1537,11 @@ class StockMovementService {
 
         const fabricName = job.fabric?.fabricName || job.fabric?.greige?.greigeName || 'Fabric';
 
+        // BUG-STK8 fix: Use decimal.js for precision-safe quantity calculations
+        const printingQtyOrdered = toNumber(toCurrency(job.qtySentMeters));
+        const printingQtyCompleted = toNumber(toCurrency(job.qtyReceivedMeters || 0));
+        const printingQtyPending = toNumber(subtractCurrency(job.qtySentMeters, job.qtyReceivedMeters || 0));
+
         results.push({
           id: job.id,
           documentNumber: job.jobWorkNumber || job.id.slice(0, 8),
@@ -1394,9 +1552,9 @@ class StockMovementService {
           partyName: job.processor?.name || 'Unknown Mill',
           partyType: 'PROCESSOR',
           materialDescription: `${fabricName} → Printed`,
-          qtyOrdered: Number(job.qtySentMeters),
-          qtyCompleted: Number(job.qtyReceivedMeters || 0),
-          qtyPending: Number(job.qtySentMeters) - Number(job.qtyReceivedMeters || 0),
+          qtyOrdered: printingQtyOrdered,
+          qtyCompleted: printingQtyCompleted,
+          qtyPending: printingQtyPending,
           unit: 'MTR',
           documentDate: sentDate,
           expectedDate: job.expectedReturnDate,

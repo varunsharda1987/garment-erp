@@ -107,8 +107,9 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
  * GET /api/materials
  */
 export const getAllMaterials = async (req: Request, res: Response): Promise<void> => {
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
+  // page and limit are already numbers after Zod validation (materialQuerySchema transforms them)
+  const page = (req.query.page as unknown as number) || 1;
+  const limit = (req.query.limit as unknown as number) || 10;
   const skip = (page - 1) * limit;
   const search = req.query.search as string;
   const categoryId = req.query.categoryId as string;

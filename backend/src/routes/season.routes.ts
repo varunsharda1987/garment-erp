@@ -22,8 +22,11 @@ import {
   updateSeasonSchema,
   generateSeasonsSchema,
   seasonQuerySchema,
+  seasonSearchSchema,
 } from '../schemas/season.schema';
-import { idParamSchema } from '../schemas/common.schema';
+// season_master's PK is @default(cuid()) — the UUID-only idParamSchema rejects every real
+// record (found by persistence-smoke round-trip; same class as bug-hunt samples-embroidery-4).
+import { flexIdParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
@@ -34,8 +37,9 @@ router.use(authenticateToken);
  * @route   GET /api/seasons/search
  * @desc    Search seasons for dropdown (minimal data)
  * @access  Private (Authenticated users)
+ * BUG-SEA2 Fix: Added query validation
  */
-router.get('/search', asyncHandler(searchSeasons));
+router.get('/search', validateQuery(seasonSearchSchema), asyncHandler(searchSeasons));
 
 /**
  * @route   GET /api/seasons/types
@@ -70,20 +74,20 @@ router.get('/', validateQuery(seasonQuerySchema), asyncHandler(getAllSeasons));
  * @desc    Get season by ID
  * @access  Private (Authenticated users)
  */
-router.get('/:id', validateParams(idParamSchema), asyncHandler(getSeasonById));
+router.get('/:id', validateParams(flexIdParamSchema), asyncHandler(getSeasonById));
 
 /**
  * @route   PUT /api/seasons/:id
  * @desc    Update season
  * @access  Private (Authenticated users)
  */
-router.put('/:id', validateParams(idParamSchema), validateBody(updateSeasonSchema), asyncHandler(updateSeason));
+router.put('/:id', validateParams(flexIdParamSchema), validateBody(updateSeasonSchema), asyncHandler(updateSeason));
 
 /**
  * @route   DELETE /api/seasons/:id
  * @desc    Delete season (soft delete)
  * @access  Private (Authenticated users)
  */
-router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteSeason));
+router.delete('/:id', validateParams(flexIdParamSchema), asyncHandler(deleteSeason));
 
 export default router;

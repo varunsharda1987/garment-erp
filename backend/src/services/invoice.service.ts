@@ -11,7 +11,7 @@ import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
 import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { gstService } from './gst.service';
-import { roundToCent, multiplyCurrency, addCurrency } from '../utils/currency';
+import { roundToCent, multiplyCurrency, addCurrency, toCurrency } from '../utils/currency';
 import { generateAtomicInvoiceNumber } from '../utils/atomicCodeGenerator';
 
 // ============================================
@@ -253,6 +253,8 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
 
       if (data.items && data.items.length > 0) {
         // ===== Per-item GST calculation =====
+        // BUG-INV9 fix: all line item calculations use decimal.js via multiplyCurrency/roundToCent
+        // to avoid floating point rounding errors (see gst.service.ts calculateLineItemGST)
         const itemsToCreate: Array<{
           id: string;
           invoiceId: string;
@@ -569,28 +571,44 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
           data.subtotal !== undefined || data.taxAmount !== undefined || data.totalAmount !== undefined;
 
         if (moneyTouched) {
-          const oldSubtotal = Number(existing.subtotal);
-          const oldTax = Number(existing.taxAmount);
-          const newSubtotal = data.subtotal !== undefined ? Number(data.subtotal) : oldSubtotal;
-          // Preserve the invoice's effective tax rate + intra/inter-state GST split; scale to the new base.
-          const effectiveRate = oldSubtotal > 0 ? oldTax / oldSubtotal : 0;
-          const newTax = roundToCent(newSubtotal * effectiveRate).toNumber();
-          const newTotal = roundToCent(newSubtotal + newTax).toNumber();
-          const gstScale = oldTax > 0 ? newTax / oldTax : 0;
-          const newCgst = roundToCent(Number(existing.cgstAmount) * gstScale).toNumber();
-          const newIgst = roundToCent(Number(existing.igstAmount) * gstScale).toNumber();
-          // sgst takes the rounding remainder so cgst+sgst+igst always equals taxAmount exactly
-          const newSgst = roundToCent(newTax - newCgst - newIgst).toNumber();
+          // BUG-FIN7 fix: use decimal.js for all intermediate calculations to avoid floating point precision loss
+          // Convert Prisma Decimals to numbers first for type compatibility
+          const oldSubtotalNum = Number(existing.subtotal);
+          const oldTaxNum = Number(existing.taxAmount);
+          const oldCgstNum = Number(existing.cgstAmount);
+          const oldIgstNum = Number(existing.igstAmount);
+          const paidNum = Number(existing.paidAmount);
 
-          const paid = Number(existing.paidAmount);
+          const oldSubtotal = toCurrency(oldSubtotalNum);
+          const oldTax = toCurrency(oldTaxNum);
+          const newSubtotalDec = data.subtotal !== undefined ? toCurrency(data.subtotal) : oldSubtotal;
+          // Preserve the invoice's effective tax rate + intra/inter-state GST split; scale to the new base.
+          const effectiveRate = oldSubtotal.isZero() ? toCurrency(0) : oldTax.dividedBy(oldSubtotal);
+          const newTaxDec = roundToCent(newSubtotalDec.times(effectiveRate));
+          const newTotalDec = roundToCent(newSubtotalDec.plus(newTaxDec));
+          const gstScale = oldTax.isZero() ? toCurrency(0) : newTaxDec.dividedBy(oldTax);
+          const newCgstDec = roundToCent(toCurrency(oldCgstNum).times(gstScale));
+          const newIgstDec = roundToCent(toCurrency(oldIgstNum).times(gstScale));
+          // sgst takes the rounding remainder so cgst+sgst+igst always equals taxAmount exactly
+          const newSgstDec = roundToCent(newTaxDec.minus(newCgstDec).minus(newIgstDec));
+
+          // Convert to numbers only at the final step for storage
+          const newSubtotal = newSubtotalDec.toNumber();
+          const newTax = newTaxDec.toNumber();
+          const newTotal = newTotalDec.toNumber();
+          const newCgst = newCgstDec.toNumber();
+          const newIgst = newIgstDec.toNumber();
+          const newSgst = newSgstDec.toNumber();
+
+          const paid = toCurrency(paidNum);
           updateData.subtotal = newSubtotal;
           updateData.taxAmount = newTax;
           updateData.totalAmount = newTotal;
           updateData.cgstAmount = newCgst;
           updateData.sgstAmount = newSgst;
           updateData.igstAmount = newIgst;
-          updateData.balanceAmount = roundToCent(newTotal - paid).toNumber();
-          updateData.status = this.calculateInvoiceStatus(newTotal, paid, data.dueDate || existing.dueDate);
+          updateData.balanceAmount = roundToCent(toCurrency(newTotal).minus(paid)).toNumber();
+          updateData.status = this.calculateInvoiceStatus(newTotal, paid.toNumber(), data.dueDate || existing.dueDate);
         } else if (data.dueDate !== undefined) {
           // A due-date-only change can still flip OVERDUE ↔ PENDING/PARTIALLY_PAID
           updateData.status = this.calculateInvoiceStatus(
@@ -656,13 +674,17 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
       // Get invoice
       const invoice = await this.getInvoiceById(data.invoiceId);
 
-      // Validate payment amount
-      const currentBalance = parseFloat(invoice.balanceAmount.toString());
-      if (data.amount > currentBalance) {
-        throw new ValidationError(`Payment amount (${data.amount}) exceeds balance (${currentBalance})`);
+      // BUG-PAY4 fix: use decimal.js for payment allocation precision
+      // Validate payment amount using decimal.js to avoid floating point errors
+      // Convert Prisma Decimal to string first for toCurrency compatibility
+      const currentBalanceDec = toCurrency(invoice.balanceAmount.toString());
+      const paymentAmountDec = toCurrency(data.amount);
+
+      if (paymentAmountDec.greaterThan(currentBalanceDec)) {
+        throw new ValidationError(`Payment amount (${data.amount}) exceeds balance (${currentBalanceDec.toFixed(2)})`);
       }
 
-      if (data.amount <= 0) {
+      if (paymentAmountDec.lessThanOrEqualTo(0)) {
         throw new ValidationError('Payment amount must be greater than 0');
       }
 
@@ -727,9 +749,12 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
           },
         });
 
+        // BUG-PAY4 fix: use decimal.js for balance check precision
         // The atomic decrement is the source of truth: if a concurrent payment slipped past the pre-check
         // and this drove the balance negative, abort — rolling back this payment too.
-        if (parseFloat(updated.balanceAmount.toString()) < -0.005) {
+        // Using decimal.js with small tolerance (0.005) for any residual DB float imprecision
+        const updatedBalanceDec = toCurrency(updated.balanceAmount.toString());
+        if (updatedBalanceDec.lessThan(-0.005)) {
           throw new ValidationError(`Payment amount (${data.amount}) exceeds the remaining balance for this invoice.`);
         }
 

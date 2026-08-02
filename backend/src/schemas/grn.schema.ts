@@ -117,7 +117,42 @@ export const rejectGRNSchema = z
   })
   .passthrough();
 
+// BUG-GRN6 fix: Reverse GRN Schema for full reversal of accepted GRNs
+/**
+ * Reverse GRN Schema
+ * PATCH /api/grn/:id/reverse
+ */
+export const reverseGRNSchema = z
+  .object({
+    reason: z.string().min(1, 'Reversal reason is required').max(500, 'Reversal reason must not exceed 500 characters'),
+  })
+  .passthrough();
+
+/**
+ * GRN Query Params Schema
+ * GET /api/grn
+ *
+ * Controller destructures: poId, supplierId, status, search, startDate, endDate, page, limit, sortBy, sortOrder
+ */
+export const grnQuerySchema = z.object({
+  poId: z.string().uuid('Invalid PO ID').optional(),
+  supplierId: z.string().uuid('Invalid supplier ID').optional(),
+  // BUG-GRN6 fix: Added REVERSED status to query schema
+  status: z
+    .enum(['PENDING', 'PENDING_QC', 'ACCEPTED', 'REJECTED', 'CANCELLED', 'REVERSED', 'PARTIALLY_ACCEPTED'])
+    .optional(),
+  search: z.string().max(100).optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
+  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
+  sortBy: z.string().max(50).optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+});
+
 // Type exports for use in controllers
 export type CreateGRNInput = z.infer<typeof createGRNSchema>;
 export type ApproveGRNInput = z.infer<typeof approveGRNSchema>;
 export type RejectGRNInput = z.infer<typeof rejectGRNSchema>;
+export type ReverseGRNInput = z.infer<typeof reverseGRNSchema>; // BUG-GRN6 fix
+export type GRNQueryInput = z.infer<typeof grnQuerySchema>;

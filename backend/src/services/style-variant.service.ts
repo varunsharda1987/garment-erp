@@ -90,17 +90,29 @@ export class StyleVariantService {
 
     if (existing) return existing.id;
 
-    const newSize = await prisma.size_options.create({
-      data: {
-        id: `${styleId}-size-${sizeName}-${Date.now()}`,
-        styleId,
-        sizeName,
-        sizeCode: sizeName.toUpperCase(),
-        sortOrder: 0,
-      },
-    });
+    // BUG-MM8 fix: prevent race condition with P2002 handling
+    try {
+      const newSize = await prisma.size_options.create({
+        data: {
+          id: `${styleId}-size-${sizeName}-${Date.now()}`,
+          styleId,
+          sizeName,
+          sizeCode: sizeName.toUpperCase(),
+          sortOrder: 0,
+        },
+      });
 
-    return newSize.id;
+      return newSize.id;
+    } catch (err: any) {
+      // Handle race condition: another request created the record between our check and create
+      if (err?.code === 'P2002') {
+        const justCreated = await prisma.size_options.findFirst({
+          where: { styleId, sizeName },
+        });
+        if (justCreated) return justCreated.id;
+      }
+      throw err;
+    }
   }
 
   /**
@@ -118,17 +130,29 @@ export class StyleVariantService {
 
     if (existing) return existing.id;
 
-    const newColor = await prisma.color_options.create({
-      data: {
-        id: `${styleId}-color-${colorName}-${Date.now()}`,
-        styleId,
-        colorName,
-        colorCode: null,
-        sortOrder: 0,
-      },
-    });
+    // BUG-MM8 fix: prevent race condition with P2002 handling
+    try {
+      const newColor = await prisma.color_options.create({
+        data: {
+          id: `${styleId}-color-${colorName}-${Date.now()}`,
+          styleId,
+          colorName,
+          colorCode: null,
+          sortOrder: 0,
+        },
+      });
 
-    return newColor.id;
+      return newColor.id;
+    } catch (err: any) {
+      // Handle race condition: another request created the record between our check and create
+      if (err?.code === 'P2002') {
+        const justCreated = await prisma.color_options.findFirst({
+          where: { styleId, colorName },
+        });
+        if (justCreated) return justCreated.id;
+      }
+      throw err;
+    }
   }
 }
 

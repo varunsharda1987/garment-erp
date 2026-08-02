@@ -334,6 +334,7 @@ class OrderCostingServiceClass {
 
   /**
    * Calculate fabric costs based on selected CAD
+   * BUG-CS4 FIX: Improved matching logic to properly use the order's selected CAD
    */
   private calculateFabricCostsWithCad(
     style: any,
@@ -348,14 +349,21 @@ class OrderCostingServiceClass {
       cadMeters = selectedCad.cadMeters ? parseFloat(selectedCad.cadMeters.toString()) : null;
       cadWidth = selectedCad.cutableWidth ? parseFloat(selectedCad.cutableWidth.toString()) : null;
 
+      // Track if we found a matching fabric for the selected CAD
+      let foundMatchingFabric = false;
+
       // Find the matching fabric and calculate cost
       for (const component of style.style_components || []) {
         for (const styleFabric of component.style_fabrics || []) {
-          // If this fabric matches the selected CAD's fabric
-          if (
-            styleFabric.fabric?.widthCADs?.some((c: any) => c.id === selectedCad.id) ||
-            styleFabric.fabricCADId === selectedCad.id
-          ) {
+          // BUG-CS4 FIX: Match using styleFabricId from the CAD record, not widthCADs relation
+          // The widthCADs relation wasn't being loaded, causing all fabrics to use their own CAD
+          // instead of the order's selected CAD
+          const isMatchingFabric =
+            selectedCad.styleFabricId === styleFabric.id || // CAD was created for this fabric
+            styleFabric.fabricCADId === selectedCad.id; // Style fabric points to this CAD
+
+          if (isMatchingFabric) {
+            foundMatchingFabric = true;
             const fabricRate = parseFloat(styleFabric.unitPrice?.toString() || '0');
             const fabricCost = (cadMeters || 0) * fabricRate;
             fabricTotal += fabricCost;
@@ -369,6 +377,18 @@ class OrderCostingServiceClass {
             }
           }
         }
+      }
+
+      // If no fabric matched, it might be a CAD for a fabric not in the current style components
+      // In that case, just use the selected CAD's meters with a default rate of 0
+      // This ensures cadMeters/cadWidth are still returned even if fabricTotal is 0
+      if (!foundMatchingFabric && cadMeters !== null) {
+        // Log for debugging - selected CAD doesn't match any style fabric
+        logWarn('calculateFabricCostsWithCad: Selected CAD does not match any style fabric', {
+          selectedCadId: selectedCad.id,
+          styleFabricId: selectedCad.styleFabricId,
+          styleId: style.id,
+        });
       }
     } else {
       // No selected CAD - use style's default fabric CADs

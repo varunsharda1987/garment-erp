@@ -85,6 +85,8 @@ export const createEmbroidery = async (req: Request, res: Response) => {
   const embroideryCode = await nextEmbroideryCode();
 
   // Create embroidery record
+  // Note: Zod schema (createEmbroiderySchema) already coerces numeric fields via z.coerce.number()
+  // so no additional parseInt/parseFloat is needed here
   const embroidery = await prisma.embroidery_master.create({
     data: {
       embroideryCode,
@@ -92,14 +94,14 @@ export const createEmbroidery = async (req: Request, res: Response) => {
       description: description || null,
       designFile: designFile || null,
       designImage: designImage || null,
-      stitchCount: stitchCount ? parseInt(stitchCount, 10) : null,
-      threadColors: threadColors ? parseInt(threadColors, 10) : null,
-      repeatWidth: repeatWidth ? parseFloat(repeatWidth) : null,
-      repeatHeight: repeatHeight ? parseFloat(repeatHeight) : null,
-      cutableWidth: parseFloat(effectiveCutableWidth),
-      costPerMeter: costPerMeter ? parseFloat(costPerMeter) : null,
+      stitchCount: stitchCount ?? null,
+      threadColors: threadColors ?? null,
+      repeatWidth: repeatWidth ?? null,
+      repeatHeight: repeatHeight ?? null,
+      cutableWidth: effectiveCutableWidth,
+      costPerMeter: costPerMeter ?? null,
       supplierId: supplierId || null,
-      leadTimeDays: leadTimeDays ? parseInt(leadTimeDays, 10) : null,
+      leadTimeDays: leadTimeDays ?? null,
       originalStyleId: originalStyleId || null,
       isActive: true,
     },
@@ -273,9 +275,11 @@ export const updateEmbroidery = async (req: Request, res: Response) => {
     repeatWidth,
     repeatHeight,
     cutableWidth,
+    usableWidthAfter, // Frontend sends this alias for cutableWidth
     costPerMeter,
     supplierId,
     leadTimeDays,
+    originalStyleId,
     isActive,
   } = req.body;
 
@@ -299,22 +303,27 @@ export const updateEmbroidery = async (req: Request, res: Response) => {
   }
 
   // Build update data
+  // Note: Zod schema (updateEmbroiderySchema) already coerces numeric fields via z.coerce.number()
+  // so no additional parseInt/parseFloat is needed here
   const updateData: any = {};
 
   if (designName !== undefined) updateData.designName = designName;
   if (description !== undefined) updateData.description = description || null;
   if (designFile !== undefined) updateData.designFile = designFile || null;
   if (designImage !== undefined) updateData.designImage = designImage || null;
-  if (stitchCount !== undefined) updateData.stitchCount = stitchCount ? parseInt(stitchCount, 10) : null;
-  if (threadColors !== undefined) updateData.threadColors = threadColors ? parseInt(threadColors, 10) : null;
-  if (repeatWidth !== undefined) updateData.repeatWidth = repeatWidth ? parseFloat(repeatWidth) : null;
-  if (repeatHeight !== undefined) updateData.repeatHeight = repeatHeight ? parseFloat(repeatHeight) : null;
-  // Null guards: parseFloat(null) is NaN → Prisma Decimal 500 (bug-hunt samples-embroidery-18).
+  if (stitchCount !== undefined) updateData.stitchCount = stitchCount ?? null;
+  if (threadColors !== undefined) updateData.threadColors = threadColors ?? null;
+  if (repeatWidth !== undefined) updateData.repeatWidth = repeatWidth ?? null;
+  if (repeatHeight !== undefined) updateData.repeatHeight = repeatHeight ?? null;
   // cutableWidth is a required column, so a null from the client is ignored rather than written.
-  if (cutableWidth !== undefined && cutableWidth !== null) updateData.cutableWidth = parseFloat(cutableWidth);
-  if (costPerMeter !== undefined) updateData.costPerMeter = costPerMeter === null ? null : parseFloat(costPerMeter);
+  // Support both field names (frontend uses usableWidthAfter, backend uses cutableWidth)
+  const effectiveCutableWidth = cutableWidth ?? usableWidthAfter;
+  if (effectiveCutableWidth !== undefined && effectiveCutableWidth !== null)
+    updateData.cutableWidth = effectiveCutableWidth;
+  if (costPerMeter !== undefined) updateData.costPerMeter = costPerMeter ?? null;
   if (supplierId !== undefined) updateData.supplierId = supplierId || null;
-  if (leadTimeDays !== undefined) updateData.leadTimeDays = leadTimeDays ? parseInt(leadTimeDays, 10) : null;
+  if (leadTimeDays !== undefined) updateData.leadTimeDays = leadTimeDays ?? null;
+  if (originalStyleId !== undefined) updateData.originalStyleId = originalStyleId || null;
   if (isActive !== undefined) updateData.isActive = isActive;
 
   const updated = await prisma.embroidery_master.update({

@@ -12,6 +12,7 @@
 import prisma from '../config/database';
 import { Prisma, StockEntryType, StockStatus } from '@prisma/client';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { toCurrency, multiplyCurrency, toNumber, roundToCent, Decimal } from '../utils/currency'; // BUG-LAC8 fix
 
 // ============================================================================
 // INTERFACES
@@ -377,12 +378,23 @@ export async function getAvailableStockForLace(laceId: string, minQuantity: numb
     ],
   });
 
-  // Calculate totals
-  const totalAvailable = stocks.reduce((sum, s) => sum + Number(s.quantityAvailable), 0);
-  const weightedAvgCost =
-    totalAvailable > 0
-      ? stocks.reduce((sum, s) => sum + Number(s.quantityAvailable) * Number(s.weightedAvgCost), 0) / totalAvailable
-      : 0;
+  // Calculate totals using decimal.js for precision (BUG-LAC8 fix)
+  const totalAvailableDecimal = stocks.reduce(
+    (sum, s) => sum.plus(toCurrency(Number(s.quantityAvailable))),
+    new Decimal(0)
+  );
+  const totalAvailable = toNumber(totalAvailableDecimal);
+
+  // WAC = sum(qty * cost) / sum(qty) using decimal.js (BUG-LAC8 fix)
+  const weightedAvgCostDecimal = totalAvailableDecimal.isZero()
+    ? new Decimal(0)
+    : stocks
+        .reduce(
+          (sum, s) => sum.plus(multiplyCurrency(Number(s.quantityAvailable), Number(s.weightedAvgCost))),
+          new Decimal(0)
+        )
+        .dividedBy(totalAvailableDecimal);
+  const weightedAvgCost = toNumber(roundToCent(weightedAvgCostDecimal));
 
   return {
     stocks,
@@ -630,6 +642,11 @@ export async function consumeStock(input: ConsumeStockInput) {
       },
     });
 
+    // BUG-INV3 fix: sync processor consumption to stock_levels
+    if (allocation.stock.laceId) {
+      await syncStockLevelQuantity(allocation.stock.laceId, -input.quantityConsumed, undefined, 'METER', tx);
+    }
+
     // Create transaction
     await tx.lace_stock_transaction.create({
       data: {
@@ -758,7 +775,10 @@ export async function getStockAgingReport(minAgeDays: number = 90) {
   const now = new Date();
   const stockWithAging = agingStock.map((stock) => {
     const agingDays = Math.floor((now.getTime() - stock.receivedDate.getTime()) / (1000 * 60 * 60 * 24));
-    const value = Number(stock.quantityAvailable) * Number(stock.weightedAvgCost);
+    // BUG-LAC8 fix: use decimal.js for precise valuation
+    const value = toNumber(
+      roundToCent(multiplyCurrency(Number(stock.quantityAvailable), Number(stock.weightedAvgCost)))
+    );
     return {
       ...stock,
       agingDays,
@@ -773,15 +793,18 @@ export async function getStockAgingReport(minAgeDays: number = 90) {
     'Over 1 year': stockWithAging.filter((s) => s.agingDays >= 365),
   };
 
+  // BUG-LAC8 fix: use decimal.js for precise aggregations
   const summary = {
     totalItems: agingStock.length,
-    totalQuantity: stockWithAging.reduce((sum, s) => sum + Number(s.quantityAvailable), 0),
-    totalValue: stockWithAging.reduce((sum, s) => sum + s.value, 0),
+    totalQuantity: toNumber(
+      stockWithAging.reduce((sum, s) => sum.plus(toCurrency(Number(s.quantityAvailable))), new Decimal(0))
+    ),
+    totalValue: toNumber(roundToCent(stockWithAging.reduce((sum, s) => sum.plus(toCurrency(s.value)), new Decimal(0)))),
     brackets: Object.entries(brackets).map(([label, items]) => ({
       label,
       count: items.length,
-      quantity: items.reduce((sum, s) => sum + Number(s.quantityAvailable), 0),
-      value: items.reduce((sum, s) => sum + s.value, 0),
+      quantity: toNumber(items.reduce((sum, s) => sum.plus(toCurrency(Number(s.quantityAvailable))), new Decimal(0))),
+      value: toNumber(roundToCent(items.reduce((sum, s) => sum.plus(toCurrency(s.value)), new Decimal(0)))),
     })),
   };
 

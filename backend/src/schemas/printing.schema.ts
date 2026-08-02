@@ -11,7 +11,7 @@ import { z } from 'zod';
 // Enums
 // ============================================================================
 
-export const PrintLabDipStatusEnum = z.enum(['PENDING', 'IN_PROGRESS', 'APPROVED', 'REJECTED', 'REVISED']);
+export const PrintLabDipStatusEnum = z.enum(['PENDING', 'SUBMITTED', 'APPROVED', 'REJECTED', 'RESUBMIT']);
 
 export const PrintJobStatusEnum = z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']);
 
@@ -102,7 +102,9 @@ export const printLabDipQuerySchema = z.object({
 export const printLabDipActionSchema = z
   .object({
     approvedSampleNo: z.string().max(50).optional(),
-    colorMatchRating: z.number().min(0).max(10).optional(),
+    // BUG-DYE4 fix: colorMatchRating scale aligned with dyeing module
+    // Both modules use the same 4-level scale: Excellent, Good, Acceptable, Poor
+    colorMatchRating: z.enum(['Excellent', 'Good', 'Acceptable', 'Poor']).optional(),
     rejectionReason: z.string().max(500).optional(),
     sentToBuyerDate: z.coerce.date().optional(),
     buyerRemarks: z.string().max(500).optional(),
@@ -233,10 +235,16 @@ export const createPrintProcessPoSchema = z
     qtySentMeters: z.number().positive('Quantity must be positive'),
     sentWidthInches: z.number().positive('Width must be positive'),
     agreedRatePerMeter: z.number().nonnegative('Rate cannot be negative'),
+    isRateTbd: z.boolean().optional().default(false), // Explicit TBD marker when rate=0 is intentional
     expectedReturnDate: z.coerce.date().optional(),
     expectedShrinkage: z.number().min(0).max(100).optional(),
     fabricType: z.string().max(50).optional().default('GREIGE'),
     remarks: z.string().max(500).optional(),
+    // Auto-send fields (Create & Send one-click)
+    autoSend: z.boolean().optional().default(false), // If true, immediately send to mill after creation
+    sentDate: z.string().optional(), // Used when autoSend=true
+    challanNumber: z.string().max(100).optional(), // Used when autoSend=true
+    vehicleNumber: z.string().max(50).optional(), // Used when autoSend=true
   })
   .passthrough()
   .refine((data) => data.labDipId || (data.styleId && data.fabricId && data.processorId), {

@@ -24,7 +24,8 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../config/database';
-import { NotFoundError, UnauthorizedError } from '../errors';
+import { NotFoundError, UnauthorizedError, ValidationError } from '../errors';
+import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 // Body schemas live in ../schemas/fabric-processing.schema and are applied by the
 // route via validateBody() — do not re-add controller-local body schemas here.
 import type { SendForProcessingInput, ReceiveFinishedFabricInput } from '../schemas/fabric-processing.schema';
@@ -155,11 +156,11 @@ export const getProcessingDetails = async (req: Request, res: Response): Promise
  * - Set initial processingStatus to "SENT"
  */
 export const sendForProcessing = async (req: Request, res: Response): Promise<void> => {
-  if (!req.user?.id) {
+  if (!req.user?.userId) {
     throw new UnauthorizedError();
   }
   const data = req.body as SendForProcessingInput;
-  const userId = req.user.id;
+  const userId = req.user.userId;
 
   // Calculate total finished cost
   const totalFinishedCost = data.greigeCost + data.processingCost;
@@ -170,34 +171,83 @@ export const sendForProcessing = async (req: Request, res: Response): Promise<vo
   // Calculate cost per meter
   const costPerMeter = expectedQuantityAfterShrinkage > 0 ? totalFinishedCost / expectedQuantityAfterShrinkage : 0;
 
-  // Create processing batch
-  const batch = await prisma.fabric_processing.create({
-    data: {
-      procurementId: data.procurementId,
-      greigeId: data.greigeId,
-      processorId: data.processorId,
-      processingType: data.processingType,
-      greigeQuantitySent: data.greigeQuantitySent,
-      greigeWidth: data.greigeWidth,
-      expectedFinishedWidthMin: data.expectedFinishedWidthMin,
-      expectedFinishedWidthMax: data.expectedFinishedWidthMax,
-      expectedShrinkagePercent: data.expectedShrinkagePercent,
-      greigeCost: data.greigeCost,
-      processingCost: data.processingCost,
-      totalFinishedCost,
-      costPerMeter,
-      sentDate: data.sentDate,
-      expectedReturnDate: data.expectedReturnDate ?? null,
-      batchNumber: data.batchNumber || null,
-      processSpecifications: data.processSpecifications || null,
-      processingStatus: 'SENT',
-      createdById: userId,
-    },
-    include: {
-      greigeMaster: true,
-      processor: true,
-      procurement: true,
-    },
+  // BUG-DASH11 fix: Use transaction to create batch AND debit greige stock atomically
+  const batch = await prisma.$transaction(async (tx) => {
+    // 1. Create processing batch
+    const processingBatch = await tx.fabric_processing.create({
+      data: {
+        procurementId: data.procurementId,
+        greigeId: data.greigeId,
+        processorId: data.processorId,
+        processingType: data.processingType,
+        greigeQuantitySent: data.greigeQuantitySent,
+        greigeWidth: data.greigeWidth,
+        expectedFinishedWidthMin: data.expectedFinishedWidthMin,
+        expectedFinishedWidthMax: data.expectedFinishedWidthMax,
+        expectedShrinkagePercent: data.expectedShrinkagePercent,
+        greigeCost: data.greigeCost,
+        processingCost: data.processingCost,
+        totalFinishedCost,
+        costPerMeter,
+        sentDate: data.sentDate,
+        expectedReturnDate: data.expectedReturnDate ?? null,
+        batchNumber: data.batchNumber || null,
+        processSpecifications: data.processSpecifications || null,
+        processingStatus: 'SENT',
+        createdById: userId,
+      },
+      include: {
+        greigeMaster: true,
+        processor: true,
+        procurement: true,
+      },
+    });
+
+    // 2. Debit greige stock (if greigeStockId provided)
+    if (data.greigeStockId) {
+      const greigeStock = await tx.greige_stock.findUnique({
+        where: { id: data.greigeStockId },
+      });
+      if (!greigeStock) {
+        throw new ValidationError(`Greige stock ${data.greigeStockId} not found`);
+      }
+      const available = Number(greigeStock.quantityAvailable) - Number(greigeStock.quantityReserved);
+      if (available < data.greigeQuantitySent) {
+        throw new ValidationError(
+          `Insufficient greige stock. Available: ${available}, Required: ${data.greigeQuantitySent}`
+        );
+      }
+      // Debit the greige stock
+      const updatedStock = await tx.greige_stock.update({
+        where: { id: data.greigeStockId },
+        data: {
+          quantityConsumed: { increment: data.greigeQuantitySent },
+          lastConsumedDate: new Date(),
+        },
+      });
+      // Record transaction
+      await tx.greige_stock_transaction.create({
+        data: {
+          stockId: data.greigeStockId,
+          transactionType: 'CONSUMPTION',
+          quantity: data.greigeQuantitySent,
+          balanceAfter: Number(updatedStock.quantityAvailable) - Number(updatedStock.quantityConsumed),
+          referenceType: 'PROCESSING_BATCH',
+          referenceId: processingBatch.id,
+          notes: `Sent for ${data.processingType} processing`,
+          performedById: userId,
+        },
+      });
+      // Sync to stock_levels - find materialId via greige_master
+      const material = await tx.materials.findFirst({
+        where: { greigeId: greigeStock.greigeId },
+      });
+      if (material) {
+        await syncStockLevelQuantity(material.id, -data.greigeQuantitySent);
+      }
+    }
+
+    return processingBatch;
   });
 
   res.status(201).json({
@@ -263,30 +313,61 @@ export const receiveFinishedFabric = async (req: Request, res: Response): Promis
       ? Number(existingBatch.totalFinishedCost) / data.actualQuantityReceived
       : Number(existingBatch.costPerMeter);
 
-  // Update processing batch
-  const updatedBatch = await prisma.fabric_processing.update({
-    where: { id },
-    data: {
-      actualFinishedWidth: data.actualFinishedWidth,
-      actualQuantityReceived: data.actualQuantityReceived,
-      actualShrinkagePercent: data.actualShrinkagePercent,
-      processingLossMeters: data.processingLossMeters,
-      widthVarianceInches,
-      shrinkageVariancePercent,
-      millAvgShrinkage,
-      varianceFromMillAvg,
-      costPerMeter: updatedCostPerMeter,
-      finishedFabricId: data.finishedFabricId,
-      actualReturnDate: data.actualReturnDate,
-      qualityNotes: data.qualityNotes || null,
-      processingStatus: 'COMPLETED',
-    },
-    include: {
-      greigeMaster: true,
-      processor: true,
-      finishedFabric: true,
-      procurement: true,
-    },
+  // BUG-DASH11 fix: Use transaction to update batch AND credit fabric stock atomically
+  const updatedBatch = await prisma.$transaction(async (tx) => {
+    // 1. Update processing batch
+    const batch = await tx.fabric_processing.update({
+      where: { id },
+      data: {
+        actualFinishedWidth: data.actualFinishedWidth,
+        actualQuantityReceived: data.actualQuantityReceived,
+        actualShrinkagePercent: data.actualShrinkagePercent,
+        processingLossMeters: data.processingLossMeters,
+        widthVarianceInches,
+        shrinkageVariancePercent,
+        millAvgShrinkage,
+        varianceFromMillAvg,
+        costPerMeter: updatedCostPerMeter,
+        finishedFabricId: data.finishedFabricId,
+        actualReturnDate: data.actualReturnDate,
+        qualityNotes: data.qualityNotes || null,
+        processingStatus: 'COMPLETED',
+      },
+      include: {
+        greigeMaster: true,
+        processor: true,
+        finishedFabric: true,
+        procurement: true,
+      },
+    });
+
+    // 2. Credit fabric stock if finishedFabricId provided and quantity received
+    if (data.finishedFabricId && data.actualQuantityReceived > 0) {
+      // Ensure material record exists
+      const materialId = await ensureMaterialRecord(data.finishedFabricId, 'FABRIC');
+
+      // Create fabric stock entry
+      await tx.fabric_stock.create({
+        data: {
+          fabricId: data.finishedFabricId,
+          finishedWidth: data.actualFinishedWidth,
+          cutableWidth: data.actualFinishedWidth - 2, // Standard 2" selvedge deduction
+          quantityAvailable: data.actualQuantityReceived,
+          weightedAvgCost: updatedCostPerMeter,
+          purchaseCost: updatedCostPerMeter,
+          warehouseId: data.warehouseId || null,
+          receivedDate: new Date(),
+          stockType: 'GENERIC',
+          rollNumbers: `PROC-${batch.id.substring(0, 8)}`,
+          createdById: req.user?.userId || 'system',
+        },
+      });
+
+      // Sync to stock_levels
+      await syncStockLevelQuantity(materialId, data.actualQuantityReceived);
+    }
+
+    return batch;
   });
 
   res.json({

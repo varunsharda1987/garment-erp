@@ -63,6 +63,42 @@ const DEFAULT_SETTINGS: Array<{
     description: 'Default extra % for label materials',
     isSystem: true,
   },
+  {
+    // BUG-GR8 fix: This setting is now used in fabric-stock, stock-routing, and fabric controllers
+    key: 'GREIGE_CUTABLE_WIDTH_DEDUCTION_CM',
+    value: '2',
+    dataType: 'NUMBER',
+    category: 'DEFAULTS',
+    description:
+      'Default inches to deduct from greige/fabric width to calculate cutable width (e.g., width - 2"). Used in greige stock, fabric stock, and fabric master creation.',
+    isSystem: true,
+  },
+  {
+    key: 'GREIGE_DEFAULT_QUALITY_GRADE',
+    value: 'A',
+    dataType: 'STRING',
+    category: 'DEFAULTS',
+    description: 'Default quality grade for greige stock (A, B, C)',
+    isSystem: true,
+  },
+  // BUG-GR9 fix: Centralized quality grade default for all stock types
+  {
+    key: 'DEFAULT_QUALITY_GRADE',
+    value: 'A',
+    dataType: 'STRING',
+    category: 'DEFAULTS',
+    description:
+      'Default quality grade for all stock types (A, B, DEFECT). Used when quality grade is not specified during stock creation.',
+    isSystem: true,
+  },
+  {
+    key: 'STOCK_AGING_THRESHOLD_DAYS',
+    value: '180',
+    dataType: 'NUMBER',
+    category: 'DEFAULTS',
+    description: 'Number of days after which stock is considered aged/old',
+    isSystem: true,
+  },
 ];
 
 class SystemSettingsService {
@@ -109,6 +145,20 @@ class SystemSettingsService {
   async getString(key: string, fallback: string): Promise<string> {
     const setting = await this.getByKey(key);
     return setting?.value ?? fallback;
+  }
+
+  /**
+   * BUG-GR9 fix: Get the default quality grade for stock entries.
+   * Returns the configured DEFAULT_QUALITY_GRADE or 'A' as fallback.
+   * Valid values: 'A', 'B', 'DEFECT'
+   */
+  async getDefaultQualityGrade(): Promise<'A' | 'B' | 'DEFECT'> {
+    const value = await this.getString('DEFAULT_QUALITY_GRADE', 'A');
+    // Validate the value is one of the allowed grades
+    if (value === 'A' || value === 'B' || value === 'DEFECT') {
+      return value;
+    }
+    return 'A'; // Fallback to 'A' if invalid value configured
   }
 
   /**

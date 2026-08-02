@@ -22,17 +22,18 @@ export const createEmbroiderySchema = z
     description: z.string().max(500).optional().nullable(),
     designFile: z.string().max(500).optional().nullable(),
     designImage: z.string().max(500).optional().nullable(),
-    stitchCount: z.number().int().positive().optional().nullable(),
-    threadColors: z.number().int().positive().optional().nullable(),
-    repeatWidth: z.number().positive().optional().nullable(),
-    repeatHeight: z.number().positive().optional().nullable(),
+    // Use z.coerce.number() to handle string input from forms (controller uses parseInt/parseFloat)
+    stitchCount: z.coerce.number().int().positive().optional().nullable(),
+    threadColors: z.coerce.number().int().positive().optional().nullable(),
+    repeatWidth: z.coerce.number().positive().optional().nullable(),
+    repeatHeight: z.coerce.number().positive().optional().nullable(),
     // minFabricWidth removed: no such column on embroidery_master (bug-hunt samples-embroidery-9)
-    usableWidthAfter: z.number().positive('Usable width after is required'),
-    costPerMeter: z.number().nonnegative().optional(),
+    usableWidthAfter: z.coerce.number().positive('Usable width after is required'),
+    costPerMeter: z.coerce.number().nonnegative().optional(),
     supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
-    leadTimeDays: z.number().int().nonnegative().optional().nullable(),
+    leadTimeDays: z.coerce.number().int().nonnegative().optional().nullable(),
     originalStyleId: z.string().uuid('Invalid style ID').optional().nullable(),
-    cutableWidth: z.number().positive().optional().nullable(),
+    cutableWidth: z.coerce.number().positive().optional().nullable(),
     isActive: z.boolean().optional().default(true),
   })
   .passthrough();
@@ -48,16 +49,17 @@ export const updateEmbroiderySchema = z
     description: z.string().max(500).optional().nullable(),
     designFile: z.string().max(500).optional().nullable(),
     designImage: z.string().max(500).optional().nullable(),
-    stitchCount: z.number().int().positive().optional().nullable(),
-    threadColors: z.number().int().positive().optional().nullable(),
-    repeatWidth: z.number().positive().optional().nullable(),
-    repeatHeight: z.number().positive().optional().nullable(),
-    usableWidthAfter: z.number().positive().optional().nullable(),
-    costPerMeter: z.number().nonnegative().optional().nullable(),
+    // Use z.coerce.number() to handle string input from forms (controller uses parseInt/parseFloat)
+    stitchCount: z.coerce.number().int().positive().optional().nullable(),
+    threadColors: z.coerce.number().int().positive().optional().nullable(),
+    repeatWidth: z.coerce.number().positive().optional().nullable(),
+    repeatHeight: z.coerce.number().positive().optional().nullable(),
+    usableWidthAfter: z.coerce.number().positive().optional().nullable(),
+    costPerMeter: z.coerce.number().nonnegative().optional().nullable(),
     supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
-    leadTimeDays: z.number().int().nonnegative().optional().nullable(),
+    leadTimeDays: z.coerce.number().int().nonnegative().optional().nullable(),
     originalStyleId: z.string().uuid('Invalid style ID').optional().nullable(),
-    cutableWidth: z.number().positive().optional().nullable(),
+    cutableWidth: z.coerce.number().positive().optional().nullable(),
     isActive: z.boolean().optional(),
   })
   .passthrough();
@@ -73,7 +75,7 @@ export const embroideryQuerySchema = z.object({
   supplierId: z.string().uuid().optional(),
   isActive: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
 });
 

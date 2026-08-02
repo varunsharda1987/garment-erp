@@ -6,6 +6,29 @@ import prisma from '../config/database';
 import { NotFoundError, ValidationError } from '../errors';
 
 /**
+ * Validate and sanitize columnConfig from JSON storage.
+ * Returns only valid column entries with required fieldName.
+ * BUG-ET6/ET8 fix: Runtime validation to prevent crashes on malformed JSON.
+ */
+function validateColumnConfig(raw: unknown): { fieldName: string; displayName: string }[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw
+    .filter(
+      (item): item is { fieldName: string; displayName?: string } =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof (item as Record<string, unknown>).fieldName === 'string' &&
+        (item as Record<string, unknown>).fieldName !== ''
+    )
+    .map((item) => ({
+      fieldName: item.fieldName,
+      displayName: typeof item.displayName === 'string' ? item.displayName : item.fieldName,
+    }));
+}
+
+/**
  * Export data from a module
  * POST /api/export/:module
  * Body: { format: 'csv' | 'excel' | 'pdf', templateId?: string, filters?: object }
@@ -23,11 +46,17 @@ export const exportData = async (req: Request, res: Response) => {
     if (!template) {
       throw new NotFoundError('Template', templateId);
     }
-    columnConfig = template.columnConfig as { fieldName: string; displayName: string }[];
+    columnConfig = validateColumnConfig(template.columnConfig);
+    if (columnConfig.length === 0) {
+      throw new ValidationError('Template has no valid column configuration');
+    }
   } else {
     template = await templateService.getDefaultTemplate(module);
     if (template) {
-      columnConfig = template.columnConfig as { fieldName: string; displayName: string }[];
+      columnConfig = validateColumnConfig(template.columnConfig);
+      if (columnConfig.length === 0) {
+        throw new ValidationError('Default template has no valid column configuration');
+      }
     } else {
       // Use default columns from template service if no template exists
       const availableColumns = templateService.getAvailableColumns(module);

@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
+import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 
 // Type for supplier input
 interface ElasticSupplierInput {
@@ -66,12 +67,12 @@ export const createElastic = async (req: Request, res: Response) => {
       elasticName: finalElasticName,
       supplierCode: supplierCode || null,
       buyerCode: buyerCode || null,
-      width: width ? parseFloat(width) : null,
-      stretchPercent: stretchPercent ? parseFloat(stretchPercent) : null,
+      width: width != null ? parseFloat(width) : null,
+      stretchPercent: stretchPercent != null ? parseFloat(stretchPercent) : null,
       color: color || null,
       composition: composition || null,
       elasticType: elasticType || null,
-      pricePerMeter: pricePerMeter ? parseFloat(pricePerMeter) : null,
+      pricePerMeter: pricePerMeter != null ? parseFloat(pricePerMeter) : null,
       supplierId: supplierId || null,
       description: description || null,
       isActive: true,
@@ -324,12 +325,14 @@ export const updateElastic = async (req: Request, res: Response) => {
       ...(elasticName !== undefined && { elasticName }),
       ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
       ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
-      ...(width !== undefined && { width: width ? parseFloat(width) : null }),
-      ...(stretchPercent !== undefined && { stretchPercent: stretchPercent ? parseFloat(stretchPercent) : null }),
+      ...(width !== undefined && { width: width != null ? parseFloat(width) : null }),
+      ...(stretchPercent !== undefined && {
+        stretchPercent: stretchPercent != null ? parseFloat(stretchPercent) : null,
+      }),
       ...(color !== undefined && { color: color || null }),
       ...(composition !== undefined && { composition: composition || null }),
       ...(elasticType !== undefined && { elasticType: elasticType || null }),
-      ...(pricePerMeter !== undefined && { pricePerMeter: pricePerMeter ? parseFloat(pricePerMeter) : null }),
+      ...(pricePerMeter !== undefined && { pricePerMeter: pricePerMeter != null ? parseFloat(pricePerMeter) : null }),
       ...(supplierId !== undefined && { supplierId: supplierId || null }),
       ...(description !== undefined && { description: description || null }),
       ...(isActive !== undefined && { isActive }),
@@ -357,12 +360,10 @@ export const updateElastic = async (req: Request, res: Response) => {
     },
   });
 
-  // Also update material name if elasticName changed
-  if (elasticName) {
-    await prisma.materials.updateMany({
-      where: { elasticId: id },
-      data: { name: elasticName },
-    });
+  // BUG-MM13 fix: sync code to materials
+  // Note: elasticCode is not updated (auto-generated), only sync name changes
+  if (elasticName && elasticName !== existing.elasticName) {
+    await syncMasterToMaterials(id, 'ELASTIC', { name: elasticName });
   }
 
   // Transform response
@@ -431,7 +432,7 @@ export const deleteElastic = async (req: Request, res: Response) => {
  */
 export const bulkImportElastic = async (req: Request, res: Response) => {
   const { data, createStock = false } = req.body;
-  const userId = (req as any).user?.id || 'system';
+  const userId = (req as any).user?.userId || 'system';
 
   if (!Array.isArray(data) || data.length === 0) {
     throw new ValidationError('Data array is required');
@@ -563,21 +564,50 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
 
 /**
  * Download Excel template for bulk import
+ * BUG-BEL8 fix: Aligned column structure to use { field, header } format
+ * matching button.controller.ts pattern for consistency across trim masters.
+ * Note: The unified import service at /api/import/:module/template uses a different
+ * structure (fieldName, displayName) - this endpoint returns JSON template info only.
  */
 export const downloadTemplate = async (req: Request, res: Response) => {
   const template = {
     columns: [
-      { name: 'elasticName', required: true, description: 'Name of the elastic (Required)' },
-      { name: 'supplierCode', required: false, description: "Supplier's reference code (Optional)" },
-      { name: 'buyerCode', required: false, description: "Buyer's reference code (Optional)" },
-      { name: 'width', required: false, description: 'Width in mm (Optional)' },
-      { name: 'stretchPercent', required: false, description: 'Stretch percentage (Optional)' },
-      { name: 'elasticType', required: false, description: 'Elastic type (Woven, Knitted, Braided) (Optional)' },
-      { name: 'color', required: false, description: 'Color name (Optional)' },
-      { name: 'composition', required: false, description: 'Material composition (Optional)' },
-      { name: 'pricePerMeter', required: false, description: 'Price per meter (Optional)' },
-      { name: 'stockQuantity', required: false, description: 'Initial stock quantity (Optional)' },
-      { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' },
+      { field: 'elasticName', header: 'Elastic Name', required: true, description: 'Name of the elastic (Required)' },
+      {
+        field: 'supplierCode',
+        header: 'Supplier Code',
+        required: false,
+        description: "Supplier's reference code (Optional)",
+      },
+      { field: 'buyerCode', header: 'Buyer Code', required: false, description: "Buyer's reference code (Optional)" },
+      { field: 'width', header: 'Width (mm)', required: false, description: 'Width in mm (Optional)' },
+      {
+        field: 'stretchPercent',
+        header: 'Stretch Percent',
+        required: false,
+        description: 'Stretch percentage (Optional)',
+      },
+      {
+        field: 'elasticType',
+        header: 'Elastic Type',
+        required: false,
+        description: 'Elastic type (Woven, Knitted, Braided) (Optional)',
+      },
+      { field: 'color', header: 'Color', required: false, description: 'Color name (Optional)' },
+      { field: 'composition', header: 'Composition', required: false, description: 'Material composition (Optional)' },
+      { field: 'pricePerMeter', header: 'Price Per Meter', required: false, description: 'Price per meter (Optional)' },
+      {
+        field: 'stockQuantity',
+        header: 'Stock Quantity',
+        required: false,
+        description: 'Initial stock quantity (Optional)',
+      },
+      {
+        field: 'locationCode',
+        header: 'Location Code',
+        required: false,
+        description: 'Warehouse location code (Optional)',
+      },
     ],
     exampleData: [
       {

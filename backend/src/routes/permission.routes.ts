@@ -8,7 +8,12 @@ import { UserRole } from '@prisma/client';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
-import { togglePermissionSchema, bulkUpdatePermissionsSchema } from '../schemas/permission.schema';
+import {
+  togglePermissionSchema,
+  bulkUpdatePermissionsSchema,
+  resetDefaultsSchema,
+  seedPermissionsSchema,
+} from '../schemas/permission.schema';
 import { roleParamSchema, roleAndPermissionParamSchema } from '../schemas/common.schema';
 import {
   getPermissionMatrix,
@@ -99,13 +104,17 @@ router.post('/bulk-update', validateBody(bulkUpdatePermissionsSchema), asyncHand
 /**
  * @route POST /api/permissions/reset-defaults
  * @desc Reset all permissions to config defaults
+ * @body { confirmReset: true }
+ * BUG-ADM4 fix: added validation to require explicit confirmation
  */
-router.post('/reset-defaults', asyncHandler(resetToDefaults));
+router.post('/reset-defaults', validateBody(resetDefaultsSchema), asyncHandler(resetToDefaults));
 
 /**
  * @route POST /api/permissions/seed
  * @desc Seed permissions from config (one-time setup)
+ * @body { confirmSeed: true }
+ * BUG-ADM4 fix: added validation to require explicit confirmation
  */
-router.post('/seed', asyncHandler(seedPermissions));
+router.post('/seed', validateBody(seedPermissionsSchema), asyncHandler(seedPermissions));
 
 export default router;

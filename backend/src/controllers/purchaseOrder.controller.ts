@@ -369,7 +369,8 @@ export const cancelPurchaseOrder = async (req: Request, res: Response) => {
 export const amendDeliveryLocation = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { deliveryLocationId } = req.body;
-  const userId = (req as any).user?.id;
+  // bug-hunt: was user?.id but auth middleware populates userId
+  const userId = (req as any).user?.userId;
 
   if (!userId) {
     throw new UnauthorizedError('User not authenticated');

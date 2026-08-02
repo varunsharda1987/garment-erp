@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { logInfo, logDebug } from '../utils/logger';
 import { ValidationError, NotFoundError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
+import { multiplyCurrency, toNumber } from '../utils/currency'; // BUG-CAD8 fix
 
 /**
  * Fabric Width CAD Controller
@@ -349,7 +350,8 @@ export const getCostComparison = async (req: Request, res: Response) => {
   // Calculate consumption for each width option
   const comparison = fabric.widthCADs.map((cad) => {
     const cadValue = parseFloat((cad.cadMeters || cad.cadYards || 0).toString());
-    const totalFabricRequired = cadValue * orderQty;
+    // BUG-CAD8 fix: use decimal.js for safe arithmetic
+    const totalFabricRequired = toNumber(multiplyCurrency(cadValue, orderQty));
 
     return {
       width: parseFloat(cad.cutableWidth.toString()),
@@ -365,10 +367,13 @@ export const getCostComparison = async (req: Request, res: Response) => {
   });
 
   // Find best option (lowest fabric consumption)
-  const bestOption = comparison.reduce(
-    (prev, current) => (current.totalFabricRequired < prev.totalFabricRequired ? current : prev),
-    comparison[0]
-  );
+  const bestOption =
+    comparison.length > 0
+      ? comparison.reduce(
+          (prev, current) => (current.totalFabricRequired < prev.totalFabricRequired ? current : prev),
+          comparison[0]
+        )
+      : null;
 
   res.json({
     fabric: {
@@ -378,12 +383,16 @@ export const getCostComparison = async (req: Request, res: Response) => {
     },
     orderQuantity: orderQty,
     options: comparison,
-    bestOption: {
-      width: bestOption.width,
-      fabricSaved: comparison
-        .map((opt) => (opt.width === bestOption.width ? 0 : opt.totalFabricRequired - bestOption.totalFabricRequired))
-        .reduce((a, b) => Math.max(a, b), 0),
-    },
+    bestOption: bestOption
+      ? {
+          width: bestOption.width,
+          fabricSaved: comparison
+            .map((opt) =>
+              opt.width === bestOption.width ? 0 : opt.totalFabricRequired - bestOption.totalFabricRequired
+            )
+            .reduce((a, b) => Math.max(a, b), 0),
+        }
+      : null,
   });
 };
 

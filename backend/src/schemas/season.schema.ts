@@ -21,6 +21,7 @@ export const SeasonTypeEnum = z.enum(['SS', 'AW']);
  * Create Season
  * POST /api/seasons
  * Field names match frontend CreateSeasonRequest
+ * BUG-SEA3 Note: Schema fields match Prisma season_master model exactly
  */
 export const createSeasonSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100),
@@ -28,9 +29,6 @@ export const createSeasonSchema = z.object({
   seasonType: SeasonTypeEnum,
   year: z.number().int().min(2000).max(2100),
   sortOrder: z.number().int().optional(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
-  description: z.string().max(500).optional(),
   isActive: z.boolean().optional().default(true),
 });
 
@@ -41,27 +39,30 @@ export const createSeasonSchema = z.object({
  */
 export const updateSeasonSchema = z.object({
   name: z.string().min(1).max(100).optional(),
-  code: z.string().max(20).optional().nullable(),
+  code: z.string().max(20).optional(),
   seasonType: SeasonTypeEnum.optional(),
   year: z.number().int().min(2000).max(2100).optional(),
-  sortOrder: z.number().int().optional().nullable(),
-  startDate: z.string().datetime().optional().nullable(),
-  endDate: z.string().datetime().optional().nullable(),
-  description: z.string().max(500).optional().nullable(),
+  sortOrder: z.number().int().optional(),
   isActive: z.boolean().optional(),
 });
 
 /**
  * Generate Seasons
  * POST /api/seasons/generate
+ * seasonTypes defaults to ['SS', 'AW'] in service if not provided
  */
 export const generateSeasonsSchema = z
   .object({
     startYear: z.number().int().min(2000).max(2100),
     endYear: z.number().int().min(2000).max(2100),
+    seasonTypes: z.array(SeasonTypeEnum).optional(),
   })
   .refine((data) => data.endYear >= data.startYear, {
     message: 'End year must be >= start year',
+    path: ['endYear'],
+  })
+  .refine((data) => data.endYear - data.startYear <= 20, {
+    message: 'Year range cannot exceed 20 years',
     path: ['endYear'],
   });
 
@@ -78,8 +79,22 @@ export const seasonQuerySchema = z.object({
   year: z.string().transform(Number).pipe(z.number().int()).optional(),
   isActive: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
+  sortBy: z.string().optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+});
+
+/**
+ * Season Search Query Params
+ * GET /api/seasons/search
+ * BUG-SEA2 Fix: Added search query schema
+ */
+export const seasonSearchSchema = z.object({
+  search: z.string().max(100).optional(),
+  year: z.string().transform(Number).pipe(z.number().int()).optional(),
+  seasonType: SeasonTypeEnum.optional(),
+  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
 });
 
 // ============================================================================
@@ -90,3 +105,4 @@ export type CreateSeasonInput = z.infer<typeof createSeasonSchema>;
 export type UpdateSeasonInput = z.infer<typeof updateSeasonSchema>;
 export type GenerateSeasonsInput = z.infer<typeof generateSeasonsSchema>;
 export type SeasonQueryInput = z.infer<typeof seasonQuerySchema>;
+export type SeasonSearchInput = z.infer<typeof seasonSearchSchema>;

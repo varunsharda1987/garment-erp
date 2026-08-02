@@ -65,13 +65,13 @@ export const createCustomerSchema = z.object({
     .optional()
     .or(z.literal('')),
 
+  // BUG-CU3 fix: type/category must match DTO and Prisma requirements
   type: z
     .enum(['BUYER']) // Matches Prisma CustomerType
-    .optional(),
+    .optional()
+    .default('BUYER'), // BUG-CU3: Prisma requires, Zod default ensures always present in output
 
-  category: z
-    .enum(['DOMESTIC', 'EXPORT', 'WHOLESALER', 'RETAILER']) // Matches Prisma CustomerCategory
-    .optional(),
+  category: z.enum(['DOMESTIC', 'EXPORT', 'WHOLESALER', 'RETAILER']), // BUG-CU3: Required - matches Prisma/DTO (no optional, no default)
 
   businessType: z.enum(['B2B', 'B2C']).optional().default('B2B'),
 
@@ -281,7 +281,7 @@ export const customerQuerySchema = z.object({
 
   isActive: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .pipe(z.boolean())
     .optional(),
 });

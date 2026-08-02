@@ -4,6 +4,7 @@ import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 import { getDerivedOnHandMap, getDerivedStockDetailed } from '../services/helpers/derived-stock.helper';
+import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 
 // Type for supplier input
 interface LabelSupplierInput {
@@ -19,6 +20,11 @@ interface LabelSupplierInput {
  * Create a single label item
  * Auto-generates labelCode and creates corresponding material entry
  * Supports multiple suppliers via suppliers array
+ *
+ * BUG-BEL2 fix: styleCodes is NOT handled here by design.
+ * There is no label_style_associations table in Prisma - labels link to styles
+ * through style_material_bom (BOM). The Zod schema strips styleCodes to prevent
+ * silent data loss. Style-label relationships are created when adding labels to BOMs.
  */
 export const createLabel = async (req: Request, res: Response) => {
   const {
@@ -45,8 +51,10 @@ export const createLabel = async (req: Request, res: Response) => {
     suppliers = [], // Array of supplier relationships
   } = req.body;
 
-  // Validate brand belongs to customer if both provided
-  if (brandCategoryId && customerId) {
+  // Validate brand exists and belongs to customer (if specified)
+  // BUG-BEL4 FIX: Now validates brandCategoryId independently and auto-derives customerId from brand
+  let finalCustomerId = customerId || null;
+  if (brandCategoryId) {
     const brand = await prisma.brand_categories.findUnique({
       where: { id: brandCategoryId },
       select: { customerId: true },
@@ -56,8 +64,14 @@ export const createLabel = async (req: Request, res: Response) => {
       throw new ValidationError('Invalid brand category');
     }
 
-    if (brand.customerId !== customerId) {
-      throw new ValidationError('Brand does not belong to the specified customer');
+    if (customerId) {
+      // Both provided - validate consistency
+      if (brand.customerId !== customerId) {
+        throw new ValidationError('Brand does not belong to the specified customer');
+      }
+    } else {
+      // Only brandCategoryId provided - auto-derive customerId from brand for data consistency
+      finalCustomerId = brand.customerId;
     }
   }
 
@@ -101,7 +115,7 @@ export const createLabel = async (req: Request, res: Response) => {
       labelName: finalLabelName,
       supplierCode: supplierCode || null,
       buyerCode: buyerCode || null,
-      customerId: customerId || null, // Link to customer
+      customerId: finalCustomerId, // Link to customer (auto-derived from brand if not provided)
       brandCategoryId: brandCategoryId || null, // Link to brand
       labelCategory: labelCategory as any,
       labelType: labelType || null,
@@ -523,6 +537,10 @@ export const getLabelById = async (req: Request, res: Response) => {
  * Update label item
  * Note: labelCode cannot be changed
  * Supports updating suppliers via suppliers array (delete-and-recreate pattern)
+ *
+ * BUG-BEL2 fix: styleCodes is NOT handled here by design.
+ * Labels link to styles through style_material_bom (BOM), not a direct junction table.
+ * The Zod schema strips styleCodes to prevent silent data loss.
  */
 export const updateLabel = async (req: Request, res: Response) => {
   const { id } = req.params;
@@ -560,20 +578,46 @@ export const updateLabel = async (req: Request, res: Response) => {
     throw new NotFoundError('Label', id);
   }
 
-  // Validate brand belongs to customer if both provided
-  if (brandCategoryId && customerId) {
-    const brand = await prisma.brand_categories.findUnique({
-      where: { id: brandCategoryId },
-      select: { customerId: true },
-    });
+  // Validate brand exists and belongs to customer (if specified)
+  // BUG-BEL4 FIX: Now validates brandCategoryId independently and auto-derives customerId from brand
+  let finalCustomerId: string | null | undefined = undefined; // undefined means don't update
+  if (brandCategoryId !== undefined) {
+    if (brandCategoryId) {
+      const brand = await prisma.brand_categories.findUnique({
+        where: { id: brandCategoryId },
+        select: { customerId: true },
+      });
 
-    if (!brand) {
-      throw new ValidationError('Invalid brand category');
-    }
+      if (!brand) {
+        throw new ValidationError('Invalid brand category');
+      }
 
-    if (brand.customerId !== customerId) {
-      throw new ValidationError('Brand does not belong to the specified customer');
+      if (customerId !== undefined) {
+        // Both provided - validate consistency
+        if (customerId && brand.customerId !== customerId) {
+          throw new ValidationError('Brand does not belong to the specified customer');
+        }
+        finalCustomerId = customerId || null;
+      } else {
+        // Only brandCategoryId being updated - auto-derive customerId from brand
+        finalCustomerId = brand.customerId;
+      }
+    } else {
+      // brandCategoryId being cleared - use provided customerId or keep existing
+      finalCustomerId = customerId !== undefined ? customerId || null : undefined;
     }
+  } else if (customerId !== undefined) {
+    // Only customerId being updated - validate against existing brand if any
+    if (existing.brandCategoryId && customerId) {
+      const brand = await prisma.brand_categories.findUnique({
+        where: { id: existing.brandCategoryId },
+        select: { customerId: true },
+      });
+      if (brand && brand.customerId !== customerId) {
+        throw new ValidationError('Brand does not belong to the specified customer');
+      }
+    }
+    finalCustomerId = customerId || null;
   }
 
   // Update suppliers if provided (delete-and-recreate pattern)
@@ -606,7 +650,7 @@ export const updateLabel = async (req: Request, res: Response) => {
       ...(labelName !== undefined && { labelName }),
       ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
       ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
-      ...(customerId !== undefined && { customerId: customerId || null }),
+      ...(finalCustomerId !== undefined && { customerId: finalCustomerId }), // BUG-BEL4: Use validated/derived customerId
       ...(brandCategoryId !== undefined && { brandCategoryId: brandCategoryId || null }),
       ...(labelCategory !== undefined && { labelCategory: labelCategory as any }),
       ...(labelType !== undefined && { labelType: labelType || null }),
@@ -661,12 +705,10 @@ export const updateLabel = async (req: Request, res: Response) => {
     },
   });
 
-  // Also update material name if labelName changed
-  if (labelName) {
-    await prisma.materials.updateMany({
-      where: { labelId: id },
-      data: { name: labelName },
-    });
+  // BUG-MM13 fix: sync code to materials
+  // Note: labelCode is not updated (auto-generated), only sync name changes
+  if (labelName && labelName !== existing.labelName) {
+    await syncMasterToMaterials(id, 'LABEL', { name: labelName });
   }
 
   // Handle size variant generation on update (only if no variants exist yet)
@@ -783,12 +825,31 @@ export const deleteLabel = async (req: Request, res: Response) => {
     );
   }
 
-  // Delete material entry first (FK constraint)
+  // BUG-BEL7 fix: Explicit deletion order to prevent FK constraint errors
+  // Delete in correct order: materials → size variants → label
+
+  // 1. Delete material entries linked directly to label
   await prisma.materials.deleteMany({
     where: { labelId: id },
   });
 
-  // Delete label (cascade will delete label_suppliers)
+  // 2. Delete material entries linked via size variants (sizeVariantId references this label's variants)
+  const sizeVariantIds = await prisma.label_size_variants.findMany({
+    where: { labelId: id },
+    select: { id: true },
+  });
+  if (sizeVariantIds.length > 0) {
+    await prisma.materials.deleteMany({
+      where: { sizeVariantId: { in: sizeVariantIds.map((sv) => sv.id) } },
+    });
+  }
+
+  // 3. Delete size variants explicitly before label (prevents cascade timing issues)
+  await prisma.label_size_variants.deleteMany({
+    where: { labelId: id },
+  });
+
+  // 4. Delete label (cascade will delete label_suppliers)
   await prisma.label_master.delete({
     where: { id },
   });
@@ -802,7 +863,7 @@ export const deleteLabel = async (req: Request, res: Response) => {
  */
 export const bulkImportLabel = async (req: Request, res: Response) => {
   const { data, createStock = false } = req.body;
-  const userId = (req as any).user?.id || 'system';
+  const userId = (req as any).user?.userId || 'system';
 
   if (!Array.isArray(data) || data.length === 0) {
     throw new ValidationError('Data array is required');
@@ -936,23 +997,57 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
 
 /**
  * Download Excel template for bulk import
+ * BUG-BEL8 fix: Aligned column structure to use { field, header } format
+ * matching button.controller.ts pattern for consistency across trim masters.
+ * Note: The unified import service at /api/import/:module/template uses a different
+ * structure (fieldName, displayName) - this endpoint returns JSON template info only.
  */
 export const downloadTemplate = async (req: Request, res: Response) => {
   const template = {
     columns: [
-      { name: 'labelName', required: true, description: 'Name of the label (Required)' },
-      { name: 'supplierCode', required: false, description: "Supplier's reference code (Optional)" },
-      { name: 'buyerCode', required: false, description: "Buyer's reference code (Optional)" },
-      { name: 'labelType', required: false, description: 'Label type (Woven, Printed, Heat Transfer) (Optional)' },
-      { name: 'size', required: false, description: 'Size/dimensions (Optional)' },
-      { name: 'content', required: false, description: 'Label content text (Optional)' },
-      { name: 'printMethod', required: false, description: 'Print method (Optional)' },
-      { name: 'material', required: false, description: 'Material (Polyester, Satin, Cotton) (Optional)' },
-      { name: 'color', required: false, description: 'Color name (Optional)' },
-      { name: 'pricePerPiece', required: false, description: 'Price per piece (Optional)' },
-      { name: 'pricePerHundred', required: false, description: 'Price per hundred (Optional)' },
-      { name: 'stockQuantity', required: false, description: 'Initial stock quantity (Optional)' },
-      { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' },
+      { field: 'labelName', header: 'Label Name', required: true, description: 'Name of the label (Required)' },
+      {
+        field: 'supplierCode',
+        header: 'Supplier Code',
+        required: false,
+        description: "Supplier's reference code (Optional)",
+      },
+      { field: 'buyerCode', header: 'Buyer Code', required: false, description: "Buyer's reference code (Optional)" },
+      {
+        field: 'labelType',
+        header: 'Label Type',
+        required: false,
+        description: 'Label type (Woven, Printed, Heat Transfer) (Optional)',
+      },
+      { field: 'size', header: 'Size', required: false, description: 'Size/dimensions (Optional)' },
+      { field: 'content', header: 'Content', required: false, description: 'Label content text (Optional)' },
+      { field: 'printMethod', header: 'Print Method', required: false, description: 'Print method (Optional)' },
+      {
+        field: 'material',
+        header: 'Material',
+        required: false,
+        description: 'Material (Polyester, Satin, Cotton) (Optional)',
+      },
+      { field: 'color', header: 'Color', required: false, description: 'Color name (Optional)' },
+      { field: 'pricePerPiece', header: 'Price Per Piece', required: false, description: 'Price per piece (Optional)' },
+      {
+        field: 'pricePerHundred',
+        header: 'Price Per Hundred',
+        required: false,
+        description: 'Price per hundred (Optional)',
+      },
+      {
+        field: 'stockQuantity',
+        header: 'Stock Quantity',
+        required: false,
+        description: 'Initial stock quantity (Optional)',
+      },
+      {
+        field: 'locationCode',
+        header: 'Location Code',
+        required: false,
+        description: 'Warehouse location code (Optional)',
+      },
     ],
     exampleData: [
       {

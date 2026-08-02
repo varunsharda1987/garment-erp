@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
+import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 
 // Type for supplier input
 interface ButtonSupplierInput {
@@ -493,12 +494,10 @@ export const updateButton = async (req: Request, res: Response) => {
     },
   });
 
-  // Update material name if buttonName changed
-  if (finalButtonName) {
-    await prisma.materials.updateMany({
-      where: { buttonId: id },
-      data: { name: finalButtonName },
-    });
+  // BUG-MM13 fix: sync code to materials
+  // Note: buttonCode is not updated (auto-generated), only sync name changes
+  if (finalButtonName && finalButtonName !== existing.buttonName) {
+    await syncMasterToMaterials(id, 'BUTTON', { name: finalButtonName });
   }
 
   // Transform response
@@ -570,7 +569,7 @@ export const deleteButton = async (req: Request, res: Response) => {
  */
 export const bulkImportButtons = async (req: Request, res: Response) => {
   const { data, createStock = false } = req.body;
-  const userId = (req as any).user?.id || 'system';
+  const userId = (req as any).user?.userId || 'system';
 
   if (!data || !Array.isArray(data) || data.length === 0) {
     throw new ValidationError('No data provided for import');

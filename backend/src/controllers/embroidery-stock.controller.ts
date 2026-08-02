@@ -18,6 +18,9 @@ export const sendOut = async (req: Request, res: Response): Promise<void> => {
     throw new ValidationError('User not authenticated');
   }
 
+  // BUG-EMB15 fix: Zod schema (sendOutSchema) already coerces dates via z.coerce.date()
+  // and numbers via z.coerce.number(), so values from req.body are already the correct types.
+  // Removed redundant new Date() and parseFloat() calls for consistency.
   const {
     sourceFabricStockId,
     embroideryId,
@@ -32,7 +35,7 @@ export const sendOut = async (req: Request, res: Response): Promise<void> => {
     remarks,
   } = req.body;
 
-  // Validation
+  // Validation - Zod schema marks these required, but keep manual check for non-validated paths
   if (!sourceFabricStockId || !embroideryId || !supplierId || !quantitySent || !sentWidth || !sendDate || !agreedRate) {
     throw new ValidationError(
       'sourceFabricStockId, embroideryId, supplierId, quantitySent, sentWidth, sendDate, and agreedRate are required'
@@ -43,11 +46,11 @@ export const sendOut = async (req: Request, res: Response): Promise<void> => {
     sourceFabricStockId,
     embroideryId,
     supplierId,
-    quantitySent: parseFloat(quantitySent),
-    sentWidth: parseFloat(sentWidth),
-    sendDate: new Date(sendDate),
-    expectedReturnDate: expectedReturnDate ? new Date(expectedReturnDate) : undefined,
-    agreedRate: parseFloat(agreedRate),
+    quantitySent, // BUG-EMB15 fix: already number from z.coerce.number()
+    sentWidth, // BUG-EMB15 fix: already number from z.coerce.number()
+    sendDate, // BUG-EMB15 fix: already Date from z.coerce.date()
+    expectedReturnDate, // BUG-EMB15 fix: already Date or undefined from z.coerce.date().optional()
+    agreedRate, // BUG-EMB15 fix: already number from z.coerce.number()
     forStyleId,
     forOrderId,
     remarks,
@@ -72,6 +75,9 @@ export const receive = async (req: Request, res: Response): Promise<void> => {
     throw new ValidationError('User not authenticated');
   }
 
+  // BUG-EMB15 fix: Zod schema (receiveSchema) already coerces dates via z.coerce.date()
+  // and numbers via z.coerce.number(), so values from req.body are already the correct types.
+  // Removed redundant new Date() and parseFloat() calls for consistency.
   const {
     sendOutId,
     quantityReceived,
@@ -86,20 +92,20 @@ export const receive = async (req: Request, res: Response): Promise<void> => {
     remarks,
   } = req.body;
 
-  // Validation
+  // Validation - Zod schema marks these required, but keep manual check for non-validated paths
   if (!sendOutId || !quantityReceived || !receivedWidth || !actualReturnDate) {
     throw new ValidationError('sendOutId, quantityReceived, receivedWidth, and actualReturnDate are required');
   }
 
   const receiveRecord = await embroideryStockService.receive({
     sendOutId,
-    quantityReceived: parseFloat(quantityReceived),
-    quantityDamaged: quantityDamaged ? parseFloat(quantityDamaged) : undefined,
-    receivedWidth: parseFloat(receivedWidth),
-    actualReturnDate: new Date(actualReturnDate),
-    actualCost: actualCost ? parseFloat(actualCost) : undefined,
+    quantityReceived, // BUG-EMB15 fix: already number from z.coerce.number()
+    quantityDamaged, // BUG-EMB15 fix: already number or undefined from z.coerce.number().optional()
+    receivedWidth, // BUG-EMB15 fix: already number from z.coerce.number()
+    actualReturnDate, // BUG-EMB15 fix: already Date from z.coerce.date()
+    actualCost, // BUG-EMB15 fix: already number or undefined from z.coerce.number().optional()
     invoiceNumber,
-    invoiceDate: invoiceDate ? new Date(invoiceDate) : undefined,
+    invoiceDate, // BUG-EMB15 fix: already Date or undefined from z.coerce.date().optional()
     qualityGrade,
     warehouseLocation,
     remarks,
@@ -119,7 +125,11 @@ export const receive = async (req: Request, res: Response): Promise<void> => {
  * GET /api/embroidery-stock/send-outs
  */
 export const getSendOuts = async (req: Request, res: Response): Promise<void> => {
-  const { status, embroideryId, supplierId, forStyleId, forOrderId, fromDate, toDate } = req.query;
+  // BUG-EMB15 fix: Use req.validatedQuery for coerced values from Zod schema (embroideryStockQuerySchema).
+  // validateQuery middleware stores the transformed values there (dates already Date objects).
+  // Fall back to req.query for backwards compatibility if validation middleware was bypassed.
+  const validated = (req as any).validatedQuery ?? req.query;
+  const { status, embroideryId, supplierId, forStyleId, forOrderId, fromDate, toDate } = validated;
 
   const sendOuts = await embroideryStockService.getSendOuts({
     status: status as string,
@@ -127,8 +137,8 @@ export const getSendOuts = async (req: Request, res: Response): Promise<void> =>
     supplierId: supplierId as string,
     forStyleId: forStyleId as string,
     forOrderId: forOrderId as string,
-    fromDate: fromDate ? new Date(fromDate as string) : undefined,
-    toDate: toDate ? new Date(toDate as string) : undefined,
+    fromDate, // BUG-EMB15 fix: already Date or undefined from z.coerce.date().optional()
+    toDate, // BUG-EMB15 fix: already Date or undefined from z.coerce.date().optional()
   });
 
   res.json({

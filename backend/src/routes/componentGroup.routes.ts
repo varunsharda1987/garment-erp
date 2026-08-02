@@ -2,12 +2,14 @@ import express from 'express';
 import { componentGroupController } from '../controllers/componentGroup.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateParams } from '../middleware/validation.middleware';
-import { idParamSchema, codeParamSchema } from '../schemas/common.schema';
+import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
+import { idParamSchema } from '../schemas/common.schema';
 import {
   createComponentGroupSchema,
   updateComponentGroupSchema,
   reorderComponentGroupsSchema,
+  componentGroupQuerySchema,
+  componentGroupCodeParamSchema,
 } from '../schemas/componentGroup.schema';
 
 const router = express.Router();
@@ -30,12 +32,16 @@ router.post(
 );
 
 // Get all component groups with pagination
-router.get('/', asyncHandler(componentGroupController.getComponentGroups.bind(componentGroupController)));
+router.get(
+  '/',
+  validateQuery(componentGroupQuerySchema),
+  asyncHandler(componentGroupController.getComponentGroups.bind(componentGroupController))
+);
 
 // Get component group by code
 router.get(
   '/code/:code',
-  validateParams(codeParamSchema),
+  validateParams(componentGroupCodeParamSchema),
   asyncHandler(componentGroupController.getComponentGroupByCode.bind(componentGroupController))
 );
 

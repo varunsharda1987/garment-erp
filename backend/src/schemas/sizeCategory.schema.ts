@@ -1,6 +1,21 @@
 import { z } from 'zod';
 
 /**
+ * Query Schema for Size Categories
+ * GET /api/size-categories
+ * BUG-MM7 fix: added validation
+ */
+export const sizeCategoryQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(50),
+  search: z.string().optional(),
+  isActive: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((val) => (val === undefined ? undefined : val === 'true')),
+});
+
+/**
  * Create Size Category Schema
  * POST /api/size-categories
  */
@@ -25,5 +40,6 @@ export const updateSizeCategorySchema = z.object({
 });
 
 // Type exports for use in controllers
+export type SizeCategoryQueryInput = z.infer<typeof sizeCategoryQuerySchema>;
 export type CreateSizeCategoryInput = z.infer<typeof createSizeCategorySchema>;
 export type UpdateSizeCategoryInput = z.infer<typeof updateSizeCategorySchema>;

@@ -260,11 +260,20 @@ class TestTemplatesService {
    * Format template response (parse JSON fields)
    */
   private formatTemplateResponse(template: any): any {
+    const safeJsonParse = <T>(value: string | null, fallback: T): T => {
+      if (!value) return fallback;
+      try {
+        return JSON.parse(value);
+      } catch {
+        return fallback;
+      }
+    };
+
     return {
       ...template,
-      requiredParams: template.requiredParams ? JSON.parse(template.requiredParams) : [],
-      optionalParams: template.optionalParams ? JSON.parse(template.optionalParams) : null,
-      toleranceRanges: template.toleranceRanges ? JSON.parse(template.toleranceRanges) : null,
+      requiredParams: safeJsonParse(template.requiredParams, []),
+      optionalParams: safeJsonParse(template.optionalParams, null),
+      toleranceRanges: safeJsonParse(template.toleranceRanges, null),
     };
   }
 }

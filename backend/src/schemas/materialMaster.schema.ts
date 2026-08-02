@@ -107,14 +107,20 @@ export const updateMaterialSchema = z.object({
 /**
  * Add Material Supplier
  * POST /api/materials/:id/suppliers
+ *
+ * Field names must match MaterialSupplierMappingDto in material-master.types.ts
+ * and what service/material-master.service.ts::addSupplier expects.
  */
 export const addMaterialSupplierSchema = z.object({
   supplierId: z.string().uuid('Invalid supplier ID'),
-  price: z.number().nonnegative().optional(),
+  supplierCode: z.string().max(50).optional(),
+  supplierName: z.string().max(200).optional(),
+  supplierPrice: z.number().nonnegative().optional(),
   leadTimeDays: z.number().int().nonnegative().optional(),
-  minOrderQty: z.number().int().nonnegative().optional(),
+  moq: z.number().int().nonnegative().optional(),
+  moqUnit: z.string().max(20).optional(),
   isPrimary: z.boolean().optional().default(false),
-  remarks: z.string().max(500).optional(),
+  isActive: z.boolean().optional().default(true),
 });
 
 /**
@@ -127,7 +133,7 @@ export const materialQuerySchema = z.object({
   materialType: MaterialTypeEnum.optional(),
   active: z
     .string()
-    .transform((val) => val === 'true')
+    .transform((val) => val.toLowerCase() === 'true')
     .optional(),
   supplierId: z.string().uuid().optional(),
   search: z.string().max(100).optional(),

@@ -11,9 +11,19 @@ import { z } from 'zod';
 // Enums
 // ============================================================================
 
-export const LaceStockStatusEnum = z.enum(['AVAILABLE', 'ALLOCATED', 'CONSUMED', 'RETURNED']);
+// BUG-LC2 FIX: Aligned with Prisma StockStatus enum
+export const LaceStockStatusEnum = z.enum(['AVAILABLE', 'RESERVED', 'EXHAUSTED', 'ISSUED', 'PENDING_RETURN']);
 
-export const LaceStockTypeEnum = z.enum(['PURCHASED', 'PRODUCED', 'TRANSFERRED']);
+// BUG-LC3 fix: aligned with Prisma enum
+export const LaceStockTypeEnum = z.enum([
+  'GENERIC',
+  'PLANNED_STOCK',
+  'EXCESS',
+  'EXCESS_MOQ',
+  'CROSS_STYLE_REUSE',
+  'RETURNED',
+  'VARIANCE_UNUSED',
+]);
 
 export const AllocationTypeEnum = z.enum(['PRODUCTION', 'SAMPLE', 'RESERVE']);
 
@@ -42,9 +52,10 @@ export const createLaceStockSchema = z
     warehouseLocation: z.string().max(100).optional(),
     rackNumber: z.string().max(50).optional(),
     qualityGrade: z.string().max(20).optional(),
-    stockType: LaceStockTypeEnum.optional().default('PURCHASED'),
+    stockType: LaceStockTypeEnum.optional().default('PLANNED_STOCK'),
     grnId: z.string().uuid().optional(),
-    expiryDate: z.string().datetime().optional(),
+    // z.coerce.date(): date pickers send YYYY-MM-DD, z.string().datetime() rejects it
+    expiryDate: z.coerce.date().optional(),
     remarks: z.string().max(500).optional(),
   })
   .passthrough();

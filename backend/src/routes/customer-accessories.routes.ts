@@ -63,13 +63,13 @@ router.get(
 /**
  * @route   POST /api/customers/:customerId/accessory-presets
  * @desc    Create a new accessory preset
- * @access  ADMIN, MERCHANDISER
+ * @access  ADMIN, SALES, MERCHANDISER
  * @body    { presetName, description?, accessoryItems: [...], isDefault? }
  */
 router.post(
   '/:customerId/accessory-presets',
   validateParams(customerIdParamSchema),
-  authorize('ADMIN', 'MERCHANDISER'),
+  authorize('ADMIN', 'SALES', 'MERCHANDISER'),
   validateBody(createAccessoryPresetSchema),
   asyncHandler(createAccessoryPreset)
 );
@@ -77,12 +77,12 @@ router.post(
 /**
  * @route   PUT /api/customers/:customerId/accessory-presets/:presetId
  * @desc    Update an accessory preset
- * @access  ADMIN, MERCHANDISER
+ * @access  ADMIN, SALES, MERCHANDISER
  */
 router.put(
   '/:customerId/accessory-presets/:presetId',
   validateParams(customerIdAndPresetIdParamSchema),
-  authorize('ADMIN', 'MERCHANDISER'),
+  authorize('ADMIN', 'SALES', 'MERCHANDISER'),
   validateBody(updateAccessoryPresetSchema),
   asyncHandler(updateAccessoryPreset)
 );
@@ -102,25 +102,25 @@ router.delete(
 /**
  * @route   POST /api/customers/:customerId/accessory-presets/:presetId/set-default
  * @desc    Set a preset as the default for a customer
- * @access  ADMIN, MERCHANDISER
+ * @access  ADMIN, SALES, MERCHANDISER
  */
 router.post(
   '/:customerId/accessory-presets/:presetId/set-default',
   validateParams(customerIdAndPresetIdParamSchema),
-  authorize('ADMIN', 'MERCHANDISER'),
+  authorize('ADMIN', 'SALES', 'MERCHANDISER'),
   asyncHandler(setDefaultPreset)
 );
 
 /**
  * @route   POST /api/customers/:customerId/accessory-presets/:presetId/clone
  * @desc    Clone a preset to create a new one
- * @access  ADMIN, MERCHANDISER
+ * @access  ADMIN, SALES, MERCHANDISER
  * @body    { newPresetName: string }
  */
 router.post(
   '/:customerId/accessory-presets/:presetId/clone',
   validateParams(customerIdAndPresetIdParamSchema),
-  authorize('ADMIN', 'MERCHANDISER'),
+  authorize('ADMIN', 'SALES', 'MERCHANDISER'),
   validateBody(cloneAccessoryPresetSchema),
   asyncHandler(cloneAccessoryPreset)
 );

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { NotFoundError, ValidationError, ConflictError, BusinessError } from '../errors';
+import { NotFoundError, ConflictError, BusinessError } from '../errors';
 
 // Get all size categories
 export const getAllSizeCategories = async (req: Request, res: Response) => {
@@ -72,17 +72,13 @@ export const getSizeCategoryById = async (req: Request, res: Response) => {
     throw new NotFoundError('Size category', id);
   }
 
-  res.json(sizeCategory);
+  res.json({ data: sizeCategory });
 };
 
 // Create size category
 export const createSizeCategory = async (req: Request, res: Response) => {
+  // BUG-SC3 fix: removed redundant manual validation - Zod middleware handles it
   const { name, description, sizes } = req.body;
-
-  // Validate required fields
-  if (!name || !sizes || !Array.isArray(sizes) || sizes.length === 0) {
-    throw new ValidationError('Name and sizes array (with at least one size) are required');
-  }
 
   // Check for duplicate name
   const existing = await prisma.size_categories.findUnique({
@@ -107,6 +103,7 @@ export const createSizeCategory = async (req: Request, res: Response) => {
 // Update size category
 export const updateSizeCategory = async (req: Request, res: Response) => {
   const { id } = req.params;
+  // BUG-SC3 fix: removed redundant manual validation - Zod middleware handles it
   const { name, description, sizes, isActive } = req.body;
 
   // Check if size category exists
@@ -129,11 +126,6 @@ export const updateSizeCategory = async (req: Request, res: Response) => {
     }
   }
 
-  // Validate sizes if provided
-  if (sizes !== undefined && (!Array.isArray(sizes) || sizes.length === 0)) {
-    throw new ValidationError('Sizes must be an array with at least one size');
-  }
-
   const sizeCategory = await prisma.size_categories.update({
     where: { id },
     data: {
@@ -144,7 +136,7 @@ export const updateSizeCategory = async (req: Request, res: Response) => {
     },
   });
 
-  res.json(sizeCategory);
+  res.json({ data: sizeCategory, message: 'Size category updated successfully' });
 };
 
 // Delete size category

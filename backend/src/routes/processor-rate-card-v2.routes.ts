@@ -116,6 +116,7 @@ router.put(
 );
 
 // Add greige lace row to processor's matrix
+// no-body: processorId and laceId come from URL params; controller doesn't read body
 router.post('/processors/:processorId/laces/:laceId', validateParams(processorLaceParamSchema), asyncHandler(addLace));
 
 // Remove greige lace row from processor's matrix

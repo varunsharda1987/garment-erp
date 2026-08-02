@@ -286,7 +286,7 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
         ...(code && { code }),
         ...(creditLimit !== undefined && { creditLimit: creditLimit ? parseFloat(String(creditLimit)) : null }),
         ...(creditDays !== undefined && { creditDays: creditDays ? parseInt(String(creditDays)) : null }),
-        ...(rating !== undefined && { rating: parseInt(String(rating)) }),
+        ...(rating !== undefined && { rating: rating != null ? parseInt(String(rating)) : 0 }),
         ...(categoryData !== undefined && { categoryData: categoryData as Prisma.InputJsonValue }),
       },
       include: this.getDefaultIncludes(),

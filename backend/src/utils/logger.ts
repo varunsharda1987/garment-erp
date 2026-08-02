@@ -112,9 +112,13 @@ export const logInfo = (message: string, meta?: unknown): void => {
   logger.info(message, toMeta(meta));
 };
 
-export const logError = (message: string, error?: Error | unknown): void => {
+// BUG-PROC4 fix: Enhanced logError to support additional context metadata
+export const logError = (message: string, error?: Error | unknown, context?: LogMeta): void => {
   if (error instanceof Error) {
-    logger.error(message, { error: error.message, stack: error.stack });
+    logger.error(message, { error: error.message, stack: error.stack, ...context });
+  } else if (context) {
+    // When error is not an Error instance but context is provided
+    logger.error(message, { ...toMeta(error), ...context });
   } else {
     logger.error(message, toMeta(error));
   }

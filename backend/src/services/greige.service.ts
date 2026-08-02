@@ -10,6 +10,7 @@ import { logInfo, logDebug } from '../utils/logger';
 import { SearchFilter } from '../types/prisma.types';
 import { materialService } from './material.service';
 import { generateCode } from '../utils/code-generator';
+import { syncMasterToMaterials } from './helpers/material-sync.helper';
 
 // ============================================
 // Types
@@ -22,6 +23,7 @@ export interface GreigeSupplierInput {
   notes?: string;
 }
 
+// BUG-GR6 fix: aligned validation - added greigeQuality and weaver to match controller
 export interface CreateGreigeDTO {
   greigeCode: string;
   greigeName: string;
@@ -29,6 +31,8 @@ export interface CreateGreigeDTO {
   construction?: string;
   composition: string;
   weaveType?: string;
+  greigeQuality?: 'PRINTING' | 'DYEING' | 'SUPER_DYEING' | null;
+  weaver?: string;
   greigeWidth: number;
   defaultCutableWidth?: number;
   expectedFinishedWidthMin?: number;
@@ -41,6 +45,7 @@ export interface CreateGreigeDTO {
   suppliers?: GreigeSupplierInput[];
 }
 
+// BUG-GR6 fix: aligned validation - added greigeQuality and weaver to match controller
 export interface UpdateGreigeDTO {
   greigeCode?: string;
   greigeName?: string;
@@ -48,6 +53,8 @@ export interface UpdateGreigeDTO {
   construction?: string;
   composition?: string;
   weaveType?: string;
+  greigeQuality?: 'PRINTING' | 'DYEING' | 'SUPER_DYEING' | null;
+  weaver?: string;
   greigeWidth?: number;
   defaultCutableWidth?: number;
   expectedFinishedWidthMin?: number;
@@ -67,6 +74,7 @@ export interface GreigeQueryOptions extends PaginationOptions {
   weaveType?: string;
 }
 
+// BUG-GR6 fix: aligned validation with single create - added greigeQuality, weaver, defaultCutableWidth
 export interface BulkImportGreigeInput {
   greigeName: string;
   composition: string;
@@ -74,6 +82,9 @@ export interface BulkImportGreigeInput {
   yarnCount?: string;
   construction?: string;
   weaveType?: string;
+  greigeQuality?: 'PRINTING' | 'DYEING' | 'SUPER_DYEING' | null;
+  weaver?: string;
+  defaultCutableWidth?: string | number;
   expectedFinishedWidthMin?: string | number;
   expectedFinishedWidthMax?: string | number;
   averageShrinkagePercent?: string | number;
@@ -144,6 +155,20 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
       throw new ConflictError(`Greige with code '${data.greigeCode}' already exists`);
     }
 
+    // BUG-GR6 fix: Check for duplicate name + quality combination (same as controller createGreigeMaster)
+    const duplicateNameQuality = await this.prisma.greige_master.findFirst({
+      where: {
+        greigeName: data.greigeName,
+        greigeQuality: data.greigeQuality || null,
+        isActive: true,
+      },
+    });
+    if (duplicateNameQuality) {
+      throw new ConflictError(
+        `A greige with name "${data.greigeName}" and quality "${data.greigeQuality || 'None'}" already exists (${duplicateNameQuality.greigeCode}). Use a different quality or edit the existing entry.`
+      );
+    }
+
     // Validate suppliers exist
     if (data.suppliers && data.suppliers.length > 0) {
       const supplierIds = data.suppliers.map((s) => s.supplierId);
@@ -167,6 +192,9 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
           construction: data.construction || null,
           composition: data.composition,
           weaveType: data.weaveType || null,
+          // BUG-GR6 fix: greigeQuality and weaver now supported
+          greigeQuality: data.greigeQuality || null,
+          weaver: data.weaver || null,
           greigeWidth: data.greigeWidth,
           defaultCutableWidth: data.defaultCutableWidth || null,
           expectedFinishedWidthMin: data.expectedFinishedWidthMin || null,
@@ -592,6 +620,18 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
       },
     });
 
+    // BUG-MM13 fix: sync code to materials
+    const syncUpdates: { code?: string; name?: string } = {};
+    if (data.greigeCode && data.greigeCode !== existingGreige.greigeCode) {
+      syncUpdates.code = data.greigeCode;
+    }
+    if (data.greigeName && data.greigeName !== existingGreige.greigeName) {
+      syncUpdates.name = data.greigeName;
+    }
+    if (syncUpdates.code || syncUpdates.name) {
+      await syncMasterToMaterials(id, 'GREIGE', syncUpdates);
+    }
+
     logInfo('Greige master updated successfully', { id });
     return this.serializeGreige(updatedGreige) as greige_master;
   }
@@ -641,6 +681,7 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
 
   /**
    * Bulk import greige masters
+   * BUG-GR6 fix: aligned validation with single create
    */
   async bulkImport(greiges: BulkImportGreigeInput[], userId: string): Promise<BulkImportResult> {
     logDebug('Bulk importing greige masters', { count: greiges.length });
@@ -655,7 +696,8 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
       try {
         const greige = greiges[i];
 
-        // Validate required fields
+        // BUG-GR6 fix: aligned validation with single create
+        // Validate required fields (same as createWithSuppliers)
         if (!greige.greigeName || !greige.composition || !greige.greigeWidth) {
           results.failed++;
           results.errors.push({
@@ -665,35 +707,66 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
           continue;
         }
 
+        // BUG-GR6 fix: Check for duplicate name + quality combination (same as createWithSuppliers)
+        const duplicateNameQuality = await this.prisma.greige_master.findFirst({
+          where: {
+            greigeName: greige.greigeName,
+            greigeQuality: greige.greigeQuality || null,
+            isActive: true,
+          },
+        });
+        if (duplicateNameQuality) {
+          results.failed++;
+          results.errors.push({
+            row: i + 2,
+            error: `A greige with name "${greige.greigeName}" and quality "${greige.greigeQuality || 'None'}" already exists (${duplicateNameQuality.greigeCode}). Use a different quality or edit the existing entry.`,
+          });
+          continue;
+        }
+
         // Auto-generate greige code from the shared atomic 'GRG' sequence (same series as single
         // create / getNextGreigeCode) — the old count()-based numbering raced and duplicated codes
         const greigeCode = await generateCode('GRG', 'greige_master', 'greigeCode');
 
-        // Create greige master
-        await this.prisma.greige_master.create({
-          data: {
-            greigeCode,
-            greigeName: greige.greigeName,
-            yarnCount: greige.yarnCount || null,
-            construction: greige.construction || null,
-            composition: greige.composition,
-            weaveType: greige.weaveType || null,
-            greigeWidth: parseFloat(String(greige.greigeWidth)),
-            expectedFinishedWidthMin: greige.expectedFinishedWidthMin
-              ? parseFloat(String(greige.expectedFinishedWidthMin))
-              : null,
-            expectedFinishedWidthMax: greige.expectedFinishedWidthMax
-              ? parseFloat(String(greige.expectedFinishedWidthMax))
-              : null,
-            averageShrinkagePercent: greige.averageShrinkagePercent
-              ? parseFloat(String(greige.averageShrinkagePercent))
-              : null,
-            gsmRange: greige.gsmRange || null,
-            description: greige.description || null,
-            notes: greige.notes || null,
-            isActive: greige.isActive !== false,
-            createdById: userId,
-          },
+        // BUG-GR6 fix: Create greige master + materials record in transaction (same as createWithSuppliers)
+        await this.prisma.$transaction(async (tx) => {
+          const created = await tx.greige_master.create({
+            data: {
+              greigeCode,
+              greigeName: greige.greigeName,
+              yarnCount: greige.yarnCount || null,
+              construction: greige.construction || null,
+              composition: greige.composition,
+              weaveType: greige.weaveType || null,
+              // BUG-GR6 fix: greigeQuality and weaver now supported in bulk import
+              greigeQuality: greige.greigeQuality || null,
+              weaver: greige.weaver || null,
+              greigeWidth: parseFloat(String(greige.greigeWidth)),
+              // BUG-GR6 fix: defaultCutableWidth now supported in bulk import
+              defaultCutableWidth: greige.defaultCutableWidth ? parseFloat(String(greige.defaultCutableWidth)) : null,
+              expectedFinishedWidthMin: greige.expectedFinishedWidthMin
+                ? parseFloat(String(greige.expectedFinishedWidthMin))
+                : null,
+              expectedFinishedWidthMax: greige.expectedFinishedWidthMax
+                ? parseFloat(String(greige.expectedFinishedWidthMax))
+                : null,
+              averageShrinkagePercent: greige.averageShrinkagePercent
+                ? parseFloat(String(greige.averageShrinkagePercent))
+                : null,
+              gsmRange: greige.gsmRange || null,
+              description: greige.description || null,
+              notes: greige.notes || null,
+              isActive: greige.isActive !== false,
+              createdById: userId,
+            },
+          });
+
+          // BUG-GR6 fix: Create corresponding materials record (same as createWithSuppliers)
+          await materialService.createFromMaster(
+            { id: created.id, code: greigeCode, name: greige.greigeName },
+            'GREIGE',
+            tx
+          );
         });
 
         results.created++;

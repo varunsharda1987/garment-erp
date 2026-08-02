@@ -5,6 +5,8 @@ import { MaterialType, MaterialUsageCategory, Prisma } from '@prisma/client';
 import { logInfo, logDebug } from '../utils/logger';
 import { randomUUID } from 'crypto';
 import { ValidationError, NotFoundError } from '../errors';
+// BUG-STY8 fix: Use decimal.js for precise BOM quantity calculations
+import { toCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
 
 /**
  * Search materials by type and query string
@@ -602,9 +604,10 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
   const valueAdditions: any[] = [];
   const packaging: any[] = [];
 
-  let totalGarmentTrimsCost = 0;
-  let totalValueAdditionsCost = 0;
-  let totalPackagingCost = 0;
+  // BUG-STY8 fix: Use decimal.js for accumulating costs to avoid floating point errors
+  let totalGarmentTrimsCost = toCurrency(0);
+  let totalValueAdditionsCost = toCurrency(0);
+  let totalPackagingCost = toCurrency(0);
 
   bomItems.forEach((item) => {
     // Get material name and code
@@ -647,22 +650,25 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
       notes: item.notes,
     };
 
-    const cost = parseFloat(item.totalCost?.toString() || '0');
+    // BUG-STY8 fix: Use toCurrency for safe decimal accumulation
+    const cost = toCurrency(item.totalCost?.toString() || '0');
 
     if (item.usageCategory === 'GARMENT_TRIM') {
       garmentTrims.push(bomEntry);
-      totalGarmentTrimsCost += cost;
+      totalGarmentTrimsCost = totalGarmentTrimsCost.plus(cost);
     } else if (item.usageCategory === 'VALUE_ADDITION') {
       valueAdditions.push(bomEntry);
-      totalValueAdditionsCost += cost;
+      totalValueAdditionsCost = totalValueAdditionsCost.plus(cost);
     } else if (item.usageCategory === 'PACKAGING') {
       packaging.push(bomEntry);
-      totalPackagingCost += cost;
+      totalPackagingCost = totalPackagingCost.plus(cost);
     }
   });
 
-  const totalMaterialCost = totalGarmentTrimsCost + totalValueAdditionsCost + totalPackagingCost;
+  // BUG-STY8 fix: Use decimal.js for final sum
+  const totalMaterialCost = totalGarmentTrimsCost.plus(totalValueAdditionsCost).plus(totalPackagingCost);
 
+  // BUG-STY8 fix: Decimal.toFixed() works the same as Number.toFixed()
   res.json({
     styleCode: style.styleCode,
     styleName: style.styleName,
@@ -820,11 +826,12 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
     throw new NotFoundError('Material', materialCode);
   }
 
-  // Calculate total cost
-  const quantity = parseFloat(quantityPerGarment);
-  const totalCost = quantity * unitPrice;
+  // BUG-STY8 fix: Use decimal.js for precise total cost calculation
+  const quantityDecimal = toCurrency(quantityPerGarment);
+  const totalCost = toNumber(multiplyCurrency(quantityPerGarment, unitPrice));
 
   // Build the data object for BOM creation
+  // BUG-STY8 fix: Convert Decimal back to number for Prisma storage
   const bomData: any = {
     id: randomUUID(),
     styleId,
@@ -832,7 +839,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
     materialType,
     usageCategory: usageCategory as MaterialUsageCategory,
     componentName,
-    quantityPerGarment: quantity,
+    quantityPerGarment: toNumber(quantityDecimal),
     unit,
     unitPrice,
     totalCost,
@@ -893,21 +900,22 @@ export const updateBOMItem = async (req: Request, res: Response): Promise<void> 
     throw new NotFoundError('BOM item', bomId);
   }
 
-  // Recalculate total cost if quantity changed
+  // BUG-STY8 fix: Recalculate total cost using decimal.js for precision
   let totalCost = existing.totalCost;
   if (quantityPerGarment !== undefined) {
-    const quantity = parseFloat(quantityPerGarment);
-    const unitPrice = parseFloat(existing.unitPrice?.toString() || '0');
-    totalCost = new Prisma.Decimal(quantity * unitPrice);
+    // Use multiplyCurrency for precise calculation, then convert to Prisma.Decimal for storage
+    const unitPriceStr = existing.unitPrice?.toString() || '0';
+    totalCost = new Prisma.Decimal(multiplyCurrency(quantityPerGarment, unitPriceStr).toFixed(4));
   }
 
   // Update BOM item
+  // BUG-STY8 fix: Use toCurrency + toNumber for safe quantity parsing
   const updated = await prisma.style_material_bom.update({
     where: { id: bomId },
     data: {
       componentName: componentName !== undefined ? componentName : existing.componentName,
       quantityPerGarment:
-        quantityPerGarment !== undefined ? parseFloat(quantityPerGarment) : existing.quantityPerGarment,
+        quantityPerGarment !== undefined ? toNumber(toCurrency(quantityPerGarment)) : existing.quantityPerGarment,
       unit: unit !== undefined ? unit : existing.unit,
       totalCost,
       notes: notes !== undefined ? notes : existing.notes,

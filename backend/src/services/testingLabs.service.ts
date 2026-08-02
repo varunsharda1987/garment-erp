@@ -1,7 +1,12 @@
 import prisma from '../config/database';
 import logger from '../utils/logger';
 import { Prisma } from '@prisma/client';
-import { CreateTestingLabInput, UpdateTestingLabInput, TestingLabQueryOptions } from '../types/testing.types';
+import {
+  CreateTestingLabInput,
+  UpdateTestingLabInput,
+  TestingLabQueryOptions,
+  TestingLabResponse,
+} from '../types/testing.types';
 import { AppError, NotFoundError, ConflictError, InternalError } from '../errors';
 
 class TestingLabsService {
@@ -31,7 +36,7 @@ class TestingLabsService {
           city: data.city || null,
           state: data.state || null,
           pincode: data.pincode || null,
-          averageTurnaroundDays: data.averageTurnaroundDays || 7,
+          averageTurnaroundDays: data.averageTurnaroundDays ?? 7,
           accreditations: data.accreditations ? JSON.stringify(data.accreditations) : null,
           isActive: data.isActive !== undefined ? data.isActive : true,
           createdById: userId,
@@ -350,11 +355,21 @@ class TestingLabsService {
 
   /**
    * Format lab response (parse JSON fields)
+   * BUG-TEST10 fix: Transforms DB format (JSON string) to API format (string[])
    */
-  private formatLabResponse(lab: any): any {
+  private formatLabResponse(lab: any): TestingLabResponse {
+    let accreditations: string[] = [];
+    if (lab.accreditations) {
+      try {
+        accreditations = JSON.parse(lab.accreditations);
+      } catch {
+        // Invalid JSON - return empty array
+        accreditations = [];
+      }
+    }
     return {
       ...lab,
-      accreditations: lab.accreditations ? JSON.parse(lab.accreditations) : [],
+      accreditations,
     };
   }
 }

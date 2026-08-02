@@ -5,6 +5,7 @@ import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { logDebug } from '../utils/logger';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
+import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import {
   PackagingMasterRecord,
   CountResult,
@@ -99,8 +100,8 @@ export const createPackaging = async (req: Request, res: Response) => {
       material: material || null,
       thickness: thicknessValue,
       printDetails: printDetails || null,
-      pricePerPiece: pricePerPiece ? parseFloat(String(pricePerPiece)) : null,
-      pricePerHundred: pricePerHundred ? parseFloat(String(pricePerHundred)) : null,
+      pricePerPiece: pricePerPiece != null ? parseFloat(String(pricePerPiece)) : null,
+      pricePerHundred: pricePerHundred != null ? parseFloat(String(pricePerHundred)) : null,
       supplierId: supplierId || null,
       description: description || null,
       isActive: true,
@@ -111,7 +112,7 @@ export const createPackaging = async (req: Request, res: Response) => {
           isPreferred: s.isPreferred || false,
           isActive: s.isActive !== undefined ? s.isActive : true,
           notes: s.notes || null,
-          pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
+          pricePerPiece: s.pricePerPiece != null ? parseFloat(String(s.pricePerPiece)) : null,
         })),
       },
     },
@@ -429,7 +430,7 @@ export const updatePackaging = async (req: Request, res: Response) => {
           isPreferred: s.isPreferred || false,
           isActive: s.isActive !== undefined ? s.isActive : true,
           notes: s.notes || null,
-          pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
+          pricePerPiece: s.pricePerPiece != null ? parseFloat(String(s.pricePerPiece)) : null,
         })),
       });
     }
@@ -449,9 +450,11 @@ export const updatePackaging = async (req: Request, res: Response) => {
       ...(material !== undefined && { material: material || null }),
       ...(thickness !== undefined && { thickness: thickness !== null && thickness !== '' ? String(thickness) : null }),
       ...(printDetails !== undefined && { printDetails: printDetails || null }),
-      ...(pricePerPiece !== undefined && { pricePerPiece: pricePerPiece ? parseFloat(String(pricePerPiece)) : null }),
+      ...(pricePerPiece !== undefined && {
+        pricePerPiece: pricePerPiece != null ? parseFloat(String(pricePerPiece)) : null,
+      }),
       ...(pricePerHundred !== undefined && {
-        pricePerHundred: pricePerHundred ? parseFloat(String(pricePerHundred)) : null,
+        pricePerHundred: pricePerHundred != null ? parseFloat(String(pricePerHundred)) : null,
       }),
       ...(supplierId !== undefined && { supplierId: supplierId || null }),
       ...(description !== undefined && { description: description || null }),
@@ -491,12 +494,10 @@ export const updatePackaging = async (req: Request, res: Response) => {
     },
   });
 
-  // Also update material name if packagingName changed
-  if (packagingName) {
-    await prisma.materials.updateMany({
-      where: { packagingId: id },
-      data: { name: packagingName },
-    });
+  // BUG-MM13 fix: sync code to materials
+  // Note: packagingCode is not updated (auto-generated), only sync name changes
+  if (packagingName && packagingName !== existing.packagingName) {
+    await syncMasterToMaterials(id, 'PACKAGING', { name: packagingName });
   }
 
   // Format response
@@ -573,7 +574,7 @@ export const deletePackaging = async (req: Request, res: Response) => {
  */
 export const bulkImportPackaging = async (req: Request, res: Response) => {
   const { data, createStock = false } = req.body;
-  const userId = (req as any).user?.id || 'system';
+  const userId = (req as any).user?.userId || 'system';
 
   if (!Array.isArray(data) || data.length === 0) {
     throw new ValidationError('Data array is required');
@@ -627,8 +628,8 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
             ${row.material || null},
             ${row.thickness || null},
             ${row.printDetails || null},
-            ${row.pricePerPiece || null},
-            ${row.pricePerHundred || null},
+            ${row.pricePerPiece ?? null},
+            ${row.pricePerHundred ?? null},
             ${row.description || null},
             true,
             CURRENT_TIMESTAMP,
@@ -724,15 +725,22 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
 export const downloadTemplate = async (req: Request, res: Response) => {
   // Return template structure as JSON
   // Frontend will convert to Excel
+  // BUG-PK2 FIX: Template column names must match bulkImportPackaging field names
+  // - 'type' -> 'packagingType' (line 625 uses row.packagingType)
+  // - 'weight' -> 'thickness' (line 628 uses row.thickness)
   const template = {
     columns: [
       { name: 'packagingName', required: true, description: 'Name of the packaging (Required)' },
       { name: 'supplierCode', required: false, description: "Supplier's reference code (Optional)" },
       { name: 'buyerCode', required: false, description: "Buyer's reference code (Optional)" },
-      { name: 'type', required: false, description: 'Packaging type (e.g., Box, Bag, Polybag, Carton) (Optional)' },
+      {
+        name: 'packagingType',
+        required: false,
+        description: 'Packaging type (e.g., Box, Bag, Polybag, Carton) (Optional)',
+      },
       { name: 'size', required: false, description: 'Size/dimensions (Optional)' },
       { name: 'material', required: false, description: 'Material composition (e.g., Cardboard, Plastic) (Optional)' },
-      { name: 'weight', required: false, description: 'Weight in grams (Optional)' },
+      { name: 'thickness', required: false, description: 'Thickness/weight (e.g., 40 microns, 3 ply) (Optional)' },
       { name: 'pricePerPiece', required: false, description: 'Price per piece (Optional)' },
       { name: 'stockQuantity', required: false, description: 'Initial stock quantity (Optional)' },
       { name: 'locationCode', required: false, description: 'Warehouse location code (Optional)' },
@@ -742,10 +750,10 @@ export const downloadTemplate = async (req: Request, res: Response) => {
         packagingName: 'Clear Polybag 12x18 inch',
         supplierCode: 'PKG-001',
         buyerCode: '',
-        type: 'Polybag',
+        packagingType: 'Polybag',
         size: '12x18 inch',
         material: 'LDPE Plastic',
-        weight: 25,
+        thickness: '40 microns',
         pricePerPiece: 0.15,
         stockQuantity: 5000,
         locationCode: 'WH-01',

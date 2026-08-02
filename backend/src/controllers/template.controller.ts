@@ -15,9 +15,7 @@ export const createTemplate = async (req: Request, res: Response) => {
 
   const { moduleName, templateName, description, columnConfig, isDefault } = req.body;
 
-  if (!moduleName || !templateName || !columnConfig) {
-    throw new ValidationError('Missing required fields: moduleName, templateName, columnConfig');
-  }
+  // Note: Field validation handled by Zod validateBody middleware in route
 
   const template = await templateService.createTemplate({
     moduleName,

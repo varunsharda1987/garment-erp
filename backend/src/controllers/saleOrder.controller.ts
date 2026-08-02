@@ -42,7 +42,7 @@ export class SaleOrderController {
 
   async create(req: Request, res: Response) {
     const { customerId, styleId, expectedShipDate, buyerDeadline, remarks, items } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       throw new UnauthorizedError();
     }
@@ -69,9 +69,11 @@ export class SaleOrderController {
 
   async update(req: Request, res: Response) {
     const { id } = req.params;
-    const { styleId, expectedShipDate, buyerDeadline, remarks, items } = req.body;
+    // BUG-ORD5 fix: Include customerId in destructuring (was silently dropped before)
+    const { customerId, styleId, expectedShipDate, buyerDeadline, remarks, items } = req.body;
 
     const so = await saleOrderService.update(id, {
+      customerId,
       styleId,
       expectedShipDate: expectedShipDate ? new Date(expectedShipDate) : null,
       buyerDeadline: buyerDeadline ? new Date(buyerDeadline) : null,
@@ -90,7 +92,7 @@ export class SaleOrderController {
 
   async confirm(req: Request, res: Response) {
     const { id } = req.params;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       throw new UnauthorizedError();
     }
@@ -101,7 +103,7 @@ export class SaleOrderController {
 
   async allocateStock(req: Request, res: Response) {
     const { saleOrderItemId, fgStockId, quantity } = req.body;
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       throw new UnauthorizedError();
     }

@@ -94,7 +94,8 @@ export const updateGreigeMasterSchema = z.object({
 /**
  * Bulk Import Greige Masters
  * POST /api/fabric-greige/greige/bulk-import
- * Field names match frontend GreigeMasterFormData
+ * Field names match frontend GreigeMasterFormData and controller usage
+ * BUG-GR6 fix: aligned validation with single create schema
  */
 export const bulkImportGreigeSchema = z.object({
   greiges: z
@@ -103,11 +104,24 @@ export const bulkImportGreigeSchema = z.object({
         greigeName: z.string().min(1).max(200),
         greigeCode: z.string().max(50).optional(),
         genericGreigeName: z.string().max(200).optional(),
+        yarnCount: z.string().max(50).optional(),
+        construction: z.string().max(200).optional(),
         composition: z.string().min(1, 'Composition is required').max(500),
+        weaveType: z.string().max(50).optional(),
+        // BUG-GR6 fix: greigeQuality and weaver now included to match single create
+        greigeQuality: z.enum(['PRINTING', 'DYEING', 'SUPER_DYEING']).optional().nullable(),
+        weaver: z.string().max(200).optional(),
         greigeWidth: z.number().positive('Greige width is required'),
-        defaultCutableWidth: z.number().positive('Default cutable width is required'),
+        // BUG-GR6 fix: defaultCutableWidth is now optional to match single create
+        defaultCutableWidth: z.number().positive().optional(),
+        expectedFinishedWidthMin: z.number().positive().optional(),
+        expectedFinishedWidthMax: z.number().positive().optional(),
+        averageShrinkagePercent: z.number().min(0).max(100).optional().nullable(),
         gsmRange: z.string().max(50).optional(),
         costPerMeter: z.number().nonnegative().optional(),
+        description: z.string().max(1000).optional(),
+        notes: z.string().max(1000).optional(),
+        isActive: z.boolean().optional(),
       })
     )
     .min(1, 'At least one item is required'),

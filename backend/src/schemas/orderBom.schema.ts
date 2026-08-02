@@ -56,6 +56,8 @@ export const OrderBOMStatusEnum = z.enum(['DRAFT', 'APPROVED', 'LOCKED', 'CANCEL
 // ============================================================================
 
 export const orderBOMItemSchema = z.object({
+  // BUG-ORD12: Added optional id field for identifying existing items during updates
+  id: z.string().uuid().optional(),
   materialType: MaterialTypeEnum,
   materialId: z.string().uuid().optional(),
   buttonId: z.string().uuid().optional(),

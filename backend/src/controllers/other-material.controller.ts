@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
+import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 
 // Type for supplier input
 interface OtherMaterialSupplierInput {
@@ -117,8 +118,8 @@ export const createOtherMaterial = async (req: Request, res: Response) => {
 export const getAllOtherMaterials = async (req: Request, res: Response) => {
   const { page = 1, limit = 10, search = '', supplierId = '', category = '' } = req.query;
 
-  const pageNum = Number(page);
-  const limitNum = Number(limit);
+  const pageNum = Math.max(1, Number(page) || 1);
+  const limitNum = Math.max(1, Number(limit) || 10);
   const offset = (pageNum - 1) * limitNum;
 
   // Build where clause
@@ -323,12 +324,10 @@ export const updateOtherMaterial = async (req: Request, res: Response) => {
     },
   });
 
-  // Update material name if materialName changed
-  if (materialName) {
-    await prisma.materials.updateMany({
-      where: { otherMaterialId: id },
-      data: { name: materialName },
-    });
+  // BUG-MM13 fix: sync code to materials
+  // Note: materialCode is not updated (auto-generated), only sync name changes
+  if (materialName && materialName !== existing.materialName) {
+    await syncMasterToMaterials(id, 'OTHER_MATERIAL', { name: materialName });
   }
 
   // Transform response
@@ -360,17 +359,39 @@ export const deleteOtherMaterial = async (req: Request, res: Response) => {
     throw new NotFoundError('Other material', id);
   }
 
-  // Check if used in any BOM
-  const bomUsage = await prisma.order_bom_items.count({
-    where: {
-      materialId: id,
-    },
+  // BUG-OM1 fix: Check BOTH BOM tables for usage
+  // 1. style_material_bom has direct FK (otherMaterialId -> other_material_master.id)
+  // 2. order_bom_items uses indirect path (materialId -> materials.id -> materials.otherMaterialId)
+
+  // Check style_material_bom (direct FK)
+  const styleBomUsage = await prisma.style_material_bom.count({
+    where: { otherMaterialId: id },
   });
 
-  if (bomUsage > 0) {
+  if (styleBomUsage > 0) {
     throw new ValidationError(
-      `Cannot delete other material. This material is used in ${bomUsage} BOM(s). Please remove from BOMs first.`
+      `Cannot delete other material. This material is used in ${styleBomUsage} style BOM(s). Please remove from style BOMs first.`
     );
+  }
+
+  // Find the corresponding materials record to check order BOM usage
+  const materialRecord = await prisma.materials.findFirst({
+    where: { otherMaterialId: id },
+  });
+
+  // Check order_bom_items (indirect path via materials table)
+  if (materialRecord) {
+    const orderBomUsage = await prisma.order_bom_items.count({
+      where: {
+        materialId: materialRecord.id,
+      },
+    });
+
+    if (orderBomUsage > 0) {
+      throw new ValidationError(
+        `Cannot delete other material. This material is used in ${orderBomUsage} order BOM(s). Please remove from order BOMs first.`
+      );
+    }
   }
 
   // Delete material entry first (FK constraint)
@@ -391,7 +412,7 @@ export const deleteOtherMaterial = async (req: Request, res: Response) => {
  */
 export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
   const { data, createStock = false } = req.body;
-  const userId = (req as any).user?.id || 'system';
+  const userId = (req as any).user?.userId || 'system';
 
   if (!data || !Array.isArray(data) || data.length === 0) {
     throw new ValidationError('No data provided for import');

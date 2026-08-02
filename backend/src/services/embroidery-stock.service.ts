@@ -264,6 +264,16 @@ class EmbroideryStockService {
         throw new Error(`Send-out is already ${sendOut.status.toLowerCase()}`);
       }
 
+      // Bounds check: cannot receive more than was sent (bug-hunt samples-embroidery EMB3)
+      const sentQty = parseFloat(sendOut.quantitySent.toString());
+      const alreadyReceived = sendOut.quantityReceived ? parseFloat(sendOut.quantityReceived.toString()) : 0;
+      const maxReceivable = sentQty - alreadyReceived;
+      if (data.quantityReceived > maxReceivable) {
+        throw new Error(
+          `Cannot receive ${data.quantityReceived}m: only ${maxReceivable.toFixed(2)}m remaining (sent: ${sentQty}, already received: ${alreadyReceived})`
+        );
+      }
+
       const sourceStock = sendOut.sourceFabricStock;
       const embroidery = sendOut.embroidery;
 

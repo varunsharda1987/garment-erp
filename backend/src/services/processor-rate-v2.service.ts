@@ -33,6 +33,8 @@ import {
   ProcessorRateCardSummary,
 } from '../types/processor-rate-v2.types';
 import { Decimal } from '@prisma/client/runtime/library';
+// BUG-PRC7 fix: use decimal.js utilities for precise rate calculations
+import { toCurrency, multiplyCurrency } from '../utils/currency';
 
 // ============================================
 // Rate History Helper Functions
@@ -53,11 +55,34 @@ interface RateUpdateParams {
 
 /**
  * Helper to convert Decimal to number
+ * BUG-PRC7 fix: wrapper for decimal.js conversion
  */
 function toNumber(value: Decimal | number | null | undefined): number {
   if (value === null || value === undefined) return 0;
   if (typeof value === 'number') return value;
   return value.toNumber();
+}
+
+/**
+ * BUG-PRC7 fix: Compare two rate values with decimal.js precision
+ * Returns true if rates are effectively equal (within 0.001)
+ */
+function ratesAreEqual(rate1: number, rate2: number): boolean {
+  const diff = toCurrency(rate1).minus(toCurrency(rate2));
+  return diff.abs().lessThan(0.001);
+}
+
+/**
+ * BUG-PRC7 fix: Calculate percentage change with decimal.js precision
+ */
+function calculatePercentageChange(oldRate: number, newRate: number): number {
+  if (oldRate === 0) return 100;
+  const oldDec = toCurrency(oldRate);
+  const newDec = toCurrency(newRate);
+  const changeAmount = newDec.minus(oldDec);
+  const percent = changeAmount.dividedBy(oldDec).times(100);
+  // Round to 2 decimal places for percentage
+  return percent.toDecimalPlaces(2).toNumber();
 }
 
 /**
@@ -88,14 +113,14 @@ async function updateRateWithHistory(
 
   const oldRate = toNumber(existingRate.ratePerMeter);
 
-  // If rate hasn't changed, just return the existing ID
-  if (Math.abs(oldRate - newRatePerMeter) < 0.001) {
+  // BUG-PRC7 fix: If rate hasn't changed, just return the existing ID
+  if (ratesAreEqual(oldRate, newRatePerMeter)) {
     return existingRateId;
   }
 
-  // Calculate change metrics
-  const changeAmount = newRatePerMeter - oldRate;
-  const changePercent = oldRate > 0 ? (changeAmount / oldRate) * 100 : 100;
+  // BUG-PRC7 fix: Calculate change metrics with decimal.js precision
+  const changeAmount = toCurrency(newRatePerMeter).minus(toCurrency(oldRate)).toNumber();
+  const changePercent = calculatePercentageChange(oldRate, newRatePerMeter);
 
   // Transaction: close old rate, create new rate, log change
   const result = await prisma.$transaction(async (tx) => {
@@ -338,7 +363,9 @@ export async function getProcessorRateMatrix(
       slabOrder: s.slabOrder,
       minQuantity: Number(s.minQuantity),
       maxQuantity: Number(s.maxQuantity),
-      slabLabel: s.slabLabel || `${Number(s.minQuantity)}-${Number(s.maxQuantity)}m`,
+      slabLabel:
+        s.slabLabel ||
+        (s.maxQuantity != null ? `${Number(s.minQuantity)}-${Number(s.maxQuantity)}m` : `${Number(s.minQuantity)}m+`),
       isActive: s.isActive,
     })),
     greiges: Array.from(greigeMap.values()).sort((a, b) => {
@@ -569,7 +596,8 @@ export async function saveProcessorRateMatrix(
       if (existing) {
         // Skip unchanged cells entirely — avoids a findUnique + no-op transaction per cell
         // when the whole matrix is resubmitted for a small edit (bug-hunt BH-0312).
-        if (Math.abs(toNumber(existing.ratePerMeter) - rate.ratePerMeter) < 0.001) {
+        // BUG-PRC7 fix: use decimal.js for precise rate comparison
+        if (ratesAreEqual(toNumber(existing.ratePerMeter), rate.ratePerMeter)) {
           continue;
         }
         // Use history-preserving update instead of direct overwrite (supersede + audit log)
@@ -610,6 +638,9 @@ export async function saveProcessorRateMatrix(
   }
 
   // Save shrinkage entries (shrinkage is stored per greige, shared across slabs)
+  // IMPORTANT: Only update shrinkage on EXISTING rate cards - do NOT create placeholder
+  // records with 0-rate as this creates garbage data that pollutes the rate matrix.
+  // Shrinkage can only be saved alongside actual rate values.
   if (request.shrinkages && request.shrinkages.length > 0) {
     for (const shrinkage of request.shrinkages) {
       // Update shrinkagePercent on all rate cards for this greige
@@ -625,59 +656,12 @@ export async function saveProcessorRateMatrix(
         shrinkageFilter.printingType = null;
       }
 
-      // Check if any rate cards exist for this greige
-      const existingRates = await prisma.processor_rate_card.findMany({
+      // Only update existing rate cards - don't create placeholders with 0-rate
+      // (BUG-PRC5: placeholder creation was causing garbage 0-rate records)
+      await prisma.processor_rate_card.updateMany({
         where: shrinkageFilter,
+        data: { shrinkagePercent: shrinkage.shrinkagePercent },
       });
-
-      if (existingRates.length > 0) {
-        // Update existing rate cards
-        await prisma.processor_rate_card.updateMany({
-          where: shrinkageFilter,
-          data: { shrinkagePercent: shrinkage.shrinkagePercent },
-        });
-      } else {
-        // No rate cards exist yet - create placeholder rate cards for each slab with null rates
-        // This ensures shrinkage is saved even without rate values
-        for (const slab of slabs) {
-          const createData: any = {
-            processor: { connect: { id: processorId } },
-            processingType,
-            greige: { connect: { id: shrinkage.greigeId } },
-            slab: { connect: { id: slab.id } },
-            ratePerMeter: 0, // Placeholder rate - required field
-            shrinkagePercent: shrinkage.shrinkagePercent,
-            createdBy: { connect: { id: userId } },
-          };
-
-          if (processingType === 'PRINTING' && printingType) {
-            createData.printingType = printingType as PrintingType;
-          } else {
-            createData.printingType = null;
-          }
-
-          // Check if this specific rate card already exists before creating
-          const whereClause: any = {
-            processorId,
-            processingType,
-            greigeId: shrinkage.greigeId,
-            slabId: slab.id,
-          };
-          if (processingType === 'PRINTING' && printingType) {
-            whereClause.printingType = printingType;
-          } else {
-            whereClause.printingType = null;
-          }
-
-          const existingCard = await prisma.processor_rate_card.findFirst({
-            where: whereClause,
-          });
-
-          if (!existingCard) {
-            await prisma.processor_rate_card.create({ data: createData });
-          }
-        }
-      }
     }
   }
 }
@@ -784,6 +768,13 @@ export async function copyProcessorRates(input: CopyRatesInput, userId: string):
 /**
  * Add a greige row to processor's matrix (with empty rates)
  * For PRINTING, printingType determines which printing sub-type to add the greige to
+ *
+ * NOTE (BUG-PRC5): This function creates placeholder entries with ratePerMeter=0 so the UI
+ * can display the row. If the user never fills in actual rates, these remain as 0-rate entries.
+ * A cleaner approach would be to show greiges in the UI based on selection (not rate entries)
+ * and only create rate entries when the user saves non-zero values. However, this requires
+ * UI changes. For now, these placeholders are intentional but should be cleaned up in a
+ * future refactor.
  */
 export async function addGreigeToProcessor(
   processorId: string,
@@ -963,7 +954,8 @@ export async function lookupRate(query: RateLookupQuery): Promise<RateLookupResu
   }
 
   const ratePerMeter = Number(rateCard.ratePerMeter);
-  const totalCost = quantityMeters * ratePerMeter;
+  // BUG-PRC7 fix: use decimal.js for precise multiplication
+  const totalCost = multiplyCurrency(quantityMeters, ratePerMeter).toDecimalPlaces(2).toNumber();
 
   // Shrinkage: ONLY from processor rate card (no fallback to greige master)
   const shrinkagePercent = rateCard.shrinkagePercent ? Number(rateCard.shrinkagePercent) : null;
@@ -1386,7 +1378,9 @@ export async function getLaceProcessorRateMatrix(processorId: string): Promise<L
     processingType: 'DYEING',
     slabs: slabs.map((s) => ({
       id: s.id,
-      slabLabel: s.slabLabel || `${Number(s.minQuantity)}-${Number(s.maxQuantity)}m`,
+      slabLabel:
+        s.slabLabel ||
+        (s.maxQuantity != null ? `${Number(s.minQuantity)}-${Number(s.maxQuantity)}m` : `${Number(s.minQuantity)}m+`),
       minQuantity: Number(s.minQuantity),
       maxQuantity: Number(s.maxQuantity),
       slabOrder: s.slabOrder,
@@ -1469,7 +1463,8 @@ export async function saveLaceRateMatrix(
     const existing = activeByCell.get(`${rate.laceId}|${actualSlabId}`);
     if (existing) {
       // Skip unchanged cells (avoids a findUnique + no-op transaction per cell — BH-0312)
-      if (Math.abs(toNumber(existing.ratePerMeter) - rate.ratePerMeter) < 0.001) {
+      // BUG-PRC7 fix: use decimal.js for precise rate comparison
+      if (ratesAreEqual(toNumber(existing.ratePerMeter), rate.ratePerMeter)) {
         skipped++;
         continue;
       }
@@ -1503,6 +1498,9 @@ export async function saveLaceRateMatrix(
 /**
  * Add a greige lace to processor's rate card
  * Creates empty rate entries for all slabs
+ *
+ * NOTE (BUG-PRC5): Same as addGreigeToProcessor - creates placeholder 0-rate entries for UI.
+ * See addGreigeToProcessor comment for details on the tradeoff.
  */
 export async function addLaceToProcessor(processorId: string, laceId: string, userId: string): Promise<void> {
   // Verify lace exists and is greige
@@ -1661,7 +1659,8 @@ export async function lookupLaceRate(query: LaceRateLookupQuery): Promise<LaceRa
   }
 
   const ratePerMeter = Number(rateCard.ratePerMeter);
-  const totalCost = quantityMeters * ratePerMeter;
+  // BUG-PRC7 fix: use decimal.js for precise multiplication
+  const totalCost = multiplyCurrency(quantityMeters, ratePerMeter).toDecimalPlaces(2).toNumber();
   // Shrinkage: ONLY from processor rate card (no fallback to lace master)
   const shrinkagePercent = rateCard.shrinkagePercent ? Number(rateCard.shrinkagePercent) : null;
 

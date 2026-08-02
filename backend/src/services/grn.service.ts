@@ -23,13 +23,15 @@ import prisma from '../config/database'; // Use singleton to avoid connection po
 import { logInfo, logError } from '../utils/logger';
 import { generateAtomicGRNNumber } from '../utils/atomicCodeGenerator';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
-import { addCurrency, multiplyCurrency, roundToCent } from '../utils/currency';
+import { addCurrency, multiplyCurrency, roundToCent, subtractCurrency, toNumber } from '../utils/currency';
 import {
   validateSourceMismatchOverride,
   executeSourceMismatchCleanup,
   findFabricForGreige,
   updateCostSheetSourcingStrategy,
 } from './helpers/source-mismatch.helper';
+// BUG-GR9 fix: Use centralized quality grade default instead of hardcoding 'A'
+import { DEFAULT_QUALITY_GRADE } from '../constants/stock.constants';
 
 class GRNService {
   /**
@@ -1137,7 +1139,7 @@ class GRNService {
                 unit: 'meters',
                 status: 'AVAILABLE',
                 stockType: 'PLANNED_STOCK',
-                qualityGrade: 'A',
+                qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
                 weightedAvgCost: actualRate,
                 purchaseCost: actualRate,
                 receivedDate: grn.receivingDate || new Date(),
@@ -1230,7 +1232,7 @@ class GRNService {
               supplierId: grn.supplierId,
               receivedDate: grn.receivingDate,
               warehouseId: warehouseId,
-              qualityGrade: 'A',
+              qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
               sourceType: 'GRN', // Track that this stock came from GRN receipt
               // Pass fold length for actual quantity calculation
               foldLengthCm: item.foldLengthCm ? Number(item.foldLengthCm) : undefined,
@@ -1295,7 +1297,7 @@ class GRNService {
             unit: 'meters',
             status: 'AVAILABLE',
             stockType: 'GENERIC',
-            qualityGrade: 'A',
+            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
             weightedAvgCost: unitPrice,
             purchaseCost: unitPrice,
             receivedDate: grn.receivingDate || new Date(),
@@ -1351,7 +1353,7 @@ class GRNService {
             unit: 'meters',
             status: 'AVAILABLE',
             stockType: 'PLANNED_STOCK',
-            qualityGrade: 'A',
+            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
             weightedAvgCost: unitPrice,
             purchaseCost: unitPrice,
             receivedDate: grn.receivingDate || new Date(),
@@ -1442,7 +1444,7 @@ class GRNService {
             colorName: thread.colorMaster?.colorName || thread.color || null,
             status: 'AVAILABLE',
             stockType: 'PLANNED_STOCK',
-            qualityGrade: 'A',
+            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
             receivedDate: grn.receivingDate || new Date(),
             warehouseId: warehouseId,
             procurementId: grn.poId || undefined,
@@ -1509,19 +1511,20 @@ class GRNService {
         const button = material.button_master;
         const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
 
+        // BUG-BTN5 fix: Use Prisma.Decimal for monetary values to avoid floating point errors
         await tx.button_stock.create({
           data: {
             buttonId: button.id,
-            quantityAvailable: acceptedQty,
-            quantityReserved: 0,
-            quantityConsumed: 0,
+            quantityAvailable: new Prisma.Decimal(acceptedQty),
+            quantityReserved: new Prisma.Decimal(0),
+            quantityConsumed: new Prisma.Decimal(0),
             unit: item.unit || 'pieces',
-            purchaseCost: unitPrice,
-            weightedAvgCost: unitPrice,
+            purchaseCost: new Prisma.Decimal(unitPrice),
+            weightedAvgCost: new Prisma.Decimal(unitPrice),
             supplierId: grn.supplierId,
             sourceType: 'GRN',
             procurementId: grn.poId,
-            qualityGrade: 'A',
+            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
             status: 'AVAILABLE',
             stockType: 'PLANNED_STOCK',
             receivedDate: grn.receivingDate || new Date(),
@@ -1556,19 +1559,20 @@ class GRNService {
         const zipper = material.zipper_master;
         const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
 
+        // BUG-LBL5 fix: Use Prisma.Decimal for monetary values to avoid floating point errors (same pattern as button/label)
         await tx.zipper_stock.create({
           data: {
             zipperId: zipper.id,
-            quantityAvailable: acceptedQty,
-            quantityReserved: 0,
-            quantityConsumed: 0,
+            quantityAvailable: new Prisma.Decimal(acceptedQty),
+            quantityReserved: new Prisma.Decimal(0),
+            quantityConsumed: new Prisma.Decimal(0),
             unit: item.unit || 'pieces',
-            purchaseCost: unitPrice,
-            weightedAvgCost: unitPrice,
+            purchaseCost: new Prisma.Decimal(unitPrice),
+            weightedAvgCost: new Prisma.Decimal(unitPrice),
             supplierId: grn.supplierId,
             sourceType: 'GRN',
             procurementId: grn.poId,
-            qualityGrade: 'A',
+            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
             status: 'AVAILABLE',
             stockType: 'PLANNED_STOCK',
             receivedDate: grn.receivingDate || new Date(),
@@ -1603,19 +1607,20 @@ class GRNService {
         const elastic = material.elastic_master;
         const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
 
+        // BUG-LBL5 fix: Use Prisma.Decimal for monetary values to avoid floating point errors (same pattern as button/label)
         await tx.elastic_stock.create({
           data: {
             elasticId: elastic.id,
-            quantityAvailable: acceptedQty,
-            quantityReserved: 0,
-            quantityConsumed: 0,
+            quantityAvailable: new Prisma.Decimal(acceptedQty),
+            quantityReserved: new Prisma.Decimal(0),
+            quantityConsumed: new Prisma.Decimal(0),
             unit: item.unit || 'meters',
-            purchaseCost: unitPrice,
-            weightedAvgCost: unitPrice,
+            purchaseCost: new Prisma.Decimal(unitPrice),
+            weightedAvgCost: new Prisma.Decimal(unitPrice),
             supplierId: grn.supplierId,
             sourceType: 'GRN',
             procurementId: grn.poId,
-            qualityGrade: 'A',
+            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
             status: 'AVAILABLE',
             stockType: 'PLANNED_STOCK',
             receivedDate: grn.receivingDate || new Date(),
@@ -1650,19 +1655,20 @@ class GRNService {
         const label = material.label_master;
         const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
 
+        // BUG-LBL5 fix: Use Prisma.Decimal for monetary values to avoid floating point errors
         await tx.label_stock.create({
           data: {
             labelId: label.id,
-            quantityAvailable: acceptedQty,
-            quantityReserved: 0,
-            quantityConsumed: 0,
+            quantityAvailable: new Prisma.Decimal(acceptedQty),
+            quantityReserved: new Prisma.Decimal(0),
+            quantityConsumed: new Prisma.Decimal(0),
             unit: item.unit || 'pieces',
-            purchaseCost: unitPrice,
-            weightedAvgCost: unitPrice,
+            purchaseCost: new Prisma.Decimal(unitPrice),
+            weightedAvgCost: new Prisma.Decimal(unitPrice),
             supplierId: grn.supplierId,
             sourceType: 'GRN',
             procurementId: grn.poId,
-            qualityGrade: 'A',
+            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
             status: 'AVAILABLE',
             stockType: 'PLANNED_STOCK',
             receivedDate: grn.receivingDate || new Date(),
@@ -1697,19 +1703,20 @@ class GRNService {
         const packaging = material.packaging_master;
         const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
 
+        // BUG-PKG5 fix: Use Prisma.Decimal for stock values to avoid floating point errors
         await tx.packaging_stock.create({
           data: {
             packagingId: packaging.id,
-            quantityAvailable: acceptedQty,
-            quantityReserved: 0,
-            quantityConsumed: 0,
+            quantityAvailable: new Prisma.Decimal(acceptedQty),
+            quantityReserved: new Prisma.Decimal(0),
+            quantityConsumed: new Prisma.Decimal(0),
             unit: item.unit || 'pieces',
-            purchaseCost: unitPrice,
-            weightedAvgCost: unitPrice,
+            purchaseCost: new Prisma.Decimal(unitPrice),
+            weightedAvgCost: new Prisma.Decimal(unitPrice),
             supplierId: grn.supplierId,
             sourceType: 'GRN',
             procurementId: grn.poId,
-            qualityGrade: 'A',
+            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
             status: 'AVAILABLE',
             stockType: 'PLANNED_STOCK',
             receivedDate: grn.receivingDate || new Date(),
@@ -1744,18 +1751,19 @@ class GRNService {
         const machinePart = material.machine_part_master;
         const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
 
+        // BUG-MCH5 fix: Use Prisma.Decimal for stock values to avoid floating point errors
         await tx.machine_part_stock.create({
           data: {
             machinePartId: machinePart.id,
-            quantityAvailable: acceptedQty,
-            quantityReserved: 0,
-            quantityConsumed: 0,
+            quantityAvailable: new Prisma.Decimal(acceptedQty),
+            quantityReserved: new Prisma.Decimal(0),
+            quantityConsumed: new Prisma.Decimal(0),
             unit: item.unit || 'pieces',
-            purchaseCost: unitPrice,
-            weightedAvgCost: unitPrice,
+            purchaseCost: new Prisma.Decimal(unitPrice),
+            weightedAvgCost: new Prisma.Decimal(unitPrice),
             supplierId: grn.supplierId,
             sourceType: 'GRN',
-            qualityGrade: 'A',
+            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
             status: 'AVAILABLE',
             stockType: 'PLANNED_STOCK',
             receivedDate: grn.receivingDate || new Date(),
@@ -1790,18 +1798,19 @@ class GRNService {
         const otherMaterial = material.other_material_master;
         const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
 
+        // BUG-OTH5 fix: Use Prisma.Decimal for monetary values to avoid floating point errors
         await tx.other_material_stock.create({
           data: {
             otherMaterialId: otherMaterial.id,
-            quantityAvailable: acceptedQty,
-            quantityReserved: 0,
-            quantityConsumed: 0,
+            quantityAvailable: new Prisma.Decimal(acceptedQty),
+            quantityReserved: new Prisma.Decimal(0),
+            quantityConsumed: new Prisma.Decimal(0),
             unit: item.unit || 'pieces',
-            purchaseCost: unitPrice,
-            weightedAvgCost: unitPrice,
+            purchaseCost: new Prisma.Decimal(unitPrice),
+            weightedAvgCost: new Prisma.Decimal(unitPrice),
             supplierId: grn.supplierId,
             sourceType: 'GRN',
-            qualityGrade: 'A',
+            qualityGrade: DEFAULT_QUALITY_GRADE, // BUG-GR9 fix
             status: 'AVAILABLE',
             stockType: 'PLANNED_STOCK',
             receivedDate: grn.receivingDate || new Date(),
@@ -2027,6 +2036,745 @@ class GRNService {
       status: job.status,
       receivedDate: job.receivedDate,
     };
+  }
+
+  // BUG-GRN6 fix: Comprehensive GRN reversal for ACCEPTED GRNs
+  /**
+   * Reverse an accepted GRN - fully reverses all stock and transaction entries
+   * Only works for ACCEPTED or PARTIALLY_ACCEPTED GRNs
+   *
+   * Reverses:
+   * - GRN status -> REVERSED
+   * - PO item received quantities (decremented)
+   * - Stock movements (creates reverse STOCK_OUT movements)
+   * - Stock levels (decremented)
+   * - Specialized stock tables (greige_stock, fabric_stock, etc.)
+   * - MRP received quantities
+   * - Processing PO specific: job_work_orders, challans, processor greige_stock
+   * - Ledger/transaction entries for audit trail
+   */
+  async reverseGRN(id: string, userId: string, reason: string) {
+    const grn = await prisma.goods_receiving_notes.findUnique({
+      where: { id },
+      include: {
+        grn_items: {
+          include: {
+            purchase_order_items: true,
+            materials: {
+              include: {
+                greige_master: true,
+                fabric_master: true,
+                lace_master: true,
+                thread_master: true,
+                button_master: true,
+                zipper_master: true,
+                elastic_master: true,
+                label_master: true,
+                packaging_master: true,
+                machine_part_master: true,
+                other_material_master: true,
+              },
+            },
+          },
+        },
+        purchase_orders: {
+          select: { id: true, poCategory: true, supplierId: true },
+        },
+      },
+    });
+
+    if (!grn) {
+      throw new Error('GRN not found');
+    }
+
+    // Only ACCEPTED or PARTIALLY_ACCEPTED GRNs can be reversed
+    // BUG-GRN6 fix: Use string literals for status check (works before/after migration)
+    const reversibleStatuses = ['ACCEPTED', 'PARTIALLY_ACCEPTED'] as const;
+    if (!reversibleStatuses.includes(grn.status as (typeof reversibleStatuses)[number])) {
+      throw new Error(
+        `Cannot reverse GRN in ${grn.status} status. Only ACCEPTED or PARTIALLY_ACCEPTED GRNs can be reversed.`
+      );
+    }
+
+    const warehouseId = grn.warehouseId;
+    if (!warehouseId) {
+      throw new Error('GRN has no warehouse assigned - cannot determine which stock to reverse');
+    }
+
+    const po = grn.purchase_orders;
+
+    // Execute reversal in a transaction
+    const reversedGRN = await prisma.$transaction(
+      async (tx) => {
+        // 1. GUARDED status flip - prevent concurrent reversal
+        // BUG-GRN6 fix: Use string literal for REVERSED status (works before/after migration)
+        const flip = await tx.goods_receiving_notes.updateMany({
+          where: { id, status: { in: reversibleStatuses as unknown as GRNStatus[] } },
+          data: {
+            status: 'REVERSED' as GRNStatus, // Type assertion for pre-migration compatibility
+            remarks: grn.remarks
+              ? `${grn.remarks}\n\n[REVERSED ${new Date().toISOString()}] Reason: ${reason}`
+              : `[REVERSED ${new Date().toISOString()}] Reason: ${reason}`,
+          },
+        });
+        if (flip.count === 0) {
+          throw new Error('GRN is no longer in reversible status - it was already reversed or modified');
+        }
+
+        const reversed = await tx.goods_receiving_notes.findUniqueOrThrow({
+          where: { id },
+          include: this.getFullInclude(),
+        });
+
+        // 2. Process each GRN item for reversal
+        for (const item of grn.grn_items) {
+          const acceptedQty = Number(item.acceptedQuantity);
+
+          // 2a. Revert PO item received quantities
+          if (item.poItemId && acceptedQty > 0) {
+            await tx.purchase_order_items.update({
+              where: { id: item.poItemId },
+              data: {
+                receivedQuantity: { decrement: acceptedQty },
+              },
+            });
+
+            // 2b. Revert MRP received quantity
+            await mrpService.updateReceivedQuantity(item.poItemId, -acceptedQty, tx);
+          }
+
+          // 2c. Create reverse stock movement for audit trail
+          if (acceptedQty > 0) {
+            const unitPrice = item.purchase_order_items ? Number(item.purchase_order_items.unitPrice) : 0;
+            const totalValue = roundToCent(multiplyCurrency(acceptedQty, unitPrice)).toNumber();
+
+            await tx.stock_movements.create({
+              data: {
+                id: randomUUID(),
+                movementType: MovementType.STOCK_OUT,
+                materialId: item.materialId,
+                warehouseId: warehouseId,
+                supplierId: grn.supplierId,
+                quantity: acceptedQty,
+                unit: item.unit,
+                referenceType: 'MANUAL_ADJUSTMENT', // GRN reversal adjustment
+                referenceId: grn.id,
+                referenceNumber: grn.grnNumber,
+                rate: unitPrice,
+                value: totalValue,
+                remarks: `Stock reversed from GRN ${grn.grnNumber} - Reason: ${reason}`,
+                performedById: userId,
+                movementDate: new Date(),
+              },
+            });
+          }
+        }
+
+        // 3. Reverse specialized stock based on PO category
+        await this.reverseSpecializedStockInTx(tx, grn, po, userId, warehouseId, reason);
+
+        // 4. Handle Processing PO specific reversal
+        if (po?.poCategory === 'PROCESSING') {
+          await this.reverseProcessingGRNInTx(tx, grn, po, userId, reason);
+        }
+
+        return reversed;
+      },
+      { timeout: 30000, maxWait: 10000 }
+    );
+
+    // Recompute PO receiving status (best-effort post-commit)
+    try {
+      await purchaseOrderService.updateReceivingStatus(grn.poId);
+    } catch (statusErr) {
+      logError('Failed to recompute PO receiving status after GRN reversal', statusErr);
+    }
+
+    logInfo(`GRN reversed: ${grn.grnNumber}`, {
+      grnId: id,
+      reason,
+      reversedBy: userId,
+      itemCount: grn.grn_items.length,
+    });
+
+    return reversedGRN;
+  }
+
+  // BUG-GRN6 fix: Reverse specialized stock records created during GRN approval
+  private async reverseSpecializedStockInTx(
+    tx: Prisma.TransactionClient,
+    grn: any,
+    po: { id: string; poCategory: string | null; supplierId: string | null } | null,
+    userId: string,
+    warehouseId: string,
+    reason: string
+  ): Promise<void> {
+    if (!po) return;
+
+    const poCategory = po.poCategory;
+
+    // Categories that use stock_levels directly (non-specialized)
+    const nonSpecializedCategories = ['GENERAL', 'CONSUMABLE', 'SAMPLE'];
+    if (!poCategory || nonSpecializedCategories.includes(poCategory)) {
+      // Reverse stock_levels for non-specialized categories
+      for (const item of grn.grn_items) {
+        const acceptedQty = Number(item.acceptedQuantity);
+        if (acceptedQty > 0) {
+          await syncStockLevelQuantity(item.materialId, -acceptedQty, warehouseId, undefined, tx);
+        }
+      }
+      return;
+    }
+
+    // Handle specialized categories
+    for (const item of grn.grn_items) {
+      const acceptedQty = Number(item.acceptedQuantity);
+      if (acceptedQty <= 0) continue;
+
+      const material = item.materials;
+
+      // GREIGE - reverse greige_stock
+      if (poCategory === 'GREIGE' && material?.greige_master) {
+        const greigeId = material.greige_master.id;
+        // Find stock created by this GRN (most recent with matching quantity and date)
+        const greigeStock = await tx.greige_stock.findFirst({
+          where: {
+            greigeId,
+            warehouseId,
+            sourceType: 'GRN',
+            quantityAvailable: { gte: acceptedQty },
+          },
+          orderBy: { receivedDate: 'desc' },
+        });
+
+        if (greigeStock) {
+          const newAvailable = Number(greigeStock.quantityAvailable) - acceptedQty;
+          if (newAvailable <= 0) {
+            // Delete the stock record if fully reversed
+            await tx.greige_stock.delete({ where: { id: greigeStock.id } });
+          } else {
+            await tx.greige_stock.update({
+              where: { id: greigeStock.id },
+              data: { quantityAvailable: newAvailable },
+            });
+          }
+
+          // Create reversal transaction
+          await tx.greige_stock_transaction.create({
+            data: {
+              stockId: greigeStock.id,
+              transactionType: 'ADJUSTMENT_OUT',
+              quantity: -acceptedQty,
+              balanceAfter: Math.max(0, newAvailable),
+              referenceType: 'MANUAL_ADJUSTMENT', // GRN reversal adjustment
+              referenceId: grn.id,
+              notes: `GRN ${grn.grnNumber} reversed - ${reason}`,
+              performedById: userId,
+            },
+          });
+
+          // Sync stock_levels
+          await syncStockLevelQuantity(greigeId, -acceptedQty, warehouseId, undefined, tx);
+
+          logInfo(`Reversed greige_stock from GRN ${grn.grnNumber}: ${acceptedQty}m`, {
+            grnId: grn.id,
+            greigeId,
+            stockId: greigeStock.id,
+          });
+        }
+      }
+
+      // FABRIC - reverse fabric_stock
+      if (poCategory === 'FABRIC' && material?.fabric_master) {
+        const fabricId = material.fabric_master.id;
+        const fabricStock = await tx.fabric_stock.findFirst({
+          where: {
+            fabricId,
+            warehouseId,
+            quantityAvailable: { gte: acceptedQty },
+          },
+          orderBy: { receivedDate: 'desc' },
+        });
+
+        if (fabricStock) {
+          const newAvailable = Number(fabricStock.quantityAvailable) - acceptedQty;
+          if (newAvailable <= 0) {
+            await tx.fabric_stock.delete({ where: { id: fabricStock.id } });
+          } else {
+            await tx.fabric_stock.update({
+              where: { id: fabricStock.id },
+              data: { quantityAvailable: newAvailable },
+            });
+          }
+
+          await syncStockLevelQuantity(fabricId, -acceptedQty, warehouseId, undefined, tx);
+
+          logInfo(`Reversed fabric_stock from GRN ${grn.grnNumber}: ${acceptedQty}m`, {
+            grnId: grn.id,
+            fabricId,
+          });
+        }
+      }
+
+      // LACE / GREIGE_LACE - reverse lace_stock
+      if ((poCategory === 'LACE' || poCategory === 'GREIGE_LACE') && material?.lace_master) {
+        const laceId = material.lace_master.id;
+        const laceStock = await tx.lace_stock.findFirst({
+          where: {
+            laceId,
+            warehouseId,
+            procurementId: grn.poId,
+            quantityAvailable: { gte: acceptedQty },
+          },
+          orderBy: { receivedDate: 'desc' },
+        });
+
+        if (laceStock) {
+          const newAvailable = Number(laceStock.quantityAvailable) - acceptedQty;
+          if (newAvailable <= 0) {
+            await tx.lace_stock.delete({ where: { id: laceStock.id } });
+          } else {
+            await tx.lace_stock.update({
+              where: { id: laceStock.id },
+              data: { quantityAvailable: newAvailable },
+            });
+          }
+
+          await syncStockLevelQuantity(laceId, -acceptedQty, warehouseId, undefined, tx);
+
+          logInfo(`Reversed lace_stock from GRN ${grn.grnNumber}: ${acceptedQty}m`, {
+            grnId: grn.id,
+            laceId,
+          });
+        }
+      }
+
+      // THREAD - reverse thread_stock
+      if (poCategory === 'THREAD' && material?.thread_master) {
+        const threadId = material.thread_master.id;
+        const threadStock = await tx.thread_stock.findFirst({
+          where: {
+            threadId,
+            warehouseId,
+            procurementId: grn.poId,
+            quantityAvailable: { gte: acceptedQty },
+          },
+          orderBy: { receivedDate: 'desc' },
+        });
+
+        if (threadStock) {
+          const newAvailable = Number(threadStock.quantityAvailable) - acceptedQty;
+          if (newAvailable <= 0) {
+            await tx.thread_stock.delete({ where: { id: threadStock.id } });
+          } else {
+            await tx.thread_stock.update({
+              where: { id: threadStock.id },
+              data: { quantityAvailable: newAvailable },
+            });
+          }
+
+          // Create reversal transaction
+          await tx.thread_stock_transaction.create({
+            data: {
+              stockId: threadStock.id,
+              transactionType: 'ADJUSTMENT_OUT',
+              quantity: -acceptedQty,
+              balanceAfter: Math.max(0, newAvailable),
+              referenceType: 'MANUAL_ADJUSTMENT', // GRN reversal adjustment
+              referenceId: grn.id,
+              notes: `GRN ${grn.grnNumber} reversed - ${reason}`,
+              performedById: userId,
+            },
+          });
+
+          await syncStockLevelQuantity(threadId, -acceptedQty, warehouseId, undefined, tx);
+
+          logInfo(`Reversed thread_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
+            grnId: grn.id,
+            threadId,
+          });
+        }
+      }
+
+      // BUTTON - reverse button_stock
+      // BUG-BTN5 fix: Use Prisma.Decimal for proper decimal arithmetic
+      if (poCategory === 'BUTTON' && material?.button_master) {
+        const buttonId = material.button_master.id;
+        const buttonStock = await tx.button_stock.findFirst({
+          where: {
+            buttonId,
+            warehouseId,
+            procurementId: grn.poId,
+            quantityAvailable: { gte: acceptedQty },
+          },
+          orderBy: { receivedDate: 'desc' },
+        });
+
+        if (buttonStock) {
+          const currentAvailable = new Prisma.Decimal(buttonStock.quantityAvailable.toString());
+          const newAvailable = currentAvailable.minus(new Prisma.Decimal(acceptedQty));
+          if (newAvailable.lte(0)) {
+            await tx.button_stock.delete({ where: { id: buttonStock.id } });
+          } else {
+            await tx.button_stock.update({
+              where: { id: buttonStock.id },
+              data: { quantityAvailable: newAvailable },
+            });
+          }
+
+          await syncStockLevelQuantity(buttonId, -acceptedQty, warehouseId, undefined, tx);
+
+          logInfo(`Reversed button_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
+            grnId: grn.id,
+            buttonId,
+          });
+        }
+      }
+
+      // ZIPPER - reverse zipper_stock
+      if (poCategory === 'ZIPPER' && material?.zipper_master) {
+        const zipperId = material.zipper_master.id;
+        const zipperStock = await tx.zipper_stock.findFirst({
+          where: {
+            zipperId,
+            warehouseId,
+            procurementId: grn.poId,
+            quantityAvailable: { gte: acceptedQty },
+          },
+          orderBy: { receivedDate: 'desc' },
+        });
+
+        if (zipperStock) {
+          // BUG-ZIP5 fix: use decimal.js for precision
+          const newAvailable = toNumber(subtractCurrency(zipperStock.quantityAvailable, acceptedQty));
+          if (newAvailable <= 0) {
+            await tx.zipper_stock.delete({ where: { id: zipperStock.id } });
+          } else {
+            await tx.zipper_stock.update({
+              where: { id: zipperStock.id },
+              data: { quantityAvailable: newAvailable },
+            });
+          }
+
+          await syncStockLevelQuantity(zipperId, -acceptedQty, warehouseId, undefined, tx);
+
+          logInfo(`Reversed zipper_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
+            grnId: grn.id,
+            zipperId,
+          });
+        }
+      }
+
+      // ELASTIC - reverse elastic_stock
+      if (poCategory === 'ELASTIC' && material?.elastic_master) {
+        const elasticId = material.elastic_master.id;
+        const elasticStock = await tx.elastic_stock.findFirst({
+          where: {
+            elasticId,
+            warehouseId,
+            procurementId: grn.poId,
+            quantityAvailable: { gte: acceptedQty },
+          },
+          orderBy: { receivedDate: 'desc' },
+        });
+
+        if (elasticStock) {
+          const newAvailable = Number(elasticStock.quantityAvailable) - acceptedQty;
+          if (newAvailable <= 0) {
+            await tx.elastic_stock.delete({ where: { id: elasticStock.id } });
+          } else {
+            await tx.elastic_stock.update({
+              where: { id: elasticStock.id },
+              data: { quantityAvailable: newAvailable },
+            });
+          }
+
+          await syncStockLevelQuantity(elasticId, -acceptedQty, warehouseId, undefined, tx);
+
+          logInfo(`Reversed elastic_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
+            grnId: grn.id,
+            elasticId,
+          });
+        }
+      }
+
+      // LABEL - reverse label_stock
+      if (poCategory === 'LABEL' && material?.label_master) {
+        const labelId = material.label_master.id;
+        const labelStock = await tx.label_stock.findFirst({
+          where: {
+            labelId,
+            warehouseId,
+            procurementId: grn.poId,
+            quantityAvailable: { gte: acceptedQty },
+          },
+          orderBy: { receivedDate: 'desc' },
+        });
+
+        if (labelStock) {
+          const newAvailable = Number(labelStock.quantityAvailable) - acceptedQty;
+          if (newAvailable <= 0) {
+            await tx.label_stock.delete({ where: { id: labelStock.id } });
+          } else {
+            await tx.label_stock.update({
+              where: { id: labelStock.id },
+              data: { quantityAvailable: newAvailable },
+            });
+          }
+
+          await syncStockLevelQuantity(labelId, -acceptedQty, warehouseId, undefined, tx);
+
+          logInfo(`Reversed label_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
+            grnId: grn.id,
+            labelId,
+          });
+        }
+      }
+
+      // PACKAGING - reverse packaging_stock
+      if (poCategory === 'PACKAGING' && material?.packaging_master) {
+        const packagingId = material.packaging_master.id;
+        const packagingStock = await tx.packaging_stock.findFirst({
+          where: {
+            packagingId,
+            warehouseId,
+            procurementId: grn.poId,
+            quantityAvailable: { gte: acceptedQty },
+          },
+          orderBy: { receivedDate: 'desc' },
+        });
+
+        if (packagingStock) {
+          // BUG-PKG5 fix: Use decimal arithmetic to avoid floating point errors
+          const newAvailable = subtractCurrency(packagingStock.quantityAvailable, acceptedQty);
+          if (newAvailable.lte(0)) {
+            await tx.packaging_stock.delete({ where: { id: packagingStock.id } });
+          } else {
+            await tx.packaging_stock.update({
+              where: { id: packagingStock.id },
+              data: { quantityAvailable: new Prisma.Decimal(toNumber(newAvailable)) },
+            });
+          }
+
+          await syncStockLevelQuantity(packagingId, -acceptedQty, warehouseId, undefined, tx);
+
+          logInfo(`Reversed packaging_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
+            grnId: grn.id,
+            packagingId,
+          });
+        }
+      }
+
+      // MACHINE_PART - reverse machine_part_stock
+      // BUG-MCH5 fix: Use atomic decrement operations for thread safety and precision
+      if (poCategory === 'MACHINE_PART' && material?.machine_part_master) {
+        const machinePartId = material.machine_part_master.id;
+        const machinePartStock = await tx.machine_part_stock.findFirst({
+          where: {
+            machinePartId,
+            warehouseId,
+            quantityAvailable: { gte: acceptedQty },
+          },
+          orderBy: { receivedDate: 'desc' },
+        });
+
+        if (machinePartStock) {
+          const currentAvailable = Number(machinePartStock.quantityAvailable);
+          if (currentAvailable - acceptedQty <= 0) {
+            // Delete if resulting quantity would be zero or less
+            await tx.machine_part_stock.delete({ where: { id: machinePartStock.id } });
+          } else {
+            // Use atomic decrement for thread safety and precision
+            await tx.machine_part_stock.update({
+              where: { id: machinePartStock.id },
+              data: { quantityAvailable: { decrement: acceptedQty } },
+            });
+          }
+
+          await syncStockLevelQuantity(machinePartId, -acceptedQty, warehouseId, undefined, tx);
+
+          logInfo(`Reversed machine_part_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
+            grnId: grn.id,
+            machinePartId,
+          });
+        }
+      }
+
+      // OTHER_MATERIAL - reverse other_material_stock
+      if (poCategory === 'OTHER_MATERIAL' && material?.other_material_master) {
+        const otherMaterialId = material.other_material_master.id;
+        const otherMaterialStock = await tx.other_material_stock.findFirst({
+          where: {
+            otherMaterialId,
+            warehouseId,
+            quantityAvailable: { gte: acceptedQty },
+          },
+          orderBy: { receivedDate: 'desc' },
+        });
+
+        if (otherMaterialStock) {
+          // BUG-OTH5 fix: Use decimal arithmetic to avoid floating point errors
+          const newAvailable = subtractCurrency(otherMaterialStock.quantityAvailable, acceptedQty);
+          if (newAvailable.lte(0)) {
+            await tx.other_material_stock.delete({ where: { id: otherMaterialStock.id } });
+          } else {
+            await tx.other_material_stock.update({
+              where: { id: otherMaterialStock.id },
+              data: { quantityAvailable: new Prisma.Decimal(toNumber(newAvailable)) },
+            });
+          }
+
+          await syncStockLevelQuantity(otherMaterialId, -acceptedQty, warehouseId, undefined, tx);
+
+          logInfo(`Reversed other_material_stock from GRN ${grn.grnNumber}: ${acceptedQty}`, {
+            grnId: grn.id,
+            otherMaterialId,
+          });
+        }
+      }
+    }
+  }
+
+  // BUG-GRN6 fix: Reverse Processing PO specific records
+  private async reverseProcessingGRNInTx(
+    tx: Prisma.TransactionClient,
+    grn: any,
+    po: { id: string; poCategory: string | null; supplierId: string | null },
+    userId: string,
+    reason: string
+  ): Promise<void> {
+    // Find the job work order linked to this PO
+    const jobWorkOrder = await tx.job_work_orders.findFirst({
+      where: { purchaseOrderId: po.id, grnId: grn.id },
+      include: {
+        greigeStockLot: true,
+        fabricStockLot: true,
+      },
+    });
+
+    if (!jobWorkOrder) {
+      logInfo(`No job work order found for GRN ${grn.grnNumber} reversal - may have been created via different path`);
+      return;
+    }
+
+    const receivedMeters = Number(jobWorkOrder.qtyReceivedMeters || 0);
+
+    // 1. Reverse fabric_stock created from this job
+    if (jobWorkOrder.finishedFabricId) {
+      // Find fabric_stock records created by this job (via received date matching)
+      const fabricStocks = await tx.fabric_stock.findMany({
+        where: {
+          fabricId: jobWorkOrder.finishedFabricId,
+          originStyleId: jobWorkOrder.styleId,
+          ...(jobWorkOrder.receivedDate ? { receivedDate: jobWorkOrder.receivedDate } : {}),
+        },
+      });
+
+      for (const stock of fabricStocks) {
+        const qty = Number(stock.quantityAvailable);
+        await tx.fabric_stock.delete({ where: { id: stock.id } });
+        await syncStockLevelQuantity(jobWorkOrder.finishedFabricId, -qty, stock.warehouseId, 'METER', tx);
+
+        logInfo(`Reversed processing fabric_stock: ${qty}m`, {
+          grnId: grn.id,
+          fabricStockId: stock.id,
+          fabricId: jobWorkOrder.finishedFabricId,
+        });
+      }
+    }
+
+    // 2. Restore processor's greige_stock (if it was consumed)
+    if (jobWorkOrder.outwardChallanId) {
+      const processorGreigeStock = await tx.greige_stock.findFirst({
+        where: { sourceChallanId: jobWorkOrder.outwardChallanId },
+      });
+
+      if (processorGreigeStock) {
+        // Restore the consumed quantity
+        await tx.greige_stock.update({
+          where: { id: processorGreigeStock.id },
+          data: {
+            quantityAvailable: { increment: receivedMeters },
+            quantityConsumed: { decrement: receivedMeters },
+            status: 'AVAILABLE',
+          },
+        });
+
+        // Create restoration transaction
+        await tx.greige_stock_transaction.create({
+          data: {
+            stockId: processorGreigeStock.id,
+            transactionType: 'ADJUSTMENT_OUT',
+            quantity: receivedMeters,
+            balanceAfter: Number(processorGreigeStock.quantityAvailable) + receivedMeters,
+            referenceType: 'MANUAL_ADJUSTMENT', // GRN reversal adjustment
+            referenceId: grn.id,
+            notes: `GRN ${grn.grnNumber} reversed - restored greige at processor`,
+            performedById: userId,
+          },
+        });
+
+        logInfo(`Restored processor greige_stock: ${receivedMeters}m`, {
+          grnId: grn.id,
+          processorStockId: processorGreigeStock.id,
+        });
+      }
+    }
+
+    // 3. Cancel the inward challan if exists
+    if (jobWorkOrder.inwardChallanId) {
+      await tx.challans.update({
+        where: { id: jobWorkOrder.inwardChallanId },
+        data: {
+          status: 'CANCELLED',
+          remarks: `Cancelled due to GRN ${grn.grnNumber} reversal - ${reason}`,
+        },
+      });
+
+      logInfo(`Cancelled inward challan for GRN reversal`, {
+        grnId: grn.id,
+        challanId: jobWorkOrder.inwardChallanId,
+      });
+    }
+
+    // 4. Reset job work order to pre-receive state
+    await tx.job_work_orders.update({
+      where: { id: jobWorkOrder.id },
+      data: {
+        qtyReceivedMeters: null,
+        receivedWidthInches: null,
+        receivedDate: null,
+        receivedChallan: null,
+        actualShrinkage: null,
+        widthVariance: null,
+        thanCount: null,
+        foldLengthCm: null,
+        calculatedActualMeters: null,
+        inwardChallanId: null,
+        grnId: null,
+        qualityGrade: null,
+        colorMatchStatus: null,
+        defectMeters: null,
+        defectType: null,
+        actualRate: null,
+        status: 'AT_MILL', // Reset to at-mill status
+        remarks: jobWorkOrder.remarks
+          ? `${jobWorkOrder.remarks}\n[GRN REVERSED ${new Date().toISOString()}] ${reason}`
+          : `[GRN REVERSED ${new Date().toISOString()}] ${reason}`,
+      },
+    });
+
+    // 5. Reset PO status to allow re-receiving
+    await tx.purchase_orders.updateMany({
+      where: { id: po.id, status: 'RECEIVED' },
+      data: { status: 'ACKNOWLEDGED' },
+    });
+
+    logInfo(`Reset job work order and PO for GRN reversal`, {
+      grnId: grn.id,
+      jobId: jobWorkOrder.id,
+      poId: po.id,
+    });
   }
 }
 

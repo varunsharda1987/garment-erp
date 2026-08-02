@@ -23,6 +23,9 @@ import { gstService } from './gst.service';
 // Types
 // ============================================
 
+// BUG-CU3 fix: DTO fields match Zod output types (after validation/defaults applied)
+// - `type`: Zod input is optional with .default('BUYER'), so output is always present
+// - `category`: Required in both Zod schema and Prisma (no default)
 export interface CreateCustomerDTO {
   code: string;
   name: string;
@@ -31,8 +34,8 @@ export interface CreateCustomerDTO {
   categories?: string;
   brandCategories?: BrandCategoryInput[];
   gstNumbers?: GstNumberInput[];
-  type: CustomerType;
-  category: CustomerCategory; // Required field in Prisma schema
+  type: CustomerType; // BUG-CU3: Zod provides default('BUYER'), so always present after validation
+  category: CustomerCategory; // BUG-CU3: Required in Zod schema (no optional), required in Prisma
   businessType?: BusinessType;
   market?: MarketType;
   contactPerson?: string;
@@ -311,6 +314,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       'defaultTestingLabId',
       'paymentTermsId',
       'agentId',
+      'agencyId',
     ];
 
     foreignKeyFields.forEach((field) => {
@@ -381,6 +385,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       'defaultTestingLabId',
       'paymentTermsId',
       'agentId',
+      'agencyId',
     ];
 
     foreignKeyFields.forEach((field) => {
@@ -487,17 +492,6 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       orderBy: [{ isDefault: 'desc' }, { presetName: 'asc' }],
     });
 
-    console.log(
-      '[getAccessoryPresets] Packaging items with material:',
-      result
-        .flatMap((p) => p.items)
-        .filter((i) => i.materialType === 'PACKAGING')
-        .map((i) => ({
-          id: i.id,
-          materialId: i.materialId,
-          material: i.material,
-        }))
-    );
     return result;
   }
 
@@ -954,7 +948,18 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
     // Validate and prepare GST numbers
     const gstNumberData = [];
 
-    for (const gst of gstNumbers) {
+    // BUG-CU6 fix: Enforce exactly one primary GST number
+    // 1. At most one can be explicitly marked primary
+    const primaryCount = gstNumbers.filter((gst) => gst.isPrimary).length;
+    if (primaryCount > 1) {
+      throw new ValidationError('Only one GST number can be marked as primary');
+    }
+
+    // 2. Auto-set first GST as primary if none specified
+    const autoSetPrimaryIndex = primaryCount === 0 ? 0 : -1;
+
+    for (let i = 0; i < gstNumbers.length; i++) {
+      const gst = gstNumbers[i];
       // Validate GST number format and state code match
       const isValid = gstService.validateGSTNumber(gst.gstNumber, gst.stateCode);
 
@@ -993,6 +998,9 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         }
       }
 
+      // BUG-CU6 fix: Use explicit primary flag, or auto-set first GST as primary
+      const isPrimary = gst.isPrimary || i === autoSetPrimaryIndex;
+
       gstNumberData.push({
         customerId,
         stateId,
@@ -1002,7 +1010,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         billingAddress: gst.billingAddress || null,
         billingCityId: gst.billingCityId || null,
         billingPincode: gst.billingPincode || null,
-        isPrimary: gst.isPrimary || false,
+        isPrimary,
       });
     }
 

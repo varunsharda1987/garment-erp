@@ -4,6 +4,7 @@ import { logInfo, logWarn } from '../utils/logger';
 import { calculateCadAverage } from './cad-planning.utils';
 import { NotFoundError, ValidationError, BusinessError, UnauthorizedError } from '../errors';
 import { Decimal } from '@prisma/client/runtime/library';
+import { multiplyCurrency, toNumber } from '../utils/currency'; // BUG-FAB12 fix
 
 /**
  * Reserve fabric stock for a PRODUCTION CAD
@@ -21,7 +22,8 @@ async function reserveFabricStock(
   cadId: string
 ): Promise<{ reservedQuantity: number; success: boolean; message: string }> {
   // Calculate quantity needed (meters)
-  const quantityNeeded = cadAverage * orderQuantityPcs;
+  // BUG-FAB12 fix: use decimal.js for precision
+  const quantityNeeded = toNumber(multiplyCurrency(cadAverage, orderQuantityPcs));
 
   // Get current stock
   const stock = await prisma.fabric_stock.findUnique({
@@ -672,7 +674,7 @@ export async function linkCADToStock(req: Request, res: Response) {
   let widthVariance = null;
   let variancePercent = null;
 
-  if (planningCadWidth) {
+  if (planningCadWidth && planningCadWidth > 0) {
     widthVariance = Number(fabricStock.cutableWidth) - planningCadWidth;
     variancePercent = (widthVariance / planningCadWidth) * 100;
   }

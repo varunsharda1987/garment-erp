@@ -4,6 +4,9 @@ import { TestTemplateType, TestResult } from '@prisma/client';
 // TESTING LABS
 // ============================================================================
 
+// BUG-TEST10 fix: Database entity type (raw Prisma shape)
+// Note: accreditations is stored as JSON string in DB but transformed to string[]
+// in API responses via formatLabResponse() in testingLabs.service.ts
 export interface TestingLab {
   id: string;
   labCode: string;
@@ -16,11 +19,43 @@ export interface TestingLab {
   state: string | null;
   pincode: string | null;
   averageTurnaroundDays: number;
-  accreditations: string | null; // JSON array as string
+  accreditations: string | null; // JSON array as string (DB storage format)
   isActive: boolean;
   createdById: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// BUG-TEST10 fix: API response type (after formatLabResponse transformation)
+// Frontend should use this type for API responses
+export interface TestingLabResponse {
+  id: string;
+  labCode: string;
+  labName: string;
+  contactPerson: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  pincode: string | null;
+  averageTurnaroundDays: number;
+  accreditations: string[]; // Parsed JSON array (API response format)
+  isActive: boolean;
+  createdById: string;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  _count?: {
+    fabricTests: number;
+    garmentTests: number;
+    customerDefaults?: number;
+  };
 }
 
 export interface CreateTestingLabInput {
@@ -258,7 +293,6 @@ export interface RetestFabricInput {
 }
 
 export interface ApproveFabricTestInput {
-  testId: string;
   adminOverride?: boolean;
   overrideReason?: string;
 }
@@ -308,8 +342,7 @@ export interface GarmentPhysicalTest {
   // Additional Tests
   pilling: string | null;
   spirality: number | null;
-  fabricWeight: number | null;
-  appearance: string | null;
+  apparenceAfterWash: string | null;
   testReportUrl: string | null;
 
   // Overall Status
@@ -388,8 +421,7 @@ export interface UpdateGarmentPhysicalTestInput {
   // Additional Tests
   pilling?: string;
   spirality?: number;
-  fabricWeight?: number;
-  appearance?: string;
+  apparenceAfterWash?: string;
   testReportUrl?: string;
 
   // Overall Status
@@ -414,13 +446,11 @@ export interface RetestGarmentInput {
 }
 
 export interface ApproveGarmentTestInput {
-  testId: string;
   adminOverride?: boolean;
   overrideReason?: string;
 }
 
 export interface BuyerApproveGarmentTestInput {
-  testId: string;
   buyerRemarks?: string;
 }
 

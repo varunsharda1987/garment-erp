@@ -14,11 +14,18 @@ import {
   createGRN,
   approveGRN,
   rejectGRN,
+  reverseGRN, // BUG-GRN6 fix
 } from '../controllers/grn.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateParams } from '../middleware/validation.middleware';
-import { createGRNSchema, approveGRNSchema, rejectGRNSchema } from '../schemas/grn.schema';
+import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
+import {
+  createGRNSchema,
+  approveGRNSchema,
+  rejectGRNSchema,
+  reverseGRNSchema,
+  grnQuerySchema,
+} from '../schemas/grn.schema';
 import { idParamSchema, poIdParamSchema } from '../schemas/common.schema';
 
 const router = Router();
@@ -35,7 +42,7 @@ router.use(authenticateToken);
  * @desc    Get all GRNs with filters and pagination
  * @access  Private
  */
-router.get('/', asyncHandler(getAllGRNs));
+router.get('/', validateQuery(grnQuerySchema), asyncHandler(getAllGRNs));
 
 /**
  * @route   GET /api/grn/po/:poId
@@ -100,5 +107,13 @@ router.patch('/:id/approve', validateParams(idParamSchema), validateBody(approve
  * @access  Private (QC, ADMIN)
  */
 router.patch('/:id/reject', validateParams(idParamSchema), validateBody(rejectGRNSchema), asyncHandler(rejectGRN));
+
+// BUG-GRN6 fix: Comprehensive GRN reversal endpoint
+/**
+ * @route   PATCH /api/grn/:id/reverse
+ * @desc    Reverse an accepted GRN (ACCEPTED -> REVERSED) - fully reverses all stock and transactions
+ * @access  Private (ADMIN)
+ */
+router.patch('/:id/reverse', validateParams(idParamSchema), validateBody(reverseGRNSchema), asyncHandler(reverseGRN));
 
 export default router;

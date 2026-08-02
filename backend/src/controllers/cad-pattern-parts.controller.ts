@@ -29,7 +29,20 @@ export async function getStyleFabricPatternParts(req: Request, res: Response) {
       },
     },
     include: {
-      style_components: true,
+      style_components: {
+        include: {
+          // BUG-PP10 fix: include componentMaster relation for ID-based lookup
+          componentMaster: {
+            include: {
+              patternParts: {
+                include: {
+                  patternPart: true,
+                },
+              },
+            },
+          },
+        },
+      },
       stylePatternParts: {
         include: {
           patternPart: true,
@@ -42,21 +55,35 @@ export async function getStyleFabricPatternParts(req: Request, res: Response) {
     throw new NotFoundError('Style fabric', fabricId);
   }
 
-  // Get component pattern parts from component_master
-  // Look up by componentType (which should match component_masters.name)
-  const componentMaster = await prisma.component_masters.findFirst({
-    where: {
-      OR: [{ name: styleFabric.style_components.componentType }, { name: styleFabric.style_components.componentName }],
-      isActive: true,
-    },
-    include: {
-      patternParts: {
-        include: {
-          patternPart: true,
+  // BUG-PP10 fix: Prefer ID-based lookup via componentMasterId FK.
+  // Fall back to name-based lookup only for legacy data where componentMasterId is null.
+  let componentMaster = styleFabric.style_components.componentMaster;
+
+  if (!componentMaster) {
+    // Legacy fallback: name-based lookup (fragile if names change)
+    componentMaster = await prisma.component_masters.findFirst({
+      where: {
+        OR: [
+          { name: { equals: styleFabric.style_components.componentType, mode: 'insensitive' } },
+          { name: { equals: styleFabric.style_components.componentName, mode: 'insensitive' } },
+        ],
+        isActive: true,
+      },
+      include: {
+        patternParts: {
+          include: {
+            patternPart: true,
+          },
         },
       },
-    },
-  });
+    });
+
+    if (!componentMaster) {
+      console.warn(
+        `[cad-pattern-parts] No component_master found for componentType="${styleFabric.style_components.componentType}" or componentName="${styleFabric.style_components.componentName}". Consider setting componentMasterId on style_components.`
+      );
+    }
+  }
 
   // Get available pattern parts from component master (for selection)
   const availableFromComponent =
@@ -271,7 +298,21 @@ export async function assignPatternPartsFromComponent(req: Request, res: Respons
       },
     },
     include: {
-      style_components: true,
+      style_components: {
+        include: {
+          // BUG-PP10 fix: include componentMaster relation for ID-based lookup
+          componentMaster: {
+            include: {
+              patternParts: {
+                include: {
+                  patternPart: true,
+                },
+              },
+              componentGroup: true,
+            },
+          },
+        },
+      },
     },
   });
 
@@ -279,21 +320,36 @@ export async function assignPatternPartsFromComponent(req: Request, res: Respons
     throw new NotFoundError('Style fabric', fabricId);
   }
 
-  // Get component pattern parts from component_master
-  const componentMaster = await prisma.component_masters.findFirst({
-    where: {
-      OR: [{ name: styleFabric.style_components.componentType }, { name: styleFabric.style_components.componentName }],
-      isActive: true,
-    },
-    include: {
-      patternParts: {
-        include: {
-          patternPart: true,
-        },
+  // BUG-PP10 fix: Prefer ID-based lookup via componentMasterId FK.
+  // Fall back to name-based lookup only for legacy data where componentMasterId is null.
+  let componentMaster = styleFabric.style_components.componentMaster;
+
+  if (!componentMaster) {
+    // Legacy fallback: name-based lookup (fragile if names change)
+    componentMaster = await prisma.component_masters.findFirst({
+      where: {
+        OR: [
+          { name: { equals: styleFabric.style_components.componentType, mode: 'insensitive' } },
+          { name: { equals: styleFabric.style_components.componentName, mode: 'insensitive' } },
+        ],
+        isActive: true,
       },
-      componentGroup: true,
-    },
-  });
+      include: {
+        patternParts: {
+          include: {
+            patternPart: true,
+          },
+        },
+        componentGroup: true,
+      },
+    });
+
+    if (!componentMaster) {
+      console.warn(
+        `[cad-pattern-parts] No component_master found for componentType="${styleFabric.style_components.componentType}" or componentName="${styleFabric.style_components.componentName}". Consider setting componentMasterId on style_components.`
+      );
+    }
+  }
 
   // Define a common structure for pattern parts from either source
   type PatternPartItem = {
@@ -397,10 +453,22 @@ export async function assignPatternPartsFromComponent(req: Request, res: Respons
 export async function getCADPatternPartsForComponent(req: Request, res: Response) {
   const { styleId, componentId } = req.params;
 
-  // 1. Get the component with style_fabrics, CAD rows, and stylePatternParts
+  // 1. Get the component with style_fabrics, CAD rows, stylePatternParts, and componentMaster
+  // BUG-PP10 fix: include componentMaster relation for ID-based lookup
   const component = await prisma.style_components.findUnique({
     where: { id: componentId },
     include: {
+      componentMaster: {
+        include: {
+          patternParts: {
+            include: {
+              patternPart: true,
+            },
+            orderBy: { patternPart: { sortOrder: 'asc' } },
+          },
+          componentGroup: true,
+        },
+      },
       style_fabrics: {
         include: {
           cadRows: {
@@ -482,22 +550,37 @@ export async function getCADPatternPartsForComponent(req: Request, res: Response
     }
   );
 
-  // 4. Look up component master by name (not FK - uses componentType/componentName)
-  const componentMaster = await prisma.component_masters.findFirst({
-    where: {
-      OR: [{ name: component.componentType }, { name: component.componentName }],
-      isActive: true,
-    },
-    include: {
-      patternParts: {
-        include: {
-          patternPart: true,
-        },
-        orderBy: { patternPart: { sortOrder: 'asc' } },
+  // BUG-PP10 fix: Prefer ID-based lookup via componentMasterId FK.
+  // Fall back to name-based lookup only for legacy data where componentMasterId is null.
+  let componentMaster = component.componentMaster;
+
+  if (!componentMaster) {
+    // Legacy fallback: name-based lookup (fragile if names change)
+    componentMaster = await prisma.component_masters.findFirst({
+      where: {
+        OR: [
+          { name: { equals: component.componentType, mode: 'insensitive' } },
+          { name: { equals: component.componentName, mode: 'insensitive' } },
+        ],
+        isActive: true,
       },
-      componentGroup: true,
-    },
-  });
+      include: {
+        patternParts: {
+          include: {
+            patternPart: true,
+          },
+          orderBy: { patternPart: { sortOrder: 'asc' } },
+        },
+        componentGroup: true,
+      },
+    });
+
+    if (!componentMaster) {
+      console.warn(
+        `[cad-pattern-parts] No component_master found for componentType="${component.componentType}" or componentName="${component.componentName}". Consider setting componentMasterId on style_components.`
+      );
+    }
+  }
 
   // 5. Get remaining pattern parts from component master (not in CAD)
   const masterPatternParts: Array<{

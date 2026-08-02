@@ -57,12 +57,14 @@ export const createSaleOrderSchema = z.object({
     .string()
     .refine((v) => !Number.isNaN(Date.parse(v)), 'Invalid date')
     .optional(), // Buyer's required completion date
-  orderDate: z.string().datetime().optional(),
-  deliveryDate: z.string().datetime().optional(),
+  // z.coerce.date(): date pickers send YYYY-MM-DD, z.string().datetime() rejects it
+  orderDate: z.coerce.date().optional(),
+  deliveryDate: z.coerce.date().optional(),
   paymentTerms: z.string().max(100).optional(),
   deliveryAddress: z.string().max(500).optional(),
   remarks: z.string().max(500).optional(),
-  items: z.array(saleOrderItemSchema).min(1, 'At least one item is required'),
+  // BUG-ORD2 fix: items made optional - frontend creates order first, adds items on detail page
+  items: z.array(saleOrderItemSchema).optional().default([]),
 });
 
 /**
@@ -81,8 +83,9 @@ export const updateSaleOrderSchema = z.object({
     .refine((v) => !Number.isNaN(Date.parse(v)), 'Invalid date')
     .optional()
     .nullable(), // Buyer's required completion date
-  orderDate: z.string().datetime().optional().nullable(),
-  deliveryDate: z.string().datetime().optional().nullable(),
+  // z.coerce.date(): date pickers send YYYY-MM-DD, z.string().datetime() rejects it
+  orderDate: z.coerce.date().optional().nullable(),
+  deliveryDate: z.coerce.date().optional().nullable(),
   paymentTerms: z.string().max(100).optional().nullable(),
   deliveryAddress: z.string().max(500).optional().nullable(),
   status: SaleOrderStatusEnum.optional(),
@@ -119,8 +122,8 @@ export const saleOrderQuerySchema = z.object({
   search: z.string().max(100).optional(),
   customerId: z.string().uuid().optional(),
   status: SaleOrderStatusEnum.optional(),
-  fromDate: z.string().datetime().optional(),
-  toDate: z.string().datetime().optional(),
+  fromDate: z.coerce.date().optional(),
+  toDate: z.coerce.date().optional(),
 });
 
 // ============================================================================

@@ -5,6 +5,8 @@
 
 import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
+import { BusinessError, NotFoundError } from '../errors';
+import { toCurrency, addCurrency, divideCurrency, toNumber } from '../utils/currency'; // BUG-CAD8 fix
 
 // ============================================================================
 // CONSTANTS
@@ -126,8 +128,9 @@ export function calculateCadAverage(
   if (!cadMeters || !piecesPerMarker || piecesPerMarker <= 0) {
     return null;
   }
-  const margin = layerMarginMeters || 0;
-  return (cadMeters + margin) / piecesPerMarker;
+  // BUG-CAD8 fix: use decimal.js for safe arithmetic
+  const totalMeters = addCurrency(cadMeters, layerMarginMeters || 0);
+  return toNumber(divideCurrency(totalMeters, piecesPerMarker));
 }
 
 /**
@@ -203,12 +206,12 @@ export async function validateCADModification(cadId: string, operation: 'update'
   });
 
   if (!cad) {
-    throw new Error('CAD entry not found');
+    throw new NotFoundError('CAD entry', cadId);
   }
 
   // Check if CAD is approved
   if (cad.approvalStatus === 'APPROVED') {
-    throw new Error(
+    throw new BusinessError(
       `Cannot ${operation} CAD entry: This CAD has been approved and is locked. ` +
         `Approved by: ${cad.approvedBy} on ${cad.approvedAt?.toLocaleString()}. ` +
         `To make changes, first reject the approval, make your changes, then resubmit for approval.`
@@ -217,7 +220,7 @@ export async function validateCADModification(cadId: string, operation: 'update'
 
   // Additional check for PRODUCTION CAD with isLocked flag
   if (cad.purpose === 'PRODUCTION' && cad.isLocked) {
-    throw new Error(
+    throw new BusinessError(
       `Cannot ${operation} CAD entry: This is a locked PRODUCTION CAD. ` +
         `Production CADs cannot be modified after locking to maintain data integrity.`
     );

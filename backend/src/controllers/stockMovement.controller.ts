@@ -36,14 +36,31 @@ const ITEM_TYPE_TO_FK: Record<string, string> = {
 export const getAllMovements = async (req: Request, res: Response) => {
   const { warehouseId, materialId, movementType, startDate, endDate, referenceType, referenceId } = req.query;
 
+  const validMovementTypes = [
+    'STOCK_IN',
+    'STOCK_OUT',
+    'TRANSFER_IN',
+    'TRANSFER_OUT',
+    'ADJUSTMENT_IN',
+    'ADJUSTMENT_OUT',
+  ];
+
   const filters: any = {};
   if (warehouseId) filters.warehouseId = warehouseId as string;
   if (materialId) filters.materialId = materialId as string;
-  if (movementType) filters.movementType = movementType as MovementType;
+  if (movementType && validMovementTypes.includes(movementType as string)) {
+    filters.movementType = movementType as MovementType;
+  }
   if (referenceType) filters.referenceType = referenceType as string;
   if (referenceId) filters.referenceId = referenceId as string;
-  if (startDate) filters.startDate = new Date(startDate as string);
-  if (endDate) filters.endDate = new Date(endDate as string);
+  if (startDate) {
+    const parsedStart = new Date(startDate as string);
+    if (!isNaN(parsedStart.getTime())) filters.startDate = parsedStart;
+  }
+  if (endDate) {
+    const parsedEnd = new Date(endDate as string);
+    if (!isNaN(parsedEnd.getTime())) filters.endDate = parsedEnd;
+  }
 
   const movements = await stockMovementService.getAllMovements(filters);
 
@@ -135,7 +152,7 @@ export const createStockIn = async (req: Request, res: Response) => {
     remarks,
     performedById: userId,
     foldLengthCm: foldLengthCm ? new Decimal(foldLengthCm) : undefined,
-    thanCount: thanCount ? parseInt(thanCount) : undefined,
+    thanCount: thanCount != null ? parseInt(thanCount) : undefined,
     invoiceNumber,
     invoiceDate: invoiceDate ? new Date(invoiceDate) : undefined,
   };
@@ -209,7 +226,7 @@ export const createBulkStockIn = async (req: Request, res: Response) => {
       unit: item.unit as Unit,
       rate: item.rate ? new Decimal(item.rate) : undefined,
       foldLengthCm: item.foldLengthCm ? new Decimal(item.foldLengthCm) : undefined,
-      thanCount: item.thanCount ? parseInt(item.thanCount) : undefined,
+      thanCount: item.thanCount != null ? parseInt(item.thanCount) : undefined,
       remarks: item.remarks,
     });
   }
@@ -356,7 +373,7 @@ export const createStockAdjustment = async (req: Request, res: Response) => {
     throw new ValidationError('User not authenticated');
   }
 
-  const { materialId, warehouseId, adjustmentQuantity, unit, reason } = req.body;
+  const { materialId, warehouseId, adjustmentQuantity, unit, reason, remarks } = req.body;
 
   // Validation
   if (!materialId || !warehouseId || adjustmentQuantity === undefined || !unit || !reason) {
@@ -369,6 +386,7 @@ export const createStockAdjustment = async (req: Request, res: Response) => {
     adjustmentQuantity: new Decimal(adjustmentQuantity),
     unit: unit as Unit,
     reason,
+    remarks,
     performedById: userId,
   };
 

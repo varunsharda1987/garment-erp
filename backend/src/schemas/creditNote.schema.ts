@@ -38,7 +38,7 @@ const creditNoteItemSchema = z.object({
 export const createCreditNoteSchema = z.object({
   invoiceId: z.string().uuid('Invalid invoice ID format'),
   customerId: z.string().uuid('Invalid customer ID format'),
-  creditNoteDate: z.string().optional().nullable(),
+  creditNoteDate: z.coerce.date().optional().nullable(),
   reason: CreditNoteReasonEnum,
   remarks: z.string().max(1000, 'Remarks must not exceed 1000 characters').trim().optional().nullable(),
   items: z.array(creditNoteItemSchema).min(1, 'At least one item is required'),

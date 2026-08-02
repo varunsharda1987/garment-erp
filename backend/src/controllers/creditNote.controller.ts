@@ -8,7 +8,9 @@ export class CreditNoteController {
    * Get all credit notes with pagination
    */
   async getAll(req: Request, res: Response) {
-    const { page = '1', limit = '20', search, status, customerId, fromDate, toDate, sortBy, sortOrder } = req.query;
+    // BUG-FIN3 fix: Use validatedQuery (Zod-coerced) instead of raw req.query
+    const query = (req as any).validatedQuery ?? req.query;
+    const { page = '1', limit = '20', search, status, customerId, fromDate, toDate, sortBy, sortOrder } = query;
 
     const result = await creditNoteService.getAll({
       page: parseInt(page as string, 10),

@@ -2,8 +2,12 @@ import express from 'express';
 import { patternPartController } from '../controllers/patternPart.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody } from '../middleware/validation.middleware';
-import { addComponentPatternPartSchema, updateComponentPatternPartSchema } from '../schemas/patternPart.schema';
+import { validateBody, validateParams } from '../middleware/validation.middleware';
+import {
+  addComponentPatternPartSchema,
+  updateComponentPatternPartSchema,
+  patternPartIdRouteParamSchema,
+} from '../schemas/patternPart.schema';
 
 const router = express.Router({ mergeParams: true }); // mergeParams to access :componentId from parent router
 
@@ -21,15 +25,19 @@ router.post(
 );
 
 // Update component-pattern part association
+// bug-hunt: added validateParams for patternPartId
 router.put(
   '/:patternPartId',
+  validateParams(patternPartIdRouteParamSchema),
   validateBody(updateComponentPatternPartSchema),
   asyncHandler(patternPartController.updateComponentPatternPart.bind(patternPartController))
 );
 
 // Remove pattern part from component
+// bug-hunt: added validateParams for patternPartId
 router.delete(
   '/:patternPartId',
+  validateParams(patternPartIdRouteParamSchema),
   asyncHandler(patternPartController.removePatternPartFromComponent.bind(patternPartController))
 );
 

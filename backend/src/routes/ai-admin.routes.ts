@@ -19,6 +19,8 @@ import { ValidationError } from '../errors';
 import {
   searchDocumentsSchema,
   updateRagConfigSchema,
+  deleteDocumentsSchema,
+  fullReindexSchema,
   type SearchDocumentsInput,
   type UpdateRagConfigInput,
 } from '../schemas/aiAdmin.schema';
@@ -163,10 +165,12 @@ router.post(
 /**
  * POST /api/ai-admin/index/all
  * Full reindex of all content
+ * @body { confirmReindex: true }
+ * BUG-ADM4 fix: added validation to require explicit confirmation for full reindex
  */
-// no-body: full-reindex trigger, every source; no req.body read
 router.post(
   '/index/all',
+  validateBody(fullReindexSchema),
   asyncHandler(async (req: Request, res: Response) => {
     if (!embeddingService.isInitialized()) {
       throw new ValidationError('Embedding service not initialized. Call /initialize first.');
@@ -214,10 +218,12 @@ router.post(
 /**
  * DELETE /api/ai-admin/documents/:type
  * Delete all documents of a specific type
+ * @body { confirmDelete: true }
+ * BUG-ADM4 fix: added validation to require explicit confirmation for dangerous delete
  */
-// no-body: keyed entirely off the :type URL param; no req.body read
 router.delete(
   '/documents/:type',
+  validateBody(deleteDocumentsSchema),
   asyncHandler(async (req: Request, res: Response) => {
     if (!embeddingService.isInitialized()) {
       throw new ValidationError('Embedding service not initialized');

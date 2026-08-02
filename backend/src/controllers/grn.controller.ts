@@ -176,6 +176,7 @@ export const approveGRN = async (req: Request, res: Response) => {
 
   // ==========================================
   // PHASE 2C: Auto-update cost sheet actuals from GRN
+  // BUG-PROC4 fix: Enhanced post-commit error handling with structured context
   // ==========================================
   try {
     // Fetch GRN with items and trace back to styleId
@@ -246,54 +247,75 @@ export const approveGRN = async (req: Request, res: Response) => {
 
       // Update cost sheet actuals for each style
       for (const [styleId, actuals] of Object.entries(styleActuals)) {
-        if (actuals.fabric > 0) {
-          await updateCostSheetActuals({
-            styleId,
-            category: 'FABRIC',
-            actualCost: actuals.fabric,
-            source: 'GRN',
-          });
-          logInfo(`Updated fabric actual for style ${styleId}: ${actuals.fabric}`, {
-            source: 'GRN',
-            grnNumber: grn.grnNumber,
-          });
-        }
+        // BUG-PROC4 fix: Wrap each style update in its own try-catch to prevent one failure
+        // from blocking others, and log structured data for potential retry
+        try {
+          if (actuals.fabric > 0) {
+            await updateCostSheetActuals({
+              styleId,
+              category: 'FABRIC',
+              actualCost: actuals.fabric,
+              source: 'GRN',
+            });
+            logInfo(`Updated fabric actual for style ${styleId}: ${actuals.fabric}`, {
+              source: 'GRN',
+              grnNumber: grn.grnNumber,
+            });
+          }
 
-        if (actuals.trims > 0) {
-          await updateCostSheetActuals({
-            styleId,
-            category: 'TRIMS',
-            actualCost: actuals.trims,
-            source: 'GRN',
-          });
-          logInfo(`Updated trims actual for style ${styleId}: ${actuals.trims}`, {
-            source: 'GRN',
-            grnNumber: grn.grnNumber,
-          });
-        }
+          if (actuals.trims > 0) {
+            await updateCostSheetActuals({
+              styleId,
+              category: 'TRIMS',
+              actualCost: actuals.trims,
+              source: 'GRN',
+            });
+            logInfo(`Updated trims actual for style ${styleId}: ${actuals.trims}`, {
+              source: 'GRN',
+              grnNumber: grn.grnNumber,
+            });
+          }
 
-        if (actuals.lace > 0) {
-          await updateCostSheetActuals({
-            styleId,
-            category: 'LACE',
-            actualCost: actuals.lace,
-            source: 'GRN',
-          });
-          logInfo(`Updated lace actual for style ${styleId}: ${actuals.lace}`, {
-            source: 'GRN',
+          if (actuals.lace > 0) {
+            await updateCostSheetActuals({
+              styleId,
+              category: 'LACE',
+              actualCost: actuals.lace,
+              source: 'GRN',
+            });
+            logInfo(`Updated lace actual for style ${styleId}: ${actuals.lace}`, {
+              source: 'GRN',
+              grnNumber: grn.grnNumber,
+            });
+          }
+        } catch (styleError) {
+          // BUG-PROC4 fix: Log structured error with full context for debugging/retry
+          logError('Failed to update cost sheet actuals for style (post-commit)', styleError, {
+            postCommitOperation: 'costSheetActuals',
+            grnId: id,
             grnNumber: grn.grnNumber,
+            styleId,
+            pendingActuals: actuals,
+            canRetry: true,
           });
         }
       }
     }
   } catch (error) {
-    // Log error but don't fail the GRN approval
-    logError('Failed to auto-update cost sheet actuals from GRN', error);
+    // BUG-PROC4 fix: Enhanced error logging with structured context
+    logError('Failed to auto-update cost sheet actuals from GRN (post-commit)', error, {
+      postCommitOperation: 'costSheetActuals',
+      grnId: id,
+      grnNumber: grn.grnNumber,
+      phase: 'fetch',
+      canRetry: true,
+    });
   }
   // ==========================================
 
   // ==========================================
   // Check for pending cutting work orders that use the received fabrics
+  // BUG-PROC4 fix: Enhanced post-commit error handling with structured context
   // ==========================================
   let pendingCuttingInfo: Array<{ workOrderNumber: string; workOrderId: string; pendingQty: number }> = [];
   try {
@@ -351,7 +373,16 @@ export const approveGRN = async (req: Request, res: Response) => {
       }
     }
   } catch (error) {
-    logError('Failed to check pending cutting work orders after GRN', error);
+    // BUG-PROC4 fix: Enhanced error logging with structured context for debugging
+    // This is informational (pendingCutting data enriches the response but is not critical)
+    logError('Failed to check pending cutting work orders after GRN (post-commit)', error, {
+      postCommitOperation: 'pendingCuttingCheck',
+      grnId: id,
+      grnNumber: grn.grnNumber,
+      // Non-critical: failure just means the response won't include cutting suggestions
+      severity: 'warning',
+      canRetry: false,
+    });
   }
   // ==========================================
 
@@ -400,5 +431,39 @@ export const rejectGRN = async (req: Request, res: Response) => {
     success: true,
     data: grn,
     message: 'GRN rejected successfully',
+  });
+};
+
+// BUG-GRN6 fix: Comprehensive GRN reversal endpoint
+/**
+ * @route PATCH /api/grn/:id/reverse
+ * @desc Reverse an accepted GRN (ACCEPTED -> REVERSED) - fully reverses all stock and transactions
+ * @access Private (ADMIN)
+ */
+export const reverseGRN = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
+  }
+
+  if (!reason) {
+    throw new ValidationError('Reversal reason is required');
+  }
+
+  const grn = await grnService.reverseGRN(id, userId, reason);
+
+  logInfo(`GRN reversed: ${grn.grnNumber}`, {
+    grnId: id,
+    userId,
+    reason,
+  });
+
+  res.json({
+    success: true,
+    data: grn,
+    message: 'GRN reversed successfully. All stock movements and entries have been reversed.',
   });
 };

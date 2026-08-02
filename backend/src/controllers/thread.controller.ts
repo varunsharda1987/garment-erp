@@ -4,6 +4,7 @@ import { getDerivedStockDetailed } from '../services/helpers/derived-stock.helpe
 import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { threadStockService } from '../services/thread-stock.service';
+import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 
 // Type for supplier input
 interface ThreadSupplierInput {
@@ -29,7 +30,11 @@ export const createThread = async (req: Request, res: Response) => {
     metersPerUnit,
     color,
     colorCode,
+    colorId, // FK to color_master
     coneSize,
+    ply, // 2-Ply | 3-Ply
+    materialComposition, // Polyester | Cotton
+    unitsPerBox, // Auto-set based on ply + packaging
     pricePerCone,
     supplierCode,
     buyerCode,
@@ -96,7 +101,11 @@ export const createThread = async (req: Request, res: Response) => {
       metersPerUnit: metersPerUnit ? parseFloat(metersPerUnit) : null,
       color: color || null,
       colorCode: colorCode || null,
+      colorId: colorId || null,
       coneSize: coneSize || null,
+      ply: ply || null,
+      materialComposition: materialComposition || null,
+      unitsPerBox: unitsPerBox ? parseInt(unitsPerBox, 10) : null,
       pricePerCone: pricePerCone ? parseFloat(pricePerCone) : null,
       supplierCode: supplierCode || null,
       buyerCode: buyerCode || null,
@@ -358,7 +367,11 @@ export const updateThread = async (req: Request, res: Response) => {
     metersPerUnit,
     color,
     colorCode,
+    colorId, // FK to color_master
     coneSize,
+    ply, // 2-Ply | 3-Ply
+    materialComposition, // Polyester | Cotton
+    unitsPerBox, // Auto-set based on ply + packaging
     pricePerCone,
     supplierCode,
     buyerCode,
@@ -471,7 +484,11 @@ export const updateThread = async (req: Request, res: Response) => {
       ...(metersPerUnit !== undefined && { metersPerUnit: metersPerUnit ? parseFloat(metersPerUnit) : null }),
       ...(color !== undefined && { color: color || null }),
       ...(colorCode !== undefined && { colorCode: colorCode || null }),
+      ...(colorId !== undefined && { colorId: colorId || null }),
       ...(coneSize !== undefined && { coneSize: coneSize || null }),
+      ...(ply !== undefined && { ply: ply || null }),
+      ...(materialComposition !== undefined && { materialComposition: materialComposition || null }),
+      ...(unitsPerBox !== undefined && { unitsPerBox: unitsPerBox ? parseInt(unitsPerBox, 10) : null }),
       ...(pricePerCone !== undefined && { pricePerCone: pricePerCone ? parseFloat(pricePerCone) : null }),
       ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
       ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
@@ -509,12 +526,10 @@ export const updateThread = async (req: Request, res: Response) => {
     },
   });
 
-  // Update material name if threadName changed
-  if (finalThreadName) {
-    await prisma.materials.updateMany({
-      where: { threadId: id },
-      data: { name: finalThreadName },
-    });
+  // BUG-MM13 fix: sync code to materials
+  // Note: threadCode is not updated (auto-generated), only sync name changes
+  if (finalThreadName && finalThreadName !== existing.threadName) {
+    await syncMasterToMaterials(id, 'THREAD', { name: finalThreadName });
   }
 
   // Transform response
@@ -586,7 +601,7 @@ export const deleteThread = async (req: Request, res: Response) => {
  */
 export const bulkImportThreads = async (req: Request, res: Response) => {
   const { data, createStock = false } = req.body;
-  const userId = (req as any).user?.id || 'system';
+  const userId = req.user?.userId || 'system';
 
   if (!data || !Array.isArray(data) || data.length === 0) {
     throw new ValidationError('No data provided for import');
@@ -851,8 +866,8 @@ export const getThreadStock = async (req: Request, res: Response) => {
   const totalUnits = stockLevels.reduce((sum, level) => sum + parseFloat(level.quantity.toString()), 0);
 
   // Calculate total boxes (using unitsPerBox if available)
-  const unitsPerBox = thread.unitsPerBox || 10; // Default to 10 if not set
-  const totalBoxes = totalUnits / unitsPerBox;
+  const unitsPerBox = thread.unitsPerBox ?? 10; // Default to 10 if not set
+  const totalBoxes = unitsPerBox > 0 ? totalUnits / unitsPerBox : 0;
 
   // Calculate shortage if requiredUnits provided
   const required = requiredUnits ? parseFloat(requiredUnits as string) : 0;

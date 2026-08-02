@@ -170,30 +170,58 @@ export class StyleImportService {
       };
     }
 
-    // Create new brand category
-    // Note: category is required in schema, so we use a default if not provided
-    const created = await prisma.brand_categories.create({
-      data: {
-        id: randomUUID(),
-        customerId,
-        brandName: brandName.trim(),
-        category: category?.trim() || 'General', // Default category if not provided
-        ...(subCategory ? { subCategory: subCategory.trim() } : {}),
-        ...(subSubCategory ? { subSubCategory: subSubCategory.trim() } : {}),
-        createdAt: new Date(),
-      },
-    });
+    // BUG-MM8 fix: prevent race condition with P2002 handling
+    // Create new brand category using upsert pattern to handle concurrent requests
+    try {
+      const created = await prisma.brand_categories.create({
+        data: {
+          id: randomUUID(),
+          customerId,
+          brandName: brandName.trim(),
+          category: category?.trim() || 'General', // Default category if not provided
+          ...(subCategory ? { subCategory: subCategory.trim() } : {}),
+          ...(subSubCategory ? { subSubCategory: subSubCategory.trim() } : {}),
+          createdAt: new Date(),
+        },
+      });
 
-    logInfo(`Created new brand category: ${brandName} for customer ${customerId}`);
+      logInfo(`Created new brand category: ${brandName} for customer ${customerId}`);
 
-    return {
-      id: created.id,
-      customerId: created.customerId,
-      brandName: created.brandName,
-      category: created.category ?? null,
-      subCategory: created.subCategory ?? null,
-      subSubCategory: created.subSubCategory ?? null,
-    };
+      return {
+        id: created.id,
+        customerId: created.customerId,
+        brandName: created.brandName,
+        category: created.category ?? null,
+        subCategory: created.subCategory ?? null,
+        subSubCategory: created.subSubCategory ?? null,
+      };
+    } catch (err: any) {
+      // Handle race condition: another request created the record between our check and create
+      if (err?.code === 'P2002') {
+        const justCreated = await prisma.brand_categories.findFirst({
+          where: {
+            customerId,
+            brandName: { equals: brandName.trim(), mode: 'insensitive' },
+            ...(category ? { category: { equals: category.trim(), mode: 'insensitive' as const } } : {}),
+            ...(subCategory ? { subCategory: { equals: subCategory.trim(), mode: 'insensitive' as const } } : {}),
+            ...(subSubCategory
+              ? { subSubCategory: { equals: subSubCategory.trim(), mode: 'insensitive' as const } }
+              : {}),
+          },
+        });
+        if (justCreated) {
+          return {
+            id: justCreated.id,
+            customerId: justCreated.customerId,
+            brandName: justCreated.brandName,
+            category: justCreated.category ?? null,
+            subCategory: justCreated.subCategory ?? null,
+            subSubCategory: justCreated.subSubCategory ?? null,
+          };
+        }
+      }
+      throw err;
+    }
   }
 
   /**
@@ -217,21 +245,40 @@ export class StyleImportService {
       };
     }
 
-    // Create new category
-    const created = await prisma.style_categories.create({
-      data: {
-        id: randomUUID(),
-        name: categoryName.trim(),
-        createdAt: new Date(),
-      },
-    });
+    // BUG-MM8 fix: prevent race condition with P2002 handling
+    // Create new category with race-condition handling
+    try {
+      const created = await prisma.style_categories.create({
+        data: {
+          id: randomUUID(),
+          name: categoryName.trim(),
+          createdAt: new Date(),
+        },
+      });
 
-    logInfo(`Created new style category: ${categoryName}`);
+      logInfo(`Created new style category: ${categoryName}`);
 
-    return {
-      id: created.id,
-      name: created.name,
-    };
+      return {
+        id: created.id,
+        name: created.name,
+      };
+    } catch (err: any) {
+      // Handle race condition: another request created the record between our check and create
+      if (err?.code === 'P2002') {
+        const justCreated = await prisma.style_categories.findFirst({
+          where: {
+            name: { equals: categoryName.trim(), mode: 'insensitive' },
+          },
+        });
+        if (justCreated) {
+          return {
+            id: justCreated.id,
+            name: justCreated.name,
+          };
+        }
+      }
+      throw err;
+    }
   }
 
   /**

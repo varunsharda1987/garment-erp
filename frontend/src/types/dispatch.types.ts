@@ -140,7 +140,7 @@ export interface DeliveryNoteItem {
 export interface DeliveryNote {
   id: string;
   deliveryNumber: string;
-  orderId: string;
+  orderId?: string | null; // Optional: delivery notes can be created without an order
   customerId: string;
   deliveryDate: string;
   vehicleNumber?: string;

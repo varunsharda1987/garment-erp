@@ -35,6 +35,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { trimService, type TrimSummary, type TrimType } from '@/services/trim.service';
 import { genericTrimService } from '@/services/genericTrim.service';
 import type { TrimCountsResponse } from '@/types/genericTrim.types';
+import { notify } from '@/lib/notify';
 
 // Original 5 trim types (existing) - Labels moved to Packaging
 const ORIGINAL_TRIM_TYPES = [
@@ -285,6 +286,8 @@ export default function TrimMastersDashboard() {
       setNewTrimCounts(counts);
     } catch (err) {
       console.error('Failed to load new trim counts:', err);
+      // BUG-DASH13-15 fix: notify user on error
+      notify.error('Failed to load trim counts');
     }
   };
 
@@ -301,6 +304,8 @@ export default function TrimMastersDashboard() {
       setTotalTrims(response.total);
     } catch (err: unknown) {
       console.error('Failed to load trim summary:', err);
+      // BUG-DASH13-15 fix: notify user on error
+      notify.error('Failed to load trim summary');
     } finally {
       setLoading(false);
     }

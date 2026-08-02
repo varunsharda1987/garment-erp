@@ -48,8 +48,8 @@ interface AccountsDashboardData {
 }
 
 const emptyAging: AgingBucket[] = [
-  { label: '0-30 Days', amount: 0, count: 0, color: 'bg-success-muted0' },
-  { label: '31-60 Days', amount: 0, count: 0, color: 'bg-warning-muted0' },
+  { label: '0-30 Days', amount: 0, count: 0, color: 'bg-success-muted' },
+  { label: '31-60 Days', amount: 0, count: 0, color: 'bg-warning-muted' },
   { label: '61-90 Days', amount: 0, count: 0, color: 'bg-primary/100' },
   { label: '90+ Days', amount: 0, count: 0, color: 'bg-destructive/100' },
 ];

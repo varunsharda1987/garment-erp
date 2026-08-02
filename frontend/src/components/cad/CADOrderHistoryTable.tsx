@@ -77,28 +77,29 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [cloneSource, setCloneSource] = useState<CADOrderHistoryItem | null>(null);
   const [cloning, setCloning] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  // BUG-CAD8 fix: moved async function inside useEffect
   useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [styleId]);
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await cadPlanningService.getCADOrderHistory(styleId);
+        setHistory(response.history);
+        setCadSummary(response.cadSummary);
+        setTotalOrders(response.totalOrders);
+        setTotalCADs(response.totalCADs);
+      } catch (err) {
+        setError('Failed to load CAD order history');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await cadPlanningService.getCADOrderHistory(styleId);
-      setHistory(response.history);
-      setCadSummary(response.cadSummary);
-      setTotalOrders(response.totalOrders);
-      setTotalCADs(response.totalCADs);
-    } catch (err) {
-      setError('Failed to load CAD order history');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchData();
+  }, [styleId, refreshTrigger]);
 
   const handleCloneClick = (item: CADOrderHistoryItem) => {
     if (!item.cadId) {
@@ -124,7 +125,7 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
         notify.success(result.message || `Created new Raw Material CAD from Order ${cloneSource.orderNumber}`);
         setCloneDialogOpen(false);
         setCloneSource(null);
-        loadData(); // Refresh the list
+        setRefreshTrigger((prev) => prev + 1); // Refresh the list
         onCloneSuccess?.(); // Notify parent to refresh table
       }
     } catch (err) {

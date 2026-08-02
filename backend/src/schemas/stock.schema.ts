@@ -5,40 +5,24 @@
  */
 
 import { z } from 'zod';
+import { MovementTypeEnum, CountTypeEnum, CountStatusEnum, MaterialTypeEnum } from './generated/prisma-enums';
 
-// Movement type enum - matches Prisma MovementType
-export const MovementType = z.enum([
-  'STOCK_IN',
-  'STOCK_OUT',
-  'TRANSFER_IN',
-  'TRANSFER_OUT',
-  'ADJUSTMENT_IN',
-  'ADJUSTMENT_OUT',
-]);
+// Movement type enum - imported from Prisma enums
+export const MovementType = MovementTypeEnum;
 
-// Stock count type enum - matches Prisma CountType
-export const CountType = z.enum(['FULL', 'PARTIAL', 'CYCLE', 'SPOT_CHECK']);
+// Stock count type enum - imported from Prisma enums
+export const CountType = CountTypeEnum;
 
-// Stock count status enum - matches Prisma CountStatus
-export const CountStatus = z.enum(['DRAFT', 'IN_PROGRESS', 'COUNTED', 'VERIFIED', 'APPROVED', 'CANCELLED']);
+// Stock count status enum - imported from Prisma enums
+export const CountStatus = CountStatusEnum;
 
 // Stock movement schema
 export const createStockMovementSchema = z.object({
   warehouseId: z.string().uuid('Invalid warehouse ID'),
   targetWarehouseId: z.string().uuid('Invalid target warehouse ID').optional(),
   materialId: z.string().uuid('Invalid material ID'),
-  materialType: z.enum([
-    'Fabric',
-    'Greige',
-    'Lace',
-    'Button',
-    'Thread',
-    'Zipper',
-    'Elastic',
-    'Label',
-    'Packaging',
-    'Other',
-  ]),
+  // Use MaterialTypeEnum from Prisma to ensure alignment with database
+  materialType: MaterialTypeEnum,
   movementType: MovementType,
   quantity: z.number().positive('Quantity must be positive'),
   unit: z.string().min(1).max(20),
@@ -53,18 +37,8 @@ export const createStockMovementSchema = z.object({
 export const stockAdjustmentSchema = z.object({
   warehouseId: z.string().uuid('Invalid warehouse ID'),
   materialId: z.string().uuid('Invalid material ID'),
-  materialType: z.enum([
-    'Fabric',
-    'Greige',
-    'Lace',
-    'Button',
-    'Thread',
-    'Zipper',
-    'Elastic',
-    'Label',
-    'Packaging',
-    'Other',
-  ]),
+  // Use MaterialTypeEnum from Prisma to ensure alignment with database
+  materialType: MaterialTypeEnum,
   adjustmentQuantity: z.number().refine((val) => val !== 0, {
     message: 'Adjustment quantity cannot be zero',
   }),
@@ -77,18 +51,8 @@ export const stockTransferSchema = z.object({
   sourceWarehouseId: z.string().uuid('Invalid source warehouse ID'),
   targetWarehouseId: z.string().uuid('Invalid target warehouse ID'),
   materialId: z.string().uuid('Invalid material ID'),
-  materialType: z.enum([
-    'Fabric',
-    'Greige',
-    'Lace',
-    'Button',
-    'Thread',
-    'Zipper',
-    'Elastic',
-    'Label',
-    'Packaging',
-    'Other',
-  ]),
+  // Use MaterialTypeEnum from Prisma to ensure alignment with database
+  materialType: MaterialTypeEnum,
   quantity: z.number().positive('Quantity must be positive'),
   notes: z.string().max(1000).optional(),
 });
@@ -102,18 +66,7 @@ export const createStockCountSchema = z.object({
   items: z.array(
     z.object({
       materialId: z.string().uuid('Invalid material ID'),
-      materialType: z.enum([
-        'Fabric',
-        'Greige',
-        'Lace',
-        'Button',
-        'Thread',
-        'Zipper',
-        'Elastic',
-        'Label',
-        'Packaging',
-        'Other',
-      ]),
+      materialType: MaterialTypeEnum,
       systemQuantity: z.number().nonnegative(),
       countedQuantity: z.number().nonnegative(),
       variance: z.number().optional(),

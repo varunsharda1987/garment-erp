@@ -11,8 +11,8 @@ export interface ProductCategory {
   parentId?: string | null;
   level: number;
   sortOrder: number;
-  minComponents?: number;
-  maxComponents?: number;
+  minComponents: number;
+  maxComponents: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

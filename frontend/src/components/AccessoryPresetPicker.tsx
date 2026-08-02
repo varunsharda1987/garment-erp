@@ -292,7 +292,7 @@ export default function AccessoryPresetPicker({ isOpen, onClose, onSelect, custo
               <TabsTrigger value="LABEL" className="relative">
                 🏷️ Labels
                 {getSelectedCountForTab('LABEL') > 0 && (
-                  <span className="ml-2 bg-info-muted0 text-white text-xs rounded-full px-2 py-0.5">
+                  <span className="ml-2 bg-info-muted text-white text-xs rounded-full px-2 py-0.5">
                     {getSelectedCountForTab('LABEL')}
                   </span>
                 )}
@@ -300,7 +300,7 @@ export default function AccessoryPresetPicker({ isOpen, onClose, onSelect, custo
               <TabsTrigger value="PACKAGING" className="relative">
                 📦 Packaging
                 {getSelectedCountForTab('PACKAGING') > 0 && (
-                  <span className="ml-2 bg-info-muted0 text-white text-xs rounded-full px-2 py-0.5">
+                  <span className="ml-2 bg-info-muted text-white text-xs rounded-full px-2 py-0.5">
                     {getSelectedCountForTab('PACKAGING')}
                   </span>
                 )}

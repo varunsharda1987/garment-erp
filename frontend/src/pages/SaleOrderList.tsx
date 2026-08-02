@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
 import { Plus, Trash2, Search, ShoppingBag, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -52,8 +53,9 @@ export default function SaleOrderList() {
   const [expectedShipDate, setExpectedShipDate] = useState('');
   const [remarks, setRemarks] = useState('');
 
+  // BUG-ORD14 fix: standardized query key
   const { data, isLoading } = useQuery({
-    queryKey: ['sale-orders', { page, search, status: statusFilter }],
+    queryKey: queryKeys.saleOrders.list({ page, search, status: statusFilter }),
     queryFn: () =>
       getAllSaleOrders({
         page,
@@ -79,7 +81,7 @@ export default function SaleOrderList() {
   const createMutation = useMutation({
     mutationFn: createSaleOrder,
     onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all }); // BUG-ORD14 fix: standardized query key
       toast.success('Sale Order created');
       setCreateDialogOpen(false);
       resetForm();
@@ -94,7 +96,7 @@ export default function SaleOrderList() {
   const deleteMutation = useMutation({
     mutationFn: deleteSaleOrder,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sale-orders'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all }); // BUG-ORD14 fix: standardized query key
       toast.success('Sale Order deleted');
       setDeleteDialogOpen(false);
       setSoToDelete(null);

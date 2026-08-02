@@ -1,9 +1,1 @@
-[
-  "backend/src/services/document-generator.service.ts :: {minimumFractionDigits: 2}",
-  "frontend/src/components/EmbroiderySelector.tsx :: {minimumFractionDigits: 2}",
-  "frontend/src/components/thread/OrderThreadRequirementForm.tsx :: {minimumFractionDigits: 2}",
-  "frontend/src/pages/GRNForm.tsx :: {minimumFractionDigits: 2}",
-  "frontend/src/pages/PrintingList.tsx :: {minimumFractionDigits: 2}",
-  "frontend/src/pages/TCSList.tsx :: {style: 'currency', currency: 'INR', minimumFractionDigits: 2,}",
-  "frontend/src/pages/TDSList.tsx :: {style: 'currency', currency: 'INR', minimumFractionDigits: 2,}"
-]
+[]

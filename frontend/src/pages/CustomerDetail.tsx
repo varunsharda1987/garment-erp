@@ -18,7 +18,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { CustomerCategory, CustomerType } from '@/types/customer.types';
+import { CustomerCategory } from '@/types/customer.types';
+import type { Customer } from '@/types/customer.types';
 import type {
   CustomerAddress,
   CreateCustomerAddressRequest,
@@ -55,63 +56,13 @@ import { CustomerAddressDialog } from '@/components/CustomerAddressDialog';
 import { CustomerContactDialog } from '@/components/CustomerContactDialog';
 import { toast } from 'sonner';
 
-interface CustomerGstNumber {
-  id: string;
-  stateName: string;
-  stateCode: string;
-  gstNumber: string;
-  billingAddress?: string;
-  isPrimary: boolean;
-}
-
-interface BrandCategory {
-  id: string;
-  brandName: string;
-  category: string;
-}
-
-interface CustomerDetailData {
-  id: string;
-  code: string;
-  name: string;
-  type: CustomerType;
-  category: CustomerCategory;
-  brandNames?: string;
-  categories?: string;
-  contactPerson?: string;
-  email?: string;
-  phone?: string;
-  billingAddress?: string;
-  shippingAddress?: string;
-  gstNumber?: string;
-  creditLimit?: number;
-  creditDays?: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  customerGstNumbers?: CustomerGstNumber[];
-  brandCategories?: BrandCategory[];
-  customerAddresses?: CustomerAddress[];
-  customerContacts?: CustomerContact[];
-  agent?: {
-    id: string;
-    code: string;
-    name: string;
-    phone?: string;
-  };
-  agentCommissionPercent?: number;
-  _count?: {
-    orders: number;
-    quotations: number;
-    invoices: number;
-  };
-}
-
+// BUG-CU7 fix: Type-safe Customer usage with proper imports (no unsafe casts)
+// BUG-CU10 fix: Using Customer type from customer.types.ts instead of duplicate local interface
 export default function CustomerDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
   const currentUser = useAuthStore((state) => state.user);
-  const [customer, setCustomer] = useState<CustomerDetailData | null>(null);
+  const [customer, setCustomer] = useState<Customer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -145,8 +96,9 @@ export default function CustomerDetail() {
     try {
       setLoading(true);
       setError(null);
-      const data = await customerService.getCustomerById(id!);
-      setCustomer(data as unknown as CustomerDetailData);
+      // BUG-CU7 fix: customerService.getCustomerById returns typed Customer (no cast needed)
+      const customer = await customerService.getCustomerById(id!);
+      setCustomer(customer);
     } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load customer details', false);
       setError(errorMessage);
@@ -159,8 +111,8 @@ export default function CustomerDetail() {
     try {
       const data = await customerAddressService.getByCustomerId(id!);
       setAddresses(data);
-    } catch (err) {
-      console.error('Failed to fetch addresses:', err);
+    } catch {
+      // Address fetch failed - addresses tab will be empty
     }
   };
 
@@ -168,8 +120,8 @@ export default function CustomerDetail() {
     try {
       const data = await customerContactService.getByCustomerId(id!);
       setContacts(data);
-    } catch (err) {
-      console.error('Failed to fetch contacts:', err);
+    } catch {
+      // Contacts fetch failed - contacts tab will be empty
     }
   };
 

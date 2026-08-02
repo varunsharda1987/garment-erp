@@ -155,7 +155,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
         finishedConstruction: data.finishedConstruction || null,
         actualGSM: data.actualGSM || null,
         valueAddition: data.valueAddition || null,
-        valueAdditionCost: data.valueAdditionCost || null,
+        valueAdditionCost: data.valueAdditionCost ?? null,
         styleReference: data.styleReference || null,
         source: data.source || null,
         description: data.description || null,

@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import { MaterialTypeEnum } from './generated/prisma-enums';
 
 // BOM status enum
 export const BOMStatus = z.enum(['Draft', 'Pending', 'Approved', 'Rejected', 'Active', 'Obsolete']);
@@ -12,18 +13,8 @@ export const BOMStatus = z.enum(['Draft', 'Pending', 'Approved', 'Rejected', 'Ac
 // BOM line item schema
 const bomLineItemSchema = z.object({
   materialId: z.string().uuid('Invalid material ID'),
-  materialType: z.enum([
-    'Fabric',
-    'Greige',
-    'Lace',
-    'Button',
-    'Thread',
-    'Zipper',
-    'Elastic',
-    'Label',
-    'Packaging',
-    'Other',
-  ]),
+  // Import from generated prisma-enums to ensure alignment with Prisma schema
+  materialType: MaterialTypeEnum,
   quantity: z.number().positive('Quantity must be positive'),
   unit: z.string().min(1).max(20),
   wastage: z.number().min(0).max(100).default(0),

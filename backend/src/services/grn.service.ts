@@ -2673,7 +2673,7 @@ class GRNService {
       for (const stock of fabricStocks) {
         const qty = Number(stock.quantityAvailable);
         await tx.fabric_stock.delete({ where: { id: stock.id } });
-        await syncStockLevelQuantity(jobWorkOrder.finishedFabricId, -qty, stock.warehouseId, 'METER', tx);
+        await syncStockLevelQuantity(jobWorkOrder.finishedFabricId, -qty, stock.warehouseId ?? undefined, 'METER', tx);
 
         logInfo(`Reversed processing fabric_stock: ${qty}m`, {
           grnId: grn.id,

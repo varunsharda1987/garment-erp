@@ -235,12 +235,6 @@ export default function GarmentPhysicalTests() {
                       <span className="text-muted-foreground">Style:</span>
                       <p className="font-medium text-foreground">{test.style?.styleCode || test.styleId}</p>
                     </div>
-                    {test.batchNumber && (
-                      <div>
-                        <span className="text-muted-foreground">Batch:</span>
-                        <p className="font-medium text-foreground">{test.batchNumber}</p>
-                      </div>
-                    )}
                     {test.sampleQuantity && (
                       <div>
                         <span className="text-muted-foreground">Sample Qty:</span>

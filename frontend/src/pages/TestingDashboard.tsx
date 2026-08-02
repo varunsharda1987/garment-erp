@@ -10,6 +10,7 @@ import {
   testingLabsService,
   testTemplatesService,
 } from '@/services/testing.service';
+import { notify } from '@/lib/notify';
 
 interface DashboardStats {
   fpt: {
@@ -126,6 +127,8 @@ export default function TestingDashboard() {
       });
     } catch (error) {
       console.error('Failed to fetch testing stats:', error);
+      // BUG-DASH13-15 fix: notify user on error
+      notify.error('Failed to load testing dashboard. Please refresh the page.');
     } finally {
       setLoading(false);
     }

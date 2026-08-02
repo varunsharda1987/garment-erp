@@ -129,7 +129,7 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
       setThreadOptions(options);
     } catch (err: unknown) {
       console.error('Failed to load thread options:', err);
-      // Don't show error to user - form can still work with empty options
+      toast.error('Failed to load thread options. Please refresh the page.');
     }
   };
 
@@ -452,7 +452,7 @@ const OrderThreadRequirementForm: React.FC<OrderThreadRequirementFormProps> = ({
               <div className="text-center">
                 <p className="text-xs text-muted-foreground mb-1">Total Cost</p>
                 <p className="text-xl font-semibold">
-                  ₹ {summary.totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  ₹ {summary.totalCost.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
               </div>
             </div>

@@ -222,12 +222,14 @@ export interface LaceRow {
 }
 
 // Lace rate entry from API (array format)
+// BUG-PRC1 fix: Backend sends rates as Record<string, number | null>, not array
+// Old interface kept for backwards compatibility during migration
 export interface LaceRateEntryFromAPI {
   slabId: string;
   ratePerMeter: number | null;
 }
 
-// Lace row from API
+// Lace row from API - rates is Record keyed by slabId, not array
 export interface LaceRowFromAPI {
   laceId: string;
   laceName: string;
@@ -236,15 +238,11 @@ export interface LaceRowFromAPI {
   composition: string | null;
   expectedShrinkagePercent: number | null;
   costPerMeterGreige: number | null;
-  rates: LaceRateEntryFromAPI[];
+  rates: Record<string, number | null>; // BUG-PRC1 fix: was LaceRateEntryFromAPI[]
 }
 
-// Convert lace API format to local format
+// Convert lace API format to local format (now a passthrough since types match)
 export function convertLaceFromAPI(lace: LaceRowFromAPI): LaceRow {
-  const rates: Record<string, number | null> = {};
-  for (const entry of lace.rates) {
-    rates[entry.slabId] = entry.ratePerMeter;
-  }
   return {
     laceId: lace.laceId,
     laceName: lace.laceName,
@@ -253,7 +251,7 @@ export function convertLaceFromAPI(lace: LaceRowFromAPI): LaceRow {
     composition: lace.composition,
     expectedShrinkagePercent: lace.expectedShrinkagePercent,
     costPerMeterGreige: lace.costPerMeterGreige,
-    rates,
+    rates: lace.rates, // Already Record<string, number | null>
   };
 }
 

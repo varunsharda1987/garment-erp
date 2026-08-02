@@ -247,7 +247,9 @@ const OrderBOMDetail = () => {
     async (itemId: string, newWastage: number) => {
       if (!bom) return;
       const clamped = Math.min(100, Math.max(0, newWastage));
+      // BUG-ORD12 fix: include IDs in update
       const items = (bom.items || []).map((item) => ({
+        id: item.id, // Include ID for proper update identification
         materialType: item.materialType,
         materialId: item.materialId || undefined,
         buttonId: item.buttonId || undefined,

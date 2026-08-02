@@ -15,7 +15,11 @@ export const ProcessingStageStatusEnum = z.enum(['PENDING', 'IN_PROGRESS', 'COMP
 
 export const MovementStatusEnum = z.enum(['IN_TRANSIT', 'DELIVERED', 'CANCELLED']);
 
-export const DeliveryStatusEnum = z.enum(['PENDING_QC', 'QC_PASSED', 'QC_FAILED', 'ACCEPTED', 'REJECTED']);
+// Processing-specific QC status (NOT the Prisma DeliveryStatus enum which is PENDING/IN_TRANSIT/DELIVERED)
+// This enum tracks QC workflow states for processing deliveries
+export const ProcessingDeliveryQCStatusEnum = z.enum(['PENDING_QC', 'QC_PASSED', 'QC_FAILED', 'ACCEPTED', 'REJECTED']);
+// Re-export for backward compatibility with existing code that uses DeliveryStatusEnum
+export const DeliveryStatusEnum = ProcessingDeliveryQCStatusEnum;
 
 export const QCResultEnum = z.enum(['PASS', 'FAIL', 'CONDITIONAL']);
 

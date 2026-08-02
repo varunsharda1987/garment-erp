@@ -216,7 +216,7 @@ export default function GreigeList() {
       key: 'shrinkage',
       header: 'Shrinkage (%)',
       render: (greige) => (
-        <div className="text-sm text-foreground">{Number(greige.averageShrinkagePercent).toFixed(1)}%</div>
+        <div className="text-sm text-foreground">{(greige.averageShrinkagePercent ?? 0).toFixed(1)}%</div>
       ),
     },
     {

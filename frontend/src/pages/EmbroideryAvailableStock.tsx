@@ -28,6 +28,7 @@ import {
 import type { EmbroiderySendOut, EmbroideredFabricStock } from '../types/embroidery.types';
 import { logError } from '../lib/logger';
 import api from '@/lib/api';
+import { toast } from 'sonner';
 import { formatCurrency } from '../lib/currency';
 
 export default function EmbroideryAvailableStock() {
@@ -71,6 +72,7 @@ export default function EmbroideryAvailableStock() {
         const pendingRes = await embroideryService.getPendingEmbroideryStock({ limit: 100 });
         setPendingEmbroidery(pendingRes.data || []);
       } catch {
+        toast.warning('Could not load pending embroidery stock');
         setPendingEmbroidery([]);
       }
 
@@ -85,10 +87,14 @@ export default function EmbroideryAvailableStock() {
         const embStock = stockArray.filter((s: EmbroideredFabricStock & { embroideryId?: string }) => s.embroideryId);
         setEmbroideredStock(embStock);
       } catch {
+        toast.warning('Could not load embroidered stock');
         setEmbroideredStock([]);
       }
-    } catch (err) {
+    } catch (err: any) {
+      // BUG-EMB9 fix: show toast.error for main data load failures
+      const message = err?.response?.data?.message || err?.message || 'Failed to load embroidery data';
       logError('Failed to load data:', err);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }

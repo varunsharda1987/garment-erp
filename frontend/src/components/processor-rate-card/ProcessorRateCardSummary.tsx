@@ -109,8 +109,8 @@ export function ProcessorRateCardSummary({ onSelectProcessor }: ProcessorRateCar
 
   // Get coverage bar color
   const getCoverageColor = (coverage: number) => {
-    if (coverage >= 80) return 'bg-success-muted0';
-    if (coverage >= 50) return 'bg-warning-muted0';
+    if (coverage >= 80) return 'bg-success-muted';
+    if (coverage >= 50) return 'bg-warning-muted';
     if (coverage > 0) return 'bg-primary/100';
     return 'bg-gray-300';
   };

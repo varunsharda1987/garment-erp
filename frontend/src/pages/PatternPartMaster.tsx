@@ -260,7 +260,7 @@ export default function PatternPartMaster() {
                   <TableCell>{patternPart.sortOrder}</TableCell>
                   <TableCell>
                     {patternPart.isActive ? (
-                      <Badge variant="default" className="bg-success-muted0">
+                      <Badge variant="default" className="bg-success-muted">
                         Active
                       </Badge>
                     ) : (

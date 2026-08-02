@@ -49,6 +49,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../components/ui/command';
+import { toast } from 'sonner';
 import { GenericGreigeSelector } from '../components/GenericGreigeSelector';
 // MaterialBOMPicker removed - using TrimSelector and AccessorySelector instead
 import { EmbroiderySelector } from '../components/EmbroiderySelector';
@@ -202,7 +203,9 @@ function FabricMasterSelector({
       try {
         const res = await api.get('/fabric-management/fabric', { params: { search: query, limit: 20 } });
         setResults(res.data?.data || res.data?.fabrics || []);
-      } catch {
+      } catch (err) {
+        console.error('Failed to search fabrics:', err);
+        toast.error('Failed to search fabrics');
         setResults([]);
       } finally {
         setLoading(false);
@@ -2140,7 +2143,7 @@ export default function StyleFormRedesigned() {
         // Standard processes are assumed for all styles (Cutting, Stitching, Finishing, Transportation).
         // Deliberately NOT sent: the form does not manage processes, and sending [] made the backend
         // delete-and-recreate wipe all existing process rows on every save (bug-hunt BH-0275/BH-0373).
-        expectedOrderQuantity: expectedOrderQty,
+        expectedOrderQuantity: expectedOrderQty || null,
         // Template fields - Pricing
         costPrice: costPrice || null,
         sellingPrice: sellingPrice || null,
@@ -2169,7 +2172,7 @@ export default function StyleFormRedesigned() {
         // CAD status starts as PENDING
         cadStatus: 'PENDING' as CADStatus,
         // Status - DRAFT stays DRAFT until explicitly published, ACTIVE stays ACTIVE
-        status: isDraft || styleStatus === 'DRAFT' ? 'DRAFT' : 'ACTIVE',
+        status: (isDraft || styleStatus === 'DRAFT' ? 'DRAFT' : 'ACTIVE') as 'DRAFT' | 'ACTIVE',
       };
 
       if (effectiveId) {
@@ -2310,12 +2313,12 @@ export default function StyleFormRedesigned() {
             <div className="text-xs text-muted-foreground flex items-center gap-1.5">
               {isFormDirty ? (
                 <>
-                  <div className="w-2 h-2 rounded-full bg-warning-muted0 animate-pulse" />
+                  <div className="w-2 h-2 rounded-full bg-warning-muted animate-pulse" />
                   <span>Unsaved changes</span>
                 </>
               ) : lastAutoSaved ? (
                 <>
-                  <div className="w-2 h-2 rounded-full bg-success-muted0" />
+                  <div className="w-2 h-2 rounded-full bg-success-muted" />
                   <span>Auto-saved {lastAutoSaved.toLocaleTimeString()}</span>
                 </>
               ) : null}
@@ -2393,7 +2396,7 @@ export default function StyleFormRedesigned() {
                         }}
                       />
                       {pendingImagePreview && (
-                        <span className="absolute bottom-2 left-2 bg-warning-muted0 text-white text-xs px-2 py-1 rounded">
+                        <span className="absolute bottom-2 left-2 bg-warning-muted text-white text-xs px-2 py-1 rounded">
                           Pending upload
                         </span>
                       )}

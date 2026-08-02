@@ -100,28 +100,44 @@ export default function ColorPicker({
     }
   }, [open, fetchColors]);
 
-  // Load selected color details when value changes
+  // BUG-COL5 fix: Load selected color details when value changes.
+  // Uses a cancelled flag to prevent stale async responses from updating state
+  // when value changes rapidly (race condition protection).
   useEffect(() => {
-    if (value && !selectedColor) {
+    // Track if this effect instance has been superseded
+    let cancelled = false;
+
+    if (value) {
       const loadSelectedColor = async () => {
         try {
           const color = await colorService.getById(value);
-          setSelectedColor({
-            id: color.id,
-            colorCode: color.colorCode,
-            colorName: color.colorName,
-            hexCode: color.hexCode,
-            colorFamily: color.colorFamily,
-          });
+          // Only update state if this effect instance is still current
+          if (!cancelled) {
+            setSelectedColor({
+              id: color.id,
+              colorCode: color.colorCode,
+              colorName: color.colorName,
+              hexCode: color.hexCode,
+              colorFamily: color.colorFamily,
+            });
+          }
         } catch (error) {
-          console.error('Failed to load selected color:', error);
+          if (!cancelled) {
+            console.error('Failed to load selected color:', error);
+            setSelectedColor(null);
+          }
         }
       };
       loadSelectedColor();
-    } else if (!value) {
+    } else {
       setSelectedColor(null);
     }
-  }, [value, selectedColor]);
+
+    // Cleanup: mark this effect as cancelled when value changes or component unmounts
+    return () => {
+      cancelled = true;
+    };
+  }, [value]);
 
   const handleSelect = (color: ColorSearchResult) => {
     setSelectedColor(color);
@@ -260,23 +276,36 @@ export function ColorDisplay({
 }) {
   const [color, setColor] = useState<ColorSearchResult | null>(null);
 
+  // BUG-COL5 fix: Same race condition protection as ColorPicker
   useEffect(() => {
+    let cancelled = false;
+
     if (colorId) {
       colorService
         .getById(colorId)
         .then((c) => {
-          setColor({
-            id: c.id,
-            colorCode: c.colorCode,
-            colorName: c.colorName,
-            hexCode: c.hexCode,
-            colorFamily: c.colorFamily,
-          });
+          if (!cancelled) {
+            setColor({
+              id: c.id,
+              colorCode: c.colorCode,
+              colorName: c.colorName,
+              hexCode: c.hexCode,
+              colorFamily: c.colorFamily,
+            });
+          }
         })
-        .catch(() => setColor(null));
+        .catch(() => {
+          if (!cancelled) {
+            setColor(null);
+          }
+        });
     } else {
       setColor(null);
     }
+
+    return () => {
+      cancelled = true;
+    };
   }, [colorId]);
 
   if (!color) {

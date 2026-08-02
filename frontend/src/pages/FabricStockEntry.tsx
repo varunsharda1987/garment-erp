@@ -154,9 +154,8 @@ export default function FabricStockEntry() {
       setTimeout(() => {
         navigate('/fabric-stock');
       }, 2000);
-    } catch (err) {
-      const error = err as { message?: string };
-      const errorMsg = error.message || 'Failed to save fabric stock entry';
+    } catch (err: any) {
+      const errorMsg = err?.response?.data?.message || err?.message || 'Failed to save fabric stock entry';
       console.error('Error in handleSave:', err);
       setError(errorMsg);
       toast.error(errorMsg);

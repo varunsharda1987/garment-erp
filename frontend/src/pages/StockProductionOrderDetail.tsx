@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle, Factory, Plus, Trash2, Warehouse } from 'lucide-react';
+import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -68,8 +69,9 @@ export default function StockProductionOrderDetail() {
   const [newItemSizeId, setNewItemSizeId] = useState('');
   const [newItemQuantity, setNewItemQuantity] = useState('');
 
+  // BUG-ORD14 fix: standardized query key
   const { data: spo, isLoading } = useQuery({
-    queryKey: ['stock-production-order', id],
+    queryKey: queryKeys.stockProductionOrders.detail(id || ''),
     queryFn: () => getSPOById(id!),
     enabled: !!id,
   });
@@ -84,7 +86,7 @@ export default function StockProductionOrderDetail() {
   const approveMutation = useMutation({
     mutationFn: () => approveSPO(id!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stock-production-order', id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.stockProductionOrders.detail(id || '') }); // BUG-ORD14 fix: standardized query key
       toast.success('SPO approved');
       setApproveDialogOpen(false);
     },
@@ -96,7 +98,7 @@ export default function StockProductionOrderDetail() {
   const generateWOMutation = useMutation({
     mutationFn: () => generateWorkOrders(id!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stock-production-order', id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.stockProductionOrders.detail(id || '') }); // BUG-ORD14 fix: standardized query key
       toast.success('Work orders generated');
       setGenerateDialogOpen(false);
     },
@@ -125,7 +127,7 @@ export default function StockProductionOrderDetail() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stock-production-order', id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.stockProductionOrders.detail(id || '') }); // BUG-ORD14 fix: standardized query key
       toast.success('Item added');
       setAddItemDialogOpen(false);
       setNewItemColorId('');
@@ -153,7 +155,7 @@ export default function StockProductionOrderDetail() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stock-production-order', id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.stockProductionOrders.detail(id || '') }); // BUG-ORD14 fix: standardized query key
       toast.success('Item removed');
     },
     onError: (error: unknown) => {

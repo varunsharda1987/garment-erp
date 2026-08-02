@@ -203,7 +203,7 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       createdById: userId,
 
       // Closed Cost - Final agreed price with customer
-      closedCost: validatedData.closedCost || null,
+      closedCost: validatedData.closedCost ?? null,
       closedCostNotes: validatedData.closedCostNotes || null,
 
       // Budget Fields (for direct procurement in RAW_MATERIAL_CALCULATION/PRODUCTION)
@@ -299,8 +299,8 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       totalCost: effectiveCad * cadRate,
       sourcingStrategy: cad.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
       processorId: cad.processorId || null,
-      greigeCost: cad.greigeCostPerMeter || null,
-      processingCost: cad.processingPricePerMeter || null,
+      greigeCost: cad.greigeCostPerMeter ?? null,
+      processingCost: cad.processingPricePerMeter ?? null,
     });
   }
 
@@ -370,9 +370,9 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
     wastagePercent: lace.wastagePercent ?? 0, // From input or rate card - no hardcoded default
     effectiveQuantity: (lace.laceAverage || 0) * (1 + (lace.wastagePercent ?? 0) / 100),
     sourcingStrategy: lace.sourcingStrategy || 'READY_LACE',
-    greigeCost: lace.greigeCost || null,
-    processingCost: lace.processingCost || null,
-    readyLaceCost: lace.laceRate || null,
+    greigeCost: lace.greigeCost ?? null,
+    processingCost: lace.processingCost ?? null,
+    readyLaceCost: lace.laceRate ?? null,
     stockCost: null,
     costPerMeter: lace.laceRate || 0,
     totalCost: lace.laceTotal || 0,
@@ -933,8 +933,8 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
       totalCost: effectiveCad * cadRate,
       sourcingStrategy: cad.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
       processorId: cad.processorId || null,
-      greigeCost: cad.greigeCostPerMeter || null,
-      processingCost: cad.processingPricePerMeter || null,
+      greigeCost: cad.greigeCostPerMeter ?? null,
+      processingCost: cad.processingPricePerMeter ?? null,
     });
   }
 
@@ -1005,9 +1005,9 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
           wastagePercent: lace.wastagePercent ?? 0, // From input or rate card - no hardcoded default
           effectiveQuantity: (lace.laceAverage || 0) * (1 + (lace.wastagePercent ?? 0) / 100),
           sourcingStrategy: lace.sourcingStrategy || 'READY_LACE',
-          greigeCost: lace.greigeCost || null,
-          processingCost: lace.processingCost || null,
-          readyLaceCost: lace.laceRate || null,
+          greigeCost: lace.greigeCost ?? null,
+          processingCost: lace.processingCost ?? null,
+          readyLaceCost: lace.laceRate ?? null,
           stockCost: null,
           costPerMeter: lace.laceRate || 0,
           totalCost: lace.laceTotal || 0,

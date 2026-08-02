@@ -215,7 +215,7 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
           fabricWidth: approvedCosting?.cutableWidth || fab.usableWidth,
           cadAverageMeters: approvedCosting?.cadMeters || fab.quantityNeeded,
           // Use approved fabric costing rate if available
-          unitPrice: approvedCosting?.totalCostPerMeter || null,
+          unitPrice: approvedCosting?.totalCostPerMeter ?? null,
           // Design/Color identification
           printDesign: fab.printDesign || fab.fabric?.printDesign || null,
           colorMaster: fab.colorMaster || null,

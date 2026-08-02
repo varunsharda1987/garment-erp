@@ -620,9 +620,12 @@ export const processStages: ProcessStage[] = [
     title: 'Quality Control & Testing',
     icon: <FlaskConical className="h-5 w-5" />,
     category: 'production',
-    description: 'FPT, GPT, inline inspections, and AQL sampling',
+    // BUG-MFG20 fix: AQL sampling is mentioned but not yet implemented.
+    // Currently AQL is just an inspection type label in InspectionType enum.
+    // TODO: Implement full AQL calculation (lot size, sample size, accept/reject per ISO 2859-1).
+    description: 'FPT, GPT, inline inspections, and AQL sampling (AQL calculations not yet implemented)',
     purpose:
-      'Comprehensive quality testing including Fabric Physical Tests (FPT), Garment Physical Tests (GPT), and manufacturing inspections.',
+      'Comprehensive quality testing including Fabric Physical Tests (FPT), Garment Physical Tests (GPT), and manufacturing inspections. Note: AQL-based statistical sampling calculations are planned for future implementation.',
     prerequisites: [
       {
         condition: 'Testing labs configured',

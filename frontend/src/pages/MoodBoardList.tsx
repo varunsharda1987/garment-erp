@@ -29,8 +29,8 @@ import { formatDistanceToNow } from 'date-fns';
 
 // Status badge colors
 const STATUS_COLORS: Record<MoodBoardStatus, string> = {
-  DRAFT: 'bg-muted0',
-  ACTIVE: 'bg-success-muted0',
+  DRAFT: 'bg-muted',
+  ACTIVE: 'bg-success-muted',
   ARCHIVED: 'bg-primary/100',
 };
 

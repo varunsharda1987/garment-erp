@@ -11,11 +11,13 @@ import type {
 /**
  * Get all component masters with pagination and filters
  */
+// BUG-CM3 fix: Added componentGroupId filter to match backend controller support
 export const getAllComponentMasters = async (params?: {
   page?: number;
   limit?: number;
   search?: string;
   componentCategory?: string;
+  componentGroupId?: string; // BUG-CM3 fix
   activeOnly?: boolean;
 }): Promise<ComponentMasterListResponse> => {
   const { data } = await api.get<ComponentMasterListResponse>('/component-masters', {

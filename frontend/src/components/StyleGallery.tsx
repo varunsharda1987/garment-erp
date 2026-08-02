@@ -62,14 +62,14 @@ const IMAGE_TYPE_LABELS: Record<StyleImageType, string> = {
 
 // Badge colors for image types
 const IMAGE_TYPE_COLORS: Record<StyleImageType, string> = {
-  MAIN: 'bg-info-muted0',
-  SKETCH_FRONT: 'bg-success-muted0',
+  MAIN: 'bg-info-muted',
+  SKETCH_FRONT: 'bg-success-muted',
   SKETCH_BACK: 'bg-success',
   SKETCH_SIDE: 'bg-success/25',
   TECHNICAL_FLAT: 'bg-accent/100',
   DETAIL_VIEW: 'bg-primary/100',
   CONSTRUCTION: 'bg-destructive/100',
-  OTHER: 'bg-muted0',
+  OTHER: 'bg-muted',
 };
 
 // Sortable image item component

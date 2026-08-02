@@ -370,6 +370,7 @@ export const PrintingList = lazy(() => import('../pages/PrintingList'));
 export const PrintLabDipCreate = lazy(() => import('../pages/printing/PrintLabDipCreate'));
 export const PrintLabDipDetail = lazy(() => import('../pages/printing/PrintLabDipDetail'));
 export const PrintProcessPOCreate = lazy(() => import('../pages/printing/PrintProcessPOCreate'));
+export const PrintProcessPODetail = lazy(() => import('../pages/printing/PrintProcessPODetail'));
 
 // ============================================================================
 // Dyeing (Manufacturing - Fabric Processing)
@@ -378,11 +379,16 @@ export const DyeingList = lazy(() => import('../pages/DyeingList'));
 export const DyeLabDipCreate = lazy(() => import('../pages/dyeing/DyeLabDipCreate'));
 export const DyeLabDipDetail = lazy(() => import('../pages/dyeing/DyeLabDipDetail'));
 export const DyeProcessPOCreate = lazy(() => import('../pages/dyeing/DyeProcessPOCreate'));
+export const DyeProcessPODetail = lazy(() => import('../pages/dyeing/DyeProcessPODetail'));
 
 // ============================================================================
 // Unified Processing (Dyeing & Printing Combined)
 // ============================================================================
 export const ProcessingList = lazy(() => import('../pages/ProcessingList'));
+// BUG-DASH4 fix: Add unified processing create/detail routes
+export const UnifiedLabDipCreate = lazy(() => import('../pages/processing/UnifiedLabDipCreate'));
+export const UnifiedProcessPOCreate = lazy(() => import('../pages/processing/UnifiedProcessPOCreate'));
+export const UnifiedProcessPODetail = lazy(() => import('../pages/processing/UnifiedProcessPODetail'));
 
 // ============================================================================
 // Cutting (Manufacturing - Production)
@@ -408,6 +414,7 @@ export const FinishingDetail = lazy(() => import('../pages/FinishingDetail'));
 
 // ============================================================================
 // Dispatch (Manufacturing - Final Step)
+// BUG-DASH10 fix: all dispatch components properly exported for Create/View functionality
 // ============================================================================
 export const DispatchList = lazy(() => import('../pages/DispatchList'));
 export const DispatchDeliveryNoteForm = lazy(() => import('../pages/DispatchDeliveryNoteForm'));

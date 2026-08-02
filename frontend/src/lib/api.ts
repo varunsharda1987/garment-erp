@@ -19,13 +19,15 @@ axiosRetry(api, {
   retries: 3, // Retry 3 times
   retryDelay: axiosRetry.exponentialDelay, // Exponential backoff
   retryCondition: (error) => {
-    // NEVER auto-retry a POST. On a network error the write may have SUCCEEDED on the
-    // server and only the response was lost — retrying would duplicate it (a second
-    // challan, payment, or stock movement). Non-idempotent by definition (bug-hunt BH-0280).
-    if (error.config?.method?.toLowerCase() === 'post') {
+    // ONLY auto-retry read-only methods. On a network error or 5xx a write may have
+    // SUCCEEDED on the server and only the response was lost — retrying would duplicate
+    // it (a second challan, payment, or stock movement). This app's PUT/PATCH handlers
+    // are not all idempotent (some increment stock/counters), so writes of every kind
+    // are excluded, not just POST (bug-hunt BH-0280).
+    const method = error.config?.method?.toLowerCase();
+    if (method !== 'get' && method !== 'head' && method !== 'options') {
       return false;
     }
-    // Idempotent methods (GET/PUT/DELETE/...): retry on network errors, 5xx, or rate limiting (429).
     return (
       axiosRetry.isNetworkOrIdempotentRequestError(error) ||
       error.response?.status === 429 ||

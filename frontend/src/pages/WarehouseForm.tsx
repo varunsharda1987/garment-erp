@@ -191,6 +191,7 @@ export default function WarehouseForm() {
                     <SelectItem value="RAW_MATERIAL">Raw Material</SelectItem>
                     <SelectItem value="FINISHED_GOODS">Finished Goods</SelectItem>
                     <SelectItem value="WORK_IN_PROGRESS">Work In Progress</SelectItem>
+                    <SelectItem value="JOB_WORK">Job Work</SelectItem>
                     <SelectItem value="GENERAL">General</SelectItem>
                     <SelectItem value="TRANSIT">Transit</SelectItem>
                   </SelectContent>

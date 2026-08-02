@@ -38,12 +38,12 @@ export const getPackagingById = async (id: string): Promise<Packaging> => {
  * Create new packaging
  */
 export const createPackaging = async (packagingData: PackagingFormData): Promise<Packaging> => {
-  // Convert string numbers to numbers
+  // Convert numeric fields; thickness stays as string (e.g. "40 microns", "3 ply")
   const payload = {
     ...packagingData,
-    thickness: packagingData.thickness ? Number(packagingData.thickness) : undefined,
-    pricePerPiece: packagingData.pricePerPiece ? Number(packagingData.pricePerPiece) : undefined,
-    pricePerHundred: packagingData.pricePerHundred ? Number(packagingData.pricePerHundred) : undefined,
+    thickness: packagingData.thickness || undefined,
+    pricePerPiece: packagingData.pricePerPiece != null ? Number(packagingData.pricePerPiece) : undefined,
+    pricePerHundred: packagingData.pricePerHundred != null ? Number(packagingData.pricePerHundred) : undefined,
   };
 
   const { data } = await api.post<PackagingResponse>('/materials/packaging', payload);
@@ -54,12 +54,12 @@ export const createPackaging = async (packagingData: PackagingFormData): Promise
  * Update packaging
  */
 export const updatePackaging = async (id: string, packagingData: PackagingFormData): Promise<Packaging> => {
-  // Convert string numbers to numbers
+  // Convert numeric fields; thickness stays as string (e.g. "40 microns", "3 ply")
   const payload = {
     ...packagingData,
-    thickness: packagingData.thickness ? Number(packagingData.thickness) : undefined,
-    pricePerPiece: packagingData.pricePerPiece ? Number(packagingData.pricePerPiece) : undefined,
-    pricePerHundred: packagingData.pricePerHundred ? Number(packagingData.pricePerHundred) : undefined,
+    thickness: packagingData.thickness || undefined,
+    pricePerPiece: packagingData.pricePerPiece != null ? Number(packagingData.pricePerPiece) : undefined,
+    pricePerHundred: packagingData.pricePerHundred != null ? Number(packagingData.pricePerHundred) : undefined,
   };
 
   const { data } = await api.put<PackagingResponse>(`/materials/packaging/${id}`, payload);

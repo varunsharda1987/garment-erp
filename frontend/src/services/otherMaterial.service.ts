@@ -4,6 +4,8 @@ import type {
   OtherMaterialListResponse,
   CreateOtherMaterialRequest,
   UpdateOtherMaterialRequest,
+  OtherMaterialTemplateColumn,
+  OtherMaterialTemplateResponse,
 } from '@/types/otherMaterial.types';
 
 /**
@@ -35,7 +37,8 @@ export const createOtherMaterial = async (
   data: CreateOtherMaterialRequest
 ): Promise<{
   otherMaterial: OtherMaterial;
-  material: { id: number; materialType: string; code: string; name: string };
+  // BUG-OM5 fix: Backend creates string IDs like `mat-${code}`, not numbers
+  material: { id: string; materialType: string; code: string; name: string };
   message: string;
 }> => {
   const response = await api.post('/materials/other', data);
@@ -61,23 +64,55 @@ export const deleteOtherMaterial = async (id: string): Promise<void> => {
 };
 
 /**
+ * Bulk import result for a single row
+ */
+// BUG-OM2 fix: row result structure matches backend controller lines 494-509
+interface BulkImportRowResult {
+  success: boolean;
+  row: number;
+  materialCode?: string;
+  materialName?: string;
+  stockCreated?: boolean;
+  error?: string;
+}
+
+/**
+ * Bulk import response from backend
+ * Backend returns: { results, summary, message } (controller lines 518-522)
+ */
+// BUG-OM2 fix: aligned with backend response - was expecting { imported, errors }
+export interface BulkImportOtherMaterialsResponse {
+  results: BulkImportRowResult[];
+  summary: {
+    total: number;
+    success: number;
+    failed: number;
+  };
+  message: string;
+}
+
+/**
  * Bulk import other materials from Excel
  */
+// BUG-OM2 fix: return type matches backend response structure
 export const bulkImportOtherMaterials = async (data: {
   data: Record<string, unknown>[];
   createStock?: boolean;
-}): Promise<{ imported: number; errors: string[] }> => {
+}): Promise<BulkImportOtherMaterialsResponse> => {
   const response = await api.post('/materials/other/bulk-import', data);
   return response.data;
 };
 
 /**
  * Download Excel template for bulk import
+ * BUG-OM3 fix: Updated return type to match backend response
+ * Backend returns: { columns: [{field, header, required, description}], exampleData: [...] }
  */
-export const downloadOtherMaterialTemplate = async (): Promise<{
-  columns: string[];
-  sampleData: Record<string, unknown>[];
-}> => {
+export const downloadOtherMaterialTemplate = async (): Promise<OtherMaterialTemplateResponse> => {
   const response = await api.get('/materials/other/template');
   return response.data;
 };
+
+// Re-export template types for consumers that import from service
+// BUG-OM3 fix
+export type { OtherMaterialTemplateColumn, OtherMaterialTemplateResponse };

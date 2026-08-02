@@ -127,8 +127,11 @@ export default function SeasonSelector({
                 <Calendar className="h-4 w-4 text-muted-foreground" />
                 {formatSeasonDisplay(selectedSeason)}
               </span>
-            ) : value ? (
+            ) : value && loading ? (
               <span className="text-muted-foreground">Loading season...</span>
+            ) : value && !loading ? (
+              // bug-hunt: show "Unknown" instead of infinite loading if season not found
+              <span className="text-muted-foreground">Unknown season</span>
             ) : (
               placeholder
             )}

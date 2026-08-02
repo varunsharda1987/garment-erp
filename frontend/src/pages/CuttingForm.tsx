@@ -13,6 +13,7 @@ import type { CreateCuttingBatchRequest } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Scissors, ArrowLeft, Save, Loader2, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from 'sonner';
 import api from '@/lib/api';
 
 interface AvailableWorkOrder {
@@ -121,7 +122,11 @@ export default function CuttingForm() {
         // Fetch fabric stock for each fabricId, merge results
         Promise.all(wo.fabricIds.map((fid) => cuttingSummaryService.getAvailableFabricStock(fid)))
           .then((results) => setFabricStocks(results.flat()))
-          .catch((err) => console.error('Failed to fetch fabric stock:', err));
+          .catch((err) => {
+            console.error('Failed to fetch fabric stock:', err);
+            // bug-hunt: was silent, now shows warning
+            toast.warning('Could not load fabric stock');
+          });
       } else {
         setFabricStocks([]);
       }
@@ -149,12 +154,20 @@ export default function CuttingForm() {
                     setEmbroideryWarning(null);
                   }
                 })
-                .catch(() => setEmbroideryWarning(null));
+                .catch(() => {
+                  // BUG-MFG14 FIX: Surface error to user instead of silent console.error
+                  toast.warning('Could not check embroidery stock availability');
+                  setEmbroideryWarning(null);
+                });
             } else {
               setEmbroideryWarning(null);
             }
           })
-          .catch(() => setEmbroideryWarning(null));
+          .catch(() => {
+            // BUG-MFG15 FIX: Surface error to user instead of silent console.error
+            toast.warning('Could not verify embroidery requirements for style');
+            setEmbroideryWarning(null);
+          });
       }
     } else {
       setWorkOrderBreakup([]);
@@ -177,7 +190,8 @@ export default function CuttingForm() {
         setBlockers([]);
       }
     } catch (err) {
-      console.error('Failed to check stage transition blockers:', err);
+      // BUG-MFG16 FIX: Surface error to user instead of silent console.error
+      toast.warning('Could not verify stage transition requirements');
       setBlockers([]);
     } finally {
       setIsCheckingBlockers(false);
@@ -211,7 +225,8 @@ export default function CuttingForm() {
       const data = await cuttingSummaryService.getAvailableWorkOrders();
       setAvailableWorkOrders(data);
     } catch (err) {
-      console.error('Failed to fetch available work orders:', err);
+      // BUG-MFG17 FIX: Surface error to user instead of silent console.error
+      toast.error('Failed to fetch available work orders');
     }
   };
 
@@ -244,7 +259,8 @@ export default function CuttingForm() {
         }))
       );
     } catch (err) {
-      console.error('Failed to fetch work order breakup:', err);
+      // BUG-MFG18 FIX: Surface error to user instead of silent console.error
+      toast.warning('Could not load work order breakdown');
     }
   };
 

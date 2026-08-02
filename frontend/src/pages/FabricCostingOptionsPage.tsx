@@ -28,6 +28,7 @@ import type {
 import type { Customer } from '../types/customer.types';
 import type { Style } from '../types/style.types';
 import { notify } from '../lib/notify';
+import { divideByShrinkage } from '../utils/math';
 
 export default function FabricCostingOptionsPage() {
   const navigate = useNavigate();
@@ -109,11 +110,11 @@ export default function FabricCostingOptionsPage() {
       if (filters.styleId && !filters.customerId) {
         try {
           const style = await styleService.getStyleById(filters.styleId);
-          // Cast to any since API may return customerId even though Style type doesn't declare it
-          const styleData = style as { customerId?: string };
-          if (style && styleData.customerId) {
+          // BUG-FC8 fix: Access customerId from brandCategories instead of type casting
+          const customerId = style?.brandCategories?.customerId;
+          if (style && customerId) {
             // Set customer ID to enable style dropdown
-            setFilters((prev) => ({ ...prev, customerId: styleData.customerId }));
+            setFilters((prev) => ({ ...prev, customerId }));
           }
         } catch (error) {
           console.error('Failed to load style info:', error);
@@ -768,8 +769,7 @@ export default function FabricCostingOptionsPage() {
                                                   const shrinkage = option.shrinkagePercent
                                                     ? Number(option.shrinkagePercent)
                                                     : 0;
-                                                  const greigeReq =
-                                                    shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
+                                                  const greigeReq = divideByShrinkage(fabricReq, shrinkage);
                                                   return greigeReq.toLocaleString(undefined, {
                                                     maximumFractionDigits: 0,
                                                   });

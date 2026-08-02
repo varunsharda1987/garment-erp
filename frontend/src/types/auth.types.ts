@@ -3,7 +3,10 @@
 export interface User {
   id: string;
   email: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  // Computed display name (for backward compatibility with existing code)
+  name?: string;
   role: string;
   phone?: string | null;
   createdAt?: string;
@@ -25,7 +28,8 @@ export interface RegisterData {
   firstName: string;
   lastName: string;
   phone?: string;
-  role: string;
+  // bug-hunt: role is optional - backend ignores it and assigns SALES by default
+  role?: string;
 }
 
 // Response when registration is pending approval (no token)

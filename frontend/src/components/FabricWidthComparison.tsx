@@ -113,7 +113,7 @@ export const FabricWidthComparison: React.FC<FabricWidthComparisonProps> = ({
                     {orderQuantity > 1 && <td className="text-right p-3 font-medium">₹{comp.totalCost.toFixed(2)}</td>}
                     <td className="text-center p-3">
                       {isCheapest && (
-                        <Badge className="gap-1 bg-warning-muted0">
+                        <Badge className="gap-1 bg-warning-muted">
                           <TrendingDown className="h-3 w-3" />
                           Cheapest
                         </Badge>

@@ -159,7 +159,7 @@ export function useStyleFormData() {
         }
 
         // Load SKU variants
-        const skuVariantsData = style.variants || [];
+        const skuVariantsData = style.styleVariants || [];
         if (skuVariantsData.length > 0) {
           payload.skuVariants = (
             skuVariantsData as Array<{
@@ -441,7 +441,7 @@ export function useStyleFormData() {
           description,
           numberOfComponents,
           components,
-          expectedOrderQuantity: expectedOrderQty,
+          expectedOrderQuantity: expectedOrderQty || null,
           costPrice: costPrice || null,
           sellingPrice: sellingPrice || null,
           hsnCode: hsnCode || null,
@@ -458,6 +458,7 @@ export function useStyleFormData() {
           processes: processes
             .filter((p) => p.isRequired)
             .map((p) => ({
+              processName: p.processType,
               processType: p.processType,
               description: p.description,
               vendor: p.vendor,
@@ -465,16 +466,16 @@ export function useStyleFormData() {
             })),
           customerAccessoriesPresetId: selectedAccessoryPresetId || undefined,
           cadStatus: 'PENDING' as CADStatus,
-          status: isDraft ? 'DRAFT' : 'DRAFT',
+          status: 'DRAFT' as const,
         };
 
         if (isEditMode && styleId) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await styleService.updateStyle(styleId, styleData as any);
+          // ISSUE-S5 fix: Type now properly defined in CreateStyleFormData
+          await styleService.updateStyle(styleId, styleData);
           notify.success(isDraft ? 'Draft saved successfully!' : 'Style updated successfully!');
         } else {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await styleService.createStyle(styleData as any);
+          // ISSUE-S5 fix: Type now properly defined in CreateStyleFormData
+          await styleService.createStyle(styleData);
           notify.success(
             isDraft ? 'Draft saved successfully!' : 'Style created successfully! Proceed to CAD Planning.'
           );
@@ -566,8 +567,8 @@ export function useStyleFormData() {
     if (!styleId) return;
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await styleService.updateStyle(styleId, { imageUrl: null } as any);
+      // ISSUE-S5 fix: imageUrl is now properly typed in CreateStyleFormData
+      await styleService.updateStyle(styleId, { imageUrl: null });
       dispatch({ type: 'SET_IMAGE_URL', payload: '' });
       notify.success('Image removed successfully');
     } catch (error: unknown) {

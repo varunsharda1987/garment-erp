@@ -11,7 +11,7 @@ import { workOrderService } from '@/services/workOrder.service';
 import { useAuthStore } from '@/stores/auth.store';
 import { AdminOverrideModal } from '@/components/AdminOverrideModal';
 import { toast } from 'sonner';
-import type { ProductionStage } from '@/types/production.types';
+import { ProductionStage } from '@/types/production.types';
 
 interface BlockerInfo {
   type: string;
@@ -28,20 +28,26 @@ interface ProductionTrackingInlineFormProps {
   onCancel: () => void;
 }
 
-const PRODUCTION_STAGES = [
-  { value: 'ORDER_RECEIVED', label: 'Order Received' },
-  { value: 'PENDING_COSTING', label: 'Pending Costing' },
-  { value: 'PENDING_GREIGE_ORDER', label: 'Pending Greige Order' },
-  { value: 'IN_PRINTING', label: 'In Printing' },
-  { value: 'IN_DYING', label: 'In Dyeing' },
-  { value: 'IN_CUTTING', label: 'In Cutting' },
-  { value: 'IN_STITCHING', label: 'In Stitching' },
-  { value: 'IN_EMBROIDERY', label: 'In Embroidery' },
-  { value: 'IN_HANDWORK', label: 'In Handwork' },
-  { value: 'IN_FINISHING', label: 'In Finishing' },
-  { value: 'READY_TO_SHIP', label: 'Ready to Ship' },
-  { value: 'SHIPPED', label: 'Shipped' },
-  { value: 'COMPLETED', label: 'Completed' },
+// Production stage labels derived from the ProductionStage enum
+// Order reflects typical garment production workflow
+const PRODUCTION_STAGES: Array<{ value: ProductionStage; label: string }> = [
+  { value: ProductionStage.ORDER_RECEIVED, label: 'Order Received' },
+  { value: ProductionStage.PENDING_COSTING, label: 'Pending Costing' },
+  { value: ProductionStage.PENDING_GREIGE_ORDER, label: 'Pending Greige Order' },
+  { value: ProductionStage.TRIMS_NOT_ORDERED, label: 'Trims Not Ordered' },
+  { value: ProductionStage.IN_PRINTING, label: 'In Printing' },
+  { value: ProductionStage.IN_DYING, label: 'In Dyeing' },
+  { value: ProductionStage.IN_EMBROIDERY, label: 'In Embroidery' },
+  { value: ProductionStage.IN_SMOCKING, label: 'In Smocking' },
+  { value: ProductionStage.IN_HANDWORK, label: 'In Handwork' },
+  { value: ProductionStage.IN_CUTTING, label: 'In Cutting' },
+  { value: ProductionStage.IN_STITCHING, label: 'In Stitching' },
+  { value: ProductionStage.IN_FINISHING, label: 'In Finishing' },
+  { value: ProductionStage.CHECKING, label: 'Checking' },
+  { value: ProductionStage.PACKING, label: 'Packing' },
+  { value: ProductionStage.READY_TO_SHIP, label: 'Ready to Ship' },
+  { value: ProductionStage.SHIPPED, label: 'Shipped' },
+  { value: ProductionStage.COMPLETED, label: 'Completed' },
 ];
 
 const ProductionTrackingInlineForm: React.FC<ProductionTrackingInlineFormProps> = ({

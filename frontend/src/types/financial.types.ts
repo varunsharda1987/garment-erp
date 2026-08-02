@@ -227,19 +227,17 @@ export interface ExpenseTypeCreate {
   description?: string;
 }
 
-// Bank Accounts
+// Bank Accounts - matches Prisma BankAccountType enum
 export const BankAccountType = {
-  SAVINGS: 'SAVINGS',
   CURRENT: 'CURRENT',
-  OVERDRAFT: 'OVERDRAFT',
-  FIXED_DEPOSIT: 'FIXED_DEPOSIT',
-  CASH_CREDIT: 'CASH_CREDIT',
-  OTHER: 'OTHER',
+  SAVINGS: 'SAVINGS',
+  OD: 'OD', // Overdraft
+  CC: 'CC', // Cash Credit
 } as const;
 export type BankAccountType = (typeof BankAccountType)[keyof typeof BankAccountType];
 
 export interface BankAccount {
-  id: number;
+  id: string;
   account_name: string;
   account_number: string;
   bank_name: string;
@@ -252,7 +250,7 @@ export interface BankAccount {
   current_balance: number;
   is_primary: boolean;
   is_active: boolean;
-  chart_of_account_id: number | null;
+  chart_of_account_id: string | null;
   description: string | null;
   created_at: string;
   updated_at: string;

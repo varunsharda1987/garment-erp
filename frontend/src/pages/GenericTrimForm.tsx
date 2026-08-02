@@ -125,7 +125,11 @@ export default function GenericTrimForm() {
           if (typeof value === 'number') {
             submitData[field.name] = value;
           } else {
-            submitData[field.name] = typeof value === 'string' && value ? parseFloat(value) : null;
+            // BUG-GT8 FIX: Handle NaN from parseFloat on invalid/empty strings
+            // parseFloat("") returns NaN, parseFloat("abc") returns NaN
+            // We must check for NaN and fallback to null to prevent sending NaN to backend
+            const parsed = typeof value === 'string' && value ? parseFloat(value) : NaN;
+            submitData[field.name] = Number.isNaN(parsed) ? null : parsed;
           }
         } else if (field.type === 'boolean') {
           submitData[field.name] = !!value;
@@ -223,12 +227,27 @@ export default function GenericTrimForm() {
     }
 
     if (field.type === 'number') {
+      // BUG-GT8 Fix: Use inputMode="decimal" for better mobile keyboard and maintain string
+      // value during typing (parsed to number on blur/submit for cleaner data)
       return (
         <Input
           type="number"
+          inputMode="decimal"
           step="0.01"
           value={asInputValue(value)}
           onChange={(e) => handleInputChange(field.name, e.target.value)}
+          onBlur={(e) => {
+            // BUG-GT8 FIX: Parse to number on blur for cleaner state
+            // Always convert to number or null - never leave as string
+            const rawValue = e.target.value;
+            if (rawValue === '') {
+              handleInputChange(field.name, null);
+            } else {
+              const numValue = parseFloat(rawValue);
+              // If NaN (e.g., invalid input), set to null instead of leaving as string
+              handleInputChange(field.name, Number.isNaN(numValue) ? null : numValue);
+            }
+          }}
           placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
         />
       );

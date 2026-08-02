@@ -115,7 +115,7 @@ export default function FabricWidthCADDialog({
 
     const data: FabricWidthCADFormData = {
       fabricId,
-      availableWidth: cutableWidth,
+      cutableWidth,
       widthUnit,
       cadMeters: cadMeters || undefined,
       cadYards: cadYards || undefined,

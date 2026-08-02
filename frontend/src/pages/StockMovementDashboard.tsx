@@ -27,9 +27,8 @@ import {
   RefreshCw,
   Plus,
   ExternalLink,
-  Calendar,
 } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 
 export default function StockMovementDashboard() {
   const navigate = useNavigate();

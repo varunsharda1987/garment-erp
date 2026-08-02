@@ -169,7 +169,8 @@ export default function WorkOrderDetail() {
         finishing: { issues: finishingIssues.length, totalFinished, pending: finishingIssues.length === 0 },
       });
     } catch (err) {
-      console.error('Failed to load manufacturing progress:', err);
+      // BUG-MFG11 FIX: Surface error to user with toast instead of silent console.error
+      notify.warning('Could not load manufacturing progress');
     }
   };
 
@@ -180,7 +181,8 @@ export default function WorkOrderDetail() {
       const readiness = await workOrderService.checkMaterialReadiness(id);
       setMaterialReadiness(readiness);
     } catch (err) {
-      console.error('Failed to load material readiness:', err);
+      // BUG-MFG11 FIX: Surface error to user with toast instead of silent console.error
+      notify.warning('Could not load material readiness data');
     } finally {
       setIsLoadingMaterials(false);
     }
@@ -833,7 +835,7 @@ export default function WorkOrderDetail() {
                 <div className="text-2xl font-bold text-info">{manufacturingProgress.stitching.totalStitched} pcs</div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className="h-2 rounded-full bg-info-muted0"
+                    className="h-2 rounded-full bg-info-muted"
                     style={{
                       width: `${workOrder?.totalQuantity ? Math.min(100, (manufacturingProgress.stitching.totalStitched / workOrder.totalQuantity) * 100) : 0}%`,
                     }}
@@ -878,7 +880,7 @@ export default function WorkOrderDetail() {
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className="h-2 rounded-full bg-success-muted0"
+                    className="h-2 rounded-full bg-success-muted"
                     style={{
                       width: `${workOrder?.totalQuantity ? Math.min(100, (manufacturingProgress.finishing.totalFinished / workOrder.totalQuantity) * 100) : 0}%`,
                     }}

@@ -649,7 +649,8 @@ export default function ProcessorRateCardPage() {
       return g;
     });
     setGreiges(newGreiges);
-    notify.success(`Pasted row data to "${greiges.find((g) => g.id === targetGreigeId)?.greigeName}"`);
+    const targetGreige = greiges.find((g) => g.id === targetGreigeId);
+    notify.success(`Pasted row data to "${targetGreige?.greigeName ?? 'Unknown'}"`);
   };
 
   // Clear copied row data

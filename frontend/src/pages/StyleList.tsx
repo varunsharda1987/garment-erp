@@ -737,7 +737,7 @@ export default function StyleList() {
                 <FileEdit className="h-4 w-4" />
                 Drafts
                 {draftTotalStyles > 0 && (
-                  <span className="ml-1 text-xs bg-warning-muted0/10 text-warning px-2 py-0.5 rounded-full">
+                  <span className="ml-1 text-xs bg-warning-muted/10 text-warning px-2 py-0.5 rounded-full">
                     {draftTotalStyles}
                   </span>
                 )}

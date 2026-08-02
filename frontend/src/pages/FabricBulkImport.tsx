@@ -318,9 +318,10 @@ export default function FabricBulkImport() {
             failed: importResult.failed || 0,
             errors: importResult.errors || [],
           });
-        } catch (error: unknown) {
+        } catch (error: any) {
           logError('Import error:', error);
-          const errorMessage = error instanceof Error ? error.message : 'Failed to import fabrics. Please try again.';
+          const errorMessage =
+            error?.response?.data?.message || error?.message || 'Failed to import fabrics. Please try again.';
           alert(errorMessage);
         } finally {
           setImporting(false);

@@ -46,6 +46,12 @@ export interface DyeLabDip {
   rejectionReason?: string;
   colorMatchRating?: 'Excellent' | 'Good' | 'Acceptable' | 'Poor';
 
+  // Buyer Approval
+  buyerApprovalStatus?: 'NOT_SENT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESUBMIT_REQUIRED';
+  sentToBuyerDate?: string;
+  buyerApprovalDate?: string;
+  buyerRemarks?: string;
+
   remarks?: string;
 
   createdById: string;
@@ -340,6 +346,8 @@ export interface DyeJobQueryParams {
 // UI Helper Constants
 // ============================================
 
+// BUG-DYE4 fix: colorMatchRating scale aligned with printing module
+// Both modules now use the same 4-level scale: Excellent, Good, Acceptable, Poor
 export const ColorMatchRatingLabels: Record<string, string> = {
   Excellent: 'Excellent Match',
   Good: 'Good Match',

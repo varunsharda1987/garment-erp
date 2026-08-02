@@ -48,8 +48,22 @@ const customerFormSchema = z.object({
   billingAddress: z.string().optional(),
   shippingAddress: z.string().optional(),
   gstNumber: validators.gst,
-  creditLimit: z.string().optional(),
-  creditDays: z.string().optional(),
+  // BUG-CU8 fix: proper numeric validation with transform and error messages
+  creditLimit: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? undefined : val),
+    z.coerce
+      .number({ message: 'Credit limit must be a valid number' })
+      .nonnegative({ message: 'Credit limit cannot be negative' })
+      .optional()
+  ),
+  creditDays: z.preprocess(
+    (val) => (val === '' || val === undefined || val === null ? undefined : val),
+    z.coerce
+      .number({ message: 'Credit days must be a valid number' })
+      .int({ message: 'Credit days must be a whole number' })
+      .nonnegative({ message: 'Credit days cannot be negative' })
+      .optional()
+  ),
   // Testing Requirements
   requiresFPT: z.boolean().optional(),
   requiresGPT: z.boolean().optional(),
@@ -66,7 +80,10 @@ const customerFormSchema = z.object({
   agentCommissionPercent: z.string().optional(),
 });
 
-type CustomerFormData = z.infer<typeof customerFormSchema>;
+// Input vs output types differ because creditLimit/creditDays use z.preprocess + z.coerce:
+// the form holds raw input strings; the resolver hands the coerced output to onSubmit.
+type CustomerFormInput = z.input<typeof customerFormSchema>;
+type CustomerFormData = z.output<typeof customerFormSchema>;
 
 interface CustomerFormProps {
   mode?: 'create' | 'edit';
@@ -150,7 +167,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
     setValue,
     watch,
     formState: { errors },
-  } = useForm<CustomerFormData>({
+  } = useForm<CustomerFormInput, any, CustomerFormData>({
     resolver: zodResolver(customerFormSchema),
     defaultValues: {
       type: CustomerType.BUYER,
@@ -190,8 +207,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         const templates = templatesResponse.data || [];
         setFptTemplates(templates.filter((t: { templateType?: string }) => t.templateType === 'FPT'));
         setGptTemplates(templates.filter((t: { templateType?: string }) => t.templateType === 'GPT'));
-      } catch (error) {
-        console.error('Failed to load testing data:', error);
+      } catch {
+        // Testing data load failed - form can still function without presets
       }
     };
 
@@ -199,8 +216,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       try {
         const categories = await productCategoryService.getMainCategories();
         setMainCategories(categories);
-      } catch (error) {
-        console.error('Failed to load product categories:', error);
+      } catch {
+        // Product categories load failed - form can still function
       }
     };
 
@@ -214,8 +231,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
     try {
       const children = await productCategoryService.getChildren(parentId);
       setSubCategoriesMap((prev) => ({ ...prev, [parentId]: children }));
-    } catch (error) {
-      console.error('Failed to load sub-categories:', error);
+    } catch {
+      // Sub-category load failed - user can still use other categories
     }
   };
 
@@ -225,8 +242,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
     try {
       const children = await productCategoryService.getChildren(parentId);
       setSubSubCategoriesMap((prev) => ({ ...prev, [parentId]: children }));
-    } catch (error) {
-      console.error('Failed to load sub-sub-categories:', error);
+    } catch {
+      // Sub-sub-category load failed - user can still use other categories
     }
   };
 
@@ -397,8 +414,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
           setValue('billingAddress', customer.billingAddress || '');
           setValue('shippingAddress', customer.shippingAddress || '');
           setValue('gstNumber', customer.gstNumber || '');
-          setValue('creditLimit', customer.creditLimit?.toString() || '');
-          setValue('creditDays', customer.creditDays?.toString() || '');
+          setValue('creditLimit', customer.creditLimit ?? undefined);
+          setValue('creditDays', customer.creditDays ?? undefined);
 
           // Testing requirements
           setValue('requiresFPT', customer.requiresFPT || false);
@@ -618,8 +635,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         billingAddress: data.billingAddress,
         shippingAddress: data.shippingAddress,
         gstNumber: data.gstNumber,
-        creditLimit: data.creditLimit ? parseFloat(data.creditLimit) : undefined,
-        creditDays: data.creditDays ? parseInt(data.creditDays) : undefined,
+        creditLimit: data.creditLimit,
+        creditDays: data.creditDays,
         brandCategories,
         gstNumbers: validGstNumbers,
         // Testing requirements
@@ -654,9 +671,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
       navigate('/customers', { replace: true });
     } catch (error: unknown) {
-      console.error('Customer update error:', error);
       const axiosErr = error as { response?: { data?: { message?: string; error?: string; details?: unknown } } };
-      console.error('Error response:', JSON.stringify(axiosErr.response?.data, null, 2));
       const errorMessage =
         axiosErr.response?.data?.message || axiosErr.response?.data?.error || 'Failed to save customer';
       const errorDetails = axiosErr.response?.data?.details
@@ -1055,10 +1070,14 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                   <div>
                     <Label htmlFor="creditLimit">Credit Limit (₹)</Label>
                     <Input id="creditLimit" type="number" step="0.01" {...register('creditLimit')} placeholder="0.00" />
+                    {errors.creditLimit && (
+                      <p className="text-sm text-destructive mt-1">{errors.creditLimit.message}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="creditDays">Credit Days</Label>
                     <Input id="creditDays" type="number" {...register('creditDays')} placeholder="0" />
+                    {errors.creditDays && <p className="text-sm text-destructive mt-1">{errors.creditDays.message}</p>}
                   </div>
                 </div>
               </div>

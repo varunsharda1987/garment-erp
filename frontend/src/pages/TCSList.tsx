@@ -50,6 +50,7 @@ function formatAmount(amount: number): string {
     style: 'currency',
     currency: 'INR',
     minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
 }
 

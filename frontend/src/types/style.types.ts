@@ -42,6 +42,7 @@ export interface Style {
     category: string;
     subCategory?: string | null;
     subSubCategory?: string | null;
+    customerId?: string | null; // BUG-FC8 fix: Include customerId from brand_categories
   } | null; // Expanded brand_categories relation from backend (camelCase from serializer)
   image?: string | null;
   imageUrl: string | null;
@@ -319,16 +320,43 @@ export interface DashboardSummary {
 }
 
 // Form types for creating/updating styles
+// ISSUE-S5 fix: Extended to include all fields accepted by backend createStyleSchema
 export interface CreateStyleFormData {
   styleCode: string;
   styleName: string;
-  customerName: string;
-  brandName: string;
-  description?: string;
+  customerName?: string;
+  brandName?: string;
+  brandCategoryId?: string | null;
+  productCategoryId?: string | null;
+  category?: string;
+  description?: string | null;
   season?: string;
   seasonId?: string | null;
-  components: ComponentFormData[];
+  gender?: 'MALE' | 'FEMALE' | 'UNISEX' | null;
+  ageGroup?: 'INFANT' | 'KIDS' | 'TEEN' | 'ADULT' | null;
+  specifications?: string | null;
+  imageUrl?: string | null;
+  projectGroup?: string;
+  // Status fields
+  status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+  cadStatus?: CADStatus;
+  // Pricing fields
+  costPrice?: number | null;
+  sellingPrice?: number | null;
+  // Additional fields
+  expectedOrderQuantity?: number | null;
+  numberOfComponents?: number | null;
+  hsnCode?: string | null;
+  productTaxRule?: string | null;
+  accountingSKU?: string | null;
+  accountingUnit?: string | null;
+  bulletPoints?: string | null;
+  // Nested arrays
+  components?: ComponentFormData[];
   processes?: ProcessFormData[];
+  materialBOM?: MaterialBOMFormData[];
+  customerAccessoriesPresetId?: string | null;
+  skuVariants?: SKUVariantFormData[];
 }
 
 // DEPRECATED: CAD Average form data (use FabricWidthCADFormData instead)
@@ -364,10 +392,13 @@ export interface FabricFormData {
 
   // DEPRECATED: Legacy fields (still used during migration)
   fabricName?: string;
+  fabricCode?: string;
   fabricType?: string;
   fabricColor?: string;
   fabricGSM?: string;
   fabricWidth?: number;
+  fabricRate?: number;
+  fabricAverage?: number;
   cadAverageMeters?: number;
   cadAverageYards?: number;
   supplierName?: string;
@@ -378,8 +409,9 @@ export interface FabricFormData {
 
   // Component-specific fields
   quantityNeeded?: number;
+  unit?: string;
   unitPrice?: number;
-  notes?: string;
+  notes?: string | null;
 
   // Design/Color identification
   printDesign?: string | null;
@@ -419,6 +451,30 @@ export interface ProcessFormData {
   estimatedCost?: number;
   estimatedDays?: number;
   notes?: string;
+}
+
+// ISSUE-S5 fix: Add MaterialBOMFormData to support proper typing
+export interface MaterialBOMFormData {
+  materialType: string;
+  materialId?: string | null;
+  materialCode?: string | null;
+  materialName?: string | null;
+  usageCategory?: string;
+  componentName?: string | null;
+  quantityPerGarment?: number;
+  unit?: string;
+  unitPrice?: number | null;
+  totalCost?: number | null;
+  notes?: string | null;
+}
+
+// ISSUE-S5 fix: Add SKUVariantFormData to support proper typing
+export interface SKUVariantFormData {
+  size?: string;
+  sku?: string;
+  barcode?: string | null;
+  accountingSKU?: string | null;
+  isActive?: boolean;
 }
 
 export interface CostingFormData {

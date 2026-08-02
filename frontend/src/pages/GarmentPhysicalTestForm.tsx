@@ -51,7 +51,6 @@ export default function GarmentPhysicalTestForm() {
 
   const [sentToLabDate, setSentToLabDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [sampleQuantity, setSampleQuantity] = useState<number>(0);
-  const [batchNumber, setBatchNumber] = useState('');
   const [buyerApprovalRequired, setBuyerApprovalRequired] = useState(false);
 
   // Fetch work orders
@@ -154,7 +153,6 @@ export default function GarmentPhysicalTestForm() {
       sentToLabDate: sentToLabDate || undefined,
       testingLabId: testingLabId || undefined,
       sampleQuantity: sampleQuantity > 0 ? sampleQuantity : undefined,
-      batchNumber: batchNumber || undefined,
       customerId: customerId || undefined,
       buyerApprovalRequired,
     };
@@ -356,15 +354,6 @@ export default function GarmentPhysicalTestForm() {
                 value={sampleQuantity || ''}
                 onChange={(e) => setSampleQuantity(parseInt(e.target.value) || 0)}
                 placeholder="e.g., 5"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="batchNumber">Batch Number</Label>
-              <Input
-                id="batchNumber"
-                value={batchNumber}
-                onChange={(e) => setBatchNumber(e.target.value)}
-                placeholder="e.g., BT-2026-001"
               />
             </div>
           </div>

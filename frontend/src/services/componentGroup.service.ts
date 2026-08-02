@@ -69,16 +69,6 @@ export const componentGroupService = {
   async reorder(data: ReorderComponentGroupsInput): Promise<void> {
     await api.post(`${BASE_URL}/reorder`, data);
   },
-
-  /**
-   * Get components in a specific group
-   */
-  async getComponents(id: string, isActive?: boolean): Promise<unknown[]> {
-    const response = await api.get(`${BASE_URL}/${id}/components`, {
-      params: { isActive },
-    });
-    return response.data.data;
-  },
 };
 
 export default componentGroupService;

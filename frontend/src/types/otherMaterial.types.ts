@@ -100,3 +100,24 @@ export interface OtherMaterialListResponse {
     totalPages: number;
   };
 }
+
+/**
+ * Template column definition for bulk import
+ * BUG-OM3 fix: Aligned with backend response structure
+ * Backend returns: { field, header, required, description }
+ */
+export interface OtherMaterialTemplateColumn {
+  field: string;
+  header: string;
+  required: boolean;
+  description: string;
+}
+
+/**
+ * Template response for bulk import
+ * BUG-OM3 fix: Backend returns exampleData (not sampleData)
+ */
+export interface OtherMaterialTemplateResponse {
+  columns: OtherMaterialTemplateColumn[];
+  exampleData: Record<string, unknown>[];
+}

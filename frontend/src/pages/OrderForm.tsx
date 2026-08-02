@@ -18,6 +18,7 @@ import type { Priority, CreateOrderItemBreakup } from '../types/order.types';
 import type { CostSheet } from '../types/costSheet.types';
 import { logError } from '../lib/logger';
 import { formatCurrency } from '../lib/currency';
+import { toast } from 'sonner';
 import CostSheetComparisonModal from '../components/cost-sheet/CostSheetComparisonModal';
 import {
   Search,
@@ -206,6 +207,7 @@ export default function OrderForm() {
         }
       } catch (err) {
         logError('Failed to pre-fill from cost sheet:', err);
+        toast.warning('Could not pre-fill from cost sheet');
       }
     };
 
@@ -262,6 +264,7 @@ export default function OrderForm() {
         setRemarks(`Converted from quotation ${quotation.quotationNumber}${multiStyleNote}`);
       } catch (err) {
         logError('Failed to pre-fill from quotation:', err);
+        toast.warning('Could not pre-fill from quotation');
       }
     };
 
@@ -275,6 +278,7 @@ export default function OrderForm() {
       setCustomers(response.data);
     } catch (err) {
       logError('Failed to fetch customers:', err);
+      toast.error('Failed to load customers');
     }
   };
 
@@ -285,6 +289,7 @@ export default function OrderForm() {
       setStyles(response.data);
     } catch (err) {
       logError('Failed to fetch styles:', err);
+      toast.error('Failed to load styles');
     }
   };
 
@@ -310,6 +315,7 @@ export default function OrderForm() {
         });
       } catch (err) {
         logError('Style search failed:', err);
+        toast.warning('Style search failed');
       } finally {
         setSearchingStyles(false);
       }
@@ -390,7 +396,7 @@ export default function OrderForm() {
               // Try matching by ID first, then by name
               const idKey = `${color.id}-${size.id}`;
               const nameKey = `${color.colorName}-${size.sizeName}`;
-              const quantity = breakupByIdMap.get(idKey) || breakupByNameMap.get(nameKey) || 0;
+              const quantity = breakupByIdMap.get(idKey) ?? breakupByNameMap.get(nameKey) ?? 0;
               return {
                 colorId: color.id,
                 sizeId: size.id,
@@ -401,7 +407,7 @@ export default function OrderForm() {
         } else {
           newBreakup = styleSizes.map((size: SizeOption) => {
             // Try matching by ID first, then by name
-            const quantity = breakupByIdMap.get(size.id) || breakupByNameMap.get(size.sizeName) || 0;
+            const quantity = breakupByIdMap.get(size.id) ?? breakupByNameMap.get(size.sizeName) ?? 0;
             return {
               colorId: '',
               sizeId: size.id,
@@ -523,7 +529,9 @@ export default function OrderForm() {
         setHasApprovedCostSheet(approvedSheets.length > 0);
         setCostSheets(approvedSheets);
       } catch (costErr) {
-        console.error('Failed to check cost sheets:', costErr);
+        // BUG-ORD8 FIX: Surface error to user instead of silent console.error
+        logError('Failed to check cost sheets:', costErr);
+        toast.warning('Could not validate cost sheets for this style');
         setHasApprovedCostSheet(false);
         setCostSheets([]);
       } finally {
@@ -563,6 +571,7 @@ export default function OrderForm() {
       }
     } catch (err) {
       logError('Failed to fetch style details:', err);
+      toast.error('Failed to load style details');
     }
   };
 
@@ -572,7 +581,9 @@ export default function OrderForm() {
       const presets = await getAllPresetsForCustomer(customerId);
       setCustomerSizePresets(presets);
     } catch (error) {
-      console.error('Failed to load size presets:', error);
+      // BUG-ORD8 FIX: Surface error to user instead of silent console.error
+      logError('Failed to load size presets:', error);
+      toast.warning('Could not load size presets for customer');
       setCustomerSizePresets([]);
     }
   };
@@ -591,7 +602,9 @@ export default function OrderForm() {
       );
       setCostSheets(filteredSheets);
     } catch (error) {
-      console.error('Failed to load cost sheets:', error);
+      // BUG-ORD8 FIX: Surface error to user instead of silent console.error
+      logError('Failed to load cost sheets:', error);
+      toast.error('Failed to load cost sheets');
       setCostSheets([]);
     } finally {
       setLoadingCostSheets(false);

@@ -125,7 +125,8 @@ export default function CuttingDetail() {
       const data = await cuttingBatchService.getLays(id!);
       setLays(data);
     } catch (err) {
-      console.error('Failed to load lays:', err);
+      // BUG-MFG11 FIX: Surface error to user instead of silent console.error
+      handleApiError(err, 'Failed to load lays');
     } finally {
       setIsLoadingLays(false);
     }
@@ -136,7 +137,8 @@ export default function CuttingDetail() {
       const data = await cuttingBatchService.getStitchingIssues(id!);
       setStitchingData(data);
     } catch (err) {
-      console.error('Failed to load stitching issues:', err);
+      // BUG-MFG12 FIX: Surface error to user instead of silent console.error
+      handleApiError(err, 'Failed to load stitching issues');
     }
   };
 
@@ -145,7 +147,8 @@ export default function CuttingDetail() {
       const data = await supplierService.getAllSuppliers({ category: 'STITCHING_CONTRACTOR', limit: 200 });
       setContractors(data.data || []);
     } catch (err) {
-      console.error('Failed to load stitching contractors:', err);
+      // BUG-MFG13 FIX: Surface error to user instead of silent console.error
+      handleApiError(err, 'Failed to load stitching contractors');
     }
   };
 

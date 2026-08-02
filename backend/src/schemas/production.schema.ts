@@ -6,20 +6,28 @@
  */
 
 import { z } from 'zod';
+import {
+  CuttingBatchStatusEnum as PrismaCuttingBatchStatusEnum,
+  StitchingIssueStatusEnum as PrismaStitchingIssueStatusEnum,
+  FinishingStatusEnum as PrismaFinishingStatusEnum,
+} from './generated/prisma-enums';
 
 // Helper for validating IDs that can be UUID or CUID (color_master uses CUID)
 const isValidIdFormat = (val: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val);
 
 // ============================================================================
-// Common Enums
+// Common Enums - imported from generated prisma-enums to ensure alignment
 // ============================================================================
 
-export const CuttingBatchStatusEnum = z.enum(['PENDING', 'IN_PROGRESS', 'ON_HOLD', 'COMPLETED', 'CANCELLED']);
+// Prisma CuttingBatchStatus: PENDING, IN_PROGRESS, COMPLETED, ON_HOLD (no CANCELLED)
+export const CuttingBatchStatusEnum = PrismaCuttingBatchStatusEnum;
 
-export const StitchingIssueStatusEnum = z.enum(['PENDING', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD']);
+// Prisma StitchingIssueStatus: PENDING_RECEIPT, RECEIVED, IN_PROGRESS, COMPLETED
+export const StitchingIssueStatusEnum = PrismaStitchingIssueStatusEnum;
 
-export const FinishingIssueStatusEnum = z.enum(['PENDING', 'IN_PROGRESS', 'PACKING', 'COMPLETED']);
+// Prisma FinishingStatus: PENDING_RECEIPT, RECEIVED, IN_PROGRESS, PACKING, COMPLETED
+export const FinishingIssueStatusEnum = PrismaFinishingStatusEnum;
 
 // ============================================================================
 // CUTTING SCHEMAS

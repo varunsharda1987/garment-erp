@@ -549,7 +549,7 @@ export async function getStyleFabrics(req: Request, res: Response) {
             isPreferred: cadRow.isPreferred || false,
             processingBatchGroupColorId: cadRow.processingBatchGroupColorId || null,
             // Order quantity for rate slab lookup (persisted from save)
-            orderQuantityPcs: cadRow.orderQuantityPcs || null,
+            orderQuantityPcs: cadRow.orderQuantityPcs ?? null,
             // Creation timestamp for sorting by most recent
             createdAt: cadRow.createdAt || null,
             // No widthOptions needed since each row IS a width option

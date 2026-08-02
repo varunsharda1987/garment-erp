@@ -36,6 +36,17 @@ export interface GreigeStockEntry {
   };
 }
 
+// BUG-GR11 fix: added return type
+export interface GreigeStockAdjustmentResult {
+  stockId: string;
+  adjustmentType: 'INCREASE' | 'DECREASE';
+  quantity: number;
+  reason: string;
+  remarks?: string;
+  previousQuantity: number;
+  newQuantity: number;
+}
+
 export const greigeStockService = {
   /**
    * Get greige stock summary for unified dashboard
@@ -87,11 +98,15 @@ export const greigeStockService = {
   /**
    * Adjust greige stock (increase/decrease with reason)
    */
+  // BUG-GR11 fix: added return type
   async adjustStock(
     stockId: string,
     data: { adjustmentType: 'INCREASE' | 'DECREASE'; quantity: number; reason: string; remarks?: string }
-  ): Promise<any> {
-    const response = await api.post(`${BASE_URL}/stock/${stockId}/adjust`, data);
+  ): Promise<GreigeStockAdjustmentResult> {
+    const response = await api.post<ApiResponse<GreigeStockAdjustmentResult>>(
+      `${BASE_URL}/stock/${stockId}/adjust`,
+      data
+    );
     return response.data.data;
   },
 };

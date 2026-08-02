@@ -32,6 +32,8 @@ interface FabricCostingRowProps {
   index: number;
   isNotApplicable?: boolean;
   onNotApplicableChange?: (checked: boolean) => void;
+  // BUG-CS7 fix: Add disabled prop for approved cost sheets
+  disabled?: boolean;
 }
 
 export default function FabricCostingRow({
@@ -48,6 +50,8 @@ export default function FabricCostingRow({
   index,
   isNotApplicable = false,
   onNotApplicableChange,
+  // BUG-CS7 fix: Add disabled prop
+  disabled = false,
 }: FabricCostingRowProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -162,11 +166,12 @@ export default function FabricCostingRow({
               >
                 {getStrategyLabel(currentStrategy)}
               </span>
+              {/* BUG-CS7 fix: disable when approved */}
               <button
                 onClick={handleOpenModal}
-                disabled={isLoading || !hasRequiredFields}
+                disabled={isLoading || !hasRequiredFields || disabled}
                 className="text-info hover:text-info text-xs underline disabled:opacity-50"
-                title={getButtonTooltip()}
+                title={disabled ? 'Approved cost sheet is read-only' : getButtonTooltip()}
               >
                 {isLoading ? 'Loading...' : 'Change'}
               </button>
@@ -202,11 +207,12 @@ export default function FabricCostingRow({
               <span className="text-xs text-warning mt-1">{cadMeters <= 0 ? 'No CAD data' : 'No width data'}</span>
             </div>
           ) : (
+            /* BUG-CS7 fix: disable when approved */
             <button
               onClick={handleOpenModal}
-              disabled={isLoading || !hasRequiredFields}
+              disabled={isLoading || !hasRequiredFields || disabled}
               className="inline-flex items-center px-3 py-1 border border-info/30 text-xs font-medium rounded text-info bg-info-muted hover:bg-info-muted disabled:opacity-50"
-              title={getButtonTooltip()}
+              title={disabled ? 'Approved cost sheet is read-only' : getButtonTooltip()}
             >
               {isLoading ? (
                 <>
@@ -245,28 +251,37 @@ export default function FabricCostingRow({
         </td>
 
         {/* N/A Checkbox */}
+        {/* BUG-CS7 fix: disable when approved */}
         <td className="px-4 py-3 text-center">
           {onNotApplicableChange && (
-            <label className="flex items-center justify-center cursor-pointer">
+            <label className={`flex items-center justify-center ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
               <input
                 type="checkbox"
                 checked={isNotApplicable}
                 onChange={(e) => onNotApplicableChange(e.target.checked)}
-                className="w-4 h-4 text-primary border-border rounded focus:ring-orange-500"
-                title={isNotApplicable ? 'Item marked as Not Applicable' : 'Mark as Not Applicable'}
+                className="w-4 h-4 text-primary border-border rounded focus:ring-orange-500 disabled:opacity-50"
+                title={
+                  disabled
+                    ? 'Approved cost sheet is read-only'
+                    : isNotApplicable
+                      ? 'Item marked as Not Applicable'
+                      : 'Mark as Not Applicable'
+                }
+                disabled={disabled}
               />
             </label>
           )}
         </td>
 
         {/* Actions */}
+        {/* BUG-CS7 fix: disable when approved */}
         <td className="px-4 py-3 text-right">
           <div className="flex items-center justify-end space-x-2">
             <button
               onClick={handleOpenModal}
-              disabled={isLoading}
+              disabled={isLoading || disabled}
               className="text-muted-foreground hover:text-foreground disabled:opacity-50"
-              title="View cost breakdown"
+              title={disabled ? 'Approved cost sheet is read-only' : 'View cost breakdown'}
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path
@@ -278,7 +293,12 @@ export default function FabricCostingRow({
               </svg>
             </button>
             {onRemove && (
-              <button onClick={onRemove} className="text-destructive hover:text-destructive" title="Remove fabric">
+              <button
+                onClick={onRemove}
+                disabled={disabled}
+                className="text-destructive hover:text-destructive disabled:opacity-50"
+                title={disabled ? 'Approved cost sheet is read-only' : 'Remove fabric'}
+              >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"

@@ -46,6 +46,7 @@ export interface Zipper {
   length?: number | null;
   teethType?: string | null;
   color?: string | null;
+  colorId?: string | null; // bug-hunt: added for ColorPicker pre-selection
   brand?: string | null;
   sliderType?: string | null;
   tapeWidth?: number | null;
@@ -62,6 +63,7 @@ export interface Zipper {
   materialId?: string;
   supplierName?: string;
   supplierCodeRef?: string;
+  styleCodes?: string[]; // BUG-MM6 fix: added styleCodes field
 
   // Multi-supplier support
   zipperSuppliers?: ZipperSupplier[];
@@ -85,6 +87,7 @@ export interface ZipperFormData {
   supplierId?: string;
   description?: string;
   suppliers?: ZipperSupplierInput[];
+  styleCodes?: string[]; // BUG-MM6 fix
 }
 
 // ============================================
@@ -105,6 +108,7 @@ export interface CreateZipperRequest {
   supplierId?: string;
   description?: string;
   suppliers?: ZipperSupplierInput[];
+  styleCodes?: string[]; // BUG-MM6 fix
 }
 
 export interface UpdateZipperRequest extends Partial<CreateZipperRequest> {

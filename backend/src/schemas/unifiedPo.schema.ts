@@ -7,47 +7,27 @@
 
 import { z } from 'zod';
 import { UnitEnum } from './common.schema';
+import {
+  POSourceEnum as PrismaPOSourceEnum,
+  POCategoryEnum as PrismaPOCategoryEnum,
+  ServiceTypeEnum as PrismaServiceTypeEnum,
+} from './generated/prisma-enums';
 
 // ============================================================================
-// Enums (match Prisma enums)
+// Enums (imported from generated prisma-enums to ensure alignment)
 // ============================================================================
 
 // Shared full Prisma-aligned Unit enum (includes PAIR/PACK/GRAM/LITER/ROLL).
 export { UnitEnum };
 
-export const POSourceEnum = z.enum(['MANUAL', 'COST_SHEET', 'MRP', 'SERVICE_REQUIREMENT', 'PRODUCTION_RUN']);
+// PO Source: MANUAL, COST_SHEET, MRP, SERVICE_REQUIREMENT, PRODUCTION_RUN
+export const POSourceEnum = PrismaPOSourceEnum;
 
-export const POCategoryEnum = z.enum([
-  'GREIGE',
-  'FABRIC',
-  'TRIM',
-  'BUTTON',
-  'ZIPPER',
-  'THREAD',
-  'ELASTIC',
-  'LACE',
-  'LABEL',
-  'PACKAGING',
-  'PROCESSING',
-  'EMBROIDERY',
-  'OUTSOURCED_WORK',
-  'TESTING',
-  'TRANSPORT',
-  'OTHER',
-]);
+// PO Category from Prisma - includes all material and service categories
+export const POCategoryEnum = PrismaPOCategoryEnum;
 
-export const ServiceTypeEnum = z.enum([
-  'DYEING',
-  'PRINTING',
-  'EMBROIDERY',
-  'WASHING',
-  'FINISHING',
-  'CUTTING',
-  'STITCHING',
-  'TESTING',
-  'TRANSPORT',
-  'CUSTOM',
-]);
+// Service Type from Prisma: EMBROIDERY, PRINTING, DYEING, WASHING, FINISHING, CUTTING, STITCHING, HANDWORK, SMOCKING, TRANSPORTATION, OTHER
+export const ServiceTypeEnum = PrismaServiceTypeEnum;
 
 // ============================================================================
 // Source Links Schema

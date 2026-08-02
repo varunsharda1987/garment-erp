@@ -13,6 +13,13 @@ export interface ExportTemplate {
   createdById: string;
   createdAt: string;
   updatedAt: string;
+  // BUG-ET5 fix: User relation returned by backend when template is fetched with include
+  users?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
 }
 
 export interface CreateTemplateDTO {
@@ -30,9 +37,10 @@ export interface UpdateTemplateDTO {
   isDefault?: boolean;
 }
 
+// bug-hunt: backend returns { value, label } not { name, displayName }
 export interface ModuleInfo {
-  name: string;
-  displayName: string;
+  value: string;
+  label: string;
 }
 
 export interface AvailableColumn {

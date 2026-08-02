@@ -19,6 +19,9 @@ export type TestResult = (typeof TestResult)[keyof typeof TestResult];
 // TESTING LABS
 // ============================================================================
 
+// BUG-TEST10 fix: This matches TestingLabResponse in backend (not raw TestingLab)
+// Backend stores accreditations as JSON string in DB but transforms to string[]
+// via formatLabResponse() before sending API response
 export interface TestingLab {
   id: string;
   labCode: string;
@@ -31,11 +34,22 @@ export interface TestingLab {
   state: string | null;
   pincode: string | null;
   averageTurnaroundDays: number;
-  accreditations: string[];
+  accreditations: string[]; // Parsed from JSON string by backend formatLabResponse()
   isActive: boolean;
   createdById: string;
   createdAt: string;
   updatedAt: string;
+  createdBy?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  _count?: {
+    fabricTests: number;
+    garmentTests: number;
+    customerDefaults?: number;
+  };
 }
 
 export interface CreateTestingLabInput {
@@ -223,7 +237,6 @@ export interface GarmentPhysicalTest {
   sentToLabDate: string | null;
   testingLabId: string | null;
   sampleQuantity: number | null;
-  batchNumber: string | null;
   prewashLength: number | null;
   prewashWidth: number | null;
   prewashChest: number | null;
@@ -241,8 +254,7 @@ export interface GarmentPhysicalTest {
   colorTestResult: TestResult | null;
   pilling: string | null;
   spirality: number | null;
-  fabricWeight: number | null;
-  appearance: string | null;
+  apparenceAfterWash: string | null;
   testReportUrl: string | null;
   overallTestResult: TestResult;
   failureReason: string | null;
@@ -275,7 +287,6 @@ export interface CreateGarmentPhysicalTestInput {
   sentToLabDate?: string;
   testingLabId?: string;
   sampleQuantity?: number;
-  batchNumber?: string;
   buyerApprovalRequired?: boolean;
 }
 
@@ -283,7 +294,6 @@ export interface UpdateGarmentPhysicalTestInput {
   sentToLabDate?: string;
   testingLabId?: string;
   sampleQuantity?: number;
-  batchNumber?: string;
   prewashLength?: number;
   prewashWidth?: number;
   prewashChest?: number;
@@ -301,8 +311,7 @@ export interface UpdateGarmentPhysicalTestInput {
   colorTestResult?: TestResult;
   pilling?: string;
   spirality?: number;
-  fabricWeight?: number;
-  appearance?: string;
+  apparenceAfterWash?: string;
   testReportUrl?: string;
   overallTestResult?: TestResult;
   failureReason?: string;

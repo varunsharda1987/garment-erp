@@ -155,7 +155,7 @@ const ThreadStockIndicator: React.FC<ThreadStockIndicatorProps> = ({
           <Tooltip>
             <TooltipTrigger asChild>
               {compact ? (
-                <Badge variant="default" className="gap-1 bg-warning-muted0 hover:bg-warning">
+                <Badge variant="default" className="gap-1 bg-warning-muted hover:bg-warning">
                   <AlertTriangle className="h-3 w-3" />
                   Low Stock
                 </Badge>

@@ -476,7 +476,8 @@ export default function GRNForm() {
   // Computed values
   // ============================================
 
-  const formatCurrency = (amount: number) => `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+  const formatCurrency = (amount: number) =>
+    `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const filteredPOs = receivablePOs.filter((po) => {
     if (poCategoryFilter !== 'ALL' && po.poCategory !== poCategoryFilter) return false;

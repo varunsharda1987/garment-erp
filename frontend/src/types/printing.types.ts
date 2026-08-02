@@ -53,7 +53,13 @@ export interface LabDip {
   approvalDate?: string;
   approvedSampleNo?: string;
   rejectionReason?: string;
-  colorMatchRating?: string;
+  colorMatchRating?: 'Excellent' | 'Good' | 'Acceptable' | 'Poor';
+
+  // Buyer Approval
+  buyerApprovalStatus?: 'NOT_SENT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESUBMIT_REQUIRED';
+  sentToBuyerDate?: string;
+  buyerApprovalDate?: string;
+  buyerRemarks?: string;
 
   remarks?: string;
 
@@ -121,12 +127,12 @@ export interface UpdateLabDipRequest extends Partial<CreateLabDipRequest> {
   status?: LabDipStatus;
   approvedSampleNo?: string;
   rejectionReason?: string;
-  colorMatchRating?: string;
+  colorMatchRating?: 'Excellent' | 'Good' | 'Acceptable' | 'Poor';
 }
 
 export interface ApproveLabDipRequest {
   approvedSampleNo: string;
-  colorMatchRating?: string;
+  colorMatchRating?: 'Excellent' | 'Good' | 'Acceptable' | 'Poor';
   remarks?: string;
 }
 
@@ -186,6 +192,16 @@ export interface JobWorkOrder {
   defectMeters?: number;
   defectType?: string;
   actualRate?: number;
+  qcDate?: string;
+  qcPassed?: boolean;
+  qcRemarks?: string;
+  approvedQty?: number;
+  rejectedQty?: number;
+
+  // Return
+  returnedQty?: number;
+  returnedDate?: string;
+  returnReason?: string;
 
   // Finished fabric (auto-created at sendToMill)
   finishedFabricId?: string;
@@ -412,6 +428,22 @@ export const PrintChemistryLabels: Record<PrintChemistry, string> = {
   DISCHARGE: 'Discharge',
 };
 
+// BUG-DYE4 fix: colorMatchRating scale aligned with dyeing module
+// Both modules now use the same 4-level scale: Excellent, Good, Acceptable, Poor
+export const ColorMatchRatingLabels: Record<string, string> = {
+  Excellent: 'Excellent Match',
+  Good: 'Good Match',
+  Acceptable: 'Acceptable',
+  Poor: 'Poor Match',
+};
+
+export const ColorMatchRatingColors: Record<string, string> = {
+  Excellent: 'bg-success-muted text-success',
+  Good: 'bg-info-muted text-info',
+  Acceptable: 'bg-yellow-100 text-yellow-800',
+  Poor: 'bg-destructive/10 text-destructive',
+};
+
 // ============================================
 // Process PO Types
 // ============================================
@@ -433,7 +465,10 @@ export interface ProcessPO {
   totalAmount: number | null;
   status: string;
   processPOStatus: ProcessPOStatus;
+  agreedRatePerMeter?: number | null;
+  remarks?: string;
   supplier?: { id: string; code: string; name: string };
+  labDip?: { id: string; labDipNumber: string } | null;
   items?: Array<{
     id: string;
     serviceType: string | null;

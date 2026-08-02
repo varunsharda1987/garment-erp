@@ -12,7 +12,7 @@ import { ArrowLeft, Loader2, Truck, Package, ClipboardCheck, CheckCircle } from 
 import { format } from 'date-fns';
 
 /**
- * Read-only Delivery Note detail (finding B10-02).
+ * Read-only Delivery Note detail (finding B10-02, BUG-DASH10 fix: corrected route path).
  * The list's View button pointed at /manufacturing/dispatch/delivery/:id, which had no route or page
  * (landed on NotFound). This mirrors the read pattern of ChallanDetail / DispatchPODForm using the
  * existing deliveryNoteService.getById endpoint (returns items + ext.transport/pod/cartons).

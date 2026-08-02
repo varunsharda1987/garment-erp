@@ -47,12 +47,12 @@ export const BasicIconExample = () => {
 export const IconButtonExample = () => {
   return (
     <div className="flex gap-4">
-      <button className="flex items-center gap-2 px-4 py-2 bg-info-muted0 text-white rounded-md hover:bg-info">
+      <button className="flex items-center gap-2 px-4 py-2 bg-info-muted text-white rounded-md hover:bg-info">
         <Package className="h-5 w-5" />
         <span>Add Stock</span>
       </button>
 
-      <button className="flex items-center gap-2 px-4 py-2 bg-success-muted0 text-white rounded-md hover:bg-success">
+      <button className="flex items-center gap-2 px-4 py-2 bg-success-muted text-white rounded-md hover:bg-success">
         <Shirt className="h-5 w-5" />
         <span>New Style</span>
       </button>
@@ -180,8 +180,8 @@ export const ProcessStepsExample = () => {
  */
 export const IconDashboardExample = () => {
   const cards = [
-    { icon: Shirt, label: 'Total Styles', value: '1,234', color: 'bg-info-muted0' },
-    { icon: FabricRollIcon, label: 'Fabric Rolls', value: '856', color: 'bg-success-muted0' },
+    { icon: Shirt, label: 'Total Styles', value: '1,234', color: 'bg-info-muted' },
+    { icon: FabricRollIcon, label: 'Fabric Rolls', value: '856', color: 'bg-success-muted' },
     { icon: Factory, label: 'Production Lines', value: '12', color: 'bg-accent/100' },
     { icon: Package, label: 'Orders', value: '456', color: 'bg-primary/100' },
   ];
@@ -229,7 +229,7 @@ export const MaterialCardsExample = () => {
             <p className="text-sm text-muted-foreground">345 items</p>
           </div>
         </div>
-        <button className="w-full mt-2 px-4 py-2 bg-info-muted0 text-white rounded-md hover:bg-info">
+        <button className="w-full mt-2 px-4 py-2 bg-info-muted text-white rounded-md hover:bg-info">
           View Inventory
         </button>
       </div>
@@ -255,7 +255,7 @@ export const MaterialCardsExample = () => {
             <p className="text-sm text-muted-foreground">256 items</p>
           </div>
         </div>
-        <button className="w-full mt-2 px-4 py-2 bg-success-muted0 text-white rounded-md hover:bg-success">
+        <button className="w-full mt-2 px-4 py-2 bg-success-muted text-white rounded-md hover:bg-success">
           View Inventory
         </button>
       </div>

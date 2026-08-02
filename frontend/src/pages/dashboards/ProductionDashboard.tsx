@@ -71,9 +71,9 @@ export default function ProductionDashboard() {
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt) : new Date();
 
   const pipelineStages: PipelineStage[] = [
-    { name: 'Cutting', count: stats.cuttingQueue, icon: Scissors, color: 'bg-info-muted0' },
-    { name: 'Stitching', count: stats.stitchingActive, icon: Factory, color: 'bg-warning-muted0' },
-    { name: 'Finishing', count: stats.finishingActive, icon: CheckSquare, color: 'bg-success-muted0' },
+    { name: 'Cutting', count: stats.cuttingQueue, icon: Scissors, color: 'bg-info-muted' },
+    { name: 'Stitching', count: stats.stitchingActive, icon: Factory, color: 'bg-warning-muted' },
+    { name: 'Finishing', count: stats.finishingActive, icon: CheckSquare, color: 'bg-success-muted' },
     { name: 'Dispatch', count: stats.todayDispatchTarget, icon: Send, color: 'bg-accent/100' },
   ];
 

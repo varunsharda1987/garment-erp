@@ -122,7 +122,7 @@ export function PatternPartMultiSelect({
       return {
         badge: 'bg-info-muted text-info border-info/30 hover:bg-info/15',
         listItem: 'hover:bg-info-muted',
-        indicator: 'bg-info-muted0',
+        indicator: 'bg-info-muted',
       };
     }
     return {

@@ -49,27 +49,27 @@ export default function SourcingStrategySelector({
   const { stockReuse, readyFabric, greigeProcessing, recommendedCost, savings } = fabricCostData;
 
   const handleSelectStock = () => {
-    if (!stockReuse.available) return;
+    if (!stockReuse.available || stockReuse.totalCost == null || !stockReuse.stockLotId) return;
     onSelectStrategy({
       sourcingStrategy: 'STOCK_REUSE',
-      cost: stockReuse.totalCost!,
-      stockLotId: stockReuse.stockLotId!,
+      cost: stockReuse.totalCost,
+      stockLotId: stockReuse.stockLotId,
     });
     onClose();
   };
 
   const handleSelectReady = () => {
-    if (!readyFabric.available) return;
+    if (!readyFabric.available || readyFabric.totalCost == null) return;
     onSelectStrategy({
       sourcingStrategy: 'READY_FABRIC',
-      cost: readyFabric.totalCost!,
+      cost: readyFabric.totalCost,
       procurementId: readyFabric.procurementId || undefined,
     });
     onClose();
   };
 
   const handleSelectGreige = () => {
-    if (!greigeProcessing.available) return;
+    if (!greigeProcessing.available || greigeProcessing.totalCost == null) return;
 
     if (useManualOverride && manualGreigeCost) {
       const manualGreige = parseFloat(manualGreigeCost);
@@ -88,7 +88,7 @@ export default function SourcingStrategySelector({
     } else {
       onSelectStrategy({
         sourcingStrategy: 'GREIGE_PROCESSED',
-        cost: greigeProcessing.totalCost!,
+        cost: greigeProcessing.totalCost,
         processorId: greigeProcessing.processorId || undefined,
         rateCardId: greigeProcessing.rateCardId || undefined,
         greigeCost: greigeProcessing.greigeCost || undefined,

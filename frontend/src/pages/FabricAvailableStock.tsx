@@ -161,7 +161,7 @@ export default function FabricAvailableStock() {
       setAdjustForm({ type: 'DECREASE', quantity: '', reason: 'CORRECTION', remarks: '' });
       await loadFabricStock();
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to adjust stock');
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to adjust stock');
     } finally {
       setIsAdjusting(false);
     }

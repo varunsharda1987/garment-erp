@@ -118,7 +118,7 @@ export function EmbroiderySelector({ isOpen, onClose, onSelect, currentEmbroider
 
   const formatCurrency = (value: number | null | undefined) => {
     if (value === null || value === undefined) return '-';
-    return `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    return `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   return (

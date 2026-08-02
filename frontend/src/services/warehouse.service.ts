@@ -63,10 +63,14 @@ export const warehouseService = {
 
   /**
    * Get warehouse stock summary
+   * BUG-WH10 fix: Throw error instead of returning empty data to surface API failures
    */
   async getStockSummary(id: string): Promise<WarehouseStockSummary> {
     const response = await api.get<ApiResponse<WarehouseStockSummary>>(`${BASE_URL}/${id}/stock-summary`);
-    return response.data.data || { totalMaterials: 0, totalValue: 0 };
+    if (!response.data.data) {
+      throw new Error('Failed to get stock summary');
+    }
+    return response.data.data;
   },
 
   /**

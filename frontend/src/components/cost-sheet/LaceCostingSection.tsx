@@ -140,8 +140,9 @@ export default function LaceCostingSection({
     updatedDetails[index] = {
       ...updatedDetails[index],
       isNotApplicable,
-      // If marking as N/A, zero out the costs
+      // If marking as N/A, zero out all costs consistently
       totalCost: isNotApplicable ? 0 : updatedDetails[index].totalCost,
+      costPerMeter: isNotApplicable ? 0 : updatedDetails[index].costPerMeter,
     };
     onLaceDetailsChange(updatedDetails);
   };

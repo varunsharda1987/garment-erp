@@ -52,6 +52,7 @@ export interface Elastic {
   image?: string | null;
   supplierId?: string | null;
   description?: string | null;
+  // Note: styleCodes not supported - no elastic_style_associations table
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -82,6 +83,7 @@ export interface ElasticFormData {
   pricePerMeter?: number | string;
   supplierId?: string;
   description?: string;
+  // Note: styleCodes not supported - no elastic_style_associations table
   suppliers?: ElasticSupplierInput[];
 }
 
@@ -101,6 +103,7 @@ export interface CreateElasticRequest {
   pricePerMeter?: number;
   supplierId?: string;
   description?: string;
+  // Note: styleCodes not supported - no elastic_style_associations table
   suppliers?: ElasticSupplierInput[];
 }
 

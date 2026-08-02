@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, Search, Warehouse, Eye } from 'lucide-react';
+import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,8 +69,9 @@ export default function StockProductionOrderList() {
   const [priority, setPriority] = useState('MEDIUM');
   const [remarks, setRemarks] = useState('');
 
+  // BUG-ORD14 fix: standardized query key
   const { data, isLoading } = useQuery({
-    queryKey: ['stock-production-orders', { page, search, status: statusFilter }],
+    queryKey: queryKeys.stockProductionOrders.list({ page, search, status: statusFilter }),
     queryFn: () =>
       getAllSPOs({
         page,
@@ -91,7 +93,7 @@ export default function StockProductionOrderList() {
   const createMutation = useMutation({
     mutationFn: createSPO,
     onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ['stock-production-orders'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.stockProductionOrders.all }); // BUG-ORD14 fix: standardized query key
       toast.success('Stock Production Order created');
       setCreateDialogOpen(false);
       resetForm();
@@ -105,7 +107,7 @@ export default function StockProductionOrderList() {
   const deleteMutation = useMutation({
     mutationFn: deleteSPO,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stock-production-orders'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.stockProductionOrders.all }); // BUG-ORD14 fix: standardized query key
       toast.success('SPO deleted');
       setDeleteDialogOpen(false);
       setSpoToDelete(null);
@@ -137,7 +139,7 @@ export default function StockProductionOrderList() {
 
     const request: CreateSPORequest = {
       styleId: selectedStyleId,
-      totalQuantity: parseInt(totalQuantity),
+      totalQuantity: parseInt(totalQuantity, 10),
       targetDate: targetDate || undefined,
       priority: priority as Priority,
       remarks: remarks || undefined,

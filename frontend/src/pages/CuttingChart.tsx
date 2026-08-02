@@ -62,7 +62,8 @@ export default function CuttingChart() {
     cuttingSummaryService
       .getAvailableWorkOrders()
       .then(setAvailableWorkOrders)
-      .catch((err) => console.error('Failed to fetch work orders:', err));
+      // BUG-MFG11 FIX: Surface error to user instead of silent console.error
+      .catch((err) => handleApiError(err, 'Failed to fetch work orders'));
   }, []);
 
   // Load chart data when WO or color changes

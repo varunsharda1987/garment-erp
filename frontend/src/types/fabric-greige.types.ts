@@ -314,7 +314,7 @@ export interface FabricMasterFormData {
 
 export interface FabricWidthCADFormData {
   fabricId: string;
-  availableWidth: number;
+  cutableWidth: number;
   widthUnit: string;
   cadMeters?: number;
   cadYards?: number;

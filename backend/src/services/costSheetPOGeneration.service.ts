@@ -11,7 +11,14 @@ import { PurchaseOrderStatus, POCategory as PrismaPOCategory, POSource, Unit } f
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { Decimal } from '@prisma/client/runtime/library';
 // costing-23: decimal.js helpers for money accumulation (aliased — Prisma Decimal already imported above)
-import { Decimal as CurrencyDecimal, roundToCent, addCurrency, multiplyCurrency } from '../utils/currency';
+import {
+  Decimal as CurrencyDecimal,
+  roundToCent,
+  addCurrency,
+  multiplyCurrency,
+  divideByShrinkage,
+  toNumber,
+} from '../utils/currency';
 import { gstService } from './gst.service';
 import { processorRateValidationService } from './processor-rate-validation.service';
 import {
@@ -404,15 +411,8 @@ class CostSheetPOGenerationService {
           );
         }
         const shrinkage = Number(laceItem.greigeLace.expectedShrinkagePercent);
-        // A shrinkage of 100% (or more) divides by zero/negative below -> Infinity/garbage into
-        // the PO quantity. Fail loud on bad data instead (bug-hunt BH-0366/BH-0364).
-        if (shrinkage >= 100) {
-          throw new Error(
-            `Invalid expected shrinkage ${shrinkage}% for greige lace "${laceItem.greigeLace?.laceName || laceItem.laceId}": ` +
-              `must be below 100% (it divides the greige requirement).`
-          );
-        }
-        const greigeRequiredQty = requiredQty / (1 - shrinkage / 100);
+        // Use divideByShrinkage helper which guards against Infinity at 100% (bug-hunt BH-0366/BH-0364)
+        const greigeRequiredQty = toNumber(divideByShrinkage(requiredQty, shrinkage));
 
         // Add greige lace item
         const greigeLaceItem: MaterialRequirement = {

@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { authService } from '@/services/auth.service';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, HelpCircle } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Available roles for self-registration (excluding ADMIN)
 const AVAILABLE_ROLES = [
@@ -30,7 +31,7 @@ const registerSchema = z
     lastName: z.string().min(2, 'Last name must be at least 2 characters'),
     email: z.string().email('Invalid email address'),
     phone: z.string().optional(),
-    role: z.string().min(1, 'Please select a role'),
+    role: z.string().optional(), // BUG-ADM3 fix: optional since admin assigns actual role
     password: z.string().min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string().min(6, 'Password must be at least 6 characters'),
   })
@@ -65,12 +66,12 @@ export default function Register() {
     setError('');
 
     try {
+      // Note: role is assigned by admin after registration (defaults to SALES)
       const registerData = {
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
         phone: data.phone,
-        role: data.role,
         password: data.password,
       };
       const response = await authService.register(registerData);
@@ -173,11 +174,29 @@ export default function Register() {
               {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
             </div>
 
+            {/* BUG-ADM3 fix: Clarify that role is a preference, not assignment */}
             <div className="space-y-2">
-              <Label htmlFor="role">Role</Label>
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="role">
+                  Preferred Role <span className="text-muted-foreground text-xs">(Optional)</span>
+                </Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger type="button" tabIndex={-1}>
+                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[240px]">
+                      <p>
+                        This is your preferred role. The administrator will assign your actual role when approving your
+                        account.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <Select value={selectedRole} onValueChange={(value) => setValue('role', value)} disabled={isLoading}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select your role" />
+                  <SelectValue placeholder="Select your preferred role" />
                 </SelectTrigger>
                 <SelectContent>
                   {AVAILABLE_ROLES.map((role) => (
@@ -187,6 +206,9 @@ export default function Register() {
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                The administrator will assign your actual role during approval.
+              </p>
               {errors.role && <p className="text-sm text-destructive">{errors.role.message}</p>}
             </div>
 
@@ -215,8 +237,10 @@ export default function Register() {
               {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
             </div>
 
+            {/* BUG-ADM3 fix: Clarify both approval and role assignment */}
             <div className="bg-info-muted border border-info/20 text-info px-4 py-3 rounded-md text-sm">
-              Your account will require admin approval before you can log in.
+              Your account will require admin approval before you can log in. The administrator will also assign your
+              role based on your responsibilities.
             </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">

@@ -94,7 +94,12 @@ export default function HandworkSendOut() {
         }));
         setWorkOrders(items);
       })
-      .catch(() => setWorkOrders([]));
+      .catch((err: any) => {
+        // BUG-MFG11-18 fix: proper error extraction
+        const message = err?.response?.data?.message || err?.message || 'Could not load work orders';
+        toast.error(message);
+        setWorkOrders([]);
+      });
   }, []);
 
   // Load HANDWORK_SERVICE POs when work order selected
@@ -115,7 +120,12 @@ export default function HandworkSendOut() {
         }));
         setPos(items);
       })
-      .catch(() => setPos([]));
+      .catch((err: any) => {
+        // BUG-MFG11-18 fix: proper error extraction
+        const message = err?.response?.data?.message || err?.message || 'Could not load purchase orders';
+        toast.error(message);
+        setPos([]);
+      });
   }, [selectedWorkOrderId]);
 
   // Load stitching issues for work order
@@ -143,7 +153,12 @@ export default function HandworkSendOut() {
         }));
         setStitchingIssues(items);
       })
-      .catch(() => setStitchingIssues([]));
+      .catch((err: any) => {
+        // BUG-MFG11-18 fix: proper error extraction
+        const message = err?.response?.data?.message || err?.message || 'Could not load stitching issues';
+        toast.error(message);
+        setStitchingIssues([]);
+      });
   }, [selectedWorkOrderId]);
 
   const sendOutMutation = useMutation({

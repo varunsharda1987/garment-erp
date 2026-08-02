@@ -100,6 +100,8 @@ const CostSheetForm = () => {
 
   const [notes, setNotes] = useState('');
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+  // BUG-CS7 fix: Track if cost sheet is approved to disable fields
+  const [isApprovedCostSheet, setIsApprovedCostSheet] = useState(false);
 
   // Closed Cost - Final agreed price with customer (exclusive of tax)
   const [closedCost, setClosedCost] = useState<number | null>(null);
@@ -145,13 +147,28 @@ const CostSheetForm = () => {
   }, []);
 
   // Load existing cost sheet data when in edit mode
+  // BUG-CS10 fix: prevent race condition in style loading
   useEffect(() => {
     if (!isEditMode || !id || initialDataLoaded) return;
+
+    let cancelled = false;
 
     const loadCostSheet = async () => {
       setLoading(true);
       try {
         const costSheet = await getCostSheetById(id);
+
+        // BUG-CS10 fix: prevent race condition in style loading
+        if (cancelled) return;
+
+        // BUG-CS7 fix: Block editing of approved cost sheets
+        if (costSheet.approvalStatus === 'APPROVED' || costSheet.isApproved) {
+          // BUG-CS7 fix: Set approved state immediately before redirect
+          setIsApprovedCostSheet(true);
+          notify.warning('Approved cost sheets cannot be edited. Create a new version instead.');
+          navigate(`/cost-sheets/${id}`);
+          return;
+        }
 
         // Populate all form fields with existing data
         if (costSheet.fabricDetails && costSheet.fabricDetails.length > 0) {
@@ -217,6 +234,10 @@ const CostSheetForm = () => {
           // Fetch full style details to get CAD status and other info
           try {
             const fullStyleDetails = await styleService.getStyleById(costSheet.styleId);
+
+            // BUG-CS10 fix: prevent race condition in style loading
+            if (cancelled) return;
+
             setSelectedStyle(fullStyleDetails);
 
             // Populate customer/brand display fields (also for edit mode)
@@ -472,10 +493,18 @@ const CostSheetForm = () => {
         notify.error('Failed to load cost sheet');
         navigate('/cost-sheets');
       } finally {
-        setLoading(false);
+        // BUG-CS10 fix: only update loading if not cancelled
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
     loadCostSheet();
+
+    // BUG-CS10 fix: cleanup to prevent race condition in style loading
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditMode, initialDataLoaded, navigate]);
 
@@ -498,14 +527,19 @@ const CostSheetForm = () => {
   const [pendingStyleId, setPendingStyleId] = useState<string | null>(null);
 
   // Handle preselected styleId from URL query params (e.g., from Fabric Costing page)
+  // BUG-CS10 fix: prevent race condition in style loading
   useEffect(() => {
     if (!preselectedStyleId || isEditMode || customers.length === 0) return;
+
+    let cancelled = false;
 
     const loadPreselectedStyle = async () => {
       try {
         // Fetch the style to get its customer name
         const styleDetails = await styleService.getStyleById(preselectedStyleId);
-        if (!styleDetails) return;
+
+        // BUG-CS10 fix: prevent race condition in style loading
+        if (cancelled || !styleDetails) return;
 
         // Find customer by matching customerName (style only has customerName string, not customer object)
         if (styleDetails.customerName) {
@@ -531,6 +565,11 @@ const CostSheetForm = () => {
     };
 
     loadPreselectedStyle();
+
+    // BUG-CS10 fix: cleanup to prevent race condition in style loading
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preselectedStyleId, isEditMode, customers.length]);
 
@@ -680,11 +719,14 @@ const CostSheetForm = () => {
             let modeHasData = false; // Track if selected mode has any costing data
             try {
               const costingResponse = await fabricCostingService.getStyleCostingOptions(selectedStyleId, costingMode);
+              // BUG-CS10 FIX: Check cancellation after async operation to prevent race condition
+              if (cancelled) return;
               if (costingResponse.success && costingResponse.data) {
                 costingOptions = costingResponse.data;
                 modeHasData = Object.keys(costingOptions).length > 0;
               }
             } catch (error) {
+              if (cancelled) return;
               console.warn(`No fabric costing found for style in ${costingMode} mode:`, error);
             }
 
@@ -886,6 +928,9 @@ const CostSheetForm = () => {
             // Wait for all rate fetches to complete
             await Promise.all(fabricRateFetchPromises);
 
+            // BUG-CS10 FIX: Check cancellation after all async operations complete
+            if (cancelled) return;
+
             // Show warning for non-COSTING modes when no costing data exists
             if (!modeHasData && costingMode !== 'COSTING') {
               const modeName = costingMode.replace(/_/g, ' ').toLowerCase();
@@ -899,12 +944,19 @@ const CostSheetForm = () => {
               // PART 2.10 FIX: Deduplicate fabric rows that have identical values
               // This handles cases where multiple style components resolve to the same costing options
               // (e.g., "Body" and "Body - Embroidered" both matching the same approved options)
+              // BUG-CS11 fix: refined duplicate detection
+              // Only use IDENTITY fields (fabricId, name, width, sourcing, processor) for deduplication
+              // Exclude calculated values (fabricRate, fabricAverage) which can differ for the same fabric
+              // from different costing sources but should still be treated as one fabric entry
               const seenFabricKeys = new Set<string>();
               const deduplicatedFabrics: FabricDetail[] = [];
 
               for (const fabric of fabricDetailsFromStyle) {
-                // Create unique key from all identifying properties
-                const fabricKey = `${fabric.fabricName}-${fabric.fabricWidth}-${fabric.fabricRate}-${fabric.fabricAverage}`;
+                // Create unique key using IDENTITY fields only
+                // fabricId is primary identifier; if absent, use fabricName + fabricWidth
+                // Include sourcingStrategy and processorId as they represent different procurement paths
+                const identityPart = fabric.fabricId ? fabric.fabricId : `${fabric.fabricName}-${fabric.fabricWidth}`;
+                const fabricKey = `${identityPart}-${fabric.sourcingStrategy || ''}-${fabric.processorId || ''}`;
 
                 if (!seenFabricKeys.has(fabricKey)) {
                   seenFabricKeys.add(fabricKey);
@@ -1811,12 +1863,35 @@ const CostSheetForm = () => {
         </Button>
       </div>
 
+      {/* BUG-CS7 fix: Show banner when cost sheet is approved */}
+      {isApprovedCostSheet && (
+        <div className="mb-6 p-4 bg-amber-50 border-2 border-amber-300 rounded-lg flex items-start gap-3">
+          <AlertCircle className="h-6 w-6 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-semibold text-amber-800">Approved Cost Sheet - Read Only</h3>
+            <p className="text-sm text-amber-700 mt-1">
+              This cost sheet has been approved and cannot be edited. To make changes, create a new version from the
+              detail page.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3 border-amber-400 text-amber-700 hover:bg-amber-100"
+              onClick={() => navigate(`/cost-sheets/${id}`)}
+            >
+              Go to Detail Page
+            </Button>
+          </div>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Information */}
         <div className="bg-card p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-display font-semibold">Basic Information</h2>
-            {selectedStyleId && !isEditMode && (
+            {/* BUG-CS7 fix: also check isApprovedCostSheet (safety check) */}
+            {selectedStyleId && !isEditMode && !isApprovedCostSheet && (
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -1828,7 +1903,7 @@ const CostSheetForm = () => {
                     setSelectedStyleId('');
                     setTimeout(() => setSelectedStyleId(currentId), 50);
                   }}
-                  disabled={loading}
+                  disabled={loading || isApprovedCostSheet}
                   className="flex items-center gap-2"
                   title="Reload fabric and trim data from style"
                 >
@@ -1840,7 +1915,7 @@ const CostSheetForm = () => {
                   variant="default"
                   size="sm"
                   onClick={handleAutoGenerate}
-                  disabled={loading || !selectedStyle}
+                  disabled={loading || !selectedStyle || isApprovedCostSheet}
                   className="flex items-center gap-2 bg-gradient-to-r from-accent to-info hover:from-accent hover:to-info disabled:opacity-50 disabled:cursor-not-allowed"
                   title="Generate cost sheet from CAD data (requires CAD Costing approved OR CAD Raw Material approved with Fabric Costing complete)"
                 >
@@ -1873,7 +1948,7 @@ const CostSheetForm = () => {
                     setDisplayBrandName(style.brandName || style.brandCategories?.brandName || '');
                   }
                 }}
-                disabled={isEditMode}
+                disabled={isEditMode || isApprovedCostSheet}
                 placeholder="Type style code to search..."
               />
               <p className="text-xs text-muted-foreground mt-1">Search by style code, name, or customer</p>
@@ -1894,7 +1969,7 @@ const CostSheetForm = () => {
                 <Select
                   value={costingMode}
                   onValueChange={(v) => setCostingMode(v as 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION')}
-                  disabled={isEditMode}
+                  disabled={isEditMode || isApprovedCostSheet}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select costing mode" />
@@ -2212,6 +2287,7 @@ const CostSheetForm = () => {
             </div>
           )}
 
+          {/* BUG-CS7 fix: disable fields when approved */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
             <div>
               <label className="block text-sm font-medium mb-2">Number of Components</label>
@@ -2220,15 +2296,26 @@ const CostSheetForm = () => {
                 placeholder="0"
                 value={numberOfComponents || ''}
                 onChange={(e) => setNumberOfComponents(parseInt(e.target.value) || 0)}
+                disabled={isApprovedCostSheet}
               />
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Category</label>
-              <Input placeholder="e.g., Top Wear" value={category} onChange={(e) => setCategory(e.target.value)} />
+              <Input
+                placeholder="e.g., Top Wear"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                disabled={isApprovedCostSheet}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">Sub Category</label>
-              <Input placeholder="e.g., Kurta" value={subCategory} onChange={(e) => setSubCategory(e.target.value)} />
+              <Input
+                placeholder="e.g., Kurta"
+                value={subCategory}
+                onChange={(e) => setSubCategory(e.target.value)}
+                disabled={isApprovedCostSheet}
+              />
             </div>
           </div>
 
@@ -2278,7 +2365,8 @@ const CostSheetForm = () => {
         <div className="bg-card p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-display font-semibold">Fabric Details</h2>
-            <Button type="button" onClick={addFabricRow} size="sm">
+            {/* BUG-CS7 fix: disable button when approved */}
+            <Button type="button" onClick={addFabricRow} size="sm" disabled={isApprovedCostSheet}>
               <Plus className="w-4 h-4 mr-1" /> Add Fabric
             </Button>
           </div>
@@ -2320,6 +2408,7 @@ const CostSheetForm = () => {
                     onRemove={fabricDetails.length > 1 ? () => removeFabricRow(index) : undefined}
                     isNotApplicable={fabric.isNotApplicable}
                     onNotApplicableChange={(checked) => updateFabricRow(index, 'isNotApplicable', checked)}
+                    disabled={isApprovedCostSheet}
                   />
                 ))}
               </tbody>
@@ -2338,11 +2427,12 @@ const CostSheetForm = () => {
 
         {/* Lace Details */}
         <div className="bg-card p-6 rounded-lg shadow">
+          {/* BUG-CS7 fix: disable when approved */}
           <LaceCostingSection
             laceDetails={laceDetails}
             onLaceDetailsChange={setLaceDetails}
             styleId={selectedStyleId}
-            disabled={loading}
+            disabled={loading || isApprovedCostSheet}
           />
         </div>
 
@@ -2350,7 +2440,8 @@ const CostSheetForm = () => {
         <div className="bg-card p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-display font-semibold">Trims Details</h2>
-            <Button type="button" onClick={addTrimRow} size="sm">
+            {/* BUG-CS7 fix: disable button when approved */}
+            <Button type="button" onClick={addTrimRow} size="sm" disabled={isApprovedCostSheet}>
               <Plus className="w-4 h-4 mr-1" /> Add Trim
             </Button>
           </div>
@@ -2362,10 +2453,11 @@ const CostSheetForm = () => {
               >
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-2">Type</label>
+                  {/* BUG-CS7 fix: disable when approved */}
                   <Select
                     value={trim.materialType || ''}
                     onValueChange={(val) => updateTrimRow(index, 'materialType', val)}
-                    disabled={trim.isNotApplicable}
+                    disabled={trim.isNotApplicable || isApprovedCostSheet}
                   >
                     <SelectTrigger className={trim.isNotApplicable ? 'bg-muted' : ''}>
                       <SelectValue placeholder="Select type" />
@@ -2391,25 +2483,27 @@ const CostSheetForm = () => {
                       </span>
                     ) : null}
                   </label>
+                  {/* BUG-CS7 fix: disable when approved */}
                   {trim.materialType && trim.materialType !== 'OTHER' ? (
                     <TrimMasterCombobox
                       materialType={trim.materialType}
                       value={getTrimMasterId(trim)}
                       onSelect={(selection) => handleTrimMasterSelect(index, selection)}
-                      disabled={trim.isNotApplicable}
+                      disabled={trim.isNotApplicable || isApprovedCostSheet}
                       customerId={selectedCustomerId}
-                      className={trim.isNotApplicable ? 'bg-muted' : ''}
+                      className={trim.isNotApplicable || isApprovedCostSheet ? 'bg-muted' : ''}
                     />
                   ) : (
                     <Input
                       placeholder="Trim name"
                       value={trim.trimName}
                       onChange={(e) => updateTrimRow(index, 'trimName', e.target.value)}
-                      disabled={trim.isNotApplicable}
-                      className={trim.isNotApplicable ? 'bg-muted' : ''}
+                      disabled={trim.isNotApplicable || isApprovedCostSheet}
+                      className={trim.isNotApplicable || isApprovedCostSheet ? 'bg-muted' : ''}
                     />
                   )}
                 </div>
+                {/* BUG-CS7 fix: disable when approved */}
                 <div className="col-span-2">
                   <label className="block text-sm font-medium mb-2">
                     Qty {trim.unit && <span className="text-xs text-muted-foreground">({trim.unit})</span>}
@@ -2420,8 +2514,8 @@ const CostSheetForm = () => {
                     placeholder="0.00"
                     value={trim.trimQuantity || ''}
                     onChange={(e) => updateTrimRow(index, 'trimQuantity', parseFloat(e.target.value) || 0)}
-                    disabled={trim.isNotApplicable}
-                    className={trim.isNotApplicable ? 'bg-muted' : ''}
+                    disabled={trim.isNotApplicable || isApprovedCostSheet}
+                    className={trim.isNotApplicable || isApprovedCostSheet ? 'bg-muted' : ''}
                   />
                 </div>
                 <div className="col-span-2">
@@ -2434,8 +2528,8 @@ const CostSheetForm = () => {
                     placeholder="0.00"
                     value={trim.trimRate || ''}
                     onChange={(e) => updateTrimRow(index, 'trimRate', parseFloat(e.target.value) || 0)}
-                    disabled={trim.isNotApplicable}
-                    className={trim.isNotApplicable ? 'bg-muted' : ''}
+                    disabled={trim.isNotApplicable || isApprovedCostSheet}
+                    className={trim.isNotApplicable || isApprovedCostSheet ? 'bg-muted' : ''}
                   />
                 </div>
                 <div className="col-span-1">
@@ -2449,17 +2543,28 @@ const CostSheetForm = () => {
                     className={`bg-muted ${trim.isNotApplicable ? 'line-through text-muted-foreground' : ''}`}
                   />
                 </div>
+                {/* BUG-CS7 fix: disable when approved */}
                 <div className="col-span-1 flex items-center justify-center">
-                  <label className="flex items-center gap-1 cursor-pointer" title="Not Applicable">
+                  <label
+                    className={`flex items-center gap-1 ${isApprovedCostSheet ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                    title="Not Applicable"
+                  >
                     <Checkbox
                       checked={trim.isNotApplicable || false}
                       onCheckedChange={(checked) => updateTrimRow(index, 'isNotApplicable', checked)}
+                      disabled={isApprovedCostSheet}
                     />
                     <span className="text-xs text-muted-foreground">N/A</span>
                   </label>
                 </div>
                 <div className="col-span-1">
-                  <Button type="button" variant="destructive" size="sm" onClick={() => removeTrimRow(index)}>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => removeTrimRow(index)}
+                    disabled={isApprovedCostSheet}
+                  >
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
@@ -2472,6 +2577,7 @@ const CostSheetForm = () => {
         </div>
 
         {/* CMT Costs */}
+        {/* BUG-CS7 fix: disable fields when approved */}
         <div className="bg-card p-6 rounded-lg shadow">
           <h2 className="text-xl font-display font-semibold mb-4">CMT (Cut, Make, Trim) Costs</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -2483,6 +2589,7 @@ const CostSheetForm = () => {
                 placeholder="0.00"
                 value={cmtCosts.cuttingCost || ''}
                 onChange={(e) => setCmtCosts({ ...cmtCosts, cuttingCost: parseFloat(e.target.value) || 0 })}
+                disabled={isApprovedCostSheet}
               />
             </div>
             <div>
@@ -2493,6 +2600,7 @@ const CostSheetForm = () => {
                 placeholder="0.00"
                 value={cmtCosts.stitchingCost || ''}
                 onChange={(e) => setCmtCosts({ ...cmtCosts, stitchingCost: parseFloat(e.target.value) || 0 })}
+                disabled={isApprovedCostSheet}
               />
             </div>
             <div>
@@ -2503,6 +2611,7 @@ const CostSheetForm = () => {
                 placeholder="0.00"
                 value={cmtCosts.finishingCost || ''}
                 onChange={(e) => setCmtCosts({ ...cmtCosts, finishingCost: parseFloat(e.target.value) || 0 })}
+                disabled={isApprovedCostSheet}
               />
             </div>
             <div>
@@ -2513,6 +2622,7 @@ const CostSheetForm = () => {
                 placeholder="0.00"
                 value={cmtCosts.buttonAttachmentCost || ''}
                 onChange={(e) => setCmtCosts({ ...cmtCosts, buttonAttachmentCost: parseFloat(e.target.value) || 0 })}
+                disabled={isApprovedCostSheet}
               />
             </div>
             <div>
@@ -2523,6 +2633,7 @@ const CostSheetForm = () => {
                 placeholder="0.00"
                 value={cmtCosts.handworkCost || ''}
                 onChange={(e) => setCmtCosts({ ...cmtCosts, handworkCost: parseFloat(e.target.value) || 0 })}
+                disabled={isApprovedCostSheet}
               />
             </div>
             <div>
@@ -2533,6 +2644,7 @@ const CostSheetForm = () => {
                 placeholder="0.00"
                 value={cmtCosts.smockingCost || ''}
                 onChange={(e) => setCmtCosts({ ...cmtCosts, smockingCost: parseFloat(e.target.value) || 0 })}
+                disabled={isApprovedCostSheet}
               />
             </div>
           </div>
@@ -2545,7 +2657,8 @@ const CostSheetForm = () => {
         <div className="bg-card p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-display font-semibold">Embroidery Details</h2>
-            <Button type="button" onClick={addEmbroideryRow} size="sm">
+            {/* BUG-CS7 fix: disable button when approved */}
+            <Button type="button" onClick={addEmbroideryRow} size="sm" disabled={isApprovedCostSheet}>
               <Plus className="w-4 h-4 mr-1" /> Add Embroidery
             </Button>
           </div>
@@ -2560,14 +2673,15 @@ const CostSheetForm = () => {
                   key={index}
                   className={`grid grid-cols-12 gap-4 items-end border-b pb-4 ${embr.isNotApplicable ? 'bg-muted opacity-60' : ''}`}
                 >
+                  {/* BUG-CS7 fix: disable fields when approved */}
                   <div className="col-span-3">
                     <label className="block text-sm font-medium mb-2">Embroidery {index + 1} Name</label>
                     <Input
                       placeholder="Embroidery name"
                       value={embr.embroideryName}
                       onChange={(e) => updateEmbroideryRow(index, 'embroideryName', e.target.value)}
-                      disabled={embr.isNotApplicable}
-                      className={embr.isNotApplicable ? 'bg-muted' : ''}
+                      disabled={embr.isNotApplicable || isApprovedCostSheet}
+                      className={embr.isNotApplicable || isApprovedCostSheet ? 'bg-muted' : ''}
                     />
                   </div>
                   <div className="col-span-2">
@@ -2578,8 +2692,8 @@ const CostSheetForm = () => {
                       placeholder="0.00"
                       value={embr.embroideryAverage || ''}
                       onChange={(e) => updateEmbroideryRow(index, 'embroideryAverage', parseFloat(e.target.value) || 0)}
-                      disabled={embr.isNotApplicable}
-                      className={embr.isNotApplicable ? 'bg-muted' : ''}
+                      disabled={embr.isNotApplicable || isApprovedCostSheet}
+                      className={embr.isNotApplicable || isApprovedCostSheet ? 'bg-muted' : ''}
                     />
                   </div>
                   <div className="col-span-2">
@@ -2590,8 +2704,8 @@ const CostSheetForm = () => {
                       placeholder="0.00"
                       value={embr.embroideryRate || ''}
                       onChange={(e) => updateEmbroideryRow(index, 'embroideryRate', parseFloat(e.target.value) || 0)}
-                      disabled={embr.isNotApplicable}
-                      className={embr.isNotApplicable ? 'bg-muted' : ''}
+                      disabled={embr.isNotApplicable || isApprovedCostSheet}
+                      className={embr.isNotApplicable || isApprovedCostSheet ? 'bg-muted' : ''}
                     />
                   </div>
                   <div className="col-span-2">
@@ -2605,17 +2719,28 @@ const CostSheetForm = () => {
                       className={`bg-muted ${embr.isNotApplicable ? 'line-through text-muted-foreground' : ''}`}
                     />
                   </div>
+                  {/* BUG-CS7 fix: disable when approved */}
                   <div className="col-span-2 flex items-center justify-center">
-                    <label className="flex items-center gap-1 cursor-pointer" title="Not Applicable">
+                    <label
+                      className={`flex items-center gap-1 ${isApprovedCostSheet ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                      title="Not Applicable"
+                    >
                       <Checkbox
                         checked={embr.isNotApplicable || false}
                         onCheckedChange={(checked) => updateEmbroideryRow(index, 'isNotApplicable', checked)}
+                        disabled={isApprovedCostSheet}
                       />
                       <span className="text-xs text-muted-foreground">N/A</span>
                     </label>
                   </div>
                   <div className="col-span-1">
-                    <Button type="button" variant="destructive" size="sm" onClick={() => removeEmbroideryRow(index)}>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeEmbroideryRow(index)}
+                      disabled={isApprovedCostSheet}
+                    >
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
@@ -2636,7 +2761,8 @@ const CostSheetForm = () => {
         <div className="bg-card p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-display font-semibold">Accessories Details</h2>
-            <Button type="button" onClick={addAccessoryRow} size="sm">
+            {/* BUG-CS7 fix: disable button when approved */}
+            <Button type="button" onClick={addAccessoryRow} size="sm" disabled={isApprovedCostSheet}>
               <Plus className="w-4 h-4 mr-1" /> Add Accessory
             </Button>
           </div>
@@ -2656,9 +2782,10 @@ const CostSheetForm = () => {
                     <Select
                       value={acc.materialType || ''}
                       onValueChange={(val) => updateAccessoryRow(index, 'materialType', val)}
-                      disabled={acc.isNotApplicable}
+                      disabled={acc.isNotApplicable || isApprovedCostSheet}
                     >
-                      <SelectTrigger className={acc.isNotApplicable ? 'bg-muted' : ''}>
+                      {/* BUG-CS7 fix: disable when approved */}
+                      <SelectTrigger className={acc.isNotApplicable || isApprovedCostSheet ? 'bg-muted' : ''}>
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
@@ -2678,25 +2805,27 @@ const CostSheetForm = () => {
                         </span>
                       ) : null}
                     </label>
+                    {/* BUG-CS7 fix: disable when approved */}
                     {acc.materialType === 'LABEL' || acc.materialType === 'PACKAGING' ? (
                       <TrimMasterCombobox
                         materialType={acc.materialType}
                         value={getAccessoryMasterId(acc)}
                         onSelect={(selection) => handleAccessoryMasterSelect(index, selection)}
-                        disabled={acc.isNotApplicable}
+                        disabled={acc.isNotApplicable || isApprovedCostSheet}
                         customerId={selectedCustomerId}
-                        className={acc.isNotApplicable ? 'bg-muted' : ''}
+                        className={acc.isNotApplicable || isApprovedCostSheet ? 'bg-muted' : ''}
                       />
                     ) : (
                       <Input
                         placeholder="Accessory name"
                         value={acc.accessoryName}
                         onChange={(e) => updateAccessoryRow(index, 'accessoryName', e.target.value)}
-                        disabled={acc.isNotApplicable}
-                        className={acc.isNotApplicable ? 'bg-muted' : ''}
+                        disabled={acc.isNotApplicable || isApprovedCostSheet}
+                        className={acc.isNotApplicable || isApprovedCostSheet ? 'bg-muted' : ''}
                       />
                     )}
                   </div>
+                  {/* BUG-CS7 fix: disable when approved */}
                   <div className="col-span-2">
                     <label className="block text-sm font-medium mb-2">Quantity</label>
                     <Input
@@ -2705,8 +2834,8 @@ const CostSheetForm = () => {
                       placeholder="0.00"
                       value={acc.accessoryQuantity || ''}
                       onChange={(e) => updateAccessoryRow(index, 'accessoryQuantity', parseFloat(e.target.value) || 0)}
-                      disabled={acc.isNotApplicable}
-                      className={acc.isNotApplicable ? 'bg-muted' : ''}
+                      disabled={acc.isNotApplicable || isApprovedCostSheet}
+                      className={acc.isNotApplicable || isApprovedCostSheet ? 'bg-muted' : ''}
                     />
                   </div>
                   <div className="col-span-2">
@@ -2717,8 +2846,8 @@ const CostSheetForm = () => {
                       placeholder="0.00"
                       value={acc.accessoryRate || ''}
                       onChange={(e) => updateAccessoryRow(index, 'accessoryRate', parseFloat(e.target.value) || 0)}
-                      disabled={acc.isNotApplicable}
-                      className={acc.isNotApplicable ? 'bg-muted' : ''}
+                      disabled={acc.isNotApplicable || isApprovedCostSheet}
+                      className={acc.isNotApplicable || isApprovedCostSheet ? 'bg-muted' : ''}
                     />
                   </div>
                   <div className="col-span-1">
@@ -2732,17 +2861,28 @@ const CostSheetForm = () => {
                       className={`bg-muted ${acc.isNotApplicable ? 'line-through text-muted-foreground' : ''}`}
                     />
                   </div>
+                  {/* BUG-CS7 fix: disable when approved */}
                   <div className="col-span-1 flex items-center justify-center">
-                    <label className="flex items-center gap-1 cursor-pointer" title="Not Applicable">
+                    <label
+                      className={`flex items-center gap-1 ${isApprovedCostSheet ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                      title="Not Applicable"
+                    >
                       <Checkbox
                         checked={acc.isNotApplicable || false}
                         onCheckedChange={(checked) => updateAccessoryRow(index, 'isNotApplicable', checked)}
+                        disabled={isApprovedCostSheet}
                       />
                       <span className="text-xs text-muted-foreground">N/A</span>
                     </label>
                   </div>
                   <div className="col-span-1">
-                    <Button type="button" variant="destructive" size="sm" onClick={() => removeAccessoryRow(index)}>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => removeAccessoryRow(index)}
+                      disabled={isApprovedCostSheet}
+                    >
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
@@ -2760,6 +2900,7 @@ const CostSheetForm = () => {
         </div>
 
         {/* Value Loss & Markup */}
+        {/* BUG-CS7 fix: disable fields when approved */}
         <div className="bg-card p-6 rounded-lg shadow">
           <h2 className="text-xl font-display font-semibold mb-4">Value Loss & Markup</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -2771,6 +2912,7 @@ const CostSheetForm = () => {
                 placeholder="2.00"
                 value={valueLossPercent}
                 onChange={(e) => setValueLossPercent(parseFloat(e.target.value) || 0)}
+                disabled={isApprovedCostSheet}
               />
               <p className="text-sm text-muted-foreground mt-1">Default: 2%</p>
             </div>
@@ -2782,6 +2924,7 @@ const CostSheetForm = () => {
                 placeholder="15.00"
                 value={markupPercent}
                 onChange={(e) => setMarkupPercent(parseFloat(e.target.value) || 0)}
+                disabled={isApprovedCostSheet}
               />
               <p className="text-sm text-muted-foreground mt-1">Default: 15%</p>
             </div>
@@ -2845,6 +2988,7 @@ const CostSheetForm = () => {
             Enter the final price agreed with the customer. This will be used for billing (exclusive of tax).
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* BUG-CS7 fix: disable when approved */}
             <div>
               <label className="block text-sm font-medium mb-2">Closed Cost per Piece (₹)</label>
               <Input
@@ -2855,20 +2999,20 @@ const CostSheetForm = () => {
                 onChange={(e) => setClosedCost(e.target.value ? parseFloat(e.target.value) : null)}
                 placeholder="Enter final agreed price"
                 className="font-mono"
+                disabled={isApprovedCostSheet}
               />
               {calculateTotalProductCost() > 0 && closedCost && (
                 <div className="text-xs mt-2">
                   {closedCost > calculateTotalProductCost() ? (
                     <span className="text-success">
                       +₹{(closedCost - calculateTotalProductCost()).toFixed(2)} above calculated cost (
-                      {(((closedCost - calculateTotalProductCost()) / calculateTotalProductCost()) * 100).toFixed(1)}%
-                      margin)
+                      {(((closedCost - calculateTotalProductCost()) / closedCost) * 100).toFixed(1)}% margin)
                     </span>
                   ) : closedCost < calculateTotalProductCost() ? (
                     <span className="text-warning">
                       ₹{(calculateTotalProductCost() - closedCost).toFixed(2)} below calculated cost (
                       {(((calculateTotalProductCost() - closedCost) / calculateTotalProductCost()) * 100).toFixed(1)}%
-                      discount)
+                      loss)
                     </span>
                   ) : (
                     <span className="text-muted-foreground">Same as calculated cost</span>
@@ -2876,13 +3020,15 @@ const CostSheetForm = () => {
                 </div>
               )}
             </div>
+            {/* BUG-CS7 fix: disable when approved */}
             <div>
               <label className="block text-sm font-medium mb-2">Notes (Optional)</label>
               <textarea
-                className="w-full border rounded-md p-2 min-h-[80px]"
+                className={`w-full border rounded-md p-2 min-h-[80px] ${isApprovedCostSheet ? 'bg-muted cursor-not-allowed' : ''}`}
                 value={closedCostNotes}
                 onChange={(e) => setClosedCostNotes(e.target.value)}
                 placeholder="Reason for price variance, negotiation details, etc."
+                disabled={isApprovedCostSheet}
               />
             </div>
           </div>
@@ -2905,7 +3051,11 @@ const CostSheetForm = () => {
                     className={`text-lg font-semibold ${closedCost >= calculateTotalProductCost() ? 'text-success' : 'text-warning'}`}
                   >
                     {closedCost >= calculateTotalProductCost() ? '+' : ''}
-                    {(((closedCost - calculateTotalProductCost()) / calculateTotalProductCost()) * 100).toFixed(1)}%
+                    {/* BUG-ORD9 fix: guard against division by zero */}
+                    {calculateTotalProductCost() !== 0
+                      ? (((closedCost - calculateTotalProductCost()) / calculateTotalProductCost()) * 100).toFixed(1)
+                      : '0.0'}
+                    %
                   </p>
                 </div>
               </div>
@@ -2914,22 +3064,25 @@ const CostSheetForm = () => {
         </div>
 
         {/* Notes */}
+        {/* BUG-CS7 fix: disable when approved */}
         <div className="bg-card p-6 rounded-lg shadow">
           <h2 className="text-xl font-display font-semibold mb-4">Notes</h2>
           <textarea
-            className="w-full border rounded-md p-3 min-h-[100px]"
+            className={`w-full border rounded-md p-3 min-h-[100px] ${isApprovedCostSheet ? 'bg-muted cursor-not-allowed' : ''}`}
             placeholder="Add any additional notes or comments..."
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
+            disabled={isApprovedCostSheet}
           />
         </div>
 
         {/* Submit */}
+        {/* BUG-CS7 fix: disable submit when approved */}
         <div className="flex justify-end gap-4">
           <Button type="button" variant="outline" onClick={() => navigate('/cost-sheets')} disabled={loading}>
             Cancel
           </Button>
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading || isApprovedCostSheet}>
             {loading ? 'Saving...' : isEditMode ? 'Update Cost Sheet' : 'Create Cost Sheet'}
           </Button>
         </div>

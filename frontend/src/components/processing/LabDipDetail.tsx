@@ -113,7 +113,7 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
       } else {
         return printLabDipService.approveLabDip(id, {
           approvedSampleNo,
-          colorMatchRating: colorMatchRating || undefined,
+          colorMatchRating: (colorMatchRating as 'Excellent' | 'Good' | 'Acceptable' | 'Poor') || undefined,
           remarks: approveRemarks || undefined,
         });
       }
@@ -122,7 +122,7 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
       handleApiSuccess('Lab dip approved successfully');
       queryClient.invalidateQueries({ queryKey: ['lab-dip', processType, id] });
       setApproveDialogOpen(false);
-      resetApproveFo();
+      resetApproveForm();
     },
     onError: (err) => handleApiError(err, 'Failed to approve lab dip'),
   });
@@ -245,7 +245,8 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
     onError: (err) => handleApiError(err, 'Failed to request buyer resubmission'),
   });
 
-  const resetApproveFo = () => {
+  // bug-hunt: fixed typo (was resetApproveFo)
+  const resetApproveForm = () => {
     setApprovedSampleNo('');
     setColorMatchRating('');
     setApproveRemarks('');
@@ -281,7 +282,7 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
   const canRequestResubmit = labDip?.status === 'REJECTED';
 
   // Buyer approval flags (only available after internal approval)
-  const buyerStatus = (labDip as any)?.buyerApprovalStatus;
+  const buyerStatus = labDip?.buyerApprovalStatus;
   const canSendToBuyer = labDip?.status === 'APPROVED' && (!buyerStatus || buyerStatus === 'NOT_SENT');
   const canBuyerApprove = buyerStatus === 'PENDING';
   const canBuyerReject = buyerStatus === 'PENDING';
@@ -611,17 +612,13 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
               <div>
                 <p className="text-sm text-muted-foreground">Sent to Buyer Date</p>
                 <p className="font-medium">
-                  {(labDip as any).sentToBuyerDate
-                    ? format(new Date((labDip as any).sentToBuyerDate), 'dd MMM yyyy')
-                    : '-'}
+                  {labDip.sentToBuyerDate ? format(new Date(labDip.sentToBuyerDate), 'dd MMM yyyy') : '-'}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Buyer Approval Date</p>
                 <p className="font-medium">
-                  {(labDip as any).buyerApprovalDate
-                    ? format(new Date((labDip as any).buyerApprovalDate), 'dd MMM yyyy')
-                    : '-'}
+                  {labDip.buyerApprovalDate ? format(new Date(labDip.buyerApprovalDate), 'dd MMM yyyy') : '-'}
                 </p>
               </div>
               <div>
@@ -630,7 +627,7 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Buyer Remarks</p>
-                <p className="font-medium">{(labDip as any).buyerRemarks || '-'}</p>
+                <p className="font-medium">{labDip.buyerRemarks || '-'}</p>
               </div>
             </div>
             {!buyerStatus || buyerStatus === 'NOT_SENT' ? (

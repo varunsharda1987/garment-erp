@@ -177,15 +177,15 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
         items: presetItems.map((item, index) => ({
           materialType: item.materialType,
           // For PACKAGING: use materialId; For LABEL: use labelId
-          // Send null instead of empty string for foreign key fields
-          materialId: item.materialType === 'PACKAGING' ? item.materialId || null : undefined,
-          labelId: item.materialType === 'LABEL' ? item.labelId || null : undefined,
-          quantity: item.materialType === 'PACKAGING' ? item.quantity : undefined, // Only for packaging
+          // Send null instead of empty string/undefined for foreign key fields
+          materialId: item.materialType === 'PACKAGING' ? item.materialId || null : null,
+          labelId: item.materialType === 'LABEL' ? item.labelId || null : null,
+          quantity: item.materialType === 'PACKAGING' ? item.quantity : null, // Only for packaging
           usageCategory: item.usageCategory,
           sortOrder: item.sortOrder ?? index,
           // Label-specific fields
-          componentName: item.materialType === 'LABEL' ? item.componentName : undefined,
-          extraPercentage: item.materialType === 'LABEL' ? item.extraPercentage : undefined,
+          componentName: item.materialType === 'LABEL' ? item.componentName : null,
+          extraPercentage: item.materialType === 'LABEL' ? item.extraPercentage : null,
         })),
         isDefault: false,
       };

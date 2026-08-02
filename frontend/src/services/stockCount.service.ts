@@ -2,6 +2,7 @@
 import api from '@/lib/api';
 import type {
   StockCount,
+  StockCountItem,
   CreateStockCountDTO,
   UpdateCountItemDTO,
   VarianceReport,
@@ -91,8 +92,8 @@ export const stockCountService = {
   /**
    * Update count item (enter physical quantity)
    */
-  async updateCountItem(countId: string, itemId: string, data: UpdateCountItemDTO): Promise<StockCount> {
-    const response = await api.put<ApiResponse<StockCount>>(`${BASE_URL}/${countId}/items/${itemId}`, data);
+  async updateCountItem(countId: string, itemId: string, data: UpdateCountItemDTO): Promise<StockCountItem> {
+    const response = await api.put<ApiResponse<StockCountItem>>(`${BASE_URL}/${countId}/items/${itemId}`, data);
     if (!response.data.data) throw new Error('Failed to update count item');
     return response.data.data;
   },

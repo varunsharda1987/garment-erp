@@ -92,6 +92,7 @@ export const queryKeys = {
     list: (filters: Record<string, unknown>) => [...queryKeys.orders.lists(), filters] as const,
     details: () => [...queryKeys.orders.all, 'detail'] as const,
     detail: (id: string | number) => [...queryKeys.orders.details(), id] as const,
+    search: (query: string) => [...queryKeys.orders.all, 'search', query] as const,
   },
 
   // BOMs
@@ -198,6 +199,34 @@ export const queryKeys = {
     lists: () => [...queryKeys.serviceRequirements.all, 'list'] as const,
     list: (filters: Record<string, unknown>) => [...queryKeys.serviceRequirements.lists(), filters] as const,
     detail: (id: string | number) => [...queryKeys.serviceRequirements.all, 'detail', id] as const,
+  },
+
+  // Sale Orders (BUG-ORD14: Added missing query keys for consistency)
+  saleOrders: {
+    all: ['sale-orders'] as const,
+    lists: () => [...queryKeys.saleOrders.all, 'list'] as const,
+    list: (filters: Record<string, unknown>) => [...queryKeys.saleOrders.lists(), filters] as const,
+    details: () => [...queryKeys.saleOrders.all, 'detail'] as const,
+    detail: (id: string | number) => [...queryKeys.saleOrders.details(), id] as const,
+  },
+
+  // Stock Production Orders (BUG-ORD14: Added missing query keys for consistency)
+  stockProductionOrders: {
+    all: ['stock-production-orders'] as const,
+    lists: () => [...queryKeys.stockProductionOrders.all, 'list'] as const,
+    list: (filters: Record<string, unknown>) => [...queryKeys.stockProductionOrders.lists(), filters] as const,
+    details: () => [...queryKeys.stockProductionOrders.all, 'detail'] as const,
+    detail: (id: string | number) => [...queryKeys.stockProductionOrders.details(), id] as const,
+  },
+
+  // Work Orders (BUG-ORD14: Added missing query keys for consistency)
+  workOrders: {
+    all: ['work-orders'] as const,
+    lists: () => [...queryKeys.workOrders.all, 'list'] as const,
+    list: (filters: Record<string, unknown>) => [...queryKeys.workOrders.lists(), filters] as const,
+    details: () => [...queryKeys.workOrders.all, 'detail'] as const,
+    detail: (id: string | number) => [...queryKeys.workOrders.details(), id] as const,
+    search: (query: string) => [...queryKeys.workOrders.all, 'search', query] as const,
   },
 };
 

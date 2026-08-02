@@ -185,8 +185,9 @@ export default function GreigeAvailableStock() {
     try {
       const entries = await greigeStockService.getStockEntriesByGreige(greigeId);
       setExpandedRowData((prev) => ({ ...prev, [greigeId]: entries }));
-    } catch {
-      // silent
+    } catch (err) {
+      console.error('Failed to refresh stock entries:', err);
+      toast.error('Failed to refresh stock entries');
     }
   };
 

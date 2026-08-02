@@ -71,11 +71,22 @@ export const bulkImportMachineParts = async (data: {
 };
 
 /**
+ * Template column definition from backend
+ */
+export interface TemplateColumn {
+  field: string;
+  header: string;
+  required: boolean;
+  description: string;
+}
+
+/**
  * Download Excel template for bulk import
+ * Returns column definitions and example data for import template
  */
 export const downloadMachinePartTemplate = async (): Promise<{
-  columns: string[];
-  sampleData: Record<string, unknown>[];
+  columns: TemplateColumn[];
+  exampleData: Record<string, unknown>[];
 }> => {
   const response = await api.get('/materials/machine-part/template');
   return response.data;

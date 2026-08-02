@@ -45,6 +45,7 @@ export default function TaxBreakdown({
       style: 'currency',
       currency: 'INR',
       minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount);
   };
 
@@ -147,6 +148,7 @@ export function TaxBreakdownCompact({
       style: 'currency',
       currency: 'INR',
       minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     }).format(amount);
   };
 

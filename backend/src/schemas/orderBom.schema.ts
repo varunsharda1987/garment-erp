@@ -6,50 +6,25 @@
  */
 
 import { z } from 'zod';
+import {
+  MaterialTypeEnum as PrismaMaterialTypeEnum,
+  OrderBOMStatusEnum as PrismaOrderBOMStatusEnum,
+  MaterialUsageCategoryEnum,
+} from './generated/prisma-enums';
 
 // ============================================================================
-// Enums (match Prisma enums)
+// Enums (imported from generated prisma-enums to ensure alignment)
 // ============================================================================
 
-export const MaterialTypeEnum = z.enum([
-  'GENERIC',
-  'TRIMS',
-  'LACE',
-  'BUTTON',
-  'THREAD',
-  'ZIPPER',
-  'ELASTIC',
-  'LABEL',
-  'PACKAGING',
-  'ACCESSORIES',
-  'SERVICE',
-  'MACHINE_PART',
-  'OTHER',
-  'FABRIC',
-  'GREIGE',
-  'HOOK_EYE',
-  'SNAP_BUTTON',
-  'BUCKLE',
-  'BELT',
-  'VELCRO',
-  'DRAWSTRING',
-  'RIBBON',
-  'SEQUIN',
-  'BEAD',
-  'MOTIF',
-  'INTERLINING',
-  'PADDING',
-  'OTHER_FASTENER',
-  // Keep in sync with Prisma MaterialType — missing values made BOMs uneditable (bug-hunt orders-14)
-  'OTHER_TAPE',
-  'OTHER_DECORATIVE',
-  'OTHER_FUNCTIONAL',
-  'OTHER_MATERIAL',
-]);
+// Import directly from prisma-enums to prevent drift (bug-hunt orders-14)
+export const MaterialTypeEnum = PrismaMaterialTypeEnum;
 
+// Prisma MaterialUsageCategory: GARMENT_TRIM, VALUE_ADDITION, PACKAGING
+// Extended with FABRIC for application needs (not written to this column)
 export const UsageCategoryEnum = z.enum(['GARMENT_TRIM', 'PACKAGING', 'VALUE_ADDITION', 'FABRIC']);
 
-export const OrderBOMStatusEnum = z.enum(['DRAFT', 'APPROVED', 'LOCKED', 'CANCELLED']);
+// Prisma OrderBOMStatus: DRAFT, APPROVED, LOCKED (no CANCELLED)
+export const OrderBOMStatusEnum = PrismaOrderBOMStatusEnum;
 
 // ============================================================================
 // BOM Item Schema

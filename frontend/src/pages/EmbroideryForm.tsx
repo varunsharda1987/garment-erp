@@ -125,7 +125,7 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
       setIsLoading(true);
       setError(null);
 
-      // Validate required fields
+      // BUG-EMB12 fix: validate required fields
       if (!data.designName?.trim()) {
         setError('Design name is required');
         return;
@@ -139,6 +139,19 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
         return;
       }
 
+      // BUG-EMB10 fix: validate parsed numbers aren't NaN
+      const parsedUsableWidth = parseFloat(data.usableWidthAfter);
+      const parsedCostPerMeter = parseFloat(data.costPerMeter);
+
+      if (!Number.isFinite(parsedUsableWidth) || parsedUsableWidth <= 0) {
+        setError('Usable width must be a valid positive number');
+        return;
+      }
+      if (!Number.isFinite(parsedCostPerMeter) || parsedCostPerMeter < 0) {
+        setError('Cost per meter must be a valid non-negative number');
+        return;
+      }
+
       const payload: CreateEmbroideryRequest = {
         designName: data.designName.trim(),
         description: data.description?.trim() || null,
@@ -148,8 +161,8 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
         threadColors: data.threadColors ? parseInt(data.threadColors, 10) : null,
         repeatWidth: data.repeatWidth ? parseFloat(data.repeatWidth) : null,
         repeatHeight: data.repeatHeight ? parseFloat(data.repeatHeight) : null,
-        usableWidthAfter: parseFloat(data.usableWidthAfter),
-        costPerMeter: parseFloat(data.costPerMeter),
+        usableWidthAfter: parsedUsableWidth,
+        costPerMeter: parsedCostPerMeter,
         supplierId: selectedSupplierId || null,
         leadTimeDays: data.leadTimeDays ? parseInt(data.leadTimeDays, 10) : null,
       };

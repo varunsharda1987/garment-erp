@@ -55,8 +55,8 @@ export default function EmbroideryPieceReceive() {
     }
   }, [sendOut]);
 
-  const totalReceived = Object.values(skuReceived).reduce((s, v) => s + (v.received || 0), 0);
-  const totalDamaged = Object.values(skuReceived).reduce((s, v) => s + (v.damaged || 0), 0);
+  const totalReceived = Object.values(skuReceived).reduce((s, v) => s + (v.received ?? 0), 0);
+  const totalDamaged = Object.values(skuReceived).reduce((s, v) => s + (v.damaged ?? 0), 0);
 
   const receiveMutation = useMutation({
     mutationFn: (data: ExternalProcessReceiveRequest) => externalProcessService.receive(data),
@@ -64,7 +64,12 @@ export default function EmbroideryPieceReceive() {
       toast.success('Embroidered pieces received');
       navigate('/embroidery-stock/pieces');
     },
-    onError: (err: any) => setError(err?.response?.data?.message || 'Failed to record receipt'),
+    onError: (err: any) => {
+      // BUG-EMB9 fix: show toast.error in addition to setting error state
+      const message = err?.response?.data?.message || err?.message || 'Failed to record receipt';
+      setError(message);
+      toast.error(message);
+    },
   });
 
   const handleSubmit = () => {
@@ -74,18 +79,29 @@ export default function EmbroideryPieceReceive() {
       return;
     }
 
+    // BUG-EMB12 fix: validate total quantity received is greater than 0
+    if (totalReceived <= 0) {
+      setError('Total quantity received must be greater than 0');
+      return;
+    }
+
     const skus = sendOut?.skuBreakdown?.map((sku) => ({
       sendOutSkuId: sku.id,
-      receivedQty: skuReceived[sku.id]?.received || 0,
-      damagedQty: skuReceived[sku.id]?.damaged || 0,
+      receivedQty: skuReceived[sku.id]?.received ?? 0,
+      damagedQty: skuReceived[sku.id]?.damaged ?? 0,
     }));
+
+    // BUG-EMB10 fix: guard against NaN in actualCost parsing
+    const parsedActualCost = actualCost ? parseFloat(actualCost) : undefined;
+    const safeActualCost =
+      parsedActualCost !== undefined && !Number.isNaN(parsedActualCost) ? parsedActualCost : undefined;
 
     receiveMutation.mutate({
       sendOutId: selectedSendOutId,
       quantityReceived: totalReceived,
       quantityDamaged: totalDamaged || undefined,
       actualReturnDate,
-      actualCost: actualCost ? parseFloat(actualCost) : undefined,
+      actualCost: safeActualCost,
       invoiceNumber: invoiceNumber || undefined,
       invoiceDate: invoiceDate || undefined,
       remarks: remarks || undefined,
@@ -196,12 +212,13 @@ export default function EmbroideryPieceReceive() {
                           min={0}
                           max={sku.sentQty}
                           value={recv.received}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
                             setSkuReceived((prev) => ({
                               ...prev,
-                              [sku.id]: { ...prev[sku.id], received: parseInt(e.target.value) || 0 },
-                            }))
-                          }
+                              [sku.id]: { ...prev[sku.id], received: isNaN(val) ? 0 : val },
+                            }));
+                          }}
                           className="text-right"
                         />
                       </TableCell>
@@ -211,12 +228,13 @@ export default function EmbroideryPieceReceive() {
                           min={0}
                           max={recv.received}
                           value={recv.damaged}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
                             setSkuReceived((prev) => ({
                               ...prev,
-                              [sku.id]: { ...prev[sku.id], damaged: parseInt(e.target.value) || 0 },
-                            }))
-                          }
+                              [sku.id]: { ...prev[sku.id], damaged: isNaN(val) ? 0 : val },
+                            }));
+                          }}
                           className="text-right"
                         />
                       </TableCell>

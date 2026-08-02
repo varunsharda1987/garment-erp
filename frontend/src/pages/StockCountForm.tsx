@@ -17,6 +17,7 @@ import warehouseService from '../services/warehouse.service';
 import stockLevelService from '../services/stockLevel.service';
 import { CountType } from '../types/inventory.types';
 import { logError } from '../lib/logger';
+import { toast } from 'sonner';
 
 export default function StockCountForm() {
   const navigate = useNavigate();
@@ -52,6 +53,8 @@ export default function StockCountForm() {
       setWarehouses(data);
     } catch (err) {
       logError('Failed to load warehouses:', err);
+      // bug-hunt: was silent, now notifies user
+      toast.error('Failed to load warehouses');
     }
   };
 
@@ -74,8 +77,9 @@ export default function StockCountForm() {
       return;
     }
 
-    // For PARTIAL, CYCLE, SPOT_CHECK types, materials must be selected
-    if (['PARTIAL', 'CYCLE', 'SPOT_CHECK'].includes(formData.countType)) {
+    // For PARTIAL and SPOT_CHECK types, materials must be selected
+    // CYCLE counts auto-select top 50 high-value items on the backend
+    if (['PARTIAL', 'SPOT_CHECK'].includes(formData.countType)) {
       if (selectedMaterials.length === 0) {
         setError('Please select at least one material for this count type');
         return;

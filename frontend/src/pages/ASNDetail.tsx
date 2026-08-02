@@ -1,4 +1,5 @@
 // ASN Detail - View Advance Shipping Notice with status workflow
+// BUG-DASH10 fix: corrected route path - /manufacturing/dispatch/asn/:id
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

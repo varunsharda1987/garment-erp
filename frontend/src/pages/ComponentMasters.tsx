@@ -38,11 +38,15 @@ export default function ComponentMasters() {
   const [componentToDelete, setComponentToDelete] = useState<{ id: string; name: string } | null>(null);
 
   // Form state
+  // TODO [BUG-CM6]: componentCategory is DEPRECATED - kept only for backward compatibility
+  // with existing records. All new components should use componentGroupId exclusively.
+  // Migration path: Once all existing components have componentGroupId assigned,
+  // remove componentCategory from forms, types, and API payloads.
   const [formData, setFormData] = useState<ComponentMasterFormData>({
     name: '',
     description: '',
-    componentCategory: '',
-    componentGroupId: '',
+    componentCategory: '', // DEPRECATED - use componentGroupId instead
+    componentGroupId: undefined, // BUG-CM4 fix: use undefined, not '' (backend expects UUID or undefined)
     sortOrder: 0,
     isActive: true,
   });
@@ -140,8 +144,8 @@ export default function ComponentMasters() {
     setFormData({
       name: component.name,
       description: component.description || '',
-      componentCategory: component.componentCategory || '',
-      componentGroupId: component.componentGroupId || '',
+      componentCategory: component.componentCategory || '', // DEPRECATED - kept for backward compat
+      componentGroupId: component.componentGroupId || undefined, // BUG-CM4 fix: use undefined, not ''
       sortOrder: component.sortOrder,
       isActive: component.isActive,
     });
@@ -153,8 +157,8 @@ export default function ComponentMasters() {
     setFormData({
       name: '',
       description: '',
-      componentCategory: '',
-      componentGroupId: '',
+      componentCategory: '', // DEPRECATED - kept for backward compat
+      componentGroupId: undefined, // BUG-CM4 fix: use undefined, not ''
       sortOrder: 0,
       isActive: true,
     });
@@ -224,10 +228,21 @@ export default function ComponentMasters() {
               components.map((component) => (
                 <TableRow key={component.id}>
                   <TableCell className="font-medium">{component.name}</TableCell>
+                  {/* TODO [BUG-CM6]: componentCategory display is DEPRECATED - shown only for
+                      legacy records that haven't been migrated to componentGroupId yet.
+
+                      BUG-CM10 MIGRATION PATH: Once all existing components have componentGroupId
+                      assigned (run a DB migration script to backfill), remove this fallback:
+                      1. Remove the `component.componentCategory` branch below
+                      2. Remove componentCategory from ComponentMaster type
+                      3. Remove componentCategory from Prisma schema
+                      4. Remove componentCategory from formData state and handlers in this file */}
                   <TableCell>
                     {component.componentGroup ? (
                       <Badge variant="outline">{component.componentGroup.name}</Badge>
                     ) : component.componentCategory ? (
+                      // DEPRECATED: This fallback displays legacy componentCategory for records
+                      // not yet migrated to componentGroupId. Remove after migration is complete.
                       <Badge variant="secondary">{component.componentCategory}</Badge>
                     ) : (
                       <span className="text-muted-foreground">—</span>
@@ -239,7 +254,7 @@ export default function ComponentMasters() {
                   <TableCell>{component.sortOrder}</TableCell>
                   <TableCell>
                     {component.isActive ? (
-                      <Badge variant="default" className="bg-success-muted0">
+                      <Badge variant="default" className="bg-success-muted">
                         Active
                       </Badge>
                     ) : (

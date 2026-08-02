@@ -49,7 +49,8 @@ export default function TemplateManager() {
       const data = await templateService.getAvailableModules();
       setModules(data);
       if (data.length > 0) {
-        setSelectedModule(data[0].name);
+        // bug-hunt: backend returns { value, label }, not { name, displayName }
+        setSelectedModule(data[0].value);
       }
     } catch (err: unknown) {
       logError('Failed to fetch modules:', err);
@@ -208,8 +209,8 @@ export default function TemplateManager() {
             </SelectTrigger>
             <SelectContent>
               {modules.map((module) => (
-                <SelectItem key={module.name} value={module.name}>
-                  {module.displayName}
+                <SelectItem key={module.value} value={module.value}>
+                  {module.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -221,7 +222,7 @@ export default function TemplateManager() {
           <CardHeader>
             <div className="flex justify-between items-center">
               <div>
-                <CardTitle>Templates for {modules.find((m) => m.name === selectedModule)?.displayName}</CardTitle>
+                <CardTitle>Templates for {modules.find((m) => m.value === selectedModule)?.label}</CardTitle>
                 <CardDescription>Manage export templates for this module</CardDescription>
               </div>
               <Button onClick={handleCreateNew}>+ Create Template</Button>

@@ -3,11 +3,18 @@
  * Types for lace stock management, allocation, and transfers
  */
 
-// Stock status
-export type LaceStockStatus = 'AVAILABLE' | 'RESERVED' | 'ISSUED' | 'CONSUMED' | 'PENDING_RETURN' | 'RETURNED';
+// BUG-LC5 fix: aligned with backend enum (Prisma StockStatus)
+export type LaceStockStatus = 'AVAILABLE' | 'RESERVED' | 'EXHAUSTED' | 'ISSUED' | 'PENDING_RETURN';
 
-// Stock type
-export type LaceStockType = 'PLANNED_STOCK' | 'EXCESS' | 'EXCESS_MOQ' | 'RETURNED' | 'GENERIC';
+// Stock type - matches Prisma StockEntryType enum
+export type LaceStockType =
+  | 'GENERIC'
+  | 'PLANNED_STOCK'
+  | 'EXCESS'
+  | 'EXCESS_MOQ'
+  | 'CROSS_STYLE_REUSE'
+  | 'RETURNED'
+  | 'VARIANCE_UNUSED';
 
 // Quality grade
 export type LaceQualityGrade = 'A' | 'B' | 'DEFECT';
@@ -297,24 +304,22 @@ export interface LaceStockUtilizationReport {
   totalTransfers: number;
 }
 
-// Status badge colors
+// Status badge colors - matches Prisma StockStatus enum
 export const LACE_STOCK_STATUS_COLORS: Record<LaceStockStatus, string> = {
   AVAILABLE: 'bg-success-muted text-success border-success/20',
   RESERVED: 'bg-info-muted text-info border-info/20',
+  EXHAUSTED: 'bg-muted text-foreground border-border',
   ISSUED: 'bg-accent/10 text-accent border-accent/20',
-  CONSUMED: 'bg-muted text-foreground border-border',
   PENDING_RETURN: 'bg-warning/10 text-warning border-warning/20',
-  RETURNED: 'bg-orange-100 text-orange-800 border-orange-200',
 };
 
-// Status labels
+// Status labels - matches Prisma StockStatus enum
 export const LACE_STOCK_STATUS_LABELS: Record<LaceStockStatus, string> = {
   AVAILABLE: 'Available',
   RESERVED: 'Reserved',
+  EXHAUSTED: 'Exhausted',
   ISSUED: 'Issued',
-  CONSUMED: 'Consumed',
   PENDING_RETURN: 'Pending Return',
-  RETURNED: 'Returned',
 };
 
 // Quality grade colors
@@ -324,13 +329,15 @@ export const LACE_QUALITY_GRADE_COLORS: Record<LaceQualityGrade, string> = {
   DEFECT: 'bg-destructive/10 text-destructive border-destructive/20',
 };
 
-// Stock type labels
+// Stock type labels - matches Prisma StockEntryType enum
 export const LACE_STOCK_TYPE_LABELS: Record<LaceStockType, string> = {
+  GENERIC: 'Generic',
   PLANNED_STOCK: 'Planned',
   EXCESS: 'Excess',
   EXCESS_MOQ: 'MOQ Excess',
+  CROSS_STYLE_REUSE: 'Cross-Style Reuse',
   RETURNED: 'Returned',
-  GENERIC: 'Generic',
+  VARIANCE_UNUSED: 'Variance Unused',
 };
 
 // Transaction type labels

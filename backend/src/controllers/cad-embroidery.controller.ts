@@ -579,11 +579,11 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
       widthUnit: 'inches',
 
       // Copy CAD metrics from source if available
-      cadMeters: sourceCAD?.cadMeters || null,
+      cadMeters: sourceCAD?.cadMeters ?? null,
       cadYards: sourceCAD?.cadYards || null,
       cadWastagePercent:
         sourceCAD?.cadWastagePercent ?? (await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0)),
-      layerMarginMeters: sourceCAD?.layerMarginMeters || null,
+      layerMarginMeters: sourceCAD?.layerMarginMeters ?? null,
       markerEfficiency: sourceCAD?.markerEfficiency || null,
       printDirection: sourceCAD?.printDirection || 'TWO_WAY',
 

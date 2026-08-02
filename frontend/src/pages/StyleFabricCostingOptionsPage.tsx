@@ -16,6 +16,7 @@ import { styleService } from '../services/style.service';
 import type { CostingOption } from '../types/fabricCosting.types';
 import type { Style } from '../types/style.types';
 import { notify } from '../lib/notify';
+import { divideByShrinkage } from '../utils/math';
 
 export default function StyleFabricCostingOptionsPage() {
   const navigate = useNavigate();
@@ -408,7 +409,7 @@ export default function StyleFabricCostingOptionsPage() {
                                     ? (() => {
                                         const fabricReq = Number(option.cadMeters) * option.orderQuantityPcs;
                                         const shrinkage = option.shrinkagePercent ? Number(option.shrinkagePercent) : 0;
-                                        const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
+                                        const greigeReq = divideByShrinkage(fabricReq, shrinkage);
                                         return greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 });
                                       })()
                                     : '-'}

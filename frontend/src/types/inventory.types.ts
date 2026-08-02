@@ -71,10 +71,16 @@ export const Unit = {
   BOX: 'BOX',
   PAIR: 'PAIR',
   PACK: 'PACK',
+  GRAM: 'GRAM',
+  LITER: 'LITER',
+  ROLL: 'ROLL',
 } as const;
 export type Unit = (typeof Unit)[keyof typeof Unit];
 
 // Warehouse Types
+// BUG-WH6 fix: Added supplier relation to match backend response
+// BUG-WH7 fix: Added _count aggregation to match backend response
+// BUG-WH15 fix: Added isVirtual field to match backend/Zod schema
 export interface Warehouse {
   id: string;
   warehouseCode: string;
@@ -90,6 +96,8 @@ export interface Warehouse {
   contactEmail?: string;
   capacity?: number;
   isActive: boolean;
+  isVirtual?: boolean;
+  supplierId?: string | null;
   createdById: string;
   createdAt: Date | string;
   updatedAt: Date | string;
@@ -98,6 +106,16 @@ export interface Warehouse {
     firstName: string;
     lastName: string;
     email: string;
+  };
+  supplier?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+  _count?: {
+    stockMovements?: number;
+    stockReservations?: number;
+    stockCounts?: number;
   };
 }
 
@@ -115,10 +133,14 @@ export type CreateWarehouseDTO = {
   contactEmail?: string;
   capacity?: number;
   isActive?: boolean;
+  isVirtual?: boolean;
+  supplierId?: string;
 };
 
+// BUG-WH9 fix: Added warehouseType to match backend UpdateWarehouseDTO
 export interface UpdateWarehouseDTO {
   warehouseName?: string;
+  warehouseType?: WarehouseType;
   address?: string;
   city?: string;
   state?: string;
@@ -129,11 +151,45 @@ export interface UpdateWarehouseDTO {
   contactEmail?: string;
   capacity?: number;
   isActive?: boolean;
+  isVirtual?: boolean;
+  supplierId?: string | null;
 }
 
+// BUG-WH8 fix: Added all 7 fields to match backend getWarehouseStockSummary response
 export interface WarehouseStockSummary {
+  warehouseId: string;
+  warehouseCode: string;
+  warehouseName: string;
+  warehouseType: WarehouseType;
   totalMaterials: number;
   totalValue: number;
+  stockLevels: Array<{
+    materialId: string;
+    warehouseId: string;
+    quantity: number;
+    unit: string;
+    lastUpdated: string | null;
+    reorderLevel: number | null;
+    minLevel: number | null;
+    maxLevel: number | null;
+    valuationRate: number | null;
+    stockValue: number | null;
+    materials: {
+      id: string;
+      code: string;
+      name: string;
+      unit: string;
+      materialType: string;
+      reorderLevel: number | null;
+      materialCategories: { name: string } | null;
+    } | null;
+    warehouses: {
+      id: string;
+      warehouseCode: string;
+      warehouseName: string;
+      warehouseType: string | null;
+    } | null;
+  }>;
 }
 
 // Stock Level Types
@@ -287,7 +343,7 @@ export interface CreateStockTransferDTO {
 export interface CreateStockAdjustmentDTO {
   materialId: string;
   warehouseId: string;
-  quantity: number; // Negative for decrease, positive for increase
+  adjustmentQuantity: number; // Negative for decrease, positive for increase
   unit: Unit;
   reason: AdjustmentReason;
   remarks?: string;

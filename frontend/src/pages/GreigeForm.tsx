@@ -216,10 +216,9 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         notify.success('Greige master created successfully');
       }
       navigate('/greige');
-    } catch (error: unknown) {
+    } catch (error: any) {
       logError('Error saving greige:', error);
-      const axiosErr = error as { response?: { data?: { error?: string } } };
-      notify.error(axiosErr.response?.data?.error || 'Failed to save greige master');
+      notify.error(error?.response?.data?.message || error?.response?.data?.error || 'Failed to save greige master');
     } finally {
       setSaving(false);
     }

@@ -102,7 +102,12 @@ export default function SmockingSendOut() {
         }));
         setWorkOrders(items);
       })
-      .catch(() => setWorkOrders([]));
+      .catch((err: any) => {
+        // BUG-MFG11-18 fix: proper error extraction
+        const message = err?.response?.data?.message || err?.message || 'Could not load work orders';
+        toast.error(message);
+        setWorkOrders([]);
+      });
   }, []);
 
   // Load POs when work order selected
@@ -123,7 +128,12 @@ export default function SmockingSendOut() {
         }));
         setPos(items);
       })
-      .catch(() => setPos([]));
+      .catch((err: any) => {
+        // BUG-MFG11-18 fix: proper error extraction
+        const message = err?.response?.data?.message || err?.message || 'Could not load purchase orders';
+        toast.error(message);
+        setPos([]);
+      });
   }, [selectedWorkOrderId]);
 
   // Load cutting batches when work order selected
@@ -150,7 +160,12 @@ export default function SmockingSendOut() {
         }));
         setCuttingBatches(items);
       })
-      .catch(() => setCuttingBatches([]));
+      .catch((err: any) => {
+        // BUG-MFG11-18 fix: proper error extraction
+        const message = err?.response?.data?.message || err?.message || 'Could not load cutting batches';
+        toast.error(message);
+        setCuttingBatches([]);
+      });
   }, [selectedWorkOrderId, sourceType]);
 
   // Load fabric stocks when work order selected
@@ -174,7 +189,12 @@ export default function SmockingSendOut() {
           }));
         setFabricStocks(items);
       })
-      .catch(() => setFabricStocks([]));
+      .catch((err: any) => {
+        // BUG-MFG11-18 fix: proper error extraction
+        const message = err?.response?.data?.message || err?.message || 'Could not load fabric stocks';
+        toast.error(message);
+        setFabricStocks([]);
+      });
   }, [selectedWorkOrderId, sourceType]);
 
   // Auto-calculate total sent from SKU quantities

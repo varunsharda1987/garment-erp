@@ -1,4 +1,5 @@
 // ASN Create Form - Create new Advance Shipping Notice for an order
+// BUG-DASH10 fix: corrected route path - /manufacturing/dispatch/asn/new
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
@@ -17,6 +18,7 @@ import { getAllOrders, getOrderById } from '@/services/order.service';
 import type { Order, OrderItem, OrderItemBreakup } from '@/types/order.types';
 import type { CreateASNRequest } from '@/types/dispatch.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { queryKeys } from '@/lib/query-client';
 
 interface SKULine {
   styleId: string;
@@ -49,14 +51,14 @@ export default function ASNCreateForm() {
 
   // Fetch orders for search
   const { data: ordersData, isLoading: ordersLoading } = useQuery({
-    queryKey: ['orders-search', orderSearch],
+    queryKey: queryKeys.orders.search(orderSearch),
     queryFn: () => getAllOrders({ search: orderSearch, limit: 20, status: 'CONFIRMED' }),
     enabled: orderSearchOpen || !!orderSearch,
   });
 
   // Fetch selected order details
   const { data: selectedOrder, isLoading: orderLoading } = useQuery({
-    queryKey: ['order', selectedOrderId],
+    queryKey: queryKeys.orders.detail(selectedOrderId || ''),
     queryFn: () => getOrderById(selectedOrderId!),
     enabled: !!selectedOrderId,
   });

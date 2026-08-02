@@ -82,7 +82,9 @@ export default function ComponentGroupMaster() {
 
     try {
       if (editingGroup) {
-        await componentGroupService.update(editingGroup.id, formData as UpdateComponentGroupInput);
+        // BUG-CG7 fix: Exclude immutable 'code' field from update payload
+        const { code: _code, ...updatePayload } = formData;
+        await componentGroupService.update(editingGroup.id, updatePayload as UpdateComponentGroupInput);
         notify.success('Component group updated successfully');
       } else {
         await componentGroupService.create(formData);
@@ -170,7 +172,9 @@ export default function ComponentGroupMaster() {
 
     try {
       await componentGroupService.reorder({ orders });
-      setComponentGroups(newGroups);
+      // BUG-CG8 fix: Refresh data from server to get updated _count values
+      // instead of relying on potentially stale local state
+      loadComponentGroups();
       notify.success('Order updated successfully');
     } catch (error: unknown) {
       const axiosErr = error as { response?: { data?: { message?: string } } };
@@ -270,7 +274,7 @@ export default function ComponentGroupMaster() {
                   </TableCell>
                   <TableCell>
                     {group.isActive ? (
-                      <Badge variant="default" className="bg-success-muted0">
+                      <Badge variant="default" className="bg-success-muted">
                         Active
                       </Badge>
                     ) : (

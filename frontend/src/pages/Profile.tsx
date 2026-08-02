@@ -22,10 +22,10 @@ export default function Profile() {
 
   useEffect(() => {
     if (currentUser) {
-      // Parse name into firstName/lastName if needed
-      const nameParts = (currentUser.name || '').split(' ');
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
+      // Use firstName/lastName directly (aligned with user.types.ts)
+      // Fallback to parsing name for backward compatibility with old auth responses
+      const firstName = currentUser.firstName || (currentUser.name || '').split(' ')[0] || '';
+      const lastName = currentUser.lastName || (currentUser.name || '').split(' ').slice(1).join(' ') || '';
 
       setFormData({
         firstName,
@@ -57,6 +57,8 @@ export default function Profile() {
       setUser({
         id: updatedUser.id,
         email: updatedUser.email,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
         name: `${updatedUser.firstName} ${updatedUser.lastName}`.trim(),
         role: updatedUser.role,
         phone: updatedUser.phone,
@@ -173,10 +175,13 @@ export default function Profile() {
                   variant="outline"
                   onClick={() => {
                     if (currentUser) {
-                      const nameParts = (currentUser.name || '').split(' ');
+                      // Use firstName/lastName directly, fallback to parsing name
+                      const firstName = currentUser.firstName || (currentUser.name || '').split(' ')[0] || '';
+                      const lastName =
+                        currentUser.lastName || (currentUser.name || '').split(' ').slice(1).join(' ') || '';
                       setFormData({
-                        firstName: nameParts[0] || '',
-                        lastName: nameParts.slice(1).join(' ') || '',
+                        firstName,
+                        lastName,
                         email: currentUser.email || '',
                         phone: currentUser.phone || '',
                       });

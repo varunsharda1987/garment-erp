@@ -190,11 +190,17 @@ import {
   PrintLabDipCreate,
   PrintLabDipDetail,
   PrintProcessPOCreate,
+  PrintProcessPODetail,
   DyeingList,
   DyeLabDipCreate,
   DyeLabDipDetail,
   DyeProcessPOCreate,
+  DyeProcessPODetail,
   ProcessingList,
+  // BUG-DASH4 fix: Add unified processing create/detail routes
+  UnifiedLabDipCreate,
+  UnifiedProcessPOCreate,
+  UnifiedProcessPODetail,
   CuttingList,
   CuttingForm,
   CuttingChart,
@@ -487,6 +493,7 @@ function App() {
               {/* Invoice Management */}
               <Route path="/invoices" element={<InvoiceList />} />
               <Route path="/invoices/new" element={<InvoiceForm />} />
+              <Route path="/invoices/:id/edit" element={<InvoiceForm />} />
               <Route path="/invoices/:id" element={<InvoiceDetail />} />
 
               {/* Quotation Management */}
@@ -525,6 +532,7 @@ function App() {
               <Route path="/inventory/movements/transfer" element={<StockTransferForm />} />
               <Route path="/inventory/movements/adjustment" element={<StockAdjustmentForm />} />
               <Route path="/inventory/stock-levels" element={<StockLevelList />} />
+              {/* BUG-DASH3 fix: verified route paths match navigation config and backend API */}
               <Route path="/inventory/stock-counts" element={<StockCountList />} />
               <Route path="/inventory/stock-counts/new" element={<StockCountForm />} />
               <Route path="/inventory/stock-counts/:id" element={<StockCountDetail />} />
@@ -590,17 +598,22 @@ function App() {
               <Route path="/manufacturing/printing/lab-dips/new" element={<PrintLabDipCreate />} />
               <Route path="/manufacturing/printing/lab-dips/:id" element={<PrintLabDipDetail />} />
               <Route path="/manufacturing/printing/process-pos/new" element={<PrintProcessPOCreate />} />
+              <Route path="/manufacturing/printing/process-pos/:id" element={<PrintProcessPODetail />} />
 
               {/* Dyeing (Manufacturing - Fabric Processing) */}
               <Route path="/manufacturing/dyeing" element={<DyeingList />} />
               <Route path="/manufacturing/dyeing/lab-dips/new" element={<DyeLabDipCreate />} />
               <Route path="/manufacturing/dyeing/lab-dips/:id" element={<DyeLabDipDetail />} />
               <Route path="/manufacturing/dyeing/process-pos/new" element={<DyeProcessPOCreate />} />
+              <Route path="/manufacturing/dyeing/process-pos/:id" element={<DyeProcessPODetail />} />
 
               {/* Unified Processing (Dyeing & Printing Combined) */}
               <Route path="/manufacturing/processing" element={<ProcessingList />} />
-              <Route path="/manufacturing/processing/lab-dips/new" element={<DyeLabDipCreate />} />
-              <Route path="/manufacturing/processing/process-pos/new" element={<DyeProcessPOCreate />} />
+              {/* BUG-DASH4 fix: use unified wrapper with correct backPath for lab dips */}
+              <Route path="/manufacturing/processing/lab-dips/new" element={<UnifiedLabDipCreate />} />
+              {/* BUG-DASH4 fix: corrected route path - use unified wrapper with correct backPath */}
+              <Route path="/manufacturing/processing/process-pos/new" element={<UnifiedProcessPOCreate />} />
+              <Route path="/manufacturing/processing/process-pos/:id" element={<UnifiedProcessPODetail />} />
 
               {/* Cutting (Manufacturing - Production) */}
               <Route path="/manufacturing/cutting" element={<CuttingList />} />
@@ -624,6 +637,7 @@ function App() {
               <Route path="/manufacturing/challans/:id" element={<ChallanDetail />} />
 
               {/* Dispatch (Manufacturing - Final Step) */}
+              {/* BUG-DASH10 fix: verified all routes match navigation links in DispatchList.tsx */}
               <Route path="/manufacturing/dispatch" element={<DispatchList />} />
               <Route path="/manufacturing/dispatch/delivery/new" element={<DispatchDeliveryNoteForm />} />
               <Route path="/manufacturing/dispatch/delivery/:id/pod" element={<DispatchPODForm />} />
@@ -676,11 +690,14 @@ function App() {
               <Route path="/testing" element={<TestingDashboard />} />
               <Route path="/fabric-physical-tests" element={<FabricPhysicalTests />} />
               <Route path="/fabric-physical-tests/new" element={<FabricPhysicalTestForm />} />
+              <Route path="/fabric-physical-tests/:id" element={<FabricPhysicalTestForm />} />
               <Route path="/garment-physical-tests" element={<GarmentPhysicalTests />} />
               <Route path="/garment-physical-tests/new" element={<GarmentPhysicalTestForm />} />
+              <Route path="/garment-physical-tests/:id" element={<GarmentPhysicalTestForm />} />
               <Route path="/testing-labs" element={<TestingLabs />} />
               <Route path="/test-templates" element={<TestTemplates />} />
               <Route path="/test-templates/new" element={<TestTemplateForm />} />
+              <Route path="/test-templates/:id" element={<TestTemplateForm />} />
 
               {/* AI Assistant */}
               <Route path="/ai-assistant" element={<AIAssistant />} />

@@ -16,6 +16,7 @@ import { getAllSuppliers } from '../services/supplier.service';
 import { styleService } from '../services/style.service';
 import { getAllOrders } from '../services/order.service';
 import { CheckCircle, XCircle, ArrowLeft, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Embroidery, EmbroiderySendOutRequest } from '../types/embroidery.types';
 import type { Supplier } from '../types/supplier.types';
 import type { Style } from '../types/style.types';
@@ -105,6 +106,7 @@ export default function EmbroideryStockSendOut() {
         const plainStock = stockArray.filter((s: FabricStock & { embroideryId?: string }) => !s.embroideryId);
         setFabricStockList(plainStock);
       } catch {
+        toast.error('Failed to load fabric stock');
         setFabricStockList([]);
       }
 
@@ -131,6 +133,7 @@ export default function EmbroideryStockSendOut() {
         setStyleList(styleData.data || []);
         setOrderList(orderData.data || []);
       } catch {
+        toast.warning('Could not load styles/orders for earmarking');
         setStyleList([]);
         setOrderList([]);
       }
@@ -181,7 +184,7 @@ export default function EmbroideryStockSendOut() {
       setError(null);
       setSuccess(false);
 
-      // Validation
+      // BUG-EMB12 fix: comprehensive validation with BUG-EMB10 NaN guards
       if (!selectedStockId) {
         setError('Please select a fabric stock');
         return;
@@ -194,31 +197,42 @@ export default function EmbroideryStockSendOut() {
         setError('Please select a supplier');
         return;
       }
-      if (!formData.quantitySent || parseFloat(formData.quantitySent) <= 0) {
+
+      // BUG-EMB10 fix: guard against NaN values
+      const parsedQuantitySent = parseFloat(formData.quantitySent);
+      const parsedAgreedRate = parseFloat(formData.agreedRate);
+      const parsedSentWidth = parseFloat(formData.sentWidth);
+
+      if (!formData.quantitySent || !Number.isFinite(parsedQuantitySent) || parsedQuantitySent <= 0) {
         setError('Please enter a valid quantity');
         return;
       }
-      if (!formData.agreedRate || parseFloat(formData.agreedRate) <= 0) {
+      if (!formData.agreedRate || !Number.isFinite(parsedAgreedRate) || parsedAgreedRate <= 0) {
         setError('Please enter a valid agreed rate');
+        return;
+      }
+      if (!formData.sentWidth || !Number.isFinite(parsedSentWidth) || parsedSentWidth <= 0) {
+        setError('Please enter a valid width');
         return;
       }
 
       // Check available quantity
       const selectedStock = fabricStockList.find((s) => s.id === selectedStockId);
-      if (selectedStock && parseFloat(formData.quantitySent) > selectedStock.quantityAvailable) {
+      if (selectedStock && parsedQuantitySent > selectedStock.quantityAvailable) {
         setError(`Quantity exceeds available stock (${selectedStock.quantityAvailable} meters)`);
         return;
       }
 
+      // BUG-EMB10 fix: use pre-validated parsed values
       const sendOutData: EmbroiderySendOutRequest = {
         sourceFabricStockId: selectedStockId,
         embroideryId: selectedEmbroideryId,
         supplierId: selectedSupplierId,
-        quantitySent: parseFloat(formData.quantitySent),
-        sentWidth: parseFloat(formData.sentWidth),
+        quantitySent: parsedQuantitySent,
+        sentWidth: parsedSentWidth,
         sendDate: formData.sendDate,
         expectedReturnDate: formData.expectedReturnDate || undefined,
-        agreedRate: parseFloat(formData.agreedRate),
+        agreedRate: parsedAgreedRate,
         forStyleId: formData.forStyleId || undefined,
         forOrderId: formData.forOrderId || undefined,
         remarks: formData.remarks || undefined,
@@ -232,8 +246,8 @@ export default function EmbroideryStockSendOut() {
       navTimeoutRef.current = setTimeout(() => {
         navigate('/embroidery-stock');
       }, 2000);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to send fabric for embroidery';
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to send fabric for embroidery';
       setError(errorMessage);
       logError('Failed to send fabric for embroidery:', err);
     } finally {

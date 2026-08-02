@@ -1,6 +1,32 @@
 /**
  * Generic Trim Types
  * Configuration-driven types for all new trim master tables
+ *
+ * BUG-GT5: INTENTIONAL DESIGN - Frontend-Backend Type Architecture
+ * ================================================================
+ * The frontend defines specific interfaces (HookEyeItem, SnapButtonItem, etc.) with
+ * type-specific fields, while the backend uses a single generic flat Zod schema with
+ * .passthrough(). This is intentional:
+ *
+ * 1. BACKEND (genericTrim.schema.ts):
+ *    - Single schema validates common fields (code, name, prices, supplierId)
+ *    - Uses .passthrough() to allow type-specific fields (hasAglets, fusible, finish)
+ *    - Reduces code duplication: 1 schema/controller handles 16 trim types
+ *
+ * 2. FRONTEND (this file):
+ *    - Specific interfaces provide TypeScript type safety and autocomplete
+ *    - TRIM_TYPE_CONFIGS drives dynamic form field rendering per trim type
+ *    - GenericTrimItem union type allows handling any trim type generically
+ *
+ * 3. DATABASE (Prisma schema):
+ *    - Separate models (hook_eye_master, snap_button_master, etc.) define actual columns
+ *    - Prisma is the ultimate source of truth for field structure
+ *
+ * Trade-off: Backend doesn't strictly validate type-specific fields (e.g., "finish"
+ * for hook_eye but not for velcro). This is acceptable because:
+ * - Prisma schema enforces column existence at database level
+ * - Frontend config drives which fields are shown per type
+ * - Simpler backend code outweighs marginal validation strictness
  */
 
 // Base interface for all trim items

@@ -1,4 +1,9 @@
 // Category-Specific Fields for Supplier Form
+// BUG-SP2: All 17 supplier categories are implemented (verified 2026-08-02).
+// Categories: FABRIC_SUPPLIER, GREIGE_SUPPLIER, LACE_SUPPLIER, TRIMS_SUPPLIER,
+// THREAD_SUPPLIER, PACKAGING_SUPPLIER, DYEING_PRINTING, EMBROIDERY, HAND_WORK,
+// SMOCKING, CMT_UNIT, OTHER_SERVICES, FINISHING_CONTRACTOR, STITCHING_CONTRACTOR,
+// WASHING, DORI_PIPING_CONTRACTOR, MACHINE_PARTS_SUPPLIER
 import { useEffect, useState } from 'react';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
@@ -120,6 +125,20 @@ export default function CategoryFields({ category, data, onChange }: CategoryFie
     case 'FABRIC_SUPPLIER':
       return <FabricFields data={data} updateField={updateField} />;
 
+    case 'GREIGE_SUPPLIER':
+      return <GreigeFields data={data} updateField={updateField} />;
+
+    case 'LACE_SUPPLIER':
+      return (
+        <LaceFields
+          data={data}
+          updateField={updateField}
+          addArrayItem={addArrayItem}
+          updateArrayItem={updateArrayItem}
+          removeArrayItem={removeArrayItem}
+        />
+      );
+
     case 'TRIMS_SUPPLIER':
       return (
         <TrimsFields
@@ -187,6 +206,17 @@ export default function CategoryFields({ category, data, onChange }: CategoryFie
         />
       );
 
+    case 'SMOCKING':
+      return (
+        <SmockingFields
+          data={data}
+          updateField={updateField}
+          addArrayItem={addArrayItem}
+          updateArrayItem={updateArrayItem}
+          removeArrayItem={removeArrayItem}
+        />
+      );
+
     case 'CMT_UNIT':
       return (
         <CMTFields
@@ -202,6 +232,62 @@ export default function CategoryFields({ category, data, onChange }: CategoryFie
     case 'OTHER_SERVICES':
       return (
         <OtherServicesFields
+          data={data}
+          updateField={updateField}
+          addArrayItem={addArrayItem}
+          updateArrayItem={updateArrayItem}
+          removeArrayItem={removeArrayItem}
+        />
+      );
+
+    case 'FINISHING_CONTRACTOR':
+      return (
+        <FinishingContractorFields
+          data={data}
+          updateField={updateField}
+          addArrayItem={addArrayItem}
+          updateArrayItem={updateArrayItem}
+          removeArrayItem={removeArrayItem}
+        />
+      );
+
+    case 'STITCHING_CONTRACTOR':
+      return (
+        <StitchingContractorFields
+          data={data}
+          updateField={updateField}
+          updateNestedField={updateNestedField}
+          addArrayItem={addArrayItem}
+          updateArrayItem={updateArrayItem}
+          removeArrayItem={removeArrayItem}
+        />
+      );
+
+    case 'WASHING':
+      return (
+        <WashingFields
+          data={data}
+          updateField={updateField}
+          addArrayItem={addArrayItem}
+          updateArrayItem={updateArrayItem}
+          removeArrayItem={removeArrayItem}
+        />
+      );
+
+    case 'DORI_PIPING_CONTRACTOR':
+      return (
+        <DoriPipingContractorFields
+          data={data}
+          updateField={updateField}
+          addArrayItem={addArrayItem}
+          updateArrayItem={updateArrayItem}
+          removeArrayItem={removeArrayItem}
+        />
+      );
+
+    case 'MACHINE_PARTS_SUPPLIER':
+      return (
+        <MachinePartsSupplierFields
           data={data}
           updateField={updateField}
           addArrayItem={addArrayItem}
@@ -1525,6 +1611,1028 @@ function PackagingFields({
       </div>
 
       {/* Specialty Notes */}
+      <div>
+        <Label>Specialty/Notes</Label>
+        <Textarea
+          value={asInputValue(data.specialtyNotes)}
+          onChange={(e) => updateField('specialtyNotes', e.target.value)}
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+}
+
+// 10. GREIGE SUPPLIER FIELDS
+function GreigeFields({ data, updateField }: BasicCategoryFieldProps) {
+  const [greigeFabrics, setGreigeFabrics] = useState<GreigeMaster[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const greigeIds = (data.greigeIds || []) as string[];
+
+  useEffect(() => {
+    const loadGreige = async () => {
+      try {
+        setIsLoading(true);
+        const response = await greigeService.getAll({ limit: 100 });
+        setGreigeFabrics(response.data);
+      } catch (error) {
+        logError('Failed to load greige fabrics:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadGreige();
+  }, []);
+
+  const filteredGreige = searchTerm
+    ? greigeFabrics.filter(
+        (g) =>
+          g.greigeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          g.greigeName.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : greigeFabrics;
+
+  const toggleGreige = (greigeId: string) => {
+    const newGreigeIds = greigeIds.includes(greigeId)
+      ? greigeIds.filter((id: string) => id !== greigeId)
+      : [...greigeIds, greigeId];
+    updateField('greigeIds', newGreigeIds);
+  };
+
+  const removeGreige = (greigeId: string) => {
+    updateField(
+      'greigeIds',
+      greigeIds.filter((id: string) => id !== greigeId)
+    );
+  };
+
+  const selectedGreige = greigeIds
+    .map((id: string) => greigeFabrics.find((g) => g.id === id))
+    .filter((g): g is GreigeMaster => g !== undefined);
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-foreground">Greige Supplier Details</h3>
+
+      <div>
+        <Label>Greige Fabrics Supplied ({selectedGreige.length})</Label>
+        {selectedGreige.length > 0 ? (
+          <div className="mt-2 space-y-2">
+            {selectedGreige.map((greige) => (
+              <div key={greige.id} className="flex items-center justify-between bg-muted p-3 rounded-md">
+                <div>
+                  <span className="font-medium">{greige.greigeCode}</span>
+                  <span className="text-muted-foreground ml-2">{greige.greigeName}</span>
+                  <span className="text-xs text-muted-foreground ml-2">Width: {Number(greige.greigeWidth)}"</span>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={() => removeGreige(greige.id)}>
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground mt-2">No greige fabrics selected.</p>
+        )}
+      </div>
+
+      <div>
+        <Label>Add Greige Fabrics</Label>
+        <Input
+          type="text"
+          placeholder="Search by code or name..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="mt-2"
+        />
+
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground mt-2">Loading greige fabrics...</p>
+        ) : (
+          <div className="mt-2 max-h-64 overflow-y-auto border rounded-md">
+            {filteredGreige.length === 0 ? (
+              <p className="text-sm text-muted-foreground p-4">No greige fabrics found</p>
+            ) : (
+              <div className="divide-y">
+                {filteredGreige.slice(0, 50).map((greige) => (
+                  <label key={greige.id} className="flex items-center gap-3 p-3 hover:bg-muted cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={greigeIds.includes(greige.id)}
+                      onChange={() => toggleGreige(greige.id)}
+                    />
+                    <div className="flex-1">
+                      <div>
+                        <span className="font-medium">{greige.greigeCode}</span>
+                        <span className="text-muted-foreground ml-2">{greige.greigeName}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground">Width: {Number(greige.greigeWidth)}"</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <Label>Specialty/Notes</Label>
+        <Textarea
+          value={asInputValue(data.specialtyNotes)}
+          onChange={(e) => updateField('specialtyNotes', e.target.value)}
+          rows={3}
+          placeholder="Any special notes about this supplier's greige capabilities..."
+        />
+      </div>
+    </div>
+  );
+}
+
+// 11. LACE SUPPLIER FIELDS
+function LaceFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: ArrayCategoryFieldProps) {
+  const laceTypes = asArray<string>(data.laceTypes);
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-foreground">Lace Supplier Details</h3>
+
+      <div>
+        <Label>Lace Types *</Label>
+        <div className="space-y-2 mt-2">
+          {laceTypes.map((type: string, index: number) => (
+            <div key={index} className="flex gap-2">
+              <Input
+                value={type}
+                onChange={(e) => updateArrayItem('laceTypes', index, e.target.value)}
+                placeholder="e.g., Cotton Lace, Crochet Lace, Guipure, Chantilly"
+                className="flex-1"
+              />
+              {laceTypes.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => removeArrayItem('laceTypes', index)}
+                  className="px-3"
+                >
+                  x
+                </Button>
+              )}
+              {index === laceTypes.length - 1 && (
+                <Button type="button" variant="outline" onClick={() => addArrayItem('laceTypes', '')} className="px-3">
+                  +
+                </Button>
+              )}
+            </div>
+          ))}
+          {laceTypes.length === 0 && (
+            <Button type="button" variant="outline" onClick={() => addArrayItem('laceTypes', '')}>
+              + Add Lace Type
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Width Range</Label>
+          <Input
+            value={String(data.widthRange || '')}
+            onChange={(e) => updateField('widthRange', e.target.value)}
+            placeholder="e.g., 1-6 inches"
+          />
+        </div>
+        <div>
+          <Label>Colors Available</Label>
+          <Input
+            value={String(data.colors || '')}
+            onChange={(e) => updateField('colors', e.target.value)}
+            placeholder="e.g., All colors, 100+ options"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.customDesigns)}
+            onChange={(e) => updateField('customDesigns', e.target.checked)}
+          />
+          <span>Custom Designs Available</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.colorMatching)}
+            onChange={(e) => updateField('colorMatching', e.target.checked)}
+          />
+          <span>Color Matching</span>
+        </label>
+      </div>
+
+      <div>
+        <Label>Specialty/Notes</Label>
+        <Textarea
+          value={asInputValue(data.specialtyNotes)}
+          onChange={(e) => updateField('specialtyNotes', e.target.value)}
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+}
+
+// 12. SMOCKING FIELDS
+function SmockingFields({
+  data,
+  updateField,
+  addArrayItem,
+  updateArrayItem,
+  removeArrayItem,
+}: ArrayCategoryFieldProps) {
+  const smockingTypes = asArray<string>(data.smockingTypes);
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-foreground">Smocking Details</h3>
+
+      <div>
+        <Label>Smocking Types *</Label>
+        <div className="space-y-2 mt-2">
+          {smockingTypes.map((type: string, index: number) => (
+            <div key={index} className="flex gap-2">
+              <Input
+                value={type}
+                onChange={(e) => updateArrayItem('smockingTypes', index, e.target.value)}
+                placeholder="e.g., English Smocking, Honeycomb, Cable, Wave"
+                className="flex-1"
+              />
+              {smockingTypes.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => removeArrayItem('smockingTypes', index)}
+                  className="px-3"
+                >
+                  x
+                </Button>
+              )}
+              {index === smockingTypes.length - 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => addArrayItem('smockingTypes', '')}
+                  className="px-3"
+                >
+                  +
+                </Button>
+              )}
+            </div>
+          ))}
+          {smockingTypes.length === 0 && (
+            <Button type="button" variant="outline" onClick={() => addArrayItem('smockingTypes', '')}>
+              + Add Smocking Type
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label>Production Capacity (pieces/day)</Label>
+          <Input
+            type="number"
+            value={asInputValue(data.productionCapacityPiecesPerDay)}
+            onChange={(e) => updateField('productionCapacityPiecesPerDay', Number(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label>Number of Workers</Label>
+          <Input
+            type="number"
+            value={asInputValue(data.numberOfWorkers)}
+            onChange={(e) => updateField('numberOfWorkers', Number(e.target.value))}
+          />
+        </div>
+      </div>
+
+      <div>
+        <Label>Design Complexity</Label>
+        <Select
+          value={String(data.designComplexity || '')}
+          onValueChange={(value) => updateField('designComplexity', value)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select complexity level" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Simple">Simple</SelectItem>
+            <SelectItem value="Medium">Medium</SelectItem>
+            <SelectItem value="Complex">Complex</SelectItem>
+            <SelectItem value="All">All</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.designDevelopment)}
+            onChange={(e) => updateField('designDevelopment', e.target.checked)}
+          />
+          <span>Design Development</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.sampleDevelopment)}
+            onChange={(e) => updateField('sampleDevelopment', e.target.checked)}
+          />
+          <span>Sample Development</span>
+        </label>
+      </div>
+
+      <div>
+        <Label>Specialty/Notes</Label>
+        <Textarea
+          value={asInputValue(data.specialtyNotes)}
+          onChange={(e) => updateField('specialtyNotes', e.target.value)}
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+}
+
+// 13. FINISHING CONTRACTOR FIELDS
+function FinishingContractorFields({
+  data,
+  updateField,
+  addArrayItem,
+  updateArrayItem,
+  removeArrayItem,
+}: ArrayCategoryFieldProps) {
+  const finishingTypes = asArray<string>(data.finishingTypes);
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-foreground">Finishing Contractor Details</h3>
+
+      <div>
+        <Label>Finishing Types *</Label>
+        <div className="space-y-2 mt-2">
+          {finishingTypes.map((type: string, index: number) => (
+            <div key={index} className="flex gap-2">
+              <Input
+                value={type}
+                onChange={(e) => updateArrayItem('finishingTypes', index, e.target.value)}
+                placeholder="e.g., Pressing, Tagging, Folding, Quality Check"
+                className="flex-1"
+              />
+              {finishingTypes.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => removeArrayItem('finishingTypes', index)}
+                  className="px-3"
+                >
+                  x
+                </Button>
+              )}
+              {index === finishingTypes.length - 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => addArrayItem('finishingTypes', '')}
+                  className="px-3"
+                >
+                  +
+                </Button>
+              )}
+            </div>
+          ))}
+          {finishingTypes.length === 0 && (
+            <Button type="button" variant="outline" onClick={() => addArrayItem('finishingTypes', '')}>
+              + Add Finishing Type
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label>Production Capacity (pieces/day)</Label>
+          <Input
+            type="number"
+            value={asInputValue(data.productionCapacityPiecesPerDay)}
+            onChange={(e) => updateField('productionCapacityPiecesPerDay', Number(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label>Number of Workers</Label>
+          <Input
+            type="number"
+            value={asInputValue(data.numberOfWorkers)}
+            onChange={(e) => updateField('numberOfWorkers', Number(e.target.value))}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.pressingServices)}
+            onChange={(e) => updateField('pressingServices', e.target.checked)}
+          />
+          <span>Pressing Services</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.taggingServices)}
+            onChange={(e) => updateField('taggingServices', e.target.checked)}
+          />
+          <span>Tagging Services</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.packagingServices)}
+            onChange={(e) => updateField('packagingServices', e.target.checked)}
+          />
+          <span>Packaging Services</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.qualityCheck)}
+            onChange={(e) => updateField('qualityCheck', e.target.checked)}
+          />
+          <span>Quality Check</span>
+        </label>
+      </div>
+
+      <div>
+        <Label>Specialty/Notes</Label>
+        <Textarea
+          value={asInputValue(data.specialtyNotes)}
+          onChange={(e) => updateField('specialtyNotes', e.target.value)}
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+}
+
+// 14. STITCHING CONTRACTOR FIELDS
+interface StitchingMachineCount {
+  singleNeedle?: number;
+  overlock?: number;
+  flatlock?: number;
+  other?: number;
+}
+function StitchingContractorFields({
+  data,
+  updateField,
+  updateNestedField,
+  addArrayItem,
+  updateArrayItem,
+  removeArrayItem,
+}: NestedCategoryFieldProps) {
+  const garmentTypes = asArray<string>(data.garmentTypes);
+  const machineCount = asObject<StitchingMachineCount>(data.machineCount) || {};
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-foreground">Stitching Contractor Details</h3>
+
+      <div>
+        <Label>Garment Types *</Label>
+        <div className="space-y-2 mt-2">
+          {garmentTypes.map((type: string, index: number) => (
+            <div key={index} className="flex gap-2">
+              <Input
+                value={type}
+                onChange={(e) => updateArrayItem('garmentTypes', index, e.target.value)}
+                placeholder="e.g., Kurta, Salwar, Tops, Dresses"
+                className="flex-1"
+              />
+              {garmentTypes.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => removeArrayItem('garmentTypes', index)}
+                  className="px-3"
+                >
+                  x
+                </Button>
+              )}
+              {index === garmentTypes.length - 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => addArrayItem('garmentTypes', '')}
+                  className="px-3"
+                >
+                  +
+                </Button>
+              )}
+            </div>
+          ))}
+          {garmentTypes.length === 0 && (
+            <Button type="button" variant="outline" onClick={() => addArrayItem('garmentTypes', '')}>
+              + Add Garment Type
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <Label>Production Capacity (pieces/day)</Label>
+          <Input
+            type="number"
+            value={asInputValue(data.productionCapacityPiecesPerDay)}
+            onChange={(e) => updateField('productionCapacityPiecesPerDay', Number(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label>Number of Workers</Label>
+          <Input
+            type="number"
+            value={asInputValue(data.numberOfWorkers)}
+            onChange={(e) => updateField('numberOfWorkers', Number(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label>Factory Area (sq. ft.)</Label>
+          <Input
+            type="number"
+            value={asInputValue(data.factoryAreaSqFt)}
+            onChange={(e) => updateField('factoryAreaSqFt', Number(e.target.value))}
+          />
+        </div>
+      </div>
+
+      <div>
+        <Label>Machine Counts</Label>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+          <div>
+            <Label htmlFor="stitchSingleNeedle" className="text-sm">
+              Single Needle
+            </Label>
+            <Input
+              id="stitchSingleNeedle"
+              type="number"
+              value={machineCount.singleNeedle || ''}
+              onChange={(e) => updateNestedField('machineCount', 'singleNeedle', Number(e.target.value))}
+            />
+          </div>
+          <div>
+            <Label htmlFor="stitchOverlock" className="text-sm">
+              Overlock
+            </Label>
+            <Input
+              id="stitchOverlock"
+              type="number"
+              value={machineCount.overlock || ''}
+              onChange={(e) => updateNestedField('machineCount', 'overlock', Number(e.target.value))}
+            />
+          </div>
+          <div>
+            <Label htmlFor="stitchFlatlock" className="text-sm">
+              Flatlock
+            </Label>
+            <Input
+              id="stitchFlatlock"
+              type="number"
+              value={machineCount.flatlock || ''}
+              onChange={(e) => updateNestedField('machineCount', 'flatlock', Number(e.target.value))}
+            />
+          </div>
+          <div>
+            <Label htmlFor="stitchOther" className="text-sm">
+              Other
+            </Label>
+            <Input
+              id="stitchOther"
+              type="number"
+              value={machineCount.other || ''}
+              onChange={(e) => updateNestedField('machineCount', 'other', Number(e.target.value))}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.sampleDevelopment)}
+            onChange={(e) => updateField('sampleDevelopment', e.target.checked)}
+          />
+          <span>Sample Development</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.bulkProduction)}
+            onChange={(e) => updateField('bulkProduction', e.target.checked)}
+          />
+          <span>Bulk Production</span>
+        </label>
+      </div>
+
+      <div>
+        <Label>Specialty/Notes</Label>
+        <Textarea
+          value={asInputValue(data.specialtyNotes)}
+          onChange={(e) => updateField('specialtyNotes', e.target.value)}
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+}
+
+// 15. WASHING FIELDS
+function WashingFields({ data, updateField, addArrayItem, updateArrayItem, removeArrayItem }: ArrayCategoryFieldProps) {
+  const washTypes = asArray<string>(data.washTypes);
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-foreground">Washing Details</h3>
+
+      <div>
+        <Label>Wash Types *</Label>
+        <div className="space-y-2 mt-2">
+          {washTypes.map((type: string, index: number) => (
+            <div key={index} className="flex gap-2">
+              <Input
+                value={type}
+                onChange={(e) => updateArrayItem('washTypes', index, e.target.value)}
+                placeholder="e.g., Normal Wash, Enzyme Wash, Stone Wash, Acid Wash"
+                className="flex-1"
+              />
+              {washTypes.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => removeArrayItem('washTypes', index)}
+                  className="px-3"
+                >
+                  x
+                </Button>
+              )}
+              {index === washTypes.length - 1 && (
+                <Button type="button" variant="outline" onClick={() => addArrayItem('washTypes', '')} className="px-3">
+                  +
+                </Button>
+              )}
+            </div>
+          ))}
+          {washTypes.length === 0 && (
+            <Button type="button" variant="outline" onClick={() => addArrayItem('washTypes', '')}>
+              + Add Wash Type
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label>Production Capacity (pieces/day)</Label>
+          <Input
+            type="number"
+            value={asInputValue(data.productionCapacityPiecesPerDay)}
+            onChange={(e) => updateField('productionCapacityPiecesPerDay', Number(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label>Number of Machines</Label>
+          <Input
+            type="number"
+            value={asInputValue(data.numberOfMachines)}
+            onChange={(e) => updateField('numberOfMachines', Number(e.target.value))}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.sampleDevelopment)}
+            onChange={(e) => updateField('sampleDevelopment', e.target.checked)}
+          />
+          <span>Sample Development</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.colorTreatment)}
+            onChange={(e) => updateField('colorTreatment', e.target.checked)}
+          />
+          <span>Color Treatment</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.softeningServices)}
+            onChange={(e) => updateField('softeningServices', e.target.checked)}
+          />
+          <span>Softening Services</span>
+        </label>
+      </div>
+
+      <div>
+        <Label>Quality Certifications</Label>
+        <div className="flex gap-4 mt-2">
+          {['AZO Free', 'OEKO-TEX'].map((cert) => (
+            <label key={cert} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={asArray<string>(data.qualityCertifications).includes(cert)}
+                onChange={(e) => {
+                  const current = asArray<string>(data.qualityCertifications);
+                  if (e.target.checked) {
+                    updateField('qualityCertifications', [...current, cert]);
+                  } else {
+                    updateField(
+                      'qualityCertifications',
+                      current.filter((c: string) => c !== cert)
+                    );
+                  }
+                }}
+              />
+              <span>{cert}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <Label>Specialty/Notes</Label>
+        <Textarea
+          value={asInputValue(data.specialtyNotes)}
+          onChange={(e) => updateField('specialtyNotes', e.target.value)}
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+}
+
+// 16. DORI/PIPING CONTRACTOR FIELDS
+function DoriPipingContractorFields({
+  data,
+  updateField,
+  addArrayItem,
+  updateArrayItem,
+  removeArrayItem,
+}: ArrayCategoryFieldProps) {
+  const serviceTypes = asArray<string>(data.serviceTypes);
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-foreground">Dori/Piping Contractor Details</h3>
+
+      <div>
+        <Label>Service Types *</Label>
+        <div className="space-y-2 mt-2">
+          {serviceTypes.map((type: string, index: number) => (
+            <div key={index} className="flex gap-2">
+              <Input
+                value={type}
+                onChange={(e) => updateArrayItem('serviceTypes', index, e.target.value)}
+                placeholder="e.g., Dori Work, Piping, Latkans, Tassels"
+                className="flex-1"
+              />
+              {serviceTypes.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => removeArrayItem('serviceTypes', index)}
+                  className="px-3"
+                >
+                  x
+                </Button>
+              )}
+              {index === serviceTypes.length - 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => addArrayItem('serviceTypes', '')}
+                  className="px-3"
+                >
+                  +
+                </Button>
+              )}
+            </div>
+          ))}
+          {serviceTypes.length === 0 && (
+            <Button type="button" variant="outline" onClick={() => addArrayItem('serviceTypes', '')}>
+              + Add Service Type
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <Label>Production Capacity (pieces/day)</Label>
+          <Input
+            type="number"
+            value={asInputValue(data.productionCapacityPiecesPerDay)}
+            onChange={(e) => updateField('productionCapacityPiecesPerDay', Number(e.target.value))}
+          />
+        </div>
+        <div>
+          <Label>Number of Workers</Label>
+          <Input
+            type="number"
+            value={asInputValue(data.numberOfWorkers)}
+            onChange={(e) => updateField('numberOfWorkers', Number(e.target.value))}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.customDesigns)}
+            onChange={(e) => updateField('customDesigns', e.target.checked)}
+          />
+          <span>Custom Designs</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.colorMatching)}
+            onChange={(e) => updateField('colorMatching', e.target.checked)}
+          />
+          <span>Color Matching</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.sampleDevelopment)}
+            onChange={(e) => updateField('sampleDevelopment', e.target.checked)}
+          />
+          <span>Sample Development</span>
+        </label>
+      </div>
+
+      <div>
+        <Label>Specialty/Notes</Label>
+        <Textarea
+          value={asInputValue(data.specialtyNotes)}
+          onChange={(e) => updateField('specialtyNotes', e.target.value)}
+          rows={3}
+        />
+      </div>
+    </div>
+  );
+}
+
+// 17. MACHINE PARTS SUPPLIER FIELDS
+function MachinePartsSupplierFields({
+  data,
+  updateField,
+  addArrayItem,
+  updateArrayItem,
+  removeArrayItem,
+}: ArrayCategoryFieldProps) {
+  const partCategories = asArray<string>(data.partCategories);
+  const machineTypes = asArray<string>(data.machineTypes);
+
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-semibold text-foreground">Machine Parts Supplier Details</h3>
+
+      <div>
+        <Label>Part Categories *</Label>
+        <div className="space-y-2 mt-2">
+          {partCategories.map((category: string, index: number) => (
+            <div key={index} className="flex gap-2">
+              <Input
+                value={category}
+                onChange={(e) => updateArrayItem('partCategories', index, e.target.value)}
+                placeholder="e.g., Needles, Bobbins, Presser Feet, Motors"
+                className="flex-1"
+              />
+              {partCategories.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => removeArrayItem('partCategories', index)}
+                  className="px-3"
+                >
+                  x
+                </Button>
+              )}
+              {index === partCategories.length - 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => addArrayItem('partCategories', '')}
+                  className="px-3"
+                >
+                  +
+                </Button>
+              )}
+            </div>
+          ))}
+          {partCategories.length === 0 && (
+            <Button type="button" variant="outline" onClick={() => addArrayItem('partCategories', '')}>
+              + Add Part Category
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <Label>Machine Types Supported</Label>
+        <div className="space-y-2 mt-2">
+          {machineTypes.map((machine: string, index: number) => (
+            <div key={index} className="flex gap-2">
+              <Input
+                value={machine}
+                onChange={(e) => updateArrayItem('machineTypes', index, e.target.value)}
+                placeholder="e.g., JUKI, Brother, Singer, Typical"
+                className="flex-1"
+              />
+              {machineTypes.length > 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => removeArrayItem('machineTypes', index)}
+                  className="px-3"
+                >
+                  x
+                </Button>
+              )}
+              {index === machineTypes.length - 1 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => addArrayItem('machineTypes', '')}
+                  className="px-3"
+                >
+                  +
+                </Button>
+              )}
+            </div>
+          ))}
+          {machineTypes.length === 0 && (
+            <Button type="button" variant="outline" onClick={() => addArrayItem('machineTypes', '')}>
+              + Add Machine Type
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.genuineParts)}
+            onChange={(e) => updateField('genuineParts', e.target.checked)}
+          />
+          <span>Genuine Parts</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.repairServices)}
+            onChange={(e) => updateField('repairServices', e.target.checked)}
+          />
+          <span>Repair Services</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.bulkSupply)}
+            onChange={(e) => updateField('bulkSupply', e.target.checked)}
+          />
+          <span>Bulk Supply</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={asBoolean(data.emergencySupply)}
+            onChange={(e) => updateField('emergencySupply', e.target.checked)}
+          />
+          <span>Emergency Supply</span>
+        </label>
+      </div>
+
       <div>
         <Label>Specialty/Notes</Label>
         <Textarea

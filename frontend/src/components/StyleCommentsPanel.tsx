@@ -54,8 +54,8 @@ function stringToColor(str: string): string {
   }
   const colors = [
     'bg-destructive/100',
-    'bg-info-muted0',
-    'bg-success-muted0',
+    'bg-info-muted',
+    'bg-success-muted',
     'bg-accent/100',
     'bg-primary/100',
     'bg-pink-500',

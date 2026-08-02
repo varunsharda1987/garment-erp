@@ -45,6 +45,7 @@ import { getRunsByStyle, createRun, deleteRun, type CostingRun } from '../servic
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
 import { isAxiosError } from 'axios';
+import { divideByShrinkage } from '../utils/math';
 import type {
   FabricCostingRow,
   FabricForCosting,
@@ -63,6 +64,7 @@ import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import type { Style } from '../types/style.types';
 import type { Customer } from '../types/customer.types';
 import { notify } from '../lib/notify';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 // Helper to validate UUID format
 const isValidUUID = (str: string): boolean => {
@@ -284,6 +286,23 @@ export default function FabricCostingPage() {
   const [hasCADData, setHasCADData] = useState(true);
   const [isValidatingCAD, setIsValidatingCAD] = useState(false);
 
+  // BUG-FC3 fix: Track unsaved changes - using hook for both beforeunload AND in-app navigation
+  const initialLoadRef = useRef(true); // Prevent marking dirty on initial load
+  const [internalDirty, setInternalDirty] = useState(false);
+  // Ref to hold the save function for the dialog callback (avoids circular dependency)
+  const saveRef = useRef<(() => Promise<void>) | null>(null);
+
+  const { UnsavedDialog } = useUnsavedChanges({
+    enabled: internalDirty,
+    onSave: async () => {
+      if (saveRef.current) {
+        await saveRef.current();
+      }
+    },
+    title: 'Unsaved Fabric Costing',
+    description: 'You have unsaved changes to your fabric costing. Do you want to save them before leaving?',
+  });
+
   // Fetch customers on mount
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -307,7 +326,9 @@ export default function FabricCostingPage() {
         const colors = await colorService.search({ limit: 500 });
         setGlobalColors(colors || []);
       } catch (error) {
+        // BUG-FC5 fix: notify on color fetch failure
         console.error('Failed to load global colors:', error);
+        notify.error('Failed to load colors for batch grouping');
       }
     };
     fetchColors();
@@ -406,6 +427,9 @@ export default function FabricCostingPage() {
     setIsRepeatOrder(false); // Reset repeat order status when selecting new style
     setPreviousQuantity(null); // Reset previous quantity indicator
     setOrderQuantity(0); // Reset order quantity for new style (will be loaded from saved data)
+    // BUG-FC3 fix: Reset dirty tracking for new style
+    setInternalDirty(false);
+    initialLoadRef.current = true;
 
     // Find and set the customer from the style
     if (style.customerName) {
@@ -427,6 +451,9 @@ export default function FabricCostingPage() {
     setIsRepeatOrder(false); // Reset repeat order status
     setPreviousQuantity(null); // Reset previous quantity indicator
     setOrderQuantity(0); // Reset order quantity
+    // BUG-FC3 fix: Reset dirty tracking when clearing
+    setInternalDirty(false);
+    initialLoadRef.current = true;
   };
 
   // Close search results when clicking outside
@@ -439,6 +466,20 @@ export default function FabricCostingPage() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // BUG-FC3 fix: Track changes to fabric rows after initial load
+  // (The useUnsavedChanges hook handles beforeunload AND in-app navigation blocking)
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      // Skip the first render after loading fabric data
+      if (fabricRows.length > 0) {
+        initialLoadRef.current = false;
+      }
+      return;
+    }
+    // Any subsequent change to fabricRows marks form as dirty
+    setInternalDirty(true);
+  }, [fabricRows]);
 
   // Fetch styles when customer is selected
   useEffect(() => {
@@ -598,7 +639,19 @@ export default function FabricCostingPage() {
               // Screen cost (from saved data or fabric directly)
               numberOfColors: cs.numberOfColors || fabric.numberOfColors,
               screenType: (cs.screenType || fabric.screenType) as ScreenType | null,
-              screenCostPerScreen: null,
+              // BUG-FC4 fix: derive screenCostPerScreen from saved values when possible
+              // Formula: screenCostPerScreen = screenCostPerMeter * totalMeters / numberOfColors
+              screenCostPerScreen: (() => {
+                const savedScreenCostPerMeter = cs.screenCostPerMeter ?? null;
+                const savedNumColors = cs.numberOfColors || fabric.numberOfColors;
+                const savedCadMeters = fabric.cadMeters || 0;
+                const savedQty = fabric.orderQuantityPcs || 0;
+                if (savedScreenCostPerMeter && savedNumColors && savedCadMeters > 0 && savedQty > 0) {
+                  const totalMeters = savedCadMeters * savedQty;
+                  return (savedScreenCostPerMeter * totalMeters) / savedNumColors;
+                }
+                return null;
+              })(),
               screenCostTotal: null,
               screenCostPerMeter: cs.screenCostPerMeter ?? null,
 
@@ -852,8 +905,12 @@ export default function FabricCostingPage() {
         transportPerMeter = row.transportFixedAmount / totalQuantity;
       }
 
-      // Shrinkage value (per meter)
-      const shrinkageValue = row.shrinkagePercent ? greigeCost * (row.shrinkagePercent / 100) : 0;
+      // BUG-FC1 fix: Shrinkage-adjusted greige cost using divideByShrinkage helper
+      // Guards against Infinity at 100% shrinkage (bug-hunt BH-0364/BH-0366)
+      const shrinkagePct = row.shrinkagePercent || 0;
+      const shrinkageAdjustedGreige = divideByShrinkage(greigeCost, shrinkagePct);
+      // The "shrinkage value" is the difference between adjusted and original
+      const shrinkageValue = shrinkageAdjustedGreige - greigeCost;
 
       // Processing cost
       const processingCost = row.processingCostPerMeter || 0;
@@ -863,8 +920,9 @@ export default function FabricCostingPage() {
       let screenCostTotal = null;
       let effectiveScreenCostPerScreen = row.screenCostPerScreen;
 
-      // If no screen cost from processor rate card, use default based on screenType
-      if (!effectiveScreenCostPerScreen && row.screenType) {
+      // BUG-FC4 FIX: Only apply default screen cost for NEW rows (no fabricWidthCadId).
+      // Saved rows may have intentionally null/zero screen cost - don't overwrite with defaults.
+      if (!effectiveScreenCostPerScreen && row.screenType && !row.fabricWidthCadId) {
         effectiveScreenCostPerScreen = DEFAULT_SCREEN_COSTS[row.screenType];
       }
 
@@ -1166,6 +1224,8 @@ export default function FabricCostingPage() {
       }
 
       notify.success(`Saved costing for ${rowsToSave.length} fabric(s) to fabric_width_cad`);
+      // BUG-FC3 fix: Mark as clean after successful save
+      setInternalDirty(false);
       // Show the "View Style Options" button after successful save
       setShowStyleOptionsButton(true);
       // Re-fetch with preserveUserEdits to get the new fabricWidthCadIds from database
@@ -1189,6 +1249,10 @@ export default function FabricCostingPage() {
       setIsSaving(false);
     }
   };
+
+  // BUG-FC3 fix: Update saveRef so the unsaved changes dialog can call handleSave
+  // Direct assignment is fine since ref persists across renders
+  saveRef.current = handleSave;
 
   // Create a new costing run from saved CAD IDs
   const handleCreateRun = async () => {
@@ -1386,7 +1450,7 @@ export default function FabricCostingPage() {
       totalFabricReq += fabricReq;
 
       const shrinkage = row.shrinkagePercent || 0;
-      const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
+      const greigeReq = divideByShrinkage(fabricReq, shrinkage);
       totalGreigeReq += greigeReq;
 
       if (row.totalCostPerMeter && row.cadMeters > 0) {
@@ -2237,7 +2301,10 @@ export default function FabricCostingPage() {
                                                   // Recalculate screen cost
                                                   const screenType = row.screenType;
                                                   const defaultCost = screenType ? DEFAULT_SCREEN_COSTS[screenType] : 0;
-                                                  const costPerScreen = row.screenCostPerScreen || defaultCost;
+                                                  // BUG-FC4 fix: only apply defaults for new rows
+                                                  const costPerScreen = row.fabricWidthCadId
+                                                    ? row.screenCostPerScreen // Saved row: preserve existing value
+                                                    : row.screenCostPerScreen || defaultCost; // New row: use default
                                                   const totalScreenCost =
                                                     numColors && costPerScreen ? numColors * costPerScreen : null;
                                                   const qty = row.rowQuantity ?? orderQuantity;
@@ -2282,7 +2349,10 @@ export default function FabricCostingPage() {
                                                 onChange={(e) => {
                                                   const screenType = (e.target.value || null) as ScreenType | null;
                                                   const defaultCost = screenType ? DEFAULT_SCREEN_COSTS[screenType] : 0;
-                                                  const costPerScreen = defaultCost;
+                                                  // BUG-FC4 fix: only apply defaults for new rows
+                                                  const costPerScreen = row.fabricWidthCadId
+                                                    ? row.screenCostPerScreen // Saved row: preserve existing value
+                                                    : row.screenCostPerScreen || defaultCost; // New row: use default
                                                   const numColors = row.numberOfColors || 0;
                                                   const totalScreenCost =
                                                     numColors && costPerScreen ? numColors * costPerScreen : null;
@@ -2419,8 +2489,7 @@ export default function FabricCostingPage() {
                                                 const qty = row.rowQuantity ?? orderQuantity;
                                                 const fabricReq = row.cadMeters * qty;
                                                 const shrinkage = row.shrinkagePercent || 0;
-                                                const greigeReq =
-                                                  shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
+                                                const greigeReq = divideByShrinkage(fabricReq, shrinkage);
                                                 return (
                                                   <span
                                                     className="text-xs"
@@ -3012,10 +3081,10 @@ export default function FabricCostingPage() {
                                   <TableCell className="px-1 text-center">
                                     {row.cadMeters > 0 ? (
                                       (() => {
-                                        const qty = row.rowQuantity || orderQuantity;
+                                        const qty = row.rowQuantity ?? orderQuantity;
                                         const fabricReq = row.cadMeters * qty;
                                         const shrinkage = row.shrinkagePercent || 0;
-                                        const greigeReq = shrinkage > 0 ? fabricReq / (1 - shrinkage / 100) : fabricReq;
+                                        const greigeReq = divideByShrinkage(fabricReq, shrinkage);
                                         return (
                                           <span className="text-xs">
                                             {greigeReq.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -3150,6 +3219,9 @@ export default function FabricCostingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* BUG-FC3 fix: Unsaved changes warning dialog for in-app navigation */}
+      <UnsavedDialog />
     </div>
   );
 }

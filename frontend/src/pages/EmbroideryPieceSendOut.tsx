@@ -83,7 +83,7 @@ export default function EmbroideryPieceSendOut() {
   const selectedWO = workOrders.find((w) => w.id === selectedWorkOrderId);
   const selectedPO = pos.find((p) => p.id === selectedPOId);
   const selectedBatch = cuttingBatches.find((b) => b.id === selectedCuttingBatchId);
-  const totalQty = Object.values(skuQtys).reduce((s, q) => s + (q || 0), 0);
+  const totalQty = Object.values(skuQtys).reduce((s, q) => s + (q ?? 0), 0);
 
   useEffect(() => {
     api
@@ -100,7 +100,12 @@ export default function EmbroideryPieceSendOut() {
         }));
         setWorkOrders(items);
       })
-      .catch(() => setWorkOrders([]));
+      .catch((err: any) => {
+        // BUG-MFG11-18 fix: proper error extraction
+        const message = err?.response?.data?.message || err?.message || 'Could not load work orders';
+        toast.error(message);
+        setWorkOrders([]);
+      });
 
     embroideryService
       .searchEmbroidery('')
@@ -112,7 +117,12 @@ export default function EmbroideryPieceSendOut() {
         }));
         setEmbroideries(items);
       })
-      .catch(() => setEmbroideries([]));
+      .catch((err: any) => {
+        // BUG-MFG11-18 fix: proper error extraction
+        const message = err?.response?.data?.message || err?.message || 'Could not load embroideries';
+        toast.error(message);
+        setEmbroideries([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -132,7 +142,12 @@ export default function EmbroideryPieceSendOut() {
         }));
         setPos(items);
       })
-      .catch(() => setPos([]));
+      .catch((err: any) => {
+        // BUG-MFG11-18 fix: proper error extraction
+        const message = err?.response?.data?.message || err?.message || 'Could not load purchase orders';
+        toast.error(message);
+        setPos([]);
+      });
   }, [selectedWorkOrderId]);
 
   useEffect(() => {
@@ -151,14 +166,19 @@ export default function EmbroideryPieceSendOut() {
             id: s.id || `${s.colorId || 'nc'}-${s.sizeId}`,
             colorId: s.colorId,
             sizeId: s.sizeId,
-            goodPcs: s.goodPcs || 0,
+            goodPcs: s.goodPcs ?? 0,
             colorName: s.color?.colorName || s.colorName || '',
             sizeName: s.size?.sizeName || s.sizeName || '',
           })),
         }));
         setCuttingBatches(items);
       })
-      .catch(() => setCuttingBatches([]));
+      .catch((err: any) => {
+        // BUG-MFG11-18 fix: proper error extraction
+        const message = err?.response?.data?.message || err?.message || 'Could not load cutting batches';
+        toast.error(message);
+        setCuttingBatches([]);
+      });
   }, [selectedWorkOrderId]);
 
   const sendOutMutation = useMutation({
@@ -167,7 +187,12 @@ export default function EmbroideryPieceSendOut() {
       toast.success('Embroidery piece send-out created');
       navigate('/embroidery-stock/pieces');
     },
-    onError: (err: any) => setError(err?.response?.data?.message || 'Failed to create send-out'),
+    onError: (err: any) => {
+      // BUG-EMB9 fix: show toast.error in addition to setting error state
+      const message = err?.response?.data?.message || err?.message || 'Failed to create send-out';
+      setError(message);
+      toast.error(message);
+    },
   });
 
   const handleSubmit = () => {
@@ -178,8 +203,8 @@ export default function EmbroideryPieceSendOut() {
     }
 
     const skus = selectedBatch?.skuOutputs
-      ?.filter((s) => (skuQtys[s.id] || 0) > 0)
-      .map((s) => ({ colorId: s.colorId || undefined, sizeId: s.sizeId, sentQty: skuQtys[s.id] || 0 }));
+      ?.filter((s) => (skuQtys[s.id] ?? 0) > 0)
+      .map((s) => ({ colorId: s.colorId || undefined, sizeId: s.sizeId, sentQty: skuQtys[s.id] ?? 0 }));
 
     sendOutMutation.mutate({
       processType: 'EMBROIDERY_PIECE',
@@ -346,7 +371,10 @@ export default function EmbroideryPieceSendOut() {
                         min={0}
                         max={sku.goodPcs}
                         value={skuQtys[sku.id] || ''}
-                        onChange={(e) => setSkuQtys((prev) => ({ ...prev, [sku.id]: parseInt(e.target.value) || 0 }))}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          setSkuQtys((prev) => ({ ...prev, [sku.id]: isNaN(val) ? 0 : val }));
+                        }}
                         className="text-right"
                       />
                     </TableCell>

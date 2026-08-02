@@ -640,13 +640,14 @@ export default function CADPlanningPage() {
                 rows={cadTableData.cadRows}
                 components={cadTableData.components}
                 availableGreiges={cadTableData.availableGreiges}
-                sizeOptions={cadTableData.sizeOptions || []}
+                sizeOptions={cadTableData.sizeOptions || cadTableData.sizes || []}
                 onAddRow={handleSpreadsheetAddRow}
                 onAddCombinedRow={handleSpreadsheetAddCombinedRow}
                 onUpdateRow={handleSpreadsheetUpdateRow}
                 onDeleteRow={handleSpreadsheetDeleteRow}
                 disabled={false}
                 isStyleApproved={isApproved}
+                onDataRefresh={loadCADTableData}
               />
 
               {/* Actions */}

@@ -1,0 +1,23 @@
+[
+  "backend/src/controllers/dyeing.controller.ts :: sync-no-warehouse :: materialId",
+  "backend/src/controllers/fabric-processing.controller.ts :: sync-no-warehouse :: material.id",
+  "backend/src/controllers/fabric-processing.controller.ts :: sync-no-warehouse :: materialId",
+  "backend/src/controllers/fabric-stock.controller.ts :: sync-no-warehouse :: material.id",
+  "backend/src/controllers/fabric-stock.controller.ts :: sync-no-warehouse :: material.id #2",
+  "backend/src/controllers/printing.controller.ts :: sync-no-warehouse :: materialId",
+  "backend/src/controllers/printing.controller.ts :: sync-no-warehouse :: materialId #2",
+  "backend/src/services/challan.service.ts :: sync-no-warehouse :: fabMat.id",
+  "backend/src/services/challan.service.ts :: sync-no-warehouse :: fabMat.id #2",
+  "backend/src/services/challan.service.ts :: sync-no-warehouse :: fabMaterial.id",
+  "backend/src/services/challan.service.ts :: sync-no-warehouse :: laceStock.laceId",
+  "backend/src/services/challan.service.ts :: sync-no-warehouse :: laceStock.laceId #2",
+  "backend/src/services/challan.service.ts :: sync-no-warehouse :: threadStock.threadId",
+  "backend/src/services/embroidery-stock.service.ts :: sync-no-warehouse :: sendOut.sourceFabricStock.fabricId",
+  "backend/src/services/embroidery-stock.service.ts :: sync-no-warehouse :: sourceStock.fabricId",
+  "backend/src/services/embroidery-stock.service.ts :: sync-no-warehouse :: sourceStock.fabricId #2",
+  "backend/src/services/fabric-stock.service.ts :: sync-no-warehouse :: materialId",
+  "backend/src/services/grn.service.ts :: sync-no-warehouse :: jobWorkOrder.finishedFabricId",
+  "backend/src/services/grn.service.ts :: sync-no-warehouse :: jobWorkOrder.finishedFabricId #2",
+  "backend/src/services/laceIssueNote.service.ts :: sync-no-warehouse :: updated.stock.laceId",
+  "backend/src/services/laceStock.service.ts :: sync-no-warehouse :: allocation.stock.laceId"
+]

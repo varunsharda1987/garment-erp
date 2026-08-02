@@ -1155,7 +1155,7 @@ export const getLaceForCosting = async (req: Request, res: Response) => {
       isGreige: lace.isGreige,
       // Cost options
       readyLaceCost: !lace.isGreige ? lace.pricePerMeter : null,
-      greigeCost: lace.isGreige ? lace.costPerMeterGreige : lace.sourceGreigeLace?.costPerMeterGreige || null,
+      greigeCost: lace.isGreige ? lace.costPerMeterGreige : (lace.sourceGreigeLace?.costPerMeterGreige ?? null),
       expectedShrinkagePercent: lace.isGreige
         ? lace.expectedShrinkagePercent
         : lace.sourceGreigeLace?.expectedShrinkagePercent || null,

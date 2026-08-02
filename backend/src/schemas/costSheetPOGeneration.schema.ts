@@ -30,7 +30,7 @@ export const generateFabricPOSchema = z.object({
   totalOrderQty: z.number().int().positive('Total order quantity is required'), // Added - required by controller
   supplierId: z.string().uuid('Invalid supplier ID'), // Made required
   items: z.array(costSheetPOItemSchema).min(1, 'At least one item is required'), // Renamed from itemIds
-  expectedDeliveryDate: z.string().datetime().optional(), // Kept for future use
+  expectedDeliveryDate: z.coerce.date().optional(), // Kept for future use
   notes: z.string().max(500).optional(), // Renamed from remarks
 });
 
@@ -43,7 +43,7 @@ export const generateGreigePOSchema = z.object({
   totalOrderQty: z.number().int().positive('Total order quantity is required'), // Added - required by controller
   supplierId: z.string().uuid('Invalid supplier ID'), // Made required
   items: z.array(costSheetPOItemSchema).min(1, 'At least one item is required'), // Renamed from itemIds
-  expectedDeliveryDate: z.string().datetime().optional(), // Kept for future use
+  expectedDeliveryDate: z.coerce.date().optional(), // Kept for future use
   notes: z.string().max(500).optional(), // Renamed from remarks
 });
 
@@ -57,7 +57,7 @@ export const generateProcessingPOSchema = z.object({
   processorId: z.string().uuid('Invalid processor ID'), // Made required
   items: z.array(costSheetPOItemSchema).min(1, 'At least one item is required'), // Renamed from itemIds
   linkedGreigePOId: z.string().uuid('Invalid greige PO ID').optional(), // Added - used by controller
-  expectedDeliveryDate: z.string().datetime().optional(), // Kept for future use
+  expectedDeliveryDate: z.coerce.date().optional(), // Kept for future use
   notes: z.string().max(500).optional(), // Renamed from remarks
 });
 
@@ -70,7 +70,7 @@ export const generateTrimsPOSchema = z.object({
   totalOrderQty: z.number().int().positive('Total order quantity is required'), // Added - required by controller
   supplierId: z.string().uuid('Invalid supplier ID'), // Made required
   items: z.array(costSheetPOItemSchema).min(1, 'At least one item is required'), // Renamed from itemIds
-  expectedDeliveryDate: z.string().datetime().optional(), // Kept for future use
+  expectedDeliveryDate: z.coerce.date().optional(), // Kept for future use
   notes: z.string().max(500).optional(), // Renamed from remarks
 });
 
@@ -121,7 +121,7 @@ export const generateLacePOSchema = z.object({
   totalOrderQty: z.number().int().positive('Total order quantity is required'),
   supplierId: z.string().uuid('Invalid supplier ID'),
   items: z.array(lacePOItemSchema).min(1, 'At least one item is required'),
-  expectedDeliveryDate: z.string().datetime().optional(),
+  expectedDeliveryDate: z.coerce.date().optional(),
   notes: z.string().max(500).optional(),
 });
 
@@ -134,7 +134,7 @@ export const generateGreigeLacePOSchema = z.object({
   totalOrderQty: z.number().int().positive('Total order quantity is required'),
   supplierId: z.string().uuid('Invalid supplier ID'),
   items: z.array(greigeLacePOItemSchema).min(1, 'At least one item is required'),
-  expectedDeliveryDate: z.string().datetime().optional(),
+  expectedDeliveryDate: z.coerce.date().optional(),
   notes: z.string().max(500).optional(),
 });
 
@@ -148,7 +148,7 @@ export const generateLaceProcessingPOSchema = z.object({
   processorId: z.string().uuid('Invalid processor ID'),
   items: z.array(laceProcessingPOItemSchema).min(1, 'At least one item is required'),
   linkedGreigeLacePOId: z.string().uuid('Invalid greige lace PO ID').optional(),
-  expectedDeliveryDate: z.string().datetime().optional(),
+  expectedDeliveryDate: z.coerce.date().optional(),
   notes: z.string().max(500).optional(),
 });
 

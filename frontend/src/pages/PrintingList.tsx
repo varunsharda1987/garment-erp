@@ -30,6 +30,8 @@ import {
   ProcessPOStatusColors,
   PrintMethodLabels,
   PrintChemistryLabels,
+  ColorMatchRatingLabels,
+  ColorMatchRatingColors,
 } from '@/types/printing.types';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
@@ -409,6 +411,19 @@ export default function PrintingList() {
       header: 'Submitted',
       render: (item) => <div className="text-sm text-foreground">{formatDate(item.submissionDate)}</div>,
     },
+    // BUG-DYE4 fix: Added colorMatchRating column for consistency with DyeingList
+    {
+      key: 'colorMatchRating',
+      header: 'Match Rating',
+      render: (item) =>
+        item.colorMatchRating ? (
+          <Badge className={ColorMatchRatingColors[item.colorMatchRating] || ''}>
+            {ColorMatchRatingLabels[item.colorMatchRating] || item.colorMatchRating}
+          </Badge>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        ),
+    },
     {
       key: 'status',
       header: 'Status',
@@ -542,7 +557,7 @@ export default function PrintingList() {
       render: (item) => (
         <div className="text-sm font-medium text-foreground">
           {item.totalAmount != null
-            ? `\u20B9${Number(item.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+            ? `\u20B9${Number(item.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
             : '-'}
         </div>
       ),

@@ -77,6 +77,7 @@ export interface Packaging {
   image?: string | null;
   supplierId?: string | null;
   description?: string | null;
+  // styleCodes NOT supported - no packaging_style_associations table in Prisma (BUG-MM10: not-a-bug)
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -121,6 +122,7 @@ export interface PackagingFormData {
   pricePerHundred?: number | string;
   supplierId?: string;
   description?: string;
+  // styleCodes NOT supported - no packaging_style_associations table in Prisma (BUG-MM10: not-a-bug)
   suppliers?: PackagingSupplierInput[]; // Multi-supplier support
 }
 
@@ -143,6 +145,7 @@ export interface CreatePackagingRequest {
   pricePerHundred?: number;
   supplierId?: string;
   description?: string;
+  // styleCodes NOT supported - no packaging_style_associations table in Prisma (BUG-MM10: not-a-bug)
   suppliers?: PackagingSupplierInput[]; // Multi-supplier support
 }
 

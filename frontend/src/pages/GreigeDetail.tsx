@@ -252,7 +252,7 @@ export default function GreigeDetail() {
               )}
               <div>
                 <label className="text-sm font-medium text-muted-foreground">Avg Shrinkage</label>
-                <div className="text-base text-foreground">{Number(greige.averageShrinkagePercent).toFixed(1)}%</div>
+                <div className="text-base text-foreground">{(greige.averageShrinkagePercent ?? 0).toFixed(1)}%</div>
               </div>
             </div>
           </CardContent>

@@ -7,6 +7,7 @@ import { styleService } from '@/services/style.service';
 import type { DashboardSummary } from '@/types/style.types';
 import { ProductionStage } from '@/types/style.types';
 import { logError } from '@/lib/logger';
+import { notify } from '@/lib/notify';
 
 // ── Reusable stage card ────────────────────────────────────────────────────
 interface StageCardProps {
@@ -94,6 +95,8 @@ export default function Dashboard() {
       setSummary(data);
     } catch (err) {
       logError('Failed to fetch dashboard data:', err);
+      // BUG-DASH13-15 fix: notify user on error
+      notify.error('Failed to load dashboard data. Please refresh the page.');
     } finally {
       setLoading(false);
     }

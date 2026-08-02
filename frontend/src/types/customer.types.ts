@@ -151,7 +151,7 @@ export interface GstNumberInput {
   billingAddress?: string;
   billingCityId?: string;
   billingPincode?: string;
-  isPrimary: boolean;
+  isPrimary?: boolean; // BUG-CU8 Fix: Made optional to match backend Zod schema
 }
 
 export type CreateCustomerRequest = {
@@ -212,4 +212,11 @@ export interface CustomerListResponse {
 export interface CustomerResponse {
   data: Customer;
   message?: string;
+}
+
+// BUG-CU10 fix: Shared lookup type for dropdowns/search to avoid duplicate local interfaces
+export interface CustomerLookup {
+  id: string;
+  code: string;
+  name: string;
 }

@@ -195,7 +195,7 @@ export default function LabDipBatchCreateForm({ backPath }: LabDipBatchCreateFor
       navigate(backPath);
     },
     onError: (error: any) => {
-      handleApiError(error, error.message || 'Failed to create lab dips');
+      handleApiError(error, 'Failed to create lab dips');
     },
   });
 

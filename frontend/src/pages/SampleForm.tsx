@@ -18,17 +18,13 @@ import type {
   SampleSizeSetInput,
 } from '@/types/sample.types';
 import { SampleTypeLabels } from '@/types/sample.types';
+// BUG-CU10 fix: Use shared CustomerLookup type instead of duplicate local interface
+import type { CustomerLookup } from '@/types/customer.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { TestTube, ArrowLeft, Save, Plus, Trash2, Ruler, Palette, Grid3X3 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import api from '@/lib/api';
-
-interface Customer {
-  id: string;
-  code: string;
-  name: string;
-}
 
 interface Style {
   id: string;
@@ -49,7 +45,7 @@ export default function SampleForm() {
   const [isSaving, setIsSaving] = useState(false);
 
   // Lookup data
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customers, setCustomers] = useState<CustomerLookup[]>([]);
   const [styles, setStyles] = useState<Style[]>([]);
   const [selectedStyle, setSelectedStyle] = useState<Style | null>(null);
 

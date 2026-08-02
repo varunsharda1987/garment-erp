@@ -24,6 +24,7 @@ interface FormData {
   hexCode: string;
   colorFamily: string;
   description: string;
+  sortOrder: number;
 }
 
 export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProps) {
@@ -48,6 +49,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
       hexCode: '',
       colorFamily: '',
       description: '',
+      sortOrder: 0,
     },
   });
 
@@ -75,6 +77,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
           setValue('colorName', color.colorName);
           setValue('hexCode', color.hexCode || '');
           setValue('description', color.description || '');
+          setValue('sortOrder', color.sortOrder ?? 0);
           setSelectedFamily(color.colorFamily || '');
           setIsActive(color.isActive);
 
@@ -114,6 +117,7 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
         hexCode: data.hexCode?.trim() || null,
         colorFamily: selectedFamily || null,
         description: data.description?.trim() || null,
+        sortOrder: data.sortOrder ?? 0,
       };
 
       if (isNewColor) {
@@ -214,26 +218,43 @@ export default function ColorMasterForm({ mode = 'create' }: ColorMasterFormProp
               </div>
             </div>
 
-            {/* Color Family */}
-            <div className="space-y-2">
-              <Label>Color Family</Label>
-              <Select
-                value={selectedFamily || 'none'}
-                onValueChange={(val) => setSelectedFamily(val === 'none' ? '' : val)}
-              >
-                <SelectTrigger className="w-full md:w-[300px]">
-                  <SelectValue placeholder="Select a color family" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Family</SelectItem>
-                  {COLOR_FAMILIES.map((family) => (
-                    <SelectItem key={family} value={family}>
-                      {family}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <span className="text-xs text-muted-foreground">Group colors by family for easier filtering</span>
+            {/* Color Family and Sort Order */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Color Family */}
+              <div className="space-y-2">
+                <Label>Color Family</Label>
+                <Select
+                  value={selectedFamily || 'none'}
+                  onValueChange={(val) => setSelectedFamily(val === 'none' ? '' : val)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a color family" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Family</SelectItem>
+                    {COLOR_FAMILIES.map((family) => (
+                      <SelectItem key={family} value={family}>
+                        {family}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-xs text-muted-foreground">Group colors by family for easier filtering</span>
+              </div>
+
+              {/* Sort Order */}
+              <div className="space-y-2">
+                <Label htmlFor="sortOrder">Sort Order</Label>
+                <Input
+                  id="sortOrder"
+                  type="number"
+                  min={0}
+                  {...register('sortOrder', { valueAsNumber: true })}
+                  placeholder="0"
+                  className="w-full md:w-[150px]"
+                />
+                <span className="text-xs text-muted-foreground">Lower numbers appear first in lists</span>
+              </div>
             </div>
 
             {/* Description */}

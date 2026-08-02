@@ -316,6 +316,39 @@ function checkSchemaFrontendParity(files) {
   );
 }
 
+/** Check (D1): syncStockLevelQuantity called without a warehouseId — BLOCKING new + ratchet. */
+function checkStockSyncNoWarehouse(tsFiles) {
+  console.log(`\n${c.cyan}Checking stock syncs pass a warehouseId...${c.reset}`);
+  return runRatchetedCheck(
+    'warehouse-less syncStockLevelQuantity call(s) (helper must guess the row)',
+    detectors.stockSyncNoWarehouse(tsFiles),
+    'stock-sync-warehouse-baseline.json',
+    'Pass the warehouseId this movement belongs to (or mark `// allow-no-warehouse`). If intentional, add the key to scripts/hooks/stock-sync-warehouse-baseline.json.'
+  );
+}
+
+/** Check (D2): frontend catch that is empty or only console-logs — BLOCKING new + ratchet. */
+function checkSilentCatchFrontend(tsFiles) {
+  console.log(`\n${c.cyan}Checking frontend catches surface their failures...${c.reset}`);
+  return runRatchetedCheck(
+    'silent frontend catch(es) (user sees nothing on failure)',
+    detectors.silentCatchFrontend(tsFiles),
+    'silent-catch-baseline.json',
+    'Surface the failure (toast/handleApiError/setError) or mark `// allow-silent-catch` inside the catch. If intentional, add the key to scripts/hooks/silent-catch-baseline.json.'
+  );
+}
+
+/** Check (D3): `moneyOrQty || null/undefined/""` — a real 0 becomes the fallback — BLOCKING new + ratchet. */
+function checkNumericOrFallback(tsFiles) {
+  console.log(`\n${c.cyan}Checking for || fallbacks that lose a real 0...${c.reset}`);
+  return runRatchetedCheck(
+    '|| fallback(s) on money/quantity fields (0 becomes null)',
+    detectors.numericOrFallback(tsFiles),
+    'numeric-or-fallback-baseline.json',
+    'Use ?? so only null/undefined trigger the fallback (or mark `// allow-or-fallback`). If intentional, add the key to scripts/hooks/numeric-or-fallback-baseline.json.'
+  );
+}
+
 /**
  * Check: Type synchronization between frontend and backend
  */
@@ -721,6 +754,9 @@ function runAllModeChecks() {
   if (!checkSwallowedWriteErrors(tsFiles)) ok = false;
   if (!checkAssignNotIncrement(tsFiles)) ok = false;
   if (!checkSchemaFrontendParity(tsFiles)) ok = false;
+  if (!checkStockSyncNoWarehouse(tsFiles)) ok = false;
+  if (!checkSilentCatchFrontend(tsFiles)) ok = false;
+  if (!checkNumericOrFallback(tsFiles)) ok = false;
 
   // Frontend typecheck gate (CI mode only — too slow for per-commit). The frontend reached ZERO tsc
   // errors on 2026-07-23 after clearing 184 pre-existing ones (several were real display bugs: pages
@@ -817,6 +853,9 @@ function main() {
     if (!checkSwallowedWriteErrors(categories.typescript)) allPassed = false;
     if (!checkAssignNotIncrement(categories.typescript)) allPassed = false;
     if (!checkSchemaFrontendParity(categories.typescript)) allPassed = false;
+    if (!checkStockSyncNoWarehouse(categories.typescript)) allPassed = false;
+    if (!checkSilentCatchFrontend(categories.typescript)) allPassed = false;
+    if (!checkNumericOrFallback(categories.typescript)) allPassed = false;
   }
 
   // Type file changes → check type sync

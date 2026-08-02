@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle, Package, ShoppingBag } from 'lucide-react';
+import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,8 +35,9 @@ export default function SaleOrderDetail() {
   const [allocateQty, setAllocateQty] = useState('');
   const [selectedFgStockId, setSelectedFgStockId] = useState('');
 
+  // BUG-ORD14 fix: standardized query key
   const { data: so, isLoading } = useQuery({
-    queryKey: ['sale-order', id],
+    queryKey: queryKeys.saleOrders.detail(id || ''),
     queryFn: () => getSaleOrderById(id!),
     enabled: !!id,
   });
@@ -54,7 +56,7 @@ export default function SaleOrderDetail() {
   const confirmMutation = useMutation({
     mutationFn: () => confirmSaleOrder(id!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sale-order', id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') }); // BUG-ORD14 fix: standardized query key
       toast.success('Sale Order confirmed');
       setConfirmDialogOpen(false);
     },
@@ -67,7 +69,7 @@ export default function SaleOrderDetail() {
   const allocateMutation = useMutation({
     mutationFn: (data: { saleOrderItemId: string; fgStockId: string; quantity: number }) => allocateStock(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sale-order', id] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') }); // BUG-ORD14 fix: standardized query key
       queryClient.invalidateQueries({ queryKey: ['available-stock'] });
       toast.success('Stock allocated successfully');
       setAllocateDialogOpen(false);

@@ -46,7 +46,9 @@ export default function ZipperDetail() {
     try {
       setLoading(true);
       setError(null);
-      const data = await getZipperById(id!);
+      // bug-hunt: id is already checked in useEffect, but use safe fallback
+      if (!id) return;
+      const data = await getZipperById(id);
       setZipper(data);
     } catch (err: unknown) {
       const errorMessage = handleApiError(err, 'Failed to load zipper details', false);
@@ -185,7 +187,8 @@ export default function ZipperDetail() {
               {zipper.length && (
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">Length</label>
-                  <p className="text-foreground text-xl font-semibold">{zipper.length} cm</p>
+                  {/* bug-hunt: unit now matches ZipperForm (inches) */}
+                  <p className="text-foreground text-xl font-semibold">{zipper.length} inches</p>
                 </div>
               )}
               {zipper.tapeWidth && (

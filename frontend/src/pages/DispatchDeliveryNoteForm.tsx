@@ -1,5 +1,6 @@
 // Create Delivery Note — dispatch finished goods against a customer order.
 // Linked from DispatchList ("New Delivery Note" + ASN "Create Delivery Note" actions).
+// BUG-DASH10 fix: corrected route path - /manufacturing/dispatch/delivery/new
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

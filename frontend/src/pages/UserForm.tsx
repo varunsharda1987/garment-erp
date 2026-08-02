@@ -92,10 +92,10 @@ export default function UserForm({ mode }: UserFormProps) {
           await userService.updateUserRole(id, data.role);
         }
       }
-      // Navigate with replace to force component remount
-      navigate('/users', { replace: true });
-      // Force reload by navigating away and back
-      window.location.href = '/users';
+      // BUG-ADM2 fix: Removed double navigation hack (navigate + window.location.href)
+      // React Query's queryClient.invalidateQueries should refresh the list data.
+      // If stale data persists, the UserList component should invalidate on mount/refetch.
+      navigate('/users');
     } catch {
       setSubmitError('Failed to save');
     } finally {

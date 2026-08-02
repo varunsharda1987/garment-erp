@@ -106,7 +106,7 @@ export default function StockAdjustmentForm() {
       await stockMovementService.createAdjustment({
         materialId: formData.materialId,
         warehouseId: formData.warehouseId,
-        quantity: adjustmentQuantity,
+        adjustmentQuantity,
         unit: formData.unit as Unit,
         reason: formData.reason as AdjustmentReason,
         remarks: formData.remarks || undefined,
@@ -114,8 +114,8 @@ export default function StockAdjustmentForm() {
 
       setSuccess(true);
       setTimeout(() => navigate('/inventory/movements'), 2000);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create adjustment';
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to create adjustment';
       setError(errorMessage);
     } finally {
       setLoading(false);

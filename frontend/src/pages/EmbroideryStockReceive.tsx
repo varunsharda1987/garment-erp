@@ -122,36 +122,48 @@ export default function EmbroideryStockReceive() {
 
       const activeSendOutId = sendOutId || selectedSendOutId;
 
-      // Validation
+      // BUG-EMB12 fix: comprehensive validation with BUG-EMB10 NaN guards
       if (!activeSendOutId) {
         setError('Please select a send-out to receive');
         return;
       }
-      if (!formData.quantityReceived || parseFloat(formData.quantityReceived) <= 0) {
+
+      // BUG-EMB10 fix: parse and validate numbers to guard against NaN
+      const parsedQuantityReceived = parseFloat(formData.quantityReceived);
+      const parsedReceivedWidth = parseFloat(formData.receivedWidth);
+      const parsedQuantityDamaged = formData.quantityDamaged ? parseFloat(formData.quantityDamaged) : 0;
+      const parsedActualCost = formData.actualCost ? parseFloat(formData.actualCost) : undefined;
+
+      if (!formData.quantityReceived || !Number.isFinite(parsedQuantityReceived) || parsedQuantityReceived <= 0) {
         setError('Please enter a valid received quantity');
         return;
       }
-      if (!formData.receivedWidth || parseFloat(formData.receivedWidth) <= 0) {
+      if (!formData.receivedWidth || !Number.isFinite(parsedReceivedWidth) || parsedReceivedWidth <= 0) {
         setError('Please enter a valid received width');
+        return;
+      }
+      if (!Number.isFinite(parsedQuantityDamaged) || parsedQuantityDamaged < 0) {
+        setError('Please enter a valid damaged quantity');
         return;
       }
 
       // Validate against sent quantity
       if (sendOut) {
-        const totalReceived = parseFloat(formData.quantityReceived) + parseFloat(formData.quantityDamaged || '0');
+        const totalReceived = parsedQuantityReceived + parsedQuantityDamaged;
         if (totalReceived > sendOut.quantitySent) {
           setError(`Total received (${totalReceived}m) cannot exceed sent quantity (${sendOut.quantitySent}m)`);
           return;
         }
       }
 
+      // BUG-EMB10 fix: use pre-validated parsed values
       const receiveData: EmbroideryReceiveRequest = {
         sendOutId: activeSendOutId,
-        quantityReceived: parseFloat(formData.quantityReceived),
-        quantityDamaged: formData.quantityDamaged ? parseFloat(formData.quantityDamaged) : undefined,
-        receivedWidth: parseFloat(formData.receivedWidth),
+        quantityReceived: parsedQuantityReceived,
+        quantityDamaged: parsedQuantityDamaged > 0 ? parsedQuantityDamaged : undefined,
+        receivedWidth: parsedReceivedWidth,
         actualReturnDate: formData.actualReturnDate,
-        actualCost: formData.actualCost ? parseFloat(formData.actualCost) : undefined,
+        actualCost: parsedActualCost !== undefined && Number.isFinite(parsedActualCost) ? parsedActualCost : undefined,
         invoiceNumber: formData.invoiceNumber || undefined,
         invoiceDate: formData.invoiceDate || undefined,
         qualityGrade: formData.qualityGrade,
@@ -167,8 +179,8 @@ export default function EmbroideryStockReceive() {
       navTimeoutRef.current = setTimeout(() => {
         navigate('/embroidery-stock');
       }, 2000);
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to receive embroidered fabric';
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to receive embroidered fabric';
       setError(errorMessage);
       logError('Failed to receive embroidered fabric:', err);
     } finally {
@@ -521,45 +533,56 @@ export default function EmbroideryStockReceive() {
               )}
 
               {/* Cost Summary */}
-              {sendOut && formData.quantityReceived && (
-                <Card className="bg-muted">
-                  <CardContent className="pt-4">
-                    <h4 className="font-medium text-foreground mb-3">Cost Summary</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Original Fabric Cost:</span>
-                        <span className="font-medium">
-                          {formatCurrency(
-                            parseFloat(formData.quantityReceived) * (sendOut.sourceFabricStock?.weightedAvgCost || 0)
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Embroidery Cost:</span>
-                        <span className="font-medium">
-                          {formatCurrency(
-                            formData.actualCost
-                              ? parseFloat(formData.actualCost)
-                              : parseFloat(formData.quantityReceived) * sendOut.agreedRate
-                          )}
-                        </span>
-                      </div>
-                      <div className="flex justify-between pt-2 border-t text-base">
-                        <span className="font-medium text-foreground">Combined Cost per Meter:</span>
-                        <span className="font-bold text-success">
-                          {formatCurrency(
-                            (sendOut.sourceFabricStock?.weightedAvgCost || 0) +
-                              (formData.actualCost
-                                ? parseFloat(formData.actualCost) / parseFloat(formData.quantityReceived)
-                                : sendOut.agreedRate)
-                          )}
-                          /m
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              {/* BUG-EMB10 fix: guard against NaN in cost calculations */}
+              {sendOut &&
+                formData.quantityReceived &&
+                (() => {
+                  const qtyReceived = parseFloat(formData.quantityReceived);
+                  const actualCostVal = formData.actualCost ? parseFloat(formData.actualCost) : null;
+                  const fabricCostPerM = sendOut.sourceFabricStock?.weightedAvgCost ?? 0;
+
+                  // Guard against NaN
+                  if (!Number.isFinite(qtyReceived) || qtyReceived <= 0) return null;
+
+                  const originalFabricCost = qtyReceived * fabricCostPerM;
+                  const embroideryCost =
+                    actualCostVal !== null && Number.isFinite(actualCostVal)
+                      ? actualCostVal
+                      : qtyReceived * sendOut.agreedRate;
+                  const embroideryCostPerM =
+                    actualCostVal !== null && Number.isFinite(actualCostVal) && qtyReceived > 0
+                      ? actualCostVal / qtyReceived
+                      : sendOut.agreedRate;
+                  const combinedCostPerM = fabricCostPerM + embroideryCostPerM;
+
+                  return (
+                    <Card className="bg-muted">
+                      <CardContent className="pt-4">
+                        <h4 className="font-medium text-foreground mb-3">Cost Summary</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Original Fabric Cost:</span>
+                            <span className="font-medium">
+                              {formatCurrency(Number.isFinite(originalFabricCost) ? originalFabricCost : 0)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Embroidery Cost:</span>
+                            <span className="font-medium">
+                              {formatCurrency(Number.isFinite(embroideryCost) ? embroideryCost : 0)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between pt-2 border-t text-base">
+                            <span className="font-medium text-foreground">Combined Cost per Meter:</span>
+                            <span className="font-bold text-success">
+                              {formatCurrency(Number.isFinite(combinedCostPerM) ? combinedCostPerM : 0)}/m
+                            </span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
 
               {/* Action Buttons */}
               <div className="flex gap-4 justify-end pt-4 border-t">

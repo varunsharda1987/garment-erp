@@ -44,7 +44,6 @@ import type {
   ProductCategoryHierarchy,
   CreateProductCategoryRequest,
   UpdateProductCategoryRequest,
-  CategoryComponentDefault,
   ComponentDefaultInput,
 } from '../types/productCategory.types';
 
@@ -150,14 +149,12 @@ function TreeNode({
           <Button variant="ghost" size="sm" onClick={() => onEdit(category)} title="Edit">
             <Pencil className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onToggleActive(category)}
-            title={category.isActive ? 'Deactivate' : 'Activate'}
-          >
-            <Switch checked={category.isActive} />
-          </Button>
+          {/* BUG-PC6 fix: Switch with proper accessibility - aria-label and keyboard navigation */}
+          <Switch
+            checked={category.isActive}
+            onCheckedChange={() => onToggleActive(category)}
+            aria-label={`${category.isActive ? 'Deactivate' : 'Activate'} ${category.name}`}
+          />
           <Button
             variant="ghost"
             size="sm"
@@ -195,7 +192,7 @@ function TreeNode({
 
 export default function ProductCategoryMaster() {
   const [hierarchy, setHierarchy] = useState<ProductCategoryHierarchy[]>([]);
-  const [mainCategories, setMainCategories] = useState<ProductCategory[]>([]);
+  const [, setMainCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
@@ -208,7 +205,6 @@ export default function ProductCategoryMaster() {
   const [isComponentsDialogOpen, setIsComponentsDialogOpen] = useState(false);
   const [componentsCategory, setComponentsCategory] = useState<ProductCategory | null>(null);
   const [componentMasters, setComponentMasters] = useState<ComponentMaster[]>([]);
-  const [, setCategoryDefaults] = useState<CategoryComponentDefault[]>([]);
   const [selectedComponentIds, setSelectedComponentIds] = useState<Set<string>>(new Set());
   const [requiredComponentIds, setRequiredComponentIds] = useState<Set<string>>(new Set());
   const [savingComponents, setSavingComponents] = useState(false);
@@ -259,7 +255,6 @@ export default function ProductCategoryMaster() {
 
     try {
       const defaults = await productCategoryService.getDefaultComponents(category.id);
-      setCategoryDefaults(defaults);
 
       // Initialize selected and required sets from existing defaults
       const selected = new Set(defaults.map((d) => d.componentMasterId));
@@ -269,7 +264,6 @@ export default function ProductCategoryMaster() {
     } catch (error) {
       console.error('Failed to load default components:', error);
       notify.error('Failed to load default components');
-      setCategoryDefaults([]);
       setSelectedComponentIds(new Set());
       setRequiredComponentIds(new Set());
     }
@@ -493,6 +487,33 @@ export default function ProductCategoryMaster() {
 
   const filteredHierarchy = filterHierarchy(hierarchy, searchTerm);
 
+  // BUG-PC2 FIX: Flatten hierarchy to get all eligible parent categories (level < 3)
+  // This allows creating level 2 AND level 3 categories from the dropdown
+  const getEligibleParents = (cats: ProductCategoryHierarchy[], currentEditId?: string): ProductCategory[] => {
+    const result: ProductCategory[] = [];
+    const flatten = (categories: ProductCategoryHierarchy[], parentPath: string = '') => {
+      for (const cat of categories) {
+        // Skip if this is the category being edited (can't be its own parent)
+        if (currentEditId && cat.id === currentEditId) continue;
+        // Only include categories with level < 3 (so children can be level 2 or 3)
+        if (cat.level < 3 && cat.isActive) {
+          result.push({
+            ...cat,
+            // Add display path for clarity in dropdown
+            name: parentPath ? `${parentPath} > ${cat.name}` : cat.name,
+          });
+        }
+        if (cat.children && cat.children.length > 0) {
+          flatten(cat.children, parentPath ? `${parentPath} > ${cat.name}` : cat.name);
+        }
+      }
+    };
+    flatten(cats);
+    return result;
+  };
+
+  const eligibleParents = getEligibleParents(hierarchy, editingCategory?.id);
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -624,7 +645,8 @@ export default function ProductCategoryMaster() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">None (Main Category)</SelectItem>
-                    {mainCategories.map((cat) => (
+                    {/* BUG-PC2 FIX: Show all eligible parents (level < 3), not just mainCategories */}
+                    {eligibleParents.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id}>
                         {cat.name}
                       </SelectItem>

@@ -101,6 +101,8 @@ export interface OrderBOMItem {
 }
 
 export interface OrderBOMItemInput {
+  // BUG-ORD12 fix: include IDs in update
+  id?: string;
   materialType: OrderBOMItemMaterialType;
   materialId?: string;
   buttonId?: string;

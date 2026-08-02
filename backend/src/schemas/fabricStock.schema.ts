@@ -6,41 +6,32 @@
  */
 
 import { z } from 'zod';
+import {
+  StockStatusEnum as PrismaStockStatusEnum,
+  StockEntryTypeEnum as PrismaStockEntryTypeEnum,
+} from './generated/prisma-enums';
 
 // ============================================================================
 // Enums
 // ============================================================================
 
-// Status enum for fabric stock entries (matches controller usage)
-export const FabricStockStatusEnum = z.enum(['AVAILABLE', 'RESERVED', 'EXHAUSTED', 'ISSUED', 'PENDING_RETURN']);
+// Status enum for fabric stock entries (matches Prisma StockStatus)
+export const FabricStockStatusEnum = PrismaStockStatusEnum;
 
-// Stock type enum for fabric stock entries (matches controller usage)
-export const FabricStockTypeEnum = z.enum([
-  'GENERIC',
-  'PLANNED_STOCK',
-  'EXCESS',
-  'EXCESS_MOQ',
-  'CROSS_STYLE_REUSE',
-  'RETURNED',
-  'VARIANCE_UNUSED',
-]);
+// Stock type enum for fabric stock entries (matches Prisma StockEntryType)
+export const FabricStockTypeEnum = PrismaStockEntryTypeEnum;
 
 // Quality grade enum
 // BUG-GR9 fix: Default 'A' matches DEFAULT_QUALITY_GRADE in constants/stock.constants.ts
 // and system_settings.DEFAULT_QUALITY_GRADE - these should be kept in sync
 export const QualityGradeEnum = z.enum(['A', 'B', 'DEFECT']);
 
-// Legacy enums (kept for greige stock and other modules)
-export const StockStatusEnum = z.enum(['AVAILABLE', 'RESERVED', 'IN_TRANSIT', 'AT_PROCESSOR', 'CONSUMED', 'DAMAGED']);
+// Legacy enums - now aligned with Prisma to prevent runtime errors
+// Prisma StockStatus: AVAILABLE, RESERVED, EXHAUSTED, ISSUED, PENDING_RETURN
+export const StockStatusEnum = PrismaStockStatusEnum;
 
-export const StockEntryTypeEnum = z.enum([
-  'GRN',
-  'PRODUCTION',
-  'RETURN',
-  'TRANSFER_IN',
-  'ADJUSTMENT',
-  'PROCESSOR_RETURN',
-]);
+// Prisma StockEntryType: GENERIC, PLANNED_STOCK, EXCESS, EXCESS_MOQ, CROSS_STYLE_REUSE, RETURNED, VARIANCE_UNUSED
+export const StockEntryTypeEnum = PrismaStockEntryTypeEnum;
 
 export const AdjustmentReasonEnum = z.enum(['DAMAGED', 'EXPIRED', 'LOST', 'FOUND', 'CORRECTION', 'SHRINKAGE', 'OTHER']);
 

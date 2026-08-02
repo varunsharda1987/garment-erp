@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { StyleCodeMultiSelect } from '@/components/StyleCodeMultiSelect'; // BUG-MM6 fix
 import ColorPicker from '@/components/ColorPicker';
 import { createZipper, getZipperById, updateZipper } from '@/services/zipper.service';
 import { getAllSuppliers } from '@/services/supplier.service';
@@ -28,6 +29,7 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
   const [availableSuppliers, setAvailableSuppliers] = useState<Supplier[]>([]);
   const [zipperCode, setZipperCode] = useState<string>('');
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
+  const [selectedStyleCodes, setSelectedStyleCodes] = useState<string[]>([]); // BUG-MM6 fix
   const [suppliers, setSuppliers] = useState<ZipperSupplierInput[]>([]);
 
   const { register, handleSubmit, setValue } = useForm<ZipperFormData>();
@@ -62,6 +64,10 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
           setValue('length', zipper.length?.toString() || '');
           setValue('teethType', zipper.teethType || '');
           setValue('color', zipper.color || '');
+          // bug-hunt: set colorId for ColorPicker pre-selection on edit
+          if (zipper.colorId) {
+            setSelectedColorId(zipper.colorId);
+          }
           setValue('brand', zipper.brand || '');
           setValue('sliderType', zipper.sliderType || '');
           setValue('tapeWidth', zipper.tapeWidth?.toString() || '');
@@ -79,6 +85,11 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
                 pricePerPiece: s.pricePerPiece?.toString() || '',
               }))
             );
+          }
+
+          // BUG-MM6 fix: Set style codes
+          if (zipper.styleCodes && zipper.styleCodes.length > 0) {
+            setSelectedStyleCodes(zipper.styleCodes);
           }
         } catch (err: unknown) {
           const errorMessage = handleApiError(err, 'Failed to load zipper', false);
@@ -126,6 +137,7 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
         length: data.length ? Number(data.length) : undefined,
         tapeWidth: data.tapeWidth ? Number(data.tapeWidth) : undefined,
         pricePerPiece: data.pricePerPiece ? Number(data.pricePerPiece) : undefined,
+        styleCodes: selectedStyleCodes, // BUG-MM6 fix
         suppliers: validSuppliers,
       };
 
@@ -414,6 +426,18 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* BUG-MM6 fix: STYLE ASSOCIATIONS */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Style Associations</h3>
+              <StyleCodeMultiSelect
+                value={selectedStyleCodes}
+                onChange={setSelectedStyleCodes}
+                label="Associated Styles"
+                placeholder="Search and select styles to associate with this zipper..."
+                helpText="Select one or more styles that use this zipper."
+              />
             </div>
 
             {/* DESCRIPTION */}

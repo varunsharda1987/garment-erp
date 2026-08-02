@@ -14,6 +14,7 @@ export const MaterialRequirementStatus = {
   PO_REQUIRED: 'PO_REQUIRED',
   PO_GENERATED: 'PO_GENERATED',
   PO_SENT: 'PO_SENT',
+  PARTIALLY_RECEIVED: 'PARTIALLY_RECEIVED', // bug-hunt: was missing from frontend
   RECEIVED: 'RECEIVED',
   CANCELLED: 'CANCELLED',
 } as const;
@@ -27,6 +28,7 @@ export const MaterialRequirementStatusLabels: Record<MaterialRequirementStatus, 
   PO_REQUIRED: 'PO Required',
   PO_GENERATED: 'PO Generated',
   PO_SENT: 'PO Sent',
+  PARTIALLY_RECEIVED: 'Partially Received', // bug-hunt: was missing
   RECEIVED: 'Received',
   CANCELLED: 'Cancelled',
 };
@@ -38,6 +40,7 @@ export const MaterialRequirementStatusColors: Record<MaterialRequirementStatus, 
   PO_REQUIRED: 'bg-orange-100 text-orange-800',
   PO_GENERATED: 'bg-info-muted text-info',
   PO_SENT: 'bg-primary/10 text-primary',
+  PARTIALLY_RECEIVED: 'bg-blue-100 text-blue-800', // bug-hunt: was missing
   RECEIVED: 'bg-emerald-100 text-emerald-800',
   CANCELLED: 'bg-destructive/10 text-destructive',
 };

@@ -1,7 +1,7 @@
 // Warehouse List Page
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit, Trash2, Eye, Warehouse as WarehouseIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, Warehouse as WarehouseIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
@@ -89,7 +89,11 @@ export default function WarehouseList() {
         return 'success' as const;
       case 'WORK_IN_PROGRESS':
         return 'info' as const;
+      case 'JOB_WORK':
+        return 'info' as const;
       case 'TRANSIT':
+        return 'secondary' as const;
+      case 'GENERAL':
         return 'secondary' as const;
       default:
         return 'secondary' as const;
@@ -157,16 +161,6 @@ export default function WarehouseList() {
               navigate(`/inventory/warehouses/${wh.id}/edit`);
             }}
           >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/inventory/warehouses/${wh.id}/edit`);
-            }}
-          >
             <Edit className="h-4 w-4" />
           </Button>
           <Button
@@ -215,6 +209,7 @@ export default function WarehouseList() {
                   <SelectItem value="RAW_MATERIAL">Raw Material</SelectItem>
                   <SelectItem value="FINISHED_GOODS">Finished Goods</SelectItem>
                   <SelectItem value="WORK_IN_PROGRESS">WIP</SelectItem>
+                  <SelectItem value="JOB_WORK">Job Work</SelectItem>
                   <SelectItem value="GENERAL">General</SelectItem>
                   <SelectItem value="TRANSIT">Transit</SelectItem>
                 </SelectContent>

@@ -38,9 +38,10 @@ import {
   Sparkles,
   AlertCircle,
 } from 'lucide-react';
-import { isAxiosError } from 'axios';
 import { cn } from '@/lib/utils';
 import { notify } from '@/lib/notify';
+// BUG-CAD11 fix: use shared error utility instead of inline extraction
+import { getErrorMessage } from '@/lib/api-error-handler';
 import { cadPlanningService } from '@/services/cad-planning.service';
 import { fabricStockService, type FabricStockForCAD } from '@/services/fabricStockService';
 import type {
@@ -54,7 +55,13 @@ import type {
   UpdateCADRowRequest,
   CADSpreadsheetRowExtended,
 } from '@/types/cad-planning.types';
-import { CAD_PURPOSE_LABELS, PRINT_DIRECTION_LABELS, ALL_PARTS_CODE } from '@/types/cad-planning.types';
+import {
+  CAD_PURPOSE_LABELS,
+  PRINT_DIRECTION_LABELS,
+  ALL_PARTS_CODE,
+  CADApprovalStatus,
+} from '@/types/cad-planning.types';
+
 import { CopyCADConfirmationDialog } from './CopyCADConfirmationDialog';
 import { CADPartMultiSelect } from './CADPartMultiSelect';
 
@@ -98,6 +105,8 @@ export interface CADSpreadsheetTableProps {
   isLoading?: boolean;
   /** When true, style is approved but users can still add new width variants */
   isStyleApproved?: boolean;
+  /** Callback to refresh data after approve/reject/version operations (replaces window.location.reload) */
+  onDataRefresh?: () => void;
 }
 
 // Size Breakdown Popup Component
@@ -280,6 +289,7 @@ export function CADSpreadsheetTable({
   disabled = false,
   isLoading = false,
   isStyleApproved = false,
+  onDataRefresh,
 }: CADSpreadsheetTableProps) {
   const [editingRow, setEditingRow] = useState<string | null>(null);
   const [savingRow, setSavingRow] = useState<string | null>(null);
@@ -296,6 +306,14 @@ export function CADSpreadsheetTable({
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copySourceRow, setCopySourceRow] = useState<CADSpreadsheetRow | null>(null);
   const [copyTargetPurpose, setCopyTargetPurpose] = useState<'RAW_MATERIAL_CALCULATION' | 'PRODUCTION' | null>(null);
+  // Rejection reason dialog state (BUG-CAD6: replaces native prompt())
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectDialogRowId, setRejectDialogRowId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  // Version reason dialog state (BUG-CAD6: replaces native prompt())
+  const [versionDialogOpen, setVersionDialogOpen] = useState(false);
+  const [versionDialogRowId, setVersionDialogRowId] = useState<string | null>(null);
+  const [versionReason, setVersionReason] = useState('');
   // Multi-select state for batch CAD row creation
   const [selectedStyleFabrics, setSelectedStyleFabrics] = useState<string[]>([]);
   const [selectAllStyleFabrics, setSelectAllStyleFabrics] = useState(false);
@@ -753,9 +771,10 @@ export function CADSpreadsheetTable({
       setEditingRow(null);
       notify.success('CAD row updated successfully');
     } catch (error: unknown) {
+      // BUG-CAD11 fix: use error utility instead of inline extraction
       // Handle approval/locked errors with detailed message
-      const message = error instanceof Error ? error.message : '';
-      if (message && (message.includes('approved') || message.includes('locked'))) {
+      const message = getErrorMessage(error);
+      if (message.includes('approved') || message.includes('locked')) {
         notify.error(message, { duration: 6000 });
       } else {
         notify.error('Failed to update CAD row');
@@ -772,9 +791,10 @@ export function CADSpreadsheetTable({
       await onDeleteRow(rowId);
       notify.success('CAD row deleted');
     } catch (error: unknown) {
+      // BUG-CAD11 fix: use error utility instead of inline extraction
       // Handle approval/locked errors with detailed message
-      const message = error instanceof Error ? error.message : '';
-      if (message && (message.includes('approved') || message.includes('locked'))) {
+      const message = getErrorMessage(error);
+      if (message.includes('approved') || message.includes('locked')) {
         notify.error(message, { duration: 6000 });
       } else {
         notify.error('Failed to delete CAD row');
@@ -814,8 +834,8 @@ export function CADSpreadsheetTable({
       });
       setProductionStockOptions(stock);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      notify.error(`Failed to load stock: ${message}`);
+      // BUG-CAD11 fix: use error utility instead of inline extraction
+      notify.error(`Failed to load stock: ${getErrorMessage(error)}`);
       setProductionStockOptions([]);
     } finally {
       setLoadingProductionStock(false);
@@ -919,8 +939,8 @@ export function CADSpreadsheetTable({
       resetAddRowDialogState();
       setAddRowDialogOpen(false);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Failed to create combined CAD row';
-      notify.error(message);
+      // BUG-CAD11 fix: use error utility instead of inline extraction
+      notify.error(getErrorMessage(error));
     } finally {
       setAddingRow(false);
     }
@@ -970,8 +990,8 @@ export function CADSpreadsheetTable({
       });
       setAvailableStock(stock);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      notify.error(`Failed to load stock: ${message}`);
+      // BUG-CAD11 fix: use error utility instead of inline extraction
+      notify.error(`Failed to load stock: ${getErrorMessage(error)}`);
       setAvailableStock([]);
     } finally {
       setLoadingStock(false);
@@ -995,7 +1015,7 @@ export function CADSpreadsheetTable({
         r.purpose === 'RAW_MATERIAL_CALCULATION' &&
         r.styleFabricId === currentRow.styleFabricId &&
         r.partId === currentRow.partId &&
-        (r as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED'
+        (r as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.APPROVED
     );
 
     const sourceWidth = rawMatCAD?.cutableWidth;
@@ -1048,8 +1068,8 @@ export function CADSpreadsheetTable({
       setVarianceWarningOpen(false);
       setPendingStockSelection(null);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      notify.error(`Failed to link stock: ${message}`);
+      // BUG-CAD11 fix: use error utility instead of inline extraction
+      notify.error(`Failed to link stock: ${getErrorMessage(error)}`);
     }
   };
 
@@ -1066,54 +1086,78 @@ export function CADSpreadsheetTable({
         purpose: row.purpose || 'COSTING',
       });
       notify.success('CAD approved successfully');
-      // Trigger parent refresh
-      window.location.reload(); // Simple approach - or use a callback prop
+      // Trigger parent refresh via callback (BUG-CAD5: replaces window.location.reload)
+      onDataRefresh?.();
     } catch (error: unknown) {
-      const msg = isAxiosError(error) ? error.response?.data?.message : undefined;
-      notify.error(msg || 'Failed to approve CAD');
+      // BUG-CAD11 fix: use error utility instead of inline extraction
+      notify.error(getErrorMessage(error));
     } finally {
       setApprovingRow(null);
     }
   };
 
-  // Handle reject CAD
-  const handleRejectCAD = async (rowId: string) => {
+  // Handle reject CAD - opens dialog (BUG-CAD6: replaces native prompt())
+  const handleRejectCAD = (rowId: string) => {
     const row = rows.find((r) => r.id === rowId);
     if (!row) return;
 
-    const rejectionReason = prompt('Enter rejection reason:');
-    if (!rejectionReason) return;
+    setRejectDialogRowId(rowId);
+    setRejectionReason('');
+    setRejectDialogOpen(true);
+  };
 
-    setRejectingRow(rowId);
+  // Handle rejection confirmation from dialog
+  const handleRejectConfirm = async () => {
+    if (!rejectDialogRowId || !rejectionReason.trim()) return;
+
+    const row = rows.find((r) => r.id === rejectDialogRowId);
+    if (!row) return;
+
+    setRejectingRow(rejectDialogRowId);
     try {
-      await cadPlanningService.rejectCADPurpose(styleId, rowId, {
+      await cadPlanningService.rejectCADPurpose(styleId, rejectDialogRowId, {
         purpose: row.purpose || 'COSTING',
-        rejectionNotes: rejectionReason,
+        rejectionNotes: rejectionReason.trim(),
       });
       notify.success('CAD rejected');
-      window.location.reload();
+      setRejectDialogOpen(false);
+      setRejectDialogRowId(null);
+      setRejectionReason('');
+      // Trigger parent refresh via callback (BUG-CAD5: replaces window.location.reload)
+      onDataRefresh?.();
     } catch (error: unknown) {
-      const msg = isAxiosError(error) ? error.response?.data?.message : undefined;
-      notify.error(msg || 'Failed to reject CAD');
+      // BUG-CAD11 fix: use error utility instead of inline extraction
+      notify.error(getErrorMessage(error));
     } finally {
       setRejectingRow(null);
     }
   };
 
-  // Handle create version (for any approved CAD)
-  const handleCreateVersion = async (rowId: string) => {
-    const versionReason = prompt('Enter reason for new version (optional):');
+  // Handle create version - opens dialog (BUG-CAD6: replaces native prompt())
+  const handleCreateVersion = (rowId: string) => {
+    setVersionDialogRowId(rowId);
+    setVersionReason('');
+    setVersionDialogOpen(true);
+  };
 
-    setCreatingVersion(rowId);
+  // Handle version creation confirmation from dialog
+  const handleVersionConfirm = async () => {
+    if (!versionDialogRowId) return;
+
+    setCreatingVersion(versionDialogRowId);
     try {
-      const result = await cadPlanningService.createPlanningVersion(styleId, rowId, {
-        versionReason: versionReason || undefined,
+      const result = await cadPlanningService.createPlanningVersion(styleId, versionDialogRowId, {
+        versionReason: versionReason.trim() || undefined,
       });
       notify.success(result.message || 'New version created successfully');
-      window.location.reload();
+      setVersionDialogOpen(false);
+      setVersionDialogRowId(null);
+      setVersionReason('');
+      // Trigger parent refresh via callback (BUG-CAD5: replaces window.location.reload)
+      onDataRefresh?.();
     } catch (error: unknown) {
-      const msg = isAxiosError(error) ? error.response?.data?.message : undefined;
-      notify.error(msg || 'Failed to create version');
+      // BUG-CAD11 fix: use error utility instead of inline extraction
+      notify.error(getErrorMessage(error));
     } finally {
       setCreatingVersion(null);
     }
@@ -1151,11 +1195,11 @@ export function CADSpreadsheetTable({
       setCopySourceRow(null);
       setCopyTargetPurpose(null);
 
-      // Reload to show new PENDING record
-      window.location.reload();
+      // Trigger parent refresh via callback (BUG-CAD5: replaces window.location.reload)
+      onDataRefresh?.();
     } catch (error: unknown) {
-      const msg = isAxiosError(error) ? error.response?.data?.message : undefined;
-      notify.error(msg || 'Failed to copy CAD');
+      // BUG-CAD11 fix: use error utility instead of inline extraction
+      notify.error(getErrorMessage(error));
     } finally {
       setCopyingRow(null);
     }
@@ -1293,7 +1337,7 @@ export function CADSpreadsheetTable({
                     const isSaving = savingRow === row.id;
                     const isDeleting = deletingRow === row.id;
                     // Lock rows that are APPROVED when style is approved (prevents editing historical data)
-                    const isRowLocked = isStyleApproved && row.approvalStatus === 'APPROVED';
+                    const isRowLocked = isStyleApproved && row.approvalStatus === CADApprovalStatus.APPROVED;
                     const currentPartId = getDisplayValue(row, 'partId', null);
                     const currentPartCode = row.partCode; // Use partCode from row data
                     const currentWidth = getDisplayValue(row, 'cutableWidth', null);
@@ -1842,8 +1886,8 @@ export function CADSpreadsheetTable({
                                 {/* CAD Purpose Action Buttons */}
                                 {/* Approve button - show for PENDING or REJECTED status (allow re-approval after rejection) */}
                                 {(!(row as CADSpreadsheetRowExtended).approvalStatus ||
-                                  (row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' ||
-                                  (row as CADSpreadsheetRowExtended).approvalStatus === 'REJECTED') && (
+                                  (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.PENDING ||
+                                  (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.REJECTED) && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -1864,8 +1908,8 @@ export function CADSpreadsheetTable({
                                 )}
                                 {/* Reject button - show for PENDING (including null) and APPROVED status with actual data (not blank rows) */}
                                 {(!(row as CADSpreadsheetRowExtended).approvalStatus ||
-                                  (row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' ||
-                                  (row as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED') &&
+                                  (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.PENDING ||
+                                  (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.APPROVED) &&
                                   (row.cadAverage || row.greigeId) && (
                                     <Button
                                       variant="ghost"
@@ -1886,7 +1930,7 @@ export function CADSpreadsheetTable({
                                     </Button>
                                   )}
                                 {/* Create Version button - show only for APPROVED CAD */}
-                                {(row as CADSpreadsheetRowExtended).approvalStatus === 'APPROVED' && (
+                                {(row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.APPROVED && (
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -1941,7 +1985,7 @@ export function CADSpreadsheetTable({
 
                                 {/* Link to Stock button - show only for PRODUCTION CAD that is PENDING */}
                                 {row.purpose === 'PRODUCTION' &&
-                                  (row as CADSpreadsheetRowExtended).approvalStatus === 'PENDING' && (
+                                  (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.PENDING && (
                                     <Button
                                       variant="ghost"
                                       size="sm"
@@ -2588,6 +2632,119 @@ export function CADSpreadsheetTable({
         targetPurpose={copyTargetPurpose || 'COSTING'}
         isLoading={copyingRow !== null}
       />
+
+      {/* Rejection Reason Dialog (BUG-CAD6: replaces native prompt()) */}
+      <Dialog
+        open={rejectDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectDialogOpen(false);
+            setRejectDialogRowId(null);
+            setRejectionReason('');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject CAD</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rejection-reason">Rejection Reason</Label>
+              <Input
+                id="rejection-reason"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Enter reason for rejection..."
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRejectDialogOpen(false);
+                setRejectDialogRowId(null);
+                setRejectionReason('');
+              }}
+              disabled={rejectingRow !== null}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRejectConfirm}
+              disabled={!rejectionReason.trim() || rejectingRow !== null}
+            >
+              {rejectingRow ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Rejecting...
+                </>
+              ) : (
+                'Reject CAD'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Version Reason Dialog (BUG-CAD6: replaces native prompt()) */}
+      <Dialog
+        open={versionDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setVersionDialogOpen(false);
+            setVersionDialogRowId(null);
+            setVersionReason('');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create New Version</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="version-reason">Reason for New Version (Optional)</Label>
+              <Input
+                id="version-reason"
+                value={versionReason}
+                onChange={(e) => setVersionReason(e.target.value)}
+                placeholder="Enter reason for creating new version..."
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setVersionDialogOpen(false);
+                setVersionDialogRowId(null);
+                setVersionReason('');
+              }}
+              disabled={creatingVersion !== null}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleVersionConfirm} disabled={creatingVersion !== null}>
+              {creatingVersion ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <GitBranch className="h-4 w-4 mr-2" />
+                  Create Version
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

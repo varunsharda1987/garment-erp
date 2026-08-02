@@ -573,37 +573,57 @@ class DocumentGeneratorService {
 
     // Subtotal
     doc.text('Subtotal:', labelX, y);
-    doc.text(`₹${Number(invoice.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
-      width: 70,
-      align: 'right',
-    });
+    doc.text(
+      `₹${Number(invoice.subtotal).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      valueX,
+      y,
+      {
+        width: 70,
+        align: 'right',
+      }
+    );
     y += 14;
 
     // GST breakdown
     if (invoice.isInterstate) {
       const igstRate = Number(invoice.igstRate || 0);
       doc.text(`IGST @ ${igstRate}%:`, labelX, y);
-      doc.text(`₹${Number(invoice.igstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
-        width: 70,
-        align: 'right',
-      });
+      doc.text(
+        `₹${Number(invoice.igstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        valueX,
+        y,
+        {
+          width: 70,
+          align: 'right',
+        }
+      );
       y += 14;
     } else {
       const cgstRate = Number(invoice.cgstRate || 0);
       const sgstRate = Number(invoice.sgstRate || 0);
 
       doc.text(`CGST @ ${cgstRate}%:`, labelX, y);
-      doc.text(`₹${Number(invoice.cgstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
-        width: 70,
-        align: 'right',
-      });
+      doc.text(
+        `₹${Number(invoice.cgstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        valueX,
+        y,
+        {
+          width: 70,
+          align: 'right',
+        }
+      );
       y += 14;
 
       doc.text(`SGST @ ${sgstRate}%:`, labelX, y);
-      doc.text(`₹${Number(invoice.sgstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
-        width: 70,
-        align: 'right',
-      });
+      doc.text(
+        `₹${Number(invoice.sgstAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        valueX,
+        y,
+        {
+          width: 70,
+          align: 'right',
+        }
+      );
       y += 14;
     }
 
@@ -617,10 +637,15 @@ class DocumentGeneratorService {
     // Grand Total
     doc.fontSize(11).font('Helvetica-Bold');
     doc.text('Grand Total:', labelX, y);
-    doc.text(`₹${Number(invoice.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
-      width: 70,
-      align: 'right',
-    });
+    doc.text(
+      `₹${Number(invoice.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      valueX,
+      y,
+      {
+        width: 70,
+        align: 'right',
+      }
+    );
     y += 18;
 
     // Amount in words
@@ -1206,10 +1231,15 @@ From ${COMPANY_CONFIG.name}
 
     // Subtotal
     doc.text('Subtotal:', labelX, y);
-    doc.text(`₹${Number(quotation.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
-      width: 70,
-      align: 'right',
-    });
+    doc.text(
+      `₹${Number(quotation.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      valueX,
+      y,
+      {
+        width: 70,
+        align: 'right',
+      }
+    );
     y += 14;
 
     // Determine if interstate based on placeOfSupply
@@ -1226,27 +1256,42 @@ From ${COMPANY_CONFIG.name}
     if (isInterstate) {
       const igstAmount = Number(quotation.estimatedIGST || 0);
       doc.text(`IGST @ ${effectiveRate(igstAmount)}% (Est.):`, labelX, y);
-      doc.text(`₹${igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
-        width: 70,
-        align: 'right',
-      });
+      doc.text(
+        `₹${igstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        valueX,
+        y,
+        {
+          width: 70,
+          align: 'right',
+        }
+      );
       y += 14;
     } else {
       const cgstAmount = Number(quotation.estimatedCGST || 0);
       const sgstAmount = Number(quotation.estimatedSGST || 0);
 
       doc.text(`CGST @ ${effectiveRate(cgstAmount)}% (Est.):`, labelX, y);
-      doc.text(`₹${cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
-        width: 70,
-        align: 'right',
-      });
+      doc.text(
+        `₹${cgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        valueX,
+        y,
+        {
+          width: 70,
+          align: 'right',
+        }
+      );
       y += 14;
 
       doc.text(`SGST @ ${effectiveRate(sgstAmount)}% (Est.):`, labelX, y);
-      doc.text(`₹${sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
-        width: 70,
-        align: 'right',
-      });
+      doc.text(
+        `₹${sgstAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        valueX,
+        y,
+        {
+          width: 70,
+          align: 'right',
+        }
+      );
       y += 14;
     }
 
@@ -1261,10 +1306,15 @@ From ${COMPANY_CONFIG.name}
     const totalWithTax = Number(quotation.totalWithTax || quotation.totalAmount || 0);
     doc.fontSize(11).font('Helvetica-Bold');
     doc.text('Estimated Total:', labelX, y);
-    doc.text(`₹${totalWithTax.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, valueX, y, {
-      width: 70,
-      align: 'right',
-    });
+    doc.text(
+      `₹${totalWithTax.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      valueX,
+      y,
+      {
+        width: 70,
+        align: 'right',
+      }
+    );
     y += 18;
 
     // Amount in words
@@ -2785,7 +2835,7 @@ From ${COMPANY_CONFIG.name}
     const grandTotal = subtotal + totalTax;
     const isIgst = totalIgst > 0;
 
-    const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+    const fmt = (n: number) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
     doc.fontSize(9).font('Helvetica');
     doc.text('Subtotal:', labelX, y);
@@ -2983,7 +3033,7 @@ From ${COMPANY_CONFIG.name}
 
       // Rate
       doc.text(
-        `₹${Number(item.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+        `₹${Number(item.unitPrice).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         xPos + 2,
         textY + 5,
         { width: col.rate - 4, align: 'right', lineBreak: false }
@@ -2991,19 +3041,29 @@ From ${COMPANY_CONFIG.name}
       xPos += col.rate;
 
       // Tax Amount
-      doc.text(`₹${taxAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, xPos + 2, textY + 5, {
-        width: col.tax - 4,
-        align: 'right',
-        lineBreak: false,
-      });
+      doc.text(
+        `₹${taxAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        xPos + 2,
+        textY + 5,
+        {
+          width: col.tax - 4,
+          align: 'right',
+          lineBreak: false,
+        }
+      );
       xPos += col.tax;
 
       // Taxable Amount (base line total, excl. tax)
-      doc.text(`₹${lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, xPos + 2, textY + 5, {
-        width: col.amount - 4,
-        align: 'right',
-        lineBreak: false,
-      });
+      doc.text(
+        `₹${lineTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        xPos + 2,
+        textY + 5,
+        {
+          width: col.amount - 4,
+          align: 'right',
+          lineBreak: false,
+        }
+      );
 
       y += rowHeight;
     });
@@ -3967,15 +4027,25 @@ From ${COMPANY_CONFIG.name}
       xPos += colWidths.qty;
       doc.text(item.unit || Unit.PIECE, xPos + 3, y + 4, { width: colWidths.unit - 6, align: 'center' });
       xPos += colWidths.unit;
-      doc.text(rate > 0 ? `₹${rate.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—', xPos + 3, y + 4, {
-        width: colWidths.rate - 6,
-        align: 'right',
-      });
+      doc.text(
+        rate > 0 ? `₹${rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—',
+        xPos + 3,
+        y + 4,
+        {
+          width: colWidths.rate - 6,
+          align: 'right',
+        }
+      );
       xPos += colWidths.rate;
-      doc.text(amt > 0 ? `₹${amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—', xPos + 3, y + 4, {
-        width: colWidths.amount - 6,
-        align: 'right',
-      });
+      doc.text(
+        amt > 0 ? `₹${amt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—',
+        xPos + 3,
+        y + 4,
+        {
+          width: colWidths.amount - 6,
+          align: 'right',
+        }
+      );
 
       y += rowHeight;
     });
@@ -3996,7 +4066,7 @@ From ${COMPANY_CONFIG.name}
     });
     if (totalAmount > 0) {
       doc.text(
-        `₹${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+        `₹${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         marginLeft + availableWidth - colWidths.amount + 3,
         y + 5,
         { width: colWidths.amount - 6, align: 'right' }

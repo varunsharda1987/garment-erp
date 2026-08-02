@@ -722,6 +722,178 @@ function schemaFrontendParity(relFiles) {
   return out;
 }
 
+// Split a "(...)"-inner argument string on top-level commas (nested calls/objects/arrays and
+// string literals are skipped). Used to inspect individual call arguments positionally.
+function splitTopLevelArgs(inner) {
+  const args = [];
+  let cur = '';
+  let depth = 0;
+  let str = null;
+  for (let i = 0; i < inner.length; i++) {
+    const ch = inner[i];
+    if (str) {
+      cur += ch;
+      if (ch === '\\') {
+        cur += inner[i + 1] ?? '';
+        i++;
+      } else if (ch === str) str = null;
+      continue;
+    }
+    if (ch === "'" || ch === '"' || ch === '`') {
+      str = ch;
+      cur += ch;
+      continue;
+    }
+    if (ch === '(' || ch === '[' || ch === '{') depth++;
+    else if (ch === ')' || ch === ']' || ch === '}') depth--;
+    if (ch === ',' && depth === 0) {
+      args.push(cur.trim());
+      cur = '';
+      continue;
+    }
+    cur += ch;
+  }
+  if (cur.trim()) args.push(cur.trim());
+  return args;
+}
+
+// D1 — syncStockLevelQuantity() called without a warehouseId (arg 3 missing or literally
+// `undefined`). The helper now refuses to run an unscoped multi-warehouse update (bug-hunt
+// BH-0030), but a warehouse-less call still forces it to GUESS the target row — every caller
+// that knows the warehouse must pass it. Opt-out: `// allow-no-warehouse` on the line.
+function stockSyncNoWarehouse(relFiles) {
+  const out = [];
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/backend\/src\/.*\.ts$/.test(norm)) continue;
+    if (/\.test\.ts$|__tests__|material-sync\.helper\.ts$/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const re = /\bsyncStockLevelQuantity\s*\(/g;
+    let m;
+    const seen = new Map();
+    while ((m = re.exec(content))) {
+      const call = sliceBalanced(content, m.index + m[0].length - 1);
+      const args = splitTopLevelArgs(call.slice(1, -1));
+      const wh = (args[2] || '').trim();
+      if (wh && wh !== 'undefined' && wh !== 'null') continue; // warehouse passed
+      const lineText = content.split('\n')[lineOf(content, m.index) - 1] || '';
+      if (/allow-no-warehouse/.test(lineText)) continue; // opt-out
+      let key = `${rel} :: sync-no-warehouse :: ${(args[0] || '?').replace(/\s+/g, '')}`;
+      const n = (seen.get(key) || 0) + 1;
+      seen.set(key, n);
+      if (n > 1) key += ` #${n}`;
+      out.push({
+        key,
+        file: rel,
+        line: lineOf(content, m.index),
+        detail: `syncStockLevelQuantity called without a warehouseId — the helper must guess the target warehouse row. Pass the warehouse this movement belongs to`,
+      });
+    }
+  }
+  return out;
+}
+
+// D2 — a frontend catch whose body is empty or ONLY console.* logging: the operation failed but
+// the user sees nothing and the UI proceeds as if it succeeded (the "silent failure" bug class —
+// ~30 tracker bugs). A catch must surface the failure (toast/handleApiError/setError/throw/…) or
+// deliberately return a fallback. Also flags `.catch(() => {})`. Opt-out: `// allow-silent-catch`.
+function silentCatchFrontend(relFiles) {
+  const out = [];
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^frontend\/src\/.*\.(ts|tsx)$/.test(norm)) continue;
+    if (/\.test\.|__tests__/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const seen = new Map();
+    const push = (idx, what) => {
+      let key = `${rel} :: silent-catch :: ${what}`;
+      const n = (seen.get(key) || 0) + 1;
+      seen.set(key, n);
+      if (n > 1) key += ` #${n}`;
+      out.push({
+        key,
+        file: rel,
+        line: lineOf(content, idx),
+        detail: `catch ${what} — the failure is invisible to the user. Surface it (toast/handleApiError/setError) or mark \`// allow-silent-catch\``,
+      });
+    };
+    // try/catch form
+    const re = /\bcatch\s*(?:\(\s*[^)]*\))?\s*\{/g;
+    let m;
+    while ((m = re.exec(content))) {
+      if (content[m.index - 1] === '.') continue; // promise .catch handled below
+      const open = m.index + m[0].length - 1;
+      const inner = sliceBalancedBraces(content, open).slice(1, -1);
+      if (/allow-silent-catch/.test(inner)) continue;
+      // Blank console.* calls (balanced), then see if any code remains.
+      let masked = inner;
+      let cIdx;
+      while ((cIdx = masked.search(/\bconsole\s*\.\s*\w+\s*\(/)) !== -1) {
+        const openParen = masked.indexOf('(', cIdx);
+        const call = sliceBalanced(masked, openParen);
+        masked = masked.slice(0, cIdx) + masked.slice(openParen + call.length).replace(/^\s*;/, '');
+      }
+      if (!/\w/.test(masked)) push(m.index, inner.trim() ? 'only console-logs' : 'is empty');
+    }
+    // promise `.catch(() => {})` with an empty body
+    const pRe = /\.catch\(\s*(?:\(\s*[\w$]*\s*\)|[\w$]+)?\s*=>\s*\{\s*\}\s*\)/g;
+    while ((m = pRe.exec(content))) {
+      const lineText = content.split('\n')[lineOf(content, m.index) - 1] || '';
+      if (/allow-silent-catch/.test(lineText)) continue;
+      push(m.index, 'is an empty .catch(() => {})');
+    }
+  }
+  return out;
+}
+
+// D3 — `someQty || null` / `|| undefined` / `|| ''` on a money/quantity identifier: `||` treats a
+// REAL 0 as missing, so a genuine zero price/qty is replaced by the fallback and lost (BUG-BEL1,
+// BUG-FC2 class). Use `??` (only null/undefined trigger the fallback). Only literal null/undefined/
+// empty-string fallbacks are flagged — those are always value-selection, never boolean logic.
+const MONEY_TOKENS = ['price', 'rate', 'cost', 'amount', 'qty', 'quantity', 'meters'];
+function numericOrFallback(relFiles) {
+  const out = [];
+  const re = /([\w$.]*[\w$])\s*\|\|\s*(null\b|undefined\b|''|"")/g;
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/\.(ts|tsx)$/.test(norm) || /\.test\.|__tests__/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    re.lastIndex = 0;
+    let m;
+    const seen = new Map();
+    while ((m = re.exec(content))) {
+      const ident = m[1].split('.').pop() || '';
+      // Match whole camelCase/snake_case segments so "separate"/"strategy" don't hit rate/qty.
+      const segments = ident
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .toLowerCase()
+        .split(/[^a-z]+/)
+        .filter(Boolean);
+      if (!segments.some((s) => MONEY_TOKENS.includes(s))) continue;
+      // "rateSource", "costInputMode", "quantityUnit" etc. are STRINGS — `|| null` on them is
+      // normalization, not zero-loss. Skip identifiers whose final segment marks a non-numeric.
+      const NON_NUMERIC_TAILS = ['source', 'date', 'mode', 'type', 'status', 'name', 'id', 'code', 'unit', 'label', 'note', 'notes', 'remarks', 'method', 'reason', 'ref', 'basis', 'currency'];
+      if (NON_NUMERIC_TAILS.includes(segments[segments.length - 1])) continue;
+      const lineText = content.split('\n')[lineOf(content, m.index) - 1] || '';
+      if (/allow-or-fallback/.test(lineText)) continue; // opt-out
+      let key = `${rel} :: or-fallback :: ${m[1]}||${m[2]}`;
+      const n = (seen.get(key) || 0) + 1;
+      seen.set(key, n);
+      if (n > 1) key += ` #${n}`;
+      out.push({
+        key,
+        file: rel,
+        line: lineOf(content, m.index),
+        detail: `"${m[1]} || ${m[2]}" — a real 0 becomes ${m[2]}. Use ?? so only null/undefined trigger the fallback`,
+      });
+    }
+  }
+  return out;
+}
+
 module.exports = {
   perRouteValidation,
   enumDrift,
@@ -735,5 +907,8 @@ module.exports = {
   swallowedWriteErrors,
   assignNotIncrement,
   schemaFrontendParity,
+  stockSyncNoWarehouse,
+  silentCatchFrontend,
+  numericOrFallback,
   REPO_ROOT,
 };

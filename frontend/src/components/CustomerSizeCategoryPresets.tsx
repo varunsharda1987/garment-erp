@@ -345,7 +345,7 @@ export const CustomerSizeCategoryPresets: React.FC<CustomerSizeCategoryPresetsPr
                           <p className="text-sm text-muted-foreground mt-1">{preset.description}</p>
                         )}
                         <p className="text-xs text-muted-foreground mt-2">
-                          {preset.sizeCategory.name} · {preset.sizeCategory.sizes.length} sizes
+                          {preset.sizeCategory?.name ?? 'Unknown'} · {preset.sizeCategory?.sizes?.length ?? 0} sizes
                         </p>
                       </div>
                       <div className="flex items-center gap-1">

@@ -47,8 +47,8 @@ function stringToColor(str: string): string {
   }
   const colors = [
     'bg-destructive/100',
-    'bg-info-muted0',
-    'bg-success-muted0',
+    'bg-info-muted',
+    'bg-success-muted',
     'bg-accent/100',
     'bg-primary/100',
     'bg-pink-500',
@@ -60,9 +60,9 @@ function stringToColor(str: string): string {
 
 // Status badge colors
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: 'bg-muted0',
-  ACTIVE: 'bg-success-muted0',
-  DISCONTINUED: 'bg-warning-muted0',
+  DRAFT: 'bg-muted',
+  ACTIVE: 'bg-success-muted',
+  DISCONTINUED: 'bg-warning-muted',
   ARCHIVED: 'bg-destructive/100',
 };
 
@@ -89,7 +89,7 @@ function RecentStyleCard({ style }: { style: RecentStyle }) {
             <ImageIcon className="h-12 w-12 text-gray-300" />
           </div>
         )}
-        <Badge className={`absolute top-2 right-2 ${STATUS_COLORS[style.status] || 'bg-muted0'} text-white text-xs`}>
+        <Badge className={`absolute top-2 right-2 ${STATUS_COLORS[style.status] || 'bg-muted'} text-white text-xs`}>
           {style.status}
         </Badge>
       </div>
@@ -378,7 +378,7 @@ export function DesignDashboard() {
                         <div
                           className="h-full bg-info rounded-full"
                           style={{
-                            width: `${Math.min((season.count / stats.totalStyles) * 100, 100)}%`,
+                            width: `${stats.totalStyles > 0 ? Math.min((season.count / stats.totalStyles) * 100, 100) : 0}%`,
                           }}
                         />
                       </div>

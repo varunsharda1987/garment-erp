@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { DeliveryConfirmationEnum } from './generated/prisma-enums';
 
 // Helper for validating IDs that can be UUID or CUID (color_master uses CUID)
 const isValidIdFormat = (val: string) =>
@@ -281,7 +282,8 @@ export const recordPODSchema = z
     designation: z.string().max(100).optional(),
     customerSignOff: z.boolean().optional(),
     podDocumentUrl: z.string().max(500).optional(),
-    deliveryStatus: z.enum(['DELIVERED', 'PARTIAL', 'REJECTED']),
+    // Use DeliveryConfirmationEnum from Prisma (not DeliveryStatus - this is for POD confirmation)
+    deliveryStatus: DeliveryConfirmationEnum,
     shortageQty: z.number().int().nonnegative().optional(),
     rejectionReason: z.string().max(500).optional(),
     customerGrnNumber: z.string().max(50).optional(),

@@ -28,6 +28,31 @@ export interface LabelSizeVariant {
   sizeCategory?: SizeCategory;
 }
 
+/**
+ * Form data for creating a new size category.
+ * Note: isActive is NOT included - backend sets it to true on create.
+ */
+export interface CreateSizeCategoryFormData {
+  name: string;
+  description?: string;
+  sizes: string[];
+}
+
+/**
+ * Form data for updating an existing size category.
+ * Includes isActive which can only be changed on update.
+ */
+export interface UpdateSizeCategoryFormData {
+  name?: string;
+  description?: string;
+  sizes?: string[];
+  isActive?: boolean;
+}
+
+/**
+ * @deprecated Use CreateSizeCategoryFormData or UpdateSizeCategoryFormData instead.
+ * Kept for backward compatibility - isActive field only works on update, not create.
+ */
 export interface SizeCategoryFormData {
   name: string;
   description?: string;

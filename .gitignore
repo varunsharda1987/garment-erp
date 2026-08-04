@@ -22,6 +22,8 @@ out/
 *.db
 *.sqlite
 *.sqlite3
+*.dump
+backups/
 
 # Logs
 logs/

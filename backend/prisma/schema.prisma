@@ -1010,7 +1010,7 @@ model material_requisitions {
 
 model materials {
   id                              String                              @id
-  code                            String
+  code                            String                              @unique
   name                            String
   categoryId                      String
   description                     String?
@@ -1104,7 +1104,6 @@ model materials {
   style_material_bom              style_material_bom[]
 
   @@index([categoryId])
-  @@index([code])
   @@index([name])
   @@index([isActive])
   @@index([materialType])
@@ -2480,6 +2479,7 @@ model styles {
   productTaxRule              String?
   internalCode                String?
   numberOfComponents          Int?
+  expectedOrderQuantity       Int?
   productCategoryId           String?                      @map("product_category_id")
   customerAccessoriesPresetId String?
   button_style_associations   button_style_associations[]
@@ -2518,6 +2518,7 @@ model styles {
   product_category            product_category_master?     @relation(fields: [productCategoryId], references: [id])
   season_master               season_master?               @relation(fields: [seasonId], references: [id])
   thread_style_associations   thread_style_associations[]
+  zipper_style_associations   zipper_style_associations[] // BUG-MM6 FIX
   work_orders                 work_orders[]
   stock_production_orders     stock_production_orders[]
   sale_order_items            sale_order_items[]
@@ -2871,8 +2872,10 @@ model users {
   approvedAt                                                      DateTime?
   approvedBy                                                      String?
   lastLogin                                                       DateTime?
+  tokenVersion                                                    Int                               @default(0)
   createdAt                                                       DateTime                          @default(now())
   updatedAt                                                       DateTime                          @updatedAt
+  refreshTokens                                                   refresh_tokens[]
   ai_conversations                                                ai_conversations[]
   ai_feedback                                                     ai_feedback[]
   asn_applications                                                asn_applications[]
@@ -4084,7 +4087,7 @@ model export_templates {
 /// This represents fabric straight from the loom before any processing
 model greige_master {
   id                       String                       @id @default(uuid())
-  greigeCode               String
+  greigeCode               String                       @unique
   greigeName               String
   yarnCount                String?
   construction             String?
@@ -4125,7 +4128,6 @@ model greige_master {
   costingFabricItems       style_costing_fabric_items[]
 
   @@index([supplierId])
-  @@index([greigeCode])
   @@index([isActive])
 }
 
@@ -4233,7 +4235,7 @@ model greige_stock_transaction {
 /// This represents fabric AFTER dyeing, printing, or other finishing processes
 model fabric_master {
   id                    String                       @id @default(uuid())
-  fabricCode            String
+  fabricCode            String                       @unique
   fabricName            String
   greigeId              String?
   greigeName            String?
@@ -4286,7 +4288,6 @@ model fabric_master {
   costingFabricItems    style_costing_fabric_items[]
   styleFabrics          style_fabrics[]
 
-  @@index([fabricCode])
   @@index([greigeId])
   @@index([supplierId])
   @@index([isActive])
@@ -4350,7 +4351,7 @@ model fabric_width_cad {
   purpose                     String?
   styleFabricId               String?                      @map("style_fabric_id")
   approvalNotes               String?                      @map("approval_notes")
-  approvalStatus              String?                      @default("PENDING") @map("approval_status")
+  approvalStatus              CadApprovalStatus?           @default(PENDING) @map("approval_status")
   approvedAt                  DateTime?                    @map("approved_at")
   approvedBy                  String?                      @map("approved_by")
   rejectedAt                  DateTime?                    @map("rejected_at")
@@ -4917,7 +4918,7 @@ model style_import_staging {
 
 model lace_master {
   id            String   @id @default(uuid())
-  laceCode      String
+  laceCode      String   @unique
   laceName      String
   supplierCode  String?
   buyerCode     String?
@@ -4971,7 +4972,6 @@ model lace_master {
   laceLabDips             lace_lab_dip[]
   processingBatches       processing_batch[]         @relation("lace_processing_batch")
 
-  @@index([laceCode])
   @@index([supplierId])
   @@index([isGreige])
   @@index([sourceGreigeLaceId])
@@ -4980,7 +4980,7 @@ model lace_master {
 
 model button_master {
   id                        String                      @id @default(uuid())
-  buttonCode                String
+  buttonCode                String                      @unique
   buttonName                String
   supplierCode              String?
   buyerCode                 String?
@@ -5008,13 +5008,12 @@ model button_master {
   costingTrimItems          style_costing_trim_items[]  @relation("trim_costing_button")
   button_stock              button_stock[]
 
-  @@index([buttonCode])
   @@index([supplierId])
 }
 
 model thread_master {
   id                        String                       @id @default(uuid())
-  threadCode                String
+  threadCode                String                       @unique
   threadName                String
   supplierCode              String?
   buyerCode                 String?
@@ -5053,7 +5052,6 @@ model thread_master {
   threadStock               thread_stock[]
   costingTrimItems          style_costing_trim_items[]   @relation("trim_costing_thread")
 
-  @@index([threadCode])
   @@index([supplierId])
   @@index([ply])
   @@index([materialComposition])
@@ -5197,42 +5195,59 @@ model thread_style_associations {
   @@index([styleId])
 }
 
-model zipper_master {
-  id                 String                     @id @default(uuid())
-  zipperCode         String
-  zipperName         String
-  supplierCode       String?
-  buyerCode          String?
-  length             Decimal?                   @db.Decimal(10, 2)
-  teethType          String?
-  color              String?
-  brand              String?
-  sliderType         String?
-  tapeWidth          Decimal?                   @db.Decimal(10, 2)
-  pricePerPiece      Decimal?                   @db.Decimal(10, 2)
-  image              String?
-  supplierId         String?
-  description        String?
-  isActive           Boolean                    @default(true)
-  createdById        String?
-  createdAt          DateTime                   @default(now())
-  updatedAt          DateTime                   @updatedAt
-  materials          materials[]
-  order_bom_items    order_bom_items[]
-  style_material_bom style_material_bom[]
-  createdBy          users?                     @relation(fields: [createdById], references: [id])
-  suppliers          suppliers?                 @relation(fields: [supplierId], references: [id])
-  zipperSuppliers    zipper_suppliers[]
-  costingTrimItems   style_costing_trim_items[] @relation("trim_costing_zipper")
-  zipper_stock       zipper_stock[]
+// BUG-MM6 FIX: Added zipper_style_associations table for zipper-style linking
+// Matches pattern of button_style_associations, thread_style_associations, lace_style_associations
+model zipper_style_associations {
+  id        String        @id @default(uuid())
+  zipperId  String
+  styleId   String
+  isPrimary Boolean       @default(false)
+  notes     String?
+  createdAt DateTime      @default(now())
+  style     styles        @relation(fields: [styleId], references: [id], onDelete: Cascade)
+  zipper    zipper_master @relation(fields: [zipperId], references: [id], onDelete: Cascade)
 
-  @@index([zipperCode])
+  @@unique([zipperId, styleId])
+  @@index([zipperId])
+  @@index([styleId])
+}
+
+model zipper_master {
+  id                        String                      @id @default(uuid())
+  zipperCode                String                      @unique
+  zipperName                String
+  supplierCode              String?
+  buyerCode                 String?
+  length                    Decimal?                    @db.Decimal(10, 2)
+  teethType                 String?
+  color                     String?
+  brand                     String?
+  sliderType                String?
+  tapeWidth                 Decimal?                    @db.Decimal(10, 2)
+  pricePerPiece             Decimal?                    @db.Decimal(10, 2)
+  image                     String?
+  supplierId                String?
+  description               String?
+  isActive                  Boolean                     @default(true)
+  createdById               String?
+  createdAt                 DateTime                    @default(now())
+  updatedAt                 DateTime                    @updatedAt
+  materials                 materials[]
+  order_bom_items           order_bom_items[]
+  style_material_bom        style_material_bom[]
+  createdBy                 users?                      @relation(fields: [createdById], references: [id])
+  suppliers                 suppliers?                  @relation(fields: [supplierId], references: [id])
+  zipperSuppliers           zipper_suppliers[]
+  costingTrimItems          style_costing_trim_items[]  @relation("trim_costing_zipper")
+  zipper_stock              zipper_stock[]
+  zipper_style_associations zipper_style_associations[] // BUG-MM6 FIX
+
   @@index([supplierId])
 }
 
 model elastic_master {
   id                 String                     @id @default(uuid())
-  elasticCode        String
+  elasticCode        String                     @unique
   elasticName        String
   supplierCode       String?
   buyerCode          String?
@@ -5258,13 +5273,12 @@ model elastic_master {
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_elastic")
   elastic_stock      elastic_stock[]
 
-  @@index([elasticCode])
   @@index([supplierId])
 }
 
 model label_master {
   id                    String                              @id @default(uuid())
-  labelCode             String
+  labelCode             String                              @unique
   labelName             String
   supplierCode          String?
   buyerCode             String?
@@ -5302,7 +5316,6 @@ model label_master {
   costingAccessoryItems style_costing_accessory_items[]     @relation("accessory_costing_label")
   label_stock           label_stock[]
 
-  @@index([labelCode])
   @@index([supplierId])
   @@index([customerId])
   @@index([brandCategoryId])
@@ -5343,7 +5356,7 @@ model label_size_variants {
 
 model packaging_master {
   id                    String                          @id @default(uuid())
-  packagingCode         String
+  packagingCode         String                          @unique
   packagingName         String
   supplierCode          String?
   buyerCode             String?
@@ -5375,7 +5388,6 @@ model packaging_master {
   costingAccessoryItems style_costing_accessory_items[] @relation("accessory_costing_packaging")
   packaging_stock       packaging_stock[]
 
-  @@index([packagingCode])
   @@index([supplierId])
   @@index([customerId])
   @@index([brandCategoryId])
@@ -5402,7 +5414,7 @@ model packaging_suppliers {
 
 model machine_part_master {
   id                   String                   @id @default(uuid())
-  partCode             String
+  partCode             String                   @unique
   partName             String
   partNumber           String?
   category             String?
@@ -5425,7 +5437,6 @@ model machine_part_master {
   materials            materials[]
   style_material_bom   style_material_bom[]
 
-  @@index([partCode])
   @@index([supplierId])
 }
 
@@ -5450,7 +5461,7 @@ model machine_part_suppliers {
 
 model other_material_master {
   id                     String                     @id @default(uuid())
-  materialCode           String
+  materialCode           String                     @unique
   materialName           String
   category               String?
   unit                   String                     @default("PIECE")
@@ -5470,7 +5481,6 @@ model other_material_master {
   otherMaterialSuppliers other_material_suppliers[]
   style_material_bom     style_material_bom[]
 
-  @@index([materialCode])
   @@index([supplierId])
 }
 
@@ -6900,7 +6910,7 @@ model garment_physical_tests {
 /// Hook & Eye Master - Hook and eye closures for bras, dresses, pants
 model hook_eye_master {
   id                 String                     @id @default(uuid())
-  hookEyeCode        String
+  hookEyeCode        String                     @unique
   hookEyeName        String
   size               String?
   material           String?
@@ -6921,14 +6931,13 @@ model hook_eye_master {
   order_bom_items    order_bom_items[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_hook_eye")
 
-  @@index([hookEyeCode])
   @@index([supplierId])
 }
 
 /// Snap Button Master - Snap/Press buttons (metal or plastic snap fasteners)
 model snap_button_master {
   id                 String                     @id @default(uuid())
-  snapButtonCode     String
+  snapButtonCode     String                     @unique
   snapButtonName     String
   size               String?
   type               String?
@@ -6949,14 +6958,13 @@ model snap_button_master {
   order_bom_items    order_bom_items[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_snap_button")
 
-  @@index([snapButtonCode])
   @@index([supplierId])
 }
 
 /// Buckle Master - Belt/strap buckles of various types
 model buckle_master {
   id                 String                     @id @default(uuid())
-  buckleCode         String
+  buckleCode         String                     @unique
   buckleName         String
   width              String?
   type               String?
@@ -6977,14 +6985,13 @@ model buckle_master {
   order_bom_items    order_bom_items[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_buckle")
 
-  @@index([buckleCode])
   @@index([supplierId])
 }
 
 /// Belt Master - Belts for garments (waist belts, sash belts, etc.)
 model belt_master {
   id                 String                     @id @default(uuid())
-  beltCode           String
+  beltCode           String                     @unique
   beltName           String
   width              String?
   type               String?
@@ -7005,14 +7012,13 @@ model belt_master {
   order_bom_items    order_bom_items[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_belt")
 
-  @@index([beltCode])
   @@index([supplierId])
 }
 
 /// Velcro Master - Hook-and-loop fastening (sew-on or adhesive)
 model velcro_master {
   id                 String                     @id @default(uuid())
-  velcroCode         String
+  velcroCode         String                     @unique
   velcroName         String
   width              String?
   type               String?
@@ -7031,14 +7037,13 @@ model velcro_master {
   order_bom_items    order_bom_items[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_velcro")
 
-  @@index([velcroCode])
   @@index([supplierId])
 }
 
 /// Drawstring Master - Adjustable cords/drawstrings with tips/aglets
 model drawstring_master {
   id                 String                     @id @default(uuid())
-  drawstringCode     String
+  drawstringCode     String                     @unique
   drawstringName     String
   width              String?
   material           String?
@@ -7058,14 +7063,13 @@ model drawstring_master {
   order_bom_items    order_bom_items[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_drawstring")
 
-  @@index([drawstringCode])
   @@index([supplierId])
 }
 
 /// Ribbon Master - Satin/grosgrain/velvet ribbons
 model ribbon_master {
   id                 String                     @id @default(uuid())
-  ribbonCode         String
+  ribbonCode         String                     @unique
   ribbonName         String
   width              String?
   type               String?
@@ -7085,14 +7089,13 @@ model ribbon_master {
   order_bom_items    order_bom_items[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_ribbon")
 
-  @@index([ribbonCode])
   @@index([supplierId])
 }
 
 /// Sequin Master - Decorative sequins (loose or on tape)
 model sequin_master {
   id                 String                     @id @default(uuid())
-  sequinCode         String
+  sequinCode         String                     @unique
   sequinName         String
   size               String?
   shape              String?
@@ -7114,14 +7117,13 @@ model sequin_master {
   order_bom_items    order_bom_items[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_sequin")
 
-  @@index([sequinCode])
   @@index([supplierId])
 }
 
 /// Bead Master - Decorative beads (glass, plastic, pearl, crystal)
 model bead_master {
   id                 String                     @id @default(uuid())
-  beadCode           String
+  beadCode           String                     @unique
   beadName           String
   size               String?
   shape              String?
@@ -7142,14 +7144,13 @@ model bead_master {
   order_bom_items    order_bom_items[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_bead")
 
-  @@index([beadCode])
   @@index([supplierId])
 }
 
 /// Motif Master - Embroidered/beaded/sequined decorative motifs
 model motif_master {
   id                 String                     @id @default(uuid())
-  motifCode          String
+  motifCode          String                     @unique
   motifName          String
   size               String?
   type               String?
@@ -7169,14 +7170,13 @@ model motif_master {
   order_bom_items    order_bom_items[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_motif")
 
-  @@index([motifCode])
   @@index([supplierId])
 }
 
 /// Interlining Master - Fusing/interfacing for garment structure
 model interlining_master {
   id                 String                     @id @default(uuid())
-  interliningCode    String
+  interliningCode    String                     @unique
   interliningName    String
   weight             String?
   type               String?
@@ -7197,14 +7197,13 @@ model interlining_master {
   order_bom_items    order_bom_items[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_interlining")
 
-  @@index([interliningCode])
   @@index([supplierId])
 }
 
 /// Padding Master - Shoulder pads, bra cups, sleeve heads
 model padding_master {
   id                 String                     @id @default(uuid())
-  paddingCode        String
+  paddingCode        String                     @unique
   paddingName        String
   type               String?
   size               String?
@@ -7226,14 +7225,13 @@ model padding_master {
   order_bom_items    order_bom_items[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_padding")
 
-  @@index([paddingCode])
   @@index([supplierId])
 }
 
 /// Other Fastener Master - Miscellaneous fasteners not covered by specific categories
 model other_fastener_master {
   id                 String                     @id @default(uuid())
-  otherFastenerCode  String
+  otherFastenerCode  String                     @unique
   otherFastenerName  String
   type               String?
   size               String?
@@ -7253,14 +7251,13 @@ model other_fastener_master {
   order_bom_items    order_bom_items[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_other_fastener")
 
-  @@index([otherFastenerCode])
   @@index([supplierId])
 }
 
 /// Other Tape Master - Miscellaneous tapes/threads not covered by specific categories
 model other_tape_master {
   id                 String                     @id @default(uuid())
-  otherTapeCode      String
+  otherTapeCode      String                     @unique
   otherTapeName      String
   type               String?
   width              String?
@@ -7280,14 +7277,13 @@ model other_tape_master {
   order_bom_items    order_bom_items[]
   costingTrimItems   style_costing_trim_items[] @relation("trim_costing_other_tape")
 
-  @@index([otherTapeCode])
   @@index([supplierId])
 }
 
 /// Other Decorative Master - Miscellaneous decorative items not covered by specific categories
 model other_decorative_master {
   id                  String                     @id @default(uuid())
-  otherDecorativeCode String
+  otherDecorativeCode String                     @unique
   otherDecorativeName String
   type                String?
   size                String?
@@ -7307,14 +7303,13 @@ model other_decorative_master {
   order_bom_items     order_bom_items[]
   costingTrimItems    style_costing_trim_items[] @relation("trim_costing_other_decorative")
 
-  @@index([otherDecorativeCode])
   @@index([supplierId])
 }
 
 /// Other Functional Master - Miscellaneous functional items not covered by specific categories
 model other_functional_master {
   id                  String                     @id @default(uuid())
-  otherFunctionalCode String
+  otherFunctionalCode String                     @unique
   otherFunctionalName String
   type                String?
   size                String?
@@ -7334,7 +7329,6 @@ model other_functional_master {
   order_bom_items     order_bom_items[]
   costingTrimItems    style_costing_trim_items[] @relation("trim_costing_other_functional")
 
-  @@index([otherFunctionalCode])
   @@index([supplierId])
 }
 
@@ -8626,6 +8620,7 @@ enum GRNStatus {
   ACCEPTED
   REJECTED
   PARTIALLY_ACCEPTED
+  REVERSED // BUG-GRN6 fix: Added to support full GRN reversal
 }
 
 enum Gender {
@@ -8662,6 +8657,15 @@ enum CostSheetApprovalStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+/// CAD Approval Status - For fabric_width_cad approval workflow
+/// BUG-CAD12 fix: Changed from String to proper enum
+enum CadApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  ALTERNATE_APPROVED // When another width is primary, this is an approved alternate
 }
 
 /// Cost Sheet Purpose - Separates quotation vs procurement costings
@@ -8742,10 +8746,17 @@ enum PrintDirection {
   TWO_WAY
 }
 
+// BUG-MFG20 fix: InspectionType.AQL is currently just a label/category for inspections.
+// TODO: Full AQL (Acceptable Quality Level) functionality requires:
+//   1. New 'inspections' table with: lotSize, aqlLevel, inspectionLevel, acceptNumber, rejectNumber
+//   2. AQL sample size calculation service based on ISO 2859-1 / ANSI Z1.4 tables
+//   3. API endpoints: /api/inspections with calculate-sample endpoint
+//   4. Frontend pages for AQL inspection management
+// See docs/archive/legacy-feb-2026/TESTING_QUALITY_GUIDE.md Section 7 for planned implementation.
 enum InspectionType {
   INLINE
   FINAL
-  AQL
+  AQL // NOTE: Currently just an inspection type label, not implementing actual AQL calculations
   RANDOM
   MIDLINE
 }
@@ -9788,4 +9799,37 @@ model external_process_send_out_skus {
 
   @@unique([sendOutId, colorId, sizeId])
   @@index([sendOutId])
+}
+
+/// Refresh tokens for JWT authentication (BUG-AUTH6)
+/// Stores long-lived refresh tokens that can be exchanged for new access tokens
+model refresh_tokens {
+  id         String    @id @default(uuid())
+  token      String    @unique
+  userId     String
+  expiresAt  DateTime
+  isRevoked  Boolean   @default(false)
+  revokedAt  DateTime?
+  deviceInfo String? // Optional: browser/device identification
+  ipAddress  String? // Optional: IP address at token creation
+  createdAt  DateTime  @default(now())
+
+  user users @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+}
+
+/// Permanent old→new id record from the materials-id unification (2026-08-03).
+/// Written by scripts/migrations/unify-material-ids.ts; resolves historical references
+/// (audit_logs, bookmarks) to migrated ids. NEVER drop — it is the provenance ledger.
+model material_id_map {
+  old_id        String    @id
+  new_id        String
+  material_type String?
+  action        String
+  migrated_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@map("material_id_map")
 }

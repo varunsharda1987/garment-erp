@@ -54,7 +54,7 @@ export type DeliveryStatus = z.infer<typeof DeliveryStatusEnum>;
 export const DeliveryLocationTypeEnum = z.enum(['WAREHOUSE', 'PROCESSOR']);
 export type DeliveryLocationType = z.infer<typeof DeliveryLocationTypeEnum>;
 
-export const GRNStatusEnum = z.enum(['PENDING_QC', 'ACCEPTED', 'REJECTED', 'PARTIALLY_ACCEPTED']);
+export const GRNStatusEnum = z.enum(['PENDING_QC', 'ACCEPTED', 'REJECTED', 'PARTIALLY_ACCEPTED', 'REVERSED']);
 export type GRNStatus = z.infer<typeof GRNStatusEnum>;
 
 export const GenderEnum = z.enum(['MEN', 'WOMEN', 'KIDS', 'UNISEX']);
@@ -71,6 +71,9 @@ export type CadPurpose = z.infer<typeof CadPurposeEnum>;
 
 export const CostSheetApprovalStatusEnum = z.enum(['PENDING', 'APPROVED', 'REJECTED']);
 export type CostSheetApprovalStatus = z.infer<typeof CostSheetApprovalStatusEnum>;
+
+export const CadApprovalStatusEnum = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'ALTERNATE_APPROVED']);
+export type CadApprovalStatus = z.infer<typeof CadApprovalStatusEnum>;
 
 export const CostSheetPurposeEnum = z.enum([
   'COSTING',

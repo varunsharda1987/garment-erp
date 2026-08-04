@@ -522,12 +522,13 @@ export default function FinishingDetail() {
                 <span className="text-muted-foreground">Style</span>
                 <span className="font-medium">
                   {issue.workOrder?.style?.styleCode}
-                  {issue.workOrder?.style?.buyerStyleRef && (
-                    <span className="text-muted-foreground"> ({issue.workOrder.style.buyerStyleRef})</span>
-                  )}
                   {' - '}
                   {issue.workOrder?.style?.styleName}
                 </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Buyer Ref</span>
+                <span className="font-medium">{issue.workOrder?.style?.buyerStyleRef || '—'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Customer</span>

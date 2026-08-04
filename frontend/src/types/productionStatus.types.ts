@@ -45,6 +45,7 @@ export interface ProductionStatusItem {
   styleCode: string;
   internalCode: string | null;
   styleName: string;
+  buyerStyleRef?: string | null;
   imageUrl: string | null;
   customerName: string | null;
   brandName: string | null;

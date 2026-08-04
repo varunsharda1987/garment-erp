@@ -259,6 +259,7 @@ export interface StyleSizeSummaryItem {
   workOrderNumber: string;
   styleCode: string;
   styleName: string;
+  buyerStyleRef?: string | null;
   customerName: string;
   orderNumber: string;
   daysInCutting: number;
@@ -281,6 +282,7 @@ export interface IncomingTransferSlip {
   workOrderNumber: string;
   styleCode: string;
   styleName: string;
+  buyerStyleRef?: string | null;
   totalGoodPieces: number;
   transferDate: string;
   issuedTo: string | null;

@@ -107,6 +107,7 @@ export interface FabricStyleUsage {
   styleId: string;
   styleCode: string;
   styleName: string;
+  buyerStyleRef?: string | null;
   quantityPerGarment: number;
   componentName: string;
   stockAllocated?: number;

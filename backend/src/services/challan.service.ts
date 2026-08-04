@@ -507,7 +507,7 @@ export async function getChallanById(id: string) {
           id: true,
           workOrderNumber: true,
           totalQuantity: true,
-          styles: { select: { id: true, styleCode: true, styleName: true } },
+          styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
         },
       },
       purchaseOrder: {
@@ -580,7 +580,7 @@ export async function getChallans(filters: ChallanFilters) {
             id: true,
             workOrderNumber: true,
             totalQuantity: true,
-            styles: { select: { id: true, styleCode: true, styleName: true } },
+            styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
           },
         },
         purchaseOrder: { select: { id: true, poNumber: true } },

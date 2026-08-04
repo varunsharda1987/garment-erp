@@ -40,6 +40,7 @@ const transformDeliveryNote = ({ users, ...note }: any) => ({
       ? {
           id: item.styles.id,
           styleCode: item.styles.styleCode,
+          buyerStyleRef: item.styles.buyerStyleRef ?? null,
           styleName: item.styles.styleName,
         }
       : null,

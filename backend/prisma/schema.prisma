@@ -447,6 +447,7 @@ model brand_categories {
   category          String
   subCategory       String?
   subSubCategory    String?
+  styleCodePrefix   String?                  @map("style_code_prefix") // For auto-generating style codes (e.g., EBW, EBE)
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
   productCategoryId String?

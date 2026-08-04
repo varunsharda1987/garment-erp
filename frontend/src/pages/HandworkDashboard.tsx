@@ -230,6 +230,7 @@ export default function HandworkDashboard() {
                 <TableHead>Batch #</TableHead>
                 <TableHead>Work Order</TableHead>
                 <TableHead>Style</TableHead>
+                <TableHead>Buyer Ref</TableHead>
                 <TableHead>Vendor</TableHead>
                 <TableHead className="text-right">Sent</TableHead>
                 <TableHead className="text-right">Received</TableHead>
@@ -243,13 +244,13 @@ export default function HandworkDashboard() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : sendOuts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                     No handwork send-outs found
                   </TableCell>
                 </TableRow>
@@ -259,6 +260,7 @@ export default function HandworkDashboard() {
                     <TableCell className="font-mono text-sm">{s.batchNumber}</TableCell>
                     <TableCell>{s.workOrder?.workOrderNumber || '—'}</TableCell>
                     <TableCell>{s.style?.styleCode || '—'}</TableCell>
+                    <TableCell>{s.style?.buyerStyleRef || '—'}</TableCell>
                     <TableCell>{s.supplier?.name || '—'}</TableCell>
                     <TableCell className="text-right">{s.quantitySent} PCS</TableCell>
                     <TableCell className="text-right">

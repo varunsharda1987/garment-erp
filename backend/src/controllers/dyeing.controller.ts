@@ -101,6 +101,7 @@ const labDipInclude = {
     select: {
       id: true,
       styleCode: true,
+      buyerStyleRef: true,
       styleName: true,
     },
   },
@@ -153,6 +154,7 @@ const jobWorkOrderInclude = {
     select: {
       id: true,
       styleCode: true,
+      buyerStyleRef: true,
       styleName: true,
     },
   },
@@ -321,7 +323,7 @@ export const createLabDip = async (req: Request, res: Response, _next: NextFunct
   // Get style for labDipNumber
   const style = await prisma.styles.findUnique({
     where: { id: styleId },
-    select: { styleCode: true },
+    select: { styleCode: true, buyerStyleRef: true },
   });
 
   if (!style) {
@@ -387,7 +389,7 @@ export const bulkCreateLabDips = async (req: Request, res: Response, _next: Next
   // Get style for labDipNumber
   const style = await prisma.styles.findUnique({
     where: { id: styleId },
-    select: { styleCode: true },
+    select: { styleCode: true, buyerStyleRef: true },
   });
 
   if (!style) {
@@ -939,7 +941,7 @@ export const createDyeJob = async (req: Request, res: Response, _next: NextFunct
   const labDip = await prisma.lab_dips.findUnique({
     where: { id: labDipId },
     include: {
-      style: { select: { styleCode: true } },
+      style: { select: { styleCode: true, buyerStyleRef: true } },
     },
   });
 
@@ -1098,7 +1100,7 @@ export const sendToMill = async (req: Request, res: Response, _next: NextFunctio
           },
         },
       },
-      style: { select: { id: true, styleCode: true, styleName: true } },
+      style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
     },
   });
 
@@ -1353,7 +1355,7 @@ export const updateStock = async (req: Request, res: Response, _next: NextFuncti
     where: { id },
     include: {
       fabricStockLot: true,
-      style: { select: { id: true, styleCode: true } },
+      style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
     },
   });
 
@@ -1489,6 +1491,7 @@ const processPOInclude = {
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
         },
       },
@@ -1738,7 +1741,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     labDip = await prisma.lab_dips.findUnique({
       where: { id: labDipId },
       include: {
-        style: { select: { id: true, styleCode: true, styleName: true } },
+        style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
         fabric: { select: { id: true, fabricCode: true, fabricName: true } },
         processor: { select: { id: true, name: true, code: true } },
       },
@@ -1760,7 +1763,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     const [style, fabric, processor] = await Promise.all([
       prisma.styles.findUnique({
         where: { id: directStyleId },
-        select: { id: true, styleCode: true, styleName: true },
+        select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
       }),
       prisma.fabric_master.findUnique({
         where: { id: directFabricId },
@@ -2168,7 +2171,7 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
               },
             },
           },
-          style: { select: { id: true, styleCode: true, styleName: true } },
+          style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
           greigeStockLot: true,
         },
       },
@@ -2372,7 +2375,7 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
       suppliers: { select: { id: true, name: true, code: true } },
       jobWorkOrder: {
         include: {
-          style: { select: { id: true, styleCode: true } },
+          style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
         },
       },
     },
@@ -2574,7 +2577,7 @@ export const updateStockProcessPO = async (req: Request, res: Response, _next: N
         include: {
           fabricStockLot: true,
           greigeStockLot: true,
-          style: { select: { id: true, styleCode: true } },
+          style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
         },
       },
     },
@@ -2729,7 +2732,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
       suppliers: { select: { id: true, name: true, code: true } },
       jobWorkOrder: {
         include: {
-          style: { select: { id: true, styleCode: true } },
+          style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
           greigeStockLot: true,
         },
       },

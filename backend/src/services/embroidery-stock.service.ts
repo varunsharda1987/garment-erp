@@ -440,7 +440,7 @@ class EmbroideryStockService {
         },
         embroidery: true,
         supplier: true,
-        forStyle: { select: { styleCode: true, styleName: true } },
+        forStyle: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
         forOrder: { select: { orderNumber: true } },
         createdBy: { select: { firstName: true, lastName: true } },
       },
@@ -501,7 +501,7 @@ class EmbroideryStockService {
       include: {
         fabricMaster: true,
         embroidery: true,
-        originStyle: { select: { styleCode: true, styleName: true } },
+        originStyle: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
         originOrder: { select: { orderNumber: true } },
       },
       orderBy: { receivedDate: 'desc' },
@@ -690,7 +690,7 @@ class EmbroideryStockService {
         where,
         include: {
           fabricMaster: { select: { fabricCode: true, fabricName: true, colorName: true } },
-          originStyle: { select: { id: true, styleCode: true, styleName: true } },
+          originStyle: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
           originOrder: { select: { id: true, orderNumber: true } },
         },
         orderBy: { receivedDate: 'desc' },

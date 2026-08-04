@@ -260,6 +260,7 @@ export type CostSheet = {
     id: string;
     styleCode: string;
     styleName?: string;
+    buyerStyleRef?: string | null;
     category?: string;
   };
 

@@ -75,6 +75,7 @@ export interface OrderItemSummary {
   styleId: string;
   styleCode?: string;
   styleName?: string;
+  buyerStyleRef?: string | null;
   totalQuantity: number;
 }
 

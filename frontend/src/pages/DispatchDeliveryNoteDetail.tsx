@@ -227,6 +227,7 @@ export default function DispatchDeliveryNoteDetail() {
             <TableHeader>
               <TableRow>
                 <TableHead>Style</TableHead>
+                <TableHead>Buyer Ref</TableHead>
                 <TableHead>Color</TableHead>
                 <TableHead>Size</TableHead>
                 <TableHead className="text-right">Quantity</TableHead>
@@ -238,11 +239,9 @@ export default function DispatchDeliveryNoteDetail() {
                   <TableRow key={item.id}>
                     <TableCell>
                       {item.style?.styleCode || '-'}
-                      {item.style?.buyerStyleRef && (
-                        <span className="text-muted-foreground ml-1">({item.style.buyerStyleRef})</span>
-                      )}
                       <span className="text-muted-foreground ml-2">{item.style?.styleName}</span>
                     </TableCell>
+                    <TableCell>{item.style?.buyerStyleRef || '—'}</TableCell>
                     <TableCell>{item.color?.colorName || '-'}</TableCell>
                     <TableCell>{item.size?.sizeName || '-'}</TableCell>
                     <TableCell className="text-right font-medium">{item.quantity}</TableCell>
@@ -250,7 +249,7 @@ export default function DispatchDeliveryNoteDetail() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                  <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
                     No items
                   </TableCell>
                 </TableRow>

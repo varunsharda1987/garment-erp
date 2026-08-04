@@ -235,6 +235,10 @@ export default function GarmentPhysicalTests() {
                       <span className="text-muted-foreground">Style:</span>
                       <p className="font-medium text-foreground">{test.style?.styleCode || test.styleId}</p>
                     </div>
+                    <div>
+                      <span className="text-muted-foreground">Buyer Ref:</span>
+                      <p className="font-medium text-foreground">{test.style?.buyerStyleRef || '—'}</p>
+                    </div>
                     {test.sampleQuantity && (
                       <div>
                         <span className="text-muted-foreground">Sample Qty:</span>

@@ -143,6 +143,11 @@ export default function OrderStatusListItem({
                 )}
               </div>
               <p className="text-lg font-medium text-foreground mt-1">{item.styleName}</p>
+              {item.buyerStyleRef && (
+                <p className="text-sm text-muted-foreground">
+                  Buyer Ref: <span className="font-medium text-foreground">{item.buyerStyleRef}</span>
+                </p>
+              )}
               {item.season && <p className="text-sm text-muted-foreground mt-0.5">{item.season}</p>}
             </div>
 

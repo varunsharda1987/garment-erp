@@ -4192,7 +4192,7 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
           },
         },
       },
-      select: { id: true, styleCode: true },
+      select: { id: true, styleCode: true, buyerStyleRef: true },
     });
 
     validApprovedStyleIds = stylesWithValidCAD.map((s) => s.id);
@@ -4252,6 +4252,7 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
       select: {
         id: true,
         styleCode: true,
+        buyerStyleRef: true,
         styleName: true,
         cadStatus: true,
         approvedCadDate: true,
@@ -4387,6 +4388,7 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
     return {
       id: style.id,
       styleCode: style.styleCode,
+      buyerStyleRef: style.buyerStyleRef ?? null,
       styleName: style.styleName,
       cadStatus: style.cadStatus,
       effectiveCadStatus, // Reflects actual state (PENDING if APPROVED but no entries)

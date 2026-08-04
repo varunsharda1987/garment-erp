@@ -191,6 +191,7 @@ export interface EmbroiderySendOut {
     id: string;
     styleCode: string;
     styleName: string;
+    buyerStyleRef?: string | null;
   } | null;
   forOrderId?: string | null;
   forOrder?: {
@@ -276,6 +277,7 @@ export interface EmbroideredFabricStock {
     id: string;
     styleCode: string;
     styleName: string;
+    buyerStyleRef?: string | null;
   } | null;
 }
 

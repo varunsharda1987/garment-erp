@@ -1691,7 +1691,7 @@ export async function getDistinctRequirementStyles(requirementType?: string) {
       order_items: {
         select: {
           styleId: true,
-          styles: { select: { styleCode: true, styleName: true } },
+          styles: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
         },
       },
     },
@@ -1699,7 +1699,10 @@ export async function getDistinctRequirementStyles(requirementType?: string) {
   });
 
   // Deduplicate by styleId (multiple order_items may reference the same style)
-  const styleMap = new Map<string, { id: string; styleCode: string; styleName: string }>();
+  const styleMap = new Map<
+    string,
+    { id: string; styleCode: string; buyerStyleRef: string | null; styleName: string }
+  >();
   for (const item of items) {
     if (item.order_items) {
       const { styleId, styles } = item.order_items;
@@ -1707,6 +1710,7 @@ export async function getDistinctRequirementStyles(requirementType?: string) {
         styleMap.set(styleId, {
           id: styleId,
           styleCode: styles.styleCode,
+          buyerStyleRef: styles.buyerStyleRef ?? null,
           styleName: styles.styleName,
         });
       }
@@ -2077,7 +2081,7 @@ export async function generatePOFromRequirements(
       orders: { select: { orderNumber: true } },
       order_items: {
         select: {
-          styles: { select: { styleCode: true, styleName: true } },
+          styles: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
         },
       },
     },
@@ -2194,6 +2198,7 @@ export async function generatePOFromRequirements(
   const getEnrichedFields = (req: any) => ({
     colorName: req.colorName || null,
     styleCode: req.order_items?.styles?.styleCode || null,
+    buyerStyleRef: req.order_items?.styles?.buyerStyleRef ?? null,
     orderNumber: req.orders?.orderNumber || null,
     processingType: req.printingType || (req.requirementType === 'PROCESSING' ? 'DYEING' : null),
     fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
@@ -2617,7 +2622,7 @@ function getRequirementIncludes() {
         id: true,
         styleId: true,
         totalQuantity: true,
-        styles: { select: { styleCode: true, styleName: true } },
+        styles: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
       },
     },
     materials: {
@@ -2731,6 +2736,7 @@ function mapToResponse(req: any): MaterialRequirementResponse {
           id: req.order_items.id,
           styleId: req.order_items.styleId,
           styleCode: req.order_items.styles?.styleCode,
+          buyerStyleRef: req.order_items.styles?.buyerStyleRef ?? null,
           styleName: req.order_items.styles?.styleName,
           totalQuantity: req.order_items.totalQuantity,
         }
@@ -3244,7 +3250,7 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         orders: { select: { orderNumber: true } },
         order_items: {
           select: {
-            styles: { select: { styleCode: true, styleName: true } },
+            styles: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
           },
         },
       },
@@ -3328,6 +3334,7 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         colorName: string | null;
         styleName: string | null;
         styleCode: string | null;
+        buyerStyleRef: string | null;
         orderNumber: string | null;
         processingType: string | null;
         componentName: string | null;
@@ -3354,6 +3361,7 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
           colorName: req.colorName || null,
           styleName: (req as any).order_items?.styles?.styleName || null,
           styleCode: (req as any).order_items?.styles?.styleCode || null,
+          buyerStyleRef: (req as any).order_items?.styles?.buyerStyleRef ?? null,
           orderNumber: (req as any).orders?.orderNumber || null,
           processingType: req.printingType || (req.requirementType === 'PROCESSING' ? 'DYEING' : null),
           componentName: req.componentName || null,
@@ -3435,6 +3443,7 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         colorName: mg.colorName,
         styleName: mg.styleName,
         styleCode: mg.styleCode,
+        buyerStyleRef: mg.buyerStyleRef ?? null,
         orderNumber: mg.orderNumber,
         processingType: mg.processingType,
         componentName: mg.componentName,

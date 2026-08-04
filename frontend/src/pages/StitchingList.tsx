@@ -352,6 +352,7 @@ export default function StitchingList() {
                       <TableHead>Issue #</TableHead>
                       <TableHead>Work Order</TableHead>
                       <TableHead>Style</TableHead>
+                      <TableHead>Buyer Ref</TableHead>
                       <TableHead>Contractor</TableHead>
                       <TableHead>Start Date</TableHead>
                       <TableHead>End Date</TableHead>
@@ -373,6 +374,9 @@ export default function StitchingList() {
                               {issue.workOrder?.style?.styleName || ''}
                             </div>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">{issue.workOrder?.style?.buyerStyleRef || '—'}</span>
                         </TableCell>
                         <TableCell>{issue.contractor?.name || issue.manager?.name || '-'}</TableCell>
                         <TableCell>
@@ -508,6 +512,14 @@ export default function StitchingList() {
                               {' — '}
                               <span>{slip.styleCode}</span>
                               {slip.styleName && ` (${slip.styleName})`}
+                              {slip.buyerStyleRef && (
+                                <>
+                                  {' • '}
+                                  <span>
+                                    Buyer Ref: <span className="font-medium text-foreground">{slip.buyerStyleRef}</span>
+                                  </span>
+                                </>
+                              )}
                             </div>
                             <div className="text-xs text-muted-foreground mt-0.5">
                               Transferred: {format(new Date(slip.transferDate), 'dd MMM yyyy')}
@@ -580,6 +592,11 @@ export default function StitchingList() {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-base font-semibold">{item.styleCode}</span>
+                        {item.buyerStyleRef && (
+                          <span className="text-sm text-muted-foreground">
+                            Buyer Ref: <span className="font-medium text-foreground">{item.buyerStyleRef}</span>
+                          </span>
+                        )}
                         {item.styleName && <span className="text-sm text-muted-foreground">{item.styleName}</span>}
                         <span className="text-sm text-muted-foreground">({item.workOrderNumber})</span>
                         {item.customerName && (

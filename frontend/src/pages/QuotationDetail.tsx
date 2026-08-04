@@ -352,7 +352,8 @@ export default function QuotationDetail() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[5%]">#</TableHead>
-                  <TableHead className="w-[25%]">Style</TableHead>
+                  <TableHead className="w-[20%]">Style</TableHead>
+                  <TableHead className="w-[10%]">Buyer Ref</TableHead>
                   <TableHead className="w-[10%]">HSN</TableHead>
                   <TableHead className="text-right w-[10%]">Qty</TableHead>
                   <TableHead className="text-right w-[12%]">Unit Price</TableHead>
@@ -372,13 +373,13 @@ export default function QuotationDetail() {
                       <TableCell>
                         <div className="font-medium">
                           {item.style?.styleCode}
-                          {item.style?.buyerStyleRef && ` (${item.style.buyerStyleRef})`}
                           {' - '}
                           {item.style?.styleName}
                         </div>
                         {item.description && <div className="text-xs text-muted-foreground">{item.description}</div>}
                         {item.remarks && <div className="text-xs text-muted-foreground italic">{item.remarks}</div>}
                       </TableCell>
+                      <TableCell>{item.style?.buyerStyleRef || '—'}</TableCell>
                       <TableCell className="text-xs">{item.hsnCode || '-'}</TableCell>
                       <TableCell className="text-right">{item.totalQuantity.toLocaleString()}</TableCell>
                       <TableCell className="text-right">{formatCurrency(Number(item.unitPrice))}</TableCell>

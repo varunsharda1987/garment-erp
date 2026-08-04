@@ -220,6 +220,7 @@ export interface JobWorkOrder {
     id: string;
     styleCode: string;
     styleName: string;
+    buyerStyleRef?: string | null;
   };
   fabric?: {
     id: string;

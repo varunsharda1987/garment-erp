@@ -305,6 +305,7 @@ export interface FinishingStyleSizeSummaryItem {
   workOrderNumber: string;
   styleCode: string;
   styleName: string;
+  buyerStyleRef?: string | null;
   customerName: string;
   orderNumber: string;
   daysInCutting: number;
@@ -328,6 +329,7 @@ export interface FinishingIncomingTransferSlip {
   workOrderNumber: string;
   styleCode: string;
   styleName: string;
+  buyerStyleRef?: string | null;
   totalGoodPieces: number;
   transferDate: string;
   issuedTo: string | null;

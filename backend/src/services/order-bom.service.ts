@@ -146,6 +146,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
         },
       },
@@ -181,6 +182,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
         },
       },

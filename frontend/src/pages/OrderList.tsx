@@ -256,14 +256,21 @@ export default function OrderList() {
       key: 'styles',
       header: 'Style(s)',
       render: (order) => {
-        const styleCodes = (order.orderItems?.map((item) => item.style?.styleCode).filter(Boolean) as string[]) || [];
-        const unique = [...new Set(styleCodes)];
+        const uniqueByCode = new Map<string, { code: string; ref?: string | null }>();
+        for (const item of order.orderItems || []) {
+          const code = item.style?.styleCode;
+          if (code && !uniqueByCode.has(code)) {
+            uniqueByCode.set(code, { code, ref: item.style?.buyerStyleRef });
+          }
+        }
+        const unique = [...uniqueByCode.values()];
         if (unique.length === 0) return <span className="text-xs text-muted-foreground">-</span>;
         return (
           <div className="flex flex-wrap gap-1">
-            {unique.map((code) => (
+            {unique.map(({ code, ref }) => (
               <span key={code} className="text-xs bg-muted text-foreground px-1.5 py-0.5 rounded">
                 {code}
+                {ref ? ` (${ref})` : ''}
               </span>
             ))}
           </div>

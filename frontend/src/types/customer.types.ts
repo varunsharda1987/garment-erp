@@ -39,6 +39,8 @@ export interface BrandCategory {
   category: string;
   subCategory?: string | null;
   subSubCategory?: string | null;
+  productCategoryId?: string | null;
+  styleCodePrefix?: string | null; // Prefix for auto-generating style codes (e.g., "EBW")
   createdAt: string;
   updatedAt: string;
 }
@@ -143,6 +145,7 @@ export interface BrandCategoryInput {
   brandName: string;
   categories: string[];
   productCategoryIds?: (string | null)[];
+  styleCodePrefixes?: string[]; // Prefixes for auto-generating style codes (e.g., "EBW")
 }
 
 export interface GstNumberInput {

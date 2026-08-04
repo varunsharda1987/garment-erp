@@ -90,6 +90,7 @@ class OrderProductionStatusService {
           { styles: { styleCode: { contains: search, mode: 'insensitive' } } },
           { styles: { styleName: { contains: search, mode: 'insensitive' } } },
           { styles: { internalCode: { contains: search, mode: 'insensitive' } } },
+          { styles: { buyerStyleRef: { contains: search, mode: 'insensitive' } } },
           { orders: { orderNumber: { contains: search, mode: 'insensitive' } } },
           { orders: { customers: { name: { contains: search, mode: 'insensitive' } } } },
         ];
@@ -452,6 +453,7 @@ class OrderProductionStatusService {
       // Style Reference
       styleId: style?.id || null,
       styleCode: style?.styleCode || 'N/A',
+      buyerStyleRef: style?.buyerStyleRef ?? null,
       styleName: style?.styleName || 'N/A',
       internalCode: style?.internalCode || null,
       imageUrl: style?.imageUrl || style?.image || null,

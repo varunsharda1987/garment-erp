@@ -751,7 +751,10 @@ function MaterialRequirementsTab({
                         <div>
                           <div className="text-sm font-medium">{req.orderItem?.styleName || '-'}</div>
                           {req.orderItem?.styleCode && (
-                            <div className="text-xs text-muted-foreground">{req.orderItem.styleCode}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {req.orderItem?.styleCode}
+                              {req.orderItem?.buyerStyleRef ? ` (${req.orderItem.buyerStyleRef})` : ''}
+                            </div>
                           )}
                         </div>
                       </TableCell>
@@ -1019,6 +1022,7 @@ interface OutsourcedRow {
   rowKey: string; // prefixed: 'proc-{id}' or 'svc-{id}'
   source: 'PROCESSING' | 'SERVICE';
   style: string; // Style code or name
+  buyerStyleRef?: string | null;
   workType: string; // e.g. "Dyeing", "Embroidery"
   printingType?: string | null; // e.g. PIGMENT, PROCIAN, DISCHARGE
   reference: string; // Order # or Work Order #
@@ -1496,6 +1500,7 @@ function OutsourcedWorkTab({
           rowKey: `proc-${req.id}`,
           source: 'PROCESSING',
           style: req.orderItem?.styleName || '-',
+          buyerStyleRef: req.orderItem?.buyerStyleRef ?? null,
           workType: req.material?.name || 'Processing',
           printingType: req.printingType || null,
           reference: req.order?.orderNumber || '-',
@@ -1526,6 +1531,7 @@ function OutsourcedWorkTab({
           rowKey: `svc-${req.id}`,
           source: 'SERVICE',
           style: req.workOrder?.style?.styleCode || req.workOrder?.style?.styleName || '-',
+          buyerStyleRef: req.workOrder?.style?.buyerStyleRef ?? null,
           workType: ServiceTypeLabels[req.serviceType] || req.serviceType,
           reference: req.workOrder?.workOrderNumber || '-',
           referenceLink: req.workOrderId ? `/production/work-orders/${req.workOrderId}` : undefined,
@@ -1833,6 +1839,7 @@ function OutsourcedWorkTab({
                 </TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Style</TableHead>
+                <TableHead>Buyer Ref</TableHead>
                 {sourceFilter !== 'service' && <TableHead>Component</TableHead>}
                 {sourceFilter !== 'service' && <TableHead>Color</TableHead>}
                 {sourceFilter !== 'service' && <TableHead>Width</TableHead>}
@@ -1850,7 +1857,7 @@ function OutsourcedWorkTab({
               {isLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={sourceFilter === 'service' ? 9 : 14}
+                    colSpan={sourceFilter === 'service' ? 10 : 15}
                     className="text-center py-12 text-muted-foreground"
                   >
                     Loading outsourced work items...
@@ -1859,7 +1866,7 @@ function OutsourcedWorkTab({
               ) : rows.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={sourceFilter === 'service' ? 9 : 14}
+                    colSpan={sourceFilter === 'service' ? 10 : 15}
                     className="text-center py-12 text-muted-foreground"
                   >
                     No outsourced work items found
@@ -1890,6 +1897,9 @@ function OutsourcedWorkTab({
                     </TableCell>
                     <TableCell>
                       <span className="text-sm font-medium">{row.style}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">{row.buyerStyleRef || '—'}</span>
                     </TableCell>
                     {sourceFilter !== 'service' && (
                       <TableCell>

@@ -37,6 +37,7 @@ export interface CADPlanningStyle {
   id: string;
   styleCode: string;
   styleName: string;
+  buyerStyleRef?: string | null;
   cadStatus: 'PENDING' | 'IN_PROGRESS' | 'APPROVED';
   approvedCadDate: string | null;
   imageUrl: string | null;

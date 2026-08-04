@@ -552,6 +552,7 @@ export interface CuttingStyleSizeSummaryItem {
   workOrderNumber: string;
   styleCode: string;
   styleName: string;
+  buyerStyleRef?: string | null;
   customerName: string;
   orderNumber: string;
   daysInCutting: number;

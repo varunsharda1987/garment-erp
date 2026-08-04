@@ -1210,6 +1210,7 @@ export const getAvailableWorkOrders = async (req: Request, res: Response) => {
         workOrderNumber: wo.workOrderNumber,
         styleId: wo.styleId,
         styleCode: wo.styles?.styleCode || '',
+        buyerStyleRef: wo.styles?.buyerStyleRef ?? null,
         styleName: wo.styles?.styleName || '',
         orderQty: wo.totalQuantity,
         cutQty,
@@ -1289,6 +1290,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           imageUrl: true,
           brandName: true,
@@ -1948,6 +1950,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     buyer: workOrder.orders?.customers?.name || '',
     brand: workOrder.styles?.brandName || workOrder.orders?.customers?.brandNames || '',
     style: workOrder.styles?.styleCode || '',
+    buyerStyleRef: workOrder.styles?.buyerStyleRef ?? null,
     styleName: workOrder.styles?.styleName || '',
     styleImage: workOrder.styles?.imageUrl || '',
     workOrderNumber: workOrder.workOrderNumber,
@@ -2009,7 +2012,7 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
     include: {
       workOrder: {
         include: {
-          styles: { select: { id: true, styleCode: true, styleName: true } },
+          styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
           orders: {
             include: {
               customers: { select: { id: true, name: true } },
@@ -2033,6 +2036,7 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
       workOrderId: string;
       workOrderNumber: string;
       styleCode: string;
+      buyerStyleRef: string | null;
       styleName: string;
       customerName: string;
       orderNumber: string;
@@ -2053,6 +2057,7 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
         workOrderId: woId,
         workOrderNumber: batch.workOrder?.workOrderNumber || '',
         styleCode: (batch.workOrder as any)?.styles?.styleCode || '',
+        buyerStyleRef: (batch.workOrder as any)?.styles?.buyerStyleRef ?? null,
         styleName: (batch.workOrder as any)?.styles?.styleName || '',
         customerName: (batch.workOrder as any)?.orders?.customers?.name || '',
         orderNumber: (batch.workOrder as any)?.orders?.orderNumber || '',
@@ -2129,6 +2134,7 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
       workOrderId: wo.workOrderId,
       workOrderNumber: wo.workOrderNumber,
       styleCode: wo.styleCode,
+      buyerStyleRef: wo.buyerStyleRef,
       styleName: wo.styleName,
       customerName: wo.customerName,
       orderNumber: wo.orderNumber,

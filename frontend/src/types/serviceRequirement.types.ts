@@ -88,6 +88,7 @@ export interface WorkOrderSummary {
     id: string;
     styleCode: string;
     styleName: string;
+    buyerStyleRef?: string | null;
   };
 }
 

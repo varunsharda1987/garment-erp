@@ -90,6 +90,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
   protected buildSearchFilter(search: string): SearchFilter {
     return [
       { styleCode: { contains: search, mode: 'insensitive' as const } },
+      { buyerStyleRef: { contains: search, mode: 'insensitive' as const } },
       { styleName: { contains: search, mode: 'insensitive' as const } },
       { customerName: { contains: search, mode: 'insensitive' as const } },
       { brandName: { contains: search, mode: 'insensitive' as const } },
@@ -183,17 +184,17 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
    * @param productCategoryId - Product category UUID (optional, uses 'GEN' if not provided)
    * @returns Generated style code
    */
-  async generateStyleCode(customerId?: string | null, productCategoryId?: string | null): Promise<string> {
+  async generateStyleCode(brandCategoryId?: string | null, productCategoryId?: string | null): Promise<string> {
     // allow-count-numbering: Style codes are display-only; race collisions hit unique constraint and user retries
-    // Get customer prefix (e.g., "EBW")
-    let buyerPrefix = 'STY';
-    if (customerId) {
-      const customer = await this.prisma.customers.findUnique({
-        where: { id: customerId },
-        select: { styleCodePrefix: true, name: true },
+    // Get brand prefix from brand_categories (e.g., "EBW" for Easybuy Westernwear)
+    let brandPrefix = 'STY';
+    if (brandCategoryId) {
+      const brandCategory = await this.prisma.brand_categories.findUnique({
+        where: { id: brandCategoryId },
+        select: { styleCodePrefix: true, brandName: true },
       });
-      if (customer?.styleCodePrefix) {
-        buyerPrefix = customer.styleCodePrefix.toUpperCase();
+      if (brandCategory?.styleCodePrefix) {
+        brandPrefix = brandCategory.styleCodePrefix.toUpperCase();
       }
     }
 
@@ -213,7 +214,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     }
 
     // Build the prefix
-    const prefix = `${buyerPrefix}${catPrefix}`;
+    const prefix = `${brandPrefix}${catPrefix}`;
 
     // Get next sequence for this prefix combination
     const lastStyle = await this.prisma.styles.findFirst({
@@ -237,25 +238,27 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
   /**
    * Get the next style code preview (for frontend display before save)
+   * @param brandCategoryId - The brand category ID (determines brand prefix like "EBW")
+   * @param productCategoryId - The product category ID (determines category prefix like "KUR")
    */
   async getNextStyleCode(
-    customerId?: string | null,
+    brandCategoryId?: string | null,
     productCategoryId?: string | null
   ): Promise<{
     nextCode: string;
-    buyerPrefix: string;
+    brandPrefix: string;
     categoryPrefix: string;
   }> {
-    let buyerPrefix = 'STY';
+    let brandPrefix = 'STY';
     let categoryPrefix = '';
 
-    if (customerId) {
-      const customer = await this.prisma.customers.findUnique({
-        where: { id: customerId },
+    if (brandCategoryId) {
+      const brandCategory = await this.prisma.brand_categories.findUnique({
+        where: { id: brandCategoryId },
         select: { styleCodePrefix: true },
       });
-      if (customer?.styleCodePrefix) {
-        buyerPrefix = customer.styleCodePrefix.toUpperCase();
+      if (brandCategory?.styleCodePrefix) {
+        brandPrefix = brandCategory.styleCodePrefix.toUpperCase();
       }
     }
 
@@ -271,9 +274,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       }
     }
 
-    const nextCode = await this.generateStyleCode(customerId, productCategoryId);
+    const nextCode = await this.generateStyleCode(brandCategoryId, productCategoryId);
 
-    return { nextCode, buyerPrefix, categoryPrefix };
+    return { nextCode, brandPrefix, categoryPrefix };
   }
 
   /**
@@ -307,22 +310,14 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // Auto-generate style code if not provided
     let styleCode = data.styleCode;
     if (!styleCode) {
-      // Look up customer ID from customerName if needed
-      let customerId: string | null = null;
-      if (data.customerName) {
-        const customer = await this.prisma.customers.findFirst({
-          where: { name: { equals: data.customerName, mode: 'insensitive' } },
-          select: { id: true },
-        });
-        customerId = customer?.id || null;
-      }
-      styleCode = await this.generateStyleCode(customerId, data.productCategoryId);
+      // Use brandCategoryId for style code generation (prefix comes from brand_categories)
+      styleCode = await this.generateStyleCode(data.brandCategoryId, data.productCategoryId);
       logDebug('Auto-generated style code', { styleCode });
     }
 
-    // Validation
-    if (!styleCode || !data.styleName) {
-      throw new ValidationError('styleName is required (styleCode is auto-generated if not provided)');
+    // Validation - only styleCode is required (and it's auto-generated)
+    if (!styleCode) {
+      throw new ValidationError('styleCode is required (auto-generated if not provided)');
     }
     if (data.status !== 'DRAFT' && !data.customerName) {
       throw new ValidationError('Customer name is required for non-draft styles');
@@ -1057,7 +1052,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
    * Get styles by style codes (for multi-select components)
    * Returns minimal data needed for selection
    */
-  async getByStyleCodes(codes: string[]): Promise<{ id: string; styleCode: string; styleName: string }[]> {
+  async getByStyleCodes(
+    codes: string[]
+  ): Promise<{ id: string; styleCode: string; buyerStyleRef: string | null; styleName: string }[]> {
     if (codes.length === 0) return [];
 
     const styles = await this.prisma.styles.findMany({
@@ -1068,6 +1065,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       select: {
         id: true,
         styleCode: true,
+        buyerStyleRef: true,
         styleName: true,
       },
     });

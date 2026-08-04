@@ -23,6 +23,7 @@ const transformFinishingIssue = (issue: any) => ({
           ? {
               id: issue.workOrder.styles.id,
               styleCode: issue.workOrder.styles.styleCode,
+              buyerStyleRef: issue.workOrder.styles.buyerStyleRef ?? null,
               styleName: issue.workOrder.styles.styleName,
             }
           : null,
@@ -1005,7 +1006,7 @@ export const getAvailableTransferSlips = async (req: Request, res: Response) => 
     include: {
       workOrder: {
         include: {
-          styles: { select: { id: true, styleCode: true, styleName: true } },
+          styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
         },
       },
       issuedTo: { select: { id: true, name: true } },
@@ -1026,6 +1027,7 @@ export const getAvailableTransferSlips = async (req: Request, res: Response) => 
       workOrderId: slip.workOrderId,
       workOrderNumber: slip.workOrder?.workOrderNumber || '',
       styleCode: (slip.workOrder as any)?.styles?.styleCode || '',
+      buyerStyleRef: (slip.workOrder as any)?.styles?.buyerStyleRef ?? null,
       styleName: (slip.workOrder as any)?.styles?.styleName || '',
       totalGoodPieces: slip.totalGoodPieces,
       transferDate: slip.transferDate,
@@ -1075,7 +1077,7 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
     include: {
       workOrder: {
         include: {
-          styles: { select: { id: true, styleCode: true, styleName: true } },
+          styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
           orders: {
             include: {
               customers: { select: { id: true, name: true } },
@@ -1099,6 +1101,7 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
       workOrderId: string;
       workOrderNumber: string;
       styleCode: string;
+      buyerStyleRef: string | null;
       styleName: string;
       customerName: string;
       orderNumber: string;
@@ -1119,6 +1122,7 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
         workOrderId: woId,
         workOrderNumber: issue.workOrder?.workOrderNumber || '',
         styleCode: (issue.workOrder as any)?.styles?.styleCode || '',
+        buyerStyleRef: (issue.workOrder as any)?.styles?.buyerStyleRef ?? null,
         styleName: (issue.workOrder as any)?.styles?.styleName || '',
         customerName: (issue.workOrder as any)?.orders?.customers?.name || '',
         orderNumber: (issue.workOrder as any)?.orders?.orderNumber || '',
@@ -1239,6 +1243,7 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
       workOrderId: wo.workOrderId,
       workOrderNumber: wo.workOrderNumber,
       styleCode: wo.styleCode,
+      buyerStyleRef: wo.buyerStyleRef,
       styleName: wo.styleName,
       customerName: wo.customerName,
       orderNumber: wo.orderNumber,

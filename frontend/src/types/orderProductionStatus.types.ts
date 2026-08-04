@@ -137,6 +137,7 @@ export interface OrderStatusItem {
   styleId: string | null;
   styleCode: string;
   styleName: string;
+  buyerStyleRef?: string | null;
   internalCode: string | null;
   imageUrl: string | null;
   brandName: string | null;

@@ -43,8 +43,8 @@ export function StyleCombobox({ value, onChange, disabled, placeholder, status =
       // Transform to combobox options
       const opts: ComboboxOption[] = styles.map((s) => ({
         value: s.id,
-        label: `${s.styleCode} - ${s.styleName} (${s.customerName || 'No customer'})`,
-        searchText: `${s.styleCode} ${s.styleName} ${s.customerName || ''}`,
+        label: `${s.styleCode}${s.buyerStyleRef ? ` (${s.buyerStyleRef})` : ''} - ${s.styleName} (${s.customerName || 'No customer'})`,
+        searchText: `${s.styleCode} ${s.buyerStyleRef || ''} ${s.styleName} ${s.customerName || ''}`,
       }));
       setOptions(opts);
     } catch (error) {
@@ -79,8 +79,8 @@ export function StyleCombobox({ value, onChange, disabled, placeholder, status =
           // Add to options
           const newOption: ComboboxOption = {
             value: style.id,
-            label: `${style.styleCode} - ${style.styleName} (${style.customerName || 'No customer'})`,
-            searchText: `${style.styleCode} ${style.styleName} ${style.customerName || ''}`,
+            label: `${style.styleCode}${style.buyerStyleRef ? ` (${style.buyerStyleRef})` : ''} - ${style.styleName} (${style.customerName || 'No customer'})`,
+            searchText: `${style.styleCode} ${style.buyerStyleRef || ''} ${style.styleName} ${style.customerName || ''}`,
           };
           setOptions((prev) => {
             // Avoid duplicates

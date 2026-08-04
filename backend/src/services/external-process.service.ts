@@ -222,7 +222,7 @@ class ExternalProcessService {
           supplier: { select: { name: true } },
           purchaseOrder: { select: { poNumber: true } },
           order: { select: { orderNumber: true } },
-          style: { select: { styleCode: true, styleName: true } },
+          style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
         },
       });
 
@@ -402,7 +402,7 @@ class ExternalProcessService {
           supplier: { select: { name: true } },
           purchaseOrder: { select: { poNumber: true } },
           order: { select: { orderNumber: true } },
-          style: { select: { styleCode: true, styleName: true } },
+          style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
           skuBreakdown: true,
         },
       });
@@ -676,7 +676,7 @@ class ExternalProcessService {
           supplier: { select: { name: true, code: true } },
           purchaseOrder: { select: { poNumber: true } },
           order: { select: { orderNumber: true } },
-          style: { select: { styleCode: true, styleName: true } },
+          style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
           embroidery: { select: { designName: true, embroideryCode: true } },
           skuBreakdown: {
             include: {
@@ -715,7 +715,7 @@ class ExternalProcessService {
         supplier: { select: { name: true, code: true, phone: true } },
         purchaseOrder: { select: { poNumber: true, poCategory: true, status: true } },
         order: { select: { orderNumber: true } },
-        style: { select: { styleCode: true, styleName: true } },
+        style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
         embroidery: { select: { designName: true, embroideryCode: true } },
         serviceRequirement: { select: { serviceType: true, status: true, quantityRequired: true } },
         skuBreakdown: {
@@ -818,7 +818,7 @@ class ExternalProcessService {
         workOrder: { select: { workOrderNumber: true, totalQuantity: true } },
         supplier: { select: { name: true, code: true } },
         order: { select: { orderNumber: true } },
-        style: { select: { styleCode: true, styleName: true } },
+        style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
         skuBreakdown: true,
       },
       orderBy: { sendDate: 'desc' },

@@ -173,6 +173,7 @@ export interface POPreviewItem {
   colorName?: string | null;
   styleName?: string | null;
   styleCode?: string | null;
+  buyerStyleRef?: string | null;
   orderNumber?: string | null;
   processingType?: string | null;
   componentName?: string | null;
@@ -302,6 +303,7 @@ export interface MaterialRequirementResponse {
     id: string;
     styleId: string;
     styleCode?: string;
+    buyerStyleRef?: string | null;
     styleName?: string;
     totalQuantity: number;
   } | null;

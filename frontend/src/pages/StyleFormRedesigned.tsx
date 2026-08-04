@@ -939,30 +939,31 @@ export default function StyleFormRedesigned() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandName, selectedCustomerId, customers]);
 
-  // Auto-generate style code when customer + product category are selected (create mode only)
+  // Auto-generate style code when brand category + product category are selected (create mode only)
   useEffect(() => {
     // Only auto-generate in create mode, not edit mode
     if (isEditMode) return;
     // Skip during initial load
-    if (!initialLoadCompleteRef.current && !selectedCustomerId) return;
+    if (!initialLoadCompleteRef.current && !brandCategoryId) return;
 
-    // Need both customer and product category to generate code
-    if (selectedCustomerId && productCategoryId) {
+    // Need both brand category and product category to generate code
+    // Brand category determines the brand prefix (e.g., "EBW" for Easybuy Westernwear)
+    if (brandCategoryId && productCategoryId) {
       const generateCode = async () => {
         try {
-          const result = await styleService.getNextStyleCode(selectedCustomerId, productCategoryId);
+          const result = await styleService.getNextStyleCode(brandCategoryId, productCategoryId);
           setStyleCode(result.nextCode);
         } catch (error) {
           console.error('Failed to generate style code:', error);
         }
       };
       generateCode();
-    } else if (!selectedCustomerId && !productCategoryId) {
+    } else if (!brandCategoryId && !productCategoryId) {
       // Reset if both are cleared
       setStyleCode('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCustomerId, productCategoryId, isEditMode]);
+  }, [brandCategoryId, productCategoryId, isEditMode]);
 
   const loadCustomers = async () => {
     try {
@@ -2509,43 +2510,7 @@ export default function StyleFormRedesigned() {
 
                 {/* Right Column: Form Fields */}
                 <div className="grid grid-cols-2 gap-4 content-start">
-                  {/* Row 1: Style Code, Style Name, Buyer Reference */}
-                  <div>
-                    <Label>Style Code {isEditMode ? '' : '(Auto-generated)'}</Label>
-                    <Input
-                      value={styleCode}
-                      onChange={(e) => isEditMode && setStyleCode(e.target.value)}
-                      placeholder="Select customer + category"
-                      readOnly={!isEditMode}
-                      className={!isEditMode ? 'bg-muted' : ''}
-                    />
-                    {!isEditMode && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Generated from customer prefix + category prefix
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>Style Name</Label>
-                    <Input
-                      value={styleName}
-                      onChange={(e) => setStyleName(e.target.value)}
-                      placeholder="Summer Dress"
-                    />
-                  </div>
-                  <div>
-                    <Label>Buyer Reference</Label>
-                    <Input
-                      value={buyerStyleRef}
-                      onChange={(e) => setBuyerStyleRef(e.target.value)}
-                      placeholder="Buyer's style number"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Buyer's own reference number (shows on documents)
-                    </p>
-                  </div>
-
-                  {/* Row 2: Customer/Buyer, Brand */}
+                  {/* Row 1: Customer/Buyer, Brand - MUST BE SELECTED FIRST for style code generation */}
                   <div>
                     <Label>Customer/Buyer *</Label>
                     <Select value={selectedCustomerId} onValueChange={handleCustomerChange}>
@@ -2587,7 +2552,7 @@ export default function StyleFormRedesigned() {
                     )}
                   </div>
 
-                  {/* Row 3: Brand Category, Product Category */}
+                  {/* Row 2: Brand Category, Product Category - Brand Category determines style code prefix */}
                   <div>
                     <Label>Brand Category</Label>
                     <Select
@@ -2722,7 +2687,46 @@ export default function StyleFormRedesigned() {
                     })()}
                   </div>
 
-                  {/* Row 4: Season, Number of Components */}
+                  {/* Row 3: Style Code (Auto-generated), Style Name */}
+                  <div>
+                    <Label>Style Code {isEditMode ? '' : '(Auto-generated)'}</Label>
+                    <Input
+                      value={styleCode}
+                      onChange={(e) => isEditMode && setStyleCode(e.target.value)}
+                      placeholder="Select brand + category above"
+                      readOnly={!isEditMode}
+                      className={!isEditMode ? 'bg-muted' : ''}
+                    />
+                    {!isEditMode && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Generated from brand prefix + category prefix
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>Style Name</Label>
+                    <Input
+                      value={styleName}
+                      onChange={(e) => setStyleName(e.target.value)}
+                      placeholder="Summer Dress (optional)"
+                    />
+                  </div>
+
+                  {/* Row 4: Buyer Reference (full row for clarity) */}
+                  <div className="col-span-2">
+                    <Label>Buyer Reference *</Label>
+                    <Input
+                      value={buyerStyleRef}
+                      onChange={(e) => setBuyerStyleRef(e.target.value)}
+                      placeholder="Buyer's style number"
+                      className="max-w-md"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Buyer's own reference number (shows on all documents)
+                    </p>
+                  </div>
+
+                  {/* Row 5: Season, Number of Components */}
                   <div>
                     <SeasonSelector
                       value={seasonId}

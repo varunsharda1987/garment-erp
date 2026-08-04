@@ -152,6 +152,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
               hsnCode: true,
             },

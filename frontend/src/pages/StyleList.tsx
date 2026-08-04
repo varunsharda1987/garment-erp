@@ -402,6 +402,11 @@ export default function StyleList() {
       ),
     },
     {
+      key: 'buyerStyleRef',
+      header: 'Buyer Ref',
+      render: (style) => <span className="text-sm text-foreground">{style.buyerStyleRef || '—'}</span>,
+    },
+    {
       key: 'buyer',
       header: 'Buyer / Brand',
       render: (style) => (
@@ -611,6 +616,11 @@ export default function StyleList() {
           {style.internalCode && <div className="text-xs text-muted-foreground">{style.internalCode}</div>}
         </div>
       ),
+    },
+    {
+      key: 'buyerStyleRef',
+      header: 'Buyer Ref',
+      render: (style) => <span className="text-sm text-muted-foreground">{style.buyerStyleRef || '—'}</span>,
     },
     {
       key: 'styleName',

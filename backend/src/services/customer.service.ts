@@ -74,6 +74,7 @@ export interface BrandCategoryInput {
   brandName: string;
   categories: string[];
   productCategoryIds?: string[];
+  styleCodePrefixes?: string[]; // Prefixes for auto-generating style codes (e.g., "EBW")
 }
 
 export interface GstNumberInput {
@@ -824,10 +825,12 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
     // Build the new brand category data
     const newBrandCategoryData = brandCategories.flatMap((bc) => {
       const productCategoryIds = bc.productCategoryIds || [];
+      const styleCodePrefixes = bc.styleCodePrefixes || [];
       return bc.categories.map((cat, index) => ({
         brandName: bc.brandName,
         category: cat,
         productCategoryId: productCategoryIds[index] || null,
+        styleCodePrefix: styleCodePrefixes[index] || null,
       }));
     });
 
@@ -876,20 +879,28 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
           brandName: bc.brandName,
           category: bc.category,
           productCategoryId: bc.productCategoryId,
+          styleCodePrefix: bc.styleCodePrefix,
         })),
         skipDuplicates: true,
       });
     }
 
-    // Update existing categories if productCategoryId changed
+    // Update existing categories if productCategoryId or styleCodePrefix changed
     for (const bc of newBrandCategoryData) {
       const key = `${bc.brandName}|${bc.category}`;
       const existing = existingMap.get(key);
-      if (existing && existing.productCategoryId !== bc.productCategoryId) {
-        await this.prisma.brand_categories.update({
-          where: { id: existing.id },
-          data: { productCategoryId: bc.productCategoryId },
-        });
+      if (existing) {
+        const needsUpdate =
+          existing.productCategoryId !== bc.productCategoryId || existing.styleCodePrefix !== bc.styleCodePrefix;
+        if (needsUpdate) {
+          await this.prisma.brand_categories.update({
+            where: { id: existing.id },
+            data: {
+              productCategoryId: bc.productCategoryId,
+              styleCodePrefix: bc.styleCodePrefix,
+            },
+          });
+        }
       }
     }
   }
@@ -897,12 +908,14 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
   private async createBrandCategories(customerId: string, brandCategories: BrandCategoryInput[]): Promise<void> {
     const brandCategoryData = brandCategories.flatMap((bc) => {
       const productCategoryIds = bc.productCategoryIds || [];
+      const styleCodePrefixes = bc.styleCodePrefixes || [];
 
       return bc.categories.map((cat, index) => ({
         customerId,
         brandName: bc.brandName,
         category: cat,
         productCategoryId: productCategoryIds[index] || null, // Link to product category if available
+        styleCodePrefix: styleCodePrefixes[index] || null, // Prefix for style code auto-generation
       }));
     });
 

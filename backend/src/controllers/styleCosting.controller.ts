@@ -232,6 +232,7 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           categoryId: true,
         },
@@ -474,6 +475,7 @@ export const getAllCostSheets = async (req: Request, res: Response): Promise<voi
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           categoryId: true,
         },
@@ -543,6 +545,7 @@ export const getCostSheetById = async (req: Request, res: Response): Promise<voi
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           categoryId: true,
         },
@@ -607,6 +610,7 @@ export const getCostSheetByStyle = async (req: Request, res: Response): Promise<
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           categoryId: true,
         },
@@ -656,6 +660,7 @@ export const getCostSheetsGroupedByWidth = async (req: Request, res: Response): 
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           categoryId: true,
         },
@@ -866,6 +871,7 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           categoryId: true,
         },

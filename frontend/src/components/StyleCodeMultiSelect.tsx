@@ -22,6 +22,7 @@ interface StyleOption {
   id: string;
   styleCode: string;
   styleName?: string;
+  buyerStyleRef?: string | null;
 }
 
 interface StyleCodeMultiSelectProps {
@@ -79,6 +80,7 @@ export function StyleCodeMultiSelect({
         id: style.id,
         styleCode: style.styleCode,
         styleName: style.styleName,
+        buyerStyleRef: style.buyerStyleRef,
       }));
       setOptions(styleOptions);
     } catch (err) {
@@ -200,6 +202,7 @@ export function StyleCodeMultiSelect({
           {selectedStyles.map((style) => (
             <Badge key={style.styleCode} variant="secondary" className="flex items-center gap-1 px-2 py-1 text-xs">
               <span className="font-medium">{style.styleCode}</span>
+              {style.buyerStyleRef && <span className="text-muted-foreground">({style.buyerStyleRef})</span>}
               {style.styleName && (
                 <span className="text-muted-foreground max-w-[100px] truncate">- {style.styleName}</span>
               )}
@@ -265,6 +268,9 @@ export function StyleCodeMultiSelect({
                   >
                     <div>
                       <span className="font-medium text-sm">{style.styleCode}</span>
+                      {style.buyerStyleRef && (
+                        <span className="text-muted-foreground text-sm ml-1">({style.buyerStyleRef})</span>
+                      )}
                       {style.styleName && (
                         <span className="text-muted-foreground text-sm ml-2">- {style.styleName}</span>
                       )}

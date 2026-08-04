@@ -103,7 +103,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
     // 0. Style must be published (ACTIVE status)
     const style = await prisma.styles.findUnique({
       where: { id: item.styleId },
-      select: { status: true, styleCode: true },
+      select: { status: true, styleCode: true, buyerStyleRef: true },
     });
 
     if (!style || style.status !== 'ACTIVE') {
@@ -253,6 +253,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
               image: true,
             },
@@ -458,7 +459,7 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
             id: true,
             styleId: true,
             styles: {
-              select: { id: true, styleCode: true },
+              select: { id: true, styleCode: true, buyerStyleRef: true },
             },
           },
         },
@@ -904,6 +905,7 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
             },
           },
@@ -1065,7 +1067,7 @@ export const getOrderLaceAllocations = async (req: Request, res: Response): Prom
         },
       },
       style: {
-        select: { id: true, styleCode: true, styleName: true },
+        select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
       },
     },
     orderBy: { createdAt: 'desc' },

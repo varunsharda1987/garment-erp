@@ -335,12 +335,7 @@ export default function SampleDetail() {
                 <Label className="text-xs text-muted-foreground">Style</Label>
                 {sample.style ? (
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">
-                      {sample.style.styleCode}
-                      {sample.style.buyerStyleRef && (
-                        <span className="text-muted-foreground ml-1">({sample.style.buyerStyleRef})</span>
-                      )}
-                    </span>
+                    <span className="font-medium">{sample.style.styleCode}</span>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -354,6 +349,10 @@ export default function SampleDetail() {
                   <span className="text-muted-foreground">No style linked</span>
                 )}
                 {sample.style && <p className="text-sm text-muted-foreground">{sample.style.styleName}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">Buyer Reference</Label>
+                <p className="font-medium">{sample.style?.buyerStyleRef || '—'}</p>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Customer</Label>

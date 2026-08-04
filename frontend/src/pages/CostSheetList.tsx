@@ -381,6 +381,10 @@ const CostSheetList = () => {
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
+                          <span className="text-muted-foreground">Buyer Ref:</span>
+                          <p className="font-semibold">{sheet.style?.buyerStyleRef || '—'}</p>
+                        </div>
+                        <div>
                           <span className="text-muted-foreground">Material Cost:</span>
                           <p className="font-semibold">₹{sheet.totalMaterialCost.toFixed(2)}</p>
                         </div>

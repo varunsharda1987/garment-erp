@@ -156,6 +156,11 @@ export default function WorkOrderList() {
       ),
     },
     {
+      key: 'buyerStyleRef',
+      header: 'Buyer Ref',
+      render: (wo) => <span className="text-sm">{wo.style?.buyerStyleRef || '—'}</span>,
+    },
+    {
       key: 'location',
       header: 'Location',
       render: (wo) => (

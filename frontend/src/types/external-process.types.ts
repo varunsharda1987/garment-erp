@@ -61,7 +61,7 @@ export interface ExternalProcessSendOut {
   supplier?: { name: string; code?: string; phone?: string };
   purchaseOrder?: { poNumber: string; poCategory?: string; status?: string };
   order?: { orderNumber: string };
-  style?: { styleCode: string; styleName: string };
+  style?: { styleCode: string; styleName: string; buyerStyleRef?: string | null };
   embroidery?: { designName: string; embroideryCode: string };
   serviceRequirement?: { serviceType: string; status: string; quantityRequired: number };
   skuBreakdown?: ExternalProcessSendOutSku[];

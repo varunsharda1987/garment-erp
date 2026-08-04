@@ -194,6 +194,7 @@ export async function getLaceStockById(id: string) {
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
         },
       },
@@ -223,6 +224,7 @@ export async function getLaceStockById(id: string) {
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
             },
           },
@@ -316,6 +318,7 @@ export async function getAllLaceStock(filters: LaceStockFilters = {}) {
           select: {
             id: true,
             styleCode: true,
+            buyerStyleRef: true,
             styleName: true,
           },
         },

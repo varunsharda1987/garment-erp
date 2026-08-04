@@ -123,6 +123,7 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
             },
           },

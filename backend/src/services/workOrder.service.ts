@@ -175,6 +175,7 @@ class WorkOrderService {
           select: {
             id: true,
             styleCode: true,
+            buyerStyleRef: true,
             styleName: true,
             categoryId: true,
           },
@@ -318,6 +319,7 @@ class WorkOrderService {
           select: {
             id: true,
             styleCode: true,
+            buyerStyleRef: true,
             styleName: true,
             categoryId: true,
           },
@@ -409,6 +411,7 @@ class WorkOrderService {
           select: {
             id: true,
             styleCode: true,
+            buyerStyleRef: true,
             styleName: true,
             categoryId: true,
             description: true,
@@ -539,6 +542,7 @@ class WorkOrderService {
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
             },
           },
@@ -578,6 +582,7 @@ class WorkOrderService {
           select: {
             id: true,
             styleCode: true,
+            buyerStyleRef: true,
             styleName: true,
           },
         },
@@ -800,6 +805,7 @@ class WorkOrderService {
             styles: {
               select: {
                 styleCode: true,
+                buyerStyleRef: true,
                 styleName: true,
               },
             },
@@ -825,6 +831,7 @@ class WorkOrderService {
         styles: {
           select: {
             styleCode: true,
+            buyerStyleRef: true,
             styleName: true,
           },
         },
@@ -863,6 +870,7 @@ class WorkOrderService {
         styles: {
           select: {
             styleCode: true,
+            buyerStyleRef: true,
             styleName: true,
           },
         },

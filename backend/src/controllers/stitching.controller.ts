@@ -21,6 +21,7 @@ const transformStitchingIssue = (issue: any) => ({
           ? {
               id: issue.workOrder.styles.id,
               styleCode: issue.workOrder.styles.styleCode,
+              buyerStyleRef: issue.workOrder.styles.buyerStyleRef ?? null,
               styleName: issue.workOrder.styles.styleName,
             }
           : null,
@@ -1015,7 +1016,7 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
     include: {
       workOrder: {
         include: {
-          styles: { select: { id: true, styleCode: true, styleName: true } },
+          styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
           orders: {
             include: {
               customers: { select: { id: true, name: true } },
@@ -1039,6 +1040,7 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
       workOrderId: string;
       workOrderNumber: string;
       styleCode: string;
+      buyerStyleRef: string | null;
       styleName: string;
       customerName: string;
       orderNumber: string;
@@ -1059,6 +1061,7 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
         workOrderId: woId,
         workOrderNumber: issue.workOrder?.workOrderNumber || '',
         styleCode: issue.workOrder?.styles?.styleCode || '',
+        buyerStyleRef: issue.workOrder?.styles?.buyerStyleRef ?? null,
         styleName: issue.workOrder?.styles?.styleName || '',
         customerName: issue.workOrder?.orders?.customers?.name || '',
         orderNumber: issue.workOrder?.orders?.orderNumber || '',
@@ -1161,6 +1164,7 @@ export const getStyleSizeSummary = async (req: Request, res: Response) => {
       workOrderId: wo.workOrderId,
       workOrderNumber: wo.workOrderNumber,
       styleCode: wo.styleCode,
+      buyerStyleRef: wo.buyerStyleRef ?? null,
       styleName: wo.styleName,
       customerName: wo.customerName,
       orderNumber: wo.orderNumber,
@@ -1188,7 +1192,7 @@ export const getAvailableTransferSlips = async (req: Request, res: Response) => 
     include: {
       workOrder: {
         include: {
-          styles: { select: { id: true, styleCode: true, styleName: true } },
+          styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
         },
       },
       skuBreakdown: {
@@ -1209,6 +1213,7 @@ export const getAvailableTransferSlips = async (req: Request, res: Response) => 
       workOrderId: slip.workOrderId,
       workOrderNumber: slip.workOrder?.workOrderNumber || '',
       styleCode: slip.workOrder?.styles?.styleCode || '',
+      buyerStyleRef: slip.workOrder?.styles?.buyerStyleRef ?? null,
       styleName: slip.workOrder?.styles?.styleName || '',
       totalGoodPieces: slip.totalGoodPieces,
       transferDate: slip.transferDate,

@@ -85,6 +85,11 @@ export default function StatusListItem({ item }: StatusListItemProps) {
                 )}
               </div>
               {item.customerName && <p className="text-base text-foreground font-medium mt-1">{item.customerName}</p>}
+              {item.buyerStyleRef && (
+                <p className="text-sm text-muted-foreground">
+                  Buyer Ref: <span className="font-medium text-foreground">{item.buyerStyleRef}</span>
+                </p>
+              )}
               <p className="text-lg font-medium text-foreground mt-1">{item.styleName}</p>
               {item.season && <p className="text-sm text-muted-foreground mt-0.5">{item.season}</p>}
             </div>

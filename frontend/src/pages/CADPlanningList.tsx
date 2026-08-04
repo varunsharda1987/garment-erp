@@ -405,6 +405,7 @@ export default function CADPlanningList() {
                         <TableHead className="w-10"></TableHead>
                         <TableHead className="w-16">Image</TableHead>
                         <TableHead>Style Code</TableHead>
+                        <TableHead>Buyer Ref</TableHead>
                         <TableHead>Buyer / Brand</TableHead>
                         <TableHead>Greige</TableHead>
                         <TableHead className="text-center w-24">Components</TableHead>
@@ -469,6 +470,11 @@ export default function CADPlanningList() {
                                   {style.styleName}
                                 </div>
                               </div>
+                            </TableCell>
+
+                            {/* Buyer Ref */}
+                            <TableCell>
+                              <span className="text-sm">{style.buyerStyleRef || '—'}</span>
                             </TableCell>
 
                             {/* Buyer / Brand */}
@@ -578,7 +584,7 @@ export default function CADPlanningList() {
                           {/* Expanded Row - CAD Details */}
                           {expandedRows.has(style.id) && (
                             <TableRow className="bg-muted/50">
-                              <TableCell colSpan={9} className="p-0">
+                              <TableCell colSpan={10} className="p-0">
                                 <div className="px-12 py-3 border-t border-gray-100">
                                   <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
                                     CAD Width Details

@@ -209,6 +209,9 @@ export default function FabricUsageReport() {
                                         Style Code
                                       </th>
                                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                                        Buyer Ref
+                                      </th>
+                                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                                         Style Name
                                       </th>
                                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
@@ -229,6 +232,9 @@ export default function FabricUsageReport() {
                                     {fabric.styles.map((style, index) => (
                                       <tr key={index}>
                                         <td className="px-4 py-3 text-sm text-foreground">{style.styleCode}</td>
+                                        <td className="px-4 py-3 text-sm text-foreground">
+                                          {style.buyerStyleRef || '—'}
+                                        </td>
                                         <td className="px-4 py-3 text-sm text-muted-foreground">{style.styleName}</td>
                                         <td className="px-4 py-3 text-sm text-muted-foreground">
                                           {style.componentName}

@@ -368,6 +368,7 @@ class ProductionStatusService {
     return {
       styleId: style.id,
       styleCode: style.styleCode,
+      buyerStyleRef: style.buyerStyleRef ?? null,
       internalCode: style.internalCode,
       styleName: style.styleName,
       imageUrl: style.imageUrl || style.image,

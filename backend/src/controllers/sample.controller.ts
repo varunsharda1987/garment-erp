@@ -125,7 +125,7 @@ export const createSample = async (req: Request, res: Response) => {
   if (styleId) {
     style = await prisma.styles.findUnique({
       where: { id: styleId },
-      select: { id: true, styleCode: true, styleName: true },
+      select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true },
     });
     if (!style) {
       throw new NotFoundError('Style', styleId);
@@ -217,7 +217,7 @@ export const createSample = async (req: Request, res: Response) => {
       },
       include: {
         customers: { select: { id: true, code: true, name: true } },
-        styles: { select: { id: true, styleCode: true, styleName: true } },
+        styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
         users: { select: { id: true, firstName: true, lastName: true, email: true } },
         measurements: {
           include: {
@@ -368,7 +368,7 @@ export const getAllSamples = async (req: Request, res: Response) => {
     take: limitNum,
     include: {
       customers: { select: { id: true, code: true, name: true } },
-      styles: { select: { id: true, styleCode: true, styleName: true, customerName: true } },
+      styles: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true, customerName: true } },
       users: { select: { id: true, firstName: true, lastName: true } },
       _count: {
         select: {
@@ -429,6 +429,7 @@ export const getSampleById = async (req: Request, res: Response) => {
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           customerName: true,
           brandName: true,

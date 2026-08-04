@@ -20,6 +20,7 @@ const brandCategorySchema = z.object({
   brandName: z.string().min(1, 'Brand name is required'),
   categories: z.array(z.string()).min(1, 'At least one category is required'),
   productCategoryIds: z.array(z.string().uuid('Invalid product category ID')).optional(),
+  styleCodePrefixes: z.array(z.string().max(5)).optional(), // Prefixes for style code auto-generation (e.g., "EBW")
 });
 
 /**

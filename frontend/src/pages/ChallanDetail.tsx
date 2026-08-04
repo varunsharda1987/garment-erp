@@ -267,11 +267,14 @@ export default function ChallanDetail() {
             {challan.productionRun?.style && (
               <div>
                 <span className="text-muted-foreground">Style:</span> {challan.productionRun.style.styleCode}
-                {challan.productionRun.style.buyerStyleRef && (
-                  <span className="text-muted-foreground"> ({challan.productionRun.style.buyerStyleRef})</span>
-                )}
                 {' - '}
                 {challan.productionRun.style.styleName}
+              </div>
+            )}
+            {challan.productionRun?.style && (
+              <div>
+                <span className="text-muted-foreground">Buyer Ref:</span>{' '}
+                {challan.productionRun.style.buyerStyleRef || '—'}
               </div>
             )}
             {challan.order?.customer && (

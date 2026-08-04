@@ -29,6 +29,7 @@ export const transformCuttingBatch = (batch: any) => ({
           ? {
               id: batch.workOrder.styles.id,
               styleCode: batch.workOrder.styles.styleCode,
+              buyerStyleRef: batch.workOrder.styles.buyerStyleRef ?? null,
               styleName: batch.workOrder.styles.styleName,
             }
           : null,

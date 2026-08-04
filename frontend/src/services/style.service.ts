@@ -64,28 +64,30 @@ export const styleService = {
   /**
    * Get styles by codes (for multi-select components)
    */
-  getStylesByCodes: async (codes: string[]): Promise<{ id: string; styleCode: string; styleName: string }[]> => {
+  getStylesByCodes: async (
+    codes: string[]
+  ): Promise<{ id: string; styleCode: string; styleName: string; buyerStyleRef?: string | null }[]> => {
     if (codes.length === 0) return [];
-    const response = await api.get<{ data: { id: string; styleCode: string; styleName: string }[] }>(
-      `/styles/by-codes?codes=${codes.join(',')}`
-    );
+    const response = await api.get<{
+      data: { id: string; styleCode: string; styleName: string; buyerStyleRef?: string | null }[];
+    }>(`/styles/by-codes?codes=${codes.join(',')}`);
     return response.data.data;
   },
 
   /**
-   * Get next auto-generated style code based on customer and category
+   * Get next auto-generated style code based on brand category and product category
    */
   getNextStyleCode: async (
-    customerId?: string,
+    brandCategoryId?: string,
     productCategoryId?: string
-  ): Promise<{ nextCode: string; buyerPrefix: string; categoryPrefix: string }> => {
+  ): Promise<{ nextCode: string; brandPrefix: string; categoryPrefix: string }> => {
     let url = '/styles/next-code';
     const params: string[] = [];
-    if (customerId) params.push(`customerId=${customerId}`);
+    if (brandCategoryId) params.push(`brandCategoryId=${brandCategoryId}`);
     if (productCategoryId) params.push(`productCategoryId=${productCategoryId}`);
     if (params.length > 0) url += `?${params.join('&')}`;
 
-    const response = await api.get<{ data: { nextCode: string; buyerPrefix: string; categoryPrefix: string } }>(url);
+    const response = await api.get<{ data: { nextCode: string; brandPrefix: string; categoryPrefix: string } }>(url);
     return response.data.data;
   },
 

@@ -121,6 +121,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
     level3Id: string;
     categoryName: string; // Full path like "Western Wear > T-Shirts"
     productCategoryId: string; // The final selected category ID
+    styleCodePrefix: string; // Prefix for auto-generating style codes (e.g., "EBW")
   }
 
   const [brandData, setBrandData] = useState<
@@ -131,7 +132,9 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
   >([
     {
       brandName: '',
-      categories: [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }],
+      categories: [
+        { level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '', styleCodePrefix: '' },
+      ],
     },
   ]);
 
@@ -309,19 +312,20 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
           // For new selections, we use the cascading dropdown with productCategoryId
           if (customer.brandCategories && customer.brandCategories.length > 0) {
             // Group by brand name
-            const grouped = customer.brandCategories.reduce(
-              (
-                acc: Record<string, Array<{ category: string; productCategoryId?: string }>>,
-                bc: { brandName: string; category: string; productCategoryId?: string }
-              ) => {
-                if (!acc[bc.brandName]) {
-                  acc[bc.brandName] = [];
-                }
-                acc[bc.brandName].push({ category: bc.category, productCategoryId: bc.productCategoryId });
-                return acc;
-              },
-              {}
-            );
+            const grouped: Record<
+              string,
+              Array<{ category: string; productCategoryId?: string | null; styleCodePrefix?: string | null }>
+            > = {};
+            for (const bc of customer.brandCategories) {
+              if (!grouped[bc.brandName]) {
+                grouped[bc.brandName] = [];
+              }
+              grouped[bc.brandName].push({
+                category: bc.category,
+                productCategoryId: bc.productCategoryId,
+                styleCodePrefix: bc.styleCodePrefix,
+              });
+            }
 
             const parsedBrandData = Object.keys(grouped).map((brandName) => ({
               brandName,
@@ -331,6 +335,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                 level3Id: '',
                 categoryName: c.category,
                 productCategoryId: c.productCategoryId || '',
+                styleCodePrefix: c.styleCodePrefix || '',
               })),
             }));
 
@@ -341,7 +346,14 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     {
                       brandName: '',
                       categories: [
-                        { level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' },
+                        {
+                          level1Id: '',
+                          level2Id: '',
+                          level3Id: '',
+                          categoryName: '',
+                          productCategoryId: '',
+                          styleCodePrefix: '',
+                        },
                       ],
                     },
                   ]
@@ -360,8 +372,18 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     level3Id: '',
                     categoryName: c.trim(),
                     productCategoryId: '',
+                    styleCodePrefix: '',
                   }))
-                : [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }],
+                : [
+                    {
+                      level1Id: '',
+                      level2Id: '',
+                      level3Id: '',
+                      categoryName: '',
+                      productCategoryId: '',
+                      styleCodePrefix: '',
+                    },
+                  ],
             }));
 
             setBrandData(
@@ -371,7 +393,14 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     {
                       brandName: '',
                       categories: [
-                        { level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' },
+                        {
+                          level1Id: '',
+                          level2Id: '',
+                          level3Id: '',
+                          categoryName: '',
+                          productCategoryId: '',
+                          styleCodePrefix: '',
+                        },
                       ],
                     },
                   ]
@@ -473,12 +502,14 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
 
   const handleLevel1Change = async (brandIndex: number, categoryIndex: number, level1Id: string) => {
     const newBrandData = [...brandData];
+    const existingPrefix = newBrandData[brandIndex].categories[categoryIndex].styleCodePrefix;
     newBrandData[brandIndex].categories[categoryIndex] = {
       level1Id,
       level2Id: '',
       level3Id: '',
       categoryName: buildCategoryName(level1Id, '', ''),
       productCategoryId: getFinalCategoryId(level1Id, '', ''),
+      styleCodePrefix: existingPrefix || '',
     };
     setBrandData(newBrandData);
 
@@ -521,7 +552,9 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       ...brandData,
       {
         brandName: '',
-        categories: [{ level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '' }],
+        categories: [
+          { level1Id: '', level2Id: '', level3Id: '', categoryName: '', productCategoryId: '', styleCodePrefix: '' },
+        ],
       },
     ]);
   };
@@ -540,6 +573,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       level3Id: '',
       categoryName: '',
       productCategoryId: '',
+      styleCodePrefix: '',
     });
     setBrandData(newBrandData);
   };
@@ -580,7 +614,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
       setLoading(true);
       setSubmitError(null);
 
-      // Prepare brand categories with product category IDs
+      // Prepare brand categories with product category IDs and style code prefixes
       const brandCategories = brandData
         .filter((bd) => bd.brandName.trim())
         .map((bd) => ({
@@ -592,6 +626,9 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
             .filter((c) => c.categoryName && c.categoryName.trim())
             .map((c) => c.productCategoryId || null)
             .filter((id) => id !== null),
+          styleCodePrefixes: bd.categories
+            .filter((c) => c.categoryName && c.categoryName.trim())
+            .map((c) => c.styleCodePrefix?.toUpperCase() || ''),
         }))
         .filter((bd) => bd.categories.length > 0);
 
@@ -725,21 +762,7 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     <Input id="code" {...register('code')} readOnly className="bg-muted" />
                     {errors.code && <p className="text-sm text-destructive mt-1">{errors.code.message}</p>}
                   </div>
-                  <div>
-                    <Label htmlFor="styleCodePrefix">Style Code Prefix</Label>
-                    <Input
-                      id="styleCodePrefix"
-                      {...register('styleCodePrefix')}
-                      placeholder="e.g., EBW, KF, HOK"
-                      maxLength={10}
-                      className="uppercase"
-                      onChange={(e) => {
-                        e.target.value = e.target.value.toUpperCase();
-                        register('styleCodePrefix').onChange(e);
-                      }}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">Used for auto-generating style codes</p>
-                  </div>
+                  {/* Style Code Prefix moved to brand_categories - each brand-category gets its own prefix */}
                   <div>
                     <Label htmlFor="businessType">Business Type *</Label>
                     <select
@@ -982,6 +1005,30 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                                   <div className="mt-2 text-xs text-muted-foreground">
                                     Selected:{' '}
                                     <span className="font-medium text-foreground">{category.categoryName}</span>
+                                  </div>
+                                )}
+
+                                {/* Style Code Prefix - for auto-generating style codes */}
+                                {category.categoryName && (
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <Label className="text-xs text-muted-foreground whitespace-nowrap">
+                                      Style Code Prefix:
+                                    </Label>
+                                    <Input
+                                      value={category.styleCodePrefix || ''}
+                                      onChange={(e) => {
+                                        const newBrandData = [...brandData];
+                                        newBrandData[brandIndex].categories[catIndex].styleCodePrefix =
+                                          e.target.value.toUpperCase();
+                                        setBrandData(newBrandData);
+                                      }}
+                                      placeholder="e.g., EBW"
+                                      maxLength={5}
+                                      className="w-20 h-7 text-xs uppercase bg-card"
+                                    />
+                                    <span className="text-xs text-muted-foreground">
+                                      Used for auto-generating style codes (e.g., EBWKUR001)
+                                    </span>
                                   </div>
                                 )}
                               </div>

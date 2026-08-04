@@ -544,6 +544,7 @@ export default function EmbroideryAvailableStock() {
                       <tr className="border-b bg-muted">
                         <th className="text-left p-3 font-medium">Fabric</th>
                         <th className="text-left p-3 font-medium">Style</th>
+                        <th className="text-left p-3 font-medium">Buyer Ref</th>
                         <th className="text-left p-3 font-medium">Order</th>
                         <th className="text-right p-3 font-medium">Available (m)</th>
                         <th className="text-right p-3 font-medium">Width</th>
@@ -576,6 +577,7 @@ export default function EmbroideryAvailableStock() {
                                 '—'
                               )}
                             </td>
+                            <td className="p-3">{stock.originStyle?.buyerStyleRef || '—'}</td>
                             <td className="p-3">{stock.originOrder?.orderNumber || '—'}</td>
                             <td className="p-3 text-right font-medium">
                               {parseFloat(stock.quantityAvailable).toFixed(2)}
@@ -654,6 +656,7 @@ export default function EmbroideryAvailableStock() {
                         <th className="px-4 py-3 text-right font-medium text-foreground">Total Value</th>
                         <th className="px-4 py-3 text-left font-medium text-foreground">Location</th>
                         <th className="px-4 py-3 text-left font-medium text-foreground">For Style</th>
+                        <th className="px-4 py-3 text-left font-medium text-foreground">Buyer Ref</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -691,6 +694,7 @@ export default function EmbroideryAvailableStock() {
                               <span className="text-muted-foreground text-xs">Generic</span>
                             )}
                           </td>
+                          <td className="px-4 py-3 text-foreground">{stock.forStyle?.buyerStyleRef || '—'}</td>
                         </tr>
                       ))}
                     </tbody>

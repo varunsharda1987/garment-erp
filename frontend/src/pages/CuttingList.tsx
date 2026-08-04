@@ -275,6 +275,7 @@ export default function CuttingList() {
                       <TableHead>Batch #</TableHead>
                       <TableHead>Work Order</TableHead>
                       <TableHead>Style</TableHead>
+                      <TableHead>Buyer Ref</TableHead>
                       <TableHead>Component</TableHead>
                       <TableHead>Start Date</TableHead>
                       <TableHead>End Date</TableHead>
@@ -298,6 +299,9 @@ export default function CuttingList() {
                               {batch.workOrder?.style?.styleName || ''}
                             </div>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">{batch.workOrder?.style?.buyerStyleRef || '—'}</span>
                         </TableCell>
                         <TableCell>{batch.component?.componentName || '—'}</TableCell>
                         <TableCell>
@@ -436,6 +440,11 @@ export default function CuttingList() {
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-base font-semibold">{item.styleCode}</span>
+                        {item.buyerStyleRef && (
+                          <span className="text-sm text-muted-foreground">
+                            Buyer Ref: <span className="font-medium text-foreground">{item.buyerStyleRef}</span>
+                          </span>
+                        )}
                         {item.styleName && <span className="text-sm text-muted-foreground">{item.styleName}</span>}
                         <span className="text-sm text-muted-foreground">({item.workOrderNumber})</span>
                         {item.customerName && (

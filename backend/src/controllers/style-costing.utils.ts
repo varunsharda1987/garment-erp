@@ -285,10 +285,8 @@ export const LaceDetailSchema = z.object({
   greigeLaceId: z.string().uuid().optional().nullable(),
   processorId: z.string().uuid().optional().nullable(),
   rateCardId: z.string().uuid().optional().nullable(),
-  // Canonical value is GREIGE_PROCESSED — matches the frontend (LaceCostingRow/Section), the
-  // canonical LaceSourcingStrategyEnum, and costSheetPOGeneration's `=== 'GREIGE_PROCESSED'` check.
-  // The old rogue 'GREIGE_LACE_PROCESSED' never matched, so greige-lace never generated its
-  // greige/dyeing POs (bug-hunt F5).
+  // Canonical value is GREIGE_PROCESSED — matches the frontend (LaceCostingRow/Section) and
+  // the canonical LaceSourcingStrategyEnum.
   sourcingStrategy: z.enum(['STOCK_REUSE', 'READY_LACE', 'GREIGE_PROCESSED']).optional(),
   // Cost breakdown
   greigeCost: z.number().optional(),

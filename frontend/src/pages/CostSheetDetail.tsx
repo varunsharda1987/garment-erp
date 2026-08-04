@@ -11,7 +11,6 @@ import {
   AlertTriangle,
   RefreshCw,
   ShoppingCart,
-  Package,
   FileText,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -207,23 +206,14 @@ const CostSheetDetail = () => {
 
           {/* Create new version - only for approved */}
           {isApproved && (
-            <>
-              <Button
-                variant="outline"
-                className="text-info hover:bg-info-muted"
-                onClick={() => setCreateVersionDialogOpen(true)}
-              >
-                <Copy className="h-4 w-4 mr-2" />
-                New Version
-              </Button>
-              <Button
-                className="bg-success hover:bg-success"
-                onClick={() => navigate(`/order-bom?costSheetId=${costSheet.id}&styleId=${costSheet.styleId}`)}
-              >
-                <Package className="h-4 w-4 mr-2" />
-                Generate Order BOM
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              className="text-info hover:bg-info-muted"
+              onClick={() => setCreateVersionDialogOpen(true)}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              New Version
+            </Button>
           )}
         </div>
       </PageHeader>

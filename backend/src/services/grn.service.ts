@@ -16,7 +16,6 @@ import {
 import { createChallan } from './challan.service';
 import { purchaseOrderService } from './purchaseOrder.service';
 import mrpService from './mrp.service';
-import { costSheetPOGenerationService } from './costSheetPOGeneration.service';
 import { checkProcessingPOReadiness } from './po-status-manager.service';
 import greigeStockService from './greige-stock.service';
 import { systemSettingsService } from './system-settings.service';
@@ -1004,9 +1003,8 @@ class GRNService {
       postCommitWarnings.push(errMsg);
     }
 
-    // P2: Processing activation rewire — use checkProcessingPOReadiness from po-status-manager
-    // instead of costSheetPOGenerationService.updateProcessingPOStatusOnGreigeGRN.
-    // This handles BOTH GREIGE and GREIGE_LACE categories, and relies on PO status being RECEIVED.
+    // P2: Processing activation — checkProcessingPOReadiness handles BOTH GREIGE and GREIGE_LACE
+    // categories, and relies on PO status being RECEIVED.
     if (postCommit?.updateProcessingPOStatus || poCategory === 'GREIGE' || poCategory === 'GREIGE_LACE') {
       try {
         const readiedPOs = await checkProcessingPOReadiness(grn.poId);

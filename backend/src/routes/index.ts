@@ -140,9 +140,6 @@ import moodBoardRoutes from './mood-board.routes';
 import notificationRoutes from './notification.routes';
 import reportRoutes from './report.routes';
 import whatsappRoutes from './whatsapp.routes';
-// DEPRECATED: Direct Cost Sheet -> PO generation bypasses Orders
-// Use Order -> Order BOM -> MRP -> PO flow instead
-// import costSheetPOGenerationRoutes from './costSheetPOGeneration.routes';
 
 /**
  * Create the versioned API router
@@ -275,10 +272,6 @@ export function createApiRouter(): Router {
   router.use('/purchase-orders', purchaseOrderRoutes);
   router.use('/purchase-orders', unifiedPORoutes); // Unified PO routes (extended endpoints)
   router.use('/grn', grnRoutes);
-
-  // DEPRECATED: Direct Cost Sheet -> PO generation bypasses Orders
-  // Use Order -> Order BOM -> MRP -> PO flow instead
-  // router.use('/cost-sheet-po', costSheetPOGenerationRoutes);
 
   // MRP (Material Requirement Planning)
   router.use('/mrp', mrpRoutes);

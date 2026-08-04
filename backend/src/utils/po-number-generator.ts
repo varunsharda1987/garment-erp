@@ -8,10 +8,8 @@ import { generateAtomicPONumber, generateAtomicPONumberInTx } from './atomicCode
  * Format: PO{YY}{MM}-{NNNN} (e.g., PO2602-0001)
  *
  * Thin wrappers over the atomic sequence generator (code_sequences UPSERT),
- * so every PO-number producer (purchaseOrder.service, costSheetPOGeneration,
- * unified-po-creation, dyeing/printing controllers, MRP) shares one
- * collision-free series. The old findFirst-max+1 bodies raced under
- * concurrency and minted duplicate PO numbers.
+ * so every PO-number producer (purchaseOrder.service, unified-po-creation,
+ * dyeing/printing controllers, MRP) shares one collision-free series.
  */
 
 /**

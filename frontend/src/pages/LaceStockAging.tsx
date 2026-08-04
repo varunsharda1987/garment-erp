@@ -128,7 +128,12 @@ export default function LaceStockAging() {
                         <div className="text-xs text-muted-foreground">{item.laceName}</div>
                       </td>
                       <td className="px-4 py-3">{item.lotNumber || '-'}</td>
-                      <td className="px-4 py-3">{item.originStyleCode || '-'}</td>
+                      <td className="px-4 py-3">
+                        {item.originStyleCode || '-'}
+                        {item.originBuyerStyleRef && (
+                          <span className="ml-1 text-xs text-muted-foreground">({item.originBuyerStyleRef})</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-right">{item.quantityAvailable.toLocaleString()}m</td>
                       <td className="px-4 py-3 text-right">{formatCurrency(item.weightedAvgCost)}</td>
                       <td className="px-4 py-3 text-right">{formatCurrency(item.totalValue)}</td>

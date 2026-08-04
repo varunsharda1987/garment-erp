@@ -228,33 +228,43 @@ export function SmartConfirmDialog({
                   <h4 className="text-sm font-medium mb-2">Items needing production:</h4>
                   <ScrollArea className="max-h-[280px] pr-4">
                     <div className="space-y-3">
-                      {[...groupedItems.partial, ...groupedItems.none].map((item) => (
-                        <div key={item.id} className="rounded-lg border p-3">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <div className="font-mono text-sm font-medium">{item.style?.styleCode || 'Unknown'}</div>
-                              <div className="text-xs text-muted-foreground">{item.style?.styleName}</div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {item.color?.colorName || 'No color'} / {item.size?.sizeName || 'No size'}
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <Badge className={STATUS_CONFIG[item.status].color} variant="secondary">
-                                {STATUS_CONFIG[item.status].label}
-                              </Badge>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {item.availableQty} / {item.orderedQty} pcs
-                              </div>
-                              {item.shortfall > 0 && (
-                                <div className="text-xs text-destructive font-medium">
-                                  Shortfall: {item.shortfall} pcs
+                      {[...groupedItems.partial, ...groupedItems.none].map((item) => {
+                        // buyerStyleRef arrives with the saleOrder stock-preview fix;
+                        // StockPreviewItem.style does not declare it yet, so read it defensively.
+                        const buyerRef = (item.style as { buyerStyleRef?: string | null } | null)?.buyerStyleRef;
+                        return (
+                          <div key={item.id} className="rounded-lg border p-3">
+                            <div className="flex items-start justify-between">
+                              <div>
+                                <div className="font-mono text-sm font-medium">
+                                  {item.style?.styleCode || 'Unknown'}
+                                  {buyerRef && (
+                                    <span className="ml-1 font-sans text-xs text-muted-foreground">({buyerRef})</span>
+                                  )}
                                 </div>
-                              )}
+                                <div className="text-xs text-muted-foreground">{item.style?.styleName}</div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {item.color?.colorName || 'No color'} / {item.size?.sizeName || 'No size'}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <Badge className={STATUS_CONFIG[item.status].color} variant="secondary">
+                                  {STATUS_CONFIG[item.status].label}
+                                </Badge>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  {item.availableQty} / {item.orderedQty} pcs
+                                </div>
+                                {item.shortfall > 0 && (
+                                  <div className="text-xs text-destructive font-medium">
+                                    Shortfall: {item.shortfall} pcs
+                                  </div>
+                                )}
+                              </div>
                             </div>
+                            <StyleReadinessChecklist item={item} />
                           </div>
-                          <StyleReadinessChecklist item={item} />
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </ScrollArea>
                 </div>

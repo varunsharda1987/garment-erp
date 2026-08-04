@@ -44,6 +44,7 @@ export interface CostingRun {
   style?: {
     id: string;
     styleCode: string;
+    buyerStyleRef?: string | null;
     styleName: string;
     customerName: string;
   };

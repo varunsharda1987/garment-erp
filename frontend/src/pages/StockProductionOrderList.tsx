@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { getAllSPOs, createSPO, deleteSPO } from '@/services/stockProductionOrder.service';
 import { styleService } from '@/services/style.service';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import type {
   StockProductionOrder,
   StockProductionOrderStatus,
@@ -39,6 +40,7 @@ interface ApiError {
 interface StyleSearchResult {
   id: string;
   styleCode: string;
+  buyerStyleRef?: string | null;
   styleName: string;
 }
 
@@ -243,7 +245,12 @@ export default function StockProductionOrderList() {
                     <TableCell className="font-mono font-medium">{spo.spoNumber}</TableCell>
                     <TableCell>
                       <div>
-                        <div className="font-medium">{spo.style?.styleCode}</div>
+                        <div className="font-medium">
+                          {spo.style?.styleCode}
+                          {spo.style?.buyerStyleRef && (
+                            <span className="font-normal text-muted-foreground"> ({spo.style.buyerStyleRef})</span>
+                          )}
+                        </div>
                         <div className="text-sm text-muted-foreground">{spo.style?.styleName}</div>
                       </div>
                     </TableCell>
@@ -342,11 +349,14 @@ export default function StockProductionOrderList() {
                       className="px-3 py-2 hover:bg-muted cursor-pointer text-sm"
                       onClick={() => {
                         setSelectedStyleId(style.id);
-                        setSelectedStyleLabel(`${style.styleCode} - ${style.styleName}`);
+                        setSelectedStyleLabel(
+                          `${formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - ${style.styleName}`
+                        );
                         setStyleSearch('');
                       }}
                     >
-                      <span className="font-mono">{style.styleCode}</span> — {style.styleName}
+                      <span className="font-mono">{formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)}</span>{' '}
+                      — {style.styleName}
                     </div>
                   ))}
                 </div>

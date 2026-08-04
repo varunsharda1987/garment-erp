@@ -16,6 +16,7 @@ import { CheckCircle, XCircle, Package2, ArrowLeft, Sparkles, Clock, AlertTriang
 import type { EmbroiderySendOut, EmbroideryReceiveRequest } from '../types/embroidery.types';
 import { logError } from '../lib/logger';
 import { formatCurrency } from '../lib/currency';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
 export default function EmbroideryStockReceive() {
   const navigate = useNavigate();
@@ -371,7 +372,9 @@ export default function EmbroideryStockReceive() {
                       {sendOut.forStyle && (
                         <div>
                           <span className="text-muted-foreground">For Style:</span>
-                          <p className="font-medium">{sendOut.forStyle.styleCode}</p>
+                          <p className="font-medium">
+                            {formatStyleCodeWithRef(sendOut.forStyle.styleCode, sendOut.forStyle.buyerStyleRef)}
+                          </p>
                         </div>
                       )}
                     </div>

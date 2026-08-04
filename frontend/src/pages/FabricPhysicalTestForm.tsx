@@ -17,6 +17,7 @@ import { customerService } from '@/services/customer.service';
 import type { CreateFabricPhysicalTestInput } from '@/types/testing.types';
 import type { FabricMaster } from '@/types/fabric-greige.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 
 interface SelectableItem {
   id: string;
@@ -98,9 +99,9 @@ export default function FabricPhysicalTestForm() {
   }));
 
   const styles: SelectableItem[] = (stylesData?.data || []).map(
-    (s: { id: string; styleCode: string; styleName: string }) => ({
+    (s: { id: string; styleCode: string; styleName: string; buyerStyleRef?: string | null }) => ({
       id: s.id,
-      code: s.styleCode,
+      code: formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef),
       name: s.styleName,
     })
   );

@@ -26,6 +26,7 @@ import {
   AGING_BUCKET_COLORS,
 } from '../types/laceStock.types';
 import { notify } from '../lib/notify';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { Search, RefreshCw, Eye, ArrowRightLeft, Package, AlertTriangle, Clock, TrendingDown } from 'lucide-react';
 
 export default function LaceStockList() {
@@ -126,7 +127,7 @@ export default function LaceStockList() {
     const parts = [
       stock.laceMaster?.laceCode || 'Unknown',
       stock.laceMaster?.color || '',
-      stock.originStyleCode ? `-${stock.originStyleCode}` : '',
+      stock.originStyleCode ? `-${formatStyleCodeWithRef(stock.originStyleCode, stock.originBuyerStyleRef)}` : '',
       stock.lotNumber ? `:${stock.lotNumber}` : '',
     ];
     return parts.filter(Boolean).join('');
@@ -324,7 +325,14 @@ export default function LaceStockList() {
                         </td>
                         <td className="px-4 py-4">
                           {stock.originStyleCode ? (
-                            <span className="font-mono text-sm">{stock.originStyleCode}</span>
+                            <span className="font-mono text-sm">
+                              {stock.originStyleCode}
+                              {stock.originBuyerStyleRef && (
+                                <span className="ml-1 text-xs text-muted-foreground">
+                                  ({stock.originBuyerStyleRef})
+                                </span>
+                              )}
+                            </span>
                           ) : (
                             <span className="text-muted-foreground text-sm">Generic</span>
                           )}

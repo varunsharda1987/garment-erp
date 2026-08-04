@@ -7,6 +7,7 @@ import { Label } from './ui/label';
 import { Alert, AlertDescription } from './ui/alert';
 import workOrderService from '../services/workOrder.service';
 import type { WorkOrder, SplitWorkOrderDTO } from '../types/production.types';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
 interface SplitProductionModalProps {
   isOpen: boolean;
@@ -136,7 +137,8 @@ export default function SplitProductionModal({
               <div>
                 <span className="text-muted-foreground">Style:</span>{' '}
                 <span className="font-medium">
-                  {workOrder.style?.styleCode} - {workOrder.style?.styleName}
+                  {formatStyleCodeWithRef(workOrder.style?.styleCode || '', workOrder.style?.buyerStyleRef)} -{' '}
+                  {workOrder.style?.styleName}
                 </span>
               </div>
               <div>

@@ -28,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { designerDashboardService } from '@/services/designerDashboard.service';
 import type { DashboardData, RecentStyle, TeamActivity } from '@/types/designerDashboard.types';
 import { formatDistanceToNow } from 'date-fns';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 
 // Get initials from name
 function getInitials(name: string): string {
@@ -95,6 +96,9 @@ function RecentStyleCard({ style }: { style: RecentStyle }) {
       </div>
       <CardContent className="p-3">
         <p className="font-medium text-sm truncate">{style.styleCode}</p>
+        {style.buyerStyleRef && (
+          <p className="text-xs text-muted-foreground truncate">Buyer Ref: {style.buyerStyleRef}</p>
+        )}
         <p className="text-xs text-muted-foreground truncate">{style.styleName}</p>
         {style.season && <p className="text-xs text-muted-foreground mt-1">{style.season}</p>}
       </CardContent>
@@ -122,7 +126,7 @@ function ActivityItem({ activity }: { activity: TeamActivity }) {
               className="h-auto p-0 text-sm font-medium ml-1"
               onClick={() => navigate(`/styles/${activity.style!.id}`)}
             >
-              {activity.style.styleCode}
+              {formatStyleCodeWithRef(activity.style.styleCode, activity.style.buyerStyleRef)}
             </Button>
           )}
         </p>

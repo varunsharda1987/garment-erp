@@ -26,6 +26,7 @@ import { fabricService } from '@/services/fabricGreigeService';
 import { styleService } from '@/services/style.service';
 import type { PatternPartForAllocation, AllocateToStyleRequest } from '@/types/fabric-greige.types';
 import type { Style } from '@/types/style.types';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 
 interface AllocateFabricToStyleModalProps {
   isOpen: boolean;
@@ -243,7 +244,8 @@ export default function AllocateFabricToStyleModal({
                 >
                   {selectedStyle ? (
                     <span>
-                      {selectedStyle.styleCode} - {selectedStyle.styleName}
+                      {formatStyleCodeWithRef(selectedStyle.styleCode, selectedStyle.buyerStyleRef)} -{' '}
+                      {selectedStyle.styleName}
                     </span>
                   ) : (
                     <span>Select style...</span>
@@ -284,7 +286,9 @@ export default function AllocateFabricToStyleModal({
                               )}
                             />
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium">{style.styleCode}</div>
+                              <div className="font-medium">
+                                {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)}
+                              </div>
                               <div className="text-xs text-muted-foreground truncate">{style.styleName}</div>
                             </div>
                           </CommandItem>

@@ -22,13 +22,14 @@ import api from '../lib/api';
 import type { AxiosError } from 'axios';
 import type { CreateExternalProcessSendOutRequest } from '../types/external-process.types';
 import { formatCurrency } from '../lib/currency';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
 // BUG-MFG22 fix: API response types to replace `any` in map callbacks
 interface WorkOrderApiResponse {
   id: string;
   workOrderNumber: string;
-  styles?: { styleName: string; styleCode: string };
-  style?: { styleName: string; styleCode: string };
+  styles?: { styleName: string; styleCode: string; buyerStyleRef?: string | null };
+  style?: { styleName: string; styleCode: string; buyerStyleRef?: string | null };
   totalQuantity: number;
   orderId?: string;
   styleId?: string;
@@ -65,6 +66,7 @@ interface WorkOrderOption {
   workOrderNumber: string;
   styleName?: string;
   styleCode?: string;
+  buyerStyleRef?: string | null;
   totalQuantity: number;
   orderId?: string;
   styleId?: string;
@@ -127,6 +129,7 @@ export default function HandworkSendOut() {
           workOrderNumber: wo.workOrderNumber,
           styleName: wo.styles?.styleName || wo.style?.styleName || '',
           styleCode: wo.styles?.styleCode || wo.style?.styleCode || '',
+          buyerStyleRef: wo.styles?.buyerStyleRef ?? wo.style?.buyerStyleRef ?? null,
           totalQuantity: wo.totalQuantity,
           orderId: wo.orderId,
           styleId: wo.styleId,
@@ -299,7 +302,8 @@ export default function HandworkSendOut() {
             <SelectContent>
               {workOrders.map((wo) => (
                 <SelectItem key={wo.id} value={wo.id}>
-                  {wo.workOrderNumber} — {wo.styleCode} {wo.styleName} ({wo.totalQuantity} pcs)
+                  {wo.workOrderNumber} — {formatStyleCodeWithRef(wo.styleCode || '', wo.buyerStyleRef)} {wo.styleName} (
+                  {wo.totalQuantity} pcs)
                 </SelectItem>
               ))}
             </SelectContent>

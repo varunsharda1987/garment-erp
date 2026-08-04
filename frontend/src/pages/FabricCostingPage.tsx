@@ -46,6 +46,7 @@ import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
 import { isAxiosError } from 'axios';
 import { divideByShrinkage } from '../utils/math';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import type {
   FabricCostingRow,
   FabricForCosting,
@@ -57,8 +58,6 @@ import type {
   ScreenType,
   CostingPurpose,
 } from '../types/fabricCosting.types';
-import { colorService } from '../services/colorService';
-import type { ColorSearchResult } from '../types/color.types';
 import { SCREEN_TYPE_LABELS, DEFAULT_SCREEN_COSTS } from '../types/fabricCosting.types';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import type { Style } from '../types/style.types';
@@ -252,9 +251,6 @@ export default function FabricCostingPage() {
   // Fabric rows
   const [fabricRows, setFabricRows] = useState<FabricCostingRow[]>([]);
 
-  // Global colors for processing batch grouping
-  const [globalColors, setGlobalColors] = useState<ColorSearchResult[]>([]);
-
   // Style search state
   const [styleSearchQuery, setStyleSearchQuery] = useState('');
   const [styleSearchResults, setStyleSearchResults] = useState<Style[]>([]);
@@ -319,21 +315,6 @@ export default function FabricCostingPage() {
     fetchCustomers();
   }, []);
 
-  // Fetch global colors for batch grouping on mount
-  useEffect(() => {
-    const fetchColors = async () => {
-      try {
-        const colors = await colorService.search({ limit: 500 });
-        setGlobalColors(colors || []);
-      } catch (error) {
-        // BUG-FC5 fix: notify on color fetch failure
-        console.error('Failed to load global colors:', error);
-        notify.error('Failed to load colors for batch grouping');
-      }
-    };
-    fetchColors();
-  }, []);
-
   // Fetch processors on mount
   useEffect(() => {
     const fetchProcessors = async () => {
@@ -364,7 +345,10 @@ export default function FabricCostingPage() {
           const response = await styleService.getStyleById(preselectedStyleId);
           if (response) {
             setSelectedStyleId(preselectedStyleId);
-            setStyleSearchQuery(response.styleCode + (response.styleName ? ` - ${response.styleName}` : ''));
+            setStyleSearchQuery(
+              formatStyleCodeWithRef(response.styleCode, response.buyerStyleRef) +
+                (response.styleName ? ` - ${response.styleName}` : '')
+            );
             // Set customer if available
             if (response.customerName) {
               const customer = customers.find((c) => c.name === response.customerName);
@@ -421,7 +405,9 @@ export default function FabricCostingPage() {
   // Handle style selection from search
   const handleSearchResultSelect = (style: Style) => {
     setSelectedStyleId(style.id);
-    setStyleSearchQuery(style.styleCode + (style.styleName ? ` - ${style.styleName}` : ''));
+    setStyleSearchQuery(
+      formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) + (style.styleName ? ` - ${style.styleName}` : '')
+    );
     setShowSearchResults(false);
     setStyleSearchResults([]);
     setIsRepeatOrder(false); // Reset repeat order status when selecting new style
@@ -659,9 +645,13 @@ export default function FabricCostingPage() {
               totalCostPerMeter: cs.totalCostPerMeter || fabric.totalCostPerMeter || null,
               totalCostForQuantity: null,
 
-              // Processing batch group (from saved data)
-              processingBatchGroupColorId: fabric.processingBatchGroupColorId || null,
-              processingBatchGroupColorName: null, // Will be resolved from colorOptions
+              // Design/Color identification (from style)
+              colorMasterId: fabric.colorMasterId || null,
+              colorName: fabric.colorName || null,
+
+              // Processing batch group - auto-populated from style's color
+              processingBatchGroupColorId: fabric.colorMasterId || null,
+              processingBatchGroupColorName: fabric.colorName || null,
               batchRate: null,
               individualRate: null,
               batchSavings: null,
@@ -750,9 +740,13 @@ export default function FabricCostingPage() {
             totalCostPerMeter: fabric.totalCostPerMeter || null,
             totalCostForQuantity: null,
 
-            // Processing batch group
-            processingBatchGroupColorId: fabric.processingBatchGroupColorId || null,
-            processingBatchGroupColorName: null,
+            // Design/Color identification (from style)
+            colorMasterId: fabric.colorMasterId || null,
+            colorName: fabric.colorName || null,
+
+            // Processing batch group - auto-populated from style's color
+            processingBatchGroupColorId: fabric.colorMasterId || null,
+            processingBatchGroupColorName: fabric.colorName || null,
             batchRate: null,
             individualRate: null,
             batchSavings: null,
@@ -995,14 +989,18 @@ export default function FabricCostingPage() {
     if (hasBatchGroup) {
       // Calculate combined quantity for all rows in this batch group
       // Batch key: same greigeId + same processorId + same batch color
-      batchQuantityMeters = fabricRows.reduce((sum, r) => {
+      // The current row's processor may exist only in `overrides` (state not yet
+      // committed on processor select), so substitute `row` for the current index
+      // — otherwise the self-row fails the processorId match and the sum is 0.
+      batchQuantityMeters = fabricRows.reduce((sum, r, i) => {
+        const candidate = i === index ? row : r;
         if (
-          r.greigeId === row.greigeId &&
-          r.processorId === row.processorId &&
-          r.processingBatchGroupColorId === row.processingBatchGroupColorId
+          candidate.greigeId === row.greigeId &&
+          candidate.processorId === row.processorId &&
+          candidate.processingBatchGroupColorId === row.processingBatchGroupColorId
         ) {
-          const rQty = r.rowQuantity || orderQuantity;
-          return sum + r.cadMeters * rQty;
+          const rQty = candidate.rowQuantity || orderQuantity;
+          return sum + candidate.cadMeters * rQty;
         }
         return sum;
       }, 0);
@@ -1585,7 +1583,7 @@ export default function FabricCostingPage() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search by style code or name..."
+                placeholder="Search by style code, buyer ref or name..."
                 value={styleSearchQuery}
                 onChange={(e) => handleStyleSearch(e.target.value)}
                 onFocus={() => styleSearchResults.length > 0 && setShowSearchResults(true)}
@@ -1617,7 +1615,12 @@ export default function FabricCostingPage() {
                       onClick={() => handleSearchResultSelect(style)}
                     >
                       <div className="flex items-center justify-between">
-                        <div className="font-medium text-sm">{style.styleCode}</div>
+                        <div className="font-medium text-sm">
+                          {style.styleCode}
+                          {style.buyerStyleRef && (
+                            <span className="ml-1 text-muted-foreground font-normal">({style.buyerStyleRef})</span>
+                          )}
+                        </div>
                         {/* Costing Status Badge */}
                         {status && (
                           <div className="flex items-center gap-1">
@@ -1697,7 +1700,7 @@ export default function FabricCostingPage() {
               <SelectContent>
                 {styles.map((style) => (
                   <SelectItem key={style.id} value={style.id}>
-                    {style.styleCode} - {style.styleName || 'No Name'}
+                    {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - {style.styleName || 'No Name'}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1878,9 +1881,9 @@ export default function FabricCostingPage() {
                   <TableHead className="w-[130px] px-1 text-xs">Greige</TableHead>
                   <TableHead
                     className="w-[70px] px-1 text-center text-xs whitespace-normal leading-tight"
-                    title="Processing batch color - rows with same color are dyed together for combined rate"
+                    title="Fabric color from style - same greige + same color are batched for combined rate"
                   >
-                    Batch Color
+                    Color
                   </TableHead>
                   <TableHead
                     className="w-[50px] px-1 text-center text-xs whitespace-normal leading-tight"
@@ -2051,33 +2054,19 @@ export default function FabricCostingPage() {
                                             </div>
                                           </TableCell>
 
-                                          {/* Batch Color */}
+                                          {/* Color (from style fabric) */}
                                           <TableCell className="px-1 text-center">
-                                            <Combobox
-                                              options={[
-                                                { value: '', label: '-' },
-                                                ...globalColors.map((color) => ({
-                                                  value: color.id,
-                                                  label:
-                                                    color.colorName + (color.colorCode ? ` (${color.colorCode})` : ''),
-                                                })),
-                                              ]}
-                                              value={row.processingBatchGroupColorId || ''}
-                                              onValueChange={(colorId) => {
-                                                const color = globalColors.find((c) => c.id === colorId);
-                                                updateRow(index, {
-                                                  processingBatchGroupColorId: colorId || null,
-                                                  processingBatchGroupColorName: color?.colorName || null,
-                                                  batchRate: null,
-                                                  individualRate: null,
-                                                  batchSavings: null,
-                                                  batchGroupTotalQuantity: null,
-                                                });
-                                              }}
-                                              placeholder="-"
-                                              searchPlaceholder="Search color..."
-                                              className="h-7 text-[10px] px-1 min-w-0"
-                                            />
+                                            {row.colorName ? (
+                                              <Badge
+                                                variant="outline"
+                                                className="text-[10px] px-1.5 py-0"
+                                                title={`Color from style definition${row.colorMasterId ? ` (ID: ${row.colorMasterId})` : ''}`}
+                                              >
+                                                {row.colorName}
+                                              </Badge>
+                                            ) : (
+                                              <span className="text-muted-foreground text-[10px]">-</span>
+                                            )}
                                             {row.batchGroupTotalQuantity != null && (
                                               <div
                                                 className="text-[9px] text-info mt-0.5"
@@ -2620,32 +2609,19 @@ export default function FabricCostingPage() {
                                     </div>
                                   </TableCell>
 
-                                  {/* Batch Color */}
+                                  {/* Color (from style fabric) */}
                                   <TableCell className="px-1 text-center">
-                                    <Combobox
-                                      options={[
-                                        { value: '', label: '-' },
-                                        ...globalColors.map((color) => ({
-                                          value: color.id,
-                                          label: color.colorName + (color.colorCode ? ` (${color.colorCode})` : ''),
-                                        })),
-                                      ]}
-                                      value={row.processingBatchGroupColorId || ''}
-                                      onValueChange={(colorId) => {
-                                        const color = globalColors.find((c) => c.id === colorId);
-                                        updateRow(index, {
-                                          processingBatchGroupColorId: colorId || null,
-                                          processingBatchGroupColorName: color?.colorName || null,
-                                          batchRate: null,
-                                          individualRate: null,
-                                          batchSavings: null,
-                                          batchGroupTotalQuantity: null,
-                                        });
-                                      }}
-                                      placeholder="-"
-                                      searchPlaceholder="Search color..."
-                                      className="h-7 text-[10px] px-1 min-w-0"
-                                    />
+                                    {row.colorName ? (
+                                      <Badge
+                                        variant="outline"
+                                        className="text-[10px] px-1.5 py-0"
+                                        title={`Color from style definition${row.colorMasterId ? ` (ID: ${row.colorMasterId})` : ''}`}
+                                      >
+                                        {row.colorName}
+                                      </Badge>
+                                    ) : (
+                                      <span className="text-muted-foreground text-[10px]">-</span>
+                                    )}
                                     {row.batchGroupTotalQuantity != null && (
                                       <div
                                         className="text-[9px] text-info mt-0.5"
@@ -2764,7 +2740,7 @@ export default function FabricCostingPage() {
                                     ) : (
                                       <div className="flex flex-col items-center gap-0.5">
                                         {/* Greige Cost */}
-                                        <div className="flex items-center gap-0.5">
+                                        <div className="flex flex-col items-center">
                                           <Input
                                             type="number"
                                             step="0.01"
@@ -2779,7 +2755,7 @@ export default function FabricCostingPage() {
                                             }
                                             title={
                                               row.greigeCostSource === 'MANUAL'
-                                                ? 'Manual price - click indicator to reset'
+                                                ? 'Manual price - click label to reset'
                                                 : row.greigeCostSource === 'GREIGE_PROCUREMENT'
                                                   ? `GRN price (default ₹${row.greigeDefaultCost}/m)`
                                                   : row.greigeCostSource === 'GREIGE_STOCK'
@@ -2787,34 +2763,35 @@ export default function FabricCostingPage() {
                                                     : `Default price ₹${row.greigeDefaultCost}/m`
                                             }
                                           />
+                                          {/* Source label below input */}
                                           {row.greigeCostSource === 'GREIGE_PROCUREMENT' && (
                                             <span
-                                              className="text-[9px] text-success font-medium"
-                                              title="Using greige cost from GRN/Procurement"
+                                              className="text-[8px] text-info mt-0.5"
+                                              title="Price from GRN/Procurement"
                                             >
-                                              P
+                                              from GRN
                                             </span>
                                           )}
                                           {row.greigeCostSource === 'GREIGE_STOCK' && (
                                             <span
-                                              className="text-[9px] text-success font-medium"
-                                              title="Using greige cost from direct stock entry"
+                                              className="text-[8px] text-success mt-0.5"
+                                              title="Price from Stock Entry"
                                             >
-                                              S
+                                              from Stock
                                             </span>
                                           )}
                                           {row.greigeCostSource === 'GREIGE_MASTER' && (
                                             <span
-                                              className="text-[9px] text-info"
-                                              title="Using default greige cost from greige master"
+                                              className="text-[8px] text-muted-foreground mt-0.5"
+                                              title="Default price from Greige Master"
                                             >
-                                              D
+                                              default
                                             </span>
                                           )}
                                           {row.greigeCostSource === 'MANUAL' && (
                                             <span
-                                              className="text-[9px] text-warning font-medium cursor-pointer hover:text-warning"
-                                              title={`Manual price - Click to reset to ${row.greigeDefaultCost ? `₹${row.greigeDefaultCost}/m` : 'default'}`}
+                                              className="text-[8px] text-warning mt-0.5 cursor-pointer hover:underline"
+                                              title={`Click to reset to ${row.greigeDefaultCost ? `₹${row.greigeDefaultCost}/m` : 'default'}`}
                                               onClick={() =>
                                                 updateRow(index, {
                                                   greigeCostPerMeter: row.greigeDefaultCost,
@@ -2822,12 +2799,12 @@ export default function FabricCostingPage() {
                                                 })
                                               }
                                             >
-                                              M
+                                              manual ↻
                                             </span>
                                           )}
                                         </div>
                                         {/* Transport Cost */}
-                                        <div className="flex items-center gap-0.5">
+                                        <div className="flex flex-col items-center">
                                           <Input
                                             type="number"
                                             step="0.01"

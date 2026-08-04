@@ -15,6 +15,7 @@ import { getStyleById } from '../services/style.service';
 import { warehouseService } from '../services/warehouse.service';
 import { CheckCircle, XCircle, Package, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { FABRIC_FINISH_TYPES } from '@/constants/fabric-finish-types';
 
 interface StockFormData {
@@ -226,9 +227,10 @@ export default function StyleStockEntry() {
     <div className="container mx-auto py-8 px-4">
       <Card>
         <CardHeader>
-          <CardTitle>Fabric Stock Entry - {style.styleCode}</CardTitle>
+          <CardTitle>Fabric Stock Entry - {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)}</CardTitle>
           <div className="text-sm text-muted-foreground mt-2 space-y-1">
             <p>Style Name: {style.styleName}</p>
+            {style.buyerStyleRef && <p>Buyer Ref: {style.buyerStyleRef}</p>}
             {style.customerName && <p>Buyer: {style.customerName}</p>}
             {style.season && <p>Season: {style.season}</p>}
           </div>

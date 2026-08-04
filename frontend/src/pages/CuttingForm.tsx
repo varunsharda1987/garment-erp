@@ -11,6 +11,7 @@ import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.s
 import { stageValidationService } from '@/services/stageValidation.service';
 import type { CreateCuttingBatchRequest } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { Scissors, ArrowLeft, Save, Loader2, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
@@ -20,6 +21,7 @@ interface AvailableWorkOrder {
   id: string;
   workOrderNumber: string;
   styleCode: string;
+  buyerStyleRef?: string | null;
   styleName: string;
   styleId: string;
   orderQty: number;
@@ -449,7 +451,8 @@ export default function CuttingForm() {
                     <SelectContent>
                       {availableWorkOrders.map((wo) => (
                         <SelectItem key={wo.id} value={wo.id}>
-                          {wo.workOrderNumber} - {wo.styleCode} ({wo.pendingQty} pcs pending)
+                          {wo.workOrderNumber} - {formatStyleCodeWithRef(wo.styleCode, wo.buyerStyleRef)} (
+                          {wo.pendingQty} pcs pending)
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -464,6 +467,10 @@ export default function CuttingForm() {
                         <div className="font-medium">
                           {selectedWO.styleCode} - {selectedWO.styleName}
                         </div>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Buyer Ref:</span>
+                        <div className="font-medium">{selectedWO.buyerStyleRef || '—'}</div>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Order Qty:</span>

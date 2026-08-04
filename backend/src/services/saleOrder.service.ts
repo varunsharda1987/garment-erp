@@ -8,6 +8,10 @@ interface SOCreateInput {
   styleId?: string | null; // Primary style for the order
   expectedShipDate?: Date | null;
   buyerDeadline?: Date | null; // Buyer's required completion date
+  orderDate?: Date | null; // Buyer's PO/order date
+  deliveryDate?: Date | null; // Agreed delivery date
+  paymentTerms?: string | null;
+  deliveryAddress?: string | null;
   remarks?: string;
   createdById: string;
   items: Array<{
@@ -25,6 +29,10 @@ interface SOUpdateInput {
   styleId?: string | null; // Primary style for the order
   expectedShipDate?: Date | null;
   buyerDeadline?: Date | null; // Buyer's required completion date
+  orderDate?: Date | null; // Buyer's PO/order date (undefined = leave unchanged)
+  deliveryDate?: Date | null;
+  paymentTerms?: string | null;
+  deliveryAddress?: string | null;
   remarks?: string;
   items?: Array<{
     styleId: string;
@@ -66,6 +74,10 @@ export class SaleOrderService {
         styleId: data.styleId || null,
         expectedShipDate: data.expectedShipDate || null,
         buyerDeadline: data.buyerDeadline || null,
+        orderDate: data.orderDate ?? null,
+        deliveryDate: data.deliveryDate ?? null,
+        paymentTerms: data.paymentTerms ?? null,
+        deliveryAddress: data.deliveryAddress ?? null,
         status: SaleOrderStatus.DRAFT,
         subtotal,
         totalAmount: subtotal,
@@ -187,6 +199,11 @@ export class SaleOrderService {
             styleId: data.styleId,
             expectedShipDate: data.expectedShipDate,
             buyerDeadline: data.buyerDeadline,
+            // undefined = leave unchanged (ERP form and B2B don't always send these)
+            orderDate: data.orderDate,
+            deliveryDate: data.deliveryDate,
+            paymentTerms: data.paymentTerms,
+            deliveryAddress: data.deliveryAddress,
             remarks: data.remarks,
             subtotal,
             totalAmount: subtotal,
@@ -203,6 +220,11 @@ export class SaleOrderService {
           styleId: data.styleId,
           expectedShipDate: data.expectedShipDate,
           buyerDeadline: data.buyerDeadline,
+          // undefined = leave unchanged (ERP form and B2B don't always send these)
+          orderDate: data.orderDate,
+          deliveryDate: data.deliveryDate,
+          paymentTerms: data.paymentTerms,
+          deliveryAddress: data.deliveryAddress,
           remarks: data.remarks,
         },
         include: this.getDefaultIncludes(),
@@ -396,6 +418,7 @@ export class SaleOrderService {
               select: {
                 id: true,
                 styleCode: true,
+                buyerStyleRef: true,
                 styleName: true,
                 status: true,
                 _count: {
@@ -477,7 +500,12 @@ export class SaleOrderService {
         return {
           id: item.id,
           style: item.style
-            ? { id: item.style.id, styleCode: item.style.styleCode, styleName: item.style.styleName }
+            ? {
+                id: item.style.id,
+                styleCode: item.style.styleCode,
+                buyerStyleRef: item.style.buyerStyleRef ?? null,
+                styleName: item.style.styleName,
+              }
             : null,
           color: item.color,
           size: item.size,
@@ -533,12 +561,12 @@ export class SaleOrderService {
         },
       },
       style: {
-        select: { id: true, styleCode: true, styleName: true, imageUrl: true },
+        select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true, imageUrl: true },
       },
       items: {
         include: {
           style: {
-            select: { id: true, styleCode: true, styleName: true, imageUrl: true },
+            select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true, imageUrl: true },
           },
           color: {
             select: { id: true, colorName: true, colorCode: true },

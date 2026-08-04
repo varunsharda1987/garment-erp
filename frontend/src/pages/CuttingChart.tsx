@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.service';
 import type { CuttingChartData, CuttingChartFabric, CreateCuttingBatchRequest } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { getUploadUrl } from '@/config/api.config';
 import api from '@/lib/api';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -22,6 +23,7 @@ interface AvailableWorkOrder {
   id: string;
   workOrderNumber: string;
   styleCode: string;
+  buyerStyleRef?: string | null;
   styleName: string;
   styleId: string;
   orderQty: number;
@@ -317,7 +319,8 @@ export default function CuttingChart() {
                 <SelectContent>
                   {availableWorkOrders.map((wo) => (
                     <SelectItem key={wo.id} value={wo.id}>
-                      {wo.workOrderNumber} - {wo.styleCode} ({wo.pendingQty} pcs pending)
+                      {wo.workOrderNumber} - {formatStyleCodeWithRef(wo.styleCode, wo.buyerStyleRef)} ({wo.pendingQty}{' '}
+                      pcs pending)
                     </SelectItem>
                   ))}
                 </SelectContent>

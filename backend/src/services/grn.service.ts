@@ -23,6 +23,7 @@ import prisma from '../config/database'; // Use singleton to avoid connection po
 import { logInfo, logError } from '../utils/logger';
 import { generateAtomicGRNNumber } from '../utils/atomicCodeGenerator';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { addCurrency, multiplyCurrency, roundToCent, subtractCurrency, toNumber } from '../utils/currency';
 import {
   validateSourceMismatchOverride,
@@ -117,12 +118,12 @@ class GRNService {
     // procurement-5: these user-facing rejections used to fire AFTER the GRN + PO received-quantity
     // increments had already committed — the receipt existed even though the user saw an error).
     let processingJob: Prisma.job_work_ordersGetPayload<{
-      include: { style: { select: { id: true; styleCode: true } } };
+      include: { style: { select: { id: true; styleCode: true; buyerStyleRef: true } } };
     }> | null = null;
     if (po.poCategory === 'PROCESSING' && data.processingData) {
       processingJob = await prisma.job_work_orders.findFirst({
         where: { purchaseOrderId: po.id },
-        include: { style: { select: { id: true, styleCode: true } } },
+        include: { style: { select: { id: true, styleCode: true, buyerStyleRef: true } } },
       });
       if (!processingJob) {
         logError('No job work order linked to PROCESSING PO', { poId: po.id });
@@ -298,7 +299,7 @@ class GRNService {
                 {
                   itemType: 'FABRIC',
                   fabricId: processingJob.finishedFabricId || processingJob.fabricId,
-                  description: `Processed fabric received via GRN - ${processingJob.style?.styleCode || ''}`,
+                  description: `Processed fabric received via GRN - ${formatStyleCodeWithRef(processingJob.style?.styleCode || '', processingJob.style?.buyerStyleRef)}`,
                   quantity: actualMeters,
                   unit: Unit.METER,
                 },
@@ -2021,7 +2022,7 @@ class GRNService {
     const job = await prisma.job_work_orders.findFirst({
       where: { purchaseOrderId: poId },
       include: {
-        style: { select: { id: true, styleCode: true, styleName: true } },
+        style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
         fabric: { select: { id: true, fabricCode: true, fabricName: true } },
         processor: { select: { id: true, name: true, code: true } },
         greigeStockLot: { select: { id: true, quantityAvailable: true, purchaseCost: true } },
@@ -2041,6 +2042,7 @@ class GRNService {
       expectedReturnDate: job.expectedReturnDate,
       styleName: job.style?.styleName || '',
       styleCode: job.style?.styleCode || '',
+      buyerStyleRef: job.style?.buyerStyleRef ?? null,
       fabricName: job.fabric?.fabricName || '',
       fabricCode: job.fabric?.fabricCode || '',
       processorName: job.processor?.name || '',

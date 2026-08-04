@@ -36,6 +36,7 @@ import { Label } from '@/components/ui/label';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 import { COMPANY_CONFIG, getCompanyFullAddress } from '@/config/company.config';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 
 // Extended types for PO relations not yet in the base PurchaseOrder type
 // NOTE: the backend serializer maps the Prisma `styles` relation key to `style`
@@ -46,25 +47,25 @@ interface POSourceLink {
   materialRequirement?: {
     requirementNumber?: string;
     orderItems?: {
-      style?: { id: string; styleCode: string };
+      style?: { id: string; styleCode: string; buyerStyleRef?: string | null };
     };
   };
   serviceRequirement?: {
     serviceType?: string;
     workOrder?: {
-      style?: { id: string; styleCode: string };
+      style?: { id: string; styleCode: string; buyerStyleRef?: string | null };
     };
   };
   productionRun?: {
     workOrderNumber?: string;
-    style?: { id: string; styleCode: string };
+    style?: { id: string; styleCode: string; buyerStyleRef?: string | null };
   };
 }
 
 interface RequirementPOLink {
   materialRequirements?: {
     orderItems?: {
-      style?: { id: string; styleCode: string };
+      style?: { id: string; styleCode: string; buyerStyleRef?: string | null };
     };
   };
 }
@@ -221,24 +222,24 @@ export default function PurchaseOrderDetail() {
   // Extract linked style numbers from requirement_po_links or po_source_links
   const linkedStyles = useMemo(() => {
     if (!purchaseOrder) return [];
-    const styles = new Map<string, string>();
+    const styles = new Map<string, { code: string; ref?: string | null }>();
     const po = purchaseOrder as ExtendedPurchaseOrder;
     // MRP path: requirement_po_links → material_requirements → order_items → styles
     const reqLinks = po.requirementPoLinks || [];
     for (const link of reqLinks) {
       const style = link.materialRequirements?.orderItems?.style;
-      if (style?.styleCode) styles.set(style.id, style.styleCode);
+      if (style?.styleCode) styles.set(style.id, { code: style.styleCode, ref: style.buyerStyleRef });
     }
     // Unified path: po_source_links → materialRequirement → order_items → style
     const srcLinks = po.poSourceLinks || [];
     for (const link of srcLinks) {
       const style = link.materialRequirement?.orderItems?.style;
-      if (style?.styleCode) styles.set(style.id, style.styleCode);
+      if (style?.styleCode) styles.set(style.id, { code: style.styleCode, ref: style.buyerStyleRef });
       const pStyle = link.productionRun?.style;
-      if (pStyle?.styleCode) styles.set(pStyle.id, pStyle.styleCode);
+      if (pStyle?.styleCode) styles.set(pStyle.id, { code: pStyle.styleCode, ref: pStyle.buyerStyleRef });
       // Service requirement path: serviceRequirement → workOrder → style
       const svcStyle = link.serviceRequirement?.workOrder?.style;
-      if (svcStyle?.styleCode) styles.set(svcStyle.id, svcStyle.styleCode);
+      if (svcStyle?.styleCode) styles.set(svcStyle.id, { code: svcStyle.styleCode, ref: svcStyle.buyerStyleRef });
     }
     return [...styles.values()];
   }, [purchaseOrder]);
@@ -387,8 +388,8 @@ export default function PurchaseOrderDetail() {
                   <div className="text-xs text-muted-foreground mb-1">Style(s)</div>
                   <div className="flex gap-1">
                     {linkedStyles.map((s) => (
-                      <Badge key={s} variant="outline" className="text-xs">
-                        {s}
+                      <Badge key={s.code} variant="outline" className="text-xs">
+                        {formatStyleCodeWithRef(s.code, s.ref)}
                       </Badge>
                     ))}
                   </div>

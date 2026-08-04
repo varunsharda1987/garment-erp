@@ -121,6 +121,7 @@ export class StockProductionOrderService {
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
               imageUrl: true,
             },
@@ -351,6 +352,7 @@ export class StockProductionOrderService {
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           imageUrl: true,
           customerName: true,

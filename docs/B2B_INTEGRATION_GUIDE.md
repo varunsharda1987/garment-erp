@@ -81,6 +81,12 @@ serializer — note `_count` becomes `count`):
   `items[].style{styleCode,styleName}`, `items[].color{colorName}`, `items[].size{sizeName,sizeCode}`
 - `count.deliveryNotes`, `count.invoices`
 
+**Additive fields (2026-08-04, backward-compatible):** `sale_orders` gained nullable
+`orderDate`, `deliveryDate`, `paymentTerms`, `deliveryAddress` (the Zod schema accepted these
+since earlier but they were silently dropped — now persisted). `items[].style` and the top-level
+`style` relation now also include `buyerStyleRef` (buyer's own style number, nullable). B2B may
+ignore all of these; nothing it currently reads changed shape.
+
 From `GET /production-status/by-order?styleId=`:
 `orderNumber, customerId, customerName, quantity, currentStage, piecesInStage, overallProgress,
 deliveryDate, isDelayed, stageBreakdown{inCutting,inStitching,inFinishing,readyToShip,shipped,completed}`.

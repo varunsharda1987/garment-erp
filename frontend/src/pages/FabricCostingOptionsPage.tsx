@@ -29,6 +29,7 @@ import type { Customer } from '../types/customer.types';
 import type { Style } from '../types/style.types';
 import { notify } from '../lib/notify';
 import { divideByShrinkage } from '../utils/math';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
 export default function FabricCostingOptionsPage() {
   const navigate = useNavigate();
@@ -340,7 +341,10 @@ export default function FabricCostingOptionsPage() {
           <div>
             <h1 className="text-2xl font-display font-medium">
               {filters.styleId
-                ? `Costing Options - ${styles.find((s) => s.id === filters.styleId)?.styleCode || 'Loading...'}`
+                ? `Costing Options - ${(() => {
+                    const selected = styles.find((s) => s.id === filters.styleId);
+                    return selected ? formatStyleCodeWithRef(selected.styleCode, selected.buyerStyleRef) : 'Loading...';
+                  })()}`
                 : 'Fabric Costing Options'}
             </h1>
             <p className="text-muted-foreground text-sm">
@@ -414,7 +418,7 @@ export default function FabricCostingOptionsPage() {
               <SelectItem value="all">All Styles</SelectItem>
               {styles.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
-                  {s.styleCode} - {s.styleName}
+                  {formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef)} - {s.styleName}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -503,7 +507,7 @@ export default function FabricCostingOptionsPage() {
                   <div>
                     <div className="flex items-center gap-3">
                       <h3 className="font-semibold">
-                        {style.styleCode} - {style.styleName}
+                        {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - {style.styleName}
                       </h3>
                       {allApproved && (
                         <Badge variant="default" className="bg-success">
@@ -513,8 +517,9 @@ export default function FabricCostingOptionsPage() {
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {style.customerName || 'No Customer'} |{componentEntries.length} components |{totalOptions}{' '}
-                      options |{approvedCount} approved
+                      {style.customerName || 'No Customer'} |
+                      {style.buyerStyleRef ? ` Buyer Ref: ${style.buyerStyleRef} | ` : ''}
+                      {componentEntries.length} components |{totalOptions} options |{approvedCount} approved
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

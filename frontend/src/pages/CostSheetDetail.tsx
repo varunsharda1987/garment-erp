@@ -33,6 +33,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { formatCurrency } from '../lib/currency';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import {
   getCostSheetById,
   approveCostSheet,
@@ -233,7 +234,11 @@ const CostSheetDetail = () => {
           <div className="flex justify-between items-start">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h2 className="text-2xl font-display font-medium">{costSheet.style?.styleCode || 'N/A'}</h2>
+                <h2 className="text-2xl font-display font-medium">
+                  {costSheet.style
+                    ? formatStyleCodeWithRef(costSheet.style.styleCode, costSheet.style.buyerStyleRef)
+                    : 'N/A'}
+                </h2>
                 <Badge variant="outline" className="text-sm">
                   <GitBranch className="w-3 h-3 mr-1" />v{costSheet.version || 1}
                 </Badge>
@@ -721,7 +726,7 @@ const CostSheetDetail = () => {
         open={approveDialogOpen}
         onOpenChange={setApproveDialogOpen}
         title="Approve Cost Sheet"
-        description={`Are you sure you want to approve this cost sheet for "${costSheet.style?.styleCode}"? Once approved, it cannot be edited.`}
+        description={`Are you sure you want to approve this cost sheet for "${formatStyleCodeWithRef(costSheet.style?.styleCode || '', costSheet.style?.buyerStyleRef)}"? Once approved, it cannot be edited.`}
         confirmText="Approve"
         cancelText="Cancel"
         onConfirm={confirmApprove}
@@ -732,7 +737,7 @@ const CostSheetDetail = () => {
         open={revokeDialogOpen}
         onOpenChange={setRevokeDialogOpen}
         title="Revoke Approval"
-        description={`Are you sure you want to revoke approval for "${costSheet.style?.styleCode}"? This will allow the cost sheet to be edited again.`}
+        description={`Are you sure you want to revoke approval for "${formatStyleCodeWithRef(costSheet.style?.styleCode || '', costSheet.style?.buyerStyleRef)}"? This will allow the cost sheet to be edited again.`}
         confirmText="Revoke"
         cancelText="Cancel"
         onConfirm={confirmRevoke}
@@ -743,7 +748,7 @@ const CostSheetDetail = () => {
         open={createVersionDialogOpen}
         onOpenChange={setCreateVersionDialogOpen}
         title="Create New Version"
-        description={`Create a new version of the cost sheet for "${costSheet.style?.styleCode}"? This will copy Version ${costSheet.version || 1} to a new editable draft.`}
+        description={`Create a new version of the cost sheet for "${formatStyleCodeWithRef(costSheet.style?.styleCode || '', costSheet.style?.buyerStyleRef)}"? This will copy Version ${costSheet.version || 1} to a new editable draft.`}
         confirmText={creatingVersion ? 'Creating...' : 'Create Version'}
         cancelText="Cancel"
         onConfirm={confirmCreateVersion}
@@ -759,7 +764,9 @@ const CostSheetDetail = () => {
               Reject Cost Sheet
             </DialogTitle>
             <DialogDescription>
-              Reject the cost sheet for &quot;{costSheet.style?.styleCode}&quot;? Please provide a reason for rejection.
+              Reject the cost sheet for &quot;
+              {formatStyleCodeWithRef(costSheet.style?.styleCode || '', costSheet.style?.buyerStyleRef)}&quot;? Please
+              provide a reason for rejection.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">

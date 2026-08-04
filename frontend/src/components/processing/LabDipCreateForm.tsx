@@ -24,6 +24,7 @@ import type { Supplier } from '@/types/supplier.types';
 import type { ColorSearchResult } from '@/types/color.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { cn } from '@/lib/utils';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 
 export type ProcessType = 'DYEING' | 'PRINTING';
 
@@ -319,7 +320,8 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
                   >
                     {selectedStyle ? (
                       <span className="truncate">
-                        {selectedStyle.styleCode} - {selectedStyle.styleName}
+                        {formatStyleCodeWithRef(selectedStyle.styleCode, selectedStyle.buyerStyleRef)} -{' '}
+                        {selectedStyle.styleName}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">Search styles...</span>
@@ -358,7 +360,9 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
                               )}
                             />
                             <div className="flex flex-col">
-                              <span className="font-medium">{style.styleCode}</span>
+                              <span className="font-medium">
+                                {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)}
+                              </span>
                               <span className="text-sm text-muted-foreground">{style.styleName}</span>
                             </div>
                           </CommandItem>

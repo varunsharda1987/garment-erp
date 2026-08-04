@@ -610,7 +610,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
       setSelectedStyleCode(fullStyle.styleCode || '');
       setFormData((prev) => ({
         ...prev,
-        styleReference: fullStyle.styleCode || '',
+        styleReference: fullStyle.styleCode ? formatStyleCodeWithRef(fullStyle.styleCode, fullStyle.buyerStyleRef) : '',
       }));
     } catch (error) {
       logError('Error loading style detail:', error);

@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import workOrderService from '../services/workOrder.service';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import warehouseService from '../services/warehouse.service';
 import { handleApiError } from '../lib/api-error-handler';
 import type { WorkOrder, Priority, UpdateWorkOrderDTO } from '../types/production.types';
@@ -202,7 +203,8 @@ export default function WorkOrderForm() {
                 <div>
                   <Label className="text-muted-foreground">Style</Label>
                   <div className="font-medium mt-1">
-                    {workOrder.style?.styleCode} - {workOrder.style?.styleName}
+                    {formatStyleCodeWithRef(workOrder.style?.styleCode || '', workOrder.style?.buyerStyleRef)} -{' '}
+                    {workOrder.style?.styleName}
                   </div>
                 </div>
                 <div>

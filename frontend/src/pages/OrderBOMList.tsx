@@ -116,6 +116,9 @@ const OrderBOMList = () => {
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Order</th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Style</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
+                        Buyer Ref
+                      </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                         Version
                       </th>
@@ -144,6 +147,7 @@ const OrderBOMList = () => {
                           <div className="font-medium">{bom.style?.styleCode || '-'}</div>
                           <div className="text-muted-foreground text-xs">{bom.style?.styleName}</div>
                         </td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">{bom.style?.buyerStyleRef || '—'}</td>
                         <td className="px-4 py-3 text-sm text-center">
                           <Badge variant="outline">v{bom.version}</Badge>
                         </td>

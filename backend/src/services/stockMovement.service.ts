@@ -7,6 +7,7 @@ import { routeToSpecializedStock, routeFromSpecializedStock } from './helpers/st
 import type { AdjustmentReason } from '../schemas/stockMovement.schema';
 // BUG-STK8 fix: Use decimal.js helpers for precision-safe arithmetic
 import { addCurrency, subtractCurrency, multiplyCurrency, toCurrency, toNumber } from '../utils/currency';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
 export interface CreateStockMovementDTO {
   movementType: MovementType;
@@ -1674,7 +1675,7 @@ class StockMovementService {
         },
         include: {
           supplier: { select: { id: true, code: true, name: true } },
-          style: { select: { styleCode: true, styleName: true } },
+          style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
         },
         orderBy: { sendDate: 'asc' },
         take: 100,
@@ -1703,7 +1704,7 @@ class StockMovementService {
           partyCode: sendOut.supplier?.code || '',
           partyName: sendOut.supplier?.name || 'Unknown Vendor',
           partyType: 'PROCESSOR',
-          materialDescription: `${sendOut.style?.styleCode || 'Style'} - ${processType.replace('_', ' ')}`,
+          materialDescription: `${sendOut.style?.styleCode ? formatStyleCodeWithRef(sendOut.style.styleCode, sendOut.style.buyerStyleRef) : 'Style'} - ${processType.replace('_', ' ')}`,
           qtyOrdered: Number(sendOut.quantitySent),
           qtyCompleted: Number(sendOut.quantityReceived || 0),
           qtyPending: Number(sendOut.quantitySent) - Number(sendOut.quantityReceived || 0),
@@ -1925,7 +1926,7 @@ class StockMovementService {
         },
         include: {
           supplier: { select: { id: true, code: true, name: true } },
-          style: { select: { styleCode: true, styleName: true } },
+          style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
         },
         orderBy: { createdAt: 'desc' },
         take: 50,
@@ -1947,7 +1948,7 @@ class StockMovementService {
           partyId: sendOut.supplier?.id || '',
           partyCode: sendOut.supplier?.code || '',
           partyName: sendOut.supplier?.name || 'Select Vendor',
-          materialDescription: `${sendOut.style?.styleCode || 'Style'} - ${processType.replace('_', ' ')}`,
+          materialDescription: `${sendOut.style?.styleCode ? formatStyleCodeWithRef(sendOut.style.styleCode, sendOut.style.buyerStyleRef) : 'Style'} - ${processType.replace('_', ' ')}`,
           quantity: Number(sendOut.quantitySent || 0),
           unit: sendOut.unit || 'PCS',
           createdDate: sendOut.createdAt,

@@ -218,6 +218,7 @@ class GarmentPhysicalTestsService {
               select: {
                 id: true,
                 styleCode: true,
+                buyerStyleRef: true,
                 styleName: true,
               },
             },

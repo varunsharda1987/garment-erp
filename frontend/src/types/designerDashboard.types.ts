@@ -29,6 +29,7 @@ export interface SeasonCount {
 export interface RecentStyle {
   id: string;
   styleCode: string;
+  buyerStyleRef?: string | null;
   styleName: string;
   status: string;
   imageUrl?: string | null;
@@ -51,6 +52,7 @@ export interface TeamActivity {
   style?: {
     id: string;
     styleCode: string;
+    buyerStyleRef?: string | null;
     styleName: string;
   } | null;
 }

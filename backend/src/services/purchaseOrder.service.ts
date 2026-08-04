@@ -1055,7 +1055,7 @@ class PurchaseOrderService {
               requirementNumber: true,
               order_items: {
                 select: {
-                  styles: { select: { id: true, styleCode: true } },
+                  styles: { select: { id: true, styleCode: true, buyerStyleRef: true } },
                 },
               },
             },
@@ -1067,7 +1067,7 @@ class PurchaseOrderService {
               workOrder: {
                 select: {
                   styles: {
-                    select: { id: true, styleCode: true },
+                    select: { id: true, styleCode: true, buyerStyleRef: true },
                   },
                 },
               },
@@ -1077,7 +1077,7 @@ class PurchaseOrderService {
             select: {
               id: true,
               workOrderNumber: true,
-              styles: { select: { id: true, styleCode: true } },
+              styles: { select: { id: true, styleCode: true, buyerStyleRef: true } },
             },
           },
         },
@@ -1092,7 +1092,7 @@ class PurchaseOrderService {
               requirementNumber: true,
               order_items: {
                 select: {
-                  styles: { select: { id: true, styleCode: true } },
+                  styles: { select: { id: true, styleCode: true, buyerStyleRef: true } },
                 },
               },
             },
@@ -1104,6 +1104,7 @@ class PurchaseOrderService {
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
         },
       },

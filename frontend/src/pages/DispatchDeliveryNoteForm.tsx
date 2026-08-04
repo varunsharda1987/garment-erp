@@ -20,6 +20,7 @@ import { styleService } from '@/services/style.service';
 import type { Order } from '@/types/order.types';
 import type { CreateDeliveryNoteRequest } from '@/types/dispatch.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { notify } from '@/lib/notify';
 import { logError } from '@/lib/logger';
 import { ArrowLeft, Package, Plus, Save, Trash2, Truck } from 'lucide-react';
@@ -265,7 +266,7 @@ export default function DispatchDeliveryNoteForm() {
 
   const styleLabel = (styleId: string) => {
     const s = orderStyles.find((st) => st.id === styleId);
-    return s ? `${s.styleCode} — ${s.styleName}` : styleId;
+    return s ? `${formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef)} — ${s.styleName}` : styleId;
   };
 
   // ----- Submit -----
@@ -477,7 +478,7 @@ export default function DispatchDeliveryNoteForm() {
                                 <SelectContent>
                                   {orderStyles.map((s) => (
                                     <SelectItem key={s.id} value={s.id}>
-                                      {s.styleCode} — {s.styleName}
+                                      {formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef)} — {s.styleName}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>

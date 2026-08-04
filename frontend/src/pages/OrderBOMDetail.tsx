@@ -25,6 +25,7 @@ import { LoadingSpinner } from '../components/LoadingSpinner';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { formatCurrency } from '../lib/currency';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import {
   getById,
   updateOrderBOM,
@@ -473,7 +474,7 @@ const OrderBOMDetail = () => {
                 </span>
               </div>
               <p className="text-muted-foreground text-lg">
-                {bom.style?.styleCode} - {bom.style?.styleName}
+                {formatStyleCodeWithRef(bom.style?.styleCode || '', bom.style?.buyerStyleRef)} - {bom.style?.styleName}
               </p>
               <div className="mt-3 text-sm text-muted-foreground space-y-1">
                 <div>

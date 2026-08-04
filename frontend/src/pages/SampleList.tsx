@@ -177,6 +177,9 @@ export default function SampleList() {
           {item.style ? (
             <>
               <div className="text-sm font-medium text-foreground">{item.style.styleCode}</div>
+              {item.style.buyerStyleRef && (
+                <div className="text-xs text-muted-foreground line-clamp-1">({item.style.buyerStyleRef})</div>
+              )}
               <div className="text-xs text-muted-foreground line-clamp-1">{item.style.styleName}</div>
             </>
           ) : (

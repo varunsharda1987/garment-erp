@@ -22,6 +22,7 @@ export interface SaleOrderItem {
   style?: {
     id: string;
     styleCode: string;
+    buyerStyleRef?: string | null;
     styleName: string;
     imageUrl?: string | null;
   };
@@ -55,6 +56,10 @@ export interface SaleOrder {
   saleDate: string;
   expectedShipDate?: string | null; // Factory's planned ship date
   buyerDeadline?: string | null; // Buyer's required completion date
+  orderDate?: string | null; // Buyer's PO/order date
+  deliveryDate?: string | null; // Agreed delivery date
+  paymentTerms?: string | null;
+  deliveryAddress?: string | null;
   status: SaleOrderStatus;
   subtotal: number;
   taxAmount: number;
@@ -76,6 +81,7 @@ export interface SaleOrder {
   style?: {
     id: string;
     styleCode: string;
+    buyerStyleRef?: string | null;
     styleName: string;
     imageUrl?: string | null;
   } | null; // Primary style relation

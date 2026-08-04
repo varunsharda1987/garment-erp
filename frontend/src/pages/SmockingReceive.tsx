@@ -172,6 +172,12 @@ export default function SmockingReceive() {
               <div>
                 <span className="text-muted-foreground">Style:</span> <strong>{sendOut.style?.styleCode}</strong>
               </div>
+              {sendOut.style?.buyerStyleRef && (
+                <div>
+                  <span className="text-muted-foreground">Buyer Ref:</span>{' '}
+                  <strong>{sendOut.style.buyerStyleRef}</strong>
+                </div>
+              )}
               <div>
                 <span className="text-muted-foreground">Qty Sent:</span>{' '}
                 <strong>

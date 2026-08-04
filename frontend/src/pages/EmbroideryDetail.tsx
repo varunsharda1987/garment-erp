@@ -282,7 +282,14 @@ export default function EmbroideryDetail() {
                       className="p-3 border rounded-lg hover:bg-muted cursor-pointer transition-colors"
                       onClick={() => navigate(`/styles/${usage.styleId}`)}
                     >
-                      <div className="font-medium text-foreground">{usage.styleCode}</div>
+                      <div className="font-medium text-foreground">
+                        {usage.styleCode}
+                        {usage.buyerStyleRef && (
+                          <span className="ml-1 text-xs font-normal text-muted-foreground">
+                            ({usage.buyerStyleRef})
+                          </span>
+                        )}
+                      </div>
                       <div className="text-sm text-muted-foreground">{usage.styleName}</div>
                       <div className="text-xs text-muted-foreground mt-1">Component: {usage.componentName}</div>
                     </div>

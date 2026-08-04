@@ -14,6 +14,7 @@ import type { Style } from '@/types/style.types';
 import type { QuotationItemInput } from '@/types/quotation.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { ArrowLeft, FileText, Plus, Trash2 } from 'lucide-react';
 
 interface QuotationItemRow extends QuotationItemInput {
@@ -339,7 +340,7 @@ export default function QuotationForm() {
                       <SelectContent>
                         {styles?.map((style) => (
                           <SelectItem key={style.id} value={style.id}>
-                            {style.styleCode} - {style.styleName}
+                            {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - {style.styleName}
                           </SelectItem>
                         ))}
                       </SelectContent>

@@ -25,6 +25,7 @@ export interface DashboardStats {
 export interface StyleSummary {
   id: string;
   styleCode: string;
+  buyerStyleRef: string | null;
   styleName: string;
   status: string;
   imageUrl: string | null;
@@ -122,6 +123,7 @@ class DesignerDashboardService {
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           status: true,
           imageUrl: true,
@@ -162,6 +164,7 @@ class DesignerDashboardService {
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
             },
           },
@@ -256,6 +259,7 @@ class DesignerDashboardService {
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           status: true,
           imageUrl: true,

@@ -18,12 +18,14 @@ import { getAllOrders, getOrderById } from '@/services/order.service';
 import type { Order, OrderItem, OrderItemBreakup } from '@/types/order.types';
 import type { CreateASNRequest } from '@/types/dispatch.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { queryKeys } from '@/lib/query-client';
 
 interface SKULine {
   styleId: string;
   styleName: string;
   styleCode: string;
+  buyerStyleRef?: string | null;
   colorId: string;
   colorName: string;
   colorCode?: string;
@@ -75,6 +77,7 @@ export default function ASNCreateForm() {
               styleId: item.styleId,
               styleName: item.style?.styleName || 'Unknown',
               styleCode: item.style?.styleCode || '',
+              buyerStyleRef: item.style?.buyerStyleRef ?? null,
               colorId: b.colorOptions?.id || '',
               colorName: b.colorOptions?.colorName || 'N/A',
               colorCode: b.colorOptions?.colorCode,
@@ -90,6 +93,7 @@ export default function ASNCreateForm() {
             styleId: item.styleId,
             styleName: item.style?.styleName || 'Unknown',
             styleCode: item.style?.styleCode || '',
+            buyerStyleRef: item.style?.buyerStyleRef ?? null,
             colorId: '',
             colorName: 'N/A',
             sizeId: '',
@@ -307,7 +311,9 @@ export default function ASNCreateForm() {
                         <TableCell>
                           <div>
                             <p className="font-medium">{line.styleName}</p>
-                            <p className="text-xs text-muted-foreground font-mono">{line.styleCode}</p>
+                            <p className="text-xs text-muted-foreground font-mono">
+                              {formatStyleCodeWithRef(line.styleCode, line.buyerStyleRef)}
+                            </p>
                           </div>
                         </TableCell>
                         <TableCell>

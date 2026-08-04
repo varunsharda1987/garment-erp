@@ -244,6 +244,9 @@ export default function DispatchPODForm() {
                   <TableRow key={item.id}>
                     <TableCell>
                       {item.style?.styleCode || '-'}
+                      {item.style?.buyerStyleRef && (
+                        <span className="text-muted-foreground ml-1">({item.style.buyerStyleRef})</span>
+                      )}
                       <span className="text-muted-foreground ml-2">{item.style?.styleName}</span>
                     </TableCell>
                     <TableCell>{item.color?.colorName || '-'}</TableCell>

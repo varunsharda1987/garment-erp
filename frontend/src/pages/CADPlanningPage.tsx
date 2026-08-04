@@ -52,6 +52,7 @@ import {
 } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import type { CADTableData } from '../types/cad-planning.types';
 import CADSpreadsheetTable from '../components/cad/CADSpreadsheetTable';
 import { StockSummaryBanner } from '../components/cad/StockSummaryBanner';
@@ -105,6 +106,7 @@ interface CADHistoryData {
   style: {
     id: string;
     styleCode: string;
+    buyerStyleRef?: string | null;
     styleName: string;
     cadStatus: string;
     approvedCadDate: string | null;
@@ -122,6 +124,7 @@ interface CADHistoryData {
 interface StyleInfo {
   id: string;
   styleCode: string;
+  buyerStyleRef?: string | null;
   styleName: string;
   cadStatus: 'PENDING' | 'IN_PROGRESS' | 'APPROVED';
   approvedCadDate?: string;
@@ -178,6 +181,9 @@ export default function CADPlanningPage() {
         setStyle({
           id: tableData.style.id,
           styleCode: tableData.style.styleCode,
+          // API returns buyerStyleRef; CADStyleSummary type doesn't declare it yet
+          buyerStyleRef:
+            (tableData.style as typeof tableData.style & { buyerStyleRef?: string | null }).buyerStyleRef ?? null,
           styleName: tableData.style.styleName,
           cadStatus: tableData.style.cadStatus as 'PENDING' | 'IN_PROGRESS' | 'APPROVED',
           approvedCadDate: tableData.style.approvedCadDate ?? undefined,
@@ -537,7 +543,7 @@ export default function CADPlanningPage() {
           <div>
             <h1 className="text-3xl font-display font-medium">CAD Planning</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {style.styleCode} - {style.styleName}
+              {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - {style.styleName}
             </p>
           </div>
         </div>

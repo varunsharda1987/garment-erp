@@ -34,6 +34,7 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { groupRequirementsBySupplier, bulkGeneratePOs, previewPOs } from '@/services/mrp.service';
 import type { MaterialRequirement, POPreviewGroup, POPreviewItem } from '@/types/mrp.types';
 import { COMPANY_CONFIG } from '@/config/company.config';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 
 interface POGenerationResult {
   totalPOs: number;
@@ -447,7 +448,7 @@ export default function BulkPOGenerationDialog({
                                     <span>
                                       Style:{' '}
                                       <span className="text-foreground">
-                                        {r.orderItem.styleCode}
+                                        {formatStyleCodeWithRef(r.orderItem.styleCode, r.orderItem.buyerStyleRef)}
                                         {r.orderItem.styleName ? ` - ${r.orderItem.styleName}` : ''}
                                       </span>
                                     </span>
@@ -651,7 +652,9 @@ export default function BulkPOGenerationDialog({
                                     </div>
                                     {(item.styleCode || item.orderNumber) && (
                                       <div className="text-[10px] text-muted-foreground mt-0.5">
-                                        {item.styleCode && <span>{item.styleCode}</span>}
+                                        {item.styleCode && (
+                                          <span>{formatStyleCodeWithRef(item.styleCode, item.buyerStyleRef)}</span>
+                                        )}
                                         {item.styleCode && item.orderNumber && <span> | </span>}
                                         {item.orderNumber && <span>{item.orderNumber}</span>}
                                       </div>

@@ -1420,6 +1420,7 @@ const processPOInclude = {
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
         },
       },
@@ -1849,7 +1850,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         id: poItemId,
         poId: po.id,
         serviceType: 'PRINTING',
-        serviceDescription: `Printing processing - ${(labDip as any).style?.styleCode || ''}`,
+        serviceDescription: `Printing processing - ${formatStyleCodeWithRef((labDip as any).style?.styleCode || '', (labDip as any).style?.buyerStyleRef)}`,
         orderedQuantity: new Prisma.Decimal(qtySentMeters),
         receivedQuantity: new Prisma.Decimal(0),
         unit: 'METER',
@@ -1983,7 +1984,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
             itemType: 'GREIGE',
             fabricId: job.fabricId,
             greigeStockId: job.greigeStockLotId || undefined,
-            description: `Greige fabric for Printing - ${result.labDip?.style?.styleCode || ''}`,
+            description: `Greige fabric for Printing - ${formatStyleCodeWithRef(result.labDip?.style?.styleCode || '', result.labDip?.style?.buyerStyleRef)}`,
             quantity: Number(job.qtySentMeters),
             unit: Unit.METER,
             rate: Number(job.agreedRatePerMeter),
@@ -2252,7 +2253,7 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
           itemType: 'GREIGE',
           fabricId: job.fabricId,
           greigeStockId: job.greigeStockLotId || undefined,
-          description: `Greige fabric for Printing - ${job.style?.styleCode || ''}`,
+          description: `Greige fabric for Printing - ${formatStyleCodeWithRef(job.style?.styleCode || '', job.style?.buyerStyleRef)}`,
           quantity: Number(job.qtySentMeters),
           unit: Unit.METER,
           rate: Number(job.agreedRatePerMeter),
@@ -2324,7 +2325,7 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
       suppliers: { select: { id: true, name: true, code: true } },
       jobWorkOrder: {
         include: {
-          style: { select: { id: true, styleCode: true } },
+          style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
         },
       },
     },
@@ -2408,7 +2409,7 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
         {
           itemType: 'FABRIC',
           fabricId: job.finishedFabricId || job.fabricId,
-          description: `Printed fabric received - ${job.style?.styleCode || ''}`,
+          description: `Printed fabric received - ${formatStyleCodeWithRef(job.style?.styleCode || '', job.style?.buyerStyleRef)}`,
           quantity: actualMeters,
           unit: Unit.METER,
         },
@@ -2528,7 +2529,7 @@ export const updateStockProcessPO = async (req: Request, res: Response, _next: N
         include: {
           fabricStockLot: true,
           greigeStockLot: true,
-          style: { select: { id: true, styleCode: true } },
+          style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
         },
       },
     },
@@ -2702,7 +2703,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
       suppliers: { select: { id: true, name: true, code: true } },
       jobWorkOrder: {
         include: {
-          style: { select: { id: true, styleCode: true } },
+          style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
           greigeStockLot: true,
         },
       },
@@ -2754,7 +2755,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
           itemType: 'GREIGE',
           fabricId: job.fabricId,
           greigeStockId: job.greigeStockLotId || undefined,
-          description: `Unprocessed greige fabric returned - ${job.style?.styleCode || ''}`,
+          description: `Unprocessed greige fabric returned - ${formatStyleCodeWithRef(job.style?.styleCode || '', job.style?.buyerStyleRef)}`,
           quantity: returnedQtyMeters,
           unit: Unit.METER,
         },

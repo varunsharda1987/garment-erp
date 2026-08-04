@@ -444,6 +444,7 @@ export async function getStyleFabrics(req: Request, res: Response) {
         finishType: styleFabric.fabricFinishType || styleFabric.fabric?.finishType || null,
         // Design/Color for identification
         printDesign: styleFabric.printDesign || styleFabric.fabric?.printDesign || null,
+        colorMasterId: styleFabric.colorMasterId || null,
         colorName: (styleFabric as any).colorMaster?.colorName || styleFabric.fabricColor || null,
         numberOfColors: styleFabric.numberOfColors || null,
         readyFabricCost,
@@ -642,6 +643,7 @@ export async function getStyleFabrics(req: Request, res: Response) {
       data: {
         styleId: style.id,
         styleCode: style.styleCode,
+        buyerStyleRef: style.buyerStyleRef,
         styleName: style.styleName,
         fabrics: fabricsForCosting,
       },
@@ -985,6 +987,7 @@ export async function getCostingOptions(req: Request, res: Response) {
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           customerName: true,
           brand_categories: {
@@ -1006,6 +1009,7 @@ export async function getCostingOptions(req: Request, res: Response) {
       style: {
         id: string;
         styleCode: string;
+        buyerStyleRef: string | null;
         styleName: string;
         customerName: string | null;
         customerId: string | null;
@@ -1028,6 +1032,7 @@ export async function getCostingOptions(req: Request, res: Response) {
         style: {
           id: styleIdKey,
           styleCode: option.costingStyle?.styleCode || '',
+          buyerStyleRef: option.costingStyle?.buyerStyleRef ?? null,
           styleName: option.costingStyle?.styleName || '',
           customerName,
           customerId,

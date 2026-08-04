@@ -50,6 +50,8 @@ export interface LaceStock {
   originStyleId?: string | null;
   originOrderId?: string | null;
   originStyleCode?: string | null;
+  // Flattened by backend from originStyle.buyerStyleRef (laceStock.service.ts DTOs)
+  originBuyerStyleRef?: string | null;
   procurementId?: string | null;
   processingBatchId?: string | null;
 
@@ -101,6 +103,7 @@ export interface LaceStock {
   originStyle?: {
     id: string;
     styleCode: string;
+    buyerStyleRef?: string | null;
     styleName?: string | null;
   };
   originOrder?: {
@@ -153,6 +156,7 @@ export interface LaceStockAllocation {
   style?: {
     id: string;
     styleCode: string;
+    buyerStyleRef?: string | null;
     styleName?: string | null;
   };
 }
@@ -280,6 +284,7 @@ export interface LaceStockAgingItem {
   agingDays: number;
   agingBucket: '0-30' | '31-60' | '61-90' | '90+';
   originStyleCode?: string | null;
+  originBuyerStyleRef?: string | null;
 }
 
 // Utilization report

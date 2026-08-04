@@ -17,6 +17,7 @@ import type { CostingOption } from '../types/fabricCosting.types';
 import type { Style } from '../types/style.types';
 import { notify } from '../lib/notify';
 import { divideByShrinkage } from '../utils/math';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
 export default function StyleFabricCostingOptionsPage() {
   const navigate = useNavigate();
@@ -178,7 +179,9 @@ export default function StyleFabricCostingOptionsPage() {
           </Button>
           <div>
             <h1 className="text-2xl font-display font-medium">
-              {style ? `${style.styleCode} - ${style.styleName}` : 'Loading...'}
+              {style
+                ? `${formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - ${style.styleName}`
+                : 'Loading...'}
             </h1>
             <p className="text-muted-foreground text-sm">
               {style?.customerName || 'No Customer'} | {componentEntries.length} components | {totalOptions} options |{' '}

@@ -40,6 +40,7 @@ import { LabDipStatusLabels, LabDipStatusColors } from '@/types/printing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 
 export type ProcessType = 'DYEING' | 'PRINTING';
 
@@ -367,7 +368,11 @@ export default function LabDipDetail({ processType, backPath, title }: LabDipDet
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">Style Code</p>
-                <p className="font-medium">{labDip.style?.styleCode || '-'}</p>
+                <p className="font-medium">
+                  {labDip.style?.styleCode
+                    ? formatStyleCodeWithRef(labDip.style.styleCode, labDip.style.buyerStyleRef)
+                    : '-'}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Style Name</p>

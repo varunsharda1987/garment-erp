@@ -24,6 +24,7 @@ import type { Order } from '../types/order.types';
 import { logError } from '../lib/logger';
 import api from '@/lib/api';
 import { formatCurrency } from '../lib/currency';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
 interface FabricStock {
   id: string;
@@ -622,7 +623,7 @@ export default function EmbroideryStockSendOut() {
                         <SelectItem value="__none__">None</SelectItem>
                         {styleList.map((style) => (
                           <SelectItem key={style.id} value={style.id}>
-                            {style.styleCode} - {style.styleName}
+                            {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - {style.styleName}
                           </SelectItem>
                         ))}
                       </SelectContent>

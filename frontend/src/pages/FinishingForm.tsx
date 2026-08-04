@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/PageHeader';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { finishingIssueService, finishingSummaryService } from '@/services/finishing.service';
 import { handleApiSuccess } from '@/lib/api-error-handler';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import type { CreateFinishingIssueRequest, FinishingIncomingTransferSlip } from '@/types/finishing.types';
 
 interface SKUEntry {
@@ -271,7 +272,8 @@ export default function FinishingForm() {
                     ) : (
                       visibleTransferSlips.map((slip) => (
                         <SelectItem key={slip.id} value={slip.id}>
-                          {slip.slipNumber} - {slip.workOrderNumber} ({slip.styleCode || slip.styleName}) -{' '}
+                          {slip.slipNumber} - {slip.workOrderNumber} (
+                          {formatStyleCodeWithRef(slip.styleCode || slip.styleName, slip.buyerStyleRef)}) -{' '}
                           {slip.totalGoodPieces} pcs
                         </SelectItem>
                       ))
@@ -299,6 +301,11 @@ export default function FinishingForm() {
                       <div className="font-medium">
                         {selectedTransferSlip.styleCode || selectedTransferSlip.styleName}
                       </div>
+                      {selectedTransferSlip.buyerStyleRef && (
+                        <div className="text-xs text-muted-foreground">
+                          Buyer Ref: {selectedTransferSlip.buyerStyleRef}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <span className="text-muted-foreground">Transfer Date:</span>

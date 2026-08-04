@@ -127,6 +127,7 @@ export async function getRunById(req: Request, res: Response) {
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           customerName: true,
         },

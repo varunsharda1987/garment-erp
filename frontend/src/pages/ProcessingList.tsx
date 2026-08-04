@@ -462,6 +462,11 @@ export default function ProcessingList() {
       ),
     },
     {
+      key: 'buyerStyleRef',
+      header: 'Buyer Ref',
+      render: (item) => <span className="text-sm">{item.style?.buyerStyleRef || '—'}</span>,
+    },
+    {
       key: 'fabric',
       header: 'Fabric',
       render: (item) => (
@@ -586,6 +591,11 @@ export default function ProcessingList() {
           </div>
         );
       },
+    },
+    {
+      key: 'buyerStyleRef',
+      header: 'Buyer Ref',
+      render: (item) => <span className="text-sm">{item.jobWorkOrder?.style?.buyerStyleRef || '—'}</span>,
     },
     {
       key: 'processor',

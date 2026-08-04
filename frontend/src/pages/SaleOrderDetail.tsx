@@ -143,7 +143,12 @@ export default function SaleOrderDetail() {
             <CardTitle className="text-sm text-muted-foreground">Style</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="font-mono font-bold">{so.style?.styleCode || '-'}</div>
+            <div className="font-mono font-bold">
+              {so.style?.styleCode || '-'}
+              {so.style?.buyerStyleRef && (
+                <span className="text-muted-foreground font-normal ml-1">({so.style.buyerStyleRef})</span>
+              )}
+            </div>
             <div className="text-sm text-muted-foreground truncate">{so.style?.styleName || 'No primary style'}</div>
           </CardContent>
         </Card>
@@ -223,7 +228,12 @@ export default function SaleOrderDetail() {
                 so.items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
-                      <div className="font-mono text-sm">{item.style?.styleCode}</div>
+                      <div className="font-mono text-sm">
+                        {item.style?.styleCode}
+                        {item.style?.buyerStyleRef && (
+                          <span className="text-muted-foreground ml-1">({item.style.buyerStyleRef})</span>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground">{item.style?.styleName}</div>
                     </TableCell>
                     <TableCell>{item.color?.colorName || 'N/A'}</TableCell>
@@ -323,7 +333,9 @@ export default function SaleOrderDetail() {
             <div className="space-y-4">
               <div className="p-3 bg-muted rounded-md text-sm">
                 <div>
-                  <strong>Style:</strong> {selectedItem.style?.styleCode} - {selectedItem.style?.styleName}
+                  <strong>Style:</strong> {selectedItem.style?.styleCode}
+                  {selectedItem.style?.buyerStyleRef ? ` (${selectedItem.style.buyerStyleRef})` : ''} -{' '}
+                  {selectedItem.style?.styleName}
                 </div>
                 <div>
                   <strong>Color:</strong> {selectedItem.color?.colorName || 'N/A'}

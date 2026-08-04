@@ -141,6 +141,7 @@ export interface FabricMaster {
       style: {
         id: string;
         styleCode: string;
+        buyerStyleRef?: string | null;
         styleName: string;
       };
     };
@@ -408,6 +409,7 @@ export interface FabricStyleAllocation {
     style: {
       id: string;
       styleCode: string;
+      buyerStyleRef?: string | null;
       styleName: string;
       isActive?: boolean;
     } | null;

@@ -228,6 +228,7 @@ export const getEmbroideryById = async (req: Request, res: Response) => {
                 select: {
                   id: true,
                   styleCode: true,
+                  buyerStyleRef: true,
                   styleName: true,
                 },
               },
@@ -246,6 +247,7 @@ export const getEmbroideryById = async (req: Request, res: Response) => {
   const usedInStyles = embroidery.style_fabrics.map((sf) => ({
     styleId: sf.style_components.styles.id,
     styleCode: sf.style_components.styles.styleCode,
+    buyerStyleRef: sf.style_components.styles.buyerStyleRef ?? null,
     styleName: sf.style_components.styles.styleName,
     componentName: sf.style_components.componentName,
   }));

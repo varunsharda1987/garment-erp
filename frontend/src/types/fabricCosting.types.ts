@@ -210,7 +210,7 @@ export interface FabricWidthOption {
 export interface FabricForCosting {
   id: string; // fabric_width_cad.id (or style_fabrics.id for legacy)
   styleFabricId?: string; // style_fabrics.id (for linking)
-  fabricId: string;
+  fabricId: string | null; // null for generic fabrics (no fabric_master link)
   fabricName: string;
   genericGreigeName?: string | null;
   componentId: string;
@@ -221,6 +221,7 @@ export interface FabricForCosting {
   finishType: 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW' | null;
   // Design/Color identification
   printDesign?: string | null;
+  colorMasterId?: string | null;
   colorName?: string | null;
   greigeId: string | null;
   greigeName: string | null;
@@ -268,6 +269,7 @@ export interface FabricForCosting {
 export interface StyleFabricsResponse {
   styleId: string;
   styleCode: string;
+  buyerStyleRef?: string | null;
   styleName: string;
   fabrics: FabricForCosting[];
 }
@@ -295,7 +297,7 @@ export interface ProcessorRateLookup {
 export interface FabricCostingRow {
   id: string; // style_fabrics.id
   styleFabricId: string | null; // style_fabrics.id - for unique key grouping (same-fabric diff properties)
-  fabricId: string;
+  fabricId: string | null; // null for generic fabrics (no fabric_master link)
   fabricWidthCadId: string | null; // fabric_width_cad.id (if existing record)
   savedOrderQuantityPcs?: number | null; // Original saved quantity for clone detection (quantity change creates new option)
   rowQuantity?: number; // Per-row quantity (can override global orderQuantity)
@@ -308,6 +310,7 @@ export interface FabricCostingRow {
   finishType: 'DYED' | 'PRINTED' | 'YARN_DYED' | 'RAW' | null;
   // Design/Color identification
   printDesign?: string | null;
+  colorMasterId?: string | null;
   colorName?: string | null;
 
   // Greige reference
@@ -408,7 +411,7 @@ export interface FabricCostingSaveItem {
   fabricWidthCadId: string | null; // If updating existing record
   cloneFromCadId?: string; // If set, clone this record instead of updating (for quantity-based variants)
   styleFabricId: string | null; // style_fabrics.id - for unique key (required for multi-fabric same-component)
-  fabricId: string;
+  fabricId: string | null; // null for generic fabrics (no fabric_master link)
   cutableWidth?: number; // CAD-owned field - managed by CAD Planning module
   componentName?: string | null; // CAD-owned field - managed by CAD Planning module
   // Greige and Transport
@@ -490,6 +493,7 @@ export interface CostingOption {
 export interface CostingStyleInfo {
   id: string;
   styleCode: string;
+  buyerStyleRef?: string | null;
   styleName: string;
   customerName: string | null;
   customerId: string | null;

@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import * as wa from '../services/whatsapp.service';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
 /**
  * Sample Controller
@@ -869,7 +870,7 @@ export const notifyBuyer = async (req: Request, res: Response) => {
     where: { id },
     include: {
       customers: { select: { name: true, contactPerson: true, phone: true } },
-      styles: { select: { styleCode: true, styleName: true } },
+      styles: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
     },
   });
 
@@ -884,7 +885,7 @@ export const notifyBuyer = async (req: Request, res: Response) => {
 
   const greetName = sample.customers?.contactPerson?.trim() || sample.customers?.name?.trim() || 'Sir/Madam';
   const styleBit = sample.styles?.styleCode
-    ? ` for style ${sample.styles.styleCode}${sample.styles.styleName ? ` (${sample.styles.styleName})` : ''}`
+    ? ` for style ${formatStyleCodeWithRef(sample.styles.styleCode, sample.styles.buyerStyleRef)}${sample.styles.styleName ? ` (${sample.styles.styleName})` : ''}`
     : '';
   const sentOn = sample.sentDate ? new Date(sample.sentDate).toLocaleDateString('en-IN') : '';
   const message =

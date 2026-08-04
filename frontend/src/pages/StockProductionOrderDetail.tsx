@@ -221,6 +221,9 @@ export default function StockProductionOrderDetail() {
           <CardContent>
             <div className="font-mono font-bold">{spo.style?.styleCode}</div>
             <div className="text-sm text-muted-foreground">{spo.style?.styleName}</div>
+            {spo.style?.buyerStyleRef && (
+              <div className="text-sm text-muted-foreground">Buyer Ref: {spo.style.buyerStyleRef}</div>
+            )}
           </CardContent>
         </Card>
         <Card>

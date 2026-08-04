@@ -22,6 +22,7 @@ import { logInfo, logWarn, logDebug } from '../utils/logger';
 import { NotFoundError, ValidationError } from '../errors';
 import { syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 import { systemSettingsService } from '../services/system-settings.service';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import type {
   CreateFabricStockInput,
   UpdateFabricStockInput,
@@ -260,6 +261,7 @@ export const listStock = async (req: Request, res: Response) => {
                     styles: {
                       select: {
                         styleCode: true,
+                        buyerStyleRef: true,
                       },
                     },
                   },
@@ -294,6 +296,7 @@ export const listStock = async (req: Request, res: Response) => {
           select: {
             id: true,
             styleCode: true,
+            buyerStyleRef: true,
             styleName: true,
           },
         },
@@ -321,7 +324,10 @@ export const listStock = async (req: Request, res: Response) => {
     data: stocks.map((s) => {
       // Get style reference and component type from style_fabrics relation
       const styleFabric = s.fabricMaster.styleFabrics?.[0];
-      const styleRefFromLink = styleFabric?.style_components?.styles?.styleCode;
+      const linkedStyle = styleFabric?.style_components?.styles;
+      const styleRefFromLink = linkedStyle?.styleCode
+        ? formatStyleCodeWithRef(linkedStyle.styleCode, linkedStyle.buyerStyleRef)
+        : undefined;
       const componentType = styleFabric?.style_components?.componentType;
       const componentName = styleFabric?.style_components?.componentName;
 
@@ -392,6 +398,7 @@ export const listStock = async (req: Request, res: Response) => {
         originStyle: s.originStyle
           ? {
               styleCode: s.originStyle.styleCode,
+              buyerStyleRef: s.originStyle.buyerStyleRef ?? null,
               styleName: s.originStyle.styleName,
             }
           : null,
@@ -415,6 +422,7 @@ export const listStock = async (req: Request, res: Response) => {
           ? {
               id: s.originStyle.id,
               styleCode: s.originStyle.styleCode,
+              buyerStyleRef: s.originStyle.buyerStyleRef ?? null,
               styleName: s.originStyle.styleName,
             }
           : null,

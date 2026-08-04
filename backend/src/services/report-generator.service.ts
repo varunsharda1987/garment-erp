@@ -309,6 +309,7 @@ class ReportGeneratorService {
 
     const data = costings.map((cs) => ({
       styleCode: cs.styles?.styleCode || 'N/A',
+      buyerStyleRef: cs.styles?.buyerStyleRef ?? '-',
       styleName: cs.styles?.styleName || 'N/A',
       status: cs.isApproved ? 'Approved' : 'Draft',
       fabricCost: Number(cs.fabricCost || 0).toFixed(2),
@@ -320,6 +321,7 @@ class ReportGeneratorService {
 
     const columns = [
       { fieldName: 'styleCode', displayName: 'Style Code', width: 15 },
+      { fieldName: 'buyerStyleRef', displayName: 'Buyer Ref', width: 15 },
       { fieldName: 'styleName', displayName: 'Style Name', width: 25 },
       { fieldName: 'status', displayName: 'Status', width: 12 },
       { fieldName: 'fabricCost', displayName: 'Fabric Cost', width: 12, format: 'currency' as const },

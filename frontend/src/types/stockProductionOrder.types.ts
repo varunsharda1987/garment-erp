@@ -37,6 +37,7 @@ export interface StockProductionOrder {
   style?: {
     id: string;
     styleCode: string;
+    buyerStyleRef?: string | null;
     styleName: string;
     imageUrl?: string | null;
     customerName?: string | null;

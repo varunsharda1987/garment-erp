@@ -260,7 +260,7 @@ async function fetchModuleData(
       else if (approvedFilter === 'rejected') costingWhere.approvalStatus = 'REJECTED';
       result = await prisma.style_costing.findMany({
         where: costingWhere,
-        include: { styles: { select: { styleCode: true, styleName: true } } },
+        include: { styles: { select: { styleCode: true, buyerStyleRef: true, styleName: true } } },
         orderBy: { createdAt: 'desc' },
       });
       break;

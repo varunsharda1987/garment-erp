@@ -143,6 +143,7 @@ export const getAllFabricMasters = async (req: Request, res: Response) => {
                 select: {
                   id: true,
                   styleCode: true,
+                  buyerStyleRef: true,
                   styleName: true,
                 },
               },
@@ -1275,6 +1276,7 @@ export const getStyleAllocations = async (req: Request, res: Response) => {
             select: {
               id: true,
               styleCode: true,
+              buyerStyleRef: true,
               styleName: true,
               isActive: true,
             },
@@ -1313,6 +1315,7 @@ export const getStyleAllocations = async (req: Request, res: Response) => {
         ? {
             id: allocation.style_components.styles.id,
             styleCode: allocation.style_components.styles.styleCode,
+            buyerStyleRef: allocation.style_components.styles.buyerStyleRef ?? null,
             styleName: allocation.style_components.styles.styleName,
             isActive: allocation.style_components.styles.isActive,
           }

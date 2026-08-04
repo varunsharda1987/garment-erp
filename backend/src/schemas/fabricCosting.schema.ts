@@ -49,7 +49,8 @@ export const saveFabricCostingSchema = z.object({
           fabricWidthCadId: z.string().uuid().nullable().optional(),
           cloneFromCadId: z.string().uuid().optional(),
           styleFabricId: z.string().uuid().nullable().optional(),
-          fabricId: z.string().uuid('Invalid fabric ID'),
+          // Nullable: generic fabrics have no fabric_master link; save path never reads it
+          fabricId: z.string().uuid('Invalid fabric ID').nullable().optional(),
           // Greige and Transport
           greigeId: z.string().uuid().nullable().optional(),
           greigeCostPerMeter: z.number().nonnegative().nullable().optional(),

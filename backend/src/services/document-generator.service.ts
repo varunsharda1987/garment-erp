@@ -19,6 +19,7 @@ import { COMPANY_CONFIG, amountToWords, INVOICE_TERMS, DEFAULT_HSN_CODES } from 
 import path from 'path';
 import fs from 'fs';
 import { logWarn } from '../utils/logger';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
 // Types
 export interface DocumentOptions {
@@ -99,7 +100,7 @@ class DocumentGeneratorService {
         invoice_items: {
           include: {
             style: {
-              select: { id: true, styleCode: true, styleName: true, hsnCode: true },
+              select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true, hsnCode: true },
             },
           },
           orderBy: { id: 'asc' as const },
@@ -291,7 +292,7 @@ class DocumentGeneratorService {
     // Table header
     const columns = [
       { label: '#', width: 20 },
-      { label: 'Style', width: 60 },
+      { label: 'Style', width: 90 },
       { label: 'Description', width: 80 },
       { label: 'HSN', width: 50 },
       { label: 'Qty', width: 35 },
@@ -353,7 +354,7 @@ class DocumentGeneratorService {
 
         const rowData = [
           (idx + 1).toString(),
-          item.style?.styleCode || '-',
+          item.style ? formatStyleCodeWithRef(item.style.styleCode, item.style.buyerStyleRef) : '-',
           item.description || item.style?.styleName || '-',
           item.hsnCode || item.style?.hsnCode || '-',
           qty.toString(),
@@ -405,7 +406,7 @@ class DocumentGeneratorService {
 
         const rowData = [
           (idx + 1).toString(),
-          style?.styleCode || '-',
+          style ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : '-',
           item.itemDescription || style?.styleName || '-',
           style?.hsnCode || DEFAULT_HSN_CODES.GARMENTS,
           qty.toString(),
@@ -842,7 +843,7 @@ class DocumentGeneratorService {
       const amount = Number(item.totalPrice);
 
       ws.getCell(row, 1).value = idx + 1;
-      ws.getCell(row, 2).value = style?.styleCode || '-';
+      ws.getCell(row, 2).value = style ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : '-';
       ws.getCell(row, 3).value = item.itemDescription || style?.styleName || '-';
       ws.getCell(row, 4).value = style?.hsnCode || DEFAULT_HSN_CODES.GARMENTS;
       ws.getCell(row, 5).value = item.totalQuantity;
@@ -1168,7 +1169,7 @@ From ${COMPANY_CONFIG.name}
 
       const rowData = [
         (idx + 1).toString(),
-        style?.styleCode || '-',
+        style ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : '-',
         item.description || style?.styleName || '-',
         style?.hsnCode || DEFAULT_HSN_CODES.GARMENTS,
         qty.toString(),
@@ -1533,7 +1534,7 @@ From ${COMPANY_CONFIG.name}
       doc.rect(marginLeft, y, availableWidth, 20).fillAndStroke('#E8E8E8', '#CCC');
       doc.fillColor('#000');
       doc.text(
-        `${idx + 1}. ${style?.styleCode || '-'} - ${style?.styleName || item.itemDescription || '-'}`,
+        `${idx + 1}. ${style ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : '-'} - ${style?.styleName || item.itemDescription || '-'}`,
         marginLeft + 5,
         y + 6
       );
@@ -1809,7 +1810,16 @@ From ${COMPANY_CONFIG.name}
       doc
         .fillColor('#000')
         .text((index + 1).toString(), marginLeft, y, { width: 30 })
-        .text(style.styleCode || '-', marginLeft + 35, y, { width: 100 })
+        .text(
+          style.styleCode ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : '-',
+          marginLeft + 35,
+          y,
+          {
+            width: 100,
+            height: 12,
+            ellipsis: true,
+          }
+        )
         .text(style.styleName || '-', marginLeft + 140, y, { width: 200, ellipsis: true })
         .text(pageNum.toString(), marginLeft + 350, y, { width: 40 });
       y += 14;
@@ -1902,7 +1912,11 @@ From ${COMPANY_CONFIG.name}
       .fontSize(11)
       .font('Helvetica-Bold')
       .fillColor('#FFF')
-      .text(style.styleCode, x + 5, y + imageHeight - 20, { width: width - 10 });
+      .text(formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef), x + 5, y + imageHeight - 20, {
+        width: width - 10,
+        height: 14,
+        ellipsis: true,
+      });
 
     // Details section
     let detailY = y + imageHeight + 8;
@@ -2063,6 +2077,7 @@ From ${COMPANY_CONFIG.name}
 
         const infoRows = [
           ['Style Code:', style.styleCode || '-'],
+          ['Buyer Ref:', style.buyerStyleRef || '-'],
           ['Style Name:', style.styleName || '-'],
           ['Customer:', style.customerName || '-'],
           ['Brand:', style.brandName || '-'],
@@ -2414,7 +2429,11 @@ From ${COMPANY_CONFIG.name}
             .fontSize(10)
             .font('Helvetica-Bold')
             .fillColor('#333')
-            .text(style.styleCode || '-', infoX, infoY, { width: cardWidth - 100 });
+            .text(style.styleCode ? formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) : '-', infoX, infoY, {
+              width: cardWidth - 100,
+              height: 12,
+              ellipsis: true,
+            });
           infoY += 14;
 
           doc
@@ -2560,7 +2579,7 @@ From ${COMPANY_CONFIG.name}
 
     // Column headers
     let row = 5;
-    const headers = ['Style Code', 'Style Name', 'Season', 'Category', 'Colors', 'Sizes'];
+    const headers = ['Style Code', 'Buyer Ref', 'Style Name', 'Season', 'Category', 'Colors', 'Sizes'];
     if (options.showWholesalePrice) headers.push('Wholesale Price');
     if (options.showRetailPrice) headers.push('MRP');
 
@@ -2579,13 +2598,14 @@ From ${COMPANY_CONFIG.name}
 
     // Set column widths
     ws.getColumn(1).width = 15;
-    ws.getColumn(2).width = 30;
-    ws.getColumn(3).width = 12;
-    ws.getColumn(4).width = 20;
-    ws.getColumn(5).width = 30;
-    ws.getColumn(6).width = 25;
-    ws.getColumn(7).width = 15;
+    ws.getColumn(2).width = 15;
+    ws.getColumn(3).width = 30;
+    ws.getColumn(4).width = 12;
+    ws.getColumn(5).width = 20;
+    ws.getColumn(6).width = 30;
+    ws.getColumn(7).width = 25;
     ws.getColumn(8).width = 15;
+    ws.getColumn(9).width = 15;
 
     row++;
 
@@ -2601,6 +2621,7 @@ From ${COMPANY_CONFIG.name}
 
       let col = 1;
       ws.getCell(row, col++).value = style.styleCode || '-';
+      ws.getCell(row, col++).value = style.buyerStyleRef || '-';
       ws.getCell(row, col++).value = style.styleName || '-';
       ws.getCell(row, col++).value = (style as any).season_master?.code || style.season || '-';
       ws.getCell(row, col++).value = (style as any).brand_categories?.categoryName || '-';
@@ -3224,6 +3245,7 @@ From ${COMPANY_CONFIG.name}
             .text(`(limited by ${chartData.bottleneckFabric})`, col2X, dy + 1);
           doc.fillColor('#000');
         }
+        drawField('Buyer Ref:', chartData.buyerStyleRef || '-', col3X, dy);
         dy += 16;
 
         y = Math.max(headerY + imgH + 15, dy + 10);
@@ -3526,7 +3548,7 @@ From ${COMPANY_CONFIG.name}
         workOrder: {
           select: {
             workOrderNumber: true,
-            styles: { select: { styleCode: true, styleName: true } },
+            styles: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
           },
         },
         skuBreakdown: {
@@ -3644,7 +3666,11 @@ From ${COMPANY_CONFIG.name}
       doc.font('Helvetica-Bold').text('Style:', marginLeft, y);
       doc
         .font('Helvetica')
-        .text(`${slip.workOrder.styles.styleCode} - ${slip.workOrder.styles.styleName}`, marginLeft + 75, y);
+        .text(
+          `${formatStyleCodeWithRef(slip.workOrder.styles.styleCode, slip.workOrder.styles.buyerStyleRef)} - ${slip.workOrder.styles.styleName}`,
+          marginLeft + 75,
+          y
+        );
       y += 12;
     }
 
@@ -3796,7 +3822,7 @@ From ${COMPANY_CONFIG.name}
           select: {
             workOrderNumber: true,
             totalQuantity: true,
-            styles: { select: { styleCode: true, styleName: true } },
+            styles: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
           },
         },
         purchaseOrder: {
@@ -3910,7 +3936,8 @@ From ${COMPANY_CONFIG.name}
     // Style, Customer, Pieces
     const details: string[] = [];
     const style = (challan.productionRun as any)?.styles;
-    if (style) details.push(`Style: ${style.styleCode} - ${style.styleName}`);
+    if (style)
+      details.push(`Style: ${formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)} - ${style.styleName}`);
     const customer = (challan.order as any)?.customers;
     if (customer) details.push(`Customer: ${customer.name}`);
     const totalPcs = challan.productionRun?.totalQuantity || challan.order?.totalQuantity;

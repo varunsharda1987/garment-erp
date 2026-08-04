@@ -29,6 +29,7 @@ import type { DyeLabDip } from '@/types/dyeing.types';
 import type { LabDip, CreateProcessPORequest } from '@/types/printing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { cn } from '@/lib/utils';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 
 type CreateMode = 'lab-dip' | 'style-based';
 
@@ -445,7 +446,11 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                   >
                     {selectedLabDip ? (
                       <span className="truncate">
-                        {selectedLabDip.labDipNumber} - {selectedLabDip.style?.styleCode}
+                        {selectedLabDip.labDipNumber} -{' '}
+                        {formatStyleCodeWithRef(
+                          selectedLabDip.style?.styleCode || '',
+                          selectedLabDip.style?.buyerStyleRef
+                        )}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">Select approved lab dip...</span>
@@ -484,7 +489,8 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                             <div className="flex flex-col">
                               <span className="font-medium">{ld.labDipNumber}</span>
                               <span className="text-sm text-muted-foreground">
-                                {ld.style?.styleCode} - {ld.style?.styleName} | {ld.processor?.name}
+                                {formatStyleCodeWithRef(ld.style?.styleCode || '', ld.style?.buyerStyleRef)} -{' '}
+                                {ld.style?.styleName} | {ld.processor?.name}
                               </span>
                             </div>
                           </CommandItem>
@@ -500,7 +506,12 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted/50 rounded-lg">
                   <div>
                     <p className="text-xs text-muted-foreground">Style</p>
-                    <p className="text-sm font-medium">{selectedLabDip.style?.styleCode}</p>
+                    <p className="text-sm font-medium">
+                      {formatStyleCodeWithRef(
+                        selectedLabDip.style?.styleCode || '',
+                        selectedLabDip.style?.buyerStyleRef
+                      )}
+                    </p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Fabric</p>
@@ -548,7 +559,8 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                   >
                     {selectedStyle ? (
                       <span className="truncate">
-                        {selectedStyle.styleCode} - {selectedStyle.styleName}
+                        {formatStyleCodeWithRef(selectedStyle.styleCode, selectedStyle.buyerStyleRef)} -{' '}
+                        {selectedStyle.styleName}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">Select style...</span>
@@ -586,7 +598,9 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                               )}
                             />
                             <div className="flex flex-col">
-                              <span className="font-medium">{style.styleCode}</span>
+                              <span className="font-medium">
+                                {formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef)}
+                              </span>
                               <span className="text-sm text-muted-foreground">{style.styleName}</span>
                             </div>
                           </CommandItem>
@@ -843,7 +857,9 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
               <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
                 <div>
                   <p className="text-xs text-muted-foreground">Style</p>
-                  <p className="text-sm font-medium">{selectedStyle.styleCode}</p>
+                  <p className="text-sm font-medium">
+                    {formatStyleCodeWithRef(selectedStyle.styleCode, selectedStyle.buyerStyleRef)}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Fabric</p>

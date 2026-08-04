@@ -41,7 +41,18 @@ export class SaleOrderController {
   }
 
   async create(req: Request, res: Response) {
-    const { customerId, styleId, expectedShipDate, buyerDeadline, remarks, items } = req.body;
+    const {
+      customerId,
+      styleId,
+      expectedShipDate,
+      buyerDeadline,
+      orderDate,
+      deliveryDate,
+      paymentTerms,
+      deliveryAddress,
+      remarks,
+      items,
+    } = req.body;
     const userId = req.user?.userId;
     if (!userId) {
       throw new UnauthorizedError();
@@ -59,6 +70,11 @@ export class SaleOrderController {
       styleId: styleId || null,
       expectedShipDate: expectedShipDate ? new Date(expectedShipDate) : null,
       buyerDeadline: buyerDeadline ? new Date(buyerDeadline) : null,
+      // Zod z.coerce.date() already produced Date objects (or null/undefined)
+      orderDate: orderDate ?? null,
+      deliveryDate: deliveryDate ?? null,
+      paymentTerms: paymentTerms ?? null,
+      deliveryAddress: deliveryAddress ?? null,
       remarks,
       createdById: userId,
       items,
@@ -70,13 +86,29 @@ export class SaleOrderController {
   async update(req: Request, res: Response) {
     const { id } = req.params;
     // BUG-ORD5 fix: Include customerId in destructuring (was silently dropped before)
-    const { customerId, styleId, expectedShipDate, buyerDeadline, remarks, items } = req.body;
+    const {
+      customerId,
+      styleId,
+      expectedShipDate,
+      buyerDeadline,
+      orderDate,
+      deliveryDate,
+      paymentTerms,
+      deliveryAddress,
+      remarks,
+      items,
+    } = req.body;
 
     const so = await saleOrderService.update(id, {
       customerId,
       styleId,
       expectedShipDate: expectedShipDate ? new Date(expectedShipDate) : null,
       buyerDeadline: buyerDeadline ? new Date(buyerDeadline) : null,
+      // undefined = field omitted = leave unchanged; Zod coerced dates already
+      orderDate,
+      deliveryDate,
+      paymentTerms,
+      deliveryAddress,
       remarks,
       items,
     });

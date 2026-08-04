@@ -43,6 +43,7 @@ export type StockStatusFilter = 'AVAILABLE' | 'RESERVED' | 'EXHAUSTED' | 'ALL';
 export interface FabricUsageByStyle {
   styleId: string;
   styleCode: string;
+  buyerStyleRef: string | null;
   styleName: string;
   componentName: string;
   cadMeters: number;
@@ -371,6 +372,7 @@ class FabricStockService {
         return {
           styleId: sf.style_components.styleId,
           styleCode: sf.style_components.styles.styleCode,
+          buyerStyleRef: sf.style_components.styles.buyerStyleRef ?? null,
           styleName: sf.style_components.styles.styleName,
           componentName: sf.style_components.componentName,
           cadMeters: sf.quantityNeeded ? Number(sf.quantityNeeded) : 0,

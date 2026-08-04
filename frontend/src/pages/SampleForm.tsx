@@ -24,12 +24,14 @@ import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { TestTube, ArrowLeft, Save, Plus, Trash2, Ruler, Palette, Grid3X3 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import api from '@/lib/api';
 
 interface Style {
   id: string;
   styleCode: string;
   styleName: string;
+  buyerStyleRef?: string | null;
   customerId?: string;
   sizeOptions?: Array<{ id: string; sizeName: string; sizeCode: string }>;
   colorOptions?: Array<{ id: string; colorName: string; colorCode?: string }>;
@@ -463,7 +465,7 @@ export default function SampleForm() {
                         <SelectItem value="none">No style</SelectItem>
                         {styles.map((s) => (
                           <SelectItem key={s.id} value={s.id}>
-                            {s.styleCode} - {s.styleName}
+                            {formatStyleCodeWithRef(s.styleCode, s.buyerStyleRef)} - {s.styleName}
                           </SelectItem>
                         ))}
                       </SelectContent>

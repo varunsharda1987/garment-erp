@@ -364,6 +364,9 @@ export default function StitchingForm() {
                                 <div className="flex-1 flex items-center gap-4 text-sm">
                                   <span className="font-medium">{slip.slipNumber}</span>
                                   <span className="text-muted-foreground">{slip.styleCode}</span>
+                                  {slip.buyerStyleRef && (
+                                    <span className="text-xs text-muted-foreground">({slip.buyerStyleRef})</span>
+                                  )}
                                   <span className="text-muted-foreground">{slip.styleName}</span>
                                   <Badge variant="secondary" className="text-xs">
                                     {slip.totalGoodPieces} pcs

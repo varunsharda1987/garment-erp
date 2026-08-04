@@ -15,6 +15,7 @@ import type { Order } from '@/types/order.types';
 import type { InvoiceItemInput } from '@/types/invoice.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
+import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { ArrowLeft, FileText, Plus, Trash2 } from 'lucide-react';
 
 interface InvoiceLineItem extends InvoiceItemInput {
@@ -142,7 +143,9 @@ export default function InvoiceForm() {
           const newItems: InvoiceLineItem[] = order.orderItems.map((oi) => ({
             _key: nextKey(),
             styleId: oi.styleId,
-            description: oi.style ? `${oi.style.styleCode} - ${oi.style.styleName}` : oi.itemDescription || 'Item',
+            description: oi.style
+              ? `${formatStyleCodeWithRef(oi.style.styleCode, oi.style.buyerStyleRef)} - ${oi.style.styleName}`
+              : oi.itemDescription || 'Item',
             quantity: oi.totalQuantity,
             unitPrice: Number(oi.unitPrice),
           }));

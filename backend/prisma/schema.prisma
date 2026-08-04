@@ -3248,6 +3248,10 @@ model sale_orders {
   saleDate         DateTime        @default(now())
   expectedShipDate DateTime? // Factory's planned ship date
   buyerDeadline    DateTime? // Buyer's required completion date
+  orderDate        DateTime? // Buyer's PO/order date (saleDate is the ERP creation timestamp)
+  deliveryDate     DateTime? // Agreed delivery date
+  paymentTerms     String?
+  deliveryAddress  String?
   status           SaleOrderStatus @default(DRAFT)
   subtotal         Decimal         @default(0) @db.Decimal(12, 2)
   taxAmount        Decimal         @default(0) @db.Decimal(12, 2)

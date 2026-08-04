@@ -870,6 +870,7 @@ export default function CatalogueGenerator() {
                           </TableHead>
                           <TableHead className="w-16">Image</TableHead>
                           <TableHead>Style Code</TableHead>
+                          <TableHead>Buyer Ref</TableHead>
                           <TableHead>Name</TableHead>
                           <TableHead>Category</TableHead>
                           <TableHead>Season</TableHead>
@@ -908,6 +909,7 @@ export default function CatalogueGenerator() {
                               )}
                             </TableCell>
                             <TableCell className="font-medium">{style.styleCode}</TableCell>
+                            <TableCell>{style.buyerStyleRef || '—'}</TableCell>
                             <TableCell>{style.styleName || '-'}</TableCell>
                             <TableCell>
                               {style.productCategory?.name || style.brandCategories?.category || '-'}

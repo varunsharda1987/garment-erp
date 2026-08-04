@@ -243,7 +243,7 @@ export async function getLaceStockById(id: string) {
   // Derive FIFO aging days from receivedDate so the detail page badge/bucket render
   // real values (previously undefined -> "undefined days old" / wrong bucket color).
   const agingDays = Math.floor((Date.now() - stock.receivedDate.getTime()) / (1000 * 60 * 60 * 24));
-  return { ...stock, agingDays };
+  return { ...stock, originBuyerStyleRef: stock.originStyle?.buyerStyleRef ?? null, agingDays };
 }
 
 /**
@@ -336,6 +336,7 @@ export async function getAllLaceStock(filters: LaceStockFilters = {}) {
   const now = Date.now();
   const stocksWithAging = stocks.map((stock) => ({
     ...stock,
+    originBuyerStyleRef: stock.originStyle?.buyerStyleRef ?? null,
     agingDays: Math.floor((now - stock.receivedDate.getTime()) / (1000 * 60 * 60 * 24)),
   }));
 
@@ -373,6 +374,7 @@ export async function getAvailableStockForLace(laceId: string, minQuantity: numb
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
         },
       },
     },
@@ -482,6 +484,7 @@ export async function allocateStock(input: AllocateStockInput) {
           select: {
             id: true,
             styleCode: true,
+            buyerStyleRef: true,
             styleName: true,
           },
         },
@@ -778,6 +781,7 @@ export async function getStockAgingReport(minAgeDays: number = 90) {
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
         },
       },
     },
@@ -796,6 +800,7 @@ export async function getStockAgingReport(minAgeDays: number = 90) {
     );
     return {
       ...stock,
+      originBuyerStyleRef: stock.originStyle?.buyerStyleRef ?? null,
       agingDays,
       value,
     };

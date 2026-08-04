@@ -54,6 +54,7 @@ export interface Embroidery {
   usedInStyles?: Array<{
     styleId: string;
     styleCode: string;
+    buyerStyleRef?: string | null;
     styleName: string;
     componentName: string;
   }>;

@@ -400,6 +400,7 @@ class TemplateService {
         { fieldName: 'size', displayName: 'Size (Required - one row per size)', type: 'text' },
         // Optional fields
         { fieldName: 'styleName', displayName: 'Style Name (Optional - defaults to Style Code)', type: 'text' },
+        { fieldName: 'buyerStyleRef', displayName: 'Buyer Style Ref (Optional)', type: 'text' },
         { fieldName: 'season', displayName: 'Season (Optional)', type: 'text' },
         { fieldName: 'gender', displayName: 'Gender (Optional - MEN/WOMEN/KIDS/UNISEX)', type: 'text' },
         { fieldName: 'buyerCategory', displayName: 'Buyer Category (Optional)', type: 'text' },
@@ -416,6 +417,7 @@ class TemplateService {
         { fieldName: 'size', displayName: 'Size (Required - one row per size)', type: 'text' },
         // Optional fields
         { fieldName: 'styleName', displayName: 'Style Name (Optional - defaults to Style Code)', type: 'text' },
+        { fieldName: 'buyerStyleRef', displayName: 'Buyer Style Ref (Optional)', type: 'text' },
         { fieldName: 'season', displayName: 'Season (Optional)', type: 'text' },
         { fieldName: 'gender', displayName: 'Gender (Optional - MEN/WOMEN/KIDS/UNISEX)', type: 'text' },
         { fieldName: 'buyerCategory', displayName: 'Buyer Category (Optional)', type: 'text' },
@@ -441,6 +443,7 @@ class TemplateService {
       // Cost sheets export (style_costing table). Nested style fields resolve via getNestedValue.
       style_costing: [
         { fieldName: 'styles.styleCode', displayName: 'Style Code', type: 'text' },
+        { fieldName: 'styles.buyerStyleRef', displayName: 'Buyer Ref', type: 'text' },
         { fieldName: 'styles.styleName', displayName: 'Style Name', type: 'text' },
         { fieldName: 'version', displayName: 'Version', type: 'number' },
         { fieldName: 'approvalStatus', displayName: 'Approval Status', type: 'text' },

@@ -23,6 +23,7 @@ import {
   AGING_BUCKET_COLORS,
 } from '../types/laceStock.types';
 import { notify } from '../lib/notify';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { ArrowLeft, Package, ArrowRightLeft, History, MapPin, DollarSign, Undo2 } from 'lucide-react';
 
 export default function LaceStockDetail() {
@@ -346,7 +347,12 @@ export default function LaceStockDetail() {
               {stock.originStyleCode && (
                 <div className="flex justify-between items-center py-2 border-b">
                   <span className="text-muted-foreground">Origin Style</span>
-                  <span className="font-mono">{stock.originStyleCode}</span>
+                  <span className="font-mono">
+                    {stock.originStyleCode}
+                    {stock.originBuyerStyleRef && (
+                      <span className="ml-1 text-xs text-muted-foreground">({stock.originBuyerStyleRef})</span>
+                    )}
+                  </span>
                 </div>
               )}
               {stock.originOrder && (
@@ -437,7 +443,12 @@ export default function LaceStockDetail() {
                     {allocations.map((alloc) => (
                       <tr key={alloc.id} className="hover:bg-muted">
                         <td className="px-4 py-4">
-                          <span className="font-mono">{alloc.styleCode}</span>
+                          <span className="font-mono">
+                            {alloc.styleCode}
+                            {alloc.style?.buyerStyleRef && (
+                              <span className="ml-1 text-xs text-muted-foreground">({alloc.style.buyerStyleRef})</span>
+                            )}
+                          </span>
                           {alloc.originalStyleCode && alloc.originalStyleCode !== alloc.styleCode && (
                             <div className="text-xs text-muted-foreground">From: {alloc.originalStyleCode}</div>
                           )}
@@ -611,8 +622,11 @@ export default function LaceStockDetail() {
           <div className="space-y-4 py-4">
             {selectedAllocation && (
               <div className="text-sm text-muted-foreground">
-                Allocation: {selectedAllocation.styleCode || selectedAllocation.styleId} &middot; Returnable:{' '}
-                {getReturnableQty(selectedAllocation).toLocaleString()}m
+                Allocation:{' '}
+                {selectedAllocation.styleCode
+                  ? formatStyleCodeWithRef(selectedAllocation.styleCode, selectedAllocation.style?.buyerStyleRef)
+                  : selectedAllocation.styleId}{' '}
+                &middot; Returnable: {getReturnableQty(selectedAllocation).toLocaleString()}m
               </div>
             )}
             <div>

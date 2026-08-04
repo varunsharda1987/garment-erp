@@ -673,6 +673,25 @@ function checkPrismaSafety() {
 }
 
 /**
+ * Check: generated Zod enums freshness (backend/src/schemas/generated/prisma-enums.ts)
+ * 2026-08-04 incident: schema.prisma gained CadApprovalStatus + GRNStatus.REVERSED but the
+ * generated file was never regenerated — validation would then 400 real enum values and
+ * 500 on removed ones. Regeneration is a manual step, so freshness must gate the commit.
+ */
+function checkGeneratedZodEnums() {
+  console.log(`\n${c.cyan}Checking generated Zod enums freshness...${c.reset}`);
+  try {
+    execSync('node scripts/skills/generate-zod-enums.js --check', { encoding: 'utf-8', stdio: 'pipe' });
+    console.log(`${c.green}  ✓ prisma-enums.ts in sync with schema.prisma${c.reset}`);
+    return true;
+  } catch {
+    console.log(`${c.red}  ✗ schemas/generated/prisma-enums.ts is stale vs schema.prisma${c.reset}`);
+    console.log(`${c.dim}    Run: node scripts/skills/generate-zod-enums.js  (then stage the regenerated file)${c.reset}`);
+    return false;
+  }
+}
+
+/**
  * Check: the type-gates themselves must stay in place (guard-the-guard) — BLOCKING.
  * History: a deployable frontend dist/ was once produced via bare `npx vite build`, which
  * skips tsc entirely. The gates that close that class of bypass are:
@@ -752,6 +771,7 @@ function runAllModeChecks() {
   console.log(`\n${c.bright}Running guardrails across the whole repo (CI mode)...${c.reset}`);
   let ok = true;
   if (!checkBuildGates()) ok = false;
+  if (!checkGeneratedZodEnums()) ok = false;
   if (!checkSchemaControllerAlignment()) ok = false;
   if (!checkRouteValidation(routeFiles)) ok = false;
   if (!checkEnumDrift(schemaFiles)) ok = false;
@@ -895,10 +915,12 @@ function main() {
     if (!checkDocLinks(categories.docs)) allPassed = false;
   }
 
-  // Prisma schema changes → check safety
-  if (categories.prisma.length) {
+  // Prisma schema changes → check safety + generated Zod enums freshness
+  // (also re-check freshness when the generated file itself is staged — hand edits drift too)
+  if (categories.prisma.length || stagedFiles.some((f) => f.includes('schemas/generated/prisma-enums'))) {
     checksRun++;
-    if (!checkPrismaSafety()) allPassed = false;
+    if (categories.prisma.length && !checkPrismaSafety()) allPassed = false;
+    if (!checkGeneratedZodEnums()) allPassed = false;
   }
 
   // Frontend changes → check serializer patterns

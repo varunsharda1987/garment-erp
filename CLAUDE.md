@@ -567,7 +567,9 @@ Generates `backend/src/schemas/generated/prisma-enums.ts` (one Zod enum per Pris
 **Usage:**
 ```bash
 node scripts/skills/generate-zod-enums.js           # regenerate after schema.prisma changes
-node scripts/skills/generate-zod-enums.js --check   # CI: exit 1 if stale
+node scripts/skills/generate-zod-enums.js --check   # exit 1 if stale — enforced at pre-commit
+                                                    # (smart-check, when schema.prisma or the
+                                                    # generated file is staged) and in CI (--all)
 ```
 
 **Rule:** New `*.schema.ts` files import enums from `./generated/prisma-enums` instead of re-typing values. Existing hand-written `z.enum`s stay guarded by the smart-check enum-drift ratchet until migrated.

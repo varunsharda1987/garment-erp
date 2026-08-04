@@ -21,6 +21,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
 const SCHEMA_PATH = path.join(REPO_ROOT, 'backend', 'prisma', 'schema.prisma');
@@ -63,6 +64,25 @@ import { z } from 'zod';
   return header + body;
 }
 
+/**
+ * Format through the repo's prettier so the emitted file is byte-identical to what
+ * lint-staged's `prettier --write` produces at commit time — otherwise --check
+ * reports the file stale after every commit (the formatting ping-pong bug).
+ */
+function formatWithPrettier(source) {
+  try {
+    return execSync(`npx prettier --stdin-filepath "${OUT_PATH}"`, {
+      cwd: REPO_ROOT,
+      input: source,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+  } catch {
+    console.warn('⚠ prettier unavailable — writing unformatted output');
+    return source;
+  }
+}
+
 function main() {
   const src = fs.readFileSync(SCHEMA_PATH, 'utf8');
   const enums = parseEnums(src);
@@ -70,7 +90,7 @@ function main() {
     console.error('No enums found in schema.prisma — refusing to write an empty file.');
     process.exit(1);
   }
-  const output = render(enums);
+  const output = formatWithPrettier(render(enums));
 
   if (process.argv.includes('--check')) {
     let existing = null;

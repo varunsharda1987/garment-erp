@@ -219,8 +219,10 @@ export const approveGRN = async (req: Request, res: Response) => {
       for (const grnItem of grnWithItems.grn_items) {
         // unitPrice is on purchase_order_items, not grn_items
         const unitPrice = Number(grnItem.purchase_order_items?.unitPrice || 0);
-        const receivedQty = Number(grnItem.receivedQuantity);
-        const actualCost = unitPrice * receivedQty;
+        // P2.7: Use acceptedQuantity, not receivedQuantity — actuals should reflect what was
+        // accepted after QC (minus rejects), not what supplier delivered
+        const acceptedQty = Number(grnItem.acceptedQuantity);
+        const actualCost = unitPrice * acceptedQty;
 
         // Trace back to styleId through requirement_po_links
         for (const link of grnItem.purchase_order_items?.requirement_po_links || []) {

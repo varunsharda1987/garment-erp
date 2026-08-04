@@ -1,4 +1,5 @@
 [
+  "backend/scripts/backfill-grn-item-links.ts",
   "backend/scripts/cleanup-transactional-data.ts",
   "backend/scripts/migrations/unify-material-ids.ts",
   "backend/scripts/cleanup-orphan-stock.ts",

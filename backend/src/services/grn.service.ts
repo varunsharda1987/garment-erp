@@ -1253,12 +1253,22 @@ class GRNService {
               thanCount: item.thanCount || undefined,
               tx,
               skipMaterialSync: true,
+              // P2: Identity-based reversal
+              grnItemId: item.id,
             },
             userId
           );
 
+          // P2: Store actualQuantity on the grn_item (physical qty after fold adjustment)
+          // Documents stay NOMINAL (receivedQuantity), stock is ACTUAL (quantityAvailable)
+          const actualQty = Number(createdGreige.quantityAvailable);
+          await tx.grn_items.update({
+            where: { id: item.id },
+            data: { actualQuantity: new Prisma.Decimal(actualQty) },
+          });
+
           await ensureMaterialRecord(greige.id, 'GREIGE', tx);
-          await syncStockLevelQuantity(greige.id, Number(createdGreige.quantityAvailable), warehouseId, undefined, tx);
+          await syncStockLevelQuantity(greige.id, actualQty, warehouseId, undefined, tx);
 
           logInfo(`Auto-created greige_stock from GRN ${grn.grnNumber}: ${acceptedQty}m of ${greige.greigeCode}`, {
             grnId: grn.id,
@@ -2251,19 +2261,41 @@ class GRNService {
       // GREIGE - reverse greige_stock
       if (poCategory === 'GREIGE' && material?.greige_master) {
         const greigeId = material.greige_master.id;
-        // Find stock created by this GRN (most recent with matching quantity and date)
-        const greigeStock = await tx.greige_stock.findFirst({
-          where: {
-            greigeId,
-            warehouseId,
-            sourceType: 'GRN',
-            quantityAvailable: { gte: acceptedQty },
-          },
-          orderBy: { receivedDate: 'desc' },
+
+        // P2: Identity-based lookup by grnItemId (preferred)
+        let greigeStock = await tx.greige_stock.findFirst({
+          where: { grnItemId: item.id },
         });
 
+        // P2: Fallback for legacy lots (null grnItemId) — log warning
+        if (!greigeStock) {
+          greigeStock = await tx.greige_stock.findFirst({
+            where: {
+              greigeId,
+              warehouseId,
+              sourceType: 'GRN',
+              grnItemId: null, // Only match legacy lots
+              quantityAvailable: { gte: 0 }, // Any available qty
+            },
+            orderBy: { receivedDate: 'desc' },
+          });
+          if (greigeStock) {
+            logInfo(
+              `WARNING: GRN reversal using heuristic fallback for legacy lot (no grnItemId). ` +
+                `Lot ${greigeStock.id} may not be the exact lot from this GRN item.`,
+              { grnId: grn.id, grnItemId: item.id, stockId: greigeStock.id }
+            );
+          }
+        }
+
         if (greigeStock) {
-          const newAvailable = Number(greigeStock.quantityAvailable) - acceptedQty;
+          // P2: Reverse by ACTUAL quantity stored in the lot, not NOMINAL acceptedQty
+          // For lots with grnItemId, we reverse the full quantityAvailable
+          // For legacy lots, we use actualQuantity from grn_item if available, else acceptedQty
+          const actualQty = item.actualQuantity ? Number(item.actualQuantity) : Number(greigeStock.quantityAvailable);
+          const reverseQty = greigeStock.grnItemId ? Number(greigeStock.quantityAvailable) : actualQty;
+
+          const newAvailable = Number(greigeStock.quantityAvailable) - reverseQty;
           if (newAvailable <= 0) {
             // Delete the stock record if fully reversed
             await tx.greige_stock.delete({ where: { id: greigeStock.id } });
@@ -2279,7 +2311,7 @@ class GRNService {
             data: {
               stockId: greigeStock.id,
               transactionType: 'ADJUSTMENT_OUT',
-              quantity: -acceptedQty,
+              quantity: -reverseQty,
               balanceAfter: Math.max(0, newAvailable),
               referenceType: 'MANUAL_ADJUSTMENT', // GRN reversal adjustment
               referenceId: grn.id,
@@ -2288,14 +2320,22 @@ class GRNService {
             },
           });
 
-          // Sync stock_levels
-          await syncStockLevelQuantity(greigeId, -acceptedQty, warehouseId, undefined, tx);
+          // Sync stock_levels with the ACTUAL quantity being reversed
+          await syncStockLevelQuantity(greigeId, -reverseQty, warehouseId, undefined, tx);
 
-          logInfo(`Reversed greige_stock from GRN ${grn.grnNumber}: ${acceptedQty}m`, {
+          logInfo(`Reversed greige_stock from GRN ${grn.grnNumber}: ${reverseQty}m (actual)`, {
             grnId: grn.id,
             greigeId,
             stockId: greigeStock.id,
+            nominal: acceptedQty,
+            actual: reverseQty,
           });
+        } else {
+          logInfo(
+            `WARNING: No greige_stock found to reverse for GRN item ${item.id}. ` +
+              `Stock may have been manually consumed or already reversed.`,
+            { grnId: grn.id, grnItemId: item.id, greigeId }
+          );
         }
       }
 

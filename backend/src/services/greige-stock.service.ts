@@ -37,6 +37,8 @@ export interface CreateGreigeStockDTO {
   thanCount?: number; // Number of thans in this lot
   skipMaterialSync?: boolean; // Skip ensureMaterialRecord/syncStockLevelQuantity when called from stock routing
   tx?: TransactionClient; // Transaction client - use this instead of global prisma when provided
+  // P2: Identity-based reversal
+  grnItemId?: string; // Link to grn_items for identity-based reversal
 }
 
 export interface GreigeStockItem {
@@ -203,6 +205,8 @@ class GreigeStockService {
           thanCount: data.thanCount || null,
           nominalQuantity: new Prisma.Decimal(nominalQty), // What supplier measured
           calculatedActualMeters: new Prisma.Decimal(actualQty), // nominalQty × L/100
+          // P2: Identity-based reversal
+          grnItemId: data.grnItemId || null,
           agingDays: 0,
           status: 'AVAILABLE',
           stockType: 'GENERIC',

@@ -823,10 +823,12 @@ model grn_items {
   receivedAsReadyFabric Boolean               @default(false) // Override: treat greige PO item as ready fabric
   actualRatePerUnit     Decimal?              @db.Decimal(12, 2) // Actual rate received (may differ from PO rate)
   updateFutureSourcing  Boolean               @default(false) // true = permanent change, false = one-time exception
+  actualQuantity        Decimal?              @db.Decimal(10, 3) // P2: Physical quantity after fold adjustment (stock uses this; docs use receivedQuantity)
   goods_receiving_notes goods_receiving_notes @relation(fields: [grnId], references: [id], onDelete: Cascade)
   materials             materials             @relation(fields: [materialId], references: [id])
   purchase_order_items  purchase_order_items  @relation(fields: [poItemId], references: [id], onDelete: Cascade)
   grn_item_details      grn_item_details[]
+  greige_stock          greige_stock[]        @relation("GreigeStockGrnItem")
 
   @@index([grnId])
   @@index([poItemId])
@@ -4177,6 +4179,7 @@ model greige_stock {
   supplierId      String? @db.VarChar(50) // Original supplier who SOLD the greige (immutable)
   processorId     String? @db.VarChar(50) // Processor currently holding the stock (set on TRANSFER)
   sourceChallanId String? @db.VarChar(50)
+  grnItemId       String? @db.VarChar(50) // P2: Link to GRN item for identity-based reversal
   sourceType      String? @db.VarChar(20) // 'GRN', 'TRANSFER', 'ADJUSTMENT', 'MANUAL'
 
   // Warehouse
@@ -4217,6 +4220,7 @@ model greige_stock {
   sourceChallan challans?                  @relation("GreigeStockSourceChallan", fields: [sourceChallanId], references: [id])
   warehouse     warehouses?                @relation("GreigeStockWarehouse", fields: [warehouseId], references: [id])
   createdBy     users                      @relation("greige_stock_createdBy", fields: [createdById], references: [id])
+  grnItem       grn_items?                 @relation("GreigeStockGrnItem", fields: [grnItemId], references: [id])
   challanItems  challan_items[]
   jobWorkOrders job_work_orders[]
   transactions  greige_stock_transaction[]
@@ -4226,6 +4230,7 @@ model greige_stock {
   @@index([warehouseId])
   @@index([status])
   @@index([receivedDate])
+  @@index([grnItemId])
 }
 
 /// Greige Stock Transaction - Audit trail for greige stock adjustments and consumption

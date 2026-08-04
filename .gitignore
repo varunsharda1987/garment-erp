@@ -63,3 +63,6 @@ backend/uploads/
 # WhatsApp Web linked-device sessions (per-user, whatsapp-web.js) — never commit
 .wwebjs_auth/
 .wwebjs_cache/
+
+# stray root-level screenshots (Playwright debug output)
+/*.png

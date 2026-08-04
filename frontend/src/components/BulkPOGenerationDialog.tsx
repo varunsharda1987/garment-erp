@@ -168,12 +168,14 @@ export default function BulkPOGenerationDialog({
       const result = await previewPOs(groups);
       setPreviewData(result);
 
-      // Initialize edited prices from preview
+      // Initialize edited prices from preview (P1.10: use groupKey for consistency with backend)
       const prices: Record<string, Record<string, number>> = {};
       for (const group of result) {
         prices[group.supplierId] = {};
         for (const item of group.items) {
-          prices[group.supplierId][item.materialId] = item.unitPrice;
+          // P1.10: Use server-provided groupKey (materialId-W{width} for fabrics, reqId for PROCESSING)
+          const key = item.groupKey || item.materialId;
+          prices[group.supplierId][key] = item.unitPrice;
         }
       }
       setEditedPrices(prices);
@@ -213,8 +215,8 @@ export default function BulkPOGenerationDialog({
   // Recalculate GST for an item based on edited price
   const getRecalculatedItem = useCallback(
     (group: POPreviewGroup, item: POPreviewItem): POPreviewItem => {
-      const itemKey =
-        item.requirementIds?.length === 1 && item.processingType ? item.requirementIds[0] : item.materialId;
+      // P1.10: Use server-provided groupKey (consistent with backend and initialization)
+      const itemKey = item.groupKey || item.materialId;
       const qty = editedQuantities[group.supplierId]?.[itemKey] ?? item.quantity;
       const price = editedPrices[group.supplierId]?.[itemKey] ?? item.unitPrice;
       const lineTotal = qty * price;
@@ -260,8 +262,8 @@ export default function BulkPOGenerationDialog({
   const hasAnyZeroPriceItems = useCallback((): boolean => {
     for (const group of previewData) {
       for (const item of group.items) {
-        const itemKey =
-          item.requirementIds?.length === 1 && item.processingType ? item.requirementIds[0] : item.materialId;
+        // P1.10: Use server-provided groupKey
+        const itemKey = item.groupKey || item.materialId;
         const price = editedPrices[group.supplierId]?.[itemKey] ?? item.unitPrice;
         if (price <= 0) return true;
       }
@@ -601,17 +603,12 @@ export default function BulkPOGenerationDialog({
                           <TableBody>
                             {group.items.map((item, itemIdx) => {
                               const recalc = getRecalculatedItem(group, item);
-                              // Key must match backend grouping: PROCESSING items use requirementId, others use materialId
-                              // Detect PROCESSING: has exactly 1 requirementId and processingType badge
-                              const itemKey =
-                                item.requirementIds?.length === 1 && item.processingType
-                                  ? item.requirementIds[0]
-                                  : item.materialId;
-                              const currentPrice =
-                                editedPrices[group.supplierId]?.[itemKey] ??
-                                editedPrices[group.supplierId]?.[item.materialId] ??
-                                item.unitPrice;
+                              // P1.10: Use server-provided groupKey (matches backend generatePOFromRequirements exactly)
+                              const itemKey = item.groupKey || item.materialId;
+                              const currentPrice = editedPrices[group.supplierId]?.[itemKey] ?? item.unitPrice;
                               const isZeroPrice = currentPrice <= 0;
+                              // P1.10: Exception-only badge — show ONLY when rateSource is NOT 'ORDER_BOM' (silence = trusted)
+                              const showRateWarning = item.rateSource && item.rateSource !== 'ORDER_BOM';
                               const rowClass = item.isGreige ? 'bg-primary/10' : isZeroPrice ? 'bg-destructive/10' : '';
 
                               const rowKey = item.requirementIds?.[0] || `${item.materialId}-${itemIdx}`;
@@ -647,6 +644,19 @@ export default function BulkPOGenerationDialog({
                                       {item.fabricWidth && (
                                         <span className="text-[10px] bg-muted text-foreground px-1 rounded">
                                           {item.fabricWidth}&quot; CW
+                                        </span>
+                                      )}
+                                      {/* P1.10: Exception-only rate badge — show only when NOT from BOM */}
+                                      {showRateWarning && (
+                                        <span className="text-[10px] bg-amber-100 text-amber-800 px-1 rounded flex items-center gap-0.5">
+                                          <AlertTriangle className="h-2.5 w-2.5" />
+                                          {item.rateSource === 'SUPPLIER_PRICE'
+                                            ? 'Supplier rate'
+                                            : item.rateSource === 'MANUAL'
+                                              ? 'Manual'
+                                              : item.rateSource === 'COST_SHEET'
+                                                ? 'Cost sheet'
+                                                : item.rateSource}
                                         </span>
                                       )}
                                     </div>

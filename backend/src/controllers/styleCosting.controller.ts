@@ -267,14 +267,64 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
   const seenComponents = new Set<string>();
   const fabricItemsToCreate: any[] = [];
 
+  // P1.9: Build lookup maps for ID-based matching (fixes index-based mis-assignment when order differs)
+  const jsonFabricByFabricId = new Map<string, (typeof validatedData.fabricDetails)[0]>();
+  const jsonFabricByName = new Map<string, (typeof validatedData.fabricDetails)[0]>();
+  for (const jf of validatedData.fabricDetails) {
+    if (jf.fabricId) jsonFabricByFabricId.set(jf.fabricId, jf);
+    if (jf.fabricName) jsonFabricByName.set(jf.fabricName.toLowerCase().trim(), jf);
+  }
+  const usedJsonFabrics = new Set<number>(); // Track which JSON fabrics have been matched
+
   for (const cad of cadRows) {
     const key = cad.componentName || cad.styleFabricId || cad.id;
     if (seenComponents.has(key)) continue;
     seenComponents.add(key);
 
-    // Match to fabricDetails JSON by index for rate/average
-    const idx = fabricItemsToCreate.length;
-    const jsonFabric = validatedData.fabricDetails[idx];
+    // P1.9: ID-based matching — try fabricId first, then greigeId, then name, then index fallback
+    let jsonFabric: (typeof validatedData.fabricDetails)[0] | undefined;
+    let matchMethod = 'none';
+
+    // 1. Try fabricId
+    if (cad.fabricId && jsonFabricByFabricId.has(cad.fabricId)) {
+      jsonFabric = jsonFabricByFabricId.get(cad.fabricId);
+      matchMethod = 'fabricId';
+    }
+    // 2. Try greigeId (some JSON entries may have greigeId as fabricId)
+    else if (cad.greigeId && jsonFabricByFabricId.has(cad.greigeId)) {
+      jsonFabric = jsonFabricByFabricId.get(cad.greigeId);
+      matchMethod = 'greigeId';
+    }
+    // 3. Try fabricName
+    else {
+      const cadFabricName = (cad.fabric?.fabricName || cad.greige?.greigeName || '').toLowerCase().trim();
+      if (cadFabricName && jsonFabricByName.has(cadFabricName)) {
+        jsonFabric = jsonFabricByName.get(cadFabricName);
+        matchMethod = 'fabricName';
+      }
+    }
+    // 4. Index fallback with warning
+    if (!jsonFabric) {
+      const idx = fabricItemsToCreate.length;
+      // Find first unused JSON fabric
+      for (let i = 0; i < validatedData.fabricDetails.length; i++) {
+        if (!usedJsonFabrics.has(i)) {
+          jsonFabric = validatedData.fabricDetails[i];
+          usedJsonFabrics.add(i);
+          matchMethod = 'index-fallback';
+          console.warn(
+            `[P1.9] styleCosting: Index-based fallback for CAD ${cad.id} (fabricId=${cad.fabricId}, name=${cad.fabric?.fabricName}). ` +
+              `Matched to JSON fabric at index ${i}. Consider adding fabricId to JSON payload.`
+          );
+          break;
+        }
+      }
+    } else {
+      // Mark as used
+      const idx = validatedData.fabricDetails.indexOf(jsonFabric);
+      if (idx >= 0) usedJsonFabrics.add(idx);
+    }
+
     if (!jsonFabric) continue;
 
     const cadAvg = jsonFabric.fabricAverage || 0;

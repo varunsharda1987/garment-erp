@@ -223,6 +223,9 @@ model order_bom_items {
   processor suppliers?           @relation("bom_item_processor", fields: [processorId], references: [id])
   rateCard  processor_rate_card? @relation("bom_item_rate_card", fields: [rateCardId], references: [id])
 
+  // Back-relation: requirements whose price was snapshotted from this BOM line
+  snapshotRequirements material_requirements[] @relation("mrp_requirement_bom_item")
+
   @@index([orderBomId])
   @@index([materialType])
   @@index([greigeId])
@@ -3664,6 +3667,12 @@ model material_requirements {
   colorName           String? // Dye/processing color — differentiates same greige with different colors
   componentName       String? // Garment component (Top, Shirt) — for traceability through PO/GRN
 
+  // Price snapshot from the approved Order BOM (single source of truth for PO pricing).
+  // null unitPrice = legacy/manual requirement → PO generation falls back to live rate resolution.
+  unitPrice      Decimal? @db.Decimal(12, 4)
+  rateSource     String? // 'ORDER_BOM' | 'COST_SHEET' | 'SUPPLIER_PRICE' | 'RATE_CARD' | 'MANUAL'
+  orderBomItemId String? // provenance: the exact BOM line this price/consumption came from
+
   createdBy            users                   @relation("mrp_requirement_createdBy", fields: [createdById], references: [id])
   materials            materials               @relation(fields: [materialId], references: [id])
   orderBom             order_bom?              @relation(fields: [orderBomId], references: [id])
@@ -3680,6 +3689,7 @@ model material_requirements {
   linkedRequirement material_requirements?  @relation("mrp_linked", fields: [linkedRequirementId], references: [id])
   childRequirements material_requirements[] @relation("mrp_linked")
   challanItems      challan_items[]
+  orderBomItem      order_bom_items?        @relation("mrp_requirement_bom_item", fields: [orderBomItemId], references: [id])
 
   @@index([orderId])
   @@index([orderItemId])
@@ -3694,6 +3704,7 @@ model material_requirements {
   @@index([requirementType])
   @@index([processorId])
   @@index([linkedRequirementId])
+  @@index([orderBomItemId])
 }
 
 /// Links Requirements to PO Items (many-to-many for consolidation)

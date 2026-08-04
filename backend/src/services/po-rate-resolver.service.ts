@@ -11,6 +11,7 @@ export interface RateResolutionContext {
   supplierId?: string;
   materialId?: string; // material_master.id (Int as string)
   fabricId?: string;
+  greigeId?: string; // P1.7: For GREIGE category, query by greigeId when fabricId is null
   laceId?: string;
   serviceType?: string;
   costSheetId?: string;
@@ -169,12 +170,17 @@ async function resolveFabricRate(ctx: RateResolutionContext): Promise<RateResolu
 }
 
 async function resolveGreigeRate(ctx: RateResolutionContext): Promise<RateResolutionResult> {
+  // P1.7 fix: Query by greigeId OR fabricId — greige materials have greigeId set but fabricId null.
+  // This fixes D1 where greige PO prices could never resolve from cost sheet.
+  const lookupId = ctx.greigeId || ctx.fabricId;
+
   // Primary: Cost Sheet greigeCost
-  if (ctx.costSheetId && ctx.fabricId) {
+  if (ctx.costSheetId && lookupId) {
+    // Try greigeId first (for actual greige fabrics), then fabricId (for finished fabrics)
     const costingItem = await prisma.style_costing_fabric_items.findFirst({
       where: {
         costingId: ctx.costSheetId,
-        fabricId: ctx.fabricId,
+        OR: [{ greigeId: lookupId }, { fabricId: lookupId }],
       },
       select: { greigeCost: true },
     });

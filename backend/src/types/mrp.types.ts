@@ -102,6 +102,10 @@ export interface CalculatedRequirement {
   isGreigeRequirement?: boolean;
   colorName?: string | null;
   componentName?: string | null;
+  // Price snapshot from the approved Order BOM (single source of truth for PO pricing)
+  unitPrice?: number | null;
+  rateSource?: 'ORDER_BOM' | 'COST_SHEET' | 'SUPPLIER_PRICE' | 'RATE_CARD' | 'MANUAL' | null;
+  orderBomItemId?: string | null;
 }
 
 // ============================================
@@ -169,6 +173,14 @@ export interface POPreviewItem {
   isGreige: boolean;
   priceRequired: boolean; // true if price = 0
   requirementIds: string[];
+  /**
+   * Canonical consolidation key — IDENTICAL to the key used by generatePOFromRequirements.
+   * The frontend MUST key edited prices/quantities by this value so an edit lands on the
+   * same group the generator builds (otherwise a per-width edit leaks across width groups).
+   */
+  groupKey: string;
+  /** Where the displayed unitPrice came from — 'ORDER_BOM' is the trusted default. */
+  rateSource?: string | null;
   // Enriched fields for PO context
   colorName?: string | null;
   styleName?: string | null;

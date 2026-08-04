@@ -586,6 +586,32 @@ function normalizeUnit(unit: string | null | undefined): Unit {
 }
 
 /**
+ * P1.4 D5 fix: Build a canonical grouping key for consolidating requirements into PO line items.
+ * PROCESSING requirements are never merged (each is a distinct processing job).
+ * MATERIAL requirements are grouped by materialId + fabricWidth (so different widths don't merge).
+ *
+ * This helper is used by:
+ * - previewPOsFromRequirements (preview must match generation exactly)
+ * - generatePOFromRequirements (both consolidate and non-consolidate branches)
+ *
+ * The frontend keys edited prices/quantities by this value so edits land on the correct group.
+ */
+function buildGroupKey(req: {
+  id: string;
+  materialId: string;
+  requirementType?: string | null;
+  fabricWidth?: any;
+}): string {
+  // PROCESSING: each requirement is its own group
+  if (req.requirementType === 'PROCESSING') {
+    return req.id;
+  }
+  // MATERIAL: group by materialId + width (so 44" and 58" don't merge)
+  const widthKey = req.fabricWidth ? `-W${Number(req.fabricWidth)}` : '';
+  return `${req.materialId}${widthKey}`;
+}
+
+/**
  * Determine POCategory from material types in a PO
  * Uses the majority material type to set category
  */
@@ -1232,6 +1258,14 @@ export async function calculateRequirementsFromOrder(
 
       // For GREIGE_PROCESSED sourcing, create TWO requirements: GREIGE + PROCESSING
       if (hasGreigeProcessing && greigeMaterialId) {
+        // Price snapshot: GREIGE uses greigeCost (the landed greige price from cost sheet),
+        // falling back to unitPrice (ready-fabric price) if greigeCost wasn't set.
+        const greigeSnapshotPrice = bomItem.greigeCost
+          ? Number(bomItem.greigeCost)
+          : bomItem.unitPrice
+            ? Number(bomItem.unitPrice)
+            : null;
+
         // Requirement 1: GREIGE material procurement
         calculatedRequirements.push({
           orderId,
@@ -1257,9 +1291,16 @@ export async function calculateRequirementsFromOrder(
           processingCost: bomItem.processingCost ? Number(bomItem.processingCost) : null,
           colorName: (bomItem as any).colorName || null,
           componentName: bomItem.componentName || null,
+          // Price snapshot from approved BOM (single source of truth for PO pricing)
+          unitPrice: greigeSnapshotPrice,
+          rateSource: greigeSnapshotPrice != null ? 'ORDER_BOM' : null,
+          orderBomItemId: bomItem.id,
         });
 
         // Requirement 2: PROCESSING requirement (linked to GREIGE)
+        // Price snapshot: processingCost from the BOM item (copied from cost sheet processor rate)
+        const processingSnapshotPrice = bomItem.processingCost ? Number(bomItem.processingCost) : null;
+
         // This will be created AFTER the GREIGE requirement is saved (needs the ID)
         calculatedRequirements.push({
           orderId,
@@ -1278,16 +1319,23 @@ export async function calculateRequirementsFromOrder(
           status: MaterialRequirementStatus.PO_REQUIRED, // Processing always needs PO
           requirementType: 'PROCESSING', // Processing service requirement
           processorId: bomItem.processorId || null,
-          processingCost: bomItem.processingCost ? Number(bomItem.processingCost) : null,
+          processingCost: processingSnapshotPrice,
           printingType: bomItem.rateCard?.printingType || null,
           colorName: (bomItem as any).colorName || null,
           componentName: bomItem.componentName || null,
           // Fabric width tracking for split PO scenarios
           fabricWidth: bomItem.fabricWidthInches ? Number(bomItem.fabricWidthInches) : undefined,
           linkedGreigeMaterialId: greigeMaterialId, // Link to parent GREIGE requirement
+          // Price snapshot from approved BOM
+          unitPrice: processingSnapshotPrice,
+          rateSource: processingSnapshotPrice != null ? 'ORDER_BOM' : null,
+          orderBomItemId: bomItem.id,
         });
       } else {
         // Standard requirement (READY_FABRIC, STOCK_REUSE, or no sourcing strategy)
+        // Price snapshot: unitPrice from BOM (which inherited from cost sheet)
+        const standardSnapshotPrice = bomItem.unitPrice ? Number(bomItem.unitPrice) : null;
+
         calculatedRequirements.push({
           orderId,
           orderItemId: orderItem.id,
@@ -1307,6 +1355,10 @@ export async function calculateRequirementsFromOrder(
           // Fabric width tracking for split PO scenarios
           fabricWidth: bomItem.fabricWidthInches ? Number(bomItem.fabricWidthInches) : undefined,
           cadId: bomItem.selectedCadId || undefined,
+          // Price snapshot from approved BOM (single source of truth for PO pricing)
+          unitPrice: standardSnapshotPrice,
+          rateSource: standardSnapshotPrice != null ? 'ORDER_BOM' : null,
+          orderBomItemId: bomItem.id,
         });
       }
     }
@@ -1387,6 +1439,10 @@ export async function calculateRequirementsFromOrder(
               fabricWidth: req.fabricWidth,
               cadId: req.cadId,
               calculatedAt: new Date(),
+              // Price snapshot update (in case cost sheet / BOM prices changed before recalc)
+              unitPrice: req.unitPrice,
+              rateSource: req.rateSource,
+              orderBomItemId: req.orderBomItemId,
             },
             include: getRequirementIncludes(),
           });
@@ -1418,6 +1474,10 @@ export async function calculateRequirementsFromOrder(
               componentName: req.componentName || null,
               requiredDate,
               createdById: userId,
+              // Price snapshot from approved BOM
+              unitPrice: req.unitPrice,
+              rateSource: req.rateSource,
+              orderBomItemId: req.orderBomItemId,
             },
             include: getRequirementIncludes(),
           });
@@ -1489,6 +1549,10 @@ export async function calculateRequirementsFromOrder(
               processingCost: req.processingCost,
               linkedRequirementId: linkedGreigeId || existing.linkedRequirementId,
               calculatedAt: new Date(),
+              // Price snapshot update
+              unitPrice: req.unitPrice,
+              rateSource: req.rateSource,
+              orderBomItemId: req.orderBomItemId,
             },
             include: getRequirementIncludes(),
           });
@@ -1522,6 +1586,10 @@ export async function calculateRequirementsFromOrder(
               componentName: req.componentName || null,
               requiredDate,
               createdById: userId,
+              // Price snapshot from approved BOM
+              unitPrice: req.unitPrice,
+              rateSource: req.rateSource,
+              orderBomItemId: req.orderBomItemId,
             },
             include: getRequirementIncludes(),
           });
@@ -1573,6 +1641,10 @@ export async function createManualRequirement(
       status: MaterialRequirementStatus.PO_REQUIRED,
       requiredDate: new Date(data.requiredDate),
       createdById: userId,
+      // Manual requirements have no BOM price snapshot — PO generation uses live resolver fallback
+      unitPrice: null,
+      rateSource: 'MANUAL',
+      orderBomItemId: null,
     },
     include: getRequirementIncludes(),
   });
@@ -2140,15 +2212,20 @@ export async function generatePOFromRequirements(
       continue;
     }
 
-    // FABRIC / GREIGE: resolve from cost sheet
+    // FABRIC / GREIGE: resolve from cost sheet (fallback for legacy requirements without snapshot).
+    // P1 note: D3 (trims/lace/thread rates skipped) is fixed by req.unitPrice snapshot above.
+    // This fallback path still only handles FABRIC/GREIGE since resolveRate doesn't support TRIMS.
     if (!costSheetId) continue;
     if (matType !== 'FABRIC' && matType !== 'GREIGE') continue;
     const poCategory = matType === 'GREIGE' ? 'GREIGE' : 'FABRIC';
+    // P1.7: Pass greigeId for GREIGE materials (fabricId is null for them)
+    const greigeId = (req.materials as any)?.greigeId ?? null;
     try {
       const resolved = await resolveRate({
         poCategory: poCategory as any,
         costSheetId,
         fabricId: fabricId ?? undefined,
+        greigeId: greigeId ?? undefined,
         supplierId,
         materialId: req.materialId,
       });
@@ -2208,15 +2285,15 @@ export async function generatePOFromRequirements(
   if (consolidate) {
     const materialGroups = new Map<string, POItemData>();
 
+    // P1.4 D5 fix: First pass — sum all shortfalls using the shared buildGroupKey helper
     for (const req of requirements) {
-      // PROCESSING requirements: never merge (each is a distinct processing job)
-      // For fabrics/greige: include width in key to prevent merging different widths
-      const widthKey = req.fabricWidth ? `-W${Number(req.fabricWidth)}` : '';
-      const key = req.requirementType === 'PROCESSING' ? req.id : `${req.materialId}${widthKey}`;
-      // Priority: manual override → cost sheet / processing rate → supplier price → 0
+      const key = buildGroupKey(req);
+      // P1.3: Price priority = manual override → snapshot → live resolver fallback → supplier → 0
+      const snapshotPrice = req.unitPrice ? Number(req.unitPrice) : null;
       const price =
         itemPrices?.[key] ??
         itemPrices?.[req.materialId] ??
+        snapshotPrice ??
         costSheetRateMap.get(key) ??
         costSheetRateMap.get(req.materialId) ??
         autoPriceMap.get(req.materialId) ??
@@ -2224,15 +2301,13 @@ export async function generatePOFromRequirements(
       const existing = materialGroups.get(key);
 
       if (existing) {
+        // Add shortfall to group (don't apply override yet — that's the second pass)
         existing.quantity += Number(req.shortfall);
         existing.requirementIds.push(req.id);
       } else {
-        // Use edited quantity if provided, otherwise use MRP shortfall
-        const baseQty = Number(req.shortfall);
-        const overrideQty = (itemQuantities as any)?.[key] ?? (itemQuantities as any)?.[req.materialId];
         materialGroups.set(key, {
           materialId: req.materialId,
-          quantity: overrideQty != null ? Number(overrideQty) : baseQty,
+          quantity: Number(req.shortfall),
           unit: req.unit,
           unitPrice: price,
           requirementIds: [req.id],
@@ -2243,14 +2318,26 @@ export async function generatePOFromRequirements(
       }
     }
 
+    // P1.4 D5 fix: Second pass — apply quantity overrides AFTER all shortfalls are summed.
+    // This fixes the bug where an override on the first requirement would be ADDED to subsequent shortfalls.
+    for (const [key, group] of materialGroups) {
+      const overrideQty = (itemQuantities as any)?.[key] ?? (itemQuantities as any)?.[group.materialId];
+      if (overrideQty != null) {
+        group.quantity = Number(overrideQty); // REPLACE summed quantity, not add to it
+      }
+    }
+
     poItems.push(...materialGroups.values());
   } else {
     for (const req of requirements) {
-      // Priority: manual override → cost sheet / processing rate → supplier price → 0
-      const groupKey = req.requirementType === 'PROCESSING' ? req.id : req.materialId;
+      // P1.4 D5: Use shared buildGroupKey for consistency with consolidate and preview
+      const groupKey = buildGroupKey(req);
+      // P1.3: Price priority = manual override → snapshot → live resolver fallback → supplier → 0
+      const snapshotPrice = req.unitPrice ? Number(req.unitPrice) : null;
       const price =
         itemPrices?.[groupKey] ??
         itemPrices?.[req.materialId] ??
+        snapshotPrice ??
         costSheetRateMap.get(groupKey) ??
         costSheetRateMap.get(req.materialId) ??
         autoPriceMap.get(req.materialId) ??
@@ -2390,6 +2477,30 @@ export async function generatePOFromRequirements(
       },
     });
 
+    // P1.6: Guarded status flip — collect all requirement IDs and flip their status atomically.
+    // This closes the double-order race: if two users click "Generate PO" on the same requirements,
+    // only one updateMany will succeed (count will match); the other will find count=0 and abort.
+    const allRequirementIds = [...new Set(itemsWithGst.flatMap((item) => item.requirementIds))];
+    const allowedStatuses = [MaterialRequirementStatus.PO_REQUIRED, MaterialRequirementStatus.PARTIAL_STOCK];
+
+    const flipResult = await tx.material_requirements.updateMany({
+      where: {
+        id: { in: allRequirementIds },
+        status: { in: allowedStatuses },
+      },
+      data: { status: MaterialRequirementStatus.PO_GENERATED },
+    });
+
+    if (flipResult.count !== allRequirementIds.length) {
+      // Some requirements were already flipped by a concurrent request — abort this transaction.
+      // The other request's PO will cover those requirements.
+      throw new Error(
+        `Race condition: ${allRequirementIds.length - flipResult.count} of ${allRequirementIds.length} requirements ` +
+          `were already PO_GENERATED/PO_SENT/PARTIALLY_RECEIVED/RECEIVED by a concurrent request. ` +
+          `Aborting to prevent duplicate PO.`
+      );
+    }
+
     // Create PO items and links
     let linkedCount = 0;
     for (const item of itemsWithGst) {
@@ -2446,11 +2557,7 @@ export async function generatePOFromRequirements(
           },
         });
 
-        await tx.material_requirements.update({
-          where: { id: reqId },
-          data: { status: MaterialRequirementStatus.PO_GENERATED },
-        });
-
+        // P1.6: Status already flipped by the bulk updateMany above (guarded double-order race fix)
         linkedCount++;
       }
     }
@@ -2559,8 +2666,14 @@ export async function cancelRequirement(id: string, userId: string): Promise<Mat
 }
 
 /**
- * Update received quantity from GRN
- * Called when a GRN is created/updated to update the requirement status
+ * Update received quantity from GRN.
+ * Called when a GRN is created/updated to update the requirement status.
+ *
+ * P1.5 fixes:
+ * - Atomic { increment } instead of read-modify-write (kills race condition)
+ * - Aggregate across ALL links of the requirement before deciding status
+ * - PARTIALLY_RECEIVED when totalReceived > 0 but < totalAllocated
+ * - Downgrade to PO_SENT when totalReceived becomes 0 (e.g., after full reversal)
  */
 export async function updateReceivedQuantity(
   purchaseOrderItemId: string,
@@ -2574,33 +2687,64 @@ export async function updateReceivedQuantity(
   // Find all links to this PO item
   const links = await client.requirement_po_links.findMany({
     where: { purchaseOrderItemId },
-    include: { material_requirements: true },
+    select: { id: true, requirementId: true },
   });
 
+  // Track which requirements we've updated (avoid updating the same requirement multiple times
+  // if it has multiple links to the same PO item — shouldn't happen but belt-and-suspenders)
+  const updatedRequirementIds = new Set<string>();
+
   for (const link of links) {
-    const newReceived = Number(link.receivedQuantity) + receivedQuantity;
-    const isFullyReceived = newReceived >= Number(link.allocatedQuantity);
+    // P1.5: Atomic increment — kills read-modify-write race condition
+    await client.requirement_po_links.update({
+      where: { id: link.id },
+      data: {
+        receivedQuantity: {
+          increment: receivedQuantity,
+        },
+      },
+    });
 
-    // Two updates that must move together; run sequentially on whatever client is in effect.
-    const applyUpdates = async (t: any) => {
-      await t.requirement_po_links.update({
-        where: { id: link.id },
-        data: { receivedQuantity: newReceived },
-      });
-      if (isFullyReceived) {
-        await t.material_requirements.update({
-          where: { id: link.requirementId },
-          data: { status: MaterialRequirementStatus.RECEIVED },
-        });
-      }
-    };
-
-    // Join the caller's tx if provided (no nested transaction); otherwise wrap this link's updates.
-    if (tx) {
-      await applyUpdates(tx);
-    } else {
-      await prisma.$transaction(applyUpdates);
+    // Skip if we already updated this requirement's status
+    if (updatedRequirementIds.has(link.requirementId)) {
+      continue;
     }
+    updatedRequirementIds.add(link.requirementId);
+
+    // P1.5: Aggregate across ALL links of this requirement to determine true status
+    const allLinks = await client.requirement_po_links.findMany({
+      where: { requirementId: link.requirementId },
+      select: {
+        allocatedQuantity: true,
+        receivedQuantity: true,
+      },
+    });
+
+    const totalAllocated = allLinks.reduce(
+      (sum: number, l: { allocatedQuantity: any }) => sum + Number(l.allocatedQuantity),
+      0
+    );
+    const totalReceived = allLinks.reduce(
+      (sum: number, l: { receivedQuantity: any }) => sum + Number(l.receivedQuantity),
+      0
+    );
+
+    // P1.5: Determine correct status based on aggregated quantities
+    let newStatus: MaterialRequirementStatus;
+    if (totalReceived >= totalAllocated) {
+      newStatus = MaterialRequirementStatus.RECEIVED;
+    } else if (totalReceived > 0) {
+      newStatus = MaterialRequirementStatus.PARTIALLY_RECEIVED;
+    } else {
+      // P1.5: Zero received (after reversal) → downgrade to PO_SENT
+      // (The PO was sent; we just haven't received anything yet)
+      newStatus = MaterialRequirementStatus.PO_SENT;
+    }
+
+    await client.material_requirements.update({
+      where: { id: link.requirementId },
+      data: { status: newStatus },
+    });
   }
 }
 
@@ -3105,7 +3249,7 @@ export async function convertToGreigeProcessing(
     },
   });
 
-  // 5. Create GREIGE requirement
+  // 5. Create GREIGE requirement with price snapshot (P1: rateSource='MANUAL' for user-initiated convert-to-greige)
   const greigeReqNumber = await generateRequirementNumber();
   const greigeReq = await prisma.material_requirements.create({
     data: {
@@ -3130,11 +3274,15 @@ export async function convertToGreigeProcessing(
       requiredDate: requirement.requiredDate,
       linkedRequirementId: requirementId,
       createdById: userId,
+      // P1 snapshot: user-provided greige cost, manual conversion
+      unitPrice: data.greigeCost ?? null,
+      rateSource: 'MANUAL',
+      orderBomItemId: null, // No direct BOM item — manual conversion
     },
     include: getRequirementIncludes(),
   });
 
-  // 6. Create PROCESSING requirement (linked to greige)
+  // 6. Create PROCESSING requirement (linked to greige) with price snapshot
   const procReqNumber = await generateRequirementNumber();
   const procReq = await prisma.material_requirements.create({
     data: {
@@ -3160,6 +3308,10 @@ export async function convertToGreigeProcessing(
       linkedRequirementId: greigeReq.id,
       requiredDate: requirement.requiredDate,
       createdById: userId,
+      // P1 snapshot: user-provided processing cost, manual conversion
+      unitPrice: data.processingCost ?? null,
+      rateSource: 'MANUAL',
+      orderBomItemId: null, // No direct BOM item — manual conversion
     },
     include: getRequirementIncludes(),
   });
@@ -3302,15 +3454,19 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         continue;
       }
 
-      // FABRIC / GREIGE materials: resolve from cost sheet rate
+      // FABRIC / GREIGE materials: resolve from cost sheet rate (fallback for legacy requirements without snapshot).
+      // P1 note: D3 (trims/lace/thread rates skipped) is fixed by snapshotPrice above.
       if (!costSheetId) continue;
       if (matType !== 'FABRIC' && matType !== 'GREIGE') continue;
       const poCategory = matType === 'GREIGE' ? 'GREIGE' : 'FABRIC';
+      // P1.7: Pass greigeId for GREIGE materials (fabricId is null for them)
+      const greigeId = (req.materials as any)?.greigeId ?? null;
       try {
         const resolved = await resolveRate({
           poCategory: poCategory as any,
           costSheetId,
           fabricId: fabricId ?? undefined,
+          greigeId: greigeId ?? undefined,
           supplierId,
           materialId: req.materialId,
         });
@@ -3331,6 +3487,9 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         unit: string;
         requirementIds: string[];
         material: any;
+        // P1.3: price snapshot from first requirement in group
+        snapshotPrice: number | null;
+        rateSource: string | null;
         // Enriched fields for PO preview
         colorName: string | null;
         styleName: string | null;
@@ -3344,8 +3503,8 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
     >();
 
     for (const req of requirements) {
-      // PROCESSING requirements: each gets its own PO line item (distinct processing job)
-      const groupKey = req.requirementType === 'PROCESSING' ? req.id : req.materialId;
+      // P1.4 D5: Use shared buildGroupKey for consistency with generatePOFromRequirements
+      const groupKey = buildGroupKey(req);
 
       const existing = materialGroups.get(groupKey);
       if (existing) {
@@ -3358,6 +3517,9 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
           unit: req.unit,
           requirementIds: [req.id],
           material: req.materials,
+          // P1.3: price snapshot from first requirement in group
+          snapshotPrice: req.unitPrice ? Number(req.unitPrice) : null,
+          rateSource: req.rateSource || null,
           // Enriched fields
           colorName: req.colorName || null,
           styleName: (req as any).order_items?.styles?.styleName || null,
@@ -3383,9 +3545,21 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
       const mat = mg.material;
       const matType = mat?.materialType || '';
       const isGreige = matType === 'GREIGE' || matType === 'GREIGE_LACE';
-      // Priority: cost sheet / processing rate (by groupKey) → supplier price → 0 (user enters manually)
+      // P1.3: Price priority = snapshot → live resolver fallback → supplier → 0
       const unitPrice =
-        costSheetRateMap.get(groupKey) ?? costSheetRateMap.get(mg.materialId) ?? priceMap.get(mg.materialId) ?? 0;
+        mg.snapshotPrice ??
+        costSheetRateMap.get(groupKey) ??
+        costSheetRateMap.get(mg.materialId) ??
+        priceMap.get(mg.materialId) ??
+        0;
+      // Track rate source for frontend display (exception-only: show badge only when NOT ORDER_BOM)
+      const effectiveRateSource = mg.snapshotPrice
+        ? mg.rateSource
+        : costSheetRateMap.has(groupKey) || costSheetRateMap.has(mg.materialId)
+          ? 'COST_SHEET'
+          : priceMap.has(mg.materialId)
+            ? 'SUPPLIER_PRICE'
+            : null;
       const priceRequired = unitPrice === 0;
       if (priceRequired) hasZeroPriceItems = true;
 
@@ -3440,6 +3614,9 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         isGreige,
         priceRequired,
         requirementIds: mg.requirementIds,
+        // P1.3/P1.4: groupKey for frontend edits; rateSource for exception-only badge
+        groupKey,
+        rateSource: effectiveRateSource,
         // Enriched fields for PO context
         colorName: mg.colorName,
         styleName: mg.styleName,

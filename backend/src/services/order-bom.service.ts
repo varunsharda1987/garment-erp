@@ -837,17 +837,33 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               select: { id: true },
             });
             if (styleComponents.length > 0) {
+              // P1.9: Include fabric relation for name-based matching instead of index
               const styleFabrics = await this.prisma.style_fabrics.findMany({
                 where: { componentId: { in: styleComponents.map((c) => c.id) }, fabricId: { not: null } },
-                select: { fabricId: true },
+                select: { fabricId: true, fabric: { select: { fabricName: true } } },
               });
-              if (styleFabrics[i]) {
-                resolvedFabricId = styleFabrics[i].fabricId;
+              // P1.9: Match by fabricName instead of index
+              const fabricItemName = (fabricItem.fabricName || '').toLowerCase().trim();
+              const matchedStyleFabric = styleFabrics.find(
+                (sf) => sf.fabric?.fabricName && sf.fabric.fabricName.toLowerCase().trim() === fabricItemName
+              );
+              if (matchedStyleFabric) {
+                resolvedFabricId = matchedStyleFabric.fabricId;
+                logInfo('Resolved fabricId via style_fabrics (name match)', {
+                  fabricName: fabricItem.fabricName,
+                  fabricId: resolvedFabricId,
+                });
               } else if (styleFabrics.length === 1) {
+                // Single fabric fallback (unambiguous)
                 resolvedFabricId = styleFabrics[0].fabricId;
-              }
-              if (resolvedFabricId) {
-                logInfo('Resolved fabricId via style_fabrics', { fabricId: resolvedFabricId });
+                logInfo('Resolved fabricId via style_fabrics (single fabric)', { fabricId: resolvedFabricId });
+              } else if (styleFabrics[i]) {
+                // P1.9: Index fallback with warning
+                resolvedFabricId = styleFabrics[i].fabricId;
+                logWarn(
+                  `[P1.9] order-bom: Index-based fallback for fabric "${fabricItem.fabricName}" at index ${i}. ` +
+                    `Consider ensuring fabricId is set on cost sheet fabric items.`
+                );
               }
             }
           }
@@ -924,18 +940,36 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
             select: { id: true },
           });
           if (styleComponents.length > 0) {
+            // P1.9: Include fabric relation for name-based matching instead of index
             const styleFabrics = await this.prisma.style_fabrics.findMany({
               where: {
                 componentId: { in: styleComponents.map((c) => c.id) },
                 fabricId: { not: null },
               },
-              select: { fabricId: true },
+              select: { fabricId: true, fabric: { select: { fabricName: true } } },
             });
-            // Match by index — fabric items in JSON correspond to style_fabrics order
-            if (styleFabrics[i]) {
-              fabricId = styleFabrics[i].fabricId;
+            // P1.9: Match by fabricName instead of index
+            const jsonFabricName = (fabric.fabricName || '').toLowerCase().trim();
+            const matchedStyleFabric = styleFabrics.find(
+              (sf) => sf.fabric?.fabricName && sf.fabric.fabricName.toLowerCase().trim() === jsonFabricName
+            );
+            if (matchedStyleFabric) {
+              fabricId = matchedStyleFabric.fabricId;
+              logInfo('Resolved fabricId via style_fabrics (name match)', {
+                fabricName: fabric.fabricName,
+                fabricId,
+              });
             } else if (styleFabrics.length === 1) {
+              // Single fabric fallback (unambiguous)
               fabricId = styleFabrics[0].fabricId;
+              logInfo('Resolved fabricId via style_fabrics (single fabric)', { fabricId });
+            } else if (styleFabrics[i]) {
+              // P1.9: Index fallback with warning
+              fabricId = styleFabrics[i].fabricId;
+              logWarn(
+                `[P1.9] order-bom JSON path: Index-based fallback for fabric "${fabric.fabricName}" at index ${i}. ` +
+                  `Consider ensuring fabricId is set on JSON fabric items.`
+              );
             }
           }
         }

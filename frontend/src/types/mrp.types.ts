@@ -231,6 +231,10 @@ export interface POPreviewItem {
   isGreige: boolean;
   priceRequired: boolean;
   requirementIds: string[];
+  // P1.4/P1.10: Canonical groupKey for frontend edits — MUST match backend generatePOFromRequirements
+  groupKey: string;
+  // P1.10: Rate source for exception-only badge (show only when NOT 'ORDER_BOM')
+  rateSource?: string | null;
   // Enriched fields for PO context
   colorName?: string | null;
   styleName?: string | null;

@@ -789,7 +789,10 @@ export default function OrderDetail() {
                     <div>
                       <h3 className="font-semibold text-lg">Item #{index + 1}</h3>
                       <div className="text-sm text-muted-foreground mt-1">
-                        {item.style?.styleCode} - {item.style?.styleName}
+                        {item.style?.styleCode}
+                        {item.style?.buyerStyleRef && ` (${item.style.buyerStyleRef})`}
+                        {' - '}
+                        {item.style?.styleName}
                       </div>
                     </div>
                     <div className="text-right">
@@ -930,7 +933,10 @@ export default function OrderDetail() {
                 <div>
                   <div className="flex items-center gap-3 mb-1">
                     <span className="font-semibold">
-                      {orderBom.style?.styleCode} - {orderBom.style?.styleName}
+                      {orderBom.style?.styleCode}
+                      {orderBom.style?.buyerStyleRef && ` (${orderBom.style.buyerStyleRef})`}
+                      {' - '}
+                      {orderBom.style?.styleName}
                     </span>
                     <Badge variant="outline">v{orderBom.version}</Badge>
                     <span
@@ -999,7 +1005,10 @@ export default function OrderDetail() {
                           </span>
                         </div>
                         <div className="text-sm text-muted-foreground mt-1">
-                          {wo.style?.styleCode} - {wo.style?.styleName}
+                          {wo.style?.styleCode}
+                          {wo.style?.buyerStyleRef && ` (${wo.style.buyerStyleRef})`}
+                          {' - '}
+                          {wo.style?.styleName}
                         </div>
                       </div>
                       <div className="flex gap-2">

@@ -73,6 +73,23 @@ export const styleService = {
   },
 
   /**
+   * Get next auto-generated style code based on customer and category
+   */
+  getNextStyleCode: async (
+    customerId?: string,
+    productCategoryId?: string
+  ): Promise<{ nextCode: string; buyerPrefix: string; categoryPrefix: string }> => {
+    let url = '/styles/next-code';
+    const params: string[] = [];
+    if (customerId) params.push(`customerId=${customerId}`);
+    if (productCategoryId) params.push(`productCategoryId=${productCategoryId}`);
+    if (params.length > 0) url += `?${params.join('&')}`;
+
+    const response = await api.get<{ data: { nextCode: string; buyerPrefix: string; categoryPrefix: string } }>(url);
+    return response.data.data;
+  },
+
+  /**
    * Create new style
    */
   createStyle: async (data: CreateStyleFormData): Promise<StyleResponse> => {

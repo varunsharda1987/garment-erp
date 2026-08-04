@@ -371,7 +371,10 @@ export default function QuotationDetail() {
                       <TableCell className="text-muted-foreground">{index + 1}</TableCell>
                       <TableCell>
                         <div className="font-medium">
-                          {item.style?.styleCode} - {item.style?.styleName}
+                          {item.style?.styleCode}
+                          {item.style?.buyerStyleRef && ` (${item.style.buyerStyleRef})`}
+                          {' - '}
+                          {item.style?.styleName}
                         </div>
                         {item.description && <div className="text-xs text-muted-foreground">{item.description}</div>}
                         {item.remarks && <div className="text-xs text-muted-foreground italic">{item.remarks}</div>}

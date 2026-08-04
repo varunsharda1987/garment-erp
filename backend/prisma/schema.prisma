@@ -370,6 +370,7 @@ model customers {
   agentId                        String?
   agentCommissionPercent         Decimal?                         @db.Decimal(5, 2)
   agencyId                       String?
+  styleCodePrefix                String?                          @map("style_code_prefix")
   agent                          agents?                          @relation(fields: [agentId], references: [id])
   agency                         agencies?                        @relation(fields: [agencyId], references: [id])
   delivery_notes                 delivery_notes[]
@@ -1667,6 +1668,7 @@ model product_category_master {
   updatedAt         DateTime                      @updatedAt @map("updated_at")
   maxComponents     Int                           @default(1) @map("max_components")
   minComponents     Int                           @default(1) @map("min_components")
+  codePrefix        String?                       @map("code_prefix")
   brandCategories   brand_categories[]
   defaultComponents category_component_defaults[]
   parent            product_category_master?      @relation("ProductCategoryHierarchy", fields: [parentId], references: [id])
@@ -2477,6 +2479,7 @@ model styles {
   accountingUnit              String?
   hsnCode                     String?
   productTaxRule              String?
+  buyerStyleRef               String?                      @map("buyer_style_ref")
   internalCode                String?
   numberOfComponents          Int?
   expectedOrderQuantity       Int?

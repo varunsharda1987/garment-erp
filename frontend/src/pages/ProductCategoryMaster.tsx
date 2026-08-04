@@ -430,6 +430,7 @@ export default function ProductCategoryMaster() {
       sortOrder: category.sortOrder,
       minComponents: category.minComponents || 1,
       maxComponents: category.maxComponents || 1,
+      codePrefix: category.codePrefix || '',
     });
     setFormParentName(category.parent?.name || 'None (Main Category)');
     setIsDialogOpen(true);
@@ -600,7 +601,7 @@ export default function ProductCategoryMaster() {
 
           <form onSubmit={handleSubmit}>
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="code">Code *</Label>
                   <Input
@@ -610,6 +611,17 @@ export default function ProductCategoryMaster() {
                     placeholder="e.g., WW or WW-TSH"
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="codePrefix">Style Code Prefix</Label>
+                  <Input
+                    id="codePrefix"
+                    value={formData.codePrefix || ''}
+                    onChange={(e) => setFormData({ ...formData, codePrefix: e.target.value.toUpperCase() })}
+                    placeholder="e.g., KUR"
+                    maxLength={5}
+                  />
+                  <p className="text-xs text-muted-foreground">For auto-generating style codes</p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="sortOrder">Sort Order</Label>

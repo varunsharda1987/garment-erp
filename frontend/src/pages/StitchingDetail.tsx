@@ -584,7 +584,12 @@ export default function StitchingDetail() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Style</span>
                 <span className="font-medium">
-                  {issue.workOrder?.style?.styleCode} - {issue.workOrder?.style?.styleName}
+                  {issue.workOrder?.style?.styleCode}
+                  {issue.workOrder?.style?.buyerStyleRef && (
+                    <span className="text-muted-foreground"> ({issue.workOrder.style.buyerStyleRef})</span>
+                  )}
+                  {' - '}
+                  {issue.workOrder?.style?.styleName}
                 </span>
               </div>
               <div className="flex justify-between">

@@ -512,7 +512,10 @@ export default function CuttingDetail() {
                 {getStatusBadge(batch.status)}
               </div>
               <p className="text-muted-foreground">
-                {batch.workOrder?.style?.styleCode} - {batch.workOrder?.style?.styleName}
+                {batch.workOrder?.style?.styleCode}
+                {batch.workOrder?.style?.buyerStyleRef && ` (${batch.workOrder.style.buyerStyleRef})`}
+                {' - '}
+                {batch.workOrder?.style?.styleName}
                 {' | '}
                 {batch.workOrder?.workOrderNumber}
               </p>

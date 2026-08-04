@@ -932,7 +932,12 @@ export default function WorkOrderDetail() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Style Code</span>
-                <span className="font-medium">{workOrder.style?.styleCode || '-'}</span>
+                <span className="font-medium">
+                  {workOrder.style?.styleCode || '-'}
+                  {workOrder.style?.buyerStyleRef && (
+                    <span className="text-muted-foreground ml-2">({workOrder.style.buyerStyleRef})</span>
+                  )}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Style Name</span>

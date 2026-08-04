@@ -22,6 +22,22 @@ export const createStyle = async (req: Request, res: Response): Promise<void> =>
 };
 
 /**
+ * Get next style code preview based on customer and category
+ * GET /api/styles/next-code?customerId=xxx&productCategoryId=yyy
+ */
+export const getNextStyleCode = async (req: Request, res: Response): Promise<void> => {
+  const customerId = req.query.customerId as string | undefined;
+  const productCategoryId = req.query.productCategoryId as string | undefined;
+
+  const result = await styleService.getNextStyleCode(customerId, productCategoryId);
+
+  res.status(200).json({
+    data: result,
+    message: 'Next style code generated',
+  });
+};
+
+/**
  * Get all styles with pagination and search
  * GET /api/styles
  */

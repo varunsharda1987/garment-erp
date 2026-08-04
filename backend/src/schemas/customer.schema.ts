@@ -151,6 +151,9 @@ export const createCustomerSchema = z.object({
   buyerApprovesGPT: z.boolean().optional().default(false),
 
   defaultTestingLabId: z.string().uuid('Invalid testing lab ID format').optional().nullable(),
+
+  // Style code generation prefix (e.g., EBW, KF, HOK)
+  styleCodePrefix: z.string().max(10, 'Style code prefix must be at most 10 characters').optional().nullable(),
 });
 
 /**
@@ -262,6 +265,9 @@ export const updateCustomerSchema = z.object({
   buyerApprovesGPT: z.boolean().optional(),
 
   defaultTestingLabId: z.string().uuid('Invalid testing lab ID format').optional().nullable(),
+
+  // Style code generation prefix (e.g., EBW, KF, HOK)
+  styleCodePrefix: z.string().max(10, 'Style code prefix must be at most 10 characters').optional().nullable(),
 });
 
 /**

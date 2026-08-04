@@ -111,6 +111,8 @@ export interface Customer {
   agentCommissionPercent?: number | null;
   agency?: { id: string; name: string } | null;
   agent?: { id: string; code: string; name: string; phone: string | null } | null;
+  // Style code generation
+  styleCodePrefix?: string | null;
   // Location Relations (camelCase due to serializer)
   billingState?: State | null;
   billingCity?: City | null;
@@ -195,6 +197,8 @@ export type CreateCustomerRequest = {
   agencyId?: string | null;
   agentId?: string | null;
   agentCommissionPercent?: number | null;
+  // Style code generation
+  styleCodePrefix?: string | null;
 };
 
 export type UpdateCustomerRequest = Partial<CreateCustomerRequest>;

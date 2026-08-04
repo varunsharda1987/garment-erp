@@ -9,6 +9,8 @@ import {
   TrendingDown,
   Copy,
   Loader2,
+  MoreHorizontal,
+  ExternalLink,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +25,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cadPlanningService } from '@/services/cad-planning.service';
 import { notify } from '@/lib/notify';
 
@@ -306,16 +314,23 @@ export function CADOrderHistoryTable({ styleId, onCloneSuccess }: Props) {
                         </TableCell>
                         <TableCell className="text-center">
                           {item.cadId && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleCloneClick(item)}
-                              title="Clone to new Raw Material CAD"
-                              className="text-info hover:bg-info-muted"
-                            >
-                              <Copy className="h-3 w-3 mr-1" />
-                              Clone
-                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleCloneClick(item)}>
+                                  <Copy className="h-4 w-4 mr-2" />
+                                  Clone to Raw Mat
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => window.open(`/orders/${item.orderId}`, '_blank')}>
+                                  <ExternalLink className="h-4 w-4 mr-2" />
+                                  View Order
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
                         </TableCell>
                       </TableRow>

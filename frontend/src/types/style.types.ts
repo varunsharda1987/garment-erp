@@ -31,6 +31,7 @@ export interface Style {
   id: string;
   internalCode?: string | null; // Auto-generated internal reference (e.g., STY-202506-0001)
   styleCode: string;
+  buyerStyleRef?: string | null; // Buyer's own reference number - always editable
   styleName: string;
   customerName: string;
   brandName: string;

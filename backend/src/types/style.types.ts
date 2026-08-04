@@ -162,7 +162,7 @@ export interface SKUVariantInput {
  * Complete request body for creating a style
  */
 export interface CreateStyleRequest {
-  styleCode: string;
+  styleCode?: string; // Optional - auto-generated if not provided
   styleName: string;
   status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
   customerName?: string;
@@ -187,6 +187,7 @@ export interface CreateStyleRequest {
   accountingSKU?: string | null;
   accountingUnit?: string | null;
   bulletPoints?: string | null;
+  buyerStyleRef?: string | null; // Buyer's own reference number - always editable
   specifications?: string | null;
   imageUrl?: string | null;
   skuVariants?: SKUVariantInput[];

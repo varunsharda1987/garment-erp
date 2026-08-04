@@ -25,7 +25,6 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useBlocker } from 'react-router-dom';
 import { UnsavedChangesDialog } from '../components/dialogs';
 
 export interface UseUnsavedChangesOptions {
@@ -79,20 +78,6 @@ export function useUnsavedChanges(options: UseUnsavedChangesOptions = {}) {
     };
   }, [isDirty]);
 
-  // Handle React Router navigation blocking
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) => isDirty && currentLocation.pathname !== nextLocation.pathname
-  );
-
-  // Show dialog when navigation is blocked
-  useEffect(() => {
-    if (blocker.state === 'blocked') {
-      setShowDialog(true);
-      setPendingNavigation(() => () => blocker.proceed());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blocker.state]);
-
   const handleDiscard = useCallback(() => {
     setIsDirty(false);
     setShowDialog(false);
@@ -124,10 +109,7 @@ export function useUnsavedChanges(options: UseUnsavedChangesOptions = {}) {
   const handleCancel = useCallback(() => {
     setShowDialog(false);
     setPendingNavigation(null);
-    if (blocker.state === 'blocked') {
-      blocker.reset();
-    }
-  }, [blocker]);
+  }, []);
 
   const UnsavedDialog = useCallback(() => {
     return (

@@ -13,6 +13,7 @@ export interface ProductCategory {
   sortOrder: number;
   minComponents: number;
   maxComponents: number;
+  codePrefix?: string | null; // For auto-generating style codes (e.g., KUR for Kurta)
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -46,6 +47,7 @@ export interface CreateProductCategoryRequest {
   sortOrder?: number;
   minComponents?: number;
   maxComponents?: number;
+  codePrefix?: string; // For auto-generating style codes (e.g., KUR for Kurta)
 }
 
 export interface UpdateProductCategoryRequest extends Partial<CreateProductCategoryRequest> {

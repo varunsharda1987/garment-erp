@@ -365,7 +365,10 @@ export default function InvoiceDetail() {
                           <div className="font-medium">{item.description}</div>
                           {item.style && (
                             <div className="text-xs text-muted-foreground">
-                              {item.style.styleCode} - {item.style.styleName}
+                              {item.style.styleCode}
+                              {item.style.buyerStyleRef && ` (${item.style.buyerStyleRef})`}
+                              {' - '}
+                              {item.style.styleName}
                             </div>
                           )}
                         </div>

@@ -266,7 +266,11 @@ export default function ChallanDetail() {
             )}
             {challan.productionRun?.style && (
               <div>
-                <span className="text-muted-foreground">Style:</span> {challan.productionRun.style.styleCode} -{' '}
+                <span className="text-muted-foreground">Style:</span> {challan.productionRun.style.styleCode}
+                {challan.productionRun.style.buyerStyleRef && (
+                  <span className="text-muted-foreground"> ({challan.productionRun.style.buyerStyleRef})</span>
+                )}
+                {' - '}
                 {challan.productionRun.style.styleName}
               </div>
             )}

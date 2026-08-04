@@ -43,6 +43,9 @@ export const createProductCategorySchema = z.object({
 
   minComponents: z.number().int().min(1, 'Min components must be at least 1').optional(),
   maxComponents: z.number().int().min(1, 'Max components must be at least 1').optional(),
+
+  // Style code generation prefix (e.g., KUR for Kurta, DRS for Dress)
+  codePrefix: z.string().max(10, 'Code prefix must be at most 10 characters').optional().nullable(),
 });
 
 /**
@@ -82,6 +85,9 @@ export const updateProductCategorySchema = z.object({
 
   minComponents: z.number().int().min(1).optional(),
   maxComponents: z.number().int().min(1).optional(),
+
+  // Style code generation prefix (e.g., KUR for Kurta, DRS for Dress)
+  codePrefix: z.string().max(10, 'Code prefix must be at most 10 characters').optional().nullable(),
 });
 
 /**

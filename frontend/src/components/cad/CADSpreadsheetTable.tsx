@@ -15,6 +15,13 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -37,6 +44,7 @@ import {
   Package,
   Sparkles,
   AlertCircle,
+  MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { notify } from '@/lib/notify';
@@ -1904,171 +1912,117 @@ export function CADSpreadsheetTable({
                                 </Button>
                               </>
                             ) : (
-                              <>
-                                {/* CAD Purpose Action Buttons */}
-                                {/* Approve button - show for PENDING or REJECTED status (allow re-approval after rejection) */}
-                                {(!(row as CADSpreadsheetRowExtended).approvalStatus ||
-                                  (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.PENDING ||
-                                  (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.REJECTED) && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 text-success hover:text-success hover:bg-success-muted"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleApproveCAD(row.id);
-                                    }}
-                                    disabled={disabled || approvingRow === row.id}
-                                    title="Approve"
-                                  >
-                                    {approvingRow === row.id ? (
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    ) : (
-                                      <Check className="h-3.5 w-3.5" />
-                                    )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" disabled={disabled}>
+                                    <MoreHorizontal className="h-4 w-4" />
                                   </Button>
-                                )}
-                                {/* Reject button - show for PENDING (including null) and APPROVED status with actual data (not blank rows) */}
-                                {(!(row as CADSpreadsheetRowExtended).approvalStatus ||
-                                  (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.PENDING ||
-                                  (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.APPROVED) &&
-                                  (row.cadAverage || row.greigeId) && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleRejectCAD(row.id);
-                                      }}
-                                      disabled={disabled || rejectingRow === row.id}
-                                      title="Reject"
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  {/* Approve - for PENDING or REJECTED rows */}
+                                  {(!(row as CADSpreadsheetRowExtended).approvalStatus ||
+                                    (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.PENDING ||
+                                    (row as CADSpreadsheetRowExtended).approvalStatus ===
+                                      CADApprovalStatus.REJECTED) && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleApproveCAD(row.id)}
+                                      disabled={approvingRow === row.id}
+                                      className="text-success focus:text-success"
                                     >
-                                      {rejectingRow === row.id ? (
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      {approvingRow === row.id ? (
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                       ) : (
-                                        <XCircle className="h-3.5 w-3.5" />
+                                        <Check className="h-4 w-4 mr-2" />
                                       )}
-                                    </Button>
+                                      Approve
+                                    </DropdownMenuItem>
                                   )}
-                                {/* Create Version button - show only for APPROVED CAD */}
-                                {(row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.APPROVED && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 text-info hover:text-info hover:bg-info-muted"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleCreateVersion(row.id);
-                                    }}
-                                    disabled={disabled || creatingVersion === row.id}
-                                    title="Create New Version"
-                                  >
-                                    {creatingVersion === row.id ? (
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    ) : (
-                                      <GitBranch className="h-3.5 w-3.5" />
+                                  {/* Reject - for PENDING/APPROVED rows with data */}
+                                  {(!(row as CADSpreadsheetRowExtended).approvalStatus ||
+                                    (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.PENDING ||
+                                    (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.APPROVED) &&
+                                    (row.cadAverage || row.greigeId) && (
+                                      <DropdownMenuItem
+                                        onClick={() => handleRejectCAD(row.id)}
+                                        disabled={rejectingRow === row.id}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        {rejectingRow === row.id ? (
+                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        ) : (
+                                          <XCircle className="h-4 w-4 mr-2" />
+                                        )}
+                                        Reject
+                                      </DropdownMenuItem>
                                     )}
-                                  </Button>
-                                )}
-                                {/* Copy button - copy to next purpose (visible for all non-PRODUCTION rows) */}
-                                {/* Workflow: COSTING → RAW_MATERIAL_CALCULATION → PRODUCTION */}
-                                {row.purpose !== 'PRODUCTION' && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 text-accent hover:text-accent hover:bg-accent/10"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const targetPurpose =
-                                        row.purpose === 'COSTING'
-                                          ? 'RAW_MATERIAL_CALCULATION'
-                                          : row.purpose === 'RAW_MATERIAL_CALCULATION'
-                                            ? 'PRODUCTION'
-                                            : null;
-                                      if (targetPurpose) handleCopyCAD(row.id, targetPurpose);
-                                    }}
-                                    disabled={disabled || copyingRow === row.id}
-                                    title={
-                                      row.purpose === 'COSTING'
-                                        ? 'Copy to Raw Mat'
-                                        : row.purpose === 'RAW_MATERIAL_CALCULATION'
-                                          ? 'Copy to Production'
-                                          : 'Cannot copy'
-                                    }
-                                  >
-                                    {copyingRow === row.id ? (
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    ) : (
-                                      <Copy className="h-3.5 w-3.5" />
-                                    )}
-                                  </Button>
-                                )}
-
-                                {/* Link to Stock button - show only for PRODUCTION CAD that is PENDING */}
-                                {row.purpose === 'PRODUCTION' &&
-                                  (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.PENDING && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-6 w-6 p-0 text-primary hover:text-primary hover:bg-primary/10"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleOpenStockSelection(row.id);
-                                      }}
-                                      disabled={disabled}
-                                      title="Link to Fabric Stock"
+                                  {/* Create Version - for APPROVED rows */}
+                                  {(row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.APPROVED && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleCreateVersion(row.id)}
+                                      disabled={creatingVersion === row.id}
                                     >
-                                      <TableIcon className="h-3.5 w-3.5" />
-                                    </Button>
+                                      {creatingVersion === row.id ? (
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      ) : (
+                                        <GitBranch className="h-4 w-4 mr-2" />
+                                      )}
+                                      Create Version
+                                    </DropdownMenuItem>
                                   )}
-
-                                {/* Standard Edit/Delete buttons */}
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingRow(row.id);
-                                  }}
-                                  disabled={disabled || isRowLocked || (row as CADSpreadsheetRowExtended).isLocked}
-                                  title={
-                                    isRowLocked
-                                      ? 'Locked (approved CAD)'
-                                      : (row as CADSpreadsheetRowExtended).isLocked
-                                        ? 'Locked'
-                                        : 'Edit'
-                                  }
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteRow(row.id);
-                                  }}
-                                  disabled={
-                                    disabled || isDeleting || isRowLocked || (row as CADSpreadsheetRowExtended).isLocked
-                                  }
-                                  title={
-                                    isRowLocked
-                                      ? 'Locked (approved CAD)'
-                                      : (row as CADSpreadsheetRowExtended).isLocked
-                                        ? 'Locked'
-                                        : 'Delete'
-                                  }
-                                >
-                                  {isDeleting ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-3.5 w-3.5" />
+                                  {/* Copy - for non-PRODUCTION rows */}
+                                  {row.purpose !== 'PRODUCTION' && (
+                                    <DropdownMenuItem
+                                      onClick={() => {
+                                        const targetPurpose =
+                                          row.purpose === 'COSTING'
+                                            ? 'RAW_MATERIAL_CALCULATION'
+                                            : row.purpose === 'RAW_MATERIAL_CALCULATION'
+                                              ? 'PRODUCTION'
+                                              : null;
+                                        if (targetPurpose) handleCopyCAD(row.id, targetPurpose);
+                                      }}
+                                      disabled={copyingRow === row.id}
+                                    >
+                                      {copyingRow === row.id ? (
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      ) : (
+                                        <Copy className="h-4 w-4 mr-2" />
+                                      )}
+                                      {row.purpose === 'COSTING' ? 'Copy to Raw Mat' : 'Copy to Production'}
+                                    </DropdownMenuItem>
                                   )}
-                                </Button>
-                              </>
+                                  {/* Link to Stock - for PRODUCTION + PENDING rows */}
+                                  {row.purpose === 'PRODUCTION' &&
+                                    (row as CADSpreadsheetRowExtended).approvalStatus === CADApprovalStatus.PENDING && (
+                                      <DropdownMenuItem onClick={() => handleOpenStockSelection(row.id)}>
+                                        <TableIcon className="h-4 w-4 mr-2" />
+                                        Link to Stock
+                                      </DropdownMenuItem>
+                                    )}
+                                  <DropdownMenuSeparator />
+                                  {/* Edit */}
+                                  <DropdownMenuItem
+                                    onClick={() => setEditingRow(row.id)}
+                                    disabled={isRowLocked || (row as CADSpreadsheetRowExtended).isLocked}
+                                  >
+                                    <Pencil className="h-4 w-4 mr-2" />
+                                    Edit
+                                  </DropdownMenuItem>
+                                  {/* Delete */}
+                                  <DropdownMenuItem
+                                    onClick={() => handleDeleteRow(row.id)}
+                                    disabled={isDeleting || isRowLocked || (row as CADSpreadsheetRowExtended).isLocked}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    {isDeleting ? (
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                    )}
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             )}
                           </div>
                         </TableCell>

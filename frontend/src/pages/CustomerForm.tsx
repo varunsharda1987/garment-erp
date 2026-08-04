@@ -78,6 +78,8 @@ const customerFormSchema = z.object({
   agencyId: z.string().nullable().optional(),
   agentId: z.string().nullable().optional(),
   agentCommissionPercent: z.string().optional(),
+  // Style code generation prefix (e.g., EBW, KF, HOK)
+  styleCodePrefix: z.string().max(10).optional(),
 });
 
 // Input vs output types differ because creditLimit/creditDays use z.preprocess + z.coerce:
@@ -431,6 +433,8 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
           setValue('agencyId', customer.agencyId || '');
           setValue('agentId', customer.agentId || '');
           setValue('agentCommissionPercent', customer.agentCommissionPercent?.toString() || '');
+          // Style code prefix
+          setValue('styleCodePrefix', customer.styleCodePrefix || '');
         })
         .catch(() => {
           setSubmitError('Failed to load customer data');
@@ -658,6 +662,9 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         agencyId: data.agencyId && data.agencyId.trim() ? data.agencyId : null,
         agentId: data.agentId && data.agentId.trim() ? data.agentId : null,
         agentCommissionPercent: data.agentCommissionPercent ? parseFloat(data.agentCommissionPercent) : null,
+        // Style code generation prefix
+        styleCodePrefix:
+          data.styleCodePrefix && data.styleCodePrefix.trim() ? data.styleCodePrefix.toUpperCase() : null,
       };
 
       if (isNewCustomer) {
@@ -717,6 +724,21 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                     <Label htmlFor="code">Customer Code *</Label>
                     <Input id="code" {...register('code')} readOnly className="bg-muted" />
                     {errors.code && <p className="text-sm text-destructive mt-1">{errors.code.message}</p>}
+                  </div>
+                  <div>
+                    <Label htmlFor="styleCodePrefix">Style Code Prefix</Label>
+                    <Input
+                      id="styleCodePrefix"
+                      {...register('styleCodePrefix')}
+                      placeholder="e.g., EBW, KF, HOK"
+                      maxLength={10}
+                      className="uppercase"
+                      onChange={(e) => {
+                        e.target.value = e.target.value.toUpperCase();
+                        register('styleCodePrefix').onChange(e);
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Used for auto-generating style codes</p>
                   </div>
                   <div>
                     <Label htmlFor="businessType">Business Type *</Label>

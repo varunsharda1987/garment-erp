@@ -176,6 +176,107 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
   }
 
   /**
+   * Generate style code based on customer prefix + category prefix + sequence.
+   * Format: {BUYER_PREFIX}{CATEGORY_PREFIX}{SEQ} e.g., EBWKUR001
+   *
+   * @param customerId - Customer UUID (optional, uses 'STY' if not provided)
+   * @param productCategoryId - Product category UUID (optional, uses 'GEN' if not provided)
+   * @returns Generated style code
+   */
+  async generateStyleCode(customerId?: string | null, productCategoryId?: string | null): Promise<string> {
+    // allow-count-numbering: Style codes are display-only; race collisions hit unique constraint and user retries
+    // Get customer prefix (e.g., "EBW")
+    let buyerPrefix = 'STY';
+    if (customerId) {
+      const customer = await this.prisma.customers.findUnique({
+        where: { id: customerId },
+        select: { styleCodePrefix: true, name: true },
+      });
+      if (customer?.styleCodePrefix) {
+        buyerPrefix = customer.styleCodePrefix.toUpperCase();
+      }
+    }
+
+    // Get category prefix (e.g., "KUR")
+    let catPrefix = '';
+    if (productCategoryId) {
+      const category = await this.prisma.product_category_master.findUnique({
+        where: { id: productCategoryId },
+        select: { codePrefix: true, code: true },
+      });
+      if (category?.codePrefix) {
+        catPrefix = category.codePrefix.toUpperCase();
+      } else if (category?.code) {
+        // Fallback: use first 3 chars of category code
+        catPrefix = category.code.substring(0, 3).toUpperCase();
+      }
+    }
+
+    // Build the prefix
+    const prefix = `${buyerPrefix}${catPrefix}`;
+
+    // Get next sequence for this prefix combination
+    const lastStyle = await this.prisma.styles.findFirst({
+      where: { styleCode: { startsWith: prefix } },
+      orderBy: { styleCode: 'desc' },
+      select: { styleCode: true },
+    });
+
+    let seq = 1;
+    if (lastStyle?.styleCode) {
+      // Extract the numeric part after the prefix
+      const numericPart = lastStyle.styleCode.slice(prefix.length);
+      const parsed = parseInt(numericPart, 10);
+      if (!isNaN(parsed)) {
+        seq = parsed + 1;
+      }
+    }
+
+    return `${prefix}${seq.toString().padStart(3, '0')}`;
+  }
+
+  /**
+   * Get the next style code preview (for frontend display before save)
+   */
+  async getNextStyleCode(
+    customerId?: string | null,
+    productCategoryId?: string | null
+  ): Promise<{
+    nextCode: string;
+    buyerPrefix: string;
+    categoryPrefix: string;
+  }> {
+    let buyerPrefix = 'STY';
+    let categoryPrefix = '';
+
+    if (customerId) {
+      const customer = await this.prisma.customers.findUnique({
+        where: { id: customerId },
+        select: { styleCodePrefix: true },
+      });
+      if (customer?.styleCodePrefix) {
+        buyerPrefix = customer.styleCodePrefix.toUpperCase();
+      }
+    }
+
+    if (productCategoryId) {
+      const category = await this.prisma.product_category_master.findUnique({
+        where: { id: productCategoryId },
+        select: { codePrefix: true, code: true },
+      });
+      if (category?.codePrefix) {
+        categoryPrefix = category.codePrefix.toUpperCase();
+      } else if (category?.code) {
+        categoryPrefix = category.code.substring(0, 3).toUpperCase();
+      }
+    }
+
+    const nextCode = await this.generateStyleCode(customerId, productCategoryId);
+
+    return { nextCode, buyerPrefix, categoryPrefix };
+  }
+
+  /**
    * Look up componentMasterId by componentName (case-insensitive)
    * Returns null if no match found
    */
@@ -203,9 +304,25 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
   async createWithRelations(data: CreateStyleDTO, userId: string): Promise<styles> {
     logDebug('Creating style with relations', { styleCode: data.styleCode });
 
+    // Auto-generate style code if not provided
+    let styleCode = data.styleCode;
+    if (!styleCode) {
+      // Look up customer ID from customerName if needed
+      let customerId: string | null = null;
+      if (data.customerName) {
+        const customer = await this.prisma.customers.findFirst({
+          where: { name: { equals: data.customerName, mode: 'insensitive' } },
+          select: { id: true },
+        });
+        customerId = customer?.id || null;
+      }
+      styleCode = await this.generateStyleCode(customerId, data.productCategoryId);
+      logDebug('Auto-generated style code', { styleCode });
+    }
+
     // Validation
-    if (!data.styleCode || !data.styleName) {
-      throw new ValidationError('styleCode and styleName are required');
+    if (!styleCode || !data.styleName) {
+      throw new ValidationError('styleName is required (styleCode is auto-generated if not provided)');
     }
     if (data.status !== 'DRAFT' && !data.customerName) {
       throw new ValidationError('Customer name is required for non-draft styles');
@@ -214,7 +331,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // Check for duplicate style code (only among active styles)
     const existingStyle = await this.prisma.styles.findFirst({
       where: {
-        styleCode: data.styleCode,
+        styleCode: styleCode,
         isActive: true,
       },
       select: {
@@ -507,8 +624,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       data: {
         id: randomUUID(),
         internalCode,
-        styleCode: data.styleCode,
+        styleCode: styleCode,
         styleName: data.styleName,
+        buyerStyleRef: data.buyerStyleRef || null,
         customerName: data.customerName || 'Draft',
         brandName: data.brandName || 'Draft',
         brandCategoryId: data.brandCategoryId || null,

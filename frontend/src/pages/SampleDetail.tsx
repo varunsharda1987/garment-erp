@@ -130,8 +130,9 @@ export default function SampleDetail() {
     sentDate?: string | null
   ) => {
     const greet = s.customer?.contactPerson?.trim() || s.customer?.name?.trim() || 'Sir/Madam';
+    const buyerRef = s.style?.buyerStyleRef ? ` [Ref: ${s.style.buyerStyleRef}]` : '';
     const styleBit = s.style?.styleCode
-      ? ` for style ${s.style.styleCode}${s.style.styleName ? ` (${s.style.styleName})` : ''}`
+      ? ` for style ${s.style.styleCode}${buyerRef}${s.style.styleName ? ` (${s.style.styleName})` : ''}`
       : '';
     const dateStr = sentDate ? new Date(sentDate).toLocaleDateString('en-IN') : '';
     return [
@@ -334,7 +335,12 @@ export default function SampleDetail() {
                 <Label className="text-xs text-muted-foreground">Style</Label>
                 {sample.style ? (
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{sample.style.styleCode}</span>
+                    <span className="font-medium">
+                      {sample.style.styleCode}
+                      {sample.style.buyerStyleRef && (
+                        <span className="text-muted-foreground ml-1">({sample.style.buyerStyleRef})</span>
+                      )}
+                    </span>
                     <Button
                       variant="ghost"
                       size="sm"

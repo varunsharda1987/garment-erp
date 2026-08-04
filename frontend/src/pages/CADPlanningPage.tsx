@@ -23,6 +23,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import { cadPlanningService } from '../services/cad-planning.service';
 import { fabricCostingService, type CADCostingStatusResponse } from '../services/fabricCosting.service';
 import {
@@ -40,6 +47,8 @@ import {
   ClipboardList,
   FileSpreadsheet,
   XCircle,
+  MoreHorizontal,
+  ExternalLink,
 } from 'lucide-react';
 import { notify } from '../lib/notify';
 import { cn } from '../lib/utils';
@@ -550,8 +559,8 @@ export default function CADPlanningPage() {
         </p>
       </div>
 
-      {/* Status Card for Approved - Compact */}
-      {isApproved && (
+      {/* Status Card with Actions Dropdown */}
+      {isApproved ? (
         <div className="mb-4 p-3 bg-success-muted border border-success/25 rounded-lg flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
@@ -562,23 +571,80 @@ export default function CADPlanningPage() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="default" onClick={handleCheckAndShowPushModal} disabled={loadingPushStatus}>
-              {loadingPushStatus ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" disabled={loadingPushStatus || rejecting}>
+                {loadingPushStatus || rejecting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <MoreHorizontal className="h-4 w-4 mr-2" />
+                )}
+                Actions
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleCheckAndShowPushModal} disabled={loadingPushStatus}>
                 <FileSpreadsheet className="h-4 w-4 mr-2" />
-              )}
-              Push to Fabric Costing
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => navigate(`/fabric-costing?styleId=${id}`)}>
-              View Fabric Costing →
-            </Button>
-            <Button size="sm" variant="destructive" onClick={() => setShowRejectDialog(true)} disabled={rejecting}>
-              {rejecting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <XCircle className="h-4 w-4 mr-2" />}
-              Reject CAD Plan
-            </Button>
+                Push to Fabric Costing
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate(`/fabric-costing?styleId=${id}`)}>
+                <ExternalLink className="h-4 w-4 mr-2" />
+                View Fabric Costing
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setShowRejectDialog(true)}
+                disabled={rejecting}
+                className="text-destructive focus:text-destructive"
+              >
+                <XCircle className="h-4 w-4 mr-2" />
+                Reject CAD Plan
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ) : (
+        <div className="mb-4 p-3 bg-muted border rounded-lg flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            {canApprove ? (
+              <>
+                <CheckCircle2 className="h-5 w-5 text-success flex-shrink-0" />
+                <span className="text-sm font-medium text-success">All CAD entries complete. Ready to approve!</span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-5 w-5 text-warning flex-shrink-0" />
+                <span className="text-sm text-muted-foreground">Complete all CAD entries before approval</span>
+              </>
+            )}
           </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" disabled={saving}>
+                {saving ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <MoreHorizontal className="h-4 w-4 mr-2" />
+                )}
+                Actions
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => setShowApproveDialog(true)}
+                disabled={!canApprove || saving}
+                className="text-success focus:text-success"
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                Approve CAD Plan
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate(`/fabric-costing?styleId=${id}`)}>
+                <ExternalLink className="h-4 w-4 mr-2" />
+                View Fabric Costing
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       )}
 
@@ -649,35 +715,6 @@ export default function CADPlanningPage() {
                 isStyleApproved={isApproved}
                 onDataRefresh={loadCADTableData}
               />
-
-              {/* Actions */}
-              {!isApproved && cadTableData.cadRows.length > 0 && (
-                <div className="mt-6 flex justify-between items-center p-4 bg-muted rounded-lg">
-                  <div className="text-sm text-muted-foreground">
-                    {canApprove ? (
-                      <div className="flex items-center gap-2 text-success">
-                        <CheckCircle2 className="h-5 w-5" />
-                        <span>All CAD entries complete. Ready to approve!</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="h-5 w-5 text-warning" />
-                        <span>Complete all CAD entries before approval</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <Button
-                    type="button"
-                    onClick={() => setShowApproveDialog(true)}
-                    disabled={!canApprove || saving}
-                    className="bg-success hover:bg-success"
-                  >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
-                    Approve CAD Plan
-                  </Button>
-                </div>
-              )}
             </div>
           )}
         </TabsContent>

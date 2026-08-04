@@ -112,7 +112,12 @@ export default function StyleDetail() {
         {/* Header */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-display font-medium text-foreground">{style.styleCode}</h1>
+            <h1 className="text-3xl font-display font-medium text-foreground">
+              {style.styleCode}
+              {style.buyerStyleRef && (
+                <span className="text-xl text-muted-foreground ml-3">({style.buyerStyleRef})</span>
+              )}
+            </h1>
             {style.styleName && <p className="text-lg text-muted-foreground mt-1">{style.styleName}</p>}
           </div>
           <div className="flex gap-3">
@@ -206,6 +211,12 @@ export default function StyleDetail() {
                           <p className="text-sm font-medium text-muted-foreground">Style Code</p>
                           <p className="text-base font-semibold">{style.styleCode}</p>
                         </div>
+                        {style.buyerStyleRef && (
+                          <div>
+                            <p className="text-sm font-medium text-muted-foreground">Buyer Reference</p>
+                            <p className="text-base font-semibold">{style.buyerStyleRef}</p>
+                          </div>
+                        )}
                         {style.styleName && (
                           <div>
                             <p className="text-sm font-medium text-muted-foreground">Style Name</p>

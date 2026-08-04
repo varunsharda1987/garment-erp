@@ -194,11 +194,13 @@ const coerceToInt = z
   .nullable();
 
 export const createStyleSchema = z.object({
-  // Required fields
+  // Style code - optional (auto-generated if not provided based on customer + category)
   styleCode: z
     .string()
     .min(2, 'Style code must be at least 2 characters')
-    .max(50, 'Style code must not exceed 50 characters'),
+    .max(50, 'Style code must not exceed 50 characters')
+    .optional(),
+  // Required fields
   styleName: z
     .string()
     .min(2, 'Style name must be at least 2 characters')
@@ -236,6 +238,7 @@ export const createStyleSchema = z.object({
   accountingSKU: z.string().optional().nullable(),
   accountingUnit: z.string().optional().nullable(),
   bulletPoints: z.string().optional().nullable(),
+  buyerStyleRef: z.string().max(100, 'Buyer style reference must be at most 100 characters').optional().nullable(),
 
   // Nested arrays
   components: z.array(styleComponentSchema).optional().default([]),
@@ -299,6 +302,7 @@ export const updateStyleSchema = z.object({
   accountingSKU: z.string().optional().nullable(),
   accountingUnit: z.string().optional().nullable(),
   bulletPoints: z.string().optional().nullable(),
+  buyerStyleRef: z.string().max(100, 'Buyer style reference must be at most 100 characters').optional().nullable(),
 
   // Nested arrays - components and processes
   components: z.array(styleComponentSchema).optional(),

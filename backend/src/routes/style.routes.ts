@@ -19,6 +19,7 @@ import {
   updateCADGrouping,
   approveCADPlan,
   canDeactivateStyle,
+  getNextStyleCode,
 } from '../controllers/style.controller';
 import {
   createComponent,
@@ -81,6 +82,13 @@ router.post(
   validateBody(createStyleSchema),
   asyncHandler(createStyle)
 );
+
+/**
+ * @route   GET /api/styles/next-code
+ * @desc    Get next auto-generated style code based on customer and category
+ * @access  Protected - All authenticated users
+ */
+router.get('/next-code', asyncHandler(getNextStyleCode));
 
 /**
  * @route   GET /api/styles/drafts

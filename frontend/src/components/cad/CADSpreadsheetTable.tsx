@@ -954,24 +954,13 @@ export function CADSpreadsheetTable({
     }
   };
 
-  // Handle size breakdown save - propagate to sibling rows (same componentId)
+  // Handle size breakdown save - each row maintains its own Pcs independently
   const handleSizeBreakdownSave = (rowId: string, breakdowns: CADSizeBreakdown[]) => {
     const totalPieces = breakdowns.reduce((sum, b) => sum + b.quantity, 0);
 
-    // Update the current row
+    // Update the current row only (no sibling propagation - allows different Pcs per row)
     handleFieldChange(rowId, 'sizeBreakdowns', breakdowns);
     handleFieldChange(rowId, 'piecesPerMarker', totalPieces);
-
-    // Propagate to sibling rows (same componentId)
-    const currentRow = rows.find((r) => r.id === rowId);
-    if (currentRow) {
-      rows
-        .filter((r) => r.id !== rowId && r.componentId === currentRow.componentId)
-        .forEach((sibling) => {
-          handleFieldChange(sibling.id, 'sizeBreakdowns', breakdowns);
-          handleFieldChange(sibling.id, 'piecesPerMarker', totalPieces);
-        });
-    }
 
     // The calculator button works outside edit mode too — enter edit mode so
     // Save/Cancel are visible for the pending selection (only if nothing else is mid-edit)

@@ -428,6 +428,7 @@ export async function getIssueNotes(filters: LaceIssueNoteFilters) {
       { issueNumber: { contains: search, mode: 'insensitive' } },
       { order: { orderNumber: { contains: search, mode: 'insensitive' } } },
       { style: { styleCode: { contains: search, mode: 'insensitive' } } },
+      { style: { buyerStyleRef: { contains: search, mode: 'insensitive' } } },
     ];
   }
 

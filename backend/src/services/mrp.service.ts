@@ -1642,6 +1642,7 @@ export async function getRequirements(
       { materials: { name: { contains: search, mode: 'insensitive' } } },
       { orders: { orderNumber: { contains: search, mode: 'insensitive' } } },
       { order_items: { styles: { styleCode: { contains: search, mode: 'insensitive' } } } },
+      { order_items: { styles: { buyerStyleRef: { contains: search, mode: 'insensitive' } } } },
       { order_items: { styles: { styleName: { contains: search, mode: 'insensitive' } } } },
     ];
   }

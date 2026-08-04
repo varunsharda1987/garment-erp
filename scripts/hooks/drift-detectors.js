@@ -894,7 +894,197 @@ function numericOrFallback(relFiles) {
   return out;
 }
 
-// E1 — materials.create with a hand-written id (string/template literal, e.g. `mat-${code}`):
+// E1 — schema↔service update parity: a field in the Zod update schema that is MISSING from the
+// corresponding service's Prisma update() data block. The field passes validation but silently gets
+// ignored — classic "silent data loss on update" bug (the buyerStyleRef incident, 2026-08-04).
+// We match schema files (*.schema.ts) to service files (*.service.ts) by module name, extract field
+// names from both, and flag any schema fields absent from the service update.
+//
+// IMPROVEMENTS (2026-08-04):
+// 1. Detect spread syntax (...data, ...cleanedData) and mark service as "covers all fields"
+// 2. Skip standalone endpoint schemas (updateComponent*, updateStyleProcess*, etc.)
+// 3. Expanded list of nested/relation fields to exclude
+// 4. Only check main entity update schemas, not sub-entity or query schemas
+
+// Schemas that are for standalone endpoints with dedicated controllers (not the main entity update)
+const STANDALONE_ENDPOINT_SCHEMAS = [
+  'updateComponentSchema',
+  'updateComponentFabricSchema',
+  'updateComponentAccessorySchema',
+  'updateStyleProcessSchema',
+  'updateStyleCommentSchema',
+  'updateStyleMaterialBOMSchema',
+  'updateCADGroupingSchema',
+  'updateClaimStatusSchema',
+  'updateOrderStatusSchema',
+];
+
+// Fields that are nested relations handled via separate upserts/methods
+const NESTED_RELATION_FIELDS = [
+  'items', 'components', 'processes', 'materialBOM', 'skuVariants', 'fabrics', 'accessories',
+  'suppliers', 'gstNumbers', 'brandCategories', 'brandNames', 'categories', 'lots',
+  'fabricGroups', 'trims', 'columnConfig',
+];
+
+// Query param fields that sometimes accidentally appear in update schemas
+const QUERY_PARAM_FIELDS = ['page', 'limit', 'search', 'fromDate', 'toDate', 'sortBy', 'sortOrder'];
+
+function schemaServiceUpdateParity(relFiles) {
+  const out = [];
+  const schemaFiles = relFiles.filter((f) => f.endsWith('.schema.ts'));
+
+  for (const schemaRel of schemaFiles) {
+    const schemaContent = readRel(schemaRel);
+    if (!schemaContent) continue;
+
+    // Find all update schemas: `export const updateXxxSchema = z.object({`
+    // Use a more robust approach: find the schema start, then find the closing `});`
+    const schemaRe = /export\s+const\s+(update\w*Schema)\s*=\s*z\.object\(\s*\{/g;
+    let schemaMatch;
+    while ((schemaMatch = schemaRe.exec(schemaContent))) {
+      const schemaName = schemaMatch[1];
+
+      // Skip standalone endpoint schemas - they have dedicated controllers
+      if (STANDALONE_ENDPOINT_SCHEMAS.includes(schemaName)) continue;
+
+      // Find the end of this schema - look for `});` that closes the z.object()
+      // Start after the opening brace and find the matching close
+      const schemaStart = schemaMatch.index + schemaMatch[0].length;
+      const afterStart = schemaContent.slice(schemaStart);
+
+      // Find closing `});` - this is more reliable than brace counting for Zod schemas
+      // We look for a line that starts with `});` (possibly with leading whitespace)
+      const closeMatch = afterStart.match(/\n\}\);/);
+      if (!closeMatch) continue;
+
+      const schemaBody = afterStart.slice(0, closeMatch.index);
+      if (!schemaBody || schemaBody.length > 5000) continue; // Sanity check
+
+      // Extract field names from schema (top-level keys only)
+      // Match: `fieldName:` at the start of a line (with optional whitespace)
+      const schemaFields = new Set();
+      const fieldRe = /^\s{2}(\w+)\s*:/gm; // Exactly 2 spaces = top-level field in z.object
+      let fm;
+      while ((fm = fieldRe.exec(schemaBody))) {
+        const field = fm[1];
+        // Skip nested relations and query params
+        if (NESTED_RELATION_FIELDS.includes(field)) continue;
+        if (QUERY_PARAM_FIELDS.includes(field)) continue;
+        schemaFields.add(field);
+      }
+
+      if (schemaFields.size === 0) continue;
+
+      // Derive service file name from schema file
+      const serviceRel = schemaRel.replace('/schemas/', '/services/').replace('.schema.ts', '.service.ts');
+      const serviceContent = readRel(serviceRel);
+      if (!serviceContent) continue;
+
+      // Check if service uses spread syntax in update - if so, all fields are covered
+      // Patterns: `data: { ...data`, `data: { ...cleanedData`, `data: cleanedData`
+      const usesSpread = /\bdata\s*:\s*(?:\{\s*\.\.\.(?:data|cleanedData|customerData|updateData)\b|(?:data|cleanedData|customerData|updateData)\s*[,}])/.test(serviceContent);
+      if (usesSpread) continue; // Service uses spread - all schema fields are covered
+
+      // Also check for conditional spread patterns: `...(data.field && { field: ... })`
+      // These cover the field even though it's not a direct assignment
+      const conditionalSpreadFields = new Set();
+      const conditionalSpreadRe = /\.\.\.\s*\(\s*(?:data\.(\w+)|data\[['"](\w+)['"]\])\s*(?:!==|&&)/g;
+      let csm;
+      while ((csm = conditionalSpreadRe.exec(serviceContent))) {
+        conditionalSpreadFields.add(csm[1] || csm[2]);
+      }
+      // Also catch: `...(expectedOrderQtyPatch as object)` pattern where a variable holds the patch
+      const varSpreadRe = /const\s+(\w+)\s*=\s*(?:data\.(\w+)|data\[['"](\w+)['"]\])\s*!==\s*undefined/g;
+      while ((csm = varSpreadRe.exec(serviceContent))) {
+        conditionalSpreadFields.add(csm[2] || csm[3]);
+      }
+
+      // Find Prisma update calls in the service
+      const updateRe = /\.(update|updateMany|upsert)\s*\(\s*\{/g;
+      let updateMatch;
+      const serviceFields = new Set();
+
+      while ((updateMatch = updateRe.exec(serviceContent))) {
+        const callStart = updateMatch.index + updateMatch[0].length - 1;
+        const callBody = sliceBalancedBraces(serviceContent, callStart);
+        if (!callBody) continue;
+
+        // Check for spread in this specific update call
+        if (/\bdata\s*:\s*\{\s*\.\.\./.test(callBody)) {
+          // This update uses spread - mark all fields as covered for this schema
+          serviceFields.add('__SPREAD_COVERS_ALL__');
+        }
+
+        // Find data: { ... } block
+        const dataMatch = callBody.match(/\bdata\s*:\s*\{/);
+        if (!dataMatch) continue;
+
+        const dataStart = dataMatch.index + dataMatch[0].length - 1;
+        const dataBody = sliceBalancedBraces(callBody, dataStart);
+        if (!dataBody) continue;
+
+        // Extract field names from data block
+        const dataFieldRe = /^\s*(\w+)\s*:/gm;
+        let dfm;
+        while ((dfm = dataFieldRe.exec(dataBody))) {
+          serviceFields.add(dfm[1]);
+        }
+      }
+
+      // If spread covers all, skip this schema
+      if (serviceFields.has('__SPREAD_COVERS_ALL__')) continue;
+
+      if (serviceFields.size === 0) continue; // No update calls found, skip
+
+      // Find fields in schema but missing from service
+      const moduleName = path.basename(schemaRel).replace('.schema.ts', '');
+      for (const field of schemaFields) {
+        if (!serviceFields.has(field) && !conditionalSpreadFields.has(field)) {
+          // Skip common fields that are intentionally not updated directly
+          if (['id', 'code', 'createdAt', 'updatedAt', 'createdBy', 'updatedBy'].includes(field)) continue;
+          // Skip status fields that may have dedicated methods
+          if (field === 'status' || field === 'cadStatus') continue;
+
+          const line = lineOf(schemaContent, schemaMatch.index);
+          out.push({
+            key: `${schemaRel} :: ${schemaName} :: ${field}`,
+            file: schemaRel,
+            line,
+            detail: `${schemaName}.${field} is in the Zod schema but MISSING from ${moduleName}.service update() — updates to this field are silently ignored`,
+          });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+// Utility: slice balanced braces for service detector
+function sliceBalancedBraces(content, openIdx) {
+  let depth = 0;
+  let str = null;
+  for (let i = openIdx; i < content.length; i++) {
+    const ch = content[i];
+    const nx = content[i + 1];
+    if (str) {
+      if (ch === '\\') i++;
+      else if (ch === str) str = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') {
+      str = ch;
+      continue;
+    }
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) return content.slice(openIdx, i + 1);
+    }
+  }
+  return content.slice(openIdx);
+}
+
+// E2 — materials.create with a hand-written id (string/template literal, e.g. `mat-${code}`):
 // materials.id must equal the master's uuid (createFromMaster in material.service.ts is the ONLY
 // authorized id-assigner). Hand-derived ids forked the registry into 4 incompatible conventions
 // (the 2026-08 material-identity audit: 108 mat-* rows, preset saves 400ing on uuid validation).
@@ -949,6 +1139,7 @@ module.exports = {
   assignNotIncrement,
   manualMaterialCreate,
   schemaFrontendParity,
+  schemaServiceUpdateParity,
   stockSyncNoWarehouse,
   silentCatchFrontend,
   numericOrFallback,

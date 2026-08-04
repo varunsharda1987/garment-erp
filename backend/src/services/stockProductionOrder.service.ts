@@ -93,6 +93,7 @@ export class StockProductionOrderService {
       where.OR = [
         { spoNumber: { contains: search, mode: 'insensitive' } },
         { style: { styleCode: { contains: search, mode: 'insensitive' } } },
+        { style: { buyerStyleRef: { contains: search, mode: 'insensitive' } } },
         { style: { styleName: { contains: search, mode: 'insensitive' } } },
       ];
     }
@@ -323,6 +324,7 @@ export class StockProductionOrderService {
       where.OR = [
         { spoNumber: { contains: search, mode: 'insensitive' } },
         { style: { styleCode: { contains: search, mode: 'insensitive' } } },
+        { style: { buyerStyleRef: { contains: search, mode: 'insensitive' } } },
         { style: { styleName: { contains: search, mode: 'insensitive' } } },
       ];
     }

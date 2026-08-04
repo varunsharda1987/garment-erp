@@ -375,6 +375,7 @@ class IndexingService {
         select: {
           id: true,
           styleCode: true,
+          buyerStyleRef: true,
           styleName: true,
           customerName: true,
           description: true,
@@ -429,12 +430,17 @@ class IndexingService {
    * Format style data into searchable content
    */
   private formatStyleContent(style: Record<string, unknown>): string {
-    const parts = [
-      `Style Code: ${style.styleCode}`,
+    const parts = [`Style Code: ${style.styleCode}`];
+
+    if (style.buyerStyleRef) {
+      parts.push(`Buyer Ref: ${style.buyerStyleRef}`);
+    }
+
+    parts.push(
       `Style Name: ${style.styleName}`,
       `Customer: ${style.customerName || 'Not assigned'}`,
-      `Status: ${style.status}`,
-    ];
+      `Status: ${style.status}`
+    );
 
     if (style.description) {
       parts.push(`Description: ${style.description}`);

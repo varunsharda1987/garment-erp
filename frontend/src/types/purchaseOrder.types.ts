@@ -351,6 +351,7 @@ export interface PurchaseOrder {
 
   // Computed by getReceivablePurchaseOrders (extracted from requirement_po_links)
   styleCodes?: string[];
+  buyerStyleRefs?: string[];
   customerNames?: string[];
   approvedBy?: UserSummary | null;
   goodsReceivingNotes?: Array<{

@@ -94,6 +94,7 @@ Each check is a **baseline ratchet**: existing violations are grandfathered in `
 | Check | Blocks | Positive fix |
 |-------|--------|--------------|
 | Schema↔controller alignment | Controller reads a `req.body` field the Zod schema strips (silent data loss) | Add the field to the Zod schema |
+| Schema↔service update parity | Field in Zod update schema missing from service's Prisma `update({ data })` (silent ignore on update) | Add the field to the service's update data block |
 | Route validation | A POST/PUT/PATCH route with no `validateBody`/`validateQuery` | Add `validateBody(schema)` (or mark the route `// no-body`) |
 | Enum drift | A `z.enum` value not in the correspondingly-named Prisma enum (guaranteed 500) | Align the Zod values with the Prisma enum |
 | Datetime schema | `z.string().datetime()` in a schema (rejects `YYYY-MM-DD` from `<input type="date">`) | Use `z.coerce.date()` (or mark `// allow-datetime`) |

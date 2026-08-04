@@ -6,6 +6,8 @@ import { createChallan } from '../services/challan.service';
 import greigeStockService from '../services/greige-stock.service';
 import { generateUnifiedPONumber } from '../utils/po-number-generator';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { generateStyleLinkedFabricCode } from '../utils/fabric-code-generator';
 import { randomUUID } from 'crypto';
 import logger from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
@@ -237,6 +239,7 @@ export const getAllLabDips = async (req: Request, res: Response, _next: NextFunc
     where.OR = [
       { labDipNumber: { contains: search as string, mode: 'insensitive' } },
       { style: { styleCode: { contains: search as string, mode: 'insensitive' } } },
+      { style: { buyerStyleRef: { contains: search as string, mode: 'insensitive' } } },
       { style: { styleName: { contains: search as string, mode: 'insensitive' } } },
       { colorReference: { contains: search as string, mode: 'insensitive' } },
     ];
@@ -800,6 +803,7 @@ export const searchLabDips = async (req: Request, res: Response, _next: NextFunc
       OR: [
         { labDipNumber: { contains: q as string, mode: 'insensitive' } },
         { style: { styleCode: { contains: q as string, mode: 'insensitive' } } },
+        { style: { buyerStyleRef: { contains: q as string, mode: 'insensitive' } } },
         { colorReference: { contains: q as string, mode: 'insensitive' } },
       ],
     },
@@ -849,6 +853,7 @@ export const getAllDyeJobs = async (req: Request, res: Response, _next: NextFunc
     where.OR = [
       { jobWorkNumber: { contains: search as string, mode: 'insensitive' } },
       { style: { styleCode: { contains: search as string, mode: 'insensitive' } } },
+      { style: { buyerStyleRef: { contains: search as string, mode: 'insensitive' } } },
       { challanNumber: { contains: search as string, mode: 'insensitive' } },
     ];
   }
@@ -1162,27 +1167,23 @@ export const sendToMill = async (req: Request, res: Response, _next: NextFunctio
   }
 
   if (!finishedFabricId) {
-    // Generate fabric code: FAB-{StyleCode}-{Seq}
+    // Generate fabric code: FAB-{StyleCode}-{Seq} (atomic, race-safe)
     const styleCode = existing.style?.styleCode || 'STK';
-    const prefix = `FAB-${styleCode}-`;
-    const existingCodes = await prisma.fabric_master.findMany({
-      where: { fabricCode: { startsWith: prefix } },
-      select: { fabricCode: true },
-      orderBy: { fabricCode: 'desc' },
-      take: 1,
-    });
-    let nextSeq = 1;
-    if (existingCodes.length > 0) {
-      const seqMatch = existingCodes[0].fabricCode.match(/-(\d+)$/);
-      if (seqMatch) nextSeq = parseInt(seqMatch[1]) + 1;
-    }
-    const fabricCode = `${prefix}${String(nextSeq).padStart(3, '0')}`;
+    const fabricCode = await generateStyleLinkedFabricCode(existing.style?.styleCode || null);
 
     // Build fabric name: "{StyleCode} - {GreigeType} - Dyed - {ColorName} - {Width}""
     const greige = existing.labDip?.fabric?.greige;
     const greigeGeneric = greige?.genericGreigeName || greige?.greigeName?.split('/')[0]?.trim() || 'Fabric';
     const widthStr = `${Number(existing.sentWidthInches)}"`;
-    const fabricName = [styleCode, greigeGeneric, 'Dyed', colorName, widthStr].filter(Boolean).join(' - ');
+    const fabricName = [
+      formatStyleCodeWithRef(styleCode, existing.style?.buyerStyleRef),
+      greigeGeneric,
+      'Dyed',
+      colorName,
+      widthStr,
+    ]
+      .filter(Boolean)
+      .join(' - ');
 
     const newFabric = await prisma.fabric_master.create({
       data: {
@@ -1616,6 +1617,7 @@ export const getProcessPOs = async (req: Request, res: Response, _next: NextFunc
         OR: [
           { poNumber: { contains: search as string, mode: 'insensitive' } },
           { jobWorkOrder: { style: { styleCode: { contains: search as string, mode: 'insensitive' } } } },
+          { jobWorkOrder: { style: { buyerStyleRef: { contains: search as string, mode: 'insensitive' } } } },
         ],
       },
     ];
@@ -1962,27 +1964,23 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     }
 
     if (!finishedFabricId) {
-      // Generate fabric code
+      // Generate fabric code (atomic, race-safe)
       const styleCode = result.labDip?.style?.styleCode || 'STK';
-      const prefix = `FAB-${styleCode}-`;
-      const existingCodes = await prisma.fabric_master.findMany({
-        where: { fabricCode: { startsWith: prefix } },
-        select: { fabricCode: true },
-        orderBy: { fabricCode: 'desc' },
-        take: 1,
-      });
-      let nextSeq = 1;
-      if (existingCodes.length > 0) {
-        const seqMatch = existingCodes[0].fabricCode.match(/-(\d+)$/);
-        if (seqMatch) nextSeq = parseInt(seqMatch[1]) + 1;
-      }
-      const fabricCode = `${prefix}${String(nextSeq).padStart(3, '0')}`;
+      const fabricCode = await generateStyleLinkedFabricCode(result.labDip?.style?.styleCode || null);
 
       // Build fabric name
       const greige = result.labDip?.fabric?.greige;
       const greigeGeneric = greige?.genericGreigeName || greige?.greigeName?.split('/')[0]?.trim() || 'Fabric';
       const widthStr = `${Number(job.sentWidthInches)}"`;
-      const fabricName = [styleCode, greigeGeneric, 'Dyed', colorName, widthStr].filter(Boolean).join(' - ');
+      const fabricName = [
+        formatStyleCodeWithRef(styleCode, result.labDip?.style?.buyerStyleRef),
+        greigeGeneric,
+        'Dyed',
+        colorName,
+        widthStr,
+      ]
+        .filter(Boolean)
+        .join(' - ');
 
       const newFabric = await prisma.fabric_master.create({
         data: {
@@ -2233,27 +2231,23 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
   }
 
   if (!finishedFabricId) {
-    // Generate fabric code
+    // Generate fabric code (atomic, race-safe)
     const styleCode = job.style?.styleCode || 'STK';
-    const prefix = `FAB-${styleCode}-`;
-    const existingCodes = await prisma.fabric_master.findMany({
-      where: { fabricCode: { startsWith: prefix } },
-      select: { fabricCode: true },
-      orderBy: { fabricCode: 'desc' },
-      take: 1,
-    });
-    let nextSeq = 1;
-    if (existingCodes.length > 0) {
-      const seqMatch = existingCodes[0].fabricCode.match(/-(\d+)$/);
-      if (seqMatch) nextSeq = parseInt(seqMatch[1]) + 1;
-    }
-    const fabricCode = `${prefix}${String(nextSeq).padStart(3, '0')}`;
+    const fabricCode = await generateStyleLinkedFabricCode(job.style?.styleCode || null);
 
     // Build fabric name
     const greige = job.labDip?.fabric?.greige;
     const greigeGeneric = greige?.genericGreigeName || greige?.greigeName?.split('/')[0]?.trim() || 'Fabric';
     const widthStr = `${Number(job.sentWidthInches)}"`;
-    const fabricName = [styleCode, greigeGeneric, 'Dyed', colorName, widthStr].filter(Boolean).join(' - ');
+    const fabricName = [
+      formatStyleCodeWithRef(styleCode, job.style?.buyerStyleRef),
+      greigeGeneric,
+      'Dyed',
+      colorName,
+      widthStr,
+    ]
+      .filter(Boolean)
+      .join(' - ');
 
     const newFabric = await prisma.fabric_master.create({
       data: {

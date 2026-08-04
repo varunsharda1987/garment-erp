@@ -349,6 +349,17 @@ function checkNumericOrFallback(tsFiles) {
   );
 }
 
+/** Check (D4): schema↔service update parity — field in Zod update schema missing from service update() — BLOCKING new + ratchet. */
+function checkSchemaServiceUpdateParity(schemaFiles) {
+  console.log(`\n${c.cyan}Checking schema↔service update parity (field silently ignored on update)...${c.reset}`);
+  return runRatchetedCheck(
+    'schema field(s) missing from service update()',
+    detectors.schemaServiceUpdateParity(schemaFiles),
+    'schema-service-parity-baseline.json',
+    'Add the field to the service\'s Prisma update({ data: {...} }) block. If intentional (nested/relation), add the key to scripts/hooks/schema-service-parity-baseline.json.'
+  );
+}
+
 /** Check (E1): materials.create with a hand-written literal id (`mat-<code>` etc.) — BLOCKING new + ratchet. */
 function checkManualMaterialCreate(tsFiles) {
   console.log(`\n${c.cyan}Checking for hand-written materials.id assignment...${c.reset}`);
@@ -789,6 +800,7 @@ function runAllModeChecks() {
   if (!checkSilentCatchFrontend(tsFiles)) ok = false;
   if (!checkNumericOrFallback(tsFiles)) ok = false;
   if (!checkManualMaterialCreate(tsFiles)) ok = false;
+  if (!checkSchemaServiceUpdateParity(schemaFiles)) ok = false;
 
   // Frontend typecheck gate (CI mode only — too slow for per-commit). The frontend reached ZERO tsc
   // errors on 2026-07-23 after clearing 184 pre-existing ones (several were real display bugs: pages
@@ -864,11 +876,12 @@ function main() {
     if (!checkRouteValidation(categories.routes)) allPassed = false;
   }
 
-  // Schema changes → enum-vs-Prisma drift + z.string().datetime() (BLOCKING new + ratchet)
+  // Schema changes → enum-vs-Prisma drift + z.string().datetime() + schema↔service parity (BLOCKING new + ratchet)
   if (categories.schemas.length) {
     checksRun++;
     if (!checkEnumDrift(categories.schemas)) allPassed = false;
     if (!checkDatetimeSchema(categories.schemas)) allPassed = false;
+    if (!checkSchemaServiceUpdateParity(categories.schemas)) allPassed = false;
   }
 
   // Any TS/TSX changes → money-math guards: divide-by-shrinkage + en-IN currency (BLOCKING new + ratchet)

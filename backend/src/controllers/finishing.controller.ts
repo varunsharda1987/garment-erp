@@ -221,6 +221,7 @@ export const getAllFinishingIssues = async (req: Request, res: Response) => {
       { issueNumber: { contains: String(search), mode: 'insensitive' } },
       { workOrder: { workOrderNumber: { contains: String(search), mode: 'insensitive' } } },
       { workOrder: { styles: { styleCode: { contains: String(search), mode: 'insensitive' } } } },
+      { workOrder: { styles: { buyerStyleRef: { contains: String(search), mode: 'insensitive' } } } },
       { workOrder: { styles: { styleName: { contains: String(search), mode: 'insensitive' } } } },
     ];
   }

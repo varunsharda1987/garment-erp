@@ -4,7 +4,7 @@
  */
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
-import { styles, ProductionStage, Gender, Prisma, Unit } from '@prisma/client';
+import { styles, ProductionStage, Gender, AgeGroup, Prisma, Unit } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
@@ -185,7 +185,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
    * @returns Generated style code
    */
   async generateStyleCode(brandCategoryId?: string | null, productCategoryId?: string | null): Promise<string> {
-    // allow-count-numbering: Style codes are display-only; race collisions hit unique constraint and user retries
+    // allow-count-numbering: Style codes are display-only; collisions caught by create-time dup-check + retry; partial unique index arrives via harden_code_uniqueness migration
     // Get brand prefix from brand_categories (e.g., "EBW" for Easybuy Westernwear)
     let brandPrefix = 'STY';
     if (brandCategoryId) {
@@ -210,28 +210,37 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       } else if (category?.code) {
         // Fallback: use first 3 chars of category code
         catPrefix = category.code.substring(0, 3).toUpperCase();
+        logWarn(
+          'Product category has no codePrefix — falling back to first 3 chars of code; style code sequences may merge across categories sharing this prefix',
+          { productCategoryId, catPrefix }
+        );
       }
     }
 
     // Build the prefix
     const prefix = `${brandPrefix}${catPrefix}`;
 
-    // Get next sequence for this prefix combination
-    const lastStyle = await this.prisma.styles.findFirst({
+    // Get next sequence for this prefix combination.
+    // Scan ALL rows (including inactive) so soft-deleted codes are never re-minted.
+    // Numeric max over suffixes (not `orderBy styleCode desc` + parseInt) fixes two bugs:
+    // 1. Lexicographic wedge at 1000: "999" sorts above "1000" as a string, so the old
+    //    query kept returning 999 and re-minting the same next code forever.
+    // 2. Prefix-overlap NaN corruption: with prefix "EBW", a row "EBWKUR001" sorted last
+    //    and parseInt("KUR001") = NaN silently reset the sequence.
+    const existingCodes = await this.prisma.styles.findMany({
       where: { styleCode: { startsWith: prefix } },
-      orderBy: { styleCode: 'desc' },
       select: { styleCode: true },
     });
 
-    let seq = 1;
-    if (lastStyle?.styleCode) {
-      // Extract the numeric part after the prefix
-      const numericPart = lastStyle.styleCode.slice(prefix.length);
-      const parsed = parseInt(numericPart, 10);
-      if (!isNaN(parsed)) {
-        seq = parsed + 1;
-      }
+    let maxNumeric = 0;
+    for (const row of existingCodes) {
+      const suffix = row.styleCode.slice(prefix.length);
+      // Only consider purely-numeric suffixes; skips codes from overlapping prefixes
+      if (!/^\d+$/.test(suffix)) continue;
+      const parsed = parseInt(suffix, 10);
+      if (parsed > maxNumeric) maxNumeric = parsed;
     }
+    const seq = maxNumeric + 1;
 
     return `${prefix}${seq.toString().padStart(3, '0')}`;
   }
@@ -271,6 +280,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         categoryPrefix = category.codePrefix.toUpperCase();
       } else if (category?.code) {
         categoryPrefix = category.code.substring(0, 3).toUpperCase();
+        logWarn(
+          'Product category has no codePrefix — falling back to first 3 chars of code; style code sequences may merge across categories sharing this prefix',
+          { productCategoryId, categoryPrefix }
+        );
       }
     }
 
@@ -323,22 +336,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       throw new ValidationError('Customer name is required for non-draft styles');
     }
 
-    // Check for duplicate style code (only among active styles)
-    const existingStyle = await this.prisma.styles.findFirst({
-      where: {
-        styleCode: styleCode,
-        isActive: true,
-      },
-      select: {
-        id: true,
-        styleCode: true,
-        styleName: true,
-      },
-    });
-
-    if (existingStyle) {
-      throw new ConflictError('Style code already exists');
-    }
+    // Duplicate style-code check happens at create time (see the dup-check + retry loop
+    // below) so that auto-generated codes can regenerate on collision.
 
     // Load customer accessories preset if provided
     // Skip if frontend already sends resolved accessories (avoids duplicates)
@@ -615,73 +614,127 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           }
         : undefined;
 
-    const style = await this.prisma.styles.create({
-      data: {
-        id: randomUUID(),
-        internalCode,
-        styleCode: styleCode,
-        styleName: data.styleName,
-        buyerStyleRef: data.buyerStyleRef || null,
-        customerName: data.customerName || 'Draft',
-        brandName: data.brandName || 'Draft',
-        brandCategoryId: data.brandCategoryId || null,
-        productCategoryId: data.productCategoryId || null,
-        description: data.description,
-        season: data.season,
-        seasonId: data.seasonId || null,
-        gender: (data.gender as Gender) || null,
-        createdById: userId,
-        specifications: data.specifications || data.category || null,
-        cadStatus: 'PENDING',
-        // BUG-S10: != null + '' check preserves a legitimate 0 (truthiness turned 0 into null)
-        costPrice: data.costPrice != null && String(data.costPrice) !== '' ? parseFloat(String(data.costPrice)) : null,
-        sellingPrice:
-          data.sellingPrice != null && String(data.sellingPrice) !== '' ? parseFloat(String(data.sellingPrice)) : null,
-        // BUG-S6: column added 2026-08-02 — field was Zod-validated then silently discarded
-        expectedOrderQuantity:
-          data.expectedOrderQuantity != null && String(data.expectedOrderQuantity) !== ''
-            ? parseInt(String(data.expectedOrderQuantity), 10)
-            : null,
-        hsnCode: data.hsnCode || null,
-        productTaxRule: data.productTaxRule || null,
-        accountingSKU: data.accountingSKU || null,
-        accountingUnit: data.accountingUnit || null,
-        bulletPoints: data.bulletPoints || null,
-        imageUrl: data.imageUrl || null,
-        // Nested creates
-        ...(componentsCreate ? { style_components: componentsCreate } : {}),
-        ...(processesCreate ? { style_processes: processesCreate } : {}),
-        ...(materialBomCreate ? { style_material_bom: materialBomCreate } : {}),
-      } as Prisma.stylesUncheckedCreateInput,
-      include: {
-        brand_categories: true,
-        product_category: true,
-        style_components: {
-          include: {
-            style_fabrics: true,
-            style_accessories: true,
-          },
+    // Dup-check + create with retry: when the styleCode was auto-generated, a collision
+    // (racing create or a stale sequence) regenerates the code and retries instead of
+    // surfacing a 409. Client-supplied codes (e.g. import) keep single-attempt behavior —
+    // the caller chose the code, so a collision must surface as ConflictError.
+    const wasAutoGenerated = !data.styleCode;
+    const maxAttempts = wasAutoGenerated ? 3 : 1;
+
+    const runDupCheckAndCreate = async (code: string) => {
+      // Check for duplicate style code (only among active styles)
+      const existingStyle = await this.prisma.styles.findFirst({
+        where: {
+          styleCode: code,
+          isActive: true,
         },
-        style_processes: {
-          include: {
-            supplier: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                supplierCategories: true,
-              },
+        select: {
+          id: true,
+          styleCode: true,
+          styleName: true,
+        },
+      });
+
+      if (existingStyle) {
+        throw new ConflictError('Style code already exists');
+      }
+
+      return this.prisma.styles.create({
+        data: {
+          id: randomUUID(),
+          internalCode,
+          styleCode: code,
+          styleName: data.styleName,
+          buyerStyleRef: data.buyerStyleRef || null,
+          customerName: data.customerName || 'Draft',
+          brandName: data.brandName || 'Draft',
+          brandCategoryId: data.brandCategoryId || null,
+          productCategoryId: data.productCategoryId || null,
+          description: data.description,
+          season: data.season,
+          seasonId: data.seasonId || null,
+          gender: (data.gender as Gender) || null,
+          createdById: userId,
+          specifications: data.specifications || data.category || null,
+          cadStatus: 'PENDING',
+          // BUG-S10: != null + '' check preserves a legitimate 0 (truthiness turned 0 into null)
+          costPrice:
+            data.costPrice != null && String(data.costPrice) !== '' ? parseFloat(String(data.costPrice)) : null,
+          sellingPrice:
+            data.sellingPrice != null && String(data.sellingPrice) !== ''
+              ? parseFloat(String(data.sellingPrice))
+              : null,
+          // BUG-S6: column added 2026-08-02 — field was Zod-validated then silently discarded
+          expectedOrderQuantity:
+            data.expectedOrderQuantity != null && String(data.expectedOrderQuantity) !== ''
+              ? parseInt(String(data.expectedOrderQuantity), 10)
+              : null,
+          hsnCode: data.hsnCode || null,
+          productTaxRule: data.productTaxRule || null,
+          accountingSKU: data.accountingSKU || null,
+          accountingUnit: data.accountingUnit || null,
+          bulletPoints: data.bulletPoints || null,
+          imageUrl: data.imageUrl || null,
+          // Nested creates
+          ...(componentsCreate ? { style_components: componentsCreate } : {}),
+          ...(processesCreate ? { style_processes: processesCreate } : {}),
+          ...(materialBomCreate ? { style_material_bom: materialBomCreate } : {}),
+        } as Prisma.stylesUncheckedCreateInput,
+        include: {
+          brand_categories: true,
+          product_category: true,
+          style_components: {
+            include: {
+              style_fabrics: true,
+              style_accessories: true,
             },
           },
-          orderBy: { sortOrder: 'asc' },
+          style_processes: {
+            include: {
+              supplier: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  supplierCategories: true,
+                },
+              },
+            },
+            orderBy: { sortOrder: 'asc' },
+          },
+          style_costing: true,
+          style_material_bom: true,
+          style_value_additions: true,
+          style_packaging: true,
+          style_variants: true,
         },
-        style_costing: true,
-        style_material_bom: true,
-        style_value_additions: true,
-        style_packaging: true,
-        style_variants: true,
-      },
-    });
+      });
+    };
+
+    let style: Awaited<ReturnType<typeof runDupCheckAndCreate>> | null = null;
+    for (let attempt = 1; style === null; attempt++) {
+      try {
+        style = await runDupCheckAndCreate(styleCode);
+      } catch (error: unknown) {
+        // P2002 target arrives once the harden_code_uniqueness partial unique index lands;
+        // ConflictError comes from the pre-create dup-check above.
+        const p2002Target =
+          error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002'
+            ? String(error.meta?.target ?? '')
+            : null;
+        const isStyleCodeCollision =
+          error instanceof ConflictError ||
+          (p2002Target !== null &&
+            (p2002Target === '' ||
+              p2002Target.toLowerCase().includes('stylecode') ||
+              p2002Target.includes('style_code')));
+        if (!isStyleCodeCollision || attempt >= maxAttempts) {
+          throw error;
+        }
+        logWarn('Auto-generated style code collided — regenerating and retrying', { styleCode, attempt });
+        styleCode = await this.generateStyleCode(data.brandCategoryId, data.productCategoryId);
+      }
+    }
 
     // Handle SKU variants if provided (after style creation)
     if (data.skuVariants && data.skuVariants.length > 0) {
@@ -799,6 +852,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     if (options.search) {
       where.OR = [
         { styleCode: { contains: options.search, mode: 'insensitive' } },
+        { buyerStyleRef: { contains: options.search, mode: 'insensitive' } },
         { styleName: { contains: options.search, mode: 'insensitive' } },
         { customerName: { contains: options.search, mode: 'insensitive' } },
       ];
@@ -823,6 +877,36 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  /**
+   * Restore a soft-deleted style (collision guard).
+   * Deletes are soft (isActive=false), so a deleted style's code may have been re-minted
+   * or re-used by a newer ACTIVE style. Restoring blindly would leave two active styles
+   * sharing one styleCode — block that before delegating to the base restore.
+   */
+  async restore(id: string): Promise<styles> {
+    const deleted = await this.prisma.styles.findUnique({
+      where: { id },
+      select: { styleCode: true, isActive: true },
+    });
+
+    if (deleted && !deleted.isActive) {
+      const activeDuplicate = await this.prisma.styles.findFirst({
+        where: {
+          styleCode: deleted.styleCode,
+          isActive: true,
+          id: { not: id },
+        },
+        select: { id: true },
+      });
+      if (activeDuplicate) {
+        throw new ConflictError(`An active style already uses code ${deleted.styleCode} — cannot restore`);
+      }
+    }
+
+    // Base restore handles not-found (404) and already-active (400) cases
+    return super.restore(id);
   }
 
   /**
@@ -1616,6 +1700,11 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
             }
           : {};
 
+      // ageGroup/projectGroup are styles columns not yet declared on UpdateStyleRequest
+      // (style.types.ts is extended in a parallel change); local widening keeps this file
+      // compiling against either version of the DTO.
+      const dataWithGroups = data as UpdateStyleDTO & { ageGroup?: string | null; projectGroup?: string | null };
+
       // Update the main style record
       const style = await tx.styles.update({
         where: { id },
@@ -1629,6 +1718,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           // present-but-empty = clear to null.
           brandCategoryId: data.brandCategoryId !== undefined ? data.brandCategoryId || null : undefined,
           productCategoryId: data.productCategoryId !== undefined ? data.productCategoryId || null : undefined,
+          gender: data.gender !== undefined ? (data.gender as Gender) || null : undefined,
+          ageGroup: dataWithGroups.ageGroup !== undefined ? (dataWithGroups.ageGroup as AgeGroup) || null : undefined,
+          projectGroup: dataWithGroups.projectGroup !== undefined ? dataWithGroups.projectGroup || null : undefined,
           description: data.description,
           season: data.season,
           seasonId: data.seasonId !== undefined ? data.seasonId || null : undefined,
@@ -1658,6 +1750,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           bulletPoints: data.bulletPoints !== undefined ? data.bulletPoints : undefined,
           specifications: data.specifications !== undefined ? data.specifications : undefined,
           imageUrl: data.imageUrl !== undefined ? data.imageUrl : undefined,
+          buyerStyleRef: data.buyerStyleRef !== undefined ? data.buyerStyleRef || null : undefined,
           customerAccessoriesPresetId:
             data.customerAccessoriesPresetId !== undefined ? data.customerAccessoriesPresetId || null : undefined,
           ...(expectedOrderQtyPatch as object),

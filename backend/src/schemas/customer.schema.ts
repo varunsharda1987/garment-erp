@@ -13,6 +13,17 @@ import { z } from 'zod';
 const gstNumberRegex = /^\d{2}[A-Z0-9]{10}\d[A-Z0-9][A-Z0-9]$/;
 
 /**
+ * Style code prefix schema (e.g., EBW, KF, HOK)
+ * Normalizes to trimmed uppercase; 2-5 letters. Empty string allowed (means no prefix).
+ */
+const styleCodePrefixSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z]{2,5}$/, 'Prefix must be 2-5 letters')
+  .or(z.literal(''));
+
+/**
  * Brand category object schema
  * Used for mapping brands to their categories
  */
@@ -20,7 +31,7 @@ const brandCategorySchema = z.object({
   brandName: z.string().min(1, 'Brand name is required'),
   categories: z.array(z.string()).min(1, 'At least one category is required'),
   productCategoryIds: z.array(z.string().uuid('Invalid product category ID')).optional(),
-  styleCodePrefixes: z.array(z.string().max(5)).optional(), // Prefixes for style code auto-generation (e.g., "EBW")
+  styleCodePrefixes: z.array(styleCodePrefixSchema).optional(), // Prefixes for style code auto-generation (e.g., "EBW")
 });
 
 /**
@@ -154,7 +165,7 @@ export const createCustomerSchema = z.object({
   defaultTestingLabId: z.string().uuid('Invalid testing lab ID format').optional().nullable(),
 
   // Style code generation prefix (e.g., EBW, KF, HOK)
-  styleCodePrefix: z.string().max(10, 'Style code prefix must be at most 10 characters').optional().nullable(),
+  styleCodePrefix: styleCodePrefixSchema.optional().nullable(),
 });
 
 /**
@@ -268,7 +279,7 @@ export const updateCustomerSchema = z.object({
   defaultTestingLabId: z.string().uuid('Invalid testing lab ID format').optional().nullable(),
 
   // Style code generation prefix (e.g., EBW, KF, HOK)
-  styleCodePrefix: z.string().max(10, 'Style code prefix must be at most 10 characters').optional().nullable(),
+  styleCodePrefix: styleCodePrefixSchema.optional().nullable(),
 });
 
 /**

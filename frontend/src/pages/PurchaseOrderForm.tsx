@@ -303,11 +303,17 @@ export default function PurchaseOrderForm() {
   // Traceability state (optional links for Manual POs)
   const [styleId, setStyleId] = useState<string>('');
   const [orderId, setOrderId] = useState<string>('');
-  const [styles, setStyles] = useState<Array<{ id: string; styleCode: string; styleName: string; cadStatus?: string }>>(
-    []
-  );
+  const [styles, setStyles] = useState<
+    Array<{ id: string; styleCode: string; styleName: string; buyerStyleRef?: string | null; cadStatus?: string }>
+  >([]);
   const [orders, setOrders] = useState<
-    Array<{ id: string; orderNumber: string; customerName?: string; styleCodes?: string[] }>
+    Array<{
+      id: string;
+      orderNumber: string;
+      customerName?: string;
+      styleCodes?: string[];
+      buyerStyleRefs?: string[];
+    }>
   >([]);
   const [isLoadingStyles, setIsLoadingStyles] = useState(false);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
@@ -353,12 +359,21 @@ export default function PurchaseOrderForm() {
         // Pass status='ACTIVE' to filter out DRAFT styles
         const response = await getAllStyles(1, 500, undefined, undefined, undefined, undefined, 'ACTIVE');
         setStyles(
-          response.data.map((s: { id: string; styleCode: string; styleName: string; cadStatus?: string }) => ({
-            id: s.id,
-            styleCode: s.styleCode,
-            styleName: s.styleName,
-            cadStatus: s.cadStatus,
-          }))
+          response.data.map(
+            (s: {
+              id: string;
+              styleCode: string;
+              styleName: string;
+              buyerStyleRef?: string | null;
+              cadStatus?: string;
+            }) => ({
+              id: s.id,
+              styleCode: s.styleCode,
+              styleName: s.styleName,
+              buyerStyleRef: s.buyerStyleRef,
+              cadStatus: s.cadStatus,
+            })
+          )
         );
       } catch {
         // Silently fail - styles are optional for traceability
@@ -425,7 +440,7 @@ export default function PurchaseOrderForm() {
               id: string;
               orderNumber: string;
               customer?: { name: string };
-              orderItems?: Array<{ style?: { styleCode?: string } }>;
+              orderItems?: Array<{ style?: { styleCode?: string; buyerStyleRef?: string | null } }>;
             }) => {
               // Extract unique style codes from order items
               const styleCodes =
@@ -434,11 +449,19 @@ export default function PurchaseOrderForm() {
                   .filter((code): code is string => !!code)
                   .filter((code, index, self) => self.indexOf(code) === index) || [];
 
+              // Extract unique buyer style refs from order items
+              const buyerStyleRefs =
+                o.orderItems
+                  ?.map((item) => item.style?.buyerStyleRef)
+                  .filter((ref): ref is string => !!ref)
+                  .filter((ref, index, self) => self.indexOf(ref) === index) || [];
+
               return {
                 id: o.id,
                 orderNumber: o.orderNumber,
                 customerName: o.customer?.name,
                 styleCodes,
+                buyerStyleRefs,
               };
             }
           )
@@ -1065,8 +1088,10 @@ export default function PurchaseOrderForm() {
               <Combobox
                 options={styles.map((s) => ({
                   value: s.id,
-                  label: `${s.styleCode} - ${s.styleName}`,
-                  searchText: `${s.styleCode} ${s.styleName}`,
+                  label: s.buyerStyleRef
+                    ? `${s.styleCode} (${s.buyerStyleRef}) - ${s.styleName}`
+                    : `${s.styleCode} - ${s.styleName}`,
+                  searchText: `${s.styleCode} ${s.styleName} ${s.buyerStyleRef || ''}`,
                 }))}
                 value={styleId}
                 onValueChange={setStyleId}
@@ -1083,7 +1108,7 @@ export default function PurchaseOrderForm() {
                   return {
                     value: o.id,
                     label: `${o.orderNumber}${styleDisplay}${o.customerName ? ` - ${o.customerName}` : ''}`,
-                    searchText: `${o.orderNumber} ${o.styleCodes?.join(' ') || ''} ${o.customerName || ''}`,
+                    searchText: `${o.orderNumber} ${o.styleCodes?.join(' ') || ''} ${o.buyerStyleRefs?.join(' ') || ''} ${o.customerName || ''}`,
                   };
                 })}
                 value={orderId}

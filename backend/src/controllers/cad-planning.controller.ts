@@ -163,6 +163,7 @@ export async function generateCADOptions(req: Request, res: Response) {
   }
 
   // Find or create fabric_master for this greige/style
+  // Tolerant read: rows may predate the styleCode standardization until the repair script runs
   let fabric = await prisma.fabric_master.findFirst({
     where: greigeId
       ? {
@@ -171,7 +172,7 @@ export async function generateCADOptions(req: Request, res: Response) {
         }
       : {
           genericGreigeName,
-          styleReference: styleId,
+          styleReference: { in: [style.styleCode, styleId] },
           isGeneric: true,
         },
   });
@@ -186,7 +187,7 @@ export async function generateCADOptions(req: Request, res: Response) {
         actualWidth: greige?.greigeWidth || null,
         isActive: true,
         isGeneric: true,
-        styleReference: styleId,
+        styleReference: style.styleCode,
         createdById: req.user?.userId || 'system',
       },
     });
@@ -1075,7 +1076,7 @@ export async function selectGreigeForGroup(req: Request, res: Response) {
         actualWidth: greige.greigeWidth,
         isActive: true,
         isGeneric: true,
-        styleReference: styleId,
+        styleReference: style.styleCode,
         createdById: req.user?.userId || 'system',
       },
     });
@@ -1158,6 +1159,16 @@ export async function addCADWidth(req: Request, res: Response) {
 
   // If no fabricId provided, find or create fabric_master
   if (!targetFabricId) {
+    const style = await prisma.styles.findUnique({
+      where: { id: styleId },
+      select: { styleCode: true },
+    });
+
+    if (!style) {
+      throw new NotFoundError('Style', styleId);
+    }
+
+    // Tolerant read: rows may predate the styleCode standardization until the repair script runs
     let fabric = await prisma.fabric_master.findFirst({
       where: greigeId
         ? {
@@ -1166,7 +1177,7 @@ export async function addCADWidth(req: Request, res: Response) {
           }
         : {
             genericGreigeName,
-            styleReference: styleId,
+            styleReference: { in: [style.styleCode, styleId] },
           },
     });
 
@@ -1189,7 +1200,7 @@ export async function addCADWidth(req: Request, res: Response) {
           actualWidth: greige?.greigeWidth || cutableWidth + 4, // Estimate
           isActive: true,
           isGeneric: true,
-          styleReference: styleId,
+          styleReference: style.styleCode,
           createdById: req.user?.userId || 'system',
         },
       });
@@ -4237,6 +4248,7 @@ export async function getStylesForCADPlanning(req: Request, res: Response) {
   if (search) {
     where.OR = [
       { styleCode: { contains: search as string, mode: 'insensitive' } },
+      { buyerStyleRef: { contains: search as string, mode: 'insensitive' } },
       { styleName: { contains: search as string, mode: 'insensitive' } },
       { customerName: { contains: search as string, mode: 'insensitive' } },
       { brand_categories: { brandName: { contains: search as string, mode: 'insensitive' } } },

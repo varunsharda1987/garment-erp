@@ -2451,6 +2451,7 @@ model style_material_bom {
 
 model styles {
   id                          String                       @id
+  // Partial unique index (WHERE isActive) added via raw SQL in harden_code_uniqueness migration
   styleCode                   String
   styleName                   String
   categoryId                  String?
@@ -2548,6 +2549,7 @@ model styles {
   @@index([productCategoryId])
   @@index([createdAt])
   @@index([styleCode])
+  @@index([buyerStyleRef])
   @@index([styleName])
   @@index([brandName])
   @@index([status])
@@ -5875,7 +5877,7 @@ model sample_size_sets {
 /// Cutting Batch - Track cutting batches per work order
 model cutting_batches {
   id                         String                       @id @default(uuid())
-  batchNumber                String
+  batchNumber                String                       @unique
   workOrderId                String
   componentId                String?
   cuttingDate                DateTime
@@ -6133,7 +6135,7 @@ model stage_receipt_skus {
 /// Stitching Issue - Issue to stitching manager
 model stitching_issues {
   id                         String                       @id @default(uuid())
-  issueNumber                String
+  issueNumber                String                       @unique
   workOrderId                String
   issueDate                  DateTime
   managerId                  String?

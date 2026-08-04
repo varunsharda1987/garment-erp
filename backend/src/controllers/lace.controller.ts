@@ -5,6 +5,7 @@ import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { createLaceStock } from '../services/laceStock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { materialService } from '../services/material.service';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
 // Type for supplier input
 interface LaceSupplierInput {
@@ -21,7 +22,7 @@ interface LaceSupplierInput {
  * - READY:     {laceCode} | {laceType} | {composition} | {width}" | {color}
  * - PROCESSED: {laceCode} | {laceType} | {composition} | {width}" | {color} | {sourceGreigeCode} → {styleCode}
  */
-function generateLaceName(lace: {
+async function generateLaceName(lace: {
   laceCode: string;
   laceType?: string | null;
   composition?: string | null;
@@ -30,7 +31,7 @@ function generateLaceName(lace: {
   isGreige: boolean;
   sourceGreigeLaceCode?: string | null;
   processedForStyleCode?: string | null;
-}): string {
+}): Promise<string> {
   const parts: string[] = [lace.laceCode];
 
   // Add laceType (use 'Lace' as fallback)
@@ -52,7 +53,17 @@ function generateLaceName(lace: {
   } else if (lace.sourceGreigeLaceCode) {
     // Processed lace
     parts.push(lace.color || 'Unspecified');
-    parts.push(`${lace.sourceGreigeLaceCode} → ${lace.processedForStyleCode || '?'}`);
+    let styleCodeDisplay = lace.processedForStyleCode || '?';
+    if (lace.processedForStyleCode) {
+      const style = await prisma.styles.findFirst({
+        where: { styleCode: lace.processedForStyleCode },
+        select: { buyerStyleRef: true },
+      });
+      if (style) {
+        styleCodeDisplay = formatStyleCodeWithRef(lace.processedForStyleCode, style.buyerStyleRef);
+      }
+    }
+    parts.push(`${lace.sourceGreigeLaceCode} → ${styleCodeDisplay}`);
   } else {
     // Ready lace
     parts.push(lace.color || 'Unspecified');
@@ -105,7 +116,7 @@ export const createLace = async (req: Request, res: Response) => {
   // Auto-generate laceName using consistent naming convention
   let finalLaceName = laceName;
   if (!finalLaceName || finalLaceName.trim() === '') {
-    finalLaceName = generateLaceName({
+    finalLaceName = await generateLaceName({
       laceCode,
       laceType: laceType || null,
       composition: composition || null,
@@ -660,7 +671,7 @@ export const updateLace = async (req: Request, res: Response) => {
   // If laceName is empty string or not provided, regenerate from attributes
   let finalLaceName = laceName;
   if (!laceName || laceName.trim() === '') {
-    finalLaceName = generateLaceName({
+    finalLaceName = await generateLaceName({
       laceCode: existing.laceCode,
       laceType: finalLaceType || null,
       composition: finalComposition || null,

@@ -489,8 +489,9 @@ export default function GRNForm() {
         (item) => item.materials?.code?.toLowerCase().includes(q) || item.materials?.name?.toLowerCase().includes(q)
       );
       const matchesStyle = (po.styleCodes ?? []).some((s) => s.toLowerCase().includes(q));
+      const matchesBuyerRef = (po.buyerStyleRefs ?? []).some((s) => s.toLowerCase().includes(q));
       const matchesCustomer = (po.customerNames ?? []).some((c) => c.toLowerCase().includes(q));
-      return matchesPO || matchesSupplier || matchesMaterial || matchesStyle || matchesCustomer;
+      return matchesPO || matchesSupplier || matchesMaterial || matchesStyle || matchesBuyerRef || matchesCustomer;
     }
     return true;
   });

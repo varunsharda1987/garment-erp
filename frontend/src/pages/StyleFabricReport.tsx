@@ -14,6 +14,7 @@ interface Style {
   id: string;
   styleCode: string;
   styleName: string;
+  buyerStyleRef?: string | null;
   customerName?: string;
   season?: string | null;
   projectGroup?: string;
@@ -69,7 +70,8 @@ export default function StyleFabricReport() {
       filtered = filtered.filter(
         (style) =>
           style.styleCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          style.styleName.toLowerCase().includes(searchTerm.toLowerCase())
+          style.styleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          style.buyerStyleRef?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 

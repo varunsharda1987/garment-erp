@@ -67,6 +67,7 @@ class ProductionStatusService {
       if (search) {
         styleWhere.OR = [
           { styleCode: { contains: search, mode: 'insensitive' } },
+          { buyerStyleRef: { contains: search, mode: 'insensitive' } },
           { styleName: { contains: search, mode: 'insensitive' } },
           { internalCode: { contains: search, mode: 'insensitive' } },
           { customerName: { contains: search, mode: 'insensitive' } },

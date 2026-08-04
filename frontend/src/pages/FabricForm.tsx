@@ -36,6 +36,7 @@ import AllocatedStylesCard from '../components/fabric/AllocatedStylesCard';
 import AllocateFabricToStyleModal from '../components/fabric/AllocateFabricToStyleModal';
 import { QuickCreateGreigeModal } from '../components/QuickCreateGreigeModal';
 import { StyleCombobox } from '../components/StyleCombobox';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
 type FabricSource = 'style_linked' | 'stock';
 
@@ -67,6 +68,7 @@ interface Style {
   id: string;
   styleCode: string;
   styleName: string;
+  buyerStyleRef?: string | null;
   components?: StyleComponentWithMaster[];
 }
 
@@ -198,9 +200,9 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   const generateFabricName = useCallback(() => {
     const parts: string[] = [];
 
-    // Add style code for style_linked
+    // Add style code for style_linked (with buyer style ref, matching backend naming)
     if (fabricSource === 'style_linked' && selectedStyleCode) {
-      parts.push(selectedStyleCode);
+      parts.push(formatStyleCodeWithRef(selectedStyleCode, selectedStyle?.buyerStyleRef));
     }
 
     // Add greige name or generic fabric name
@@ -260,6 +262,7 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
   }, [
     fabricSource,
     selectedStyleCode,
+    selectedStyle?.buyerStyleRef,
     formData.greigeId,
     formData.genericGreigeName,
     formData.finishType,

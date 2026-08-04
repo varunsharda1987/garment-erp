@@ -270,6 +270,7 @@ class WorkOrderService {
         { workOrderNumber: { contains: filters.search, mode: 'insensitive' } },
         { orders: { orderNumber: { contains: filters.search, mode: 'insensitive' } } },
         { styles: { styleCode: { contains: filters.search, mode: 'insensitive' } } },
+        { styles: { buyerStyleRef: { contains: filters.search, mode: 'insensitive' } } },
       ];
     }
 

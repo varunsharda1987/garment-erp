@@ -4,7 +4,8 @@ import { NotFoundError, ValidationError, BusinessError, UnauthorizedError } from
 import prisma from '../config/database';
 import { Prisma, StitchingIssueStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { dedupeSkuRows } from './cutting.utils';
+import { dedupeSkuRows, generateTransferSlipNumber } from './cutting.utils';
+import { nextSeededSequence } from '../utils/seeded-sequence';
 
 // ============================================
 // Helper Functions
@@ -84,23 +85,20 @@ const transformStitchingIssue = (issue: any) => ({
 const generateIssueNumber = async (workOrderNumber: string): Promise<string> => {
   const prefix = `SI-${workOrderNumber}`;
 
-  // Max-based (not count-based) so a deleted issue never causes its number to be reused
-  // (bug-hunt production-17)
-  const existing = await prisma.stitching_issues.findMany({
-    where: {
-      issueNumber: {
-        startsWith: prefix,
-      },
-    },
-    select: { issueNumber: true },
+  // Race-safe sequence, seeded from the historical max so a deleted issue never
+  // causes its number to be reused (bug-hunt production-17)
+  const seq = await nextSeededSequence(prefix, async () => {
+    const rows = await prisma.$queryRaw<Array<{ max: number | null }>>(
+      Prisma.sql`
+        SELECT MAX((regexp_match("issueNumber", '-([0-9]+)$'))[1]::int) AS max
+        FROM stitching_issues
+        WHERE "issueNumber" LIKE ${prefix} || '-%'
+      `
+    );
+    return Number(rows[0]?.max ?? 0);
   });
-  const maxSeq = existing.reduce((max, i) => {
-    const m = i.issueNumber.match(/-(\d+)$/);
-    return m ? Math.max(max, parseInt(m[1], 10)) : max;
-  }, 0);
 
-  const seq = (maxSeq + 1).toString().padStart(3, '0');
-  return `${prefix}-${seq}`;
+  return `${prefix}-${seq.toString().padStart(3, '0')}`;
 };
 
 // Include options for stitching issue queries
@@ -160,6 +158,7 @@ export const getAllStitchingIssues = async (req: Request, res: Response) => {
       { issueNumber: { contains: String(search), mode: 'insensitive' } },
       { workOrder: { workOrderNumber: { contains: String(search), mode: 'insensitive' } } },
       { workOrder: { styles: { styleCode: { contains: String(search), mode: 'insensitive' } } } },
+      { workOrder: { styles: { buyerStyleRef: { contains: String(search), mode: 'insensitive' } } } },
       { workOrder: { styles: { styleName: { contains: String(search), mode: 'insensitive' } } } },
     ];
   }
@@ -774,19 +773,9 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
     throw new ValidationError('Can only generate transfer slip for completed issues');
   }
 
-  // Generate slip number — max-based, not count-based: slipNumber is @unique, so a deleted slip
-  // plus count+1 regenerated an existing number → P2002 (bug-hunt production-17)
+  // Generate slip number — race-safe seeded sequence (bug-hunt production-17)
   const today = new Date();
-  const datePrefix = `TS-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
-  const lastSlip = await prisma.transfer_slips.findFirst({
-    where: {
-      slipNumber: { startsWith: datePrefix },
-    },
-    orderBy: { slipNumber: 'desc' },
-    select: { slipNumber: true },
-  });
-  const lastSeq = lastSlip ? parseInt(lastSlip.slipNumber.slice(-4), 10) || 0 : 0;
-  const slipNumber = `${datePrefix}-${(lastSeq + 1).toString().padStart(4, '0')}`;
+  const slipNumber = await generateTransferSlipNumber();
 
   // Calculate good pieces per SKU from daily outputs
   const skuGoodQtyMap = new Map<string, { colorId: string; sizeId: string; goodQty: number }>();

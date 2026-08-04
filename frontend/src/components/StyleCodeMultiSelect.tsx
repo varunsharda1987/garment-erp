@@ -121,6 +121,7 @@ export function StyleCodeMultiSelect({
               id: style.id,
               styleCode: style.styleCode,
               styleName: style.styleName,
+              buyerStyleRef: style.buyerStyleRef,
             }))
           );
         } catch (err) {

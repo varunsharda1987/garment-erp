@@ -9,6 +9,8 @@ import { getDerivedOnHandMap } from '../services/helpers/derived-stock.helper';
 import { ValidationError, NotFoundError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
+import { generateStyleLinkedFabricCode, peekNextStyleLinkedFabricCode } from '../utils/fabric-code-generator';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
 /**
  * Fabric Master Controller
@@ -301,13 +303,23 @@ export const createFabricMaster = async (req: Request, res: Response) => {
     throw new ValidationError('Missing required fields: fabricCode, fabricName, actualWidth');
   }
 
-  // Check if fabric code already exists
-  const existingFabric = await prisma.fabric_master.findFirst({
-    where: { fabricCode, isActive: true },
-  });
+  // Auto-pattern codes (from the next-code preview) are re-minted server-side
+  // inside the transaction below, so a stale preview colliding with an existing
+  // code is not an error. FAB-STK-NNNN is checked first — FAB-.+-\d+ would also
+  // match it (with "STK" as the style code).
+  const isStockAutoCode = /^FAB-STK-\d+$/.test(fabricCode);
+  const styleLinkedAutoMatch = isStockAutoCode ? null : String(fabricCode).match(/^FAB-(.+)-\d+$/);
 
-  if (existingFabric) {
-    throw new ValidationError('Fabric code already exists');
+  if (!isStockAutoCode && !styleLinkedAutoMatch) {
+    // Hand-typed code: reject duplicates up front.
+    // The unique constraint spans ALL rows (active + inactive), so no isActive filter.
+    const existingFabric = await prisma.fabric_master.findFirst({
+      where: { fabricCode },
+    });
+
+    if (existingFabric) {
+      throw new ValidationError('Fabric code already exists');
+    }
   }
 
   // Verify greige exists if provided
@@ -325,9 +337,19 @@ export const createFabricMaster = async (req: Request, res: Response) => {
   // Create fabric_master + its materials record atomically (materials.id === master.id —
   // material-identity invariant; replaces the old create-then-compensating-delete pattern)
   const fabricMaster = await prisma.$transaction(async (tx) => {
+    // Re-mint auto-pattern codes inside the transaction: the preview endpoint only
+    // peeks the sequence, so stale previews / concurrent submits are resolved here
+    // by claiming the real next number race-safely. Hand-typed codes pass through.
+    let finalFabricCode: string = fabricCode;
+    if (isStockAutoCode) {
+      finalFabricCode = await generateStyleLinkedFabricCode(null, tx);
+    } else if (styleLinkedAutoMatch) {
+      finalFabricCode = await generateStyleLinkedFabricCode(styleLinkedAutoMatch[1], tx);
+    }
+
     const created = await tx.fabric_master.create({
       data: {
-        fabricCode,
+        fabricCode: finalFabricCode,
         fabricName,
         greigeId: greigeId || null,
         greigeName: greigeName || greige?.greigeName || null,
@@ -854,6 +876,20 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
   // BUG-GR8 fix: Use configurable cutable width deduction from system settings
   const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
 
+  // buyerStyleRef lookups for auto-generated names, cached per import run
+  // (one query per unique style code; null = style not found → plain code)
+  const buyerRefCache = new Map<string, string | null>();
+  const lookupBuyerStyleRef = async (styleCode: string): Promise<string | null> => {
+    if (!buyerRefCache.has(styleCode)) {
+      const style = await prisma.styles.findFirst({
+        where: { styleCode },
+        select: { buyerStyleRef: true },
+      });
+      buyerRefCache.set(styleCode, style?.buyerStyleRef ?? null);
+    }
+    return buyerRefCache.get(styleCode) ?? null;
+  };
+
   for (let i = 0; i < fabrics.length; i++) {
     try {
       const fabric = fabrics[i];
@@ -905,9 +941,10 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
         const greige = await prisma.greige_master.findUnique({ where: { id: greigeId } });
         const parts = [];
 
-        // Add style reference if provided
+        // Add style reference if provided (with buyer style ref appended when the style exists)
         if (fabric.styleReference) {
-          parts.push(fabric.styleReference);
+          const buyerRef = await lookupBuyerStyleRef(fabric.styleReference);
+          parts.push(formatStyleCodeWithRef(fabric.styleReference, buyerRef));
         }
 
         // Add generic fabric name or greige name (extract everything before first digit or ×)
@@ -1116,51 +1153,24 @@ export const getNextFabricCode = async (req: Request, res: Response) => {
     throw new ValidationError('Source type is required');
   }
 
-  let prefix: string;
+  // READ-ONLY preview: peek the seeded sequence without consuming it.
+  // A concurrent writer may still claim the number first — createFabricMaster
+  // re-mints auto-pattern codes inside its transaction to resolve that race.
+  let nextCode: string;
 
   switch (source) {
     case 'style_linked':
       if (!styleCode) {
         throw new ValidationError('Style code is required for style_linked source');
       }
-      prefix = `FAB-${styleCode}-`;
+      nextCode = await peekNextStyleLinkedFabricCode(styleCode as string);
       break;
     case 'stock':
-      prefix = 'FAB-STK-';
+      nextCode = await peekNextStyleLinkedFabricCode(null);
       break;
     default:
       throw new ValidationError('Invalid source type. Must be style_linked or stock');
   }
-
-  // Find the highest sequence number for this prefix
-  const existingFabrics = await prisma.fabric_master.findMany({
-    where: {
-      fabricCode: {
-        startsWith: prefix,
-      },
-    },
-    select: { fabricCode: true },
-    orderBy: { fabricCode: 'desc' },
-    take: 1,
-  });
-
-  let nextSeq = 1;
-  if (existingFabrics.length > 0) {
-    const lastCode = existingFabrics[0].fabricCode;
-    // Extract the sequence number from the end
-    const seqMatch = lastCode.match(/-(\d+)$/);
-    if (seqMatch) {
-      nextSeq = parseInt(seqMatch[1]) + 1;
-    }
-  }
-
-  // Format sequence number based on source type
-  const seqStr =
-    source === 'style_linked'
-      ? String(nextSeq).padStart(3, '0') // 3 digits for style-linked
-      : String(nextSeq).padStart(4, '0'); // 4 digits for stock
-
-  const nextCode = `${prefix}${seqStr}`;
 
   res.json({ nextCode });
 };

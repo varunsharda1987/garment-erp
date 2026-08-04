@@ -3,7 +3,13 @@ import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import { Prisma, Unit } from '@prisma/client';
 import { randomUUID } from 'crypto';
-import { transformCuttingBatch, generateBatchNumber, batchIncludeOptions, dedupeSkuRows } from './cutting.utils';
+import {
+  transformCuttingBatch,
+  generateBatchNumber,
+  generateTransferSlipNumber,
+  batchIncludeOptions,
+  dedupeSkuRows,
+} from './cutting.utils';
 import { syncBomFabricId } from '../services/order-bom.service';
 import { calculateCadAverage } from './cad-planning.utils';
 import { createChallan, issueChallan, createFabricReturnChallan } from '../services/challan.service';
@@ -32,6 +38,7 @@ export const getAllCuttingBatches = async (req: Request, res: Response) => {
       { batchNumber: { contains: String(search), mode: 'insensitive' } },
       { workOrder: { workOrderNumber: { contains: String(search), mode: 'insensitive' } } },
       { workOrder: { styles: { styleCode: { contains: String(search), mode: 'insensitive' } } } },
+      { workOrder: { styles: { buyerStyleRef: { contains: String(search), mode: 'insensitive' } } } },
       { workOrder: { styles: { styleName: { contains: String(search), mode: 'insensitive' } } } },
     ];
   }
@@ -954,19 +961,9 @@ export const generateTransferSlip = async (req: Request, res: Response) => {
     throw new ValidationError('Can only generate transfer slip for completed batches');
   }
 
-  // Generate slip number — max-based, not count-based: slipNumber is @unique, so a deleted slip
-  // plus count+1 regenerated an existing number → P2002 (bug-hunt production-17)
+  // Generate slip number — race-safe seeded sequence (bug-hunt production-17)
   const today = new Date();
-  const datePrefix = `TS-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
-  const lastSlip = await prisma.transfer_slips.findFirst({
-    where: {
-      slipNumber: { startsWith: datePrefix },
-    },
-    orderBy: { slipNumber: 'desc' },
-    select: { slipNumber: true },
-  });
-  const lastSeq = lastSlip ? parseInt(lastSlip.slipNumber.slice(-4), 10) || 0 : 0;
-  const slipNumber = `${datePrefix}-${(lastSeq + 1).toString().padStart(4, '0')}`;
+  const slipNumber = await generateTransferSlipNumber();
 
   // Calculate total quantity
   const totalGoodPieces = batch.skuOutputs.reduce((sum: number, sku) => sum + sku.goodPcs, 0);

@@ -803,6 +803,16 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
   // ============================================
 
   /**
+   * Normalize a style code prefix before persisting: trim + uppercase.
+   * Empty/whitespace-only strings become null (no prefix).
+   * Defense in depth — Zod already normalizes, but this guards non-HTTP callers.
+   */
+  private normalizeStyleCodePrefix(prefix: string | null | undefined): string | null {
+    const normalized = prefix?.trim().toUpperCase();
+    return normalized ? normalized : null;
+  }
+
+  /**
    * Update brand categories for a customer
    * This method handles the case where brand categories may be referenced by other entities
    * (labels, packaging, styles) and cannot be simply deleted and recreated.
@@ -830,7 +840,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         brandName: bc.brandName,
         category: cat,
         productCategoryId: productCategoryIds[index] || null,
-        styleCodePrefix: styleCodePrefixes[index] || null,
+        styleCodePrefix: this.normalizeStyleCodePrefix(styleCodePrefixes[index]),
       }));
     });
 
@@ -915,7 +925,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         brandName: bc.brandName,
         category: cat,
         productCategoryId: productCategoryIds[index] || null, // Link to product category if available
-        styleCodePrefix: styleCodePrefixes[index] || null, // Prefix for style code auto-generation
+        styleCodePrefix: this.normalizeStyleCodePrefix(styleCodePrefixes[index]), // Prefix for style code auto-generation
       }));
     });
 

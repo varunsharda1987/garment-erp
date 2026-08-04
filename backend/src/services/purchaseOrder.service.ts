@@ -1195,7 +1195,7 @@ class PurchaseOrderService {
                     order_items: {
                       select: {
                         styles: {
-                          select: { styleCode: true, styleName: true },
+                          select: { styleCode: true, styleName: true, buyerStyleRef: true },
                         },
                         orders: {
                           select: {
@@ -1219,6 +1219,7 @@ class PurchaseOrderService {
     // Extract unique style codes and customer names per PO
     return purchaseOrders.map((po) => {
       const styleCodes = new Set<string>();
+      const buyerStyleRefs = new Set<string>();
       const customerNames = new Set<string>();
 
       for (const item of po.purchase_order_items) {
@@ -1226,6 +1227,9 @@ class PurchaseOrderService {
           const orderItem = link.material_requirements?.order_items;
           if (orderItem?.styles?.styleCode) {
             styleCodes.add(orderItem.styles.styleCode);
+          }
+          if (orderItem?.styles?.buyerStyleRef) {
+            buyerStyleRefs.add(orderItem.styles.buyerStyleRef);
           }
           if (orderItem?.orders?.customers?.name) {
             customerNames.add(orderItem.orders.customers.name);
@@ -1236,6 +1240,7 @@ class PurchaseOrderService {
       return {
         ...po,
         styleCodes: Array.from(styleCodes),
+        buyerStyleRefs: Array.from(buyerStyleRefs),
         customerNames: Array.from(customerNames),
       };
     });

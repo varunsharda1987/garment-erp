@@ -24,6 +24,7 @@ import { StyleVariantData } from '../types/style-variant.types';
 import { randomUUID } from 'crypto';
 import { SeasonService } from './season.service';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
+import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
 // Size ordering for standard garment sizes
 const SIZE_ORDER: Record<string, number> = {
@@ -693,6 +694,13 @@ export class StyleImportService {
     let fabricsCreated = 0;
     let cadEntriesCreated = 0;
 
+    // Style row was created by the import just before this runs — pull its buyer ref for fabric naming
+    const styleRow = await prisma.styles.findUnique({
+      where: { id: styleId },
+      select: { buyerStyleRef: true },
+    });
+    const buyerStyleRef = styleRow?.buyerStyleRef ?? null;
+
     // Group rows by component
     const componentGroups = rows.reduce(
       (groups, row) => {
@@ -742,7 +750,7 @@ export class StyleImportService {
 
         // Generate fabric code
         const fabricCode = this.generateFabricCode(styleCode, componentName, fabricSequence);
-        const fabricName = this.generateFabricName(fabricDesc, styleCode, componentName);
+        const fabricName = this.generateFabricName(fabricDesc, styleCode, componentName, buyerStyleRef);
 
         // Create fabric + CAD entry + component link atomically so a mid-row failure cannot
         // leave an orphaned fabric_master; errors propagate to the per-style handler in
@@ -1078,8 +1086,13 @@ export class StyleImportService {
   /**
    * Generate fabric name
    */
-  private generateFabricName(fabricDescription: string, styleCode: string, componentName: string): string {
-    return `${fabricDescription} - ${styleCode} ${componentName}`;
+  private generateFabricName(
+    fabricDescription: string,
+    styleCode: string,
+    componentName: string,
+    buyerStyleRef?: string | null
+  ): string {
+    return `${fabricDescription} - ${formatStyleCodeWithRef(styleCode, buyerStyleRef)} ${componentName}`;
   }
 
   /**

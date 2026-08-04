@@ -6,6 +6,17 @@
 import { z } from 'zod';
 
 /**
+ * Style code generation prefix schema (e.g., KUR for Kurta, DRS for Dress)
+ * Normalizes to trimmed uppercase; 2-5 letters. Empty string allowed (means no prefix).
+ */
+const codePrefixSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^[A-Z]{2,5}$/, 'Prefix must be 2-5 letters')
+  .or(z.literal(''));
+
+/**
  * Create product category request schema
  * POST /api/product-categories
  */
@@ -45,7 +56,7 @@ export const createProductCategorySchema = z.object({
   maxComponents: z.number().int().min(1, 'Max components must be at least 1').optional(),
 
   // Style code generation prefix (e.g., KUR for Kurta, DRS for Dress)
-  codePrefix: z.string().max(10, 'Code prefix must be at most 10 characters').optional().nullable(),
+  codePrefix: codePrefixSchema.optional().nullable(),
 });
 
 /**
@@ -87,7 +98,7 @@ export const updateProductCategorySchema = z.object({
   maxComponents: z.number().int().min(1).optional(),
 
   // Style code generation prefix (e.g., KUR for Kurta, DRS for Dress)
-  codePrefix: z.string().max(10, 'Code prefix must be at most 10 characters').optional().nullable(),
+  codePrefix: codePrefixSchema.optional().nullable(),
 });
 
 /**

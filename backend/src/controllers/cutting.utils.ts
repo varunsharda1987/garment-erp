@@ -1,4 +1,6 @@
 import prisma from '../config/database';
+import { Prisma } from '@prisma/client';
+import { nextSeededSequence } from '../utils/seeded-sequence';
 
 // ============================================
 // Shared Helper Functions for Cutting Controllers
@@ -105,25 +107,54 @@ export const transformCuttingBatch = (batch: any) => ({
 export const generateBatchNumber = async (workOrderNumber: string, componentName?: string): Promise<string> => {
   const prefix = `CB-${workOrderNumber}`;
   const componentPart = componentName ? `-${componentName.substring(0, 3).toUpperCase()}` : '';
+  const fullPrefix = `${prefix}${componentPart}`;
 
-  // Max-based (not count-based) so a deleted batch never causes its number to be reused
-  // (bug-hunt production-17)
-  const existing = await prisma.cutting_batches.findMany({
-    where: {
-      batchNumber: {
-        startsWith: prefix,
-      },
-    },
-    select: { batchNumber: true },
+  // Race-safe sequence, seeded from the historical max so a deleted batch never
+  // causes its number to be reused (bug-hunt production-17)
+  const seq = await nextSeededSequence(fullPrefix, async () => {
+    const rows = await prisma.$queryRaw<Array<{ max: number | null }>>(
+      Prisma.sql`
+        SELECT MAX((regexp_match("batchNumber", '-([0-9]+)$'))[1]::int) AS max
+        FROM cutting_batches
+        WHERE "batchNumber" LIKE ${fullPrefix} || '-%'
+      `
+    );
+    return Number(rows[0]?.max ?? 0);
   });
-  const maxSeq = existing.reduce((max, b) => {
-    const m = b.batchNumber.match(/-(\d+)$/);
-    return m ? Math.max(max, parseInt(m[1], 10)) : max;
-  }, 0);
 
-  const seq = (maxSeq + 1).toString().padStart(3, '0');
-  return `${prefix}${componentPart}-${seq}`;
+  return `${fullPrefix}-${seq.toString().padStart(3, '0')}`;
 };
+
+/**
+ * Generate the next transfer slip number: TS-{YYYYMMDD}-{NNNN}.
+ *
+ * Race-safe sequence per day, seeded from the historical max for that day —
+ * max-based, not count-based: slipNumber is @unique, so a deleted slip plus
+ * count+1 regenerated an existing number → P2002 (bug-hunt production-17).
+ * The @unique on transfer_slips.slipNumber remains the backstop.
+ */
+export async function generateTransferSlipNumber(tx?: Prisma.TransactionClient): Promise<string> {
+  const today = new Date();
+  const datePrefix = `TS-${today.getFullYear()}${(today.getMonth() + 1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
+
+  const seq = await nextSeededSequence(
+    datePrefix,
+    async () => {
+      const client = tx ?? prisma;
+      const rows = await client.$queryRaw<Array<{ max: number | null }>>(
+        Prisma.sql`
+          SELECT MAX((regexp_match("slipNumber", '-([0-9]+)$'))[1]::int) AS max
+          FROM transfer_slips
+          WHERE "slipNumber" LIKE ${datePrefix} || '-%'
+        `
+      );
+      return Number(rows[0]?.max ?? 0);
+    },
+    tx
+  );
+
+  return `${datePrefix}-${seq.toString().padStart(4, '0')}`;
+}
 
 /**
  * Merge duplicate (colorId, sizeId) rows by summing the given numeric fields.

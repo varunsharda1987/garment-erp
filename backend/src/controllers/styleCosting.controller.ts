@@ -440,6 +440,7 @@ export const getAllCostSheets = async (req: Request, res: Response): Promise<voi
     where.styles = {
       OR: [
         { styleCode: { contains: search as string, mode: 'insensitive' } },
+        { buyerStyleRef: { contains: search as string, mode: 'insensitive' } },
         { styleName: { contains: search as string, mode: 'insensitive' } },
       ],
     };

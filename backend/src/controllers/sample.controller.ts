@@ -26,17 +26,13 @@ const serializeSample = (sample: any) => {
 
 /**
  * Generate sample number.
- * FIT samples keep the deterministic {TYPE}-{StyleCode}-v{version} format (version is
- * already derived race-safely from max(version)+1 by the callers).
- * All other types use an atomic per-type monthly sequence in the unified doc format,
- * e.g. PP2607-0001, SIZESET2607-0001 (bug-hunt samples-embroidery-10).
+ * All types use an atomic per-type monthly sequence in the unified doc format,
+ * e.g. FIT2608-0001, PP2607-0001, SIZESET2607-0001 (bug-hunt samples-embroidery-10).
+ * FIT samples still track their version in the dedicated `version` column
+ * (derived race-safely from max(version)+1 by the callers); pre-existing
+ * FIT-{styleCode}-v{version} numbers in the DB are left untouched.
  */
-async function generateSampleNumber(sampleType: string, styleCode?: string, version: number = 1): Promise<string> {
-  if (sampleType === 'FIT_SAMPLE') {
-    const styleRef = styleCode || 'GEN';
-    return `FIT-${styleRef}-v${version}`;
-  }
-
+async function generateSampleNumber(sampleType: string): Promise<string> {
   const docPrefix = sampleType.replace('_SAMPLE', '').replace(/_/g, '');
   return generateAtomicDocNumber(docPrefix);
 }
@@ -147,7 +143,7 @@ export const createSample = async (req: Request, res: Response) => {
   }
 
   // Generate sample number
-  const sampleNumber = await generateSampleNumber(sampleType, style?.styleCode, version);
+  const sampleNumber = await generateSampleNumber(sampleType);
 
   // Create sample + override audit log atomically: previously logOverride ran after the
   // create, outside any transaction, and threw — committing the sample while losing the
@@ -315,6 +311,7 @@ export const getAllSamples = async (req: Request, res: Response) => {
       { sampleNumber: { contains: search as string, mode: 'insensitive' } },
       { customers: { name: { contains: search as string, mode: 'insensitive' } } },
       { styles: { styleCode: { contains: search as string, mode: 'insensitive' } } },
+      { styles: { buyerStyleRef: { contains: search as string, mode: 'insensitive' } } },
       { styles: { styleName: { contains: search as string, mode: 'insensitive' } } },
     ];
   }
@@ -1026,7 +1023,6 @@ export const createRevision = async (req: Request, res: Response) => {
     where: { id },
     include: {
       measurements: true,
-      styles: { select: { styleCode: true } },
     },
   });
 
@@ -1048,7 +1044,7 @@ export const createRevision = async (req: Request, res: Response) => {
   });
 
   const newVersion = (maxVersion._max.version || 0) + 1;
-  const sampleNumber = await generateSampleNumber('FIT_SAMPLE', original.styles?.styleCode, newVersion);
+  const sampleNumber = await generateSampleNumber('FIT_SAMPLE');
 
   // Create new sample with copied measurements
   const revision = await prisma.samples.create({
@@ -1232,6 +1228,7 @@ export const searchSamples = async (req: Request, res: Response) => {
     where.OR = [
       { sampleNumber: { contains: search as string, mode: 'insensitive' } },
       { styles: { styleCode: { contains: search as string, mode: 'insensitive' } } },
+      { styles: { buyerStyleRef: { contains: search as string, mode: 'insensitive' } } },
       { styles: { styleName: { contains: search as string, mode: 'insensitive' } } },
     ];
   }

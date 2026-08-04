@@ -58,6 +58,7 @@ interface CatalogueStyle {
   id: string;
   styleCode: string;
   styleName: string;
+  buyerStyleRef?: string | null;
   image?: string;
   imageUrl?: string | null;
   costPrice?: number;
@@ -154,6 +155,7 @@ export default function CatalogueGenerator() {
         id: style.id,
         styleCode: style.styleCode,
         styleName: style.styleName || '',
+        buyerStyleRef: style.buyerStyleRef,
         image: style.image ?? undefined,
         imageUrl: style.imageUrl,
         costPrice: style.costPrice ?? undefined,
@@ -232,7 +234,9 @@ export default function CatalogueGenerator() {
       if (searchTerm) {
         const search = searchTerm.toLowerCase();
         const matchesSearch =
-          style.styleCode?.toLowerCase().includes(search) || style.styleName?.toLowerCase().includes(search);
+          style.styleCode?.toLowerCase().includes(search) ||
+          style.styleName?.toLowerCase().includes(search) ||
+          style.buyerStyleRef?.toLowerCase().includes(search);
         if (!matchesSearch) return false;
       }
 

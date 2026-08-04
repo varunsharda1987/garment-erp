@@ -157,7 +157,8 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
     return (
       ld.labDipNumber.toLowerCase().includes(search) ||
       ld.style?.styleCode?.toLowerCase().includes(search) ||
-      ld.style?.styleName?.toLowerCase().includes(search)
+      ld.style?.styleName?.toLowerCase().includes(search) ||
+      ld.style?.buyerStyleRef?.toLowerCase().includes(search)
     );
   });
 

@@ -465,7 +465,10 @@ export default function OrderForm() {
       const search = styleSearch.toLowerCase();
       list = styles
         .filter(
-          (style) => style.styleCode.toLowerCase().includes(search) || style.styleName.toLowerCase().includes(search)
+          (style) =>
+            style.styleCode.toLowerCase().includes(search) ||
+            style.styleName.toLowerCase().includes(search) ||
+            style.buyerStyleRef?.toLowerCase().includes(search)
         )
         .slice(0, 20);
     }

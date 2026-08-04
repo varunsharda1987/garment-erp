@@ -21,6 +21,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { styleService } from '../services/style.service';
+import type { CreateStyleFormData } from '../types/style.types';
 import { customerService, type AccessoryPreset } from '../services/customer.service';
 import { getAllPresetsForCustomer } from '../services/customerSizePreset.service';
 import type { CustomerSizePreset } from '../types/customerSizePreset.types';
@@ -413,15 +414,6 @@ export default function StyleFormRedesigned() {
   // Tab 4: Accessories
   const [selectedAccessoryPresetId, setSelectedAccessoryPresetId] = useState('');
   const [selectedAccessories, setSelectedAccessories] = useState<StyleAccessory[]>([]);
-
-  // Restore Dialog State (for handling deleted style code conflicts)
-  const [showRestoreDialog, setShowRestoreDialog] = useState(false);
-  const [deletedStyleInfo, setDeletedStyleInfo] = useState<{
-    id: string;
-    styleName: string;
-    styleCode: string;
-  } | null>(null);
-  const [restoring, setRestoring] = useState(false);
 
   // localStorage Auto-Save State
   const DRAFT_STORAGE_KEY = `style-draft-${id || 'new'}`;
@@ -819,8 +811,6 @@ export default function StyleFormRedesigned() {
   const initialLoadCompleteRef = React.useRef(false);
   // Track if fabrics have been modified during edit (for validation purposes)
   const fabricsModifiedRef = React.useRef(false);
-  // Track if LNG auto-fill has been applied (to prevent re-triggering)
-  const lngAutoFillAppliedRef = React.useRef(false);
 
   // Load style data in edit mode - wait for both customers AND componentMasters to be loaded
   useEffect(() => {
@@ -1707,81 +1697,6 @@ export default function StyleFormRedesigned() {
     }
   };
 
-  // LNG Prefix Auto-Fill: Auto-populate Nightgown component for new LNG styles
-  useEffect(() => {
-    if (isEditMode) return;
-    const isLNG = styleCode.toUpperCase().startsWith('LNG');
-
-    if (!isLNG) {
-      lngAutoFillAppliedRef.current = false;
-      return;
-    }
-    if (lngAutoFillAppliedRef.current) return;
-    if (componentMasters.length === 0) return;
-
-    const nightgownMaster = componentMasters.find((cm) => cm.name.toLowerCase() === 'nightgown');
-    if (!nightgownMaster) return;
-
-    lngAutoFillAppliedRef.current = true;
-
-    setNumberOfComponents(1);
-    setSelectedComponents([
-      {
-        category: nightgownMaster.componentGroup?.code || 'FULL',
-        componentId: nightgownMaster.id,
-        _originalName: nightgownMaster.name,
-      },
-    ]);
-
-    setFabrics([
-      {
-        id: `temp-${Date.now()}-0`,
-        componentIndex: 0,
-        componentName: 'Nightgown',
-        sourcingMode: 'GREIGE' as const,
-        genericGreigeName: '',
-        fabricId: null,
-        fabricCode: null,
-        fabricName: null,
-        fabricFinishType: '' as FabricFinishType | '',
-        hasEmbroidery: false,
-        embroideryId: null,
-        embroideryName: null,
-        embroideryCode: null,
-      },
-    ]);
-
-    notify.success('LNG style detected: Auto-populated Nightgown component');
-  }, [styleCode, isEditMode, componentMasters]);
-
-  // LNG Prefix: Apply Nihsamah size preset when presets load after customer selection
-  useEffect(() => {
-    if (isEditMode) return;
-    if (!styleCode.toUpperCase().startsWith('LNG')) return;
-    if (!lngAutoFillAppliedRef.current) return;
-    if (selectedSizePresetId) return;
-    if (customerSizePresets.length === 0) return;
-
-    const nihsamahPreset = customerSizePresets.find((p) => p.presetName.toLowerCase() === 'nihsamah');
-    if (nihsamahPreset) {
-      applyPresetToSizes(nihsamahPreset);
-    }
-  }, [customerSizePresets, styleCode, isEditMode, selectedSizePresetId]);
-
-  // LNG Prefix: Apply Nihsamah accessory preset when accessory presets load
-  useEffect(() => {
-    if (isEditMode) return;
-    if (!styleCode.toUpperCase().startsWith('LNG')) return;
-    if (!lngAutoFillAppliedRef.current) return;
-    if (selectedAccessoryPresetId) return;
-    if (customerAccessoryPresets.length === 0) return;
-
-    const nihsamahPreset = customerAccessoryPresets.find((p) => p.presetName.toLowerCase().includes('nihsamah'));
-    if (nihsamahPreset) {
-      applyPresetToAccessories(nihsamahPreset);
-    }
-  }, [customerAccessoryPresets, styleCode, isEditMode, selectedAccessoryPresetId]);
-
   // Helper to get component name from index
   const getComponentName = (componentIndex: number): string => {
     const component = selectedComponents[componentIndex];
@@ -2168,8 +2083,10 @@ export default function StyleFormRedesigned() {
         notify.warning('All sizes are unchecked — existing SKU variants were kept, not deleted.');
       }
 
+      // styleCode is deliberately NOT sent: on CREATE the backend mints the authoritative
+      // code server-side and returns it (the on-screen value is only a preview); on UPDATE
+      // the backend ignores styleCode entirely.
       const styleData = {
-        styleCode,
         styleName: styleName || styleCode,
         customerName: customerName || (isDraft ? 'Draft' : ''),
         brandName,
@@ -2250,9 +2167,15 @@ export default function StyleFormRedesigned() {
           navigate('/styles');
         }
       } else {
-        // Create new style
-        const response = await styleService.createStyle(styleData);
+        // Create new style. Cast: CreateStyleFormData still types styleCode as required,
+        // but the backend now mints the code server-side so we intentionally omit it.
+        const response = await styleService.createStyle(styleData as unknown as CreateStyleFormData);
         const newStyleId = response?.data?.id;
+
+        // Adopt the authoritative server-minted style code (local value was only a preview)
+        if (response?.data?.styleCode) {
+          setStyleCode(response.data.styleCode);
+        }
 
         // Upload pending image if exists
         if (pendingImageFile && newStyleId) {
@@ -2284,47 +2207,10 @@ export default function StyleFormRedesigned() {
       }
     } catch (error: unknown) {
       console.error('Failed to save style:', error);
-
-      // Check if this is a deleted style conflict (409 with deletedStyleId)
-      const axiosError = error as {
-        response?: {
-          status?: number;
-          data?: { message?: string; details?: { deletedStyleId?: string; styleName?: string } };
-        };
-      };
-      if (axiosError.response?.status === 409 && axiosError.response?.data?.details?.deletedStyleId) {
-        // Show restore dialog instead of error
-        setDeletedStyleInfo({
-          id: axiosError.response.data.details.deletedStyleId,
-          styleName: axiosError.response.data.details.styleName || styleCode,
-          styleCode: styleCode,
-        });
-        setShowRestoreDialog(true);
-      } else {
-        notify.error(axiosError.response?.data?.message || 'Failed to save style');
-      }
+      const axiosError = error as { response?: { data?: { message?: string } } };
+      notify.error(axiosError.response?.data?.message || 'Failed to save style');
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Handle restoring a deleted style
-  const handleRestoreStyle = async () => {
-    if (!deletedStyleInfo?.id) return;
-
-    try {
-      setRestoring(true);
-      await styleService.restoreStyle(deletedStyleInfo.id);
-      notify.success(`Style "${deletedStyleInfo.styleCode}" has been restored!`);
-      setShowRestoreDialog(false);
-      setDeletedStyleInfo(null);
-      // Navigate to edit the restored style
-      navigate(`/styles/${deletedStyleInfo.id}/edit`);
-    } catch (error) {
-      console.error('Failed to restore style:', error);
-      notify.error('Failed to restore style. Please try again.');
-    } finally {
-      setRestoring(false);
     }
   };
 
@@ -2692,10 +2578,9 @@ export default function StyleFormRedesigned() {
                     <Label>Style Code {isEditMode ? '' : '(Auto-generated)'}</Label>
                     <Input
                       value={styleCode}
-                      onChange={(e) => isEditMode && setStyleCode(e.target.value)}
                       placeholder="Select brand + category above"
-                      readOnly={!isEditMode}
-                      className={!isEditMode ? 'bg-muted' : ''}
+                      readOnly
+                      className="bg-muted"
                     />
                     {!isEditMode && (
                       <p className="text-xs text-muted-foreground mt-1">
@@ -3800,50 +3685,6 @@ export default function StyleFormRedesigned() {
         onConfirm={confirmPublish}
         variant="default"
       />
-
-      {/* Restore Deleted Style Dialog */}
-      <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-warning" />
-              Style Code Already Exists
-            </DialogTitle>
-            <DialogDescription className="pt-2">
-              The style code <span className="font-semibold text-foreground">"{deletedStyleInfo?.styleCode}"</span> was
-              previously used for a style that has been deleted/archived.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground mb-4">
-              Would you like to restore the deleted style, or use a different style code?
-            </p>
-            <div className="bg-muted/50 rounded-lg p-4 border">
-              <div className="text-sm">
-                <span className="text-muted-foreground">Deleted Style:</span>
-                <span className="ml-2 font-medium">{deletedStyleInfo?.styleName || deletedStyleInfo?.styleCode}</span>
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setShowRestoreDialog(false);
-                setDeletedStyleInfo(null);
-              }}
-              disabled={restoring}
-            >
-              Use Different Code
-            </Button>
-            <Button type="button" onClick={handleRestoreStyle} disabled={restoring} className="flex items-center gap-2">
-              <RotateCcw className="h-4 w-4" />
-              {restoring ? 'Restoring...' : 'Restore Style'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Restore from localStorage Dialog */}
       <Dialog

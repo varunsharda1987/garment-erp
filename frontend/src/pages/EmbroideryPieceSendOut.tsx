@@ -20,8 +20,51 @@ import { externalProcessService } from '../services/external-process.service';
 import { embroideryService } from '../services/embroidery.service';
 import { ArrowLeft } from 'lucide-react';
 import api from '../lib/api';
+import type { AxiosError } from 'axios';
 import type { CreateExternalProcessSendOutRequest } from '../types/external-process.types';
 import { formatCurrency } from '../lib/currency';
+
+// BUG-MFG22 fix: API response types to replace `any` in map callbacks
+interface WorkOrderApiResponse {
+  id: string;
+  workOrderNumber: string;
+  styles?: { styleName: string; styleCode: string };
+  style?: { styleName: string; styleCode: string };
+  totalQuantity: number;
+  orderId?: string;
+  styleId?: string;
+}
+
+interface POApiResponse {
+  id: string;
+  poNumber: string;
+  supplierId: string;
+  supplier?: { name: string };
+  suppliers?: { name: string };
+  status: string;
+}
+
+interface CuttingBatchApiResponse {
+  id: string;
+  batchNumber: string;
+  status: string;
+  skuOutputs?: Array<{
+    id?: string;
+    colorId?: string;
+    sizeId: string;
+    goodPcs?: number;
+    color?: { colorName: string };
+    colorName?: string;
+    size?: { sizeName: string };
+    sizeName?: string;
+  }>;
+}
+
+interface EmbroideryApiResponse {
+  id: string;
+  embroideryCode: string;
+  designName: string;
+}
 
 interface WorkOrderOption {
   id: string;
@@ -89,7 +132,8 @@ export default function EmbroideryPieceSendOut() {
     api
       .get('/work-orders?status=PENDING&status=IN_PRODUCTION&limit=200')
       .then((res) => {
-        const items = (res.data?.data || res.data || []).map((wo: any) => ({
+        // BUG-MFG22 fix: use typed response instead of `any`
+        const items = (res.data?.data || res.data || []).map((wo: WorkOrderApiResponse) => ({
           id: wo.id,
           workOrderNumber: wo.workOrderNumber,
           styleName: wo.styles?.styleName || wo.style?.styleName || '',
@@ -100,26 +144,30 @@ export default function EmbroideryPieceSendOut() {
         }));
         setWorkOrders(items);
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         // BUG-MFG11-18 fix: proper error extraction
-        const message = err?.response?.data?.message || err?.message || 'Could not load work orders';
+        const axiosErr = err as AxiosError<{ message?: string }>;
+        const message = axiosErr?.response?.data?.message || axiosErr?.message || 'Could not load work orders';
         toast.error(message);
         setWorkOrders([]);
       });
 
     embroideryService
       .searchEmbroidery('')
-      .then((res: any) => {
-        const items = (res.data || res || []).map((e: any) => ({
+      .then((res: { data?: EmbroideryApiResponse[] } | EmbroideryApiResponse[]) => {
+        // BUG-MFG22 fix: use typed response instead of `any`
+        const data: EmbroideryApiResponse[] = Array.isArray(res) ? res : res.data || [];
+        const items = data.map((e: EmbroideryApiResponse) => ({
           id: e.id,
           embroideryCode: e.embroideryCode,
           designName: e.designName,
         }));
         setEmbroideries(items);
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         // BUG-MFG11-18 fix: proper error extraction
-        const message = err?.response?.data?.message || err?.message || 'Could not load embroideries';
+        const axiosErr = err as AxiosError<{ message?: string }>;
+        const message = axiosErr?.response?.data?.message || axiosErr?.message || 'Could not load embroideries';
         toast.error(message);
         setEmbroideries([]);
       });
@@ -133,7 +181,8 @@ export default function EmbroideryPieceSendOut() {
     api
       .get(`/purchase-orders?poCategories=EMBROIDERY_SERVICE&serviceWorkOrderId=${selectedWorkOrderId}&limit=100`)
       .then((res) => {
-        const items = (res.data?.data || res.data || []).map((po: any) => ({
+        // BUG-MFG22 fix: use typed response instead of `any`
+        const items = (res.data?.data || res.data || []).map((po: POApiResponse) => ({
           id: po.id,
           poNumber: po.poNumber,
           supplierId: po.supplierId,
@@ -142,9 +191,10 @@ export default function EmbroideryPieceSendOut() {
         }));
         setPos(items);
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         // BUG-MFG11-18 fix: proper error extraction
-        const message = err?.response?.data?.message || err?.message || 'Could not load purchase orders';
+        const axiosErr = err as AxiosError<{ message?: string }>;
+        const message = axiosErr?.response?.data?.message || axiosErr?.message || 'Could not load purchase orders';
         toast.error(message);
         setPos([]);
       });
@@ -158,11 +208,12 @@ export default function EmbroideryPieceSendOut() {
     api
       .get(`/cutting/batches?workOrderId=${selectedWorkOrderId}&status=COMPLETED&limit=100`)
       .then((res) => {
-        const items = (res.data?.data || res.data || []).map((b: any) => ({
+        // BUG-MFG22 fix: use typed response instead of `any`
+        const items = (res.data?.data || res.data || []).map((b: CuttingBatchApiResponse) => ({
           id: b.id,
           batchNumber: b.batchNumber,
           status: b.status,
-          skuOutputs: (b.skuOutputs || []).map((s: any) => ({
+          skuOutputs: (b.skuOutputs || []).map((s) => ({
             id: s.id || `${s.colorId || 'nc'}-${s.sizeId}`,
             colorId: s.colorId,
             sizeId: s.sizeId,
@@ -173,9 +224,10 @@ export default function EmbroideryPieceSendOut() {
         }));
         setCuttingBatches(items);
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         // BUG-MFG11-18 fix: proper error extraction
-        const message = err?.response?.data?.message || err?.message || 'Could not load cutting batches';
+        const axiosErr = err as AxiosError<{ message?: string }>;
+        const message = axiosErr?.response?.data?.message || axiosErr?.message || 'Could not load cutting batches';
         toast.error(message);
         setCuttingBatches([]);
       });
@@ -187,9 +239,11 @@ export default function EmbroideryPieceSendOut() {
       toast.success('Embroidery piece send-out created');
       navigate('/embroidery-stock/pieces');
     },
-    onError: (err: any) => {
+    onError: (err: unknown) => {
+      // BUG-MFG22 fix: use typed error instead of `any`
       // BUG-EMB9 fix: show toast.error in addition to setting error state
-      const message = err?.response?.data?.message || err?.message || 'Failed to create send-out';
+      const axiosErr = err as AxiosError<{ message?: string }>;
+      const message = axiosErr?.response?.data?.message || axiosErr?.message || 'Failed to create send-out';
       setError(message);
       toast.error(message);
     },

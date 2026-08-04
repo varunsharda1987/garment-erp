@@ -157,8 +157,20 @@ class EmbroideryStockService {
         },
       });
 
-      // 5b. Sync stock_levels for the fabric deduction
-      await syncStockLevelQuantity(sourceStock.fabricId, -data.quantitySent, undefined, 'METER', tx);
+      // 5b. BUG-INV3 fix: find materials.id instead of using fabricId directly
+      const fabricMaterial = await tx.materials.findFirst({
+        where: { fabricId: sourceStock.fabricId },
+        select: { id: true },
+      });
+      if (fabricMaterial) {
+        await syncStockLevelQuantity(
+          fabricMaterial.id,
+          -data.quantitySent,
+          sourceStock.warehouseId ?? undefined,
+          'METER',
+          tx
+        );
+      }
 
       // 6. Create send-out record
       const sendOut = await tx.embroidery_send_out.create({
@@ -548,9 +560,21 @@ class EmbroideryStockService {
         },
       });
 
-      // Sync stock_levels for the fabric return
+      // BUG-INV3 fix: find materials.id instead of using fabricId directly
       if (sendOut.sourceFabricStock?.fabricId) {
-        await syncStockLevelQuantity(sendOut.sourceFabricStock.fabricId, quantitySent, undefined, 'METER', tx);
+        const fabricMaterial = await tx.materials.findFirst({
+          where: { fabricId: sendOut.sourceFabricStock.fabricId },
+          select: { id: true },
+        });
+        if (fabricMaterial) {
+          await syncStockLevelQuantity(
+            fabricMaterial.id,
+            quantitySent,
+            sendOut.sourceFabricStock.warehouseId ?? undefined,
+            'METER',
+            tx
+          );
+        }
       }
 
       // Update send-out status

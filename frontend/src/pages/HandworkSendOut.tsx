@@ -19,8 +19,46 @@ import { toast } from 'sonner';
 import { externalProcessService } from '../services/external-process.service';
 import { ArrowLeft } from 'lucide-react';
 import api from '../lib/api';
+import type { AxiosError } from 'axios';
 import type { CreateExternalProcessSendOutRequest } from '../types/external-process.types';
 import { formatCurrency } from '../lib/currency';
+
+// BUG-MFG22 fix: API response types to replace `any` in map callbacks
+interface WorkOrderApiResponse {
+  id: string;
+  workOrderNumber: string;
+  styles?: { styleName: string; styleCode: string };
+  style?: { styleName: string; styleCode: string };
+  totalQuantity: number;
+  orderId?: string;
+  styleId?: string;
+}
+
+interface POApiResponse {
+  id: string;
+  poNumber: string;
+  supplierId: string;
+  supplier?: { name: string };
+  suppliers?: { name: string };
+  status: string;
+}
+
+interface StitchingIssueApiResponse {
+  id: string;
+  issueNumber: string;
+  status: string;
+  contractor?: { name: string };
+  skuBreakdown?: Array<{
+    id?: string;
+    colorId?: string;
+    sizeId: string;
+    availableQty?: number;
+    color?: { colorName: string };
+    colorName?: string;
+    size?: { sizeName: string };
+    sizeName?: string;
+  }>;
+}
 
 interface WorkOrderOption {
   id: string;
@@ -83,7 +121,8 @@ export default function HandworkSendOut() {
     api
       .get('/work-orders?status=PENDING&status=IN_PRODUCTION&limit=200')
       .then((res) => {
-        const items = (res.data?.data || res.data || []).map((wo: any) => ({
+        // BUG-MFG22 fix: use typed response instead of `any`
+        const items = (res.data?.data || res.data || []).map((wo: WorkOrderApiResponse) => ({
           id: wo.id,
           workOrderNumber: wo.workOrderNumber,
           styleName: wo.styles?.styleName || wo.style?.styleName || '',
@@ -94,9 +133,10 @@ export default function HandworkSendOut() {
         }));
         setWorkOrders(items);
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         // BUG-MFG11-18 fix: proper error extraction
-        const message = err?.response?.data?.message || err?.message || 'Could not load work orders';
+        const axiosErr = err as AxiosError<{ message?: string }>;
+        const message = axiosErr?.response?.data?.message || axiosErr?.message || 'Could not load work orders';
         toast.error(message);
         setWorkOrders([]);
       });
@@ -111,7 +151,8 @@ export default function HandworkSendOut() {
     api
       .get(`/purchase-orders?poCategories=HANDWORK_SERVICE&serviceWorkOrderId=${selectedWorkOrderId}&limit=100`)
       .then((res) => {
-        const items = (res.data?.data || res.data || []).map((po: any) => ({
+        // BUG-MFG22 fix: use typed response instead of `any`
+        const items = (res.data?.data || res.data || []).map((po: POApiResponse) => ({
           id: po.id,
           poNumber: po.poNumber,
           supplierId: po.supplierId,
@@ -120,9 +161,10 @@ export default function HandworkSendOut() {
         }));
         setPos(items);
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         // BUG-MFG11-18 fix: proper error extraction
-        const message = err?.response?.data?.message || err?.message || 'Could not load purchase orders';
+        const axiosErr = err as AxiosError<{ message?: string }>;
+        const message = axiosErr?.response?.data?.message || axiosErr?.message || 'Could not load purchase orders';
         toast.error(message);
         setPos([]);
       });
@@ -137,12 +179,13 @@ export default function HandworkSendOut() {
     api
       .get(`/stitching/issues?workOrderId=${selectedWorkOrderId}&limit=100`)
       .then((res) => {
-        const items = (res.data?.data || res.data || []).map((si: any) => ({
+        // BUG-MFG22 fix: use typed response instead of `any`
+        const items = (res.data?.data || res.data || []).map((si: StitchingIssueApiResponse) => ({
           id: si.id,
           issueNumber: si.issueNumber,
           status: si.status,
           contractor: si.contractor?.name || '',
-          skuBreakdown: (si.skuBreakdown || []).map((s: any) => ({
+          skuBreakdown: (si.skuBreakdown || []).map((s) => ({
             id: s.id || `${s.colorId || 'nc'}-${s.sizeId}`,
             colorId: s.colorId,
             sizeId: s.sizeId,
@@ -153,9 +196,10 @@ export default function HandworkSendOut() {
         }));
         setStitchingIssues(items);
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         // BUG-MFG11-18 fix: proper error extraction
-        const message = err?.response?.data?.message || err?.message || 'Could not load stitching issues';
+        const axiosErr = err as AxiosError<{ message?: string }>;
+        const message = axiosErr?.response?.data?.message || axiosErr?.message || 'Could not load stitching issues';
         toast.error(message);
         setStitchingIssues([]);
       });
@@ -167,8 +211,10 @@ export default function HandworkSendOut() {
       toast.success('Handwork send-out created successfully');
       navigate('/manufacturing/handwork');
     },
-    onError: (err: any) => {
-      setError(err?.response?.data?.message || 'Failed to create send-out');
+    onError: (err: unknown) => {
+      // BUG-MFG22 fix: use typed error instead of `any`
+      const axiosErr = err as AxiosError<{ message?: string }>;
+      setError(axiosErr?.response?.data?.message || 'Failed to create send-out');
     },
   });
 

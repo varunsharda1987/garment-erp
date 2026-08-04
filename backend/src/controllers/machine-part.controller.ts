@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { generateCode, allocateBatchCodes } from '../utils/code-generator';
-import { NotFoundError, ValidationError, BusinessError } from '../errors';
+import { NotFoundError, ValidationError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
+import { materialService } from '../services/material.service';
 
 // Type for supplier input
 interface MachinePartSupplierInput {
@@ -48,73 +49,61 @@ export const createMachinePart = async (req: Request, res: Response) => {
     finalPartName = parts.join(' ').trim() || `Machine Part ${partCode}`;
   }
 
-  // Get Machine Parts category ID
-  const machinePartCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Machine Parts' },
-  });
-
-  if (!machinePartCategory) {
-    throw new BusinessError('Machine Parts category not found. Please create it first.');
-  }
-
-  // Create machine_part_master entry with suppliers using Prisma
-  const partRecord = await prisma.machine_part_master.create({
-    data: {
-      partCode,
-      partName: finalPartName,
-      partNumber: partNumber || null,
-      category: category || null,
-      machine: machine || null,
-      brand: brand || null,
-      model: model || null,
-      specifications: specifications || null,
-      pricePerUnit: pricePerUnit ? parseFloat(pricePerUnit) : null,
-      supplierId: supplierId || null,
-      description: description || null,
-      isActive: true,
-      // Create supplier relationships
-      machinePartSuppliers: {
-        create: suppliers.map((s: MachinePartSupplierInput) => ({
-          supplierId: s.supplierId,
-          isPreferred: s.isPreferred || false,
-          isActive: s.isActive !== undefined ? s.isActive : true,
-          notes: s.notes || null,
-          pricePerUnit: s.pricePerUnit ? parseFloat(String(s.pricePerUnit)) : null,
-        })),
+  // Create master + its materials record atomically (materials.id === master.id — material-identity invariant)
+  const { partRecord, materialEntry } = await prisma.$transaction(async (tx) => {
+    const created = await tx.machine_part_master.create({
+      data: {
+        partCode,
+        partName: finalPartName,
+        partNumber: partNumber || null,
+        category: category || null,
+        machine: machine || null,
+        brand: brand || null,
+        model: model || null,
+        specifications: specifications || null,
+        pricePerUnit: pricePerUnit ? parseFloat(pricePerUnit) : null,
+        supplierId: supplierId || null,
+        description: description || null,
+        isActive: true,
+        // Create supplier relationships
+        machinePartSuppliers: {
+          create: suppliers.map((s: MachinePartSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerUnit: s.pricePerUnit ? parseFloat(String(s.pricePerUnit)) : null,
+          })),
+        },
       },
-    },
-    include: {
-      machinePartSuppliers: {
-        include: {
-          supplier: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              contactPerson: true,
-              email: true,
-              phone: true,
-              isActive: true,
+      include: {
+        machinePartSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
             },
           },
+          orderBy: { isPreferred: 'desc' },
         },
-        orderBy: { isPreferred: 'desc' },
       },
-    },
-  });
+    });
 
-  // Create corresponding material entry
-  const materialEntry = await prisma.materials.create({
-    data: {
-      id: `mat-${partCode.toLowerCase()}`,
-      code: partCode,
-      name: finalPartName,
-      materialType: 'MACHINE_PART',
-      machinePartId: partRecord.id,
-      categoryId: machinePartCategory.id,
-      unit: 'PIECE',
-      isActive: true,
-    },
+    // Create material (same-id convention, category auto-resolved)
+    const material = await materialService.createFromMaster(
+      { id: created.id, code: partCode, name: finalPartName },
+      'MACHINE_PART',
+      tx
+    );
+
+    return { partRecord: created, materialEntry: material };
   });
 
   res.status(201).json({
@@ -418,15 +407,6 @@ export const bulkImportMachineParts = async (req: Request, res: Response) => {
     throw new ValidationError('No data provided for import');
   }
 
-  // Get Machine Parts category
-  const machinePartCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Machine Parts' },
-  });
-
-  if (!machinePartCategory) {
-    throw new BusinessError('Machine Parts category not found');
-  }
-
   // Pre-generate all part codes
   const codes = await allocateBatchCodes('PART', 'machine_part_master', 'partCode', data.length);
 
@@ -474,19 +454,12 @@ export const bulkImportMachineParts = async (req: Request, res: Response) => {
           },
         });
 
-        // Create material
-        await tx.materials.create({
-          data: {
-            id: `mat-${partCode.toLowerCase()}`,
-            code: partCode,
-            name: row.partName,
-            materialType: 'MACHINE_PART',
-            machinePartId: created.id,
-            categoryId: machinePartCategory.id,
-            unit: 'PIECE',
-            isActive: true,
-          },
-        });
+        // Create material (same-id convention, category auto-resolved)
+        await materialService.createFromMaster(
+          { id: created.id, code: partCode, name: row.partName },
+          'MACHINE_PART',
+          tx
+        );
 
         return created;
       });

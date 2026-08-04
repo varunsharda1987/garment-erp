@@ -18,6 +18,7 @@ import {
   materialQuerySchema,
   materialIdParamSchema,
   createCategorySchema,
+  categoryQuerySchema,
 } from '../schemas/material.schema';
 import { asyncHandler } from '../middleware/error.middleware';
 
@@ -37,8 +38,9 @@ router.get('/categories/hierarchy', asyncHandler(getCategoryHierarchy));
  * @route   GET /api/materials/categories
  * @desc    Get all material categories (optionally filter by parentId)
  * @access  Private (Authenticated users)
+ * @query   parentId - Optional UUID to filter by parent category
  */
-router.get('/categories', asyncHandler(getAllCategories));
+router.get('/categories', validateQuery(categoryQuerySchema), asyncHandler(getAllCategories));
 
 /**
  * @route   POST /api/materials/categories

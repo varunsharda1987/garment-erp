@@ -106,8 +106,6 @@ import {
   FabricStockEntry,
   FabricAvailableStock,
   FabricUsageReport,
-  MaterialMasterList,
-  MaterialMasterForm,
   LaceList,
   LaceForm,
   LaceDetail,
@@ -372,12 +370,6 @@ function App() {
               {/* Master Data Dashboard (Unified view of all masters) */}
               <Route path="/master-data" element={<MasterDataDashboard />} />
 
-              {/* Material Master Management - Unified (NEW) */}
-              <Route path="/material-master" element={<MaterialMasterList />} />
-              <Route path="/material-master/new" element={<MaterialMasterForm mode="create" />} />
-              <Route path="/material-master/:id" element={<MaterialMasterList />} />
-              <Route path="/material-master/:id/edit" element={<MaterialMasterForm mode="edit" />} />
-
               {/* Material Master Management (Phase 1) - Legacy */}
               {/* Lace Management */}
               <Route path="/materials/lace" element={<LaceList />} />
@@ -532,7 +524,13 @@ function App() {
               <Route path="/inventory/movements/transfer" element={<StockTransferForm />} />
               <Route path="/inventory/movements/adjustment" element={<StockAdjustmentForm />} />
               <Route path="/inventory/stock-levels" element={<StockLevelList />} />
-              {/* BUG-DASH3 fix: verified route paths match navigation config and backend API */}
+              {/* BUG-DASH3 fix: Stock Counts workflow routes verified 2026-08-02
+                  - Routes match navigation.ts and backend /api/stock-counts
+                  - Components: StockCountList, StockCountForm, StockCountDetail (all exist with default exports)
+                  - Lazy imports in lazy-routes.tsx lines 174-176
+                  - Backend routes in stockCount.routes.ts, registered in routes/index.ts
+                  - Permission: stockCounts (ADMIN, INVENTORY roles)
+                  - If 404 persists: check process age (stale server), user role, or browser cache */}
               <Route path="/inventory/stock-counts" element={<StockCountList />} />
               <Route path="/inventory/stock-counts/new" element={<StockCountForm />} />
               <Route path="/inventory/stock-counts/:id" element={<StockCountDetail />} />

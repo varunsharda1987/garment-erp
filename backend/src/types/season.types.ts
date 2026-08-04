@@ -22,6 +22,10 @@ export const SEASON_TYPE_NAMES: Record<SeasonType, string> = {
 
 /**
  * Season master entity
+ *
+ * NOTE: createdAt/updatedAt are Date objects from Prisma.
+ * The API serializer converts them to ISO strings before sending to frontend.
+ * Frontend types correctly use `string` for these fields.
  */
 export interface SeasonMaster {
   id: string;

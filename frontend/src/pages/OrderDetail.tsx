@@ -84,23 +84,24 @@ export default function OrderDetail() {
   );
 
   // React Query: Fetch work orders (cached)
+  // BUG-ORD14: Use consistent queryKeys.workOrders.forOrder pattern
   const {
     data: workOrders = [],
     isLoading: workOrdersLoading,
     refetch: refetchWorkOrders,
-  } = useDetailQuery<WorkOrder[]>(
-    [...queryKeys.orders.detail(id || ''), 'work-orders'],
-    () => workOrderService.getByOrderId(id!),
-    { enabled: !!id, staleTime: 60 * 1000 }
-  );
+  } = useDetailQuery<WorkOrder[]>(queryKeys.workOrders.forOrder(id || ''), () => workOrderService.getByOrderId(id!), {
+    enabled: !!id,
+    staleTime: 60 * 1000,
+  });
 
   // React Query: Fetch order BOM (cached)
+  // BUG-ORD14: Use queryKeys.boms.forOrder (not forStyle - id is orderId)
   const {
     data: orderBom,
     isLoading: bomLoading,
     refetch: refetchOrderBOM,
   } = useDetailQuery<OrderBOM | null>(
-    queryKeys.boms.forStyle(id || ''),
+    queryKeys.boms.forOrder(id || ''),
     async () => {
       try {
         return await getOrderBOM(id!);
@@ -115,12 +116,13 @@ export default function OrderDetail() {
   const shouldFetchMRP = !!id && !!orderBom && (orderBom.status === 'APPROVED' || orderBom.status === 'LOCKED');
 
   // React Query: Fetch MRP summary (conditional)
+  // BUG-ORD14: Use consistent queryKeys.mrp.forOrder pattern
   const {
     data: mrpSummary,
     isLoading: mrpLoading,
     refetch: _refetchMRPSummary, // eslint-disable-line @typescript-eslint/no-unused-vars
   } = useDetailQuery<OrderRequirementsSummary | null>(
-    [...queryKeys.mrp.all, 'order-summary', id || ''],
+    queryKeys.mrp.forOrder(id || ''),
     async () => {
       try {
         return await getOrderRequirementsSummary(id!);
@@ -135,12 +137,13 @@ export default function OrderDetail() {
   const shouldFetchServiceSummary = !!id && workOrders.length > 0;
 
   // React Query: Fetch Service Requirements summary (conditional)
+  // BUG-ORD14: Use consistent queryKeys.serviceRequirements.forOrder pattern
   const {
     data: serviceSummary,
     isLoading: serviceLoading,
     refetch: _refetchServiceSummary, // eslint-disable-line @typescript-eslint/no-unused-vars
   } = useDetailQuery<OrderServiceRequirementsSummary | null>(
-    ['service-requirements', 'order-summary', id || ''],
+    queryKeys.serviceRequirements.forOrder(id || ''),
     async () => {
       try {
         return await getOrderServiceRequirementsSummary(id!);

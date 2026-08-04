@@ -101,12 +101,9 @@ export type {
   UpdateCategoryDTO,
 } from './material.service';
 
-// Material Master Service (Consolidated)
-export * as materialMasterService from './material-master.service';
+// Shared material specification types (the material-master SERVICE was retired in the
+// 2026-08 material-identity project; these types remain in use by trim controllers)
 export type {
-  CreateMaterialMasterDto,
-  UpdateMaterialMasterDto,
-  MaterialMasterFilterDto,
   MaterialSupplierMappingDto,
   LaceSpecifications,
   ButtonSpecifications,

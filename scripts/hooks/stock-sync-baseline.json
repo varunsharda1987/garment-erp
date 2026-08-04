@@ -1,5 +1,6 @@
 [
   "backend/scripts/cleanup-transactional-data.ts",
+  "backend/scripts/migrations/unify-material-ids.ts",
   "backend/scripts/cleanup-orphan-stock.ts",
   "backend/scripts/repair-quantity-drift.ts",
   "backend/scripts/repair-stockvalue-drift.ts",

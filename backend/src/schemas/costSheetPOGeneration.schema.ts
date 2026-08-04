@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { flexMaterialId } from './common.schema';
 
 // ============================================================================
 // COST SHEET PO GENERATION SCHEMAS
@@ -82,7 +83,7 @@ export const generateTrimsPOSchema = z.object({
  * Lace PO Item schema
  */
 const lacePOItemSchema = z.object({
-  materialId: z.string().uuid('Invalid material ID'),
+  materialId: flexMaterialId('material ID'),
   orderQty: z.number().positive('Order quantity must be positive'),
   unit: z.string().default('METER'),
   unitPrice: z.number().positive('Unit price must be greater than 0'),
@@ -101,7 +102,7 @@ const greigeLacePOItemSchema = lacePOItemSchema.extend({
  * Lace Processing PO Item schema
  */
 const laceProcessingPOItemSchema = z.object({
-  materialId: z.string().uuid('Invalid material ID (finished lace)'),
+  materialId: flexMaterialId('material ID (finished lace)'),
   greigeLaceId: z.string().uuid('Invalid greige lace ID'),
   processType: z.string().default('DYEING'),
   orderQty: z.number().positive('Order quantity must be positive'),

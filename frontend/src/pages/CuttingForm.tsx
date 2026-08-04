@@ -137,14 +137,26 @@ export default function CuttingForm() {
           .then((res) => {
             const style = res.data;
             const components = style.components || [];
-            const hasEmbFabric = components.some((c: any) => (c.fabrics || []).some((f: any) => f.hasEmbroidery));
+            // BUG-MFG22 fix: use typed callback parameters instead of `any`
+            interface StyleFabric {
+              hasEmbroidery?: boolean;
+            }
+            interface StyleComponent {
+              fabrics?: StyleFabric[];
+            }
+            interface EmbroideryStockItem {
+              quantityAvailable: string | number;
+            }
+            const hasEmbFabric = components.some((c: StyleComponent) =>
+              (c.fabrics || []).some((f: StyleFabric) => f.hasEmbroidery)
+            );
             if (hasEmbFabric) {
               // Check if embroidered fabric stock exists
               api
                 .get(`/embroidery-stock/by-style/${wo.styleId}`)
                 .then((embRes) => {
-                  const embStock = embRes.data?.data || [];
-                  const hasEmbroideredStock = embStock.some((s: any) => parseFloat(s.quantityAvailable) > 0);
+                  const embStock: EmbroideryStockItem[] = embRes.data?.data || [];
+                  const hasEmbroideredStock = embStock.some((s) => parseFloat(String(s.quantityAvailable)) > 0);
                   if (!hasEmbroideredStock) {
                     setEmbroideryWarning(
                       'This style requires embroidery. No embroidered fabric is currently available. ' +

@@ -103,6 +103,8 @@ export const queryKeys = {
     details: () => [...queryKeys.boms.all, 'detail'] as const,
     detail: (id: string | number) => [...queryKeys.boms.details(), id] as const,
     forStyle: (styleId: string | number) => [...queryKeys.boms.all, 'style', styleId] as const,
+    // BUG-ORD14: Added forOrder for order-level BOM queries
+    forOrder: (orderId: string | number) => [...queryKeys.boms.all, 'order', orderId] as const,
   },
 
   // Warehouses
@@ -180,6 +182,8 @@ export const queryKeys = {
     lists: () => [...queryKeys.mrp.all, 'list'] as const,
     list: (filters: Record<string, unknown>) => [...queryKeys.mrp.lists(), filters] as const,
     detail: (id: string | number) => [...queryKeys.mrp.all, 'detail', id] as const,
+    // BUG-ORD14: Added forOrder for order-level MRP summary queries
+    forOrder: (orderId: string | number) => [...queryKeys.mrp.all, 'order-summary', orderId] as const,
   },
 
   // Purchase Orders
@@ -199,6 +203,8 @@ export const queryKeys = {
     lists: () => [...queryKeys.serviceRequirements.all, 'list'] as const,
     list: (filters: Record<string, unknown>) => [...queryKeys.serviceRequirements.lists(), filters] as const,
     detail: (id: string | number) => [...queryKeys.serviceRequirements.all, 'detail', id] as const,
+    // BUG-ORD14: Added forOrder for order-level service summary queries
+    forOrder: (orderId: string | number) => [...queryKeys.serviceRequirements.all, 'order-summary', orderId] as const,
   },
 
   // Sale Orders (BUG-ORD14: Added missing query keys for consistency)
@@ -227,6 +233,8 @@ export const queryKeys = {
     details: () => [...queryKeys.workOrders.all, 'detail'] as const,
     detail: (id: string | number) => [...queryKeys.workOrders.details(), id] as const,
     search: (query: string) => [...queryKeys.workOrders.all, 'search', query] as const,
+    // BUG-ORD14: Added forOrder for fetching work orders by order ID
+    forOrder: (orderId: string | number) => [...queryKeys.workOrders.all, 'order', orderId] as const,
   },
 };
 

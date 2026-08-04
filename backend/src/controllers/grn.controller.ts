@@ -386,10 +386,15 @@ export const approveGRN = async (req: Request, res: Response) => {
   }
   // ==========================================
 
+  // BUG-PROC4 fix: Include warnings from post-commit operations in response
+  const warnings = (grn as any)._warnings as string[] | undefined;
+
   res.json({
     success: true,
     data: grn,
     message: 'GRN approved successfully. Stock levels updated.',
+    // BUG-PROC4 fix: Surface warnings so frontend can notify user of non-critical failures
+    warnings: warnings?.length ? warnings : undefined,
     pendingCutting: pendingCuttingInfo.length > 0 ? pendingCuttingInfo : undefined,
   });
 };

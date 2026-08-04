@@ -58,8 +58,9 @@ export default function PackagingList() {
     try {
       const stockLevels = await stockLevelService.getByMaterialType('PACKAGING');
       setStockCount(stockLevels.length);
-    } catch {
-      // Silently fail - stock count is not critical
+    } catch (err) {
+      // BUG-PK6 FIX: Log error instead of silent swallow; non-blocking since stock count is non-critical
+      console.warn('[PackagingList] Stock count fetch failed:', err);
       setStockCount(undefined);
     }
   };

@@ -140,23 +140,49 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
     }
   };
 
-  const handleAddMaterials = (items: PresetItemSelection[]) => {
-    const newItems: AccessoryPresetItem[] = items.map((item, index) => ({
-      id: `item-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
-      materialType: item.materialType,
-      materialId: item.materialType === 'PACKAGING' ? item.materialId : undefined, // Only for packaging
-      itemName: item.materialName,
-      quantity: item.quantity,
-      unit: item.unit,
-      usageCategory: item.materialType === 'PACKAGING' ? 'PACKAGING' : 'GARMENT',
-      specification: item.materialCode,
-      sortOrder: (presetItems?.length || 0) + index,
-      // Label-specific fields
-      labelId: item.materialType === 'LABEL' ? item.labelId : undefined,
-      componentName: item.materialType === 'LABEL' ? item.componentName : undefined,
-      extraPercentage: item.materialType === 'LABEL' ? item.extraPercentage : undefined,
-    }));
-    setPresetItems((prev) => [...prev, ...newItems]);
+  const handleAddMaterials = (selections: PresetItemSelection[]) => {
+    // Build map of existing items by their unique ID (labelId or materialId)
+    const existingMap = new Map<string, AccessoryPresetItem>();
+    presetItems.forEach((item) => {
+      const id = item.materialType === 'LABEL' ? item.labelId : item.materialId;
+      if (id) existingMap.set(id, item);
+    });
+
+    // Process all selections - update existing or create new
+    const updatedItems: AccessoryPresetItem[] = selections.map((selection, index) => {
+      const selectionId = selection.materialType === 'LABEL' ? selection.labelId : selection.materialId;
+      const existing = selectionId ? existingMap.get(selectionId) : undefined;
+
+      if (existing) {
+        // Update existing item with new properties
+        return {
+          ...existing,
+          componentName: selection.componentName,
+          extraPercentage: selection.extraPercentage,
+          quantity: selection.quantity,
+          sortOrder: index,
+        };
+      } else {
+        // Create new item
+        return {
+          id: `item-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`,
+          materialType: selection.materialType,
+          materialId: selection.materialType === 'PACKAGING' ? selection.materialId : undefined,
+          itemName: selection.materialName,
+          quantity: selection.quantity,
+          unit: selection.unit,
+          usageCategory: selection.materialType === 'PACKAGING' ? 'PACKAGING' : 'GARMENT',
+          specification: selection.materialCode,
+          sortOrder: index,
+          labelId: selection.materialType === 'LABEL' ? selection.labelId : undefined,
+          componentName: selection.materialType === 'LABEL' ? selection.componentName : undefined,
+          extraPercentage: selection.materialType === 'LABEL' ? selection.extraPercentage : undefined,
+        };
+      }
+    });
+
+    // Replace all items with the updated list (this handles removals too)
+    setPresetItems(updatedItems);
   };
 
   const handleRemoveItem = (itemId: string) => {
@@ -171,22 +197,37 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
 
     try {
       setSaving(true);
+      // Build items array - use separate object shapes for LABEL vs PACKAGING
+      // to ensure materialId is NEVER included for LABEL items (Zod validates UUID)
+      const mappedItems = presetItems.map((item, index) => {
+        const base = {
+          materialType: item.materialType,
+          usageCategory: item.usageCategory,
+          sortOrder: item.sortOrder ?? index,
+        };
+
+        if (item.materialType === 'PACKAGING') {
+          // PACKAGING: include materialId, quantity
+          return {
+            ...base,
+            materialId: item.materialId || undefined,
+            quantity: item.quantity,
+          };
+        } else {
+          // LABEL: include labelId, componentName, extraPercentage - NO materialId
+          return {
+            ...base,
+            labelId: item.labelId || undefined,
+            componentName: item.componentName,
+            extraPercentage: item.extraPercentage,
+          };
+        }
+      });
+
       const data: CreateAccessoryPresetRequest = {
         presetName: presetName.trim(),
         description: presetDescription.trim() || undefined,
-        items: presetItems.map((item, index) => ({
-          materialType: item.materialType,
-          // For PACKAGING: use materialId; For LABEL: use labelId
-          // Send null instead of empty string/undefined for foreign key fields
-          materialId: item.materialType === 'PACKAGING' ? item.materialId || null : null,
-          labelId: item.materialType === 'LABEL' ? item.labelId || null : null,
-          quantity: item.materialType === 'PACKAGING' ? item.quantity : null, // Only for packaging
-          usageCategory: item.usageCategory,
-          sortOrder: item.sortOrder ?? index,
-          // Label-specific fields
-          componentName: item.materialType === 'LABEL' ? item.componentName : null,
-          extraPercentage: item.materialType === 'LABEL' ? item.extraPercentage : null,
-        })),
+        items: mappedItems,
         isDefault: false,
       };
 
@@ -512,6 +553,14 @@ export const CustomerAccessoryPresets: React.FC<CustomerAccessoryPresetsProps> =
         onClose={() => setShowMaterialPicker(false)}
         onSelect={handleAddMaterials}
         customerId={customerId}
+        existingItems={presetItems.map((item) => ({
+          materialType: item.materialType,
+          labelId: item.labelId,
+          materialId: item.materialId,
+          componentName: item.componentName,
+          extraPercentage: item.extraPercentage,
+          quantity: item.quantity,
+        }))}
       />
     </>
   );

@@ -12,7 +12,7 @@
  */
 
 import { z } from 'zod';
-import { UnitEnum } from './common.schema';
+import { UnitEnum, flexMaterialId } from './common.schema';
 
 // ============================================================================
 // Enums (match Prisma enums)
@@ -21,10 +21,24 @@ import { UnitEnum } from './common.schema';
 // Units come from the central shared enum (common.schema.ts) so they can never drift again.
 export { UnitEnum };
 
+/**
+ * Polymorphic item-type discriminator for stock movements.
+ *
+ * NOT the Prisma `MaterialType` enum — do NOT swap in MaterialTypeEnum from
+ * ./generated/prisma-enums. These values tell the controller WHICH master
+ * table `itemId` points to, so it can resolve the matching `materials` record
+ * via its FK column (see ITEM_TYPE_TO_FK in stockMovement.controller.ts).
+ * Only master tables with an FK column on `materials` can appear here; the
+ * remaining MaterialType values have no FK column and must be submitted via
+ * `materialId` directly (which is why `itemType` is optional).
+ * 'MATERIAL' is a special value meaning `itemId` is already a `materials.id`.
+ *
+ * KEEP IN SYNC with ITEM_TYPE_TO_FK in stockMovement.controller.ts.
+ */
 export const ItemTypeEnum = z.enum([
   'GREIGE',
   'FABRIC',
-  'MATERIAL',
+  'MATERIAL', // itemId is already a materials.id (direct lookup, no FK)
   'LACE',
   'BUTTON',
   'THREAD',
@@ -32,6 +46,8 @@ export const ItemTypeEnum = z.enum([
   'ELASTIC',
   'LABEL',
   'PACKAGING',
+  'MACHINE_PART',
+  'OTHER_MATERIAL',
 ]);
 
 export const AdjustmentReasonEnum = z.enum(['DAMAGED', 'EXPIRED', 'LOST', 'FOUND', 'CORRECTION', 'OTHER']);
@@ -46,7 +62,7 @@ export const AdjustmentReasonEnum = z.enum(['DAMAGED', 'EXPIRED', 'LOST', 'FOUND
  */
 export const createStockInSchema = z.object({
   // Material identification (either materialId OR itemType+itemId)
-  materialId: z.string().uuid('Invalid material ID').optional(),
+  materialId: flexMaterialId('material ID').optional(),
   itemType: ItemTypeEnum.optional(),
   itemId: z.string().uuid('Invalid item ID').optional(),
 
@@ -78,7 +94,7 @@ export const createStockInSchema = z.object({
  * Bulk Stock IN item
  */
 export const bulkStockInItemSchema = z.object({
-  materialId: z.string().uuid('Invalid material ID').optional(),
+  materialId: flexMaterialId('material ID').optional(),
   itemType: ItemTypeEnum.optional(),
   itemId: z.string().uuid('Invalid item ID').optional(),
   quantity: z.number().positive('Quantity must be positive'),
@@ -115,7 +131,7 @@ export const createBulkStockInSchema = z.object({
  * POST /api/stock-movements/stock-out
  */
 export const createStockOutSchema = z.object({
-  materialId: z.string().uuid('Invalid material ID').optional(),
+  materialId: flexMaterialId('material ID').optional(),
   itemType: ItemTypeEnum.optional(),
   itemId: z.string().uuid('Invalid item ID').optional(),
   warehouseId: z.string().uuid('Invalid warehouse ID'),
@@ -137,7 +153,7 @@ export const createStockOutSchema = z.object({
  */
 export const createStockTransferSchema = z
   .object({
-    materialId: z.string().uuid('Invalid material ID'),
+    materialId: flexMaterialId('material ID'),
     fromWarehouseId: z.string().uuid('Invalid source warehouse ID'),
     toWarehouseId: z.string().uuid('Invalid destination warehouse ID'),
     quantity: z.number().positive('Quantity must be positive'),
@@ -158,7 +174,7 @@ export const createStockTransferSchema = z
  * POST /api/stock-movements/adjustment
  */
 export const createStockAdjustmentSchema = z.object({
-  materialId: z.string().uuid('Invalid material ID'),
+  materialId: flexMaterialId('material ID'),
   warehouseId: z.string().uuid('Invalid warehouse ID'),
   adjustmentQuantity: z.number().refine((val) => val !== 0, {
     message: 'Adjustment quantity cannot be zero',
@@ -193,7 +209,7 @@ export const createProcessorReturnSchema = z.object({
  */
 export const stockMovementQuerySchema = z.object({
   warehouseId: z.string().uuid().optional(),
-  materialId: z.string().uuid().optional(),
+  materialId: flexMaterialId('material ID').optional(),
   movementType: z
     .enum(['STOCK_IN', 'STOCK_OUT', 'TRANSFER_IN', 'TRANSFER_OUT', 'ADJUSTMENT_IN', 'ADJUSTMENT_OUT'])
     .optional(),
@@ -221,7 +237,7 @@ export const stockMovementIdParamSchema = z.object({
 });
 
 export const materialIdParamSchema = z.object({
-  materialId: z.string().uuid('Invalid material ID'),
+  materialId: flexMaterialId('material ID'),
 });
 
 export const warehouseIdParamSchema = z.object({
@@ -229,7 +245,7 @@ export const warehouseIdParamSchema = z.object({
 });
 
 export const materialWarehouseParamSchema = z.object({
-  materialId: z.string().uuid('Invalid material ID'),
+  materialId: flexMaterialId('material ID'),
   warehouseId: z.string().uuid('Invalid warehouse ID'),
 });
 

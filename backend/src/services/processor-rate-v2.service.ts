@@ -1222,6 +1222,19 @@ export interface LaceRateEntry {
 
 /**
  * Lace row in the rate matrix
+ *
+ * BUG-PRC9 documentation: This interface uses Record<string, number | null> format for rates,
+ * while GreigeRow uses GreigeRateEntry[] (array format). This inconsistency exists because:
+ *
+ * 1. GreigeRow was changed to array format to avoid UUID key corruption by the serializer
+ *    (the serializer was treating UUID keys as potential snake_case fields)
+ *
+ * 2. LaceRow was kept as Record format during the BUG-PRC1 fix (rate history records)
+ *    because lace rate cards are less commonly used and the frontend conversion
+ *    (`convertLaceFromAPI`) handles both formats transparently
+ *
+ * To fully align, LaceRow.rates should be changed to array format and the frontend
+ * conversion function updated. This is tracked as low-priority technical debt.
  */
 export interface LaceRow {
   laceId: string;
@@ -1231,7 +1244,7 @@ export interface LaceRow {
   composition: string | null;
   expectedShrinkagePercent: number | null;
   costPerMeterGreige: number | null;
-  rates: Record<string, number | null>; // slabId -> rate
+  rates: Record<string, number | null>; // slabId -> rate (see note above re: format inconsistency)
 }
 
 /**

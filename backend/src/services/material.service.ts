@@ -9,6 +9,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter } from '../types/prisma.types';
 import { randomUUID } from 'crypto';
+import { MASTER_CONFIG } from './helpers/master-config';
 
 // ============================================
 // Types
@@ -759,39 +760,17 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
 
   /**
    * Get or create a category for material types
-   * These categories are auto-created if they don't exist
+   * These categories are auto-created if they don't exist.
+   * Covers ALL 27 master-backed types via MASTER_CONFIG (category names aligned with the
+   * live DB — e.g. 'Buttons'/'Threads'/'Other' — so near-duplicate categories aren't minted).
    */
-  async getOrCreateCategory(
-    type:
-      | 'FABRIC'
-      | 'LACE'
-      | 'GREIGE'
-      | 'THREAD'
-      | 'BUTTON'
-      | 'ZIPPER'
-      | 'ELASTIC'
-      | 'LABEL'
-      | 'PACKAGING'
-      | 'MACHINE_PART'
-      | 'OTHER_MATERIAL',
-    tx?: any
-  ): Promise<string> {
+  async getOrCreateCategory(type: string, tx?: any): Promise<string> {
     const client = tx || this.prisma;
-    const categoryMap: Record<string, { id: string; name: string }> = {
-      FABRIC: { id: 'CAT-FABRIC', name: 'Fabric' },
-      GREIGE: { id: 'CAT-GREIGE', name: 'Greige (Raw Fabric)' },
-      LACE: { id: 'CAT-LACE', name: 'Lace' },
-      THREAD: { id: 'CAT-THREAD', name: 'Thread' },
-      BUTTON: { id: 'CAT-BUTTON', name: 'Button' },
-      ZIPPER: { id: 'CAT-ZIPPER', name: 'Zipper' },
-      ELASTIC: { id: 'CAT-ELASTIC', name: 'Elastic' },
-      LABEL: { id: 'CAT-LABEL', name: 'Label' },
-      PACKAGING: { id: 'CAT-PACKAGING', name: 'Packaging' },
-      MACHINE_PART: { id: 'CAT-MACHINE-PART', name: 'Machine Part' },
-      OTHER_MATERIAL: { id: 'CAT-OTHER-MATERIAL', name: 'Other Material' },
-    };
-
-    const { id, name } = categoryMap[type];
+    const config = MASTER_CONFIG[type];
+    if (!config) {
+      throw new Error(`getOrCreateCategory: unknown master type "${type}"`);
+    }
+    const { categoryId: id, categoryName: name } = config;
 
     // Check if category exists (by id OR by name — existing categories may have UUID ids)
     const existing = await client.material_categories.findFirst({
@@ -832,56 +811,37 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
 
   /**
    * Create a materials record from a master table record.
-   * Uses the SAME ID as the master to keep them in sync.
-   * Supports all master types: fabric, lace, greige, and all trim types.
+   * Uses the SAME ID as the master to keep them in sync — the core invariant of the
+   * material-identity project (materials.id === master.id, one item one identity).
+   * Supports ALL 27 master-backed types via MASTER_CONFIG (fk/unit/category derived, not hardcoded).
    */
   async createFromMaster(
     master: { id: string; code: string; name: string },
-    type:
-      | 'FABRIC'
-      | 'LACE'
-      | 'GREIGE'
-      | 'THREAD'
-      | 'BUTTON'
-      | 'ZIPPER'
-      | 'ELASTIC'
-      | 'LABEL'
-      | 'PACKAGING'
-      | 'MACHINE_PART'
-      | 'OTHER_MATERIAL',
+    type: string,
     tx?: any
   ): Promise<materials> {
     const client = tx || this.prisma;
+    const config = MASTER_CONFIG[type];
+    if (!config) {
+      throw new Error(`createFromMaster: unknown master type "${type}"`);
+    }
     logDebug(`Creating materials record from ${type} master`, { id: master.id, code: master.code });
 
-    // Check if materials record already exists with this ID
-    const existing = await client.materials.findUnique({
-      where: { id: master.id },
+    // Idempotency: return the existing row whether it was created under the same-id
+    // convention (id === master.id) or the legacy mat-<code> convention (found via FK).
+    // sizeVariantId: null matters for LABELs — a label has one BASE row plus per-size rows
+    // (labelId non-unique); the FK lookup must not return a size row as "the" base row.
+    const existing = await client.materials.findFirst({
+      where: { OR: [{ id: master.id }, { [config.fkField]: master.id, sizeVariantId: null }] },
     });
 
     if (existing) {
-      logDebug(`Materials record already exists for ${type}`, { id: master.id });
+      logDebug(`Materials record already exists for ${type}`, { id: existing.id });
       return existing;
     }
 
     // Get or create the category for this type
     const categoryId = await this.getOrCreateCategory(type, tx);
-
-    // Determine unit based on type
-    const unitMap: Record<string, Unit> = {
-      FABRIC: 'METER',
-      GREIGE: 'METER',
-      LACE: 'METER',
-      ELASTIC: 'METER',
-      THREAD: 'CONE',
-      BUTTON: 'PIECE',
-      ZIPPER: 'PIECE',
-      LABEL: 'PIECE',
-      PACKAGING: 'PIECE',
-      MACHINE_PART: 'PIECE',
-      OTHER_MATERIAL: 'PIECE',
-    };
-    const unit: Unit = unitMap[type] || 'PIECE';
 
     // Create materials record with SAME ID as master
     const material = await client.materials.create({
@@ -890,25 +850,54 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
         code: master.code, // Same code
         name: master.name, // Same name
         categoryId,
-        materialType: type,
-        unit,
+        materialType: type as any,
+        unit: config.unit,
         isActive: true,
         // Link back to the appropriate master
-        fabricId: type === 'FABRIC' ? master.id : null,
-        greigeId: type === 'GREIGE' ? master.id : null,
-        laceId: type === 'LACE' ? master.id : null,
-        threadId: type === 'THREAD' ? master.id : null,
-        buttonId: type === 'BUTTON' ? master.id : null,
-        zipperId: type === 'ZIPPER' ? master.id : null,
-        elasticId: type === 'ELASTIC' ? master.id : null,
-        labelId: type === 'LABEL' ? master.id : null,
-        packagingId: type === 'PACKAGING' ? master.id : null,
-        machinePartId: type === 'MACHINE_PART' ? master.id : null,
-        otherMaterialId: type === 'OTHER_MATERIAL' ? master.id : null,
+        [config.fkField]: master.id,
       },
     });
 
     logInfo(`Created materials record from ${type} master`, { id: material.id, code: material.code });
+    return material;
+  }
+
+  /**
+   * Create the materials record for a LABEL SIZE VARIANT.
+   * Labels are the one type with MULTIPLE materials rows: one base row (id = label_master.id,
+   * sizeVariantId null) plus one row per size (id = label_size_variants.id). materials.labelId
+   * is deliberately non-unique to allow this (schema comment at the labelId column).
+   */
+  async createFromLabelSizeVariant(
+    label: { id: string; labelCode: string; labelName: string },
+    variant: { id: string; size: string },
+    tx?: any
+  ): Promise<materials> {
+    const client = tx || this.prisma;
+
+    // Idempotency: same-id convention OR legacy mat-<code>-<size> row (found via sizeVariantId)
+    const existing = await client.materials.findFirst({
+      where: { OR: [{ id: variant.id }, { sizeVariantId: variant.id }] },
+    });
+    if (existing) return existing;
+
+    const categoryId = await this.getOrCreateCategory('LABEL', tx);
+
+    const material = await client.materials.create({
+      data: {
+        id: variant.id, // Same ID as the size-variant record
+        code: `${label.labelCode}-${variant.size}`,
+        name: `${label.labelName} - Size ${variant.size}`,
+        categoryId,
+        materialType: 'LABEL',
+        unit: 'PIECE',
+        isActive: true,
+        labelId: label.id,
+        sizeVariantId: variant.id,
+      },
+    });
+
+    logInfo(`Created materials record for label size variant`, { id: material.id, code: material.code });
     return material;
   }
 }

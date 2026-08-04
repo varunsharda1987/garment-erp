@@ -13,36 +13,10 @@
 import prisma from '../../config/database';
 import { materialService } from '../material.service';
 import { logInfo, logError } from '../../utils/logger';
-
-// Master table configuration for each material type
-const MASTER_CONFIG: Record<string, { table: string; codeField: string; nameField: string; fkField: string }> = {
-  GREIGE: { table: 'greige_master', codeField: 'greigeCode', nameField: 'greigeName', fkField: 'greigeId' },
-  FABRIC: { table: 'fabric_master', codeField: 'fabricCode', nameField: 'fabricName', fkField: 'fabricId' },
-  LACE: { table: 'lace_master', codeField: 'laceCode', nameField: 'laceName', fkField: 'laceId' },
-  THREAD: { table: 'thread_master', codeField: 'threadCode', nameField: 'threadName', fkField: 'threadId' },
-  BUTTON: { table: 'button_master', codeField: 'buttonCode', nameField: 'buttonName', fkField: 'buttonId' },
-  ZIPPER: { table: 'zipper_master', codeField: 'zipperCode', nameField: 'zipperName', fkField: 'zipperId' },
-  ELASTIC: { table: 'elastic_master', codeField: 'elasticCode', nameField: 'elasticName', fkField: 'elasticId' },
-  LABEL: { table: 'label_master', codeField: 'labelCode', nameField: 'labelName', fkField: 'labelId' },
-  PACKAGING: {
-    table: 'packaging_master',
-    codeField: 'packagingCode',
-    nameField: 'packagingName',
-    fkField: 'packagingId',
-  },
-  MACHINE_PART: {
-    table: 'machine_part_master',
-    codeField: 'partCode',
-    nameField: 'partName',
-    fkField: 'machinePartId',
-  },
-  OTHER_MATERIAL: {
-    table: 'other_material_master',
-    codeField: 'materialCode',
-    nameField: 'materialName',
-    fkField: 'otherMaterialId',
-  },
-};
+// Single source of truth for ALL 27 master-backed material types (material-identity project:
+// previously only 11 were configured here, so ensureMaterialRecord threw "Unknown master type"
+// for every extended trim — hook_eye, ribbon, sequin, etc. — breaking their stock operations).
+import { MASTER_CONFIG } from './master-config';
 
 /**
  * Ensures a `materials` record exists for a given master record.
@@ -265,7 +239,7 @@ export async function syncStockLevelQuantity(
 export async function syncMasterToMaterials(
   masterId: string,
   masterType: string,
-  updates: { code?: string; name?: string },
+  updates: { code?: string; name?: string; isActive?: boolean },
   tx?: any
 ): Promise<void> {
   const config = MASTER_CONFIG[masterType];
@@ -275,14 +249,15 @@ export async function syncMasterToMaterials(
   }
 
   // Skip if no updates to sync
-  if (!updates.code && !updates.name) return;
+  if (!updates.code && !updates.name && updates.isActive === undefined) return;
 
   const client = tx || prisma;
 
   try {
-    const updateData: { code?: string; name?: string } = {};
+    const updateData: { code?: string; name?: string; isActive?: boolean } = {};
     if (updates.code) updateData.code = updates.code;
     if (updates.name) updateData.name = updates.name;
+    if (updates.isActive !== undefined) updateData.isActive = updates.isActive;
 
     const result = await client.materials.updateMany({
       where: { [config.fkField]: masterId },

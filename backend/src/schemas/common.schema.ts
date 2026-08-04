@@ -155,6 +155,13 @@ export const materialIdParamSchema = z.object({
   materialId: z.string().min(1, 'Material ID is required').max(100),
 });
 
+// Body-field variant of the same rule. DELIBERATELY permissive — do NOT tighten to .uuid():
+// even after the 2026-08 id-unification (mat-* ids migrated to master uuids), materials.id
+// legitimately includes code-shaped legacy greige ids (FAB-RAW-…, allowlisted orphans) and
+// some flows pass the 'auto-thread' sentinel. The FK constraint rejects garbage with P2003;
+// format-validation here only creates false 400s. See materialIdParamSchema above.
+export const flexMaterialId = (label = 'material ID') => z.string().min(1, `${label} is required`).max(100);
+
 export const customerIdParamSchema = z.object({
   customerId: z.string().uuid('Invalid customer ID'),
 });

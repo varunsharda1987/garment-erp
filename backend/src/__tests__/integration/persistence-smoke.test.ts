@@ -133,6 +133,148 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+/**
+ * Customer accessory presets — bespoke round-trip (customer-nested, so it doesn't fit
+ * the flat MODULES array). Pins two Phase-0 fixes of the material-identity project:
+ *  1. materialId accepts legacy 'mat-<code>' ids (was z.uuid() → 400 on every packaging item)
+ *  2. every preset read/write returns the `material` object (was list-endpoint-only →
+ *     packaging items rendered blank right after save)
+ */
+describe('customer accessory presets — round-trip with legacy mat-* material id', () => {
+  let customerId: string;
+  let labelId: string;
+  let packagingMaterialId: string;
+  let presetId: string;
+  const base = () => `/api/customers/${customerId}/accessory-presets`;
+
+  beforeAll(async () => {
+    const customer = await prisma.customers.create({
+      data: {
+        code: `${RUN}-CUST`,
+        name: `${RUN} Preset Customer`,
+        type: 'BUYER',
+        category: 'DOMESTIC',
+        createdById: testUserId,
+      },
+    });
+    customerId = customer.id;
+
+    const label = await prisma.label_master.create({
+      data: { labelCode: `${RUN}-LBL`, labelName: `${RUN} Label`, labelCategory: 'SEWN_IN' },
+    });
+    labelId = label.id;
+    // Base materials row (id === label id — same-id convention): the dual-write sets
+    // preset item materialId = labelId only when this row exists.
+    await prisma.material_categories.create({ data: { id: `CAT-${RUN}-L`, name: `${RUN} Label Cat` } });
+    await prisma.materials.create({
+      data: {
+        id: label.id,
+        code: `${RUN}-LBL`,
+        name: `${RUN} Label`,
+        categoryId: `CAT-${RUN}-L`,
+        unit: 'PIECE',
+        materialType: 'LABEL',
+        labelId: label.id,
+      },
+    });
+
+    const packaging = await prisma.packaging_master.create({
+      data: { packagingCode: `${RUN}-PKG`, packagingName: `${RUN} Polybag` },
+    });
+
+    // Legacy-convention materials row: 'mat-<code>' id + required category. This is exactly
+    // what the trim controllers create today; the round-trip must accept it end-to-end.
+    await prisma.material_categories.create({
+      data: { id: `CAT-${RUN}`, name: `${RUN} Packaging Cat` },
+    });
+    packagingMaterialId = `mat-${RUN.toLowerCase()}-pkg`;
+    await prisma.materials.create({
+      data: {
+        id: packagingMaterialId,
+        code: `${RUN}-PKG`,
+        name: `${RUN} Polybag`,
+        categoryId: `CAT-${RUN}`,
+        unit: 'PIECE',
+        materialType: 'PACKAGING',
+        packagingId: packaging.id,
+      },
+    });
+  });
+
+  it('creates a preset with LABEL + legacy-id PACKAGING items', async () => {
+    const res = await request(app)
+      .post(base())
+      .set(authHeader)
+      .send({
+        presetName: `${RUN} Preset`,
+        items: [
+          { materialType: 'LABEL', labelId, componentName: 'Back Neck', extraPercentage: 5 },
+          { materialType: 'PACKAGING', materialId: packagingMaterialId, quantity: 2, usageCategory: 'PACKAGING' },
+        ],
+      });
+    if (res.status >= 400) {
+      throw new Error(`POST accessory-presets → ${res.status}: ${JSON.stringify(res.body)}`);
+    }
+    const created = (res.body.data ?? res.body) as Record<string, any>;
+    presetId = created.id;
+    expect(presetId).toBeTruthy();
+    expect(created.items).toHaveLength(2);
+  });
+
+  it('reads back both items WITH label/material objects hydrated', async () => {
+    const res = await request(app).get(`${base()}/${presetId}`).set(authHeader).expect(200);
+    const preset = (res.body.data ?? res.body) as Record<string, any>;
+    const items: any[] = preset.items;
+    expect(items).toHaveLength(2);
+
+    const labelItem = items.find((i) => i.materialType === 'LABEL');
+    expect(labelItem.labelId).toBe(labelId);
+    expect(labelItem.componentName).toBe('Back Neck');
+    expect(labelItem.label?.labelName).toBe(`${RUN} Label`);
+    // Dual-write pin (material-identity Phase 3): LABEL items carry the unified materialId
+    expect(labelItem.materialId).toBe(labelId);
+
+    const pkgItem = items.find((i) => i.materialType === 'PACKAGING');
+    expect(pkgItem.materialId).toBe(packagingMaterialId);
+    expect(Number(pkgItem.quantity)).toBe(2);
+    // The include-asymmetry pin: material must be hydrated on EVERY read, not just the list.
+    expect(pkgItem.material?.name).toBe(`${RUN} Polybag`);
+    expect(pkgItem.material?.code).toBe(`${RUN}-PKG`);
+  });
+
+  it('replaces items via PUT and the replacement persists', async () => {
+    const res = await request(app)
+      .put(`${base()}/${presetId}`)
+      .set(authHeader)
+      .send({
+        presetName: `${RUN} Preset v2`,
+        items: [
+          { materialType: 'PACKAGING', materialId: packagingMaterialId, quantity: 5, usageCategory: 'PACKAGING' },
+        ],
+      });
+    if (res.status >= 400) {
+      throw new Error(`PUT accessory-presets → ${res.status}: ${JSON.stringify(res.body)}`);
+    }
+
+    const back = await request(app).get(`${base()}/${presetId}`).set(authHeader).expect(200);
+    const preset = (back.body.data ?? back.body) as Record<string, any>;
+    expect(preset.presetName).toBe(`${RUN} Preset v2`);
+    expect(preset.items).toHaveLength(1);
+    expect(Number(preset.items[0].quantity)).toBe(5);
+    expect(preset.items[0].material?.name).toBe(`${RUN} Polybag`);
+  });
+
+  afterAll(async () => {
+    // FK order: preset items cascade with preset; materials Restricts preset items, so preset first.
+    await prisma.customer_accessories_presets.deleteMany({ where: { customerId } });
+    await prisma.materials.deleteMany({ where: { id: { in: [packagingMaterialId, labelId] } } });
+    await prisma.material_categories.deleteMany({ where: { id: { in: [`CAT-${RUN}`, `CAT-${RUN}-L`] } } });
+    await prisma.packaging_master.deleteMany({ where: { packagingCode: `${RUN}-PKG` } });
+    await prisma.label_master.deleteMany({ where: { labelCode: `${RUN}-LBL` } });
+    await prisma.customers.deleteMany({ where: { id: customerId } });
+  });
+});
+
 describe.each(MODULES)('$name — create/update round-trip persists every field', (spec) => {
   let id: string;
 

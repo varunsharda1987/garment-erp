@@ -591,7 +591,10 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
         }))
         .filter((bd) => bd.categories.length > 0);
 
-      // Also prepare old format for backward compatibility
+      // BUG-CU13: Dual brand format maintained for backward compatibility
+      // - brandCategories: structured array with productCategoryIds (new format)
+      // - brandNames/categories: flat strings (legacy format for reports/exports)
+      // Both are maintained until legacy consumers are migrated
       const brandNamesString = brandData
         .map((bd) => bd.brandName.trim())
         .filter((b) => b)

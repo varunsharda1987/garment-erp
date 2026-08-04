@@ -3,8 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getAllLabels, deleteLabel } from '@/services/label.service';
+import { getAllCustomers } from '@/services/customer.service';
 import type { Label } from '@/types/label.types';
+import type { Customer } from '@/types/customer.types';
 import ExportButton from '@/components/ExportButton';
 import ImportButton from '@/components/ImportButton';
 import SearchInput from '@/components/SearchInput';
@@ -13,7 +16,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { Package } from 'lucide-react';
+import { Package, X } from 'lucide-react';
 import { ViewStockButton } from '@/components/ViewStockButton';
 import stockLevelService from '@/services/stockLevel.service';
 
@@ -41,6 +44,11 @@ export default function LabelList() {
   // Filter state
   const [searchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
+  const [customerId, setCustomerId] = useState<string>('');
+  const [labelCategory, setLabelCategory] = useState<string>('');
+
+  // Dropdown data
+  const [customers, setCustomers] = useState<Customer[]>([]);
 
   // Stock count state
   const [stockCount, setStockCount] = useState<number | undefined>(undefined);
@@ -53,7 +61,20 @@ export default function LabelList() {
     fetchLabelItems();
     fetchStockCount();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery]);
+  }, [currentPage, pageSize, searchQuery, customerId, labelCategory]);
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      const response = await getAllCustomers({ limit: 200 });
+      setCustomers(response.data);
+    } catch (err) {
+      handleApiError(err, 'Failed to load customers for the filter');
+    }
+  };
 
   const fetchStockCount = async () => {
     try {
@@ -73,6 +94,8 @@ export default function LabelList() {
         page: currentPage,
         limit: pageSize,
         search: searchQuery || undefined,
+        customerId: customerId || undefined,
+        labelCategory: labelCategory || undefined,
       });
       setLabelItems(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -84,6 +107,15 @@ export default function LabelList() {
       setIsLoading(false);
     }
   };
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCustomerId('');
+    setLabelCategory('');
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters = searchQuery || customerId || labelCategory;
 
   const handleDeleteClick = (id: string, name: string) => {
     setLabelToDelete({ id, name });
@@ -301,14 +333,70 @@ export default function LabelList() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Search Filter */}
-          <div className="mb-6">
-            <div className="flex-1 max-w-md">
-              <SearchInput
-                placeholder="Search by code, name, or type..."
-                value={searchQuery}
-                onChange={setSearchQuery}
-              />
+          {/* Filters */}
+          <div className="mb-6 space-y-4">
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Search */}
+              <div className="flex-1 min-w-[200px] max-w-md">
+                <SearchInput
+                  placeholder="Search by code, name, or type..."
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                />
+              </div>
+
+              {/* Customer Filter */}
+              <div className="w-[200px]">
+                <Select
+                  value={customerId || '_all_'}
+                  onValueChange={(val) => {
+                    setCustomerId(val === '_all_' ? '' : val);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Customers" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all_">All Customers</SelectItem>
+                    <SelectItem value="_generic_">Generic Only</SelectItem>
+                    {customers.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Label Category Filter */}
+              <div className="w-[180px]">
+                <Select
+                  value={labelCategory || '_all_'}
+                  onValueChange={(val) => {
+                    setLabelCategory(val === '_all_' ? '' : val);
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Categories" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_all_">All Categories</SelectItem>
+                    <SelectItem value="SEWN_IN">Sewn-in Labels</SelectItem>
+                    <SelectItem value="HANGTAG">Hangtags</SelectItem>
+                    <SelectItem value="PRICE_TAG">Price Tags</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Clear Filters */}
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-10">
+                  <X className="h-4 w-4 mr-1" />
+                  Clear
+                </Button>
+              )}
             </div>
           </div>
 

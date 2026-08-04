@@ -25,7 +25,7 @@ import type { Packaging } from '../types/packaging.types';
 // Selection types
 export interface PresetItemSelection {
   materialType: 'LABEL' | 'PACKAGING';
-  materialId: string;
+  materialId?: string; // Optional - only for PACKAGING type
   materialCode: string;
   materialName: string;
   quantity: number;
@@ -37,11 +37,22 @@ export interface PresetItemSelection {
   extraPercentage?: number; // Buffer % for labels (default 5)
 }
 
+// Existing item from preset (for pre-selection)
+interface ExistingPresetItem {
+  materialType: string;
+  labelId?: string | null;
+  materialId?: string | null;
+  componentName?: string | null;
+  extraPercentage?: number | null;
+  quantity?: number | null;
+}
+
 interface AccessoryPresetPickerProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (items: PresetItemSelection[]) => void;
   customerId?: string; // Optional filter by customer
+  existingItems?: ExistingPresetItem[]; // Pre-select these items when editing
 }
 
 // Internal item structure
@@ -58,7 +69,13 @@ interface PickerItem {
 
 type TabType = 'LABEL' | 'PACKAGING';
 
-export default function AccessoryPresetPicker({ isOpen, onClose, onSelect, customerId }: AccessoryPresetPickerProps) {
+export default function AccessoryPresetPicker({
+  isOpen,
+  onClose,
+  onSelect,
+  customerId,
+  existingItems,
+}: AccessoryPresetPickerProps) {
   const [activeTab, setActiveTab] = useState<TabType>('LABEL');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -101,56 +118,83 @@ export default function AccessoryPresetPicker({ isOpen, onClose, onSelect, custo
   const loadAllItems = async () => {
     setLoading(true);
     try {
-      await Promise.all([loadLabels(), loadPackaging()]);
+      // Load labels and packaging
+      const [labelsData, packagingData] = await Promise.all([
+        getAllLabels({ limit: 100, customerId }).then((res) =>
+          res.data.map((l: LabelType) => ({
+            id: l.id,
+            code: l.labelCode,
+            name: l.labelName,
+            subType: l.labelType,
+            unit: 'pcs',
+            labelCategory: l.labelCategory,
+            brandName: l.brandCategory?.brandName || null,
+            customerName: l.customer?.name || null,
+          }))
+        ),
+        getAllPackaging({ limit: 100, customerId }).then((res) =>
+          res.data.map((p: Packaging & { materialId?: string }) => ({
+            id: p.materialId || p.id,
+            code: p.packagingCode,
+            name: p.packagingName,
+            subType: p.packagingType,
+            unit: 'pcs',
+            brandName: p.brandCategory?.brandName || null,
+            customerName: p.customer?.name || null,
+          }))
+        ),
+      ]);
+
+      setLabels(labelsData);
+      setPackaging(packagingData);
+
+      // Pre-select existing items AFTER data is loaded
+      if (existingItems?.length) {
+        const initialSelected = new Map<
+          string,
+          {
+            item: PickerItem;
+            type: TabType;
+            quantity: number;
+            componentName?: string;
+            extraPercentage?: number;
+          }
+        >();
+
+        existingItems.forEach((existing) => {
+          const id = existing.materialType === 'LABEL' ? existing.labelId : existing.materialId;
+          if (!id) return;
+
+          let item: PickerItem | undefined;
+          let type: TabType;
+
+          if (existing.materialType === 'LABEL') {
+            item = labelsData.find((l: PickerItem) => l.id === id);
+            type = 'LABEL';
+          } else {
+            item = packagingData.find((p: PickerItem) => p.id === id);
+            type = 'PACKAGING';
+          }
+
+          if (item) {
+            initialSelected.set(id, {
+              item,
+              type,
+              quantity: existing.quantity || 1,
+              componentName: existing.componentName ?? undefined,
+              extraPercentage: existing.extraPercentage ?? undefined,
+            });
+          }
+        });
+
+        if (initialSelected.size > 0) {
+          setSelectedItems(initialSelected);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load items:', error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadLabels = async () => {
-    try {
-      // Load ALL labels (sewn-in, hangtags, price tags) for customer presets
-      // Filter by customer if provided (shows customer-specific + generic)
-      const response = await getAllLabels({ limit: 100, customerId });
-
-      setLabels(
-        response.data.map((l: LabelType) => ({
-          id: l.id,
-          code: l.labelCode,
-          name: l.labelName,
-          subType: l.labelType,
-          unit: 'pcs',
-          labelCategory: l.labelCategory,
-          // Include brand and customer info for identification
-          brandName: l.brandCategory?.brandName || null,
-          customerName: l.customer?.name || null,
-        }))
-      );
-    } catch (error) {
-      console.error('Failed to load labels:', error);
-    }
-  };
-
-  const loadPackaging = async () => {
-    try {
-      // Filter by customer if provided
-      const response = await getAllPackaging({ limit: 100, customerId });
-      setPackaging(
-        response.data.map((p: Packaging & { materialId?: string }) => ({
-          // Use materialId (from materials table) for preset items, NOT packaging_master.id
-          // The preset's materialId field references the materials table
-          id: p.materialId || p.id,
-          code: p.packagingCode,
-          name: p.packagingName,
-          subType: p.packagingType,
-          unit: 'pcs',
-          // Include brand and customer info for identification
-          brandName: p.brandCategory?.brandName || null,
-          customerName: p.customer?.name || null,
-        }))
-      );
-    } catch (error) {
-      console.error('Failed to load packaging:', error);
     }
   };
 
@@ -252,7 +296,7 @@ export default function AccessoryPresetPicker({ isOpen, onClose, onSelect, custo
     const selections: PresetItemSelection[] = Array.from(selectedItems.values()).map(
       ({ item, type, quantity, componentName, extraPercentage }) => ({
         materialType: type,
-        materialId: type === 'LABEL' ? '' : item.id, // For labels, materialId is not used
+        materialId: type === 'LABEL' ? undefined : item.id, // For labels, use labelId instead
         materialCode: item.code,
         materialName: item.name,
         quantity,

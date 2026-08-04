@@ -341,8 +341,15 @@ export async function issueChallan(id: string, userId?: string) {
             },
           });
 
-          // Sync stock_levels
-          if (laceStock.laceId) await syncStockLevelQuantity(laceStock.laceId, -qty, undefined, 'METER', tx);
+          // BUG-INV3 fix: find materials.id instead of using laceId directly
+          if (laceStock.laceId) {
+            const laceMaterial = await tx.materials.findFirst({
+              where: { laceId: laceStock.laceId },
+              select: { id: true },
+            });
+            if (laceMaterial)
+              await syncStockLevelQuantity(laceMaterial.id, -qty, laceStock.warehouseId ?? undefined, 'METER', tx);
+          }
         }
 
         // 4. Thread stock deduction
@@ -399,8 +406,15 @@ export async function issueChallan(id: string, userId?: string) {
             },
           });
 
-          // Sync stock_levels
-          if (threadStock.threadId) await syncStockLevelQuantity(threadStock.threadId, -qty, undefined, 'METER', tx);
+          // BUG-INV3 fix: find materials.id instead of using threadId directly
+          if (threadStock.threadId) {
+            const threadMaterial = await tx.materials.findFirst({
+              where: { threadId: threadStock.threadId },
+              select: { id: true },
+            });
+            if (threadMaterial)
+              await syncStockLevelQuantity(threadMaterial.id, -qty, threadStock.warehouseId ?? undefined, 'METER', tx);
+          }
         }
 
         // 5. General material (trims/accessories) — deduct via stock_movements + stock_levels
@@ -801,7 +815,7 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
         if (item.laceStockId) {
           const laceStock = await tx.lace_stock.findUnique({
             where: { id: item.laceStockId },
-            select: { laceId: true },
+            select: { laceId: true, warehouseId: true },
           });
           await tx.lace_stock.update({
             where: { id: item.laceStockId },
@@ -825,8 +839,21 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
             },
           });
 
-          // Sync stock_levels
-          if (laceStock?.laceId) await syncStockLevelQuantity(laceStock.laceId, receivedQty, undefined, 'METER', tx);
+          // BUG-INV3 fix: find materials.id instead of using laceId directly
+          if (laceStock?.laceId) {
+            const laceMaterial = await tx.materials.findFirst({
+              where: { laceId: laceStock.laceId },
+              select: { id: true },
+            });
+            if (laceMaterial)
+              await syncStockLevelQuantity(
+                laceMaterial.id,
+                receivedQty,
+                laceStock.warehouseId ?? undefined,
+                'METER',
+                tx
+              );
+          }
         }
 
         // General material credit (trims/accessories) via stock_movements

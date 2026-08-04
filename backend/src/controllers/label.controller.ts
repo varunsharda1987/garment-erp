@@ -5,6 +5,7 @@ import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 import { getDerivedOnHandMap, getDerivedStockDetailed } from '../services/helpers/derived-stock.helper';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
+import { materialService } from '../services/material.service';
 
 // Type for supplier input
 interface LabelSupplierInput {
@@ -99,146 +100,129 @@ export const createLabel = async (req: Request, res: Response) => {
     finalLabelName = parts.join(' ').trim() || `Label ${labelCode}`;
   }
 
-  // Get Label material category ID
-  const labelMaterialCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Label' },
-  });
-
-  if (!labelMaterialCategory) {
-    throw new BusinessError('Label material category not found. Please run Phase 1 migration.');
-  }
-
-  // Create label_master entry with suppliers using Prisma
-  const labelRecord = await prisma.label_master.create({
-    data: {
-      labelCode,
-      labelName: finalLabelName,
-      supplierCode: supplierCode || null,
-      buyerCode: buyerCode || null,
-      customerId: finalCustomerId, // Link to customer (auto-derived from brand if not provided)
-      brandCategoryId: brandCategoryId || null, // Link to brand
-      labelCategory: labelCategory as any,
-      labelType: labelType || null,
-      size: size || null,
-      content: content || null,
-      fabricContent: fabricContent || null,
-      washcareInstructions: washcareInstructions || null,
-      printMethod: printMethod || null,
-      material: material || null,
-      color: color || null,
-      pricePerPiece: pricePerPiece ? parseFloat(pricePerPiece) : null,
-      pricePerHundred: pricePerHundred ? parseFloat(pricePerHundred) : null,
-      supplierId: supplierId || null,
-      description: description || null,
-      isActive: true,
-      // Create supplier relationships
-      labelSuppliers: {
-        create: suppliers.map((s: LabelSupplierInput) => ({
-          supplierId: s.supplierId,
-          isPreferred: s.isPreferred || false,
-          isActive: s.isActive !== undefined ? s.isActive : true,
-          notes: s.notes || null,
-          pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
-          pricePerHundred: s.pricePerHundred ? parseFloat(String(s.pricePerHundred)) : null,
-        })),
-      },
-    },
-    include: {
-      customer: {
-        select: {
-          id: true,
-          code: true,
-          name: true,
+  // Create label_master + ALL its materials rows atomically (materials.id === master.id —
+  // material-identity invariant). Labels are the one type with MULTIPLE materials rows:
+  // one BASE row (id = label id) + one row per size variant (id = variant id).
+  const { labelRecord, sizeVariants, materialEntry, materialEntries } = await prisma.$transaction(async (tx) => {
+    const labelRecord = await tx.label_master.create({
+      data: {
+        labelCode,
+        labelName: finalLabelName,
+        supplierCode: supplierCode || null,
+        buyerCode: buyerCode || null,
+        customerId: finalCustomerId, // Link to customer (auto-derived from brand if not provided)
+        brandCategoryId: brandCategoryId || null, // Link to brand
+        labelCategory: labelCategory as any,
+        labelType: labelType || null,
+        size: size || null,
+        content: content || null,
+        fabricContent: fabricContent || null,
+        washcareInstructions: washcareInstructions || null,
+        printMethod: printMethod || null,
+        material: material || null,
+        color: color || null,
+        pricePerPiece: pricePerPiece ? parseFloat(pricePerPiece) : null,
+        pricePerHundred: pricePerHundred ? parseFloat(pricePerHundred) : null,
+        supplierId: supplierId || null,
+        description: description || null,
+        isActive: true,
+        // Create supplier relationships
+        labelSuppliers: {
+          create: suppliers.map((s: LabelSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerPiece: s.pricePerPiece ? parseFloat(String(s.pricePerPiece)) : null,
+            pricePerHundred: s.pricePerHundred ? parseFloat(String(s.pricePerHundred)) : null,
+          })),
         },
       },
-      labelSuppliers: {
-        include: {
-          supplier: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              contactPerson: true,
-              email: true,
-              phone: true,
-              isActive: true,
-            },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
           },
         },
-        orderBy: { isPreferred: 'desc' },
+        labelSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
+            },
+          },
+          orderBy: { isPreferred: 'desc' },
+        },
       },
-    },
-  });
-
-  // Auto-generate size variants if requested
-  let sizeVariants: any[] = [];
-  let materialEntry = null;
-  const materialEntries: any[] = [];
-
-  if (generateSizeVariants && sizeCategoryId) {
-    const sizeCategory = await prisma.size_categories.findUnique({
-      where: { id: sizeCategoryId },
-      select: { sizes: true },
     });
 
-    if (sizeCategory && Array.isArray(sizeCategory.sizes)) {
-      // Create size variants for each size in the category
-      const variantData = (sizeCategory.sizes as string[]).map((sizeValue) => ({
-        labelId: labelRecord.id,
-        sizeCategoryId: sizeCategoryId,
-        size: sizeValue,
-        stockQuantity: 0,
-        isActive: true,
-      }));
+    // ALWAYS create the base materials row (id = label id, sizeVariantId null) — the label's
+    // single unified identity used by presets/BOM. Size rows are ADDITIONAL per-size rows.
+    const materialEntry = await materialService.createFromMaster(
+      { id: labelRecord.id, code: labelCode, name: finalLabelName },
+      'LABEL',
+      tx
+    );
 
-      await prisma.label_size_variants.createMany({
-        data: variantData,
+    // Auto-generate size variants if requested
+    let sizeVariants: any[] = [];
+    const materialEntries: any[] = [];
+
+    if (generateSizeVariants && sizeCategoryId) {
+      const sizeCategory = await tx.size_categories.findUnique({
+        where: { id: sizeCategoryId },
+        select: { sizes: true },
       });
 
-      // Fetch created variants
-      sizeVariants = await prisma.label_size_variants.findMany({
-        where: { labelId: labelRecord.id },
-        select: {
-          id: true,
-          size: true,
-          stockQuantity: true,
+      if (sizeCategory && Array.isArray(sizeCategory.sizes)) {
+        // Create size variants for each size in the category
+        const variantData = (sizeCategory.sizes as string[]).map((sizeValue) => ({
+          labelId: labelRecord.id,
+          sizeCategoryId: sizeCategoryId,
+          size: sizeValue,
+          stockQuantity: 0,
           isActive: true,
-        },
-      });
+        }));
 
-      // Create material entry for each size variant
-      for (const variant of sizeVariants) {
-        const variantMaterial = await prisma.materials.create({
-          data: {
-            id: `mat-${labelCode.toLowerCase()}-${variant.size.toLowerCase()}`,
-            code: `${labelCode}-${variant.size}`,
-            name: `${finalLabelName} - Size ${variant.size}`,
-            materialType: 'LABEL',
-            labelId: labelRecord.id,
-            sizeVariantId: variant.id,
-            categoryId: labelMaterialCategory.id,
-            unit: 'PIECE',
+        await tx.label_size_variants.createMany({
+          data: variantData,
+        });
+
+        // Fetch created variants
+        sizeVariants = await tx.label_size_variants.findMany({
+          where: { labelId: labelRecord.id },
+          select: {
+            id: true,
+            size: true,
+            stockQuantity: true,
             isActive: true,
           },
         });
-        materialEntries.push(variantMaterial);
+
+        // Create material entry for each size variant (id = variant id)
+        for (const variant of sizeVariants) {
+          materialEntries.push(
+            await materialService.createFromLabelSizeVariant(
+              { id: labelRecord.id, labelCode, labelName: finalLabelName },
+              { id: variant.id, size: variant.size },
+              tx
+            )
+          );
+        }
       }
     }
-  } else {
-    // Create single material entry if no size variants
-    materialEntry = await prisma.materials.create({
-      data: {
-        id: `mat-${labelCode.toLowerCase()}`,
-        code: labelCode,
-        name: finalLabelName,
-        materialType: 'LABEL',
-        labelId: labelRecord.id,
-        categoryId: labelMaterialCategory.id,
-        unit: 'PIECE',
-        isActive: true,
-      },
-    });
-  }
+
+    return { labelRecord, sizeVariants, materialEntry, materialEntries };
+  });
 
   res.status(201).json({
     label: labelRecord,
@@ -273,9 +257,15 @@ export const getAllLabel = async (req: Request, res: Response) => {
 
   // Filter by customer - show customer-specific labels OR generic (no customer)
   if (customerId) {
-    whereConditions.push({
-      OR: [{ customerId: String(customerId) }, { customerId: null }],
-    });
+    if (String(customerId) === '_generic_') {
+      // Show only generic labels (no customer assigned)
+      whereConditions.push({ customerId: null });
+    } else {
+      // Show customer-specific labels + generic labels
+      whereConditions.push({
+        OR: [{ customerId: String(customerId) }, { customerId: null }],
+      });
+    }
   }
 
   // Filter by brand
@@ -726,13 +716,9 @@ export const updateLabel = async (req: Request, res: Response) => {
       });
 
       if (sizeCategory && Array.isArray(sizeCategory.sizes)) {
-        // Get Label material category
-        const labelMaterialCategory = await prisma.material_categories.findFirst({
-          where: { name: 'Label' },
-        });
-
-        if (labelMaterialCategory) {
-          // Create size variants for each size in the category
+        // Create the variants + their materials rows atomically (materials.id === variant.id —
+        // material-identity invariant; category auto-resolved by the service)
+        await prisma.$transaction(async (tx) => {
           const variantData = (sizeCategory.sizes as string[]).map((sizeValue) => ({
             labelId: id,
             sizeCategoryId: sizeCategoryId,
@@ -741,12 +727,12 @@ export const updateLabel = async (req: Request, res: Response) => {
             isActive: true,
           }));
 
-          await prisma.label_size_variants.createMany({
+          await tx.label_size_variants.createMany({
             data: variantData,
           });
 
           // Fetch created variants
-          const sizeVariants = await prisma.label_size_variants.findMany({
+          const sizeVariants = await tx.label_size_variants.findMany({
             where: { labelId: id },
             select: {
               id: true,
@@ -756,23 +742,15 @@ export const updateLabel = async (req: Request, res: Response) => {
             },
           });
 
-          // Create material entry for each size variant
+          // Create material entry for each size variant (id = variant id)
           for (const variant of sizeVariants) {
-            await prisma.materials.create({
-              data: {
-                id: `mat-${updated.labelCode.toLowerCase()}-${variant.size.toLowerCase()}`,
-                code: `${updated.labelCode}-${variant.size}`,
-                name: `${updated.labelName} - Size ${variant.size}`,
-                materialType: 'LABEL',
-                labelId: id,
-                sizeVariantId: variant.id,
-                categoryId: labelMaterialCategory.id,
-                unit: 'PIECE',
-                isActive: true,
-              },
-            });
+            await materialService.createFromLabelSizeVariant(
+              { id, labelCode: updated.labelCode, labelName: updated.labelName },
+              { id: variant.id, size: variant.size },
+              tx
+            );
           }
-        }
+        });
       }
     }
     // If variants already exist, silently ignore the request to prevent data loss
@@ -869,15 +847,6 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
     throw new ValidationError('Data array is required');
   }
 
-  // Get Label category
-  const labelCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Label' },
-  });
-
-  if (!labelCategory) {
-    throw new BusinessError('Label category not found');
-  }
-
   // Pre-generate all codes
   const codes = await allocateBatchCodes('LBL', 'label_master', 'labelCode', data.length);
 
@@ -928,19 +897,8 @@ export const bulkImportLabel = async (req: Request, res: Response) => {
           },
         });
 
-        // Create material
-        await tx.materials.create({
-          data: {
-            id: `mat-${labelCode.toLowerCase()}`,
-            code: labelCode,
-            name: row.labelName,
-            materialType: 'LABEL',
-            labelId: created.id,
-            categoryId: labelCategory.id,
-            unit: 'PIECE',
-            isActive: true,
-          },
-        });
+        // Create material (same-id convention, category auto-resolved)
+        await materialService.createFromMaster({ id: created.id, code: labelCode, name: row.labelName }, 'LABEL', tx);
 
         return created;
       });

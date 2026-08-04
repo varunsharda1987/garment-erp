@@ -90,10 +90,6 @@ export async function createAccessoryPreset(req: Request, res: Response) {
     throw new ValidationError('Preset name is required');
   }
 
-  if (!data.items || !Array.isArray(data.items)) {
-    throw new ValidationError('Items array is required');
-  }
-
   try {
     const preset = await customerService.createAccessoryPreset(customerId, data);
 

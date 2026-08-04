@@ -217,7 +217,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       // Sub-header: Fabric & Materials
       { type: 'sub-header', title: 'Fabric & Materials' } as SubHeader,
-      { title: 'Material Master', path: '/material-master', iconName: 'Layers', permission: 'fabricMasters' },
       { title: 'Greige Master', path: '/greige', iconName: 'Package', permission: 'fabricMasters' },
       { title: 'Fabric Master', path: '/fabric', iconName: 'Package', permission: 'fabricMasters' },
       { title: 'Embroidery Master', path: '/embroidery', iconName: 'Sparkles', permission: 'trimMasters' },

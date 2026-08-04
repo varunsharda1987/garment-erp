@@ -28,7 +28,6 @@ import agencyRoutes from './agency.routes';
 import stockProductionOrderRoutes from './stockProductionOrder.routes';
 import saleOrderRoutes from './saleOrder.routes';
 import materialRoutes from './material.routes';
-import materialMasterRoutes from './material-master.routes';
 import laceRoutes from './lace.routes';
 import laceLabDipRoutes from './laceLabDip.routes';
 import laceCostingRoutes from './laceCosting.routes';
@@ -187,8 +186,8 @@ export function createApiRouter(): Router {
   router.use('/product-categories', productCategoryRoutes);
 
   // Material Management
-  // New unified material master API
-  router.use('/material-master', materialMasterRoutes);
+  // (the legacy /material-master API was retired in the 2026-08 material-identity project —
+  //  the Int-keyed material_master table is data-dead; /materials is the unified registry)
 
   // Legacy specific routes (kept for backward compatibility)
   router.use('/materials/lace', laceRoutes);

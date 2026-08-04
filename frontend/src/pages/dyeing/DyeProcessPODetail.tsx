@@ -1,4 +1,5 @@
-// Dye Process PO Detail Page - Thin wrapper around shared ProcessPODetail
+// BUG-DASH4: Dye Process PO Detail Page - Thin wrapper around shared ProcessPODetail
+// Route: /manufacturing/dyeing/process-pos/:id
 import ProcessPODetail from '@/components/processing/ProcessPODetail';
 
 export default function DyeProcessPODetail() {

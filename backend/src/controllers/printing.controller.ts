@@ -12,6 +12,8 @@ import logger from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 // BUG-PRT5 fix: Import decimal.js helpers for safe cost calculations
 import { toCurrency, addCurrency, multiplyCurrency, divideCurrency, toNumber } from '../utils/currency';
+// BUG-DYE9 fix: Import system settings service for configurable cutable width deduction
+import { systemSettingsService } from '../services/system-settings.service';
 
 // ============================================
 // Atomic scoped numbering helpers
@@ -1004,6 +1006,9 @@ export const sendToMill = async (req: Request, res: Response, _next: NextFunctio
     throw new UnauthorizedError();
   }
 
+  // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
+  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+
   const existing = await prisma.job_work_orders.findUnique({
     where: { id },
     include: {
@@ -1125,7 +1130,7 @@ export const sendToMill = async (req: Request, res: Response, _next: NextFunctio
         finishType,
         printDesign: existing.labDip?.designArtwork || null,
         actualWidth: existing.sentWidthInches,
-        cutableWidth: new Prisma.Decimal(Number(existing.sentWidthInches) - 2),
+        cutableWidth: new Prisma.Decimal(Math.max(Number(existing.sentWidthInches) - cutableWidthDeduction, 0)), // BUG-DYE9 fix
         composition: greige?.composition || null,
         yarnCount: greige?.yarnCount || null,
         styleReference: styleCode,
@@ -1613,6 +1618,9 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     throw new ValidationError('User not authenticated');
   }
 
+  // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
+  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+
   const {
     labDipId,
     styleId: directStyleId,
@@ -1944,7 +1952,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
           colorName,
           finishType,
           actualWidth: job.sentWidthInches,
-          cutableWidth: new Prisma.Decimal(Number(job.sentWidthInches) - 2),
+          cutableWidth: new Prisma.Decimal(Math.max(Number(job.sentWidthInches) - cutableWidthDeduction, 0)), // BUG-DYE9 fix
           composition: greige?.composition || null,
           yarnCount: greige?.yarnCount || null,
           styleReference: styleCode,
@@ -2089,6 +2097,9 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
     throw new UnauthorizedError();
   }
 
+  // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
+  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+
   const po = await prisma.purchase_orders.findUnique({
     where: { id },
     include: {
@@ -2216,7 +2227,7 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
         finishType,
         printDesign: job.labDip?.designArtwork || null,
         actualWidth: job.sentWidthInches,
-        cutableWidth: new Prisma.Decimal(Number(job.sentWidthInches) - 2),
+        cutableWidth: new Prisma.Decimal(Math.max(Number(job.sentWidthInches) - cutableWidthDeduction, 0)), // BUG-DYE9 fix
         composition: greige?.composition || null,
         yarnCount: greige?.yarnCount || null,
         styleReference: styleCode,

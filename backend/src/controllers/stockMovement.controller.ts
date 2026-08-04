@@ -13,8 +13,10 @@ import { NotFoundError, ValidationError } from '../errors';
 import prisma from '../config/database';
 import greigeStockService from '../services/greige-stock.service';
 
-// Map polymorphic item types to their FK field in the materials table
+// Map polymorphic item types to their FK field in the materials table.
+// KEEP IN SYNC with ItemTypeEnum in ../schemas/stockMovement.schema.ts.
 const ITEM_TYPE_TO_FK: Record<string, string> = {
+  MATERIAL: 'id', // itemId is already a materials.id (direct PK lookup)
   GREIGE: 'greigeId',
   FABRIC: 'fabricId',
   LACE: 'laceId',

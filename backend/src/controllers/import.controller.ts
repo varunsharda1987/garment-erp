@@ -6,6 +6,9 @@ import { Prisma, SupplierCategory } from '@prisma/client';
 import { logInfo, logDebug } from '../utils/logger';
 import { ValidationError, UnauthorizedError } from '../errors';
 import { cleanupTempFile } from '../middleware/upload.middleware';
+import { randomUUID } from 'crypto';
+import { MASTER_CONFIG } from '../services/helpers/master-config';
+import { materialService } from '../services/material.service';
 
 /**
  * Helper: Safely get string value from unknown type
@@ -575,17 +578,48 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
         break;
 
       case 'materials':
+        // GENERIC materials only. This path was broken since inception: materials.id has no
+        // @default so stripping the id made every row fail, `createdById` is not a materials
+        // column, and required `categoryId` was never resolved (material-identity audit).
         for (const row of data) {
-          // Remove id from row to let Prisma auto-generate it
-          const { id, ...rowData } = row;
+          const { id, createdById: _ignored, ...rowData } = row;
+
+          // Master-backed types must go through their own module's import so the master +
+          // registry rows stay paired (materials.id === master.id invariant).
+          const rowType = getStringValue(row.materialType);
+          if (rowType && MASTER_CONFIG[rowType]) {
+            throw new ValidationError(
+              `Material type ${rowType} cannot be imported here — use the ${rowType.toLowerCase()} module's own import (it creates the master + material pair)`
+            );
+          }
+
+          // materials.categoryId is required — resolve from the row or fall back to 'General'
+          let categoryId = getStringValue(row.categoryId);
+          if (!categoryId) {
+            const cat =
+              (await tx.material_categories.findFirst({ where: { name: 'General' }, select: { id: true } })) ||
+              (await tx.material_categories.create({
+                data: {
+                  id: 'CAT-GENERAL',
+                  name: 'General',
+                  description: 'Auto-created for generic material imports',
+                  level: 1,
+                  sortOrder: 0,
+                  isActive: true,
+                },
+                select: { id: true },
+              }));
+            categoryId = cat.id;
+          }
 
           await tx.materials.create({
             data: {
               ...rowData,
+              id: randomUUID(),
               code: getStringValue(row.code),
               name: getStringValue(row.name),
               unit: getStringValue(row.unit),
-              createdById: userId,
+              categoryId,
               isActive: true,
             } as unknown as Prisma.materialsCreateInput,
           });
@@ -639,7 +673,7 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             laceName = parts.join(' ').trim() || `Lace ${laceCode}`;
           }
 
-          await tx.lace_master.create({
+          const createdLace = await tx.lace_master.create({
             data: {
               ...rowData,
               laceCode,
@@ -648,6 +682,9 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               isActive: true,
             } as unknown as Prisma.lace_masterCreateInput,
           });
+          // Paired materials row (materials.id === master.id) — this import previously
+          // created masters with NO registry row (split-brain vs the module bulk imports)
+          await materialService.createFromMaster({ id: createdLace.id, code: laceCode, name: laceName }, 'LACE', tx);
           count++;
         }
         break;
@@ -698,7 +735,7 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             buttonName = parts.join(' ').trim() || `Button ${buttonCode}`;
           }
 
-          await tx.button_master.create({
+          const createdButton = await tx.button_master.create({
             data: {
               ...rowData,
               buttonCode,
@@ -707,6 +744,11 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               isActive: true,
             } as unknown as Prisma.button_masterCreateInput,
           });
+          await materialService.createFromMaster(
+            { id: createdButton.id, code: buttonCode, name: buttonName },
+            'BUTTON',
+            tx
+          );
           count++;
         }
         break;
@@ -757,7 +799,7 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             threadName = parts.join(' ').trim() || `Thread ${threadCode}`;
           }
 
-          await tx.thread_master.create({
+          const createdThread = await tx.thread_master.create({
             data: {
               ...rowData,
               threadCode,
@@ -766,6 +808,11 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               isActive: true,
             } as unknown as Prisma.thread_masterCreateInput,
           });
+          await materialService.createFromMaster(
+            { id: createdThread.id, code: threadCode, name: threadName },
+            'THREAD',
+            tx
+          );
           count++;
         }
         break;
@@ -816,7 +863,7 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             zipperName = parts.join(' ').trim() || `Zipper ${zipperCode}`;
           }
 
-          await tx.zipper_master.create({
+          const createdZipper = await tx.zipper_master.create({
             data: {
               ...rowData,
               zipperCode,
@@ -825,6 +872,11 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               isActive: true,
             } as unknown as Prisma.zipper_masterCreateInput,
           });
+          await materialService.createFromMaster(
+            { id: createdZipper.id, code: zipperCode, name: zipperName },
+            'ZIPPER',
+            tx
+          );
           count++;
         }
         break;
@@ -875,7 +927,7 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             elasticName = parts.join(' ').trim() || `Elastic ${elasticCode}`;
           }
 
-          await tx.elastic_master.create({
+          const createdElastic = await tx.elastic_master.create({
             data: {
               ...rowData,
               elasticCode,
@@ -884,6 +936,11 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               isActive: true,
             } as unknown as Prisma.elastic_masterCreateInput,
           });
+          await materialService.createFromMaster(
+            { id: createdElastic.id, code: elasticCode, name: elasticName },
+            'ELASTIC',
+            tx
+          );
           count++;
         }
         break;
@@ -934,7 +991,7 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
             labelName = parts.join(' ').trim() || `Label ${labelCode}`;
           }
 
-          await tx.label_master.create({
+          const createdLabel = await tx.label_master.create({
             data: {
               ...rowData,
               labelCode,
@@ -943,6 +1000,11 @@ async function executeModuleImport(moduleName: string, data: Record<string, unkn
               isActive: true,
             } as unknown as Prisma.label_masterCreateInput,
           });
+          await materialService.createFromMaster(
+            { id: createdLabel.id, code: labelCode, name: labelName },
+            'LABEL',
+            tx
+          );
           count++;
         }
         break;

@@ -978,12 +978,17 @@ class GRNService {
         }
       | undefined;
 
+    // BUG-PROC4 fix: Collect warnings from post-commit operations to notify frontend
+    const postCommitWarnings: string[] = [];
+
     if (postCommit?.updateProcessingPOStatus) {
       try {
         await costSheetPOGenerationService.updateProcessingPOStatusOnGreigeGRN(grn.poId);
         logInfo('Processing PO status check triggered for Greige GRN', { grnId: id, greigePOId: grn.poId });
       } catch (error) {
-        logError('Failed to auto-update Processing PO status', error);
+        const errMsg = 'Failed to auto-update Processing PO status';
+        logError(errMsg, error);
+        postCommitWarnings.push(errMsg);
       }
     }
 
@@ -999,7 +1004,9 @@ class GRNService {
           });
         }
       } catch (costSheetErr) {
-        logError('Failed to update cost sheet sourcing strategy', costSheetErr);
+        const errMsg = `Failed to update cost sheet sourcing strategy for fabric ${su.fabricId}`;
+        logError(errMsg, costSheetErr);
+        postCommitWarnings.push(errMsg);
       }
     }
 
@@ -1018,10 +1025,16 @@ class GRNService {
         await purchaseOrderService.updateReceivingStatus(grn.poId);
       }
     } catch (statusErr) {
-      logError('Failed to recompute PO receiving status after GRN approval', statusErr);
+      const errMsg = 'Failed to recompute PO receiving status';
+      logError(errMsg, statusErr);
+      postCommitWarnings.push(errMsg);
     }
 
-    return updatedGRN;
+    // BUG-PROC4 fix: Return warnings with the GRN so frontend can notify user
+    return {
+      ...updatedGRN,
+      _warnings: postCommitWarnings.length > 0 ? postCommitWarnings : undefined,
+    };
   }
 
   /**

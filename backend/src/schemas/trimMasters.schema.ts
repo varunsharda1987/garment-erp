@@ -230,6 +230,7 @@ export const threadMasterStockQuerySchema = z.object({
   requiredUnits: z
     .string()
     .optional()
+    .refine((v) => !v || !Number.isNaN(parseFloat(v)), { message: 'Required units must be a valid number' })
     .transform((v) => (v ? parseFloat(v) : undefined))
     .pipe(z.number().nonnegative('Required units must be non-negative').optional()),
   warehouseId: z.string().uuid('Invalid warehouse ID').optional(),
@@ -266,8 +267,8 @@ export const createZipperSchema = z
     pricePerPiece: z.number().nonnegative().optional().nullable(),
     supplierId: z.string().uuid().optional().nullable(),
     description: z.string().max(1000).optional(),
-    // BUG-MM6 FIX: Removed styleCodes - no zipper_style_associations table in Prisma,
-    // controller doesn't handle it, accepting it causes silent data loss
+    // BUG-MM6 FIX: styleCodes now supported - zipper_style_associations table added
+    styleCodes: z.array(z.string()).optional(),
     suppliers: z.array(supplierAssociationSchema).optional(),
   })
   .passthrough();

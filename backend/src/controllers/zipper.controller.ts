@@ -4,6 +4,7 @@ import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
+import { materialService } from '../services/material.service';
 
 // Type for supplier input
 interface ZipperSupplierInput {
@@ -34,6 +35,7 @@ export const createZipper = async (req: Request, res: Response) => {
     supplierId,
     description,
     suppliers = [], // Array of supplier relationships
+    styleCodes = [], // BUG-MM6 FIX: Array of style codes to associate
   } = req.body;
 
   // BUG-ZP4: Check for duplicate supplierIds before proceeding
@@ -61,81 +63,91 @@ export const createZipper = async (req: Request, res: Response) => {
     finalZipperName = parts.join(' ').trim() || `Zipper ${zipperCode}`;
   }
 
-  // Get Zipper category ID
-  const zipperCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Zipper' },
-  });
-
-  if (!zipperCategory) {
-    throw new BusinessError('Zipper category not found. Please run Phase 1 migration.');
-  }
-
-  // Create zipper_master entry with suppliers using Prisma
-  const zipperRecord = await prisma.zipper_master.create({
-    data: {
-      zipperCode,
-      zipperName: finalZipperName,
-      supplierCode: supplierCode || null,
-      buyerCode: buyerCode || null,
-      // BUG-ZP3: Guard against NaN from parseFloat
-      length: length && !isNaN(parseFloat(length)) ? parseFloat(length) : null,
-      teethType: teethType || null,
-      color: color || null,
-      brand: brand || null,
-      sliderType: sliderType || null,
-      tapeWidth: tapeWidth && !isNaN(parseFloat(tapeWidth)) ? parseFloat(tapeWidth) : null,
-      pricePerPiece: pricePerPiece && !isNaN(parseFloat(pricePerPiece)) ? parseFloat(pricePerPiece) : null,
-      supplierId: supplierId || null,
-      description: description || null,
-      isActive: true,
-      // Create supplier relationships
-      zipperSuppliers: {
-        create: suppliers.map((s: ZipperSupplierInput) => ({
-          supplierId: s.supplierId,
-          isPreferred: s.isPreferred || false,
-          isActive: s.isActive !== undefined ? s.isActive : true,
-          notes: s.notes || null,
-          // BUG-ZP3: Guard against NaN from parseFloat
-          pricePerPiece: s.pricePerPiece
-            ? isNaN(parseFloat(String(s.pricePerPiece)))
-              ? null
-              : parseFloat(String(s.pricePerPiece))
-            : null,
-        })),
+  // Create master + its materials record atomically (materials.id === master.id — material-identity invariant)
+  const { zipperRecord, material } = await prisma.$transaction(async (tx) => {
+    const created = await tx.zipper_master.create({
+      data: {
+        zipperCode,
+        zipperName: finalZipperName,
+        supplierCode: supplierCode || null,
+        buyerCode: buyerCode || null,
+        // BUG-ZP3: Guard against NaN from parseFloat
+        length: length && !isNaN(parseFloat(length)) ? parseFloat(length) : null,
+        teethType: teethType || null,
+        color: color || null,
+        brand: brand || null,
+        sliderType: sliderType || null,
+        tapeWidth: tapeWidth && !isNaN(parseFloat(tapeWidth)) ? parseFloat(tapeWidth) : null,
+        pricePerPiece: pricePerPiece && !isNaN(parseFloat(pricePerPiece)) ? parseFloat(pricePerPiece) : null,
+        supplierId: supplierId || null,
+        description: description || null,
+        isActive: true,
+        // Create supplier relationships
+        zipperSuppliers: {
+          create: suppliers.map((s: ZipperSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            // BUG-ZP3: Guard against NaN from parseFloat
+            pricePerPiece: s.pricePerPiece
+              ? isNaN(parseFloat(String(s.pricePerPiece)))
+                ? null
+                : parseFloat(String(s.pricePerPiece))
+              : null,
+          })),
+        },
       },
-    },
-    include: {
-      zipperSuppliers: {
-        include: {
-          supplier: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              contactPerson: true,
-              email: true,
-              phone: true,
-              isActive: true,
+      include: {
+        zipperSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
             },
           },
+          orderBy: { isPreferred: 'desc' },
         },
-        orderBy: { isPreferred: 'desc' },
       },
-    },
-  });
+    });
 
-  // Create corresponding material entry
-  const material = await prisma.materials.create({
-    data: {
-      id: `mat-${zipperCode.toLowerCase()}`,
-      code: zipperCode,
-      name: finalZipperName,
-      materialType: 'ZIPPER',
-      zipperId: zipperRecord.id,
-      categoryId: zipperCategory.id,
-      unit: 'PIECE',
-      isActive: true,
-    },
+    // BUG-MM6 FIX: Create style associations if styleCodes provided
+    if (styleCodes && styleCodes.length > 0) {
+      // Look up style IDs from style codes
+      const styles = await tx.styles.findMany({
+        where: {
+          styleCode: { in: styleCodes },
+          isActive: true,
+        },
+        select: { id: true, styleCode: true },
+      });
+
+      if (styles.length > 0) {
+        await tx.zipper_style_associations.createMany({
+          data: styles.map((style, index) => ({
+            zipperId: created.id,
+            styleId: style.id,
+            isPrimary: index === 0, // First style is primary
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
+
+    const materialEntry = await materialService.createFromMaster(
+      { id: created.id, code: zipperCode, name: finalZipperName },
+      'ZIPPER',
+      tx
+    );
+
+    return { zipperRecord: created, material: materialEntry };
   });
 
   res.status(201).json({
@@ -271,6 +283,15 @@ export const getZipperById = async (req: Request, res: Response) => {
         },
         orderBy: { isPreferred: 'desc' },
       },
+      // BUG-MM6 FIX: Include style associations
+      zipper_style_associations: {
+        include: {
+          style: {
+            select: { id: true, styleCode: true, styleName: true },
+          },
+        },
+        orderBy: { isPrimary: 'desc' },
+      },
     },
   });
 
@@ -279,11 +300,16 @@ export const getZipperById = async (req: Request, res: Response) => {
   }
 
   // Transform to match expected format
+  // BUG-MM6 FIX: Extract styleCodes from associations
+  const styleCodes = zipper.zipper_style_associations?.map((a) => a.style.styleCode) || [];
+
   const transformed = {
     ...zipper,
     materialId: zipper.materials[0]?.id || null,
     materialCode: zipper.materials[0]?.code || null,
     materials: undefined,
+    styleCodes, // BUG-MM6 FIX: Include styleCodes in response
+    zipper_style_associations: undefined, // Hide raw associations
     // Keep zipperSuppliers - serializer will rename to 'suppliers'
   };
 
@@ -312,6 +338,7 @@ export const updateZipper = async (req: Request, res: Response) => {
     description,
     isActive,
     suppliers, // Array of supplier relationships (replaces existing)
+    styleCodes, // BUG-MM6 FIX: Array of style codes to associate
   } = req.body;
 
   // Check if zipper exists
@@ -354,6 +381,36 @@ export const updateZipper = async (req: Request, res: Response) => {
             : null,
         })),
       });
+    }
+  }
+
+  // BUG-MM6 FIX: Update style associations if styleCodes provided (delete-and-recreate pattern)
+  if (styleCodes !== undefined && Array.isArray(styleCodes)) {
+    // Delete existing style associations
+    await prisma.zipper_style_associations.deleteMany({
+      where: { zipperId: id },
+    });
+
+    // Create new style associations if any styleCodes provided
+    if (styleCodes.length > 0) {
+      const styles = await prisma.styles.findMany({
+        where: {
+          styleCode: { in: styleCodes },
+          isActive: true,
+        },
+        select: { id: true, styleCode: true },
+      });
+
+      if (styles.length > 0) {
+        await prisma.zipper_style_associations.createMany({
+          data: styles.map((style, index) => ({
+            zipperId: id,
+            styleId: style.id,
+            isPrimary: index === 0,
+          })),
+          skipDuplicates: true,
+        });
+      }
     }
   }
 
@@ -481,15 +538,6 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
     throw new ValidationError('Data array is required');
   }
 
-  // Get Zipper category
-  const zipperCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Zipper' },
-  });
-
-  if (!zipperCategory) {
-    throw new BusinessError('Zipper category not found');
-  }
-
   // Pre-generate all codes
   const codes = await allocateBatchCodes('ZIP', 'zipper_master', 'zipperCode', data.length);
 
@@ -541,19 +589,12 @@ export const bulkImportZipper = async (req: Request, res: Response) => {
           },
         });
 
-        // Create material
-        await tx.materials.create({
-          data: {
-            id: `mat-${zipperCode.toLowerCase()}`,
-            code: zipperCode,
-            name: row.zipperName,
-            materialType: 'ZIPPER',
-            zipperId: created.id,
-            categoryId: zipperCategory.id,
-            unit: 'PIECE',
-            isActive: true,
-          },
-        });
+        // Create material (same-id convention, category auto-resolved)
+        await materialService.createFromMaster(
+          { id: created.id, code: zipperCode, name: row.zipperName },
+          'ZIPPER',
+          tx
+        );
 
         return created;
       });

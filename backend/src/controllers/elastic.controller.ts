@@ -4,6 +4,7 @@ import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
+import { materialService } from '../services/material.service';
 
 // Type for supplier input
 interface ElasticSupplierInput {
@@ -51,74 +52,61 @@ export const createElastic = async (req: Request, res: Response) => {
     finalElasticName = parts.join(' ').trim() || `Elastic ${elasticCode}`;
   }
 
-  // Get Elastic category ID
-  const elasticCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Elastic' },
-  });
-
-  if (!elasticCategory) {
-    throw new BusinessError('Elastic category not found. Please run Phase 1 migration.');
-  }
-
-  // Create elastic_master entry with suppliers using Prisma
-  const elasticRecord = await prisma.elastic_master.create({
-    data: {
-      elasticCode,
-      elasticName: finalElasticName,
-      supplierCode: supplierCode || null,
-      buyerCode: buyerCode || null,
-      width: width != null ? parseFloat(width) : null,
-      stretchPercent: stretchPercent != null ? parseFloat(stretchPercent) : null,
-      color: color || null,
-      composition: composition || null,
-      elasticType: elasticType || null,
-      pricePerMeter: pricePerMeter != null ? parseFloat(pricePerMeter) : null,
-      supplierId: supplierId || null,
-      description: description || null,
-      isActive: true,
-      // Create supplier relationships
-      elasticSuppliers: {
-        create: suppliers.map((s: ElasticSupplierInput) => ({
-          supplierId: s.supplierId,
-          isPreferred: s.isPreferred || false,
-          isActive: s.isActive !== undefined ? s.isActive : true,
-          notes: s.notes || null,
-          pricePerMeter: s.pricePerMeter ? parseFloat(String(s.pricePerMeter)) : null,
-        })),
+  // Create master + its materials record atomically (materials.id === master.id — material-identity invariant)
+  const { elasticRecord, material } = await prisma.$transaction(async (tx) => {
+    const created = await tx.elastic_master.create({
+      data: {
+        elasticCode,
+        elasticName: finalElasticName,
+        supplierCode: supplierCode || null,
+        buyerCode: buyerCode || null,
+        width: width != null ? parseFloat(width) : null,
+        stretchPercent: stretchPercent != null ? parseFloat(stretchPercent) : null,
+        color: color || null,
+        composition: composition || null,
+        elasticType: elasticType || null,
+        pricePerMeter: pricePerMeter != null ? parseFloat(pricePerMeter) : null,
+        supplierId: supplierId || null,
+        description: description || null,
+        isActive: true,
+        // Create supplier relationships
+        elasticSuppliers: {
+          create: suppliers.map((s: ElasticSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerMeter: s.pricePerMeter ? parseFloat(String(s.pricePerMeter)) : null,
+          })),
+        },
       },
-    },
-    include: {
-      elasticSuppliers: {
-        include: {
-          supplier: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              contactPerson: true,
-              email: true,
-              phone: true,
-              isActive: true,
+      include: {
+        elasticSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
             },
           },
+          orderBy: { isPreferred: 'desc' },
         },
-        orderBy: { isPreferred: 'desc' },
       },
-    },
-  });
+    });
 
-  // Create corresponding material entry
-  const material = await prisma.materials.create({
-    data: {
-      id: `mat-${elasticCode.toLowerCase()}`,
-      code: elasticCode,
-      name: finalElasticName,
-      materialType: 'ELASTIC',
-      elasticId: elasticRecord.id,
-      categoryId: elasticCategory.id,
-      unit: 'METER',
-      isActive: true,
-    },
+    const materialEntry = await materialService.createFromMaster(
+      { id: created.id, code: elasticCode, name: finalElasticName },
+      'ELASTIC',
+      tx
+    );
+
+    return { elasticRecord: created, material: materialEntry };
   });
 
   res.status(201).json({
@@ -438,15 +426,6 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
     throw new ValidationError('Data array is required');
   }
 
-  // Get Elastic category
-  const elasticCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Elastic' },
-  });
-
-  if (!elasticCategory) {
-    throw new BusinessError('Elastic category not found');
-  }
-
   // Pre-generate all codes
   const codes = await allocateBatchCodes('ELA', 'elastic_master', 'elasticCode', data.length);
 
@@ -495,19 +474,12 @@ export const bulkImportElastic = async (req: Request, res: Response) => {
           },
         });
 
-        // Create material
-        await tx.materials.create({
-          data: {
-            id: `mat-${elasticCode.toLowerCase()}`,
-            code: elasticCode,
-            name: row.elasticName,
-            materialType: 'ELASTIC',
-            elasticId: created.id,
-            categoryId: elasticCategory.id,
-            unit: 'METER',
-            isActive: true,
-          },
-        });
+        // Create material (same-id convention, category auto-resolved)
+        await materialService.createFromMaster(
+          { id: created.id, code: elasticCode, name: row.elasticName },
+          'ELASTIC',
+          tx
+        );
 
         return created;
       });

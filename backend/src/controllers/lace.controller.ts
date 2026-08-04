@@ -4,6 +4,7 @@ import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { createLaceStock } from '../services/laceStock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
+import { materialService } from '../services/material.service';
 
 // Type for supplier input
 interface LaceSupplierInput {
@@ -116,15 +117,6 @@ export const createLace = async (req: Request, res: Response) => {
     });
   }
 
-  // Get Lace category ID
-  const laceCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Lace' },
-  });
-
-  if (!laceCategory) {
-    throw new ValidationError('Lace category not found. Please run Phase 1 migration.');
-  }
-
   // Validate styleCodes if provided
   let validStyles: { id: string; styleCode: string }[] = [];
   if (styleCodes.length > 0) {
@@ -154,89 +146,88 @@ export const createLace = async (req: Request, res: Response) => {
     }
   }
 
-  // Create lace_master entry with suppliers using Prisma
-  const laceRecord = await prisma.lace_master.create({
-    data: {
-      laceCode,
-      laceName: finalLaceName,
-      supplierCode: supplierCode || null,
-      buyerCode: buyerCode || null,
-      width: width ? parseFloat(width) : null,
-      design: design || null,
-      color: finalColor,
-      composition: composition || null,
-      laceType: laceType || null,
-      description: description || null,
-      isActive: true,
-      // Greige lace fields
-      isGreige: Boolean(isGreige),
-      expectedShrinkagePercent: expectedShrinkagePercent ? parseFloat(expectedShrinkagePercent) : null,
-      costPerMeterGreige: costPerMeterGreige ? parseFloat(costPerMeterGreige) : null,
-      sourceGreigeLaceId: sourceGreigeLaceId || null,
-      pricePerMeter: pricePerMeter ? parseFloat(pricePerMeter) : null,
-      // Create supplier relationships
-      lace_suppliers: {
-        create: suppliers.map((s: LaceSupplierInput) => ({
-          supplierId: s.supplierId,
-          isPreferred: s.isPreferred || false,
-          isActive: s.isActive !== undefined ? s.isActive : true,
-          notes: s.notes || null,
-          pricePerMeter: s.pricePerMeter ? parseFloat(String(s.pricePerMeter)) : null,
-        })),
+  // Create lace_master + associations + its materials record ATOMICALLY.
+  // Material-identity invariant: materials.id === master.id (createFromMaster), and a
+  // failure can never leave a master without its registry row.
+  const { laceRecord, material } = await prisma.$transaction(async (tx) => {
+    const created = await tx.lace_master.create({
+      data: {
+        laceCode,
+        laceName: finalLaceName,
+        supplierCode: supplierCode || null,
+        buyerCode: buyerCode || null,
+        width: width ? parseFloat(width) : null,
+        design: design || null,
+        color: finalColor,
+        composition: composition || null,
+        laceType: laceType || null,
+        description: description || null,
+        isActive: true,
+        // Greige lace fields
+        isGreige: Boolean(isGreige),
+        expectedShrinkagePercent: expectedShrinkagePercent ? parseFloat(expectedShrinkagePercent) : null,
+        costPerMeterGreige: costPerMeterGreige ? parseFloat(costPerMeterGreige) : null,
+        sourceGreigeLaceId: sourceGreigeLaceId || null,
+        pricePerMeter: pricePerMeter ? parseFloat(pricePerMeter) : null,
+        // Create supplier relationships
+        lace_suppliers: {
+          create: suppliers.map((s: LaceSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerMeter: s.pricePerMeter ? parseFloat(String(s.pricePerMeter)) : null,
+          })),
+        },
       },
-    },
-    include: {
-      lace_suppliers: {
-        include: {
-          supplier: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              contactPerson: true,
-              email: true,
-              phone: true,
-              isActive: true,
+      include: {
+        lace_suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
             },
           },
+          orderBy: { isPreferred: 'desc' },
         },
-        orderBy: { isPreferred: 'desc' },
-      },
-      sourceGreigeLace: {
-        select: {
-          id: true,
-          laceCode: true,
-          laceName: true,
-          expectedShrinkagePercent: true,
-          costPerMeterGreige: true,
+        sourceGreigeLace: {
+          select: {
+            id: true,
+            laceCode: true,
+            laceName: true,
+            expectedShrinkagePercent: true,
+            costPerMeterGreige: true,
+          },
         },
       },
-    },
-  });
-
-  // Create style associations if provided
-  if (validStyles.length > 0) {
-    await prisma.lace_style_associations.createMany({
-      data: validStyles.map((style, index) => ({
-        laceId: laceRecord.id,
-        styleId: style.id,
-        isPrimary: index === 0, // First style is primary
-      })),
     });
-  }
 
-  // Create corresponding material entry with SAME ID as lace_master
-  const material = await prisma.materials.create({
-    data: {
-      id: laceRecord.id, // Use same ID as lace_master for consistency
-      code: laceCode,
-      name: finalLaceName,
-      materialType: 'LACE',
-      laceId: laceRecord.id,
-      categoryId: laceCategory.id,
-      unit: 'METER',
-      isActive: true,
-    },
+    // Create style associations if provided
+    if (validStyles.length > 0) {
+      await tx.lace_style_associations.createMany({
+        data: validStyles.map((style, index) => ({
+          laceId: created.id,
+          styleId: style.id,
+          isPrimary: index === 0, // First style is primary
+        })),
+      });
+    }
+
+    // Create material (same-id convention, category auto-resolved)
+    const materialEntry = await materialService.createFromMaster(
+      { id: created.id, code: laceCode, name: finalLaceName },
+      'LACE',
+      tx
+    );
+
+    return { laceRecord: created, material: materialEntry };
   });
 
   res.status(201).json({
@@ -808,6 +799,17 @@ export const deleteLace = async (req: Request, res: Response) => {
     throw new BusinessError(`This lace is used in ${bomUsage} BOM(s). Please remove from BOMs first.`);
   }
 
+  // Check if used in style BOM
+  const styleBomUsage = await prisma.style_material_bom.count({
+    where: {
+      laceId: id,
+    },
+  });
+
+  if (styleBomUsage > 0) {
+    throw new BusinessError(`This lace is used in ${styleBomUsage} style BOM(s). Remove it from those styles first.`);
+  }
+
   // Delete material entry first (FK constraint)
   await prisma.materials.deleteMany({
     where: { laceId: id },
@@ -831,15 +833,6 @@ export const bulkImportLace = async (req: Request, res: Response) => {
 
   if (!Array.isArray(data) || data.length === 0) {
     throw new ValidationError('Data array is required');
-  }
-
-  // Get Lace category
-  const laceCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Lace' },
-  });
-
-  if (!laceCategory) {
-    throw new ValidationError('Lace category not found');
   }
 
   // Pre-generate all codes
@@ -890,19 +883,8 @@ export const bulkImportLace = async (req: Request, res: Response) => {
           },
         });
 
-        // Create material
-        await tx.materials.create({
-          data: {
-            id: `mat-${laceCode.toLowerCase()}`,
-            code: laceCode,
-            name: row.laceName,
-            materialType: 'LACE',
-            laceId: created.id,
-            categoryId: laceCategory.id,
-            unit: 'METER',
-            isActive: true,
-          },
-        });
+        // Create material (same-id convention, category auto-resolved)
+        await materialService.createFromMaster({ id: created.id, code: laceCode, name: row.laceName }, 'LACE', tx);
 
         return created;
       });

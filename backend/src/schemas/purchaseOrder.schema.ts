@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { UnitEnum } from './common.schema';
+import { UnitEnum, flexMaterialId } from './common.schema';
 
 // ============================================================================
 // Enums (match Prisma enums)
@@ -65,7 +65,7 @@ export const DeliveryLocationTypeEnum = z.enum(['WAREHOUSE', 'PROCESSOR']);
  * PO Item for creation
  */
 export const purchaseOrderItemSchema = z.object({
-  materialId: z.string().uuid('Invalid material ID').optional(),
+  materialId: flexMaterialId('material ID').optional(),
   serviceType: z.string().max(50).optional(),
   serviceDescription: z.string().max(500).optional(),
   orderedQuantity: z.number().positive('Quantity must be positive'),

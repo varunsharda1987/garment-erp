@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import { flexMaterialId } from './common.schema';
 import { MovementTypeEnum, CountTypeEnum, CountStatusEnum, MaterialTypeEnum } from './generated/prisma-enums';
 
 // Movement type enum - imported from Prisma enums
@@ -20,7 +21,7 @@ export const CountStatus = CountStatusEnum;
 export const createStockMovementSchema = z.object({
   warehouseId: z.string().uuid('Invalid warehouse ID'),
   targetWarehouseId: z.string().uuid('Invalid target warehouse ID').optional(),
-  materialId: z.string().uuid('Invalid material ID'),
+  materialId: flexMaterialId('material ID'),
   // Use MaterialTypeEnum from Prisma to ensure alignment with database
   materialType: MaterialTypeEnum,
   movementType: MovementType,
@@ -36,7 +37,7 @@ export const createStockMovementSchema = z.object({
 // Stock adjustment schema
 export const stockAdjustmentSchema = z.object({
   warehouseId: z.string().uuid('Invalid warehouse ID'),
-  materialId: z.string().uuid('Invalid material ID'),
+  materialId: flexMaterialId('material ID'),
   // Use MaterialTypeEnum from Prisma to ensure alignment with database
   materialType: MaterialTypeEnum,
   adjustmentQuantity: z.number().refine((val) => val !== 0, {
@@ -50,7 +51,7 @@ export const stockAdjustmentSchema = z.object({
 export const stockTransferSchema = z.object({
   sourceWarehouseId: z.string().uuid('Invalid source warehouse ID'),
   targetWarehouseId: z.string().uuid('Invalid target warehouse ID'),
-  materialId: z.string().uuid('Invalid material ID'),
+  materialId: flexMaterialId('material ID'),
   // Use MaterialTypeEnum from Prisma to ensure alignment with database
   materialType: MaterialTypeEnum,
   quantity: z.number().positive('Quantity must be positive'),
@@ -65,7 +66,7 @@ export const createStockCountSchema = z.object({
   notes: z.string().max(1000).optional(),
   items: z.array(
     z.object({
-      materialId: z.string().uuid('Invalid material ID'),
+      materialId: flexMaterialId('material ID'),
       materialType: MaterialTypeEnum,
       systemQuantity: z.number().nonnegative(),
       countedQuantity: z.number().nonnegative(),
@@ -83,7 +84,7 @@ export const updateStockCountSchema = z.object({
     .array(
       z.object({
         id: z.string().uuid().optional(),
-        materialId: z.string().uuid('Invalid material ID'),
+        materialId: flexMaterialId('material ID'),
         countedQuantity: z.number().nonnegative(),
         notes: z.string().max(500).optional(),
       })
@@ -94,7 +95,7 @@ export const updateStockCountSchema = z.object({
 // Stock query params schema
 export const stockQuerySchema = z.object({
   warehouseId: z.string().uuid().optional(),
-  materialId: z.string().uuid().optional(),
+  materialId: flexMaterialId('material ID').optional(),
   materialType: z.string().optional(),
   belowMinStock: z.coerce.boolean().optional(),
   search: z.string().max(100).optional(),
@@ -107,7 +108,7 @@ export const stockQuerySchema = z.object({
 // Movement query params schema
 export const movementQuerySchema = z.object({
   warehouseId: z.string().uuid().optional(),
-  materialId: z.string().uuid().optional(),
+  materialId: flexMaterialId('material ID').optional(),
   movementType: MovementType.optional(),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),

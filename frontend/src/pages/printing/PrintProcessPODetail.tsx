@@ -1,4 +1,5 @@
-// Print Process PO Detail Page - Thin wrapper around shared ProcessPODetail
+// BUG-DASH4: Print Process PO Detail Page - Thin wrapper around shared ProcessPODetail
+// Route: /manufacturing/printing/process-pos/:id
 import ProcessPODetail from '@/components/processing/ProcessPODetail';
 
 export default function PrintProcessPODetail() {

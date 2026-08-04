@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { flexMaterialId } from './common.schema';
 import {
   MaterialTypeEnum as PrismaMaterialTypeEnum,
   OrderBOMStatusEnum as PrismaOrderBOMStatusEnum,
@@ -34,7 +35,7 @@ export const orderBOMItemSchema = z.object({
   // BUG-ORD12: Added optional id field for identifying existing items during updates
   id: z.string().uuid().optional(),
   materialType: MaterialTypeEnum,
-  materialId: z.string().uuid().optional(),
+  materialId: flexMaterialId('material ID').optional(),
   buttonId: z.string().uuid().optional(),
   threadId: z.string().uuid().optional(),
   zipperId: z.string().uuid().optional(),

@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { flexMaterialId } from './common.schema';
 
 /**
  * Create Stock Count
@@ -24,7 +25,7 @@ export const createStockCountSchema = z.object({
   countType: z.enum(['FULL', 'PARTIAL', 'CYCLE', 'SPOT_CHECK']),
   countDate: z.coerce.date().optional(),
   remarks: z.string().max(500).optional(),
-  materialIds: z.array(z.string().uuid('Invalid material ID')).optional(),
+  materialIds: z.array(flexMaterialId('material ID')).optional(),
 });
 
 /**

@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import { flexMaterialId } from './common.schema';
 import { MaterialTypeEnum } from './generated/prisma-enums';
 
 // BOM status enum
@@ -12,7 +13,7 @@ export const BOMStatus = z.enum(['Draft', 'Pending', 'Approved', 'Rejected', 'Ac
 
 // BOM line item schema
 const bomLineItemSchema = z.object({
-  materialId: z.string().uuid('Invalid material ID'),
+  materialId: flexMaterialId('material ID'),
   // Import from generated prisma-enums to ensure alignment with Prisma schema
   materialType: MaterialTypeEnum,
   quantity: z.number().positive('Quantity must be positive'),

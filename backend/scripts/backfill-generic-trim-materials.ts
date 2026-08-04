@@ -86,12 +86,12 @@ async function backfill() {
 
       const code = item[config.codeField];
       const name = item[config.nameField];
-      const materialId = `mat-${code.toLowerCase()}`;
 
       try {
+        // Same-id convention (material-identity invariant): materials.id === master.id
         await prisma.materials.create({
           data: {
-            id: materialId,
+            id: item.id,
             code: code,
             name: name,
             materialType: config.materialType as any,
@@ -103,26 +103,7 @@ async function backfill() {
         });
         created++;
       } catch (err: any) {
-        // Handle duplicate ID conflicts
-        if (err.code === 'P2002') {
-          console.log(`    Duplicate material ID ${materialId}, using UUID instead`);
-          const { randomUUID } = await import('crypto');
-          await prisma.materials.create({
-            data: {
-              id: randomUUID(),
-              code: code,
-              name: name,
-              materialType: config.materialType as any,
-              [config.fkField]: item.id,
-              categoryId: category.id,
-              unit: config.defaultUnit as any,
-              isActive: item.isActive ?? true,
-            },
-          });
-          created++;
-        } else {
-          console.error(`    Error creating material for ${code}: ${err.message}`);
-        }
+        console.error(`    Error creating material for ${code}: ${err.message}`);
       }
     }
 

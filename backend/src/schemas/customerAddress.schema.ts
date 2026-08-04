@@ -112,9 +112,11 @@ export const updateCustomerAddressSchema = z.object({
 export const customerAddressQuerySchema = z.object({
   customerId: z.string().uuid('Invalid customer ID format').optional(),
   addressType: CustomerAddressTypeEnum.optional(),
+  // BUG-CU12 fix: Added .pipe(z.boolean()) for proper TypeScript typing after transform
   isActive: z
     .string()
     .transform((val) => val.toLowerCase() === 'true')
+    .pipe(z.boolean())
     .optional(),
 });
 

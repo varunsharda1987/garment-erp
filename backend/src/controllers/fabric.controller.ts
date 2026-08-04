@@ -322,89 +322,87 @@ export const createFabricMaster = async (req: Request, res: Response) => {
     }
   }
 
-  const fabricMaster = await prisma.fabric_master.create({
-    data: {
-      fabricCode,
-      fabricName,
-      greigeId: greigeId || null,
-      greigeName: greigeName || greige?.greigeName || null,
-      genericGreigeName: genericGreigeName || greige?.genericGreigeName || null,
-      yarnCount: yarnCount || null,
-      composition: composition || null,
-      colorName,
-      colorCode,
-      finishType,
-      printDesign,
-      actualWidth: parseFloat(actualWidth),
-      cutableWidth: cutableWidth ? parseFloat(cutableWidth) : parseFloat(actualWidth) - 2,
-      finishedConstruction: finishedConstruction || null,
-      actualGSM: actualGSM ? parseInt(actualGSM) : null,
-      valueAddition: valueAddition || null,
-      valueAdditionCost: valueAdditionCost ? parseFloat(valueAdditionCost) : null,
-      costPerMeter: costPerMeter ? parseFloat(costPerMeter) : null,
-      moq: moq ? parseInt(moq) : null,
-      leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : null,
-      supplierId: supplierId || null,
-      styleReference: styleReference || null,
-      source: source || null,
-      description,
-      notes,
-      imageUrl,
-      isGeneric: isGeneric ?? false,
-      isActive,
-      createdById: userId,
-      suppliers: {
-        create: suppliers.map((s: FabricSupplierInput) => ({
-          supplierId: s.supplierId,
-          isPreferred: s.isPreferred || false,
-          isActive: true,
-          notes: null,
-        })),
+  // Create fabric_master + its materials record atomically (materials.id === master.id —
+  // material-identity invariant; replaces the old create-then-compensating-delete pattern)
+  const fabricMaster = await prisma.$transaction(async (tx) => {
+    const created = await tx.fabric_master.create({
+      data: {
+        fabricCode,
+        fabricName,
+        greigeId: greigeId || null,
+        greigeName: greigeName || greige?.greigeName || null,
+        genericGreigeName: genericGreigeName || greige?.genericGreigeName || null,
+        yarnCount: yarnCount || null,
+        composition: composition || null,
+        colorName,
+        colorCode,
+        finishType,
+        printDesign,
+        actualWidth: parseFloat(actualWidth),
+        cutableWidth: cutableWidth ? parseFloat(cutableWidth) : parseFloat(actualWidth) - 2,
+        finishedConstruction: finishedConstruction || null,
+        actualGSM: actualGSM ? parseInt(actualGSM) : null,
+        valueAddition: valueAddition || null,
+        valueAdditionCost: valueAdditionCost ? parseFloat(valueAdditionCost) : null,
+        costPerMeter: costPerMeter ? parseFloat(costPerMeter) : null,
+        moq: moq ? parseInt(moq) : null,
+        leadTimeDays: leadTimeDays ? parseInt(leadTimeDays) : null,
+        supplierId: supplierId || null,
+        styleReference: styleReference || null,
+        source: source || null,
+        description,
+        notes,
+        imageUrl,
+        isGeneric: isGeneric ?? false,
+        isActive,
+        createdById: userId,
+        suppliers: {
+          create: suppliers.map((s: FabricSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: true,
+            notes: null,
+          })),
+        },
       },
-    },
-    include: {
-      greige: true,
-      suppliers: {
-        include: {
-          supplier: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              contactPerson: true,
-              email: true,
-              phone: true,
-              isActive: true,
+      include: {
+        greige: true,
+        suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
             },
           },
         },
-      },
-      createdBy: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          email: true,
+        createdBy: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  // BUG-MM3 fix: Auto-create materials record - fail the entire operation if this fails
-  // (swallowing the error would create orphan fabric without materials entry)
-  try {
+    // BUG-MM3 fix (v2): materials record created in the SAME transaction — a failure rolls
+    // back the master too, so an orphan fabric (master without registry row) is impossible.
     await materialService.createFromMaster(
-      { id: fabricMaster.id, code: fabricMaster.fabricCode, name: fabricMaster.fabricName },
-      'FABRIC'
+      { id: created.id, code: created.fabricCode, name: created.fabricName },
+      'FABRIC',
+      tx
     );
-  } catch (err) {
-    logError('Failed to auto-create materials record for fabric', err);
-    // Delete the fabric we just created since materials record failed
-    await prisma.fabric_master.delete({ where: { id: fabricMaster.id } });
-    throw new Error(
-      `Failed to create materials record for fabric: ${err instanceof Error ? err.message : 'Unknown error'}`
-    );
-  }
+
+    return created;
+  });
 
   res.status(201).json({ data: fabricMaster, message: 'Fabric master created successfully' });
 };
@@ -630,6 +628,13 @@ export const deleteFabricMaster = async (req: Request, res: Response) => {
     },
   });
 
+  // BUG-FM9 fix: BOM tables also reference fabric — order_bom_items directly via fabricId;
+  // style_material_bom indirectly via its materials record (that table has no fabricId column)
+  const [orderBomItemCount, styleMaterialBomCount] = await Promise.all([
+    prisma.order_bom_items.count({ where: { fabricId: id } }),
+    prisma.style_material_bom.count({ where: { materials: { fabricId: id } } }),
+  ]);
+
   const blockingDeps = [];
   if (dependencies?._count.fabricStock) blockingDeps.push(`${dependencies._count.fabricStock} stock record(s)`);
   if (dependencies?._count.styleFabrics) blockingDeps.push(`${dependencies._count.styleFabrics} style allocation(s)`);
@@ -642,6 +647,8 @@ export const deleteFabricMaster = async (req: Request, res: Response) => {
   if (dependencies?._count.lab_dips) blockingDeps.push(`${dependencies._count.lab_dips} lab dip(s)`);
   if (dependencies?._count.job_work_orders)
     blockingDeps.push(`${dependencies._count.job_work_orders} job work order(s)`);
+  if (orderBomItemCount) blockingDeps.push(`${orderBomItemCount} order BOM item(s)`);
+  if (styleMaterialBomCount) blockingDeps.push(`${styleMaterialBomCount} style material BOM row(s)`);
 
   // For materials: check derived on-hand (per-lot truth) before blocking
   let materialsToDelete: string[] = [];
@@ -964,7 +971,7 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
         results.updated++;
       } else {
         // Create new fabric
-        await prisma.fabric_master.create({
+        const created = await prisma.fabric_master.create({
           data: {
             fabricCode,
             fabricName,
@@ -989,6 +996,23 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
             createdById: userId,
           },
         });
+
+        // BUG-FM8 fix: Auto-create materials record (mirrors single-create at createFabricMaster).
+        // If it fails, roll back the fabric row and count this row as failed —
+        // otherwise the fabric is invisible to stock_levels, MRP, and GRN flows.
+        try {
+          await materialService.createFromMaster(
+            { id: created.id, code: created.fabricCode, name: created.fabricName },
+            'FABRIC'
+          );
+        } catch (err) {
+          logError('Failed to auto-create materials record for bulk-imported fabric', err);
+          await prisma.fabric_master.delete({ where: { id: created.id } });
+          throw new Error(
+            `Failed to create materials record for fabric ${fabricCode}: ${err instanceof Error ? err.message : 'Unknown error'}`
+          );
+        }
+
         results.created++;
       }
     } catch (error: unknown) {

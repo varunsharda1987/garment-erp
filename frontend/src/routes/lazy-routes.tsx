@@ -259,8 +259,6 @@ export const GenericTrimForm = lazy(() => import('../pages/GenericTrimForm'));
 // ============================================================================
 // Material Masters - Unified (NEW)
 // ============================================================================
-export const MaterialMasterList = lazy(() => import('../pages/MaterialMasterList'));
-export const MaterialMasterForm = lazy(() => import('../pages/MaterialMasterForm'));
 
 // ============================================================================
 // Material Masters (Phase 1 & 1B) - Legacy

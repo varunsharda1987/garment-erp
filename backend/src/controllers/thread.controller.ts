@@ -5,6 +5,7 @@ import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { threadStockService } from '../services/thread-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
+import { materialService } from '../services/material.service';
 
 // Type for supplier input
 interface ThreadSupplierInput {
@@ -66,15 +67,6 @@ export const createThread = async (req: Request, res: Response) => {
     finalThreadName = parts.join(' ').trim() || `Thread ${threadCode}`;
   }
 
-  // Get Threads category ID
-  const threadCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Threads' },
-  });
-
-  if (!threadCategory) {
-    throw new BusinessError('Threads category not found. Please run Phase 1 migration.');
-  }
-
   // Validate styleCodes if provided
   let validStyles: { id: string; styleCode: string }[] = [];
   if (styleCodes.length > 0) {
@@ -90,82 +82,78 @@ export const createThread = async (req: Request, res: Response) => {
     }
   }
 
-  // Create thread_master entry with suppliers using Prisma
-  const threadRecord = await prisma.thread_master.create({
-    data: {
-      threadCode,
-      threadName: finalThreadName,
-      brand: brand || null,
-      packagingType: packagingType || null,
-      piecesPerBox: finalPiecesPerBox || null,
-      metersPerUnit: metersPerUnit ? parseFloat(metersPerUnit) : null,
-      color: color || null,
-      colorCode: colorCode || null,
-      colorId: colorId || null,
-      coneSize: coneSize || null,
-      ply: ply || null,
-      materialComposition: materialComposition || null,
-      unitsPerBox: unitsPerBox ? parseInt(unitsPerBox, 10) : null,
-      pricePerCone: pricePerCone ? parseFloat(pricePerCone) : null,
-      supplierCode: supplierCode || null,
-      buyerCode: buyerCode || null,
-      supplierId: supplierId || null,
-      description: description || null,
-      isActive: true,
-      // Create supplier relationships
-      threadSuppliers: {
-        create: suppliers.map((s: ThreadSupplierInput) => ({
-          supplierId: s.supplierId,
-          isPreferred: s.isPreferred || false,
-          isActive: s.isActive !== undefined ? s.isActive : true,
-          notes: s.notes || null,
-          pricePerCone: s.pricePerCone ? parseFloat(String(s.pricePerCone)) : null,
-        })),
+  // Create master + its materials record atomically (materials.id === master.id — material-identity invariant)
+  const { threadRecord, materialEntry } = await prisma.$transaction(async (tx) => {
+    const created = await tx.thread_master.create({
+      data: {
+        threadCode,
+        threadName: finalThreadName,
+        brand: brand || null,
+        packagingType: packagingType || null,
+        piecesPerBox: finalPiecesPerBox || null,
+        metersPerUnit: metersPerUnit ? parseFloat(metersPerUnit) : null,
+        color: color || null,
+        colorCode: colorCode || null,
+        colorId: colorId || null,
+        coneSize: coneSize || null,
+        ply: ply || null,
+        materialComposition: materialComposition || null,
+        unitsPerBox: unitsPerBox ? parseInt(unitsPerBox, 10) : null,
+        pricePerCone: pricePerCone ? parseFloat(pricePerCone) : null,
+        supplierCode: supplierCode || null,
+        buyerCode: buyerCode || null,
+        supplierId: supplierId || null,
+        description: description || null,
+        isActive: true,
+        // Create supplier relationships
+        threadSuppliers: {
+          create: suppliers.map((s: ThreadSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerCone: s.pricePerCone ? parseFloat(String(s.pricePerCone)) : null,
+          })),
+        },
       },
-    },
-    include: {
-      threadSuppliers: {
-        include: {
-          supplier: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              contactPerson: true,
-              email: true,
-              phone: true,
-              isActive: true,
+      include: {
+        threadSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
             },
           },
+          orderBy: { isPreferred: 'desc' },
         },
-        orderBy: { isPreferred: 'desc' },
       },
-    },
-  });
-
-  // Create style associations if provided
-  if (validStyles.length > 0) {
-    await prisma.thread_style_associations.createMany({
-      data: validStyles.map((style, index) => ({
-        threadId: threadRecord.id,
-        styleId: style.id,
-        isPrimary: index === 0,
-      })),
     });
-  }
 
-  // Create corresponding material entry
-  const materialEntry = await prisma.materials.create({
-    data: {
-      id: `mat-${threadCode.toLowerCase()}`,
-      code: threadCode,
-      name: finalThreadName,
-      materialType: 'THREAD',
-      threadId: threadRecord.id,
-      categoryId: threadCategory.id,
-      unit: 'CONE',
-      isActive: true,
-    },
+    // Create style associations if provided
+    if (validStyles.length > 0) {
+      await tx.thread_style_associations.createMany({
+        data: validStyles.map((style, index) => ({
+          threadId: created.id,
+          styleId: style.id,
+          isPrimary: index === 0,
+        })),
+      });
+    }
+
+    const material = await materialService.createFromMaster(
+      { id: created.id, code: threadCode, name: finalThreadName },
+      'THREAD',
+      tx
+    );
+
+    return { threadRecord: created, materialEntry: material };
   });
 
   res.status(201).json({
@@ -607,15 +595,6 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
     throw new ValidationError('No data provided for import');
   }
 
-  // Get Threads category
-  const threadCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Threads' },
-  });
-
-  if (!threadCategory) {
-    throw new BusinessError('Threads category not found');
-  }
-
   // Pre-generate all thread codes
   const codes = await allocateBatchCodes('THR', 'thread_master', 'threadCode', data.length);
 
@@ -672,19 +651,12 @@ export const bulkImportThreads = async (req: Request, res: Response) => {
           },
         });
 
-        // Create material
-        await tx.materials.create({
-          data: {
-            id: `mat-${threadCode.toLowerCase()}`,
-            code: threadCode,
-            name: row.threadName,
-            materialType: 'THREAD',
-            threadId: created.id,
-            categoryId: threadCategory.id,
-            unit: 'CONE',
-            isActive: true,
-          },
-        });
+        // Create material (same-id convention, category auto-resolved)
+        await materialService.createFromMaster(
+          { id: created.id, code: threadCode, name: row.threadName },
+          'THREAD',
+          tx
+        );
 
         return created;
       });
@@ -851,9 +823,13 @@ export const getThreadStock = async (req: Request, res: Response) => {
     },
   });
 
-  const materialId = thread?.materials?.[0]?.id;
-  if (!thread || !materialId) {
+  if (!thread) {
     throw new NotFoundError('Thread', id);
+  }
+  const materialId = thread.materials?.[0]?.id;
+  if (!materialId) {
+    // BUG-MM9 FIX: Distinguish between thread not found and materials record missing
+    throw new NotFoundError('Materials record for Thread', id);
   }
 
   // T2-1: derived per-warehouse on-hand (per-lot truth) instead of hand-maintained stock_levels.

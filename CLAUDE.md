@@ -217,6 +217,10 @@ When creating a new CRUD module end-to-end, follow this exact order (9 files min
 13. Add route in `frontend/src/App.tsx` (inside ProtectedRoute)
 14. Add sidebar entry in `frontend/src/components/Sidebar.tsx`
 
+### Verification (1 file — MANDATORY)
+15. Add the module to `backend/src/__tests__/integration/persistence-smoke.test.ts` (MODULES array: create + update payloads). The round-trip proves create/edit actually persist — this suite found 3 modules whose detail/update pages had NEVER worked (cuid IDs rejected by UUID param validation). A module is not "done" until its round-trip is green.
+   - ⚠ If the table's PK is `@default(cuid())`, use `flexIdParamSchema` (NOT `idParamSchema`) in the routes.
+
 ### Reference Files (copy these patterns)
 - **Zod Schema:** `backend/src/schemas/agency.schema.ts` — create/update schemas + type exports
 - **Controller:** `backend/src/controllers/agency.controller.ts` — class-based, 6 methods, try-catch
@@ -556,6 +560,18 @@ node scripts/skills/generate-types.js --model agencies --preview  # Preview type
 node scripts/skills/generate-types.js --model agencies            # Generate file
 ```
 
+### `/generate-zod-enums` - Prisma → Zod Enum Generator
+
+Generates `backend/src/schemas/generated/prisma-enums.ts` (one Zod enum per Prisma enum, 111 total) so schema.prisma is the ONLY authored copy of enum values. Kills the enum-drift bug class at the source.
+
+**Usage:**
+```bash
+node scripts/skills/generate-zod-enums.js           # regenerate after schema.prisma changes
+node scripts/skills/generate-zod-enums.js --check   # CI: exit 1 if stale
+```
+
+**Rule:** New `*.schema.ts` files import enums from `./generated/prisma-enums` instead of re-typing values. Existing hand-written `z.enum`s stay guarded by the smart-check enum-drift ratchet until migrated.
+
 ### `/register-route` - Route + Sidebar Registration
 
 Updates lazy-routes.tsx + App.tsx + optionally routes/index.ts when adding a new page.
@@ -675,6 +691,7 @@ node scripts/hooks/post-docs-update.js
 | `/generate-types` | Schema-to-types generation | 15-20 min → 1 min per model |
 | `/register-route` | Route + sidebar registration | 5-10 min → 30 sec per page |
 | `/health-check` | Stale process detection + API health | Prevents #1 debugging pitfall |
+| `/generate-zod-enums` | Prisma → Zod enums (single source of truth) | Kills enum-drift class at the source |
 
 ### Hooks
 

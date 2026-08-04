@@ -123,7 +123,7 @@ export default function SampleForm() {
 
   const fetchCustomers = async () => {
     try {
-      const response = await api.get<{ data: Customer[] }>('/customers?limit=1000&isActive=true');
+      const response = await api.get<{ data: CustomerLookup[] }>('/customers?limit=1000&isActive=true');
       setCustomers(response.data.data);
     } catch (err) {
       console.error('Failed to fetch customers:', err);

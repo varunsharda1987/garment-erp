@@ -1,11 +1,11 @@
 import { Request, Response } from 'express';
-import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { logDebug } from '../utils/logger';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
+import { materialService } from '../services/material.service';
 import {
   PackagingMasterRecord,
   CountResult,
@@ -74,88 +74,75 @@ export const createPackaging = async (req: Request, res: Response) => {
   // Auto-generate packaging code
   const packagingCode = await generateCode('PKG', 'packaging_master', 'packagingCode');
 
-  // Get Packaging category ID
-  const packagingCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Packaging' },
-  });
-
-  if (!packagingCategory) {
-    throw new BusinessError('Packaging category not found. Please run Phase 1 migration.');
-  }
-
   // Ensure thickness is a string if provided
   const thicknessValue = thickness !== undefined && thickness !== '' && thickness !== null ? String(thickness) : null;
 
-  // Create packaging_master entry using Prisma with suppliers
-  const packagingRecord = await prisma.packaging_master.create({
-    data: {
-      packagingCode,
-      packagingName,
-      supplierCode: supplierCode || null,
-      buyerCode: buyerCode || null,
-      customerId: customerId || null, // Link to customer
-      brandCategoryId: brandCategoryId || null, // Link to brand
-      packagingType: packagingType || null,
-      size: size || null,
-      material: material || null,
-      thickness: thicknessValue,
-      printDetails: printDetails || null,
-      pricePerPiece: pricePerPiece != null ? parseFloat(String(pricePerPiece)) : null,
-      pricePerHundred: pricePerHundred != null ? parseFloat(String(pricePerHundred)) : null,
-      supplierId: supplierId || null,
-      description: description || null,
-      isActive: true,
-      // Create supplier relationships
-      packaging_suppliers: {
-        create: suppliers.map((s: PackagingSupplierInput) => ({
-          supplierId: s.supplierId,
-          isPreferred: s.isPreferred || false,
-          isActive: s.isActive !== undefined ? s.isActive : true,
-          notes: s.notes || null,
-          pricePerPiece: s.pricePerPiece != null ? parseFloat(String(s.pricePerPiece)) : null,
-        })),
-      },
-    },
-    include: {
-      customer: {
-        select: {
-          id: true,
-          code: true,
-          name: true,
+  // Create master + its materials record atomically (materials.id === master.id — material-identity invariant)
+  const { packagingRecord, materialEntry } = await prisma.$transaction(async (tx) => {
+    const created = await tx.packaging_master.create({
+      data: {
+        packagingCode,
+        packagingName,
+        supplierCode: supplierCode || null,
+        buyerCode: buyerCode || null,
+        customerId: customerId || null, // Link to customer
+        brandCategoryId: brandCategoryId || null, // Link to brand
+        packagingType: packagingType || null,
+        size: size || null,
+        material: material || null,
+        thickness: thicknessValue,
+        printDetails: printDetails || null,
+        pricePerPiece: pricePerPiece != null ? parseFloat(String(pricePerPiece)) : null,
+        pricePerHundred: pricePerHundred != null ? parseFloat(String(pricePerHundred)) : null,
+        supplierId: supplierId || null,
+        description: description || null,
+        isActive: true,
+        // Create supplier relationships
+        packaging_suppliers: {
+          create: suppliers.map((s: PackagingSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerPiece: s.pricePerPiece != null ? parseFloat(String(s.pricePerPiece)) : null,
+          })),
         },
       },
-      packaging_suppliers: {
-        include: {
-          supplier: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              contactPerson: true,
-              email: true,
-              phone: true,
-              isActive: true,
-            },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
           },
         },
-        orderBy: { isPreferred: 'desc' },
+        packaging_suppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
+            },
+          },
+          orderBy: { isPreferred: 'desc' },
+        },
       },
-    },
-  });
+    });
 
-  // Create corresponding material entry
-  const materialCode = packagingCode; // Use same code
-  const materialEntry = await prisma.materials.create({
-    data: {
-      id: `mat-${packagingCode.toLowerCase()}`,
-      code: materialCode,
-      name: packagingName,
-      materialType: 'PACKAGING',
-      packagingId: packagingRecord.id,
-      categoryId: packagingCategory.id,
-      unit: 'PIECE',
-      isActive: true,
-    } as Prisma.materialsUncheckedCreateInput,
+    // Create material (same-id convention, category auto-resolved)
+    const materialRow = await materialService.createFromMaster(
+      { id: created.id, code: packagingCode, name: packagingName },
+      'PACKAGING',
+      tx
+    );
+
+    return { packagingRecord: created, materialEntry: materialRow };
   });
 
   res.status(201).json({
@@ -580,15 +567,6 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
     throw new ValidationError('Data array is required');
   }
 
-  // Get Packaging category
-  const packagingCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Packaging' },
-  });
-
-  if (!packagingCategory) {
-    throw new BusinessError('Packaging category not found');
-  }
-
   // Pre-generate all codes
   const codes = await allocateBatchCodes('PKG', 'packaging_master', 'packagingCode', data.length);
 
@@ -642,19 +620,12 @@ export const bulkImportPackaging = async (req: Request, res: Response) => {
           SELECT "id" FROM "packaging_master" WHERE "packagingCode" = ${packagingCode} LIMIT 1
         `;
 
-        // Create material
-        await tx.materials.create({
-          data: {
-            id: `mat-${packagingCode.toLowerCase()}`,
-            code: packagingCode,
-            name: row.packagingName,
-            materialType: 'PACKAGING',
-            packagingId: created[0].id,
-            categoryId: packagingCategory.id,
-            unit: 'PIECE',
-            isActive: true,
-          } as Prisma.materialsUncheckedCreateInput,
-        });
+        // Create material (same-id convention, category auto-resolved)
+        await materialService.createFromMaster(
+          { id: created[0].id, code: packagingCode, name: row.packagingName },
+          'PACKAGING',
+          tx
+        );
 
         return created[0].id;
       });

@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { generateCode } from '../utils/code-generator';
-import { NotFoundError, ValidationError, BusinessError } from '../errors';
+import { NotFoundError, ValidationError } from '../errors';
 import { logWarn } from '../utils/logger';
+import { materialService } from '../services/material.service';
+import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 
 /**
  * Generic Trim Controller
@@ -350,17 +352,7 @@ export const createGenericTrim = async (req: Request, res: Response) => {
   // Get user ID from auth (optional)
   const userId = req.user?.userId || null;
 
-  // Resolve the materials category up-front so the master + materials pair can be created atomically
   const fkField = TRIM_TYPE_FK_MAP[trimType];
-  let category: { id: string } | null = null;
-  if (fkField) {
-    category = await prisma.material_categories.findFirst({
-      where: { name: config.categoryName },
-    });
-    if (!category) {
-      throw new BusinessError(`Material category '${config.categoryName}' not found. Please run Phase 1 migration.`);
-    }
-  }
 
   // Create the item + its material entry atomically (same pattern as button.controller.ts) so a
   // failure cannot leave a master without its materials record
@@ -384,19 +376,9 @@ export const createGenericTrim = async (req: Request, res: Response) => {
       },
     });
 
-    if (fkField && category) {
-      await tx.materials.create({
-        data: {
-          id: `mat-${code.toLowerCase()}`,
-          code: code,
-          name: finalName.trim(),
-          materialType: config.materialType as any,
-          [fkField]: created.id,
-          categoryId: category.id,
-          unit: config.defaultUnit as any,
-          isActive: true,
-        },
-      });
+    if (fkField) {
+      // Create material (same-id convention, category auto-resolved)
+      await materialService.createFromMaster({ id: created.id, code, name: finalName.trim() }, config.materialType, tx);
     }
 
     return created;
@@ -444,25 +426,18 @@ export const update = async (req: Request, res: Response) => {
     },
   });
 
-  // Sync materials record if name or isActive changed
+  // Sync materials record if name or isActive changed (canonical helper)
   const fkField = TRIM_TYPE_FK_MAP[trimType];
   if (fkField) {
-    const nameField = config.nameField;
-    const newName = updateData[nameField] as string | undefined;
+    const newName = updateData[config.nameField] as string | undefined;
     const newIsActive = updateData.isActive as boolean | undefined;
 
-    // Only update if something changed
+    // Only call if something changed
     if (newName !== undefined || newIsActive !== undefined) {
-      const materialUpdateData: Record<string, string | boolean> = {};
-      if (newName !== undefined) materialUpdateData.name = newName.trim();
-      if (newIsActive !== undefined) materialUpdateData.isActive = newIsActive;
-
-      if (Object.keys(materialUpdateData).length > 0) {
-        await prisma.materials.updateMany({
-          where: { [fkField]: id },
-          data: materialUpdateData,
-        });
-      }
+      await syncMasterToMaterials(id, config.materialType, {
+        name: newName?.trim(),
+        isActive: newIsActive,
+      });
     }
   }
 

@@ -1,5 +1,28 @@
 # REPAIR PLAN — fixing the 71,089 m of corrupt stock data
 
+> ## ✅ RESOLVED 2026-08-02 — DO NOT EXECUTE THIS PLAN. The data it describes no longer exists.
+>
+> The transactional data was reset after this plan was written; the corrupt rows (negative ledgers,
+> `-RAW` duplicate materials, phantom fabric_masters) are **gone**. What remained was fixed on
+> 2026-08-02 (backup: `backups/garment_erp_pre_stock_repair_20260802.dump`):
+>
+> - **Code:** the phantom-minting `createGenericGreigeStock` (BH-0296 root cause, already
+>   caller-less) was DELETED; `createGreigeStock` now always stamps a `warehouseId` on the lot
+>   (NULL-warehouse lots are invisible to `derived_stock_view`); the challan→processor transfer
+>   now stamps the processor warehouse on the transferred lot.
+> - **Semantics (learned the hard way):** processor-held lots are deliberately EXCLUDED from
+>   on-hand (`processorId IS NULL AND sourceType != 'TRANSFER'` in the view) — issued greige
+>   leaves on-hand and returns as fabric via GRN. Repair/verify tooling now uses that filter.
+> - **Data:** 6 NULL-warehouse lots backfilled (5 → WH-RM-0001, 1 processor-held → WH-JW-0006).
+> - **Constraints:** `materials.greigeId/fabricId/...` `@unique` were ALREADY live (phantom class
+>   blocked at DB level); non-negativity CHECKs authored in migration
+>   `20260802000000_add_stock_nonneg_checks` (applies via `prisma migrate deploy`).
+> - **Prove-it tooling (KEEPERS):** `backend/scripts/verify-stock-identity.ts` (all checks zero)
+>   and `backend/scripts/repair-stock-warehouses.ts` (rule-based, dry-run by default).
+>   Both verified green: ledger = lots = derived view, 0 negatives, 0 duplicates, 0 phantoms.
+>
+> The original plan is preserved below for the record only.
+
 > **Nothing here has been run.** This is a plan, written against your **actual live rows**, so your developer can execute it without re-doing the investigation.
 > Context: [START_HERE.md](START_HERE.md) · Root cause: **BH-0296** · Damage: **BH-0294** · Mechanism: **BH-0295**
 

@@ -506,6 +506,28 @@ export const deleteGreigeMaster = async (req: Request, res: Response) => {
     );
   }
 
+  // BUG-GR12 fix: also guard BOTH BOM tables before delete (same pattern as BUG-OM1).
+  // - order_bom_items has a direct greigeId FK (GREIGE_PROCESSED sourcing rows)
+  // - style_material_bom has NO greige FK; greige lines reference the centralized
+  //   materials record instead (materialId -> materials.id, materials.greigeId -> greige_master.id)
+  const materialRecord = await prisma.materials.findFirst({
+    where: { greigeId: id },
+    select: { id: true },
+  });
+
+  const [orderBomUsage, styleBomUsage] = await Promise.all([
+    prisma.order_bom_items.count({
+      where: materialRecord ? { OR: [{ greigeId: id }, { materialId: materialRecord.id }] } : { greigeId: id },
+    }),
+    materialRecord ? prisma.style_material_bom.count({ where: { materialId: materialRecord.id } }) : Promise.resolve(0),
+  ]);
+
+  if (styleBomUsage > 0 || orderBomUsage > 0) {
+    throw new ValidationError(
+      `Cannot delete greige master: used in ${styleBomUsage} style BOM(s) and ${orderBomUsage} order BOM(s). Remove those references first.`
+    );
+  }
+
   await prisma.greige_master.delete({
     where: { id },
   });

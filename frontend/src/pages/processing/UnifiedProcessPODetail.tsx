@@ -1,5 +1,6 @@
 // BUG-DASH4 fix: corrected route path - Unified Process PO Detail Page
-// Fetches the Process PO to determine its type, then renders appropriate detail view
+// Route: /manufacturing/processing/process-pos/:id
+// Fetches the Process PO to determine its type, then redirects to dyeing or printing detail
 import { useParams, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';

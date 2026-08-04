@@ -132,8 +132,11 @@ class GreigeStockService {
           ? nominalQty * (data.foldLengthCm / 100)
           : nominalQty; // If no fold length or L=100, actual = nominal
 
-      // Get configurable defaults from system settings
+      // BUG-GR8 fix: Cutable width deduction is configurable via system settings
+      // Default: 2 (i.e., cutableWidth = greigeWidth - 2)
       const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+      // BUG-GR9 fix: Quality grade default is configurable via system settings
+      // Default: 'A' (i.e., Grade A quality)
       const defaultQualityGrade = await systemSettingsService.getString('GREIGE_DEFAULT_QUALITY_GRADE', 'A');
 
       // A lot MUST carry a warehouse: NULL-warehouse lots are invisible to derived_stock_view
@@ -548,8 +551,15 @@ class GreigeStockService {
         },
       });
 
-      // Sync stock_levels (on the same tx when provided)
-      await syncStockLevelQuantity(stock.greigeId, -quantity, stock.warehouseId || undefined, undefined, tx);
+      // BUG-INV3 fix: find materials.id instead of using greigeId directly
+      // (greigeId is a FK to greige_master, but syncStockLevelQuantity expects materials.id)
+      const material = await client.materials.findFirst({
+        where: { greigeId: stock.greigeId },
+        select: { id: true },
+      });
+      if (material) {
+        await syncStockLevelQuantity(material.id, -quantity, stock.warehouseId || undefined, undefined, tx);
+      }
 
       logInfo(`Consumed ${quantity} meters of greige stock ${stockId}`);
 
@@ -967,8 +977,15 @@ class GreigeStockService {
     // Keep the central ledger in sync — this stock left the processor's warehouse. Without it the
     // Stock Levels page OVERSTATES greige (GRG-0034 was +17,080m). Guarded by warehouseId so we
     // decrement the specific warehouse, never all of them (bug-hunt BH-0305).
+    // BUG-INV3 fix: find materials.id instead of using greigeId directly
     if (stock.warehouseId) {
-      await syncStockLevelQuantity(stock.greigeId, -sentQuantity, stock.warehouseId);
+      const material = await prisma.materials.findFirst({
+        where: { greigeId: stock.greigeId },
+        select: { id: true },
+      });
+      if (material) {
+        await syncStockLevelQuantity(material.id, -sentQuantity, stock.warehouseId);
+      }
     }
 
     logInfo(
@@ -1074,8 +1091,15 @@ class GreigeStockService {
 
     // Keep the central ledger in sync — this stock left the processor's warehouse (bug-hunt BH-0305).
     // Guarded by warehouseId so we decrement the specific warehouse, never all of them.
+    // BUG-INV3 fix: find materials.id instead of using greigeId directly
     if (stock.warehouseId) {
-      await syncStockLevelQuantity(stock.greigeId, -receivedQuantity, stock.warehouseId);
+      const material = await prisma.materials.findFirst({
+        where: { greigeId: stock.greigeId },
+        select: { id: true },
+      });
+      if (material) {
+        await syncStockLevelQuantity(material.id, -receivedQuantity, stock.warehouseId);
+      }
     }
 
     logInfo(

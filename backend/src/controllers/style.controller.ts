@@ -141,6 +141,11 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
       colorName: string;
       hexCode?: string | null;
     } | null;
+    stylePatternParts?: Array<{
+      id: string;
+      patternPartId: string;
+      patternPart?: { id: string; code: string; name: string } | null;
+    }>;
   }
 
   interface StyleAccessory {
@@ -168,7 +173,7 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
 
   const styleFabricsFlat =
     styleWithComponents.style_components?.flatMap((comp: StyleComponent) =>
-      comp.style_fabrics.map((fab: StyleFabric) => ({
+      (comp.style_fabrics || []).map((fab: StyleFabric) => ({
         id: fab.id,
         componentId: fab.componentId,
         componentName: comp.componentName,
@@ -188,6 +193,10 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
         printDesign: fab.printDesign || fab.fabric?.printDesign || null,
         colorMasterId: fab.colorMasterId || fab.fabric?.colorMasterId || null,
         colorMaster: fab.colorMaster || null,
+        // BUG-S12: the getById query fetches stylePatternParts but the flattening dropped
+        // them, so the form always saw [] and could never display/edit pattern parts.
+        // Serializer maps stylePatternParts -> patternParts (the key the frontend reads).
+        stylePatternParts: fab.stylePatternParts || [],
       }))
     ) || [];
 
@@ -199,7 +208,7 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
       componentName: comp.componentName,
       componentType: comp.componentType,
       sortOrder: comp.sortOrder,
-      fabrics: comp.style_fabrics.map((fab: StyleFabric) => {
+      fabrics: (comp.style_fabrics || []).map((fab: StyleFabric) => {
         // Look up approved costing data for this fabric
         const approvedCosting = approvedCostingMap.get(fab.id);
 

@@ -894,6 +894,47 @@ function numericOrFallback(relFiles) {
   return out;
 }
 
+// E1 — materials.create with a hand-written id (string/template literal, e.g. `mat-${code}`):
+// materials.id must equal the master's uuid (createFromMaster in material.service.ts is the ONLY
+// authorized id-assigner). Hand-derived ids forked the registry into 4 incompatible conventions
+// (the 2026-08 material-identity audit: 108 mat-* rows, preset saves 400ing on uuid validation).
+// Legit non-literal ids (randomUUID(), master.id variables) are not flagged.
+// Opt-out: `// allow-manual-material-create` on the call line or the line above.
+function manualMaterialCreate(relFiles) {
+  const out = [];
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^backend\/(src|scripts)\/.*\.ts$/.test(norm)) continue;
+    if (/\.test\.ts$|__tests__|backend\/src\/services\/material\.service\.ts$/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const re = /\b(?:prisma|tx)\.materials\.create(?:Many)?\s*\(/g;
+    let m;
+    const seen = new Map();
+    while ((m = re.exec(content))) {
+      const call = sliceBalanced(content, m.index + m[0].length - 1);
+      const idMatch = /\bid:\s*(['"`][^\n,]{0,60})/.exec(call);
+      if (!idMatch) continue; // no literal id — Prisma default / uuid variable / createFromMaster
+      const lineNo = lineOf(content, m.index);
+      const lines = content.split('\n');
+      const context = `${lines[lineNo - 2] || ''}\n${lines[lineNo - 1] || ''}`;
+      if (/allow-manual-material-create/.test(context)) continue; // opt-out
+      const snippet = idMatch[1].replace(/\s+/g, ' ').trim();
+      let key = `${rel} :: manual-material-id :: ${snippet}`;
+      const n = (seen.get(key) || 0) + 1;
+      seen.set(key, n);
+      if (n > 1) key += ` #${n}`;
+      out.push({
+        key,
+        file: rel,
+        line: lineNo,
+        detail: `materials.create with hand-written id ${snippet} — use materialService.createFromMaster(master, TYPE, tx) so materials.id === master.id`,
+      });
+    }
+  }
+  return out;
+}
+
 module.exports = {
   perRouteValidation,
   enumDrift,
@@ -906,6 +947,7 @@ module.exports = {
   countNumbering,
   swallowedWriteErrors,
   assignNotIncrement,
+  manualMaterialCreate,
   schemaFrontendParity,
   stockSyncNoWarehouse,
   silentCatchFrontend,

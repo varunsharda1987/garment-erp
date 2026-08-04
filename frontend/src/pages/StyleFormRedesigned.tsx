@@ -1014,9 +1014,11 @@ export default function StyleFormRedesigned() {
       // Template fields (Additional Details)
       // These fields may exist on the API response but aren't in the Style type
       const styleData = style as unknown as Record<string, unknown>;
-      setCostPrice((styleData.costPrice as number) || '');
-      setSellingPrice((styleData.sellingPrice as number) || '');
-      setExpectedOrderQty((styleData.expectedOrderQty as number) || '');
+      // BUG-S10: ?? keeps a legitimate 0 (|| blanked ₹0 prices on load)
+      setCostPrice((styleData.costPrice as number) ?? '');
+      setSellingPrice((styleData.sellingPrice as number) ?? '');
+      // BUG-S6: serialized key is expectedOrderQuantity (the column name), not expectedOrderQty
+      setExpectedOrderQty((styleData.expectedOrderQuantity as number) ?? '');
       setRemarks(style.specifications || ''); // Using specifications field for remarks
       setHsnCode((styleData.hsnCode as string) || '');
       setProductTaxRule((styleData.productTaxRule as string) || '');
@@ -1885,7 +1887,10 @@ export default function StyleFormRedesigned() {
       return;
     }
 
-    if (!id) {
+    // BUG-S11: use effectiveId, not the route param — after a first draft save the URL is
+    // rewritten via history.replaceState without remounting, so `id` stays undefined and a
+    // picked image went to pendingImageFile which the update branch never uploaded.
+    if (!effectiveId) {
       // For new styles, store file locally and show preview
       setPendingImageFile(file);
       const previewUrl = URL.createObjectURL(file);
@@ -1898,7 +1903,7 @@ export default function StyleFormRedesigned() {
     // For existing styles, upload immediately
     try {
       setUploadingImage(true);
-      const uploadedImageUrl = await styleService.uploadStyleImage(id, file);
+      const uploadedImageUrl = await styleService.uploadStyleImage(effectiveId, file);
       setImageUrl(uploadedImageUrl);
       notify.success('Image uploaded successfully');
     } catch (error: unknown) {
@@ -1922,12 +1927,12 @@ export default function StyleFormRedesigned() {
       return;
     }
 
-    if (!id) return;
+    if (!effectiveId) return; // BUG-S11: effectiveId covers the saved-draft case too
 
     try {
       // Update the style to remove the image URL
       // imageUrl is accepted by the API but not in CreateStyleFormData type
-      await styleService.updateStyle(id, { imageUrl: null } as unknown as Parameters<
+      await styleService.updateStyle(effectiveId, { imageUrl: null } as unknown as Parameters<
         typeof styleService.updateStyle
       >[1]);
       setImageUrl('');
@@ -2127,6 +2132,13 @@ export default function StyleFormRedesigned() {
         })
         .filter((c) => c !== null); // Remove any null entries
 
+      // BUG-S9: sending an empty skuVariants array made the backend delete ALL SKU rows
+      // (and their barcodes) with no confirmation. Omit the key instead — existing rows stay.
+      const activeSkuVariants = skuVariantsWithGenerated.filter((v) => v.isActive);
+      if (activeSkuVariants.length === 0 && skuVariantsWithGenerated.length > 0) {
+        notify.warning('All sizes are unchecked — existing SKU variants were kept, not deleted.');
+      }
+
       const styleData = {
         styleCode,
         styleName: styleName || styleCode,
@@ -2139,18 +2151,24 @@ export default function StyleFormRedesigned() {
         seasonId: seasonId || null,
         description,
         numberOfComponents,
-        components, // Add the components array
+        // BUG-S8: an empty components array made the backend delete-and-recreate wipe ALL
+        // style_components + style_fabrics (same class as the processes bug below). Omit
+        // the key when there is nothing to send — backend treats absent key as "no change".
+        ...(components.length > 0 ? { components } : {}),
         // Standard processes are assumed for all styles (Cutting, Stitching, Finishing, Transportation).
         // Deliberately NOT sent: the form does not manage processes, and sending [] made the backend
         // delete-and-recreate wipe all existing process rows on every save (bug-hunt BH-0275/BH-0373).
-        expectedOrderQuantity: expectedOrderQty || null,
+        // BUG-S10: === '' check preserves a legitimate 0 (|| turned 0 into null)
+        expectedOrderQuantity: expectedOrderQty === '' ? null : expectedOrderQty,
         // Template fields - Pricing
-        costPrice: costPrice || null,
-        sellingPrice: sellingPrice || null,
+        costPrice: costPrice === '' ? null : costPrice,
+        sellingPrice: sellingPrice === '' ? null : sellingPrice,
         // Template fields - Tax & Accounting
         hsnCode: hsnCode || null,
         productTaxRule: productTaxRule || null,
-        accountingSKU: styleCode || null, // Default to Style Code
+        // BUG-S13: only default accountingSKU on CREATE — updates previously overwrote any
+        // externally-set accounting SKU with the style code on every save
+        ...(effectiveId ? {} : { accountingSKU: styleCode || null }),
         accountingUnit: accountingUnit || 'Units',
         // Template fields - Marketing & Other
         bulletPoints: bulletPoints || null,
@@ -2162,8 +2180,8 @@ export default function StyleFormRedesigned() {
         trims: finalTrims,
         // Accessories - simplified (just references to master records)
         accessories: finalAccessories,
-        // SKU variants (with auto-generated SKUs for empty ones)
-        skuVariants: skuVariantsWithGenerated.filter((v) => v.isActive),
+        // SKU variants (with auto-generated SKUs for empty ones) — see BUG-S9 note above
+        ...(activeSkuVariants.length > 0 ? { skuVariants: activeSkuVariants } : {}),
         // Customer preset: send null (not undefined) when cleared, so the FK is actually nulled.
         // undefined is dropped by JSON.stringify and Prisma then leaves the old preset FK intact,
         // resurrecting the removed accessories on the next edit (bug-hunt BH-0143). The backend
@@ -2180,6 +2198,22 @@ export default function StyleFormRedesigned() {
         await styleService.updateStyle(effectiveId, styleData);
         notify.success(isDraft ? 'Draft saved successfully!' : 'Style updated successfully!');
         clearLocalDraft(); // Clear localStorage after successful DB save
+
+        // BUG-S11: upload any pending image in the update branch too (previously only the
+        // create branch uploaded it, so an image picked after the first draft save was lost)
+        if (pendingImageFile) {
+          try {
+            await styleService.uploadStyleImage(effectiveId, pendingImageFile);
+            if (pendingImagePreview) {
+              URL.revokeObjectURL(pendingImagePreview);
+            }
+            setPendingImageFile(null);
+            setPendingImagePreview('');
+          } catch (imgError) {
+            console.error('Failed to upload image:', imgError);
+            notify.error('Style saved but image upload failed. You can upload it later.');
+          }
+        }
 
         // Only navigate away for published (ACTIVE) styles, stay on page for drafts
         if (!isDraft && styleStatus !== 'DRAFT') {

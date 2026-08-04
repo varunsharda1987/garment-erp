@@ -1,4 +1,25 @@
-// Material Management Controller
+/**
+ * Material Management Controller
+ *
+ * BUG-MM11 DOCUMENTATION: Understanding the Dual Material Systems
+ * ================================================================
+ * This codebase has TWO related but distinct material tracking systems:
+ *
+ * 1. `materials` table (this controller) - Routes: /api/materials
+ *    - Primary inventory tracking table with string UUID IDs
+ *    - Has FK links to master tables (greigeId, fabricId, zipperId, etc.)
+ *    - Used by: Stock Levels, GRN, Purchase Orders, MRP
+ *    - Supports generic material suppliers via material_suppliers junction
+ *
+ * 2. `material_master` table (material-master.controller.ts) - Routes: /api/material-master
+ *    - Legacy/alternate material catalog with integer auto-increment IDs
+ *    - Simpler structure, no FK links to specialized masters
+ *    - Used by: Some legacy imports and quick-add flows
+ *
+ * For NEW development, prefer the `materials` table (this controller) as it integrates
+ * with the full master-table hierarchy (greige_master, fabric_master, etc.).
+ * The `material_master` table exists for backward compatibility.
+ */
 import { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
@@ -41,6 +62,17 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
     image,
     categoryData,
   } = req.body;
+
+  // BUG-MM12 FIX: Validate categoryId exists before creating material
+  if (categoryId) {
+    const category = await prisma.material_categories.findUnique({
+      where: { id: categoryId },
+      select: { id: true },
+    });
+    if (!category) {
+      throw new ValidationError(`Category with ID ${categoryId} does not exist`);
+    }
+  }
 
   // Check if material code already exists
   const existingMaterial = await prisma.materials.findFirst({
@@ -472,6 +504,17 @@ export const updateMaterial = async (req: Request, res: Response): Promise<void>
 
     if (codeExists) {
       throw new ConflictError('Material code already exists');
+    }
+  }
+
+  // BUG-MM12 FIX: Validate categoryId exists before updating material
+  if (categoryId) {
+    const category = await prisma.material_categories.findUnique({
+      where: { id: categoryId },
+      select: { id: true },
+    });
+    if (!category) {
+      throw new ValidationError(`Category with ID ${categoryId} does not exist`);
     }
   }
 

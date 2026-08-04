@@ -9,7 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { createSizeCategory, getSizeCategoryById, updateSizeCategory } from '@/services/sizeCategory.service';
-import type { SizeCategoryFormData } from '@/types/sizeCategory.types';
+import type {
+  CreateSizeCategoryFormData,
+  CreateSizeCategoryRequest,
+  UpdateSizeCategoryRequest,
+} from '@/types/sizeCategory.types';
 import { SIZE_CATEGORY_TEMPLATES } from '@/types/sizeCategory.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { X, Plus } from 'lucide-react';
@@ -31,7 +35,7 @@ export default function SizeCategoryForm({ mode = 'create' }: SizeCategoryFormPr
     handleSubmit,
     setValue,
     formState: { errors },
-  } = useForm<SizeCategoryFormData>();
+  } = useForm<CreateSizeCategoryFormData>();
 
   const isNewCategory = mode === 'create' || !id;
 
@@ -79,7 +83,7 @@ export default function SizeCategoryForm({ mode = 'create' }: SizeCategoryFormPr
     }
   };
 
-  const onSubmit = async (data: SizeCategoryFormData) => {
+  const onSubmit = async (data: CreateSizeCategoryFormData) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -96,16 +100,21 @@ export default function SizeCategoryForm({ mode = 'create' }: SizeCategoryFormPr
         return;
       }
 
-      const payload: SizeCategoryFormData = {
-        ...data,
-        sizes,
-      };
-
       if (isNewCategory) {
-        await createSizeCategory(payload);
+        const createPayload: CreateSizeCategoryRequest = {
+          name: data.name.trim(),
+          description: data.description?.trim() || undefined,
+          sizes,
+        };
+        await createSizeCategory(createPayload);
         handleApiSuccess('Size category created', 'Size category has been successfully created.');
       } else if (id) {
-        await updateSizeCategory(id, payload);
+        const updatePayload: UpdateSizeCategoryRequest = {
+          name: data.name.trim(),
+          description: data.description?.trim() || undefined,
+          sizes,
+        };
+        await updateSizeCategory(id, updatePayload);
         handleApiSuccess('Size category updated', 'Size category has been successfully updated.');
       }
 

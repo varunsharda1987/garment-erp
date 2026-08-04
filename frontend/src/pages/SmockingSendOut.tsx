@@ -19,7 +19,54 @@ import { externalProcessService } from '../services/external-process.service';
 import { ArrowLeft } from 'lucide-react';
 import api from '../lib/api';
 import { formatCurrency } from '../lib/currency';
+import type { AxiosError } from 'axios';
 import type { CreateExternalProcessSendOutRequest, ExternalProcessSourceType } from '../types/external-process.types';
+
+// BUG-MFG22 fix: API response types to replace `any` in map callbacks
+interface WorkOrderApiResponse {
+  id: string;
+  workOrderNumber: string;
+  styles?: { styleName: string; styleCode: string };
+  style?: { styleName: string; styleCode: string };
+  totalQuantity: number;
+  orderId?: string;
+  styleId?: string;
+}
+
+interface POApiResponse {
+  id: string;
+  poNumber: string;
+  supplierId: string;
+  supplier?: { name: string };
+  suppliers?: { name: string };
+  status: string;
+}
+
+interface CuttingBatchApiResponse {
+  id: string;
+  batchNumber: string;
+  status: string;
+  skuOutputs?: Array<{
+    id?: string;
+    colorId?: string;
+    sizeId: string;
+    goodPcs?: number;
+    color?: { colorName: string };
+    colorName?: string;
+    size?: { sizeName: string };
+    sizeName?: string;
+  }>;
+}
+
+interface FabricStockApiResponse {
+  id: string;
+  quantityAvailable: string | number;
+  unit?: string;
+  fabricMaster?: {
+    fabricCode?: string;
+    fabricName?: string;
+  };
+}
 
 interface WorkOrderOption {
   id: string;
@@ -91,7 +138,8 @@ export default function SmockingSendOut() {
     api
       .get('/work-orders?status=PENDING&status=IN_PRODUCTION&limit=200')
       .then((res) => {
-        const items = (res.data?.data || res.data || []).map((wo: any) => ({
+        // BUG-MFG22 fix: use typed response instead of `any`
+        const items = (res.data?.data || res.data || []).map((wo: WorkOrderApiResponse) => ({
           id: wo.id,
           workOrderNumber: wo.workOrderNumber,
           styleName: wo.styles?.styleName || wo.style?.styleName || '',
@@ -102,9 +150,10 @@ export default function SmockingSendOut() {
         }));
         setWorkOrders(items);
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         // BUG-MFG11-18 fix: proper error extraction
-        const message = err?.response?.data?.message || err?.message || 'Could not load work orders';
+        const axiosErr = err as AxiosError<{ message?: string }>;
+        const message = axiosErr?.response?.data?.message || axiosErr?.message || 'Could not load work orders';
         toast.error(message);
         setWorkOrders([]);
       });
@@ -119,7 +168,8 @@ export default function SmockingSendOut() {
     api
       .get(`/purchase-orders?poCategories=SMOCKING_SERVICE&serviceWorkOrderId=${selectedWorkOrderId}&limit=100`)
       .then((res) => {
-        const items = (res.data?.data || res.data || []).map((po: any) => ({
+        // BUG-MFG22 fix: use typed response instead of `any`
+        const items = (res.data?.data || res.data || []).map((po: POApiResponse) => ({
           id: po.id,
           poNumber: po.poNumber,
           supplierId: po.supplierId,
@@ -128,9 +178,10 @@ export default function SmockingSendOut() {
         }));
         setPos(items);
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         // BUG-MFG11-18 fix: proper error extraction
-        const message = err?.response?.data?.message || err?.message || 'Could not load purchase orders';
+        const axiosErr = err as AxiosError<{ message?: string }>;
+        const message = axiosErr?.response?.data?.message || axiosErr?.message || 'Could not load purchase orders';
         toast.error(message);
         setPos([]);
       });
@@ -145,11 +196,12 @@ export default function SmockingSendOut() {
     api
       .get(`/cutting/batches?workOrderId=${selectedWorkOrderId}&status=COMPLETED&limit=100`)
       .then((res) => {
-        const items = (res.data?.data || res.data || []).map((b: any) => ({
+        // BUG-MFG22 fix: use typed response instead of `any`
+        const items = (res.data?.data || res.data || []).map((b: CuttingBatchApiResponse) => ({
           id: b.id,
           batchNumber: b.batchNumber,
           status: b.status,
-          skuOutputs: (b.skuOutputs || []).map((s: any) => ({
+          skuOutputs: (b.skuOutputs || []).map((s) => ({
             id: s.id || `${s.colorId || 'nc'}-${s.sizeId}`,
             colorId: s.colorId,
             sizeId: s.sizeId,
@@ -160,9 +212,10 @@ export default function SmockingSendOut() {
         }));
         setCuttingBatches(items);
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         // BUG-MFG11-18 fix: proper error extraction
-        const message = err?.response?.data?.message || err?.message || 'Could not load cutting batches';
+        const axiosErr = err as AxiosError<{ message?: string }>;
+        const message = axiosErr?.response?.data?.message || axiosErr?.message || 'Could not load cutting batches';
         toast.error(message);
         setCuttingBatches([]);
       });
@@ -178,20 +231,22 @@ export default function SmockingSendOut() {
       // fabric stock is mounted at /stock (not /fabric-stock); the old path 404'd → empty dropdown (B11-09)
       .get(`/stock?limit=100`)
       .then((res) => {
+        // BUG-MFG22 fix: use typed response instead of `any`
         const items = (res.data?.data || res.data || [])
-          .filter((s: any) => parseFloat(s.quantityAvailable) > 0)
-          .map((s: any) => ({
+          .filter((s: FabricStockApiResponse) => parseFloat(String(s.quantityAvailable)) > 0)
+          .map((s: FabricStockApiResponse) => ({
             id: s.id,
             fabricCode: s.fabricMaster?.fabricCode || '',
             fabricName: s.fabricMaster?.fabricName || '',
-            quantityAvailable: parseFloat(s.quantityAvailable),
+            quantityAvailable: parseFloat(String(s.quantityAvailable)),
             unit: s.unit || 'METER',
           }));
         setFabricStocks(items);
       })
-      .catch((err: any) => {
+      .catch((err: unknown) => {
         // BUG-MFG11-18 fix: proper error extraction
-        const message = err?.response?.data?.message || err?.message || 'Could not load fabric stocks';
+        const axiosErr = err as AxiosError<{ message?: string }>;
+        const message = axiosErr?.response?.data?.message || axiosErr?.message || 'Could not load fabric stocks';
         toast.error(message);
         setFabricStocks([]);
       });
@@ -211,8 +266,10 @@ export default function SmockingSendOut() {
       toast.success('Smocking send-out created successfully');
       navigate('/manufacturing/smocking');
     },
-    onError: (err: any) => {
-      setError(err?.response?.data?.message || 'Failed to create send-out');
+    onError: (err: unknown) => {
+      // BUG-MFG22 fix: use typed error instead of `any`
+      const axiosErr = err as AxiosError<{ message?: string }>;
+      setError(axiosErr?.response?.data?.message || 'Failed to create send-out');
     },
   });
 

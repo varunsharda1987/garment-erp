@@ -73,11 +73,18 @@ export const saveMatrixSchema = z
 /**
  * Save Lace Matrix
  * PUT /api/rate-cards/processors/:processorId/lace-matrix
+ *
+ * NOTE (BUG-PRC6 documentation): The `slabs` field is optional and intentionally included here.
+ * Lace rate cards share the processor's DYEING slabs (quantity tiers). When editing lace rates,
+ * the UI may also send slab updates. The slabs are NOT duplicated for lace — they are stored once
+ * per processor+processingType in processor_quantity_slabs and shared between greige and lace rates.
+ * If a separate lace-specific endpoint is used, slabs here is typically undefined/empty.
  */
 export const saveLaceMatrixSchema = z
   .object({
     // Allow empty array for deleting all lace rows (BUG-PRC10: .min(1) was blocking valid delete-all)
     rates: z.array(RateCellSchema),
+    // BUG-PRC6: Slabs are shared with DYEING greige; included here for potential combined updates
     slabs: z.array(SlabDefinitionSchema).optional(),
     deletedLaceIds: z.array(z.string().uuid()).optional(),
   })

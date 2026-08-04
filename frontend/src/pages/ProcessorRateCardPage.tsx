@@ -34,6 +34,13 @@ import { ArrowLeft, Plus, Save, Copy, X, Trash2, Search, Check, Clipboard, Clipb
 import { ProcessorRateCardSummary } from '../components/processor-rate-card/ProcessorRateCardSummary';
 import ConfirmDialog from '../components/ConfirmDialog';
 
+// BUG-PRC8 fix: Generic type for delete confirmation instead of fake GreigeRow
+interface DeleteRowItem {
+  id: string;
+  displayName: string;
+  type: 'FABRIC' | 'LACE';
+}
+
 export default function ProcessorRateCardPage() {
   const navigate = useNavigate();
 
@@ -83,9 +90,9 @@ export default function ProcessorRateCardPage() {
     sourceGreigeName: string;
   } | null>(null);
 
-  // Delete confirmation state
+  // Delete confirmation state (BUG-PRC8 fix: use generic type instead of faking GreigeRow for lace)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [greigeToDelete, setGreigeToDelete] = useState<GreigeRow | null>(null);
+  const [rowToDelete, setRowToDelete] = useState<DeleteRowItem | null>(null);
 
   // Slab delete confirmation state
   const [slabDeleteConfirmOpen, setSlabDeleteConfirmOpen] = useState(false);
@@ -470,31 +477,34 @@ export default function ProcessorRateCardPage() {
   };
 
   const handleLaceDeleteClick = (lace: LaceRow) => {
-    // Reuse greige delete confirmation for lace
-    setGreigeToDelete({
+    // BUG-PRC8 fix: Use proper generic type instead of fake GreigeRow
+    setRowToDelete({
       id: lace.laceId,
-      greigeCode: '',
-      greigeName: lace.laceName,
-      genericGreigeName: '',
-      rates: {},
-      shrinkagePercent: null,
+      displayName: lace.laceName,
+      type: 'LACE',
     });
     setDeleteConfirmOpen(true);
   };
 
   const handleDeleteClick = (greige: GreigeRow) => {
-    setGreigeToDelete(greige);
+    // BUG-PRC8 fix: Use proper generic type
+    setRowToDelete({
+      id: greige.id,
+      displayName: greige.greigeName,
+      type: 'FABRIC',
+    });
     setDeleteConfirmOpen(true);
   };
 
   const confirmDelete = () => {
-    if (greigeToDelete) {
-      if (materialType === 'FABRIC') {
-        removeGreige(greigeToDelete.id);
+    if (rowToDelete) {
+      // BUG-PRC8 fix: Use type field instead of checking materialType
+      if (rowToDelete.type === 'FABRIC') {
+        removeGreige(rowToDelete.id);
       } else {
-        removeLaceRow(greigeToDelete.id);
+        removeLaceRow(rowToDelete.id);
       }
-      setGreigeToDelete(null);
+      setRowToDelete(null);
     }
   };
 
@@ -1365,7 +1375,7 @@ export default function ProcessorRateCardPage() {
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
         title={materialType === 'FABRIC' ? 'Remove Greige Row?' : 'Remove Lace Row?'}
-        description={`Are you sure you want to remove "${greigeToDelete?.greigeName}" from this rate card? This change will take effect when you save.`}
+        description={`Are you sure you want to remove "${rowToDelete?.displayName}" from this rate card? This change will take effect when you save.`}
         confirmText="Remove"
         cancelText="Cancel"
         onConfirm={confirmDelete}

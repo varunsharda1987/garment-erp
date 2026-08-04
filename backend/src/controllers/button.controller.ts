@@ -4,6 +4,7 @@ import { generateCode, allocateBatchCodes } from '../utils/code-generator';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
+import { materialService } from '../services/material.service';
 
 // Type for supplier input
 interface ButtonSupplierInput {
@@ -55,15 +56,6 @@ export const createButton = async (req: Request, res: Response) => {
     finalButtonName = parts.join(' ').trim() || `Button ${buttonCode}`;
   }
 
-  // Get Buttons category ID
-  const buttonCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Buttons' },
-  });
-
-  if (!buttonCategory) {
-    throw new BusinessError('Buttons category not found. Please run Phase 1 migration.');
-  }
-
   // Validate styleCodes if provided
   let validStyles: { id: string; styleCode: string }[] = [];
   if (styleCodes.length > 0) {
@@ -79,78 +71,76 @@ export const createButton = async (req: Request, res: Response) => {
     }
   }
 
-  // Create button_master entry with suppliers using Prisma
-  const buttonRecord = await prisma.button_master.create({
-    data: {
-      buttonCode,
-      buttonName: finalButtonName,
-      supplierCode: supplierCode ?? null,
-      buyerCode: buyerCode ?? null,
-      size: size ?? null,
-      holes: holes != null ? parseInt(holes) : null,
-      color: color ?? null,
-      material: material ?? null,
-      shape: shape ?? null,
-      pricePerPiece: pricePerPiece != null ? parseFloat(pricePerPiece) : null,
-      pricePerGross: pricePerGross != null ? parseFloat(pricePerGross) : null,
-      supplierId: supplierId ?? null,
-      description: description ?? null,
-      isActive: true,
-      // Create supplier relationships
-      buttonSuppliers: {
-        create: suppliers.map((s: ButtonSupplierInput) => ({
-          supplierId: s.supplierId,
-          isPreferred: s.isPreferred ?? false,
-          isActive: s.isActive ?? true,
-          notes: s.notes ?? null,
-          pricePerPiece: s.pricePerPiece != null ? parseFloat(String(s.pricePerPiece)) : null,
-          pricePerGross: s.pricePerGross != null ? parseFloat(String(s.pricePerGross)) : null,
-        })),
+  // Create button_master + associations + its materials record ATOMICALLY.
+  // Material-identity invariant: materials.id === master.id (createFromMaster), and a
+  // failure can never leave a master without its registry row.
+  const { buttonRecord, materialEntry } = await prisma.$transaction(async (tx) => {
+    const created = await tx.button_master.create({
+      data: {
+        buttonCode,
+        buttonName: finalButtonName,
+        supplierCode: supplierCode ?? null,
+        buyerCode: buyerCode ?? null,
+        size: size ?? null,
+        holes: holes != null ? parseInt(holes) : null,
+        color: color ?? null,
+        material: material ?? null,
+        shape: shape ?? null,
+        pricePerPiece: pricePerPiece != null ? parseFloat(pricePerPiece) : null,
+        pricePerGross: pricePerGross != null ? parseFloat(pricePerGross) : null,
+        supplierId: supplierId ?? null,
+        description: description ?? null,
+        isActive: true,
+        // Create supplier relationships
+        buttonSuppliers: {
+          create: suppliers.map((s: ButtonSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred ?? false,
+            isActive: s.isActive ?? true,
+            notes: s.notes ?? null,
+            pricePerPiece: s.pricePerPiece != null ? parseFloat(String(s.pricePerPiece)) : null,
+            pricePerGross: s.pricePerGross != null ? parseFloat(String(s.pricePerGross)) : null,
+          })),
+        },
       },
-    },
-    include: {
-      buttonSuppliers: {
-        include: {
-          supplier: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              contactPerson: true,
-              email: true,
-              phone: true,
-              isActive: true,
+      include: {
+        buttonSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
             },
           },
+          orderBy: { isPreferred: 'desc' },
         },
-        orderBy: { isPreferred: 'desc' },
       },
-    },
-  });
-
-  // Create style associations if provided
-  if (validStyles.length > 0) {
-    await prisma.button_style_associations.createMany({
-      data: validStyles.map((style, index) => ({
-        buttonId: buttonRecord.id,
-        styleId: style.id,
-        isPrimary: index === 0,
-      })),
     });
-  }
 
-  // Create corresponding material entry
-  const materialEntry = await prisma.materials.create({
-    data: {
-      id: `mat-${buttonCode.toLowerCase()}`,
-      code: buttonCode,
-      name: finalButtonName,
-      materialType: 'BUTTON',
-      buttonId: buttonRecord.id,
-      categoryId: buttonCategory.id,
-      unit: 'PIECE',
-      isActive: true,
-    },
+    // Create style associations if provided
+    if (validStyles.length > 0) {
+      await tx.button_style_associations.createMany({
+        data: validStyles.map((style, index) => ({
+          buttonId: created.id,
+          styleId: style.id,
+          isPrimary: index === 0,
+        })),
+      });
+    }
+
+    const materialRow = await materialService.createFromMaster(
+      { id: created.id, code: buttonCode, name: finalButtonName },
+      'BUTTON',
+      tx
+    );
+
+    return { buttonRecord: created, materialEntry: materialRow };
   });
 
   res.status(201).json({
@@ -575,15 +565,6 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
     throw new ValidationError('No data provided for import');
   }
 
-  // Get Buttons category
-  const buttonCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Buttons' },
-  });
-
-  if (!buttonCategory) {
-    throw new BusinessError('Buttons category not found');
-  }
-
   // Pre-generate all button codes
   const codes = await allocateBatchCodes('BTN', 'button_master', 'buttonCode', data.length);
 
@@ -633,19 +614,12 @@ export const bulkImportButtons = async (req: Request, res: Response) => {
           },
         });
 
-        // Create material
-        await tx.materials.create({
-          data: {
-            id: `mat-${buttonCode.toLowerCase()}`,
-            code: buttonCode,
-            name: row.buttonName,
-            materialType: 'BUTTON',
-            buttonId: created.id,
-            categoryId: buttonCategory.id,
-            unit: 'PIECE',
-            isActive: true,
-          },
-        });
+        // Create material (same-id convention, category auto-resolved)
+        await materialService.createFromMaster(
+          { id: created.id, code: buttonCode, name: row.buttonName },
+          'BUTTON',
+          tx
+        );
 
         return created;
       });

@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { UnitEnum } from './common.schema';
+import { UnitEnum, flexMaterialId } from './common.schema';
 import {
   POSourceEnum as PrismaPOSourceEnum,
   POCategoryEnum as PrismaPOCategoryEnum,
@@ -44,7 +44,7 @@ export const sourceLinkSchema = z.object({
 // ============================================================================
 
 export const unifiedPOItemSchema = z.object({
-  materialId: z.string().uuid('Invalid material ID').optional(),
+  materialId: flexMaterialId('material ID').optional(),
   serviceType: ServiceTypeEnum.optional(),
   serviceDescription: z.string().max(500).optional(),
   orderedQuantity: z.number().positive('Quantity must be positive'),
@@ -88,7 +88,7 @@ export const validatePOInputSchema = createUnifiedPOSchema;
 // The controller reads { materialIds, excludePOIds } only. supplierId was REQUIRED but never read,
 // so a caller sending just materialIds got a 400 for a field the endpoint does not use.
 export const checkDuplicatesSchema = z.object({
-  materialIds: z.array(z.string().uuid()).optional(),
+  materialIds: z.array(flexMaterialId('material ID')).optional(),
   excludePOIds: z.array(z.string().uuid()).optional(),
   supplierId: z.string().uuid('Invalid supplier ID').optional(),
   serviceTypes: z.array(ServiceTypeEnum).optional(),

@@ -520,8 +520,15 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         createdById: userId,
         specifications: data.specifications || data.category || null,
         cadStatus: 'PENDING',
-        costPrice: data.costPrice ? parseFloat(String(data.costPrice)) : null,
-        sellingPrice: data.sellingPrice ? parseFloat(String(data.sellingPrice)) : null,
+        // BUG-S10: != null + '' check preserves a legitimate 0 (truthiness turned 0 into null)
+        costPrice: data.costPrice != null && String(data.costPrice) !== '' ? parseFloat(String(data.costPrice)) : null,
+        sellingPrice:
+          data.sellingPrice != null && String(data.sellingPrice) !== '' ? parseFloat(String(data.sellingPrice)) : null,
+        // BUG-S6: column added 2026-08-02 — field was Zod-validated then silently discarded
+        expectedOrderQuantity:
+          data.expectedOrderQuantity != null && String(data.expectedOrderQuantity) !== ''
+            ? parseInt(String(data.expectedOrderQuantity), 10)
+            : null,
         hsnCode: data.hsnCode || null,
         productTaxRule: data.productTaxRule || null,
         accountingSKU: data.accountingSKU || null,
@@ -1479,6 +1486,20 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         }
       }
 
+      // BUG-S6 bridge: expectedOrderQuantity column added 2026-08-02, but the running API
+      // holds the generated Prisma client DLL (prisma generate EPERMs). The `as object`
+      // spread compiles against the stale client types; inline it into the data literal
+      // after the next deploy regenerates the client.
+      const expectedOrderQtyPatch =
+        data.expectedOrderQuantity !== undefined
+          ? {
+              expectedOrderQuantity:
+                data.expectedOrderQuantity != null && String(data.expectedOrderQuantity) !== ''
+                  ? parseInt(String(data.expectedOrderQuantity), 10)
+                  : null,
+            }
+          : {};
+
       // Update the main style record
       const style = await tx.styles.update({
         where: { id },
@@ -1486,10 +1507,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           styleName: data.styleName,
           customerName: data.customerName,
           brandName: data.brandName,
-          // IMPORTANT: Keep all category ID fields consistent - use simple || null pattern
-          // Do NOT use ternary operators for nullable foreign keys
-          brandCategoryId: data.brandCategoryId || null,
-          productCategoryId: data.productCategoryId || null,
+          // BUG-S7: the bare `|| null` pattern (without the !== undefined guard) wiped both
+          // category FKs on every partial update — e.g. the remove-image call that sends
+          // only {imageUrl: null}. Guard like every other nullable field: absent key = keep,
+          // present-but-empty = clear to null.
+          brandCategoryId: data.brandCategoryId !== undefined ? data.brandCategoryId || null : undefined,
+          productCategoryId: data.productCategoryId !== undefined ? data.productCategoryId || null : undefined,
           description: data.description,
           season: data.season,
           seasonId: data.seasonId !== undefined ? data.seasonId || null : undefined,
@@ -1499,11 +1522,16 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 ? parseInt(String(data.numberOfComponents), 10)
                 : null
               : undefined,
+          // BUG-S10: != null + '' check preserves a legitimate 0 (truthiness turned 0 into null)
           costPrice:
-            data.costPrice !== undefined ? (data.costPrice ? parseFloat(String(data.costPrice)) : null) : undefined,
+            data.costPrice !== undefined
+              ? data.costPrice != null && String(data.costPrice) !== ''
+                ? parseFloat(String(data.costPrice))
+                : null
+              : undefined,
           sellingPrice:
             data.sellingPrice !== undefined
-              ? data.sellingPrice
+              ? data.sellingPrice != null && String(data.sellingPrice) !== ''
                 ? parseFloat(String(data.sellingPrice))
                 : null
               : undefined,
@@ -1516,6 +1544,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           imageUrl: data.imageUrl !== undefined ? data.imageUrl : undefined,
           customerAccessoriesPresetId:
             data.customerAccessoriesPresetId !== undefined ? data.customerAccessoriesPresetId || null : undefined,
+          ...(expectedOrderQtyPatch as object),
         },
         include: {
           brand_categories: true,
@@ -2207,8 +2236,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           let resolvedMaterialId: string | undefined;
 
           if (item.materialType === 'LABEL') {
-            // For LABEL types, use the direct labelId from preset item
-            resolvedMaterialId = item.labelId ?? undefined;
+            // Unified identity: materialId is authoritative (=== label_master.id post
+            // id-unification); labelId kept as the transition fallback for old rows
+            resolvedMaterialId = item.materialId ?? item.labelId ?? undefined;
           } else if (item.materialType === 'PACKAGING') {
             // For PACKAGING types, the preset stores materialId (references materials table)
             // But style_material_bom.packagingId references packaging_master directly

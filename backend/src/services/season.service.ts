@@ -1,6 +1,7 @@
 /**
  * Season Master Service
  * Business logic for season master operations
+ * BUG-SEA5 Fix: Removed duplicate type definitions, now imports from schema
  */
 
 import prisma from '../config/database';
@@ -16,34 +17,7 @@ import type {
   GenerateSeasonsResponse,
 } from '../types/season.types';
 import { SEASON_TYPE_NAMES } from '../types/season.types';
-
-/**
- * Input types for season operations
- */
-interface CreateSeasonInput {
-  code?: string; // Auto-generated if not provided
-  name: string;
-  year: number;
-  seasonType: SeasonType;
-  sortOrder?: number;
-  isActive?: boolean;
-}
-
-interface UpdateSeasonInput {
-  code?: string;
-  name?: string;
-  year?: number;
-  seasonType?: SeasonType;
-  sortOrder?: number;
-  isActive?: boolean;
-}
-
-interface SeasonSearchInput {
-  search?: string;
-  year?: number;
-  seasonType?: SeasonType;
-  limit?: number;
-}
+import type { CreateSeasonInput, UpdateSeasonInput, SeasonSearchInput } from '../schemas/season.schema';
 
 /**
  * Season Service Class
@@ -418,6 +392,7 @@ class SeasonServiceClass extends BaseService<SeasonMaster, CreateSeasonInput, Up
             name,
             year,
             seasonType: pattern.type,
+            isActive: true,
           });
 
           logInfo('Auto-created season from pattern', { input: trimmed, code, name });

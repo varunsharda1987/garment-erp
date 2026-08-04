@@ -138,83 +138,86 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
       }
     }
 
-    const fabric = await this.prisma.fabric_master.create({
-      data: {
-        fabricCode: data.fabricCode,
-        fabricName: data.fabricName,
-        greigeId: data.greigeId || null,
-        genericGreigeName: data.genericGreigeName || null,
-        yarnCount: data.yarnCount || null,
-        composition: data.composition || null,
-        colorName: data.colorName || null,
-        colorCode: data.colorCode || null,
-        finishType: toFinishType(data.finishType),
-        printDesign: data.printDesign || null,
-        actualWidth: data.actualWidth,
-        cutableWidth: data.cutableWidth || data.actualWidth - 2,
-        finishedConstruction: data.finishedConstruction || null,
-        actualGSM: data.actualGSM || null,
-        valueAddition: data.valueAddition || null,
-        valueAdditionCost: data.valueAdditionCost ?? null,
-        styleReference: data.styleReference || null,
-        source: data.source || null,
-        description: data.description || null,
-        notes: data.notes || null,
-        imageUrl: data.imageUrl || null,
-        isGeneric: data.isGeneric !== false,
-        isActive: data.isActive !== false,
-        createdById: userId,
-        suppliers: data.suppliers
-          ? {
-              create: data.suppliers.map((s) => ({
-                supplierId: s.supplierId,
-                isPreferred: s.isPreferred || false,
-                isActive: true,
-                notes: null,
-              })),
-            }
-          : undefined,
-      },
-      include: {
-        greige: true,
-        suppliers: {
-          include: {
-            supplier: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                contactPerson: true,
-                email: true,
-                phone: true,
-                isActive: true,
+    // Create fabric_master + its materials record atomically (materials.id === master.id —
+    // material-identity invariant; copies the greige.service reference pattern). Previously the
+    // materials create ran AFTER the master create with a swallowed error, so a fabric could
+    // exist with no registry row (the exact split-ledger failure greige was fixed for).
+    const fabric = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.fabric_master.create({
+        data: {
+          fabricCode: data.fabricCode,
+          fabricName: data.fabricName,
+          greigeId: data.greigeId || null,
+          genericGreigeName: data.genericGreigeName || null,
+          yarnCount: data.yarnCount || null,
+          composition: data.composition || null,
+          colorName: data.colorName || null,
+          colorCode: data.colorCode || null,
+          finishType: toFinishType(data.finishType),
+          printDesign: data.printDesign || null,
+          actualWidth: data.actualWidth,
+          cutableWidth: data.cutableWidth || data.actualWidth - 2,
+          finishedConstruction: data.finishedConstruction || null,
+          actualGSM: data.actualGSM || null,
+          valueAddition: data.valueAddition || null,
+          valueAdditionCost: data.valueAdditionCost ?? null,
+          styleReference: data.styleReference || null,
+          source: data.source || null,
+          description: data.description || null,
+          notes: data.notes || null,
+          imageUrl: data.imageUrl || null,
+          isGeneric: data.isGeneric !== false,
+          isActive: data.isActive !== false,
+          createdById: userId,
+          suppliers: data.suppliers
+            ? {
+                create: data.suppliers.map((s) => ({
+                  supplierId: s.supplierId,
+                  isPreferred: s.isPreferred || false,
+                  isActive: true,
+                  notes: null,
+                })),
+              }
+            : undefined,
+        },
+        include: {
+          greige: true,
+          suppliers: {
+            include: {
+              supplier: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  contactPerson: true,
+                  email: true,
+                  phone: true,
+                  isActive: true,
+                },
               },
             },
           },
-        },
-        createdBy: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
+          createdBy: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
           },
         },
-      },
+      });
+
+      await materialService.createFromMaster(
+        { id: created.id, code: created.fabricCode, name: created.fabricName },
+        'FABRIC',
+        tx
+      );
+
+      return created;
     });
 
     logInfo('Fabric master created', { id: fabric.id, fabricCode: fabric.fabricCode });
-
-    // Auto-create corresponding materials record with same ID
-    try {
-      await materialService.createFromMaster(
-        { id: fabric.id, code: fabric.fabricCode, name: fabric.fabricName },
-        'FABRIC'
-      );
-    } catch (err) {
-      // Log but don't fail - fabric creation succeeded
-      logError('Failed to auto-create materials record for fabric', err);
-    }
 
     return fabric;
   }

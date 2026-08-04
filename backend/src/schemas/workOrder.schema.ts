@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { flexMaterialId } from './common.schema';
 
 /**
  * Priority Enum - matches Prisma Priority
@@ -161,7 +162,7 @@ export const issueMaterialItemsSchema = z.object({
   items: z
     .array(
       z.object({
-        materialId: z.string().uuid('Invalid material ID'),
+        materialId: flexMaterialId('material ID'),
         quantity: z.number().positive('Quantity must be positive'),
         unit: z.string().min(1, 'Unit is required').max(20),
         description: z.string().max(500).optional().default(''),

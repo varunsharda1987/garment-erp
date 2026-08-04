@@ -108,6 +108,10 @@ export const createCustomerSchema = z.object({
     .optional()
     .or(z.string().transform((val) => (val ? parseInt(val) : undefined))),
 
+  // BUG-CU13: Dual brand format maintained for backward compatibility
+  // - brandCategories: structured array with productCategoryIds (new format)
+  // - brandNames/categories: flat strings (legacy format for reports/exports)
+  // Both are accepted until legacy consumers are migrated
   brandNames: z.union([z.string(), z.array(z.string())]).optional(),
 
   categories: z.union([z.string(), z.array(z.string())]).optional(),

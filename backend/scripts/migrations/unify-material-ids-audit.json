@@ -1,0 +1,805 @@
+{
+  "generatedAt": "2026-08-03T11:26:56.496Z",
+  "blockers": 0,
+  "plan": {
+    "renames": 108,
+    "merges": 0,
+    "conforming": 68
+  },
+  "map": [
+    {
+      "oldId": "mat-lace-0001",
+      "newId": "155ce47c-6211-438e-81ea-da38d59fd774",
+      "materialType": "LACE",
+      "action": "RENAME",
+      "reason": "LACE → master id"
+    },
+    {
+      "oldId": "mat-lace-0002",
+      "newId": "e1e3d65f-86f8-4cfe-83f2-f57025fe23b1",
+      "materialType": "LACE",
+      "action": "RENAME",
+      "reason": "LACE → master id"
+    },
+    {
+      "oldId": "mat-thr-0001",
+      "newId": "3dc36cb8-b83d-4d03-ae39-fa8fbee00fcb",
+      "materialType": "THREAD",
+      "action": "RENAME",
+      "reason": "THREAD → master id"
+    },
+    {
+      "oldId": "mat-lbl-0009",
+      "newId": "782215d2-b3bc-45c7-873b-ba53363eef98",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label base row → label_master.id"
+    },
+    {
+      "oldId": "mat-btn-0001",
+      "newId": "9a4bba38-7338-4253-96c9-1051c864eb8c",
+      "materialType": "BUTTON",
+      "action": "RENAME",
+      "reason": "BUTTON → master id"
+    },
+    {
+      "oldId": "mat-btn-0002",
+      "newId": "7ef75de3-a2c6-47d0-be82-2c9b64376684",
+      "materialType": "BUTTON",
+      "action": "RENAME",
+      "reason": "BUTTON → master id"
+    },
+    {
+      "oldId": "mat-lbl-0008",
+      "newId": "365fa08c-6463-4501-a2d0-beb667d2ead2",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label base row → label_master.id"
+    },
+    {
+      "oldId": "mat-lbl-0007-s",
+      "newId": "3a7e8467-0e90-48d3-8b03-57ae9b6fb49d",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0007-m",
+      "newId": "1de0a88e-8dbd-49c7-aa87-946b36d9578a",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0007-l",
+      "newId": "e25c709f-231f-46bb-ad54-5f428da69a99",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0007-xl",
+      "newId": "3ecb89ce-e3f2-4d7c-bd16-038439e50061",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0007-xxl",
+      "newId": "95437fc4-b789-4986-b9f5-673805be5a09",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lace-0003",
+      "newId": "d346019c-46e6-4eaf-8858-e8075637da57",
+      "materialType": "LACE",
+      "action": "RENAME",
+      "reason": "LACE → master id"
+    },
+    {
+      "oldId": "mat-lbl-0003-xs",
+      "newId": "eb64ea40-eddf-40b8-8d31-604850e98aa3",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0003-s",
+      "newId": "d29a2d57-fc42-420e-8908-1f09dc5edba5",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0003-m",
+      "newId": "bfd82bb8-bb0e-4b85-a9e3-7341fa18dd91",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0003-l",
+      "newId": "fc86f5b8-1465-41d3-90ca-1b7a854a7ff4",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0003-xl",
+      "newId": "9e0d34cb-08cb-4b83-aaff-390ed8bb4739",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0003-xxl",
+      "newId": "8fe92ea4-8663-4002-b0b5-177b4cad5825",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0003-xxxl",
+      "newId": "ad87fef6-1e65-4285-b129-994518265a46",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0004-xs",
+      "newId": "c14e0660-13ee-4dd5-8f9e-1542ae0a9dc5",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0004-s",
+      "newId": "4e1adda1-cd3d-41bf-a454-aab5e9c05721",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0004-m",
+      "newId": "6df9d394-e05c-4973-bed7-4febd8f63cfd",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0004-l",
+      "newId": "64c7aed4-4f7c-43a9-9b31-f9c1cef8380b",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0004-xl",
+      "newId": "609938ef-8046-4cba-9c45-e5f9e7b8d157",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0004-xxl",
+      "newId": "bf88ddc3-529f-41f2-b54b-44f6c0cc9eab",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0004-xxxl",
+      "newId": "c6cda1ac-76cb-411f-8607-53e0beb4abdc",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0006-xs",
+      "newId": "689365df-8ac2-4526-abec-64e6c9fe602b",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0006-s",
+      "newId": "6eab4178-59f3-4757-a70c-6751bbbee43e",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0006-m",
+      "newId": "60c7efe0-80ca-4dd1-ab78-3f05d1f31d09",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0006-l",
+      "newId": "57fc1ba5-f4c2-4945-a8de-e6ac21720e05",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0006-xl",
+      "newId": "6c749ec3-f6d0-4890-ba53-ec23b8a59d45",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0006-xxl",
+      "newId": "4efa1a13-82d7-4d66-a463-73c23604f569",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0006-xxxl",
+      "newId": "c588d832-054e-49c0-b326-5299ca93a0af",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0005-xs",
+      "newId": "3a1874a5-c91c-4238-abb1-c9ad930aedb4",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0005-s",
+      "newId": "63ebd042-306c-4cff-9223-e3fdc28e4251",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0005-m",
+      "newId": "f4cf4ae3-61ef-4697-b158-febdee03c4d3",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0005-l",
+      "newId": "f3070202-b9e4-428e-ad44-ec7a7790aa29",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0005-xl",
+      "newId": "0dc71e05-1f62-4427-a80a-f731ca403da7",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0005-xxl",
+      "newId": "19b1343f-3f97-44c9-9a59-9b83782037ec",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0005-xxxl",
+      "newId": "7bee0b4d-3ed1-4130-a994-90b069398d32",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0010-xs",
+      "newId": "a97c6ce3-161f-4583-a187-920dcf64f12d",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0010-s",
+      "newId": "833502d0-7a4f-4dee-a6fe-a3b59335a556",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0010-m",
+      "newId": "0f1b5dd5-d614-4c90-b456-9afebdc14f55",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0010-l",
+      "newId": "c53d0dd0-75b4-4509-8064-5beb252c4670",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0010-xl",
+      "newId": "2fa3566d-1659-4523-a34c-94bd6ada7f74",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0010-xxl",
+      "newId": "6a2ba235-27f3-4b8f-aabb-27c01b9ac9f6",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0010-xxxl",
+      "newId": "1ae4d99b-7f8f-46b0-8f51-ce15efe355d9",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0011-xs",
+      "newId": "fe5fb7dd-7c5e-4661-a01f-2e23706f7a6d",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0011-s",
+      "newId": "5912ff36-a166-4e34-806a-1ee5d794f480",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0011-m",
+      "newId": "f031ab35-eb0b-4ae4-9df9-c3813dd2424e",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0011-l",
+      "newId": "9e6c42cd-d0d0-45f5-835f-0fdfe950354f",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0011-xl",
+      "newId": "5c313961-c947-44b8-b5ca-a8447abe2a27",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0011-xxl",
+      "newId": "9fc16a3d-3755-4761-994e-16e87a391cc6",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0011-xxxl",
+      "newId": "2ae5783b-432a-40ba-b1ec-5bdd28c0c446",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0007-xs",
+      "newId": "f6e347d5-c79d-4a19-b3ca-311146634fb9",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0008-xs",
+      "newId": "329385ef-fa4c-4e9e-ba7f-dd9598bc46d2",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0008-s",
+      "newId": "2fe3d308-dac2-4cbf-a065-59b3d900af70",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0008-m",
+      "newId": "8ec2138d-e348-4cf6-9d5a-c57f7bc3c6bb",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0008-l",
+      "newId": "5f1d8e3a-f3a7-437b-ab5b-516e800495ac",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0008-xl",
+      "newId": "fdfb6877-ad60-40d3-a033-f5c5722abc59",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0008-xxl",
+      "newId": "a3476283-fd9a-4829-9053-fc6abe64213c",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0008-xxxl",
+      "newId": "a6e92564-20f9-4196-8490-47e7d9241d5f",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0007-xxxl",
+      "newId": "f965856d-f6f4-4197-943d-deced21fe251",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0016",
+      "newId": "985122c5-0b32-4171-b116-df10bd3425c5",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label base row → label_master.id"
+    },
+    {
+      "oldId": "mat-lbl-0017-xs",
+      "newId": "1f50acd7-7d5d-4d36-99ed-abc572b94787",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0017-s",
+      "newId": "9511787b-b080-416a-adb7-fdd867cc921a",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0017-m",
+      "newId": "28d270a1-3235-4cb4-b60d-9a4a427e9bc3",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0017-l",
+      "newId": "0725b397-7d1c-4965-a354-9f7e505193f7",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0017-xl",
+      "newId": "b6fb8939-4aa8-4ecf-9239-034641207db3",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0017-xxl",
+      "newId": "05cf6de7-0867-4ad0-a10f-f47e955f52a6",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0017-xxxl",
+      "newId": "0406fe9c-23cc-42a8-9792-db453d87ab22",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0018",
+      "newId": "91e86339-9bb1-4d80-b0e7-f0ad4fed1026",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label base row → label_master.id"
+    },
+    {
+      "oldId": "mat-lbl-0019",
+      "newId": "3e150980-a5e9-4481-9034-9c16dc197fc8",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label base row → label_master.id"
+    },
+    {
+      "oldId": "mat-lbl-0015",
+      "newId": "8102c7ed-9a43-4e2e-9678-add9923105c9",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label base row → label_master.id"
+    },
+    {
+      "oldId": "mat-lace-0005",
+      "newId": "a21e7691-d213-47c8-9eb6-0094c6570b84",
+      "materialType": "LACE",
+      "action": "RENAME",
+      "reason": "LACE → master id"
+    },
+    {
+      "oldId": "mat-lbl-0014",
+      "newId": "974f047c-dfb2-4b20-807c-a54d33181021",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label base row → label_master.id"
+    },
+    {
+      "oldId": "mat-ela-0001",
+      "newId": "3a03f05b-7670-4cbf-855b-e50bd44728a6",
+      "materialType": "ELASTIC",
+      "action": "RENAME",
+      "reason": "ELASTIC → master id"
+    },
+    {
+      "oldId": "mat-btn-0003",
+      "newId": "5e54193a-b06d-48a1-a319-e4403255878f",
+      "materialType": "BUTTON",
+      "action": "RENAME",
+      "reason": "BUTTON → master id"
+    },
+    {
+      "oldId": "mat-lace-0004",
+      "newId": "ce2cf1d7-12d7-4f62-b60a-332ad0df275d",
+      "materialType": "LACE",
+      "action": "RENAME",
+      "reason": "LACE → master id"
+    },
+    {
+      "oldId": "mat-lbl-0013-xs",
+      "newId": "e66b540d-8bd9-4a82-8080-f34db3a6efa6",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lace-0006",
+      "newId": "2e457a45-9bf1-4e8a-8afa-4773e8714c78",
+      "materialType": "LACE",
+      "action": "RENAME",
+      "reason": "LACE → master id"
+    },
+    {
+      "oldId": "mat-pkg-0001",
+      "newId": "75fa130b-fd0e-4bed-8c93-82cdf44c7036",
+      "materialType": "PACKAGING",
+      "action": "RENAME",
+      "reason": "PACKAGING → master id"
+    },
+    {
+      "oldId": "mat-lbl-0013-s",
+      "newId": "0fbd3ef5-e38f-4bcb-9d6f-bf20119ea98f",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0013-m",
+      "newId": "a32a8e40-9598-4992-b92d-25497efeb578",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0013-l",
+      "newId": "ad954ab5-caf8-487c-a5cd-5f4c1c22f768",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0013-xl",
+      "newId": "ce9bcc01-4ae1-4123-8f18-3328bb1a3e55",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0013-xxl",
+      "newId": "3bb34fe5-f127-4468-aa21-32fe74e565c7",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0013-xxxl",
+      "newId": "24c3f267-f370-4b3a-9151-7a57232c62e4",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label size row → label_size_variants.id"
+    },
+    {
+      "oldId": "mat-lbl-0012",
+      "newId": "e081edd4-0736-4add-b995-eaae49c20380",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label base row → label_master.id"
+    },
+    {
+      "oldId": "mat-lace-0007",
+      "newId": "bd304956-cf09-4d90-82cd-8bc5e5411962",
+      "materialType": "LACE",
+      "action": "RENAME",
+      "reason": "LACE → master id"
+    },
+    {
+      "oldId": "mat-lace-0008",
+      "newId": "4af54590-0f71-4737-a897-895088f73b56",
+      "materialType": "LACE",
+      "action": "RENAME",
+      "reason": "LACE → master id"
+    },
+    {
+      "oldId": "mat-lace-0009",
+      "newId": "c067dd38-ff92-42f6-a6fd-05ec051f9e62",
+      "materialType": "LACE",
+      "action": "RENAME",
+      "reason": "LACE → master id"
+    },
+    {
+      "oldId": "mat-lace-0010",
+      "newId": "707d9ab0-2cde-49d9-a516-201432514f10",
+      "materialType": "LACE",
+      "action": "RENAME",
+      "reason": "LACE → master id"
+    },
+    {
+      "oldId": "mat-lace-0011",
+      "newId": "a742b4c7-75ac-4c60-8a65-ca3accdd4dab",
+      "materialType": "LACE",
+      "action": "RENAME",
+      "reason": "LACE → master id"
+    },
+    {
+      "oldId": "mat-ela-0002",
+      "newId": "4f18c278-8edf-4871-92d0-be842df01135",
+      "materialType": "ELASTIC",
+      "action": "RENAME",
+      "reason": "ELASTIC → master id"
+    },
+    {
+      "oldId": "mat-ela-0003",
+      "newId": "24dd0025-688f-4f3d-a0f6-272cbfb5c64e",
+      "materialType": "ELASTIC",
+      "action": "RENAME",
+      "reason": "ELASTIC → master id"
+    },
+    {
+      "oldId": "mat-ela-0004",
+      "newId": "8a492b06-f0b8-467c-8e2c-933882de29d0",
+      "materialType": "ELASTIC",
+      "action": "RENAME",
+      "reason": "ELASTIC → master id"
+    },
+    {
+      "oldId": "mat-zip-0001",
+      "newId": "1da62d2e-44a0-48bd-9b59-5540f254549a",
+      "materialType": "ZIPPER",
+      "action": "RENAME",
+      "reason": "ZIPPER → master id"
+    },
+    {
+      "oldId": "mat-bt-0001",
+      "newId": "a4e2f8a3-5ea0-46ad-9860-435533e3274d",
+      "materialType": "BELT",
+      "action": "RENAME",
+      "reason": "BELT → master id"
+    },
+    {
+      "oldId": "mat-ds-0001",
+      "newId": "0fe8a2cf-6836-4d7e-b14c-bce3a17fdf32",
+      "materialType": "DRAWSTRING",
+      "action": "RENAME",
+      "reason": "DRAWSTRING → master id"
+    },
+    {
+      "oldId": "mat-il-0001",
+      "newId": "3e1497cd-099c-4640-9429-5dd50fc12ade",
+      "materialType": "INTERLINING",
+      "action": "RENAME",
+      "reason": "INTERLINING → master id"
+    },
+    {
+      "oldId": "mat-of-0001",
+      "newId": "44460c68-44fe-4ced-8058-9d58d174c4e0",
+      "materialType": "OTHER_FASTENER",
+      "action": "RENAME",
+      "reason": "OTHER_FASTENER → master id"
+    },
+    {
+      "oldId": "mat-btn-0004",
+      "newId": "e2f54762-99e1-421d-9186-f7e6ae6b8096",
+      "materialType": "BUTTON",
+      "action": "RENAME",
+      "reason": "BUTTON → master id"
+    },
+    {
+      "oldId": "mat-od-0001",
+      "newId": "660ad4fb-2940-400c-a423-37753f9e172e",
+      "materialType": "OTHER_DECORATIVE",
+      "action": "RENAME",
+      "reason": "OTHER_DECORATIVE → master id"
+    },
+    {
+      "oldId": "mat-od-0002",
+      "newId": "23c3b384-1df9-46b8-8889-bf049163020b",
+      "materialType": "OTHER_DECORATIVE",
+      "action": "RENAME",
+      "reason": "OTHER_DECORATIVE → master id"
+    },
+    {
+      "oldId": "mat-ds-0002",
+      "newId": "a1e8bc4b-dea8-4d2b-80d8-ea4bbc37976f",
+      "materialType": "DRAWSTRING",
+      "action": "RENAME",
+      "reason": "DRAWSTRING → master id"
+    },
+    {
+      "oldId": "mat-lbl-0021",
+      "newId": "81b68785-9a8d-42a7-b207-f01aba1a5f53",
+      "materialType": "LABEL",
+      "action": "RENAME",
+      "reason": "label base row → label_master.id"
+    }
+  ],
+  "orphanAllowlist": [
+    "2e255485-401c-41fc-9d71-7a0d48e72b4f",
+    "FAB-RAW-1770293353847-dd8fef",
+    "FAB-RAW-1768129087688-uw69l",
+    "827bb4ea-a85b-4b9a-b9c8-eb19787046fa",
+    "0f098782-c892-4b89-8e18-bd980a32cde5",
+    "FAB-RAW-1767616739701-724vse",
+    "FAB-RAW-1768484231352-0cbd9",
+    "FAB-RAW-1768048796965-kq71kh"
+  ],
+  "baselines": {
+    "stockTotal": "8812.730",
+    "stockPerWarehouse": {
+      "a6bef66b-779b-4eb5-8f1d-1a7eff316f93": "8812.730"
+    },
+    "rowCounts": {
+      "stock_levels": 5,
+      "stock_movements": 0,
+      "stock_transactions": 0,
+      "stock_reservations": 0,
+      "stock_count_items": 0,
+      "inventory_stock": 0,
+      "grn_items": 0,
+      "purchase_order_items": 0,
+      "material_requirements": 0,
+      "material_requisition_items": 0,
+      "material_suppliers": 11,
+      "order_bom_items": 0,
+      "style_material_bom": 474,
+      "customer_accessories_preset_items": 19,
+      "stock_settings": 42,
+      "challan_items": 1,
+      "style_costing_trim_items": 0,
+      "style_costing_accessory_items": 0,
+      "materials": 184
+    },
+    "matStarCount": 108
+  }
+}

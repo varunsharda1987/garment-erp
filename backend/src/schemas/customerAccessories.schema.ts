@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { flexMaterialId } from './common.schema';
 
 // ============================================================================
 // Accessory Item Schema
@@ -17,12 +18,12 @@ import { z } from 'zod';
 // them, so every item was stripped.
 const AccessoryItemSchema = z.object({
   materialType: z.string().min(1).max(50), // 'LABEL' | 'PACKAGING'
-  // PACKAGING
-  materialId: z.string().uuid('Invalid material ID').optional().nullable(),
+  // PACKAGING — materials.id is NOT always a UUID (legacy 'mat-<code>' ids); see flexMaterialId
+  materialId: flexMaterialId('material ID').optional().nullable(),
   quantity: z.coerce.number().nonnegative().optional().nullable(),
   usageCategory: z.string().max(50).optional(),
   // LABEL
-  labelId: z.string().uuid('Invalid label ID').optional().nullable(),
+  labelId: flexMaterialId('label ID').optional().nullable(),
   componentName: z.string().max(200).optional().nullable(),
   extraPercentage: z.coerce.number().nonnegative().optional().nullable(),
   sortOrder: z.number().int().nonnegative().optional(),
@@ -42,7 +43,7 @@ export const createAccessoryPresetSchema = z.object({
   // `items`, not `accessoryItems` — the controller DTO was renamed ("Changed from accessoryItems to
   // items") and the UI sends `items`, but this schema was never updated, so the array was stripped
   // and every create/update threw "Items array is required".
-  items: z.array(AccessoryItemSchema).min(1, 'At least one accessory item is required'),
+  items: z.array(AccessoryItemSchema).default([]),
   isDefault: z.boolean().optional().default(false),
   isActive: z.boolean().optional().default(true),
 });

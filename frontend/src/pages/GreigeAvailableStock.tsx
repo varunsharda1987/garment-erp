@@ -28,12 +28,16 @@ import {
 } from 'lucide-react';
 import { logError } from '../lib/logger';
 import { toast } from 'sonner';
+import { getSystemSettingByKey } from '../services/system-settings.service';
 
 const PAGE_SIZE = 25;
+// BUG-GR10 fix: Default aging threshold; overridden by STOCK_AGING_THRESHOLD_DAYS system setting
+const DEFAULT_AGING_THRESHOLD_DAYS = 180;
 
-function getAgeBadge(days: number) {
-  if (days >= 180) return <Badge variant="destructive">Old ({days}d)</Badge>;
-  if (days >= 90)
+// BUG-GR10 fix: Aging threshold is now configurable via system settings
+function getAgeBadge(days: number, agingThreshold: number) {
+  if (days >= agingThreshold) return <Badge variant="destructive">Old ({days}d)</Badge>;
+  if (days >= agingThreshold / 2)
     return (
       <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">
         Aging ({days}d)
@@ -83,6 +87,9 @@ export default function GreigeAvailableStock() {
   });
   const [isAdjusting, setIsAdjusting] = useState(false);
 
+  // BUG-GR10 fix: Configurable aging threshold from system settings
+  const [agingThreshold, setAgingThreshold] = useState(DEFAULT_AGING_THRESHOLD_DAYS);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -96,6 +103,19 @@ export default function GreigeAvailableStock() {
       ]);
       setGreigeStock(stockData);
       setWarehouses(warehouseData);
+
+      // BUG-GR10 fix: Fetch configurable aging threshold from system settings
+      try {
+        const setting = await getSystemSettingByKey('STOCK_AGING_THRESHOLD_DAYS');
+        if (setting?.value) {
+          const threshold = parseInt(setting.value, 10);
+          if (!isNaN(threshold) && threshold > 0) {
+            setAgingThreshold(threshold);
+          }
+        }
+      } catch {
+        // allow-silent-catch — deliberate fallback: setting not found → use default (180 days)
+      }
     } catch (err) {
       logError('Failed to load greige stock:', err);
       toast.error('Failed to load greige stock');
@@ -127,12 +147,13 @@ export default function GreigeAvailableStock() {
     }
 
     if (showAgedOnly) {
-      filtered = filtered.filter((s) => s.maxAgingDays >= 180);
+      // BUG-GR10 fix: Use configurable aging threshold
+      filtered = filtered.filter((s) => s.maxAgingDays >= agingThreshold);
     }
 
     setFilteredStock(filtered);
     setPage(1);
-  }, [greigeStock, searchTerm, qualityFilter, warehouseFilter, showAgedOnly]);
+  }, [greigeStock, searchTerm, qualityFilter, warehouseFilter, showAgedOnly, agingThreshold]);
 
   useEffect(() => {
     applyFilters();
@@ -150,7 +171,8 @@ export default function GreigeAvailableStock() {
 
   const getTotalStock = () => filteredStock.reduce((sum, s) => sum + (s.totalStock || 0), 0);
   const getTotalValue = () => filteredStock.reduce((sum, s) => sum + (s.totalValue || 0), 0);
-  const getAgedCount = () => filteredStock.filter((s) => s.maxAgingDays >= 180).length;
+  // BUG-GR10 fix: Use configurable aging threshold
+  const getAgedCount = () => filteredStock.filter((s) => s.maxAgingDays >= agingThreshold).length;
 
   // Expandable row handling
   const toggleRowExpand = async (greigeId: string) => {
@@ -364,7 +386,8 @@ export default function GreigeAvailableStock() {
             <div className="p-4 bg-primary/10 rounded-lg border border-orange-200">
               <div className="flex items-center gap-2 text-sm text-primary font-medium">
                 <AlertTriangle className="h-4 w-4" />
-                Aged Stock (&gt;180d)
+                {/* BUG-GR10 fix: Use configurable aging threshold */}
+                Aged Stock (&gt;{agingThreshold}d)
               </div>
               <div className="text-2xl font-bold text-orange-900">{getAgedCount()}</div>
             </div>
@@ -413,7 +436,8 @@ export default function GreigeAvailableStock() {
                 onCheckedChange={(checked) => setShowAgedOnly(checked === true)}
               />
               <label htmlFor="aged-only" className="text-sm cursor-pointer">
-                Show aged only (&gt;180d)
+                {/* BUG-GR10 fix: Use configurable aging threshold */}
+                Show aged only (&gt;{agingThreshold}d)
               </label>
             </div>
           </div>
@@ -545,7 +569,7 @@ export default function GreigeAvailableStock() {
                           <td className="px-4 py-3 text-sm text-right font-medium">
                             {formatCurrency(stock.totalValue)}
                           </td>
-                          <td className="px-3 py-3 text-center">{getAgeBadge(stock.maxAgingDays)}</td>
+                          <td className="px-3 py-3 text-center">{getAgeBadge(stock.maxAgingDays, agingThreshold)}</td>
                           <td className="px-4 py-3 text-sm text-right font-medium">
                             {stock.totalStock > 0 ? (
                               formatCurrency(stock.totalValue / stock.totalStock)
@@ -626,7 +650,9 @@ export default function GreigeAvailableStock() {
                                           <td className="px-3 py-2 text-muted-foreground">
                                             {entry.invoiceNumber || '-'}
                                           </td>
-                                          <td className="px-3 py-2 text-center">{getAgeBadge(entry.agingDays)}</td>
+                                          <td className="px-3 py-2 text-center">
+                                            {getAgeBadge(entry.agingDays, agingThreshold)}
+                                          </td>
                                           <td className="px-3 py-2 text-center">
                                             <Badge variant={entry.status === 'AVAILABLE' ? 'outline' : 'secondary'}>
                                               {entry.status}

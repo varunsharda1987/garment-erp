@@ -212,9 +212,21 @@ export async function recordConsumption(input: RecordConsumptionInput) {
       },
     });
 
-    // BUG-INV3 fix: sync processor consumption to stock_levels
+    // BUG-INV3 fix: find materials.id instead of using laceId directly
     if (updated.stock.laceId) {
-      await syncStockLevelQuantity(updated.stock.laceId, -input.consumedQuantity, undefined, 'METER', tx);
+      const material = await tx.materials.findFirst({
+        where: { laceId: updated.stock.laceId },
+        select: { id: true },
+      });
+      if (material) {
+        await syncStockLevelQuantity(
+          material.id,
+          -input.consumedQuantity,
+          updated.stock.warehouseId ?? undefined,
+          'METER',
+          tx
+        );
+      }
     }
 
     // Create transaction record

@@ -458,37 +458,42 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
   // Accessory Presets
   // ============================================
 
+  // Shared include for ALL preset read/write methods. Every method must return the same
+  // shape — the list endpoint used to include `material` while save/detail didn't, so
+  // PACKAGING items rendered blank names right after a save.
+  private readonly presetItemsInclude = {
+    items: {
+      orderBy: { sortOrder: 'asc' },
+      include: {
+        label: {
+          select: {
+            id: true,
+            labelCode: true,
+            labelName: true,
+            labelCategory: true,
+            labelType: true,
+          },
+        },
+        material: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            unit: true,
+            materialType: true,
+          },
+        },
+      },
+    },
+  } as const;
+
   /**
    * Get all accessory presets for a customer
    */
   async getAccessoryPresets(customerId: string) {
     const result = await this.prisma.customer_accessories_presets.findMany({
       where: { customerId, isActive: true },
-      include: {
-        items: {
-          orderBy: { sortOrder: 'asc' },
-          include: {
-            label: {
-              select: {
-                id: true,
-                labelCode: true,
-                labelName: true,
-                labelCategory: true,
-                labelType: true,
-              },
-            },
-            material: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                unit: true,
-                materialType: true,
-              },
-            },
-          },
-        },
-      },
+      include: this.presetItemsInclude,
       orderBy: [{ isDefault: 'desc' }, { presetName: 'asc' }],
     });
 
@@ -500,29 +505,113 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
    */
   async createAccessoryPreset(customerId: string, data: CreateAccessoryPresetDTO) {
     // Validate required fields
-    if (!data.presetName || !data.items) {
-      throw new ValidationError('presetName and items are required');
+    if (!data.presetName) {
+      throw new ValidationError('presetName is required');
     }
 
-    // If this preset is default, unset other defaults
-    if (data.isDefault) {
-      await this.prisma.customer_accessories_presets.updateMany({
-        where: { customerId, isDefault: true },
-        data: { isDefault: false },
+    // Transaction: unsetting other defaults + creating must succeed or fail together —
+    // a failed create otherwise leaves the customer with no default preset at all.
+    return this.prisma.$transaction(async (tx) => {
+      if (data.isDefault) {
+        await tx.customer_accessories_presets.updateMany({
+          where: { customerId, isDefault: true },
+          data: { isDefault: false },
+        });
+      }
+
+      const labelMaterialIds = await this.resolveLabelMaterialIds(tx, data.items);
+
+      return tx.customer_accessories_presets.create({
+        data: {
+          customerId,
+          presetName: data.presetName,
+          description: data.description,
+          isDefault: data.isDefault || false,
+          items: {
+            create: data.items.map((item, index) => ({
+              materialType: item.materialType as MaterialType,
+              // Unified identity (dual-write): LABEL items carry materialId = labelId when the
+              // label's BASE materials row exists (always, post id-unification); PACKAGING as before
+              materialId:
+                item.materialType === 'LABEL'
+                  ? item.labelId && labelMaterialIds.has(item.labelId)
+                    ? item.labelId
+                    : null
+                  : item.materialId || null,
+              quantity: item.materialType === 'LABEL' ? null : item.quantity || 1,
+              usageCategory: item.usageCategory,
+              // For LABEL type
+              labelId: item.materialType === 'LABEL' ? item.labelId || null : null,
+              componentName: item.materialType === 'LABEL' ? item.componentName || null : null,
+              extraPercentage: item.materialType === 'LABEL' ? (item.extraPercentage ?? 5) : null,
+              sortOrder: item.sortOrder ?? index,
+            })),
+          },
+        },
+        include: this.presetItemsInclude,
       });
-    }
+    });
+  }
 
-    return this.prisma.customer_accessories_presets.create({
-      data: {
-        customerId,
+  /**
+   * Dual-write helper (material-identity Phase 3): which of these LABEL items' labelIds have a
+   * BASE materials row (materials.id === label_master.id)? Guarding on existence keeps preset
+   * saves working even if this code runs before the id-unification migration.
+   */
+  private async resolveLabelMaterialIds(tx: any, items: { materialType: string; labelId?: string | null }[]) {
+    const labelIds = [
+      ...new Set(items.filter((i) => i.materialType === 'LABEL' && i.labelId).map((i) => i.labelId as string)),
+    ];
+    if (labelIds.length === 0) return new Set<string>();
+    const rows: { id: string }[] = await tx.materials.findMany({
+      where: { id: { in: labelIds } },
+      select: { id: true },
+    });
+    return new Set(rows.map((r) => r.id));
+  }
+
+  /**
+   * Update accessory preset
+   */
+  async updateAccessoryPreset(customerId: string, presetId: string, data: UpdateAccessoryPresetDTO) {
+    // Transaction: the deleteMany + update must succeed or fail together — previously the
+    // deleteMany ran outside the update, so a failed update left the preset with ZERO items.
+    return this.prisma.$transaction(async (tx) => {
+      // If this preset is being set as default, unset other defaults
+      if (data.isDefault) {
+        await tx.customer_accessories_presets.updateMany({
+          where: { customerId, isDefault: true, id: { not: presetId } },
+          data: { isDefault: false },
+        });
+      }
+
+      // Build update data
+      const updateData: any = {
         presetName: data.presetName,
         description: data.description,
-        isDefault: data.isDefault || false,
-        items: {
+        isDefault: data.isDefault,
+      };
+
+      // If items are provided, replace all items
+      if (data.items !== undefined) {
+        // Delete existing items and create new ones
+        await tx.customer_accessories_preset_items.deleteMany({
+          where: { presetId },
+        });
+
+        const labelMaterialIds = await this.resolveLabelMaterialIds(tx, data.items);
+
+        updateData.items = {
           create: data.items.map((item, index) => ({
             materialType: item.materialType as MaterialType,
-            // For PACKAGING type
-            materialId: item.materialType === 'LABEL' ? null : item.materialId || null,
+            // Unified identity (dual-write): LABEL items carry materialId = labelId when the
+            // label's BASE materials row exists; PACKAGING as before
+            materialId:
+              item.materialType === 'LABEL'
+                ? item.labelId && labelMaterialIds.has(item.labelId)
+                  ? item.labelId
+                  : null
+                : item.materialId || null,
             quantity: item.materialType === 'LABEL' ? null : item.quantity || 1,
             usageCategory: item.usageCategory,
             // For LABEL type
@@ -531,88 +620,14 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
             extraPercentage: item.materialType === 'LABEL' ? (item.extraPercentage ?? 5) : null,
             sortOrder: item.sortOrder ?? index,
           })),
-        },
-      },
-      include: {
-        items: {
-          orderBy: { sortOrder: 'asc' },
-          include: {
-            label: {
-              select: {
-                id: true,
-                labelCode: true,
-                labelName: true,
-                labelCategory: true,
-                labelType: true,
-              },
-            },
-          },
-        },
-      },
-    });
-  }
+        };
+      }
 
-  /**
-   * Update accessory preset
-   */
-  async updateAccessoryPreset(customerId: string, presetId: string, data: UpdateAccessoryPresetDTO) {
-    // If this preset is being set as default, unset other defaults
-    if (data.isDefault) {
-      await this.prisma.customer_accessories_presets.updateMany({
-        where: { customerId, isDefault: true, id: { not: presetId } },
-        data: { isDefault: false },
+      return tx.customer_accessories_presets.update({
+        where: { id: presetId },
+        data: updateData,
+        include: this.presetItemsInclude,
       });
-    }
-
-    // Build update data
-    const updateData: any = {
-      presetName: data.presetName,
-      description: data.description,
-      isDefault: data.isDefault,
-    };
-
-    // If items are provided, replace all items
-    if (data.items !== undefined) {
-      // Delete existing items and create new ones
-      await this.prisma.customer_accessories_preset_items.deleteMany({
-        where: { presetId },
-      });
-
-      updateData.items = {
-        create: data.items.map((item, index) => ({
-          materialType: item.materialType as MaterialType,
-          // For PACKAGING type
-          materialId: item.materialType === 'LABEL' ? null : item.materialId || null,
-          quantity: item.materialType === 'LABEL' ? null : item.quantity || 1,
-          usageCategory: item.usageCategory,
-          // For LABEL type
-          labelId: item.materialType === 'LABEL' ? item.labelId || null : null,
-          componentName: item.materialType === 'LABEL' ? item.componentName || null : null,
-          extraPercentage: item.materialType === 'LABEL' ? (item.extraPercentage ?? 5) : null,
-          sortOrder: item.sortOrder ?? index,
-        })),
-      };
-    }
-
-    return this.prisma.customer_accessories_presets.update({
-      where: { id: presetId },
-      data: updateData,
-      include: {
-        items: {
-          orderBy: { sortOrder: 'asc' },
-          include: {
-            label: {
-              select: {
-                id: true,
-                labelCode: true,
-                labelName: true,
-                labelCategory: true,
-                labelType: true,
-              },
-            },
-          },
-        },
-      },
     });
   }
 
@@ -627,22 +642,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
 
     return this.prisma.customer_accessories_presets.findFirst({
       where,
-      include: {
-        items: {
-          orderBy: { sortOrder: 'asc' },
-          include: {
-            label: {
-              select: {
-                id: true,
-                labelCode: true,
-                labelName: true,
-                labelCategory: true,
-                labelType: true,
-              },
-            },
-          },
-        },
-      },
+      include: this.presetItemsInclude,
     });
   }
 
@@ -656,22 +656,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
         isDefault: true,
         isActive: true,
       },
-      include: {
-        items: {
-          orderBy: { sortOrder: 'asc' },
-          include: {
-            label: {
-              select: {
-                id: true,
-                labelCode: true,
-                labelName: true,
-                labelCategory: true,
-                labelType: true,
-              },
-            },
-          },
-        },
-      },
+      include: this.presetItemsInclude,
     });
   }
 
@@ -721,22 +706,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
           })),
         },
       },
-      include: {
-        items: {
-          orderBy: { sortOrder: 'asc' },
-          include: {
-            label: {
-              select: {
-                id: true,
-                labelCode: true,
-                labelName: true,
-                labelCategory: true,
-                labelType: true,
-              },
-            },
-          },
-        },
-      },
+      include: this.presetItemsInclude,
     });
   }
 

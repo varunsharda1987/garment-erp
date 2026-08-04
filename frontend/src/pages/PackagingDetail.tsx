@@ -8,7 +8,19 @@ import { StatusBadge } from '@/components/StatusBadge';
 import type { Packaging } from '@/types/packaging.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { ArrowLeft, Edit, Package, Ruler, DollarSign, Building2, FileText, Printer, Layers } from 'lucide-react';
+import {
+  ArrowLeft,
+  Edit,
+  Package,
+  Ruler,
+  DollarSign,
+  Building2,
+  FileText,
+  Printer,
+  Layers,
+  Users,
+  Tag,
+} from 'lucide-react';
 
 export default function PackagingDetail() {
   const navigate = useNavigate();
@@ -152,6 +164,46 @@ export default function PackagingDetail() {
               )}
             </CardContent>
           </Card>
+
+          {/* BUG-PK7 FIX: Customer/Brand Information */}
+          {(packaging.customer || packaging.brandCategory) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Customer & Brand
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {packaging.customer && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Customer</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Tag className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-mono text-sm text-muted-foreground">{packaging.customer.code}</span>
+                      <span className="text-foreground font-medium">{packaging.customer.name}</span>
+                    </div>
+                  </div>
+                )}
+                {packaging.brandCategory && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">Brand</label>
+                    <p className="text-foreground">
+                      {packaging.brandCategory.brandName}
+                      {packaging.brandCategory.category && (
+                        <span className="text-muted-foreground ml-2">({packaging.brandCategory.category})</span>
+                      )}
+                      {packaging.brandCategory.subCategory && (
+                        <span className="text-muted-foreground text-sm ml-1">
+                          / {packaging.brandCategory.subCategory}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Specifications */}
           <Card>

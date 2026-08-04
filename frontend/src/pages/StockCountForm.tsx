@@ -97,7 +97,7 @@ export default function StockCountForm() {
       });
 
       setSuccess(true);
-      // No stock-count detail page exists yet (B07-12 deferred); land back on the list.
+      // BUG-DASH3: Navigate to list after creation (detail page exists at StockCountDetail.tsx)
       setTimeout(() => navigate('/inventory/stock-counts'), 2000);
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { message?: string } } };

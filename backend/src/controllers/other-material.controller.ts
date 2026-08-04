@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { generateCode, allocateBatchCodes } from '../utils/code-generator';
-import { NotFoundError, ValidationError, BusinessError } from '../errors';
+import { NotFoundError, ValidationError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
+import { materialService } from '../services/material.service';
 
 // Type for supplier input
 interface OtherMaterialSupplierInput {
@@ -39,70 +40,58 @@ export const createOtherMaterial = async (req: Request, res: Response) => {
     throw new ValidationError('Material name is required');
   }
 
-  // Get Other Materials category ID
-  const otherMaterialCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Other' },
-  });
-
-  if (!otherMaterialCategory) {
-    throw new BusinessError('Other Materials category not found. Please create it first.');
-  }
-
-  // Create other_material_master entry with suppliers using Prisma
-  const materialRecord = await prisma.other_material_master.create({
-    data: {
-      materialCode,
-      materialName,
-      category: category || null,
-      unit: unit || 'PIECE',
-      specifications: specifications || null,
-      pricePerUnit: pricePerUnit ? parseFloat(pricePerUnit) : null,
-      supplierId: supplierId || null,
-      description: description || null,
-      isActive: true,
-      // Create supplier relationships
-      otherMaterialSuppliers: {
-        create: suppliers.map((s: OtherMaterialSupplierInput) => ({
-          supplierId: s.supplierId,
-          isPreferred: s.isPreferred || false,
-          isActive: s.isActive !== undefined ? s.isActive : true,
-          notes: s.notes || null,
-          pricePerUnit: s.pricePerUnit ? parseFloat(String(s.pricePerUnit)) : null,
-        })),
+  // Create master + its materials record atomically (materials.id === master.id — material-identity invariant)
+  const { materialRecord, materialEntry } = await prisma.$transaction(async (tx) => {
+    const created = await tx.other_material_master.create({
+      data: {
+        materialCode,
+        materialName,
+        category: category || null,
+        unit: unit || 'PIECE',
+        specifications: specifications || null,
+        pricePerUnit: pricePerUnit ? parseFloat(pricePerUnit) : null,
+        supplierId: supplierId || null,
+        description: description || null,
+        isActive: true,
+        // Create supplier relationships
+        otherMaterialSuppliers: {
+          create: suppliers.map((s: OtherMaterialSupplierInput) => ({
+            supplierId: s.supplierId,
+            isPreferred: s.isPreferred || false,
+            isActive: s.isActive !== undefined ? s.isActive : true,
+            notes: s.notes || null,
+            pricePerUnit: s.pricePerUnit ? parseFloat(String(s.pricePerUnit)) : null,
+          })),
+        },
       },
-    },
-    include: {
-      otherMaterialSuppliers: {
-        include: {
-          supplier: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              contactPerson: true,
-              email: true,
-              phone: true,
-              isActive: true,
+      include: {
+        otherMaterialSuppliers: {
+          include: {
+            supplier: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                contactPerson: true,
+                email: true,
+                phone: true,
+                isActive: true,
+              },
             },
           },
+          orderBy: { isPreferred: 'desc' },
         },
-        orderBy: { isPreferred: 'desc' },
       },
-    },
-  });
+    });
 
-  // Create corresponding material entry
-  const materialEntry = await prisma.materials.create({
-    data: {
-      id: `mat-${materialCode.toLowerCase()}`,
-      code: materialCode,
-      name: materialName,
-      materialType: 'OTHER',
-      otherMaterialId: materialRecord.id,
-      categoryId: otherMaterialCategory.id,
-      unit: unit || 'PIECE',
-      isActive: true,
-    },
+    // Create material (same-id convention, category auto-resolved)
+    const material = await materialService.createFromMaster(
+      { id: created.id, code: materialCode, name: materialName },
+      'OTHER_MATERIAL',
+      tx
+    );
+
+    return { materialRecord: created, materialEntry: material };
   });
 
   res.status(201).json({
@@ -418,15 +407,6 @@ export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
     throw new ValidationError('No data provided for import');
   }
 
-  // Get Other Materials category
-  const otherMaterialCategory = await prisma.material_categories.findFirst({
-    where: { name: 'Other' },
-  });
-
-  if (!otherMaterialCategory) {
-    throw new BusinessError('Other Materials category not found');
-  }
-
   // Pre-generate all material codes
   const codes = await allocateBatchCodes('OTH', 'other_material_master', 'materialCode', data.length);
 
@@ -471,19 +451,12 @@ export const bulkImportOtherMaterials = async (req: Request, res: Response) => {
           },
         });
 
-        // Create material
-        await tx.materials.create({
-          data: {
-            id: `mat-${materialCode.toLowerCase()}`,
-            code: materialCode,
-            name: row.materialName,
-            materialType: 'OTHER',
-            otherMaterialId: created.id,
-            categoryId: otherMaterialCategory.id,
-            unit: row.unit || 'PIECE',
-            isActive: true,
-          },
-        });
+        // Create material (same-id convention, category auto-resolved)
+        await materialService.createFromMaster(
+          { id: created.id, code: materialCode, name: row.materialName },
+          'OTHER_MATERIAL',
+          tx
+        );
 
         return created;
       });

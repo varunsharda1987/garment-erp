@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { UnitEnum } from './common.schema';
+import { UnitEnum, flexMaterialId } from './common.schema';
 
 // ============================================================================
 // Enums (match Prisma enums)
@@ -55,7 +55,7 @@ export const calculateRequirementsSchema = z.object({
  * POST /api/mrp/requirements
  */
 export const createManualRequirementSchema = z.object({
-  materialId: z.string().uuid('Invalid material ID'),
+  materialId: flexMaterialId('material ID'),
   quantity: z.number().positive('Quantity must be positive'),
   unit: UnitEnum,
   requiredDate: z.string(),
@@ -174,7 +174,7 @@ export const validateBulkPOSchema = z.object({
  * POST /api/mrp/vendor-suggestions/material
  */
 export const suggestForMaterialSchema = z.object({
-  materialId: z.string().uuid('Invalid material ID'),
+  materialId: flexMaterialId('material ID'),
 });
 
 /**
@@ -258,7 +258,7 @@ export const autoAssignProcessorsSchema = z.object({
 export const requirementsQuerySchema = z.object({
   orderId: z.string().uuid().optional(),
   orderItemId: z.string().uuid().optional(),
-  materialId: z.string().uuid().optional(),
+  materialId: flexMaterialId('material ID').optional(),
   supplierId: z.string().uuid().optional(),
   styleId: z.string().uuid().optional(),
   status: z.string().optional(), // Can be comma-separated

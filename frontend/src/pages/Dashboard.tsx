@@ -273,7 +273,7 @@ export default function Dashboard() {
               icon="📦"
               label="Materials"
               description="All materials"
-              onClick={() => navigate('/material-master')}
+              onClick={() => navigate('/materials')}
             />
             <QuickAction icon="📋" label="Orders" description="Manage orders" onClick={() => navigate('/orders')} />
             <QuickAction icon="📊" label="BOM" description="Bill of Materials" onClick={() => navigate('/order-bom')} />

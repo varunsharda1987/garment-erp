@@ -349,6 +349,17 @@ function checkNumericOrFallback(tsFiles) {
   );
 }
 
+/** Check (E1): materials.create with a hand-written literal id (`mat-<code>` etc.) — BLOCKING new + ratchet. */
+function checkManualMaterialCreate(tsFiles) {
+  console.log(`\n${c.cyan}Checking for hand-written materials.id assignment...${c.reset}`);
+  return runRatchetedCheck(
+    'hand-written materials.id assignment(s) (forks the material registry)',
+    detectors.manualMaterialCreate(tsFiles),
+    'manual-material-create-baseline.json',
+    'Use materialService.createFromMaster(master, TYPE, tx) — materials.id must equal the master uuid (or mark `// allow-manual-material-create`). If intentional, add the key to scripts/hooks/manual-material-create-baseline.json.'
+  );
+}
+
 /**
  * Check: Type synchronization between frontend and backend
  */
@@ -757,6 +768,7 @@ function runAllModeChecks() {
   if (!checkStockSyncNoWarehouse(tsFiles)) ok = false;
   if (!checkSilentCatchFrontend(tsFiles)) ok = false;
   if (!checkNumericOrFallback(tsFiles)) ok = false;
+  if (!checkManualMaterialCreate(tsFiles)) ok = false;
 
   // Frontend typecheck gate (CI mode only — too slow for per-commit). The frontend reached ZERO tsc
   // errors on 2026-07-23 after clearing 184 pre-existing ones (several were real display bugs: pages
@@ -856,6 +868,7 @@ function main() {
     if (!checkStockSyncNoWarehouse(categories.typescript)) allPassed = false;
     if (!checkSilentCatchFrontend(categories.typescript)) allPassed = false;
     if (!checkNumericOrFallback(categories.typescript)) allPassed = false;
+    if (!checkManualMaterialCreate(categories.typescript)) allPassed = false;
   }
 
   // Type file changes → check type sync

@@ -110,12 +110,15 @@ export const createComponentMaster = async (req: Request, res: Response): Promis
   }
 
   // BUG-CM8 fix: Build response with warning if pattern assignment failed
+  // BUG-CM5 fix: Added success: true for consistency with componentGroup controller
   const response: {
+    success: boolean;
     data: typeof component;
     message: string;
     patternParts: { assigned: number; patterns: unknown[]; skipped: number };
     warning?: string;
   } = {
+    success: true,
     data: component,
     message: `Component master created successfully with ${patternAssignment.assigned} pattern part${patternAssignment.assigned !== 1 ? 's' : ''}`,
     patternParts: {
@@ -199,7 +202,9 @@ export const getAllComponentMasters = async (req: Request, res: Response): Promi
     prisma.component_masters.count({ where }),
   ]);
 
+  // BUG-CM5 fix: Added success: true for consistency with componentGroup controller
   res.json({
+    success: true,
     data: components,
     pagination: {
       page: pageNum,
@@ -242,7 +247,8 @@ export const getComponentMasterById = async (req: Request, res: Response): Promi
     throw new NotFoundError('Component master', id);
   }
 
-  res.json({ data: component });
+  // BUG-CM5 fix: Added success: true for consistency with componentGroup controller
+  res.json({ success: true, data: component });
 };
 
 /**
@@ -314,7 +320,20 @@ export const updateComponentMaster = async (req: Request, res: Response): Promis
     },
   });
 
+  // Group changed → pull in the new group's pattern parts (additive; non-fatal,
+  // mirroring the create path — previously a group change silently skipped this)
+  if (componentGroupId && componentGroupId !== existingComponent.componentGroupId) {
+    try {
+      const reassignment = await assignPatternPartsToComponent(component.id, componentGroupId);
+      logInfo(`Re-assigned ${reassignment.assigned} pattern parts to component "${component.name}" after group change`);
+    } catch (assignError) {
+      logError('Failed to re-assign pattern parts after component group change:', assignError);
+    }
+  }
+
+  // BUG-CM5 fix: Added success: true for consistency with componentGroup controller
   res.json({
+    success: true,
     data: component,
     message: 'Component master updated successfully',
   });
@@ -340,7 +359,9 @@ export const deleteComponentMaster = async (req: Request, res: Response): Promis
     data: { isActive: false },
   });
 
+  // BUG-CM5 fix: Added success: true for consistency with componentGroup controller
   res.json({
+    success: true,
     message: 'Component master deleted successfully',
   });
 };
@@ -364,7 +385,9 @@ export const getCategories = async (req: Request, res: Response): Promise<void> 
 
   const categoryList = categories.map((c) => c.componentCategory).filter((c): c is string => c !== null);
 
+  // BUG-CM5 fix: Added success: true for consistency with componentGroup controller
   res.json({
+    success: true,
     data: categoryList,
     message: 'Categories retrieved successfully',
   });

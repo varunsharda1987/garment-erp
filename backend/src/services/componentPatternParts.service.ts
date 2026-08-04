@@ -38,9 +38,10 @@ export async function assignPatternPartsToComponent(
       throw new Error(`Component with ID ${componentId} not found`);
     }
 
-    // Get all pattern parts for this component group
+    // Get all pattern parts for this component group (active parts only —
+    // soft-deleted parts must not be auto-assigned to new components)
     const patternPartGroups = await prisma.pattern_part_groups.findMany({
-      where: { componentGroupId },
+      where: { componentGroupId, patternPart: { isActive: true } },
       include: { patternPart: true },
     });
 
@@ -107,6 +108,49 @@ export async function assignPatternPartsToComponent(
     logError('Error assigning pattern parts to component:', error);
     throw error;
   }
+}
+
+/**
+ * Inverse of assignPatternPartsToComponent: link ONE pattern part to ALL active
+ * components of the given groups. Called when a pattern part is created/updated
+ * with group tags, so existing components pick up the new part without manual
+ * linking or the resync script. Additive only — never removes existing links.
+ *
+ * @param patternPartId - The pattern part to propagate
+ * @param componentGroupIds - Component groups whose components should receive it
+ * @returns Number of component links created
+ */
+export async function assignPartToGroupComponents(patternPartId: string, componentGroupIds: string[]): Promise<number> {
+  if (componentGroupIds.length === 0) return 0;
+
+  const patternPart = await prisma.pattern_part_master.findUnique({
+    where: { id: patternPartId },
+  });
+
+  if (!patternPart || !patternPart.isActive) return 0;
+
+  const components = await prisma.component_masters.findMany({
+    where: { isActive: true, componentGroupId: { in: componentGroupIds } },
+    select: { id: true },
+  });
+
+  if (components.length === 0) return 0;
+
+  const result = await prisma.component_pattern_parts.createMany({
+    data: components.map((component) => ({
+      componentId: component.id,
+      patternPartId,
+      quantity: patternPart.code === 'SLEEVE' ? 2 : 1,
+      isRequired: ['ALL_PARTS', 'BODY_FRONT', 'BODY_BACK'].includes(patternPart.code),
+    })),
+    skipDuplicates: true,
+  });
+
+  if (result.count > 0) {
+    logInfo(`Propagated pattern part "${patternPart.code}" to ${result.count} component(s) via group tags`);
+  }
+
+  return result.count;
 }
 
 /**

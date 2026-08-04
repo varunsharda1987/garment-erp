@@ -13,7 +13,8 @@ import { z } from 'zod';
 
 export const CADPurposeEnum = z.enum(['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION']);
 
-export const CADApprovalStatusEnum = z.enum(['PENDING', 'APPROVED', 'REJECTED']);
+// BUG-CAD12 fix: Added ALTERNATE_APPROVED to match Prisma enum
+export const CADApprovalStatusEnum = z.enum(['PENDING', 'APPROVED', 'REJECTED', 'ALTERNATE_APPROVED']);
 
 export const VarianceActionEnum = z.enum(['APPROVE', 'REJECT']);
 

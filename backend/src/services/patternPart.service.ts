@@ -1,5 +1,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
+import { assignPartToGroupComponents } from './componentPatternParts.service';
+import { logError } from '../utils/logger';
 import {
   CreatePatternPartInput,
   UpdatePatternPartInput,
@@ -73,6 +75,16 @@ export class PatternPartService {
         },
       },
     });
+
+    // Propagate to existing components of the tagged groups (additive; non-fatal —
+    // part creation must not fail because a link couldn't be created)
+    if (componentGroupIds && componentGroupIds.length > 0) {
+      try {
+        await assignPartToGroupComponents(patternPart.id, componentGroupIds);
+      } catch (error) {
+        logError('Failed to propagate new pattern part to group components:', error);
+      }
+    }
 
     // Transform response to include componentGroups array
     return this.transformPatternPartResponse(patternPart);
@@ -263,6 +275,16 @@ export class PatternPartService {
           },
         });
       });
+
+      // Propagate the (possibly new) group tags to existing components (additive;
+      // removed tags never delete links — that stays manual via the Manage Parts UI)
+      if (updated.isActive && componentGroupIds.length > 0) {
+        try {
+          await assignPartToGroupComponents(id, componentGroupIds);
+        } catch (error) {
+          logError('Failed to propagate updated pattern part to group components:', error);
+        }
+      }
 
       return this.transformPatternPartResponse(updated);
     }

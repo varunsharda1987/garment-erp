@@ -30,7 +30,10 @@ export interface ComponentMasterFormData {
   isActive?: boolean;
 }
 
+// BUG-CM5 fix: Added success field to match componentGroup controller pattern
+// BUG-CM9 fix: success is included in response types to document the API contract
 export interface ComponentMasterListResponse {
+  success: boolean;
   data: ComponentMaster[];
   pagination: {
     page: number;
@@ -41,11 +44,14 @@ export interface ComponentMasterListResponse {
 }
 
 export interface ComponentMasterResponse {
+  success: boolean;
   data: ComponentMaster;
-  message: string;
+  message?: string;
+  warning?: string; // BUG-CM8: Present when pattern part assignment fails
 }
 
 export interface CategoriesResponse {
+  success: boolean;
   data: string[];
-  message: string;
+  message?: string;
 }

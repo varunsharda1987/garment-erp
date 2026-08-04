@@ -16,7 +16,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { Badge } from '../components/ui/badge';
 import { notify } from '../lib/notify';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Puzzle } from 'lucide-react';
+import ComponentPatternPartsDialog from '../components/masters/ComponentPatternPartsDialog';
 import {
   getAllComponentMasters,
   createComponentMaster,
@@ -36,6 +37,8 @@ export default function ComponentMasters() {
   const [editingComponent, setEditingComponent] = useState<ComponentMaster | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [componentToDelete, setComponentToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [partsDialogOpen, setPartsDialogOpen] = useState(false);
+  const [partsComponent, setPartsComponent] = useState<{ id: string; name: string } | null>(null);
 
   // Form state
   // TODO [BUG-CM6]: componentCategory is DEPRECATED - kept only for backward compatibility
@@ -262,6 +265,17 @@ export default function ComponentMasters() {
                     )}
                   </TableCell>
                   <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      title="Manage pattern parts (CAD Part dropdown options)"
+                      onClick={() => {
+                        setPartsComponent({ id: component.id, name: component.name });
+                        setPartsDialogOpen(true);
+                      }}
+                    >
+                      <Puzzle className="h-4 w-4" />
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleEdit(component)}>
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -373,6 +387,14 @@ export default function ComponentMasters() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Pattern Parts Management Dialog */}
+      <ComponentPatternPartsDialog
+        open={partsDialogOpen}
+        onOpenChange={setPartsDialogOpen}
+        componentId={partsComponent?.id || null}
+        componentName={partsComponent?.name || ''}
+      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

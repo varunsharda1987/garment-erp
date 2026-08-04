@@ -2191,8 +2191,11 @@ export async function getCADTableData(req: Request, res: Response) {
     componentNameToIdMap.set(c.componentName.toLowerCase(), c.componentMasterId);
   });
 
-  // Collect pattern parts from components that already have the relation loaded
+  // Collect pattern parts from components that already have the relation loaded.
+  // componentId must be present on every entry — the components[] builder below
+  // filters on it (legacy prisma rows carry it natively).
   const componentPatternParts: Array<{
+    componentId: string;
     patternPart: { id: string; code: string; name: string };
     component: { id: string; name: string };
   }> = [];
@@ -2201,6 +2204,7 @@ export async function getCADTableData(req: Request, res: Response) {
     if (comp.componentMaster?.patternParts) {
       comp.componentMaster.patternParts.forEach((pp: any) => {
         componentPatternParts.push({
+          componentId: comp.componentMaster.id,
           patternPart: pp.patternPart,
           component: { id: comp.componentMaster.id, name: comp.componentMaster.name },
         });
@@ -2626,8 +2630,8 @@ export async function getCADTableData(req: Request, res: Response) {
       // this field if we kept it as 'patternParts'. Using 'masterPatternParts' avoids that.
       masterPatternParts: componentMasterId
         ? componentPatternParts
-            .filter((cpp: any) => cpp.componentId === componentMasterId)
-            .map((cpp: any) => ({
+            .filter((cpp) => cpp.componentId === componentMasterId)
+            .map((cpp) => ({
               id: cpp.patternPart.id,
               name: cpp.patternPart.name,
               code: cpp.patternPart.code,

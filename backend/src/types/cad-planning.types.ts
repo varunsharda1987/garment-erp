@@ -16,10 +16,12 @@ export enum CADPurpose {
 }
 
 // Approval Status for CAD records
+// BUG-CAD12 fix: Added ALTERNATE_APPROVED to match Prisma enum
 export enum CADApprovalStatus {
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
+  ALTERNATE_APPROVED = 'ALTERNATE_APPROVED', // When another width is primary, this is an approved alternate
 }
 
 // Auto-approval source

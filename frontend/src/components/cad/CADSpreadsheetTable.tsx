@@ -964,6 +964,12 @@ export function CADSpreadsheetTable({
           handleFieldChange(sibling.id, 'piecesPerMarker', totalPieces);
         });
     }
+
+    // The calculator button works outside edit mode too — enter edit mode so
+    // Save/Cancel are visible for the pending selection (only if nothing else is mid-edit)
+    if (!editingRow) {
+      setEditingRow(rowId);
+    }
   };
 
   // STOCK INTEGRATION HANDLERS (for PRODUCTION CAD)
@@ -1215,7 +1221,11 @@ export function CADSpreadsheetTable({
   };
 
   // Calculate totals - only count pieces from "All Parts" rows (main row per component)
+  // Merges pendingChanges so the footer reflects pcs picked in the popup before the row is saved
   const totals = useMemo(() => {
+    const rowBreakdowns = (row: CADSpreadsheetRow) =>
+      (pendingChanges[row.id]?.sizeBreakdowns as CADSizeBreakdown[] | undefined) ?? row.sizeBreakdowns;
+
     // Look for rows with "All Parts" pattern part (code === ALL_PARTS_CODE)
     const allPartsRows = rows.filter((row) => row.partCode === ALL_PARTS_CODE);
 
@@ -1223,7 +1233,7 @@ export function CADSpreadsheetTable({
     if (allPartsRows.length > 0) {
       // Count from ALL_PARTS rows only
       allPartsRows.forEach((row) => {
-        totalPieces += row.sizeBreakdowns.reduce((sum, b) => sum + b.quantity, 0);
+        totalPieces += rowBreakdowns(row).reduce((sum, b) => sum + b.quantity, 0);
       });
     } else {
       // Fallback: first row per component if no ALL_PARTS rows exist
@@ -1231,13 +1241,13 @@ export function CADSpreadsheetTable({
       rows.forEach((row) => {
         if (!seenComponents.has(row.componentId)) {
           seenComponents.add(row.componentId);
-          totalPieces += row.sizeBreakdowns.reduce((sum, b) => sum + b.quantity, 0);
+          totalPieces += rowBreakdowns(row).reduce((sum, b) => sum + b.quantity, 0);
         }
       });
     }
 
     return { totalPieces };
-  }, [rows]);
+  }, [rows, pendingChanges]);
 
   if (isLoading) {
     return (
@@ -1352,7 +1362,14 @@ export function CADSpreadsheetTable({
                       currentGreigeId, // Pass current greige to allow same part at different greiges
                       row.purpose // Pass purpose to allow same part across different purposes
                     );
-                    const totalPcs = row.sizeBreakdowns.reduce((sum, b) => sum + b.quantity, 0);
+                    // Merge pending size breakdowns so freshly-picked pcs show before the row is saved
+                    const effectiveSizeBreakdowns = getDisplayValue<CADSizeBreakdown[]>(
+                      row,
+                      'sizeBreakdowns',
+                      row.sizeBreakdowns
+                    );
+                    const hasPendingPcs = !!(pendingChanges[row.id] && 'sizeBreakdowns' in pendingChanges[row.id]);
+                    const totalPcs = effectiveSizeBreakdowns.reduce((sum, b) => sum + b.quantity, 0);
 
                     return (
                       <TableRow
@@ -1802,9 +1819,14 @@ export function CADSpreadsheetTable({
                           </Button>
                         </TableCell>
 
-                        {/* No. of Pcs - Calculated */}
+                        {/* No. of Pcs - Calculated (warning color = selected but not saved yet) */}
                         <TableCell
-                          className={cn('px-2 py-1.5 text-right text-xs font-medium', FIELD_STYLES.calculated.cell)}
+                          className={cn(
+                            'px-2 py-1.5 text-right text-xs font-medium',
+                            FIELD_STYLES.calculated.cell,
+                            hasPendingPcs && 'text-warning'
+                          )}
+                          title={hasPendingPcs ? 'Not saved yet — click Save' : undefined}
                         >
                           {totalPcs || '-'}
                         </TableCell>
@@ -2076,7 +2098,11 @@ export function CADSpreadsheetTable({
           isOpen={true}
           onClose={() => setSizeBreakdownOpen(null)}
           sizeOptions={sizeOptions}
-          currentBreakdowns={rows.find((r) => r.id === sizeBreakdownOpen)?.sizeBreakdowns || []}
+          currentBreakdowns={
+            (pendingChanges[sizeBreakdownOpen]?.sizeBreakdowns as CADSizeBreakdown[] | undefined) ??
+            rows.find((r) => r.id === sizeBreakdownOpen)?.sizeBreakdowns ??
+            []
+          }
           onSave={(breakdowns) => handleSizeBreakdownSave(sizeBreakdownOpen, breakdowns)}
         />
       )}

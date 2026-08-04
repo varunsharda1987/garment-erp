@@ -36,6 +36,11 @@ export interface UpdateComponentGroupInput {
 // Backend types with same names are SERVICE-LAYER types (without success wrapper).
 // This naming divergence is intentional: backend types are for internal service use,
 // frontend types represent the actual API response shape.
+//
+// BUG-CM9 note: If the backend ever removes the `success` field, TypeScript won't catch
+// the mismatch because the extra property is simply ignored during response parsing.
+// This is acceptable: the `success` field is a convention for client-side conditionals,
+// not a critical data field. API errors use HTTP status codes as the authoritative signal.
 export interface ComponentGroupListResponse {
   success: boolean;
   data: ComponentGroup[];

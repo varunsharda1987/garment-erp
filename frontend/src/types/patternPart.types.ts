@@ -52,3 +52,27 @@ export interface ReorderPatternPartsInput {
     sortOrder: number;
   }>;
 }
+
+// Component ↔ Pattern Part association (component_pattern_parts junction row)
+export interface ComponentPatternPart {
+  id: string;
+  componentId: string;
+  patternPartId: string;
+  quantity: number;
+  isRequired: boolean;
+  notes?: string | null;
+  patternPart: PatternPart;
+}
+
+export interface AddComponentPatternPartInput {
+  patternPartId: string;
+  quantity?: number;
+  isRequired?: boolean;
+  notes?: string | null;
+}
+
+export interface UpdateComponentPatternPartInput {
+  quantity?: number;
+  isRequired?: boolean;
+  notes?: string | null;
+}

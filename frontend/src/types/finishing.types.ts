@@ -123,6 +123,7 @@ export interface FinishingIssue {
       id: string;
       styleCode: string;
       styleName: string;
+      buyerStyleRef?: string | null;
     };
     order?: {
       id: string;

@@ -154,6 +154,7 @@ export interface OrderBOM {
     id: string;
     styleCode: string;
     styleName: string;
+    buyerStyleRef?: string | null;
     [key: string]: unknown;
   };
   items?: OrderBOMItem[];

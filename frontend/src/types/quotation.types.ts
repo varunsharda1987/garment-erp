@@ -57,6 +57,7 @@ export interface QuotationItem {
     id: string;
     styleCode: string;
     styleName: string;
+    buyerStyleRef?: string | null;
   };
 }
 

@@ -114,7 +114,7 @@ export interface Challan {
     id: string;
     workOrderNumber: string;
     totalQuantity?: number;
-    style?: { id: string; styleCode: string; styleName: string };
+    style?: { id: string; styleCode: string; styleName: string; buyerStyleRef?: string | null };
   };
   purchaseOrder?: { id: string; poNumber: string; suppliers?: { id: string; name: string } };
   issuedBy?: { id: string; firstName: string; lastName: string };

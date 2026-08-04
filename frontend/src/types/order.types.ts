@@ -127,6 +127,7 @@ export interface OrderItem {
     id: string;
     styleCode: string;
     styleName: string;
+    buyerStyleRef?: string | null;
     image?: string | null;
   };
   breakup: OrderItemBreakup[];

@@ -82,6 +82,7 @@ export interface InvoiceItem {
     id: string;
     styleCode: string;
     styleName: string;
+    buyerStyleRef?: string | null;
     hsnCode?: string | null;
   } | null;
 }

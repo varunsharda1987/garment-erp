@@ -161,6 +161,7 @@ export interface WorkOrder {
     id: string;
     styleCode: string;
     styleName: string;
+    buyerStyleRef?: string | null;
     categoryId?: string;
     description?: string;
     imageUrl?: string;

@@ -124,6 +124,7 @@ export interface DeliveryNoteItem {
     id: string;
     styleCode: string;
     styleName: string;
+    buyerStyleRef?: string | null;
   };
   color?: {
     id: string;

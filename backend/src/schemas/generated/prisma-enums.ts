@@ -564,6 +564,7 @@ export const MaterialRequirementStatusEnum = z.enum([
   'PARTIALLY_RECEIVED',
   'RECEIVED',
   'CANCELLED',
+  'CONVERTED',
 ]);
 export type MaterialRequirementStatus = z.infer<typeof MaterialRequirementStatusEnum>;
 

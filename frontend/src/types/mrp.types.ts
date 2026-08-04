@@ -17,6 +17,7 @@ export const MaterialRequirementStatus = {
   PARTIALLY_RECEIVED: 'PARTIALLY_RECEIVED', // bug-hunt: was missing from frontend
   RECEIVED: 'RECEIVED',
   CANCELLED: 'CANCELLED',
+  CONVERTED: 'CONVERTED', // P3: fabric req converted to greige+processing
 } as const;
 
 export type MaterialRequirementStatus = (typeof MaterialRequirementStatus)[keyof typeof MaterialRequirementStatus];
@@ -31,6 +32,7 @@ export const MaterialRequirementStatusLabels: Record<MaterialRequirementStatus, 
   PARTIALLY_RECEIVED: 'Partially Received', // bug-hunt: was missing
   RECEIVED: 'Received',
   CANCELLED: 'Cancelled',
+  CONVERTED: 'Converted to Greige', // P3
 };
 
 export const MaterialRequirementStatusColors: Record<MaterialRequirementStatus, string> = {
@@ -43,6 +45,7 @@ export const MaterialRequirementStatusColors: Record<MaterialRequirementStatus, 
   PARTIALLY_RECEIVED: 'bg-blue-100 text-blue-800', // bug-hunt: was missing
   RECEIVED: 'bg-emerald-100 text-emerald-800',
   CANCELLED: 'bg-destructive/10 text-destructive',
+  CONVERTED: 'bg-violet-100 text-violet-800', // P3
 };
 
 export const RequirementSource = {

@@ -19,6 +19,7 @@ export const MaterialRequirementStatus = {
   PARTIALLY_RECEIVED: 'PARTIALLY_RECEIVED',
   RECEIVED: 'RECEIVED',
   CANCELLED: 'CANCELLED',
+  CONVERTED: 'CONVERTED', // P3: fabric req converted to greige+processing
 } as const;
 
 export type MaterialRequirementStatus = (typeof MaterialRequirementStatus)[keyof typeof MaterialRequirementStatus];

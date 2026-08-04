@@ -9357,6 +9357,7 @@ enum MaterialRequirementStatus {
   PARTIALLY_RECEIVED // Partial quantity received via GRN
   RECEIVED
   CANCELLED
+  CONVERTED // P3: Used by convert-to-greige when fabric req becomes greige+processing reqs
 }
 
 enum RequirementSource {

@@ -14,6 +14,7 @@ import {
 } from '@prisma/client';
 import { generateAtomicDocNumber, generateAtomicPONumberInTx } from '../utils/atomicCodeGenerator';
 import { roundToCent, toCurrency, multiplyCurrency, toNumber } from '../utils/currency';
+import { calculateGreigeQuantity } from '../utils/greige-quantity';
 import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
 import {
@@ -710,8 +711,13 @@ export async function calculateRequirementsFromOrder(
           styles: true,
         },
       },
+      // P3: MRP gate - only fetch APPROVED BOMs, ordered by version desc for deterministic pick
       orderBoms: {
-        where: { isActive: true },
+        where: {
+          isActive: true,
+          status: 'APPROVED', // P3: Require approved BOM
+        },
+        orderBy: { version: 'desc' }, // P3: Deterministic pick - highest version first
         include: {
           items: {
             include: {
@@ -724,6 +730,7 @@ export async function calculateRequirementsFromOrder(
                 },
               },
               fabric_master: true,
+              greige: true, // P3: for shrinkage percent in greige qty formula
               lace_master: true,
               button_master: true,
               thread_master: true,
@@ -741,6 +748,24 @@ export async function calculateRequirementsFromOrder(
 
   if (!order) {
     throw new Error(`Order ${orderId} not found`);
+  }
+
+  // P3: MRP gate - require at least one approved BOM
+  if (order.orderBoms.length === 0) {
+    // Check if there are any BOMs at all (just not approved)
+    const draftBomCount = await prisma.order_bom.count({
+      where: { orderId, isActive: true, status: 'DRAFT' },
+    });
+    if (draftBomCount > 0) {
+      throw new Error(
+        `Cannot calculate MRP: Order has ${draftBomCount} draft BOM(s) but none are approved. ` +
+          `Please approve the BOM before calculating requirements.`
+      );
+    }
+    throw new Error(
+      `Cannot calculate MRP: No active Order BOM found for this order. ` +
+        `Please create and approve an Order BOM first.`
+    );
   }
 
   // Cancel existing non-final requirements for the affected BOMs only (not entire order)
@@ -959,7 +984,28 @@ export async function calculateRequirementsFromOrder(
       const baseRequiredDecimal = multiplyCurrency(orderQuantity, quantityPerUnit);
       const wastageAmountDecimal = baseRequiredDecimal.times(toCurrency(wastagePercent).dividedBy(100));
       const totalRequiredDecimal = baseRequiredDecimal.plus(wastageAmountDecimal);
-      const totalRequired = toNumber(totalRequiredDecimal);
+      let totalRequired = toNumber(totalRequiredDecimal);
+
+      // P3: For GREIGE items, apply shrinkage adjustment using shared formula
+      // Formula: orderQty = need × (1 + wastage%/100) ÷ (1 − shrinkage%/100)
+      // Shrinkage comes from greige_master.averageShrinkagePercent (relation: greige)
+      if ((hasGreigeProcessing || hasLandedGreige) && bomItem.greigeId) {
+        const shrinkagePercent = bomItem.greige?.averageShrinkagePercent
+          ? Number(bomItem.greige.averageShrinkagePercent)
+          : 0;
+        if (shrinkagePercent > 0) {
+          const greigeResult = calculateGreigeQuantity({
+            need: totalRequired,
+            wastagePercent: 0, // Wastage already applied above
+            shrinkagePercent,
+          });
+          totalRequired = greigeResult.quantity;
+          // Log any warnings (e.g., invalid shrinkage skipped)
+          for (const warn of greigeResult.warnings) {
+            logger.warn(`[MRP] ${bomItem.componentName}: ${warn}`);
+          }
+        }
+      }
 
       // Get preferred supplier (only available if material relation exists)
       const preferredSupplier = material?.suppliers?.find((s: any) => s.isPreferred);
@@ -3213,7 +3259,7 @@ export async function convertToGreigeProcessing(
   const shortfallQty = Number(requirement.shortfall);
   if (shortfallQty <= 0) throw new Error('Requirement has no shortfall to convert');
 
-  // 2. Look up or auto-create greige material
+  // 2. Look up or auto-create greige material + get shrinkage percent
   let greigeMaterialId: string;
   const greigeMaterial = await prisma.materials.findFirst({ where: { greigeId: data.greigeId } });
   if (greigeMaterial) {
@@ -3224,15 +3270,37 @@ export async function convertToGreigeProcessing(
     greigeMaterialId = created.id;
   }
 
-  // 3. Check greige stock for the shortfall
+  // P3: Fetch greige_master for shrinkage percent
+  const greigeMaster = await prisma.greige_master.findUnique({
+    where: { id: data.greigeId },
+    select: { averageShrinkagePercent: true },
+  });
+  const shrinkagePercent = greigeMaster?.averageShrinkagePercent ? Number(greigeMaster.averageShrinkagePercent) : 0;
+
+  // P3: Apply shrinkage adjustment to shortfall using shared formula
+  // Formula: orderQty = need ÷ (1 − shrinkage%/100)
+  let greigeQtyNeeded = shortfallQty;
+  if (shrinkagePercent > 0) {
+    const greigeResult = calculateGreigeQuantity({
+      need: shortfallQty,
+      wastagePercent: 0, // Wastage already in the parent requirement's shortfall
+      shrinkagePercent,
+    });
+    greigeQtyNeeded = greigeResult.quantity;
+    for (const warn of greigeResult.warnings) {
+      logger.warn(`[MRP convert-to-greige] ${warn}`);
+    }
+  }
+
+  // 3. Check greige stock for the adjusted quantity
   const greigeStockResult = await prisma.greige_stock.aggregate({
     where: { greigeId: data.greigeId, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
     _sum: { quantityAvailable: true },
   });
   const greigeAvailable = Number(greigeStockResult._sum?.quantityAvailable || 0);
 
-  const greigeAllocated = Math.min(greigeAvailable, shortfallQty);
-  const greigeShortfall = shortfallQty - greigeAllocated;
+  const greigeAllocated = Math.min(greigeAvailable, greigeQtyNeeded);
+  const greigeShortfall = greigeQtyNeeded - greigeAllocated;
   const greigeStatus =
     greigeShortfall === 0
       ? MaterialRequirementStatus.FULFILLED_STOCK
@@ -3240,12 +3308,13 @@ export async function convertToGreigeProcessing(
         ? MaterialRequirementStatus.PARTIAL_STOCK
         : MaterialRequirementStatus.PO_REQUIRED;
 
-  // 4. Update original requirement — reduce shortfall by converted amount
+  // 4. Update original requirement — mark as CONVERTED (P3: truthful status)
+  // The fabric requirement is not "fulfilled from stock" — it was converted to greige+processing
   await prisma.material_requirements.update({
     where: { id: requirementId },
     data: {
       shortfall: 0,
-      status: MaterialRequirementStatus.FULFILLED_STOCK,
+      status: MaterialRequirementStatus.CONVERTED,
     },
   });
 
@@ -3262,7 +3331,7 @@ export async function convertToGreigeProcessing(
       orderQuantity: requirement.orderQuantity,
       quantityPerUnit: requirement.quantityPerUnit,
       wastagePercent: requirement.wastagePercent,
-      totalRequired: shortfallQty,
+      totalRequired: greigeQtyNeeded, // P3: shrinkage-adjusted quantity
       unit: requirement.unit,
       availableStock: greigeAvailable,
       allocatedFromStock: greigeAllocated,
@@ -3295,11 +3364,11 @@ export async function convertToGreigeProcessing(
       orderQuantity: requirement.orderQuantity,
       quantityPerUnit: requirement.quantityPerUnit,
       wastagePercent: requirement.wastagePercent,
-      totalRequired: shortfallQty,
+      totalRequired: greigeQtyNeeded, // P3: same qty as greige (shrinkage-adjusted)
       unit: requirement.unit,
       availableStock: 0,
       allocatedFromStock: 0,
-      shortfall: shortfallQty,
+      shortfall: greigeQtyNeeded, // P3: shrinkage-adjusted
       status: MaterialRequirementStatus.PO_REQUIRED,
       requirementType: 'PROCESSING',
       preferredSupplierId: data.processorId,
@@ -3322,7 +3391,7 @@ export async function convertToGreigeProcessing(
       processorId: data.processorId,
       processingType: 'DYEING', // Default; can be updated
       greigeId: data.greigeId,
-      greigeQuantitySent: shortfallQty,
+      greigeQuantitySent: greigeQtyNeeded, // P3: shrinkage-adjusted
       greigeCost: data.greigeCost || null,
       processingCost: data.processingCost || null,
       finishedFabricId: requirement.materials?.fabricId || null,

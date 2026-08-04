@@ -118,6 +118,13 @@ export const NAV_GROUPS: NavGroup[] = [
     iconName: 'Cog',
     permission: 'manufacturing',
     items: [
+      {
+        title: 'Control Center',
+        path: '/manufacturing',
+        iconName: 'LayoutDashboard',
+        permission: 'manufacturing',
+        keywords: ['alerts', 'inbox', 'action', 'pending', 'urgent', 'control center'],
+      },
       { title: 'Production Runs', path: '/production/work-orders', iconName: 'Factory', permission: 'workOrders' },
       { title: 'Sample Tracking', path: '/samples', iconName: 'TestTube', permission: 'samples' },
       { title: 'Testing (FPT/GPT)', path: '/testing', iconName: 'FlaskConical', permission: 'testing' },

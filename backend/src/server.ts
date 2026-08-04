@@ -8,6 +8,7 @@ import { initializeCache, closeCache } from './lib/cache';
 import { PermissionService } from './services/permission.service';
 import { systemSettingsService } from './services/system-settings.service';
 import { startIdleSweep as startWhatsappIdleSweep, shutdownAll as shutdownWhatsapp } from './services/whatsapp.service';
+import { reclaimPort } from './utils/portReclaim';
 
 const PORT = process.env.PORT || 5000;
 
@@ -64,6 +65,34 @@ async function startServer() {
       logInfo(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
       logInfo('================================');
       logInfo('');
+    });
+
+    // EADDRINUSE self-heal for the Windows PM2 kill-race: the previous fork of this app
+    // can survive a pm2 restart and keep port 5000 — reclaim it (portReclaim verifies the
+    // holder really is a stale PM2 fork before killing) instead of crash-looping forever.
+    // With this 'error' listener attached, EADDRINUSE no longer reaches uncaughtException.
+    let reclaimAttempts = 0;
+    server.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code !== 'EADDRINUSE' || reclaimAttempts >= 3) {
+        logError('HTTP server error - exiting for a clean PM2 restart:', err);
+        process.exit(1);
+      }
+      reclaimAttempts += 1;
+      logInfo(`Port ${PORT} in use - reclaim attempt ${reclaimAttempts}/3`);
+      void (async () => {
+        try {
+          const result = await reclaimPort(Number(PORT));
+          if (result === 'refused') {
+            logError(`Port ${PORT} not reclaimable - exiting`);
+            process.exit(1);
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          server.listen(Number(PORT), '0.0.0.0');
+        } catch (e) {
+          logError('Port reclaim failed - exiting:', e);
+          process.exit(1);
+        }
+      })();
     });
 
     // Keep the server instance to prevent immediate exit

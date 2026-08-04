@@ -1,0 +1,74 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# =============================================================================
+# POST-COMMIT HOOK: Auto-rebuild after successful commits
+# =============================================================================
+# Detects what changed and rebuilds/restarts as needed:
+#   - Frontend changes → rebuild frontend/dist
+#   - Backend changes → rebuild backend/dist + restart PM2 backend
+# =============================================================================
+
+echo ""
+echo "═══════════════════════════════════════════════════"
+echo "       POST-COMMIT AUTO-REBUILD                    "
+echo "═══════════════════════════════════════════════════"
+
+# Get list of changed files in the last commit
+CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD)
+
+# Check what changed
+FRONTEND_CHANGED=false
+BACKEND_CHANGED=false
+
+echo "$CHANGED_FILES" | grep -q "^frontend/" && FRONTEND_CHANGED=true
+echo "$CHANGED_FILES" | grep -q "^backend/" && BACKEND_CHANGED=true
+
+# Rebuild frontend if changed
+if [ "$FRONTEND_CHANGED" = true ]; then
+  echo ""
+  echo "📦 Frontend changes detected - rebuilding..."
+  cd frontend
+  npm run build 2>&1 | tail -20
+  BUILD_EXIT=$?
+  cd ..
+
+  if [ $BUILD_EXIT -eq 0 ]; then
+    echo "✅ Frontend rebuilt successfully"
+  else
+    echo "❌ Frontend build failed (exit code: $BUILD_EXIT)"
+    echo "   Run 'cd frontend && npm run build' to see full errors"
+  fi
+fi
+
+# Rebuild and restart backend if changed
+if [ "$BACKEND_CHANGED" = true ]; then
+  echo ""
+  echo "🔧 Backend changes detected - rebuilding..."
+  cd backend
+  npm run build 2>&1 | tail -10
+  BUILD_EXIT=$?
+  cd ..
+
+  if [ $BUILD_EXIT -eq 0 ]; then
+    echo "✅ Backend rebuilt successfully"
+    echo "🔄 Restarting backend service..."
+    pm2 restart garment-erp-api --silent 2>/dev/null
+    if [ $? -eq 0 ]; then
+      echo "✅ Backend restarted"
+    else
+      echo "⚠️  PM2 restart skipped (run manually if needed)"
+    fi
+  else
+    echo "❌ Backend build failed (exit code: $BUILD_EXIT)"
+    echo "   Run 'cd backend && npm run build' to see full errors"
+  fi
+fi
+
+if [ "$FRONTEND_CHANGED" = false ] && [ "$BACKEND_CHANGED" = false ]; then
+  echo "ℹ️  No frontend/backend changes - skipping rebuild"
+fi
+
+echo ""
+echo "═══════════════════════════════════════════════════"
+echo ""

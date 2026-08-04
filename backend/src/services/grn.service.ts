@@ -17,6 +17,7 @@ import { createChallan } from './challan.service';
 import { purchaseOrderService } from './purchaseOrder.service';
 import mrpService from './mrp.service';
 import { costSheetPOGenerationService } from './costSheetPOGeneration.service';
+import { checkProcessingPOReadiness } from './po-status-manager.service';
 import greigeStockService from './greige-stock.service';
 import { systemSettingsService } from './system-settings.service';
 import prisma from '../config/database'; // Use singleton to avoid connection pool leak
@@ -982,10 +983,40 @@ class GRNService {
     // BUG-PROC4 fix: Collect warnings from post-commit operations to notify frontend
     const postCommitWarnings: string[] = [];
 
-    if (postCommit?.updateProcessingPOStatus) {
+    // P2: Recompute PO receiving status FIRST, before processing activation.
+    // checkProcessingPOReadiness relies on PO status being RECEIVED, so this must run first.
+    // SKIPPED for PROCESSING POs: their approval branch sets RECEIVED itself with shrinkage
+    // semantics — received < ordered is NORMAL there, and a naive recompute would wrongly
+    // demote every shrinkage-bearing processing PO to PARTIALLY_RECEIVED.
+    let poCategory: string | null = null;
+    try {
+      const poCat = await prisma.purchase_orders.findUnique({
+        where: { id: grn.poId },
+        select: { poCategory: true },
+      });
+      poCategory = poCat?.poCategory || null;
+      if (poCategory !== 'PROCESSING') {
+        await purchaseOrderService.updateReceivingStatus(grn.poId);
+      }
+    } catch (statusErr) {
+      const errMsg = 'Failed to recompute PO receiving status';
+      logError(errMsg, statusErr);
+      postCommitWarnings.push(errMsg);
+    }
+
+    // P2: Processing activation rewire — use checkProcessingPOReadiness from po-status-manager
+    // instead of costSheetPOGenerationService.updateProcessingPOStatusOnGreigeGRN.
+    // This handles BOTH GREIGE and GREIGE_LACE categories, and relies on PO status being RECEIVED.
+    if (postCommit?.updateProcessingPOStatus || poCategory === 'GREIGE' || poCategory === 'GREIGE_LACE') {
       try {
-        await costSheetPOGenerationService.updateProcessingPOStatusOnGreigeGRN(grn.poId);
-        logInfo('Processing PO status check triggered for Greige GRN', { grnId: id, greigePOId: grn.poId });
+        const readiedPOs = await checkProcessingPOReadiness(grn.poId);
+        if (readiedPOs.length > 0) {
+          logInfo(`Processing POs readied after greige receipt: ${readiedPOs.join(', ')}`, {
+            grnId: id,
+            greigePOId: grn.poId,
+            readiedPOs,
+          });
+        }
       } catch (error) {
         const errMsg = 'Failed to auto-update Processing PO status';
         logError(errMsg, error);
@@ -1009,26 +1040,6 @@ class GRNService {
         logError(errMsg, costSheetErr);
         postCommitWarnings.push(errMsg);
       }
-    }
-
-    // Recompute PO receiving status from the now-netted counters, so a QC-rejection RE-OPENS the PO
-    // (PARTIALLY_RECEIVED) instead of leaving it closed as RECEIVED (bug-hunt procurement-7).
-    // Best-effort post-commit: the status is fully derivable, so a failure here never invalidates the receipt.
-    // SKIPPED for PROCESSING POs (review catch): their approval branch sets RECEIVED itself with
-    // shrinkage semantics — received meters < ordered is NORMAL there (mill shrinkage), and a naive
-    // recompute would wrongly demote every shrinkage-bearing processing PO to PARTIALLY_RECEIVED.
-    try {
-      const poCat = await prisma.purchase_orders.findUnique({
-        where: { id: grn.poId },
-        select: { poCategory: true },
-      });
-      if (poCat?.poCategory !== 'PROCESSING') {
-        await purchaseOrderService.updateReceivingStatus(grn.poId);
-      }
-    } catch (statusErr) {
-      const errMsg = 'Failed to recompute PO receiving status';
-      logError(errMsg, statusErr);
-      postCommitWarnings.push(errMsg);
     }
 
     // BUG-PROC4 fix: Return warnings with the GRN so frontend can notify user

@@ -289,15 +289,30 @@ async function updateLinkedServiceRequirements(poItemId: string, receivedQuantit
 }
 
 /**
- * Check and update linked Processing POs when Greige PO is received
+ * Check and update linked Processing POs when Greige PO is received.
+ * Handles BOTH GREIGE and GREIGE_LACE categories.
+ * Exported for use in grn.service.ts post-commit.
+ *
+ * P2.6: Also reconciles processing PO quantities to match received greige.
  */
-async function checkProcessingPOReadiness(greigePOId: string): Promise<string[]> {
+export async function checkProcessingPOReadiness(greigePOId: string): Promise<string[]> {
   const readiedPOs: string[] = [];
 
-  // Check if this is a Greige PO
+  // Check if this is a Greige PO and get its items
   const greigePO = await prisma.purchase_orders.findUnique({
     where: { id: greigePOId },
-    select: { status: true, poCategory: true },
+    select: {
+      status: true,
+      poCategory: true,
+      purchase_order_items: {
+        select: {
+          id: true,
+          orderedQuantity: true,
+          receivedQuantity: true,
+          materialId: true,
+        },
+      },
+    },
   });
 
   // Only proceed if this is a GREIGE or GREIGE_LACE PO
@@ -310,17 +325,55 @@ async function checkProcessingPOReadiness(greigePOId: string): Promise<string[]>
     return readiedPOs;
   }
 
+  // Build a map of received qty per material for reconciliation
+  const receivedByMaterial = new Map<string, number>();
+  for (const item of greigePO.purchase_order_items) {
+    if (item.materialId) {
+      receivedByMaterial.set(item.materialId, Number(item.receivedQuantity));
+    }
+  }
+
   // Find all Processing POs linked to this Greige PO
   const processingPOs = await prisma.purchase_orders.findMany({
     where: {
       linkedGreigePOId: greigePOId,
       status: 'PENDING_GREIGE',
     },
-    select: { id: true, poNumber: true },
+    include: {
+      purchase_order_items: {
+        select: {
+          id: true,
+          orderedQuantity: true,
+          unitPrice: true,
+          materialId: true,
+        },
+      },
+    },
   });
 
-  // Update each Processing PO to READY_FOR_PROCESSING
+  // Update each Processing PO to READY_FOR_PROCESSING with qty reconciliation
   for (const po of processingPOs) {
+    // P2.6: Reconcile item quantities to received greige qty
+    // Note: Processing PO items typically reference the same materialId as greige
+    // or have a linked reference. For now, we match by materialId.
+    for (const item of po.purchase_order_items) {
+      if (!item.materialId) continue;
+      const receivedQty = receivedByMaterial.get(item.materialId);
+      if (receivedQty !== undefined && receivedQty < Number(item.orderedQuantity)) {
+        // Update orderedQuantity to match received greige
+        // Note: Full GST recalc is deferred to a follow-up
+        await prisma.purchase_order_items.update({
+          where: { id: item.id },
+          data: {
+            orderedQuantity: receivedQty,
+            // Recalc line total with same rate
+            totalPrice: receivedQty * Number(item.unitPrice),
+          },
+        });
+      }
+    }
+
+    // Update PO status
     await prisma.purchase_orders.update({
       where: { id: po.id },
       data: { status: 'READY_FOR_PROCESSING' },

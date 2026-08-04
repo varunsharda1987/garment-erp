@@ -394,8 +394,19 @@ class ProductionBlockingValidationService {
 
     const blockers: BlockerInfo[] = [];
 
+    // P6.1: Close the gate escape — require APPROVED/LOCKED BOM for orders
+    // Previously this returned isBlocked: false, allowing cutting without a BOM
     if (!orderBom) {
-      return { isBlocked: false, blockers: [] };
+      return {
+        isBlocked: true,
+        blockers: [
+          {
+            type: 'MISSING_BOM',
+            message: 'No approved Order BOM found. Please create and approve the BOM before cutting.',
+            severity: 'HIGH',
+          },
+        ],
+      };
     }
 
     for (const bom of orderBom.items || []) {

@@ -138,7 +138,7 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
   // Get work order to generate batch number and check status
   const workOrder = await prisma.work_orders.findUnique({
     where: { id: workOrderId },
-    select: { id: true, workOrderNumber: true, status: true, orderId: true },
+    select: { id: true, workOrderNumber: true, status: true, orderId: true, styleId: true },
   });
 
   if (!workOrder) {
@@ -239,6 +239,48 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
       })),
       skipDuplicates: true,
     });
+  }
+
+  // P6.1.2: Reserve fabric stock for this cutting batch (prevents double-booking across WOs)
+  try {
+    const totalPiecesToCut = (skuOutputs as Array<{ toCut?: number; plannedQty?: number }>).reduce(
+      (sum, s) => sum + (Number(s.toCut) || Number(s.plannedQty) || 0),
+      0
+    );
+
+    const allStocksToReserve: Array<{ stockId: string; cadAvg: number | null }> = [];
+    if (fabricStockId) {
+      allStocksToReserve.push({ stockId: fabricStockId, cadAvg: cadAverageUsed ? Number(cadAverageUsed) : null });
+    }
+    if (fabricStocks?.length > 0) {
+      for (const fs of fabricStocks as Array<{ fabricStockId: string; cadAvgUsed?: number }>) {
+        if (fs.fabricStockId && fs.fabricStockId !== fabricStockId) {
+          allStocksToReserve.push({ stockId: fs.fabricStockId, cadAvg: fs.cadAvgUsed ? Number(fs.cadAvgUsed) : null });
+        }
+      }
+    }
+
+    for (const { stockId, cadAvg } of allStocksToReserve) {
+      if (cadAvg && cadAvg > 0 && totalPiecesToCut > 0 && workOrder.orderId) {
+        const quantityToAllocate = totalPiecesToCut * cadAvg;
+        await prisma.fabric_stock_allocation.create({
+          data: {
+            stockId,
+            orderId: workOrder.orderId,
+            styleId: workOrder.styleId,
+            quantityAllocated: quantityToAllocate,
+            plannedCad: cadAvg,
+            allocationStatus: 'RESERVED',
+            allocationType: 'SAME_STYLE',
+            createdById: userId,
+          },
+        });
+        logInfo(`Reserved ${quantityToAllocate.toFixed(2)}m of fabric stock ${stockId} for batch ${batch.batchNumber}`);
+      }
+    }
+  } catch (reserveError) {
+    // allow-swallow — reservation is advisory, not blocking; batch creation must succeed
+    logInfo(`Warning: Fabric reservation failed for batch ${batch.batchNumber}: ${(reserveError as Error).message}`);
   }
 
   // Update work order status to IN_PRODUCTION if still PENDING
@@ -347,8 +389,16 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
       logInfo(`Auto-issued fabric challan ${challan.challanNumber} for cutting batch ${batch.batchNumber}`);
     }
   } catch (challanError) {
-    // Don't fail batch creation if challan fails — log and continue
-    logInfo(`Warning: Auto-issue challan failed for batch ${batch.batchNumber}: ${(challanError as Error).message}`);
+    // P6.1.3: Surface the error instead of silently swallowing
+    // The batch is created but fabric wasn't issued — the user needs to know
+    const challanErrorMsg = (challanError as Error).message;
+    logInfo(`Warning: Auto-issue challan failed for batch ${batch.batchNumber}: ${challanErrorMsg}`);
+
+    return res.status(201).json({
+      data: transformCuttingBatch(batch),
+      message: 'Cutting batch created successfully',
+      warning: `Fabric issue failed: ${challanErrorMsg}. Please issue fabric manually via Challans.`,
+    });
   }
 
   res.status(201).json({ data: transformCuttingBatch(batch), message: 'Cutting batch created successfully' });
@@ -698,8 +748,16 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
   // Total actual consumption
   const totalActualConsumption = Math.max(0, toNumber(subtractCurrency(totalFabricIssued, totalFabricReturned)));
 
+  // P6.1.3: Block completion if no fabric was ever issued (prevents silent production without material tracking)
+  const legacyFabricConsumed = Number(existing.fabricConsumed) || 0;
+  if (totalFabricIssued === 0 && legacyFabricConsumed === 0) {
+    throw new ValidationError(
+      'Cannot complete batch: No fabric issue recorded. Please issue fabric via Challans before completing the batch.'
+    );
+  }
+
   // If no challans found (legacy), fall back to lay-based fabricConsumed
-  const consumptionForAvg = totalFabricIssued > 0 ? totalActualConsumption : Number(existing.fabricConsumed);
+  const consumptionForAvg = totalFabricIssued > 0 ? totalActualConsumption : legacyFabricConsumed;
 
   // BUG-CUT5 fix: Use decimal.js for precision in average, variance, and wastage calculations
   // Calculate actual average
@@ -744,6 +802,145 @@ export const completeCuttingBatch = async (req: Request, res: Response) => {
     },
     include: batchIncludeOptions,
   });
+
+  // P6.1.2: Update fabric allocations to consumed status with actual consumption
+  try {
+    const workOrder = await prisma.work_orders.findUnique({
+      where: { id: existing.workOrderId },
+      select: { orderId: true, styleId: true },
+    });
+
+    if (workOrder?.orderId) {
+      // Get all fabric stock IDs for this batch
+      const allStockIds = [existing.fabricStockId, ...existing.additionalFabrics.map((f) => f.fabricStockId)].filter(
+        Boolean
+      ) as string[];
+
+      for (const stockId of allStockIds) {
+        // Find the allocation for this stock and order, update it to CONSUMED
+        const consumed = issuedMap.get(stockId) || 0;
+        const returned = returnMap.get(stockId) || 0;
+        const actualConsumed = Math.max(0, consumed - returned);
+
+        await prisma.fabric_stock_allocation.updateMany({
+          where: {
+            stockId,
+            orderId: workOrder.orderId,
+            styleId: workOrder.styleId,
+            allocationStatus: 'RESERVED',
+          },
+          data: {
+            allocationStatus: 'CONSUMED',
+            quantityConsumed: actualConsumed,
+            quantityReturned: returned,
+            actualCad: calcActualAverage || undefined,
+            consumptionDate: new Date(),
+          },
+        });
+      }
+    }
+  } catch (allocError) {
+    // allow-swallow — allocation consumption update is advisory; batch completion must succeed
+    logInfo(
+      `Warning: Fabric allocation update failed for batch ${batch.batchNumber}: ${(allocError as Error).message}`
+    );
+  }
+
+  // P6.1.4: Trim backflush - auto-consume trims/threads based on BOM per-garment × good pieces
+  try {
+    const workOrder = await prisma.work_orders.findUnique({
+      where: { id: existing.workOrderId },
+      select: { orderId: true, styleId: true },
+    });
+
+    if (workOrder?.orderId && workOrder.styleId) {
+      // Get the approved BOM for this order/style
+      const orderBom = await prisma.order_bom.findFirst({
+        where: {
+          orderId: workOrder.orderId,
+          styleId: workOrder.styleId,
+          isActive: true,
+          status: { in: ['APPROVED', 'LOCKED'] },
+        },
+        include: {
+          items: {
+            where: {
+              materialType: { in: ['THREAD', 'BUTTON', 'ZIPPER', 'ELASTIC', 'SNAP_BUTTON', 'HOOK_EYE'] },
+            },
+          },
+        },
+      });
+
+      if (orderBom?.items && orderBom.items.length > 0) {
+        const trimChallanItems: Array<{
+          itemType: string;
+          description: string;
+          quantity: number;
+          unit: string;
+          threadStockId?: string;
+          materialId?: string;
+        }> = [];
+
+        for (const bomItem of orderBom.items) {
+          const perGarment = Number(bomItem.quantityPerGarment) || 0;
+          if (perGarment <= 0) continue;
+
+          const consumption = totalCut * perGarment;
+          if (consumption <= 0) continue;
+
+          // For THREAD items, find an available thread_stock
+          if (bomItem.materialType === 'THREAD' && bomItem.threadId) {
+            const threadStock = await prisma.thread_stock.findFirst({
+              where: { threadId: bomItem.threadId, quantityAvailable: { gt: 0 } },
+              orderBy: { quantityAvailable: 'desc' },
+              select: { id: true, threadId: true },
+            });
+
+            if (threadStock) {
+              trimChallanItems.push({
+                itemType: 'THREAD',
+                description: `Thread consumption for batch ${batch.batchNumber}`,
+                quantity: Math.round(consumption * 100) / 100,
+                unit: bomItem.unit || 'METER',
+                threadStockId: threadStock.id,
+              });
+            }
+          }
+
+          // Log other trim types for future implementation
+          if (['BUTTON', 'ZIPPER', 'ELASTIC', 'SNAP_BUTTON', 'HOOK_EYE'].includes(bomItem.materialType)) {
+            logInfo(
+              `Trim backflush: ${bomItem.materialType} - ${consumption.toFixed(2)} ${bomItem.unit} needed for batch ${batch.batchNumber} (manual deduction required)`
+            );
+          }
+        }
+
+        // Create challan for thread consumption if any
+        if (trimChallanItems.length > 0) {
+          const trimChallan = await createChallan({
+            challanType: 'INTERNAL',
+            challanDate: new Date(),
+            orderId: workOrder.orderId,
+            productionRunId: existing.workOrderId,
+            fromType: 'DEPARTMENT',
+            fromName: 'Thread Store',
+            toType: 'DEPARTMENT',
+            toName: 'Cutting',
+            remarks: `Auto-consumed trims for cutting batch ${batch.batchNumber} completion`,
+            issuedById: req.user?.userId || existing.createdById,
+            items: trimChallanItems,
+          });
+          await issueChallan(trimChallan.id, req.user?.userId || existing.createdById);
+          logInfo(
+            `Auto-issued trim challan ${trimChallan.challanNumber} for ${trimChallanItems.length} items at batch ${batch.batchNumber} completion`
+          );
+        }
+      }
+    }
+  } catch (trimError) {
+    // allow-swallow — trim backflush is advisory; batch completion must succeed
+    logInfo(`Warning: Trim backflush failed for batch ${batch.batchNumber}: ${(trimError as Error).message}`);
+  }
 
   res.json({ data: transformCuttingBatch(batch) });
 };

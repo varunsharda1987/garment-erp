@@ -1,11 +1,11 @@
 // Authentication routes
 import { Router } from 'express';
-import { register, login, getCurrentUser } from '../controllers/auth.controller';
+import { register, login, getCurrentUser, refreshAccessToken, logout, logoutAll } from '../controllers/auth.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { authLimiter } from '../middleware/security.middleware';
 import { validateBody } from '../middleware/validation.middleware';
-import { registerSchema, loginSchema } from '../schemas/auth.schema';
+import { registerSchema, loginSchema, refreshTokenSchema, logoutSchema } from '../schemas/auth.schema';
 
 const router = Router();
 
@@ -84,6 +84,8 @@ router.post('/register', authLimiter, validateBody(registerSchema), asyncHandler
  *               properties:
  *                 token:
  *                   type: string
+ *                 refreshToken:
+ *                   type: string
  *                 user:
  *                   $ref: '#/components/schemas/User'
  *       401:
@@ -92,6 +94,77 @@ router.post('/register', authLimiter, validateBody(registerSchema), asyncHandler
  *         description: Too many login attempts
  */
 router.post('/login', authLimiter, validateBody(loginSchema), asyncHandler(login));
+
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     summary: Refresh access token using refresh token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - refreshToken
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: New tokens issued
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 token:
+ *                   type: string
+ *                 refreshToken:
+ *                   type: string
+ *       401:
+ *         description: Invalid or expired refresh token
+ */
+router.post('/refresh', authLimiter, validateBody(refreshTokenSchema), asyncHandler(refreshAccessToken));
+
+/**
+ * @swagger
+ * /api/auth/logout:
+ *   post:
+ *     summary: Logout - revoke refresh token
+ *     tags: [Authentication]
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Logged out successfully
+ */
+router.post('/logout', validateBody(logoutSchema), asyncHandler(logout));
+
+/**
+ * @swagger
+ * /api/auth/logout-all:
+ *   post:
+ *     summary: Logout from all devices - revokes all refresh tokens
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logged out from all devices
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
+// no-body — revokes all sessions for the authenticated user, takes no input
+router.post('/logout-all', authenticateToken, asyncHandler(logoutAll));
 
 /**
  * @swagger

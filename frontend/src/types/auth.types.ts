@@ -15,6 +15,8 @@ export interface User {
 export interface AuthResponse {
   user: User;
   token: string;
+  /** Refresh token for session management (BUG-AUTH6) */
+  refreshToken: string;
 }
 
 export interface LoginData {

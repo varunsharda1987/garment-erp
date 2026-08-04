@@ -4,9 +4,9 @@ import bcrypt from 'bcrypt';
 import { UserRole } from '@prisma/client';
 import prisma from '../config/database';
 import { BCRYPT_ROUNDS } from '../config/security.config';
-import { generateToken } from '../utils/jwt.utils';
+import { generateToken, generateRefreshToken } from '../utils/jwt.utils';
 import { RegisterRequest, LoginRequest, AuthResponse } from '../types/auth.types';
-import { logInfo } from '../utils/logger';
+import { logInfo, logWarn } from '../utils/logger';
 import { ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from '../errors';
 
 /**
@@ -72,6 +72,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
  * Login user
  * Note: Request body is pre-validated by Zod middleware
  *
+ * BUG-AUTH2: Includes tokenVersion in JWT payload for session invalidation on password change.
+ * BUG-AUTH6: Generates refresh token for token refresh mechanism.
+ *
  * BUG-AUTH11 fix: Per-account rate limiting would be implemented here.
  * Currently only IP-based rate limiting exists (see security.middleware.ts).
  * To add per-account protection:
@@ -84,7 +87,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   // Body is already validated and transformed by middleware
   const { email, password }: LoginRequest = req.body;
 
-  // Find user
+  // Find user with tokenVersion for BUG-AUTH2 fix
   const user = await prisma.users.findUnique({
     where: { email },
   });
@@ -126,24 +129,38 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     throw new ForbiddenError('Your account is pending admin approval. Please contact your administrator.');
   }
 
-  // Update lastLogin timestamp
-  // BUG-AUTH11: Per-account failure reset would go here:
-  // data: { lastLogin: new Date(), failedLoginAttempts: 0, lockedUntil: null }
-  await prisma.users.update({
-    where: { id: user.id },
-    data: { lastLogin: new Date() },
-  });
+  // Generate refresh token (BUG-AUTH6)
+  const { token: refreshTokenValue, expiresAt: refreshTokenExpiry } = generateRefreshToken();
 
-  // Generate JWT token
+  // Store refresh token and update lastLogin in a single transaction
+  // BUG-AUTH11: Per-account failure reset would go here in the update
+  const [, refreshToken] = await prisma.$transaction([
+    prisma.users.update({
+      where: { id: user.id },
+      data: { lastLogin: new Date() },
+    }),
+    prisma.refresh_tokens.create({
+      data: {
+        token: refreshTokenValue,
+        userId: user.id,
+        expiresAt: refreshTokenExpiry,
+        ipAddress: req.ip || undefined,
+        deviceInfo: req.headers['user-agent'] || undefined,
+      },
+    }),
+  ]);
+
+  // Generate JWT token with tokenVersion (BUG-AUTH2)
   const token = generateToken({
     userId: user.id,
     id: user.id, // Alias for userId - both are available for convenience
     email: user.email,
     role: user.role,
+    tokenVersion: user.tokenVersion,
   });
 
   // Prepare response
-  const response: AuthResponse = {
+  const response: AuthResponse & { refreshToken: string } = {
     user: {
       id: user.id,
       email: user.email,
@@ -153,9 +170,147 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       role: user.role,
     },
     token,
+    refreshToken: refreshToken.token,
   };
 
   res.status(200).json(response);
+};
+
+/**
+ * Refresh access token using a valid refresh token
+ * POST /api/auth/refresh
+ *
+ * BUG-AUTH6: Implements refresh token rotation - old refresh token is revoked
+ * and a new one is issued for security.
+ */
+export const refreshAccessToken = async (req: Request, res: Response): Promise<void> => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    throw new ValidationError('Refresh token is required');
+  }
+
+  // Find the refresh token in database
+  const storedToken = await prisma.refresh_tokens.findUnique({
+    where: { token: refreshToken },
+    include: { user: true },
+  });
+
+  if (!storedToken) {
+    throw new UnauthorizedError('Invalid refresh token');
+  }
+
+  // Check if token is revoked or expired
+  if (storedToken.isRevoked) {
+    // Potential token reuse attack - revoke all tokens for this user
+    logWarn(`Refresh token reuse detected for user ${storedToken.userId}. Revoking all tokens.`);
+    await prisma.refresh_tokens.updateMany({
+      where: { userId: storedToken.userId },
+      data: { isRevoked: true, revokedAt: new Date() },
+    });
+    throw new UnauthorizedError('Refresh token has been revoked. Please log in again.');
+  }
+
+  if (storedToken.expiresAt < new Date()) {
+    // Clean up expired token
+    await prisma.refresh_tokens.delete({ where: { id: storedToken.id } });
+    throw new UnauthorizedError('Refresh token has expired. Please log in again.');
+  }
+
+  const user = storedToken.user;
+
+  // Verify user is still active and approved
+  if (!user.isActive || !user.isApproved) {
+    // Revoke the token
+    await prisma.refresh_tokens.update({
+      where: { id: storedToken.id },
+      data: { isRevoked: true, revokedAt: new Date() },
+    });
+    throw new UnauthorizedError('Account is inactive or unapproved');
+  }
+
+  // Refresh token rotation: revoke old token and create new one
+  const { token: newRefreshTokenValue, expiresAt: newRefreshTokenExpiry } = generateRefreshToken();
+
+  const [, newRefreshToken] = await prisma.$transaction([
+    prisma.refresh_tokens.update({
+      where: { id: storedToken.id },
+      data: { isRevoked: true, revokedAt: new Date() },
+    }),
+    prisma.refresh_tokens.create({
+      data: {
+        token: newRefreshTokenValue,
+        userId: user.id,
+        expiresAt: newRefreshTokenExpiry,
+        ipAddress: req.ip || undefined,
+        deviceInfo: req.headers['user-agent'] || undefined,
+      },
+    }),
+  ]);
+
+  // Generate new access token with current tokenVersion
+  const newAccessToken = generateToken({
+    userId: user.id,
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    tokenVersion: user.tokenVersion,
+  });
+
+  res.status(200).json({
+    token: newAccessToken,
+    refreshToken: newRefreshToken.token,
+  });
+};
+
+/**
+ * Logout user - revokes the refresh token
+ * POST /api/auth/logout
+ *
+ * Note: The access token (JWT) cannot be invalidated without server-side state.
+ * Clients should discard the access token. For critical scenarios (password change,
+ * security breach), tokenVersion increment invalidates all access tokens immediately.
+ */
+export const logout = async (req: Request, res: Response): Promise<void> => {
+  const { refreshToken } = req.body;
+
+  if (refreshToken) {
+    // Revoke the specific refresh token
+    await prisma.refresh_tokens.updateMany({
+      where: { token: refreshToken },
+      data: { isRevoked: true, revokedAt: new Date() },
+    });
+  }
+
+  res.status(200).json({ message: 'Logged out successfully' });
+};
+
+/**
+ * Logout from all devices - revokes all refresh tokens for the user
+ * POST /api/auth/logout-all
+ *
+ * This also increments tokenVersion to invalidate all existing access tokens.
+ */
+export const logoutAll = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) {
+    throw new UnauthorizedError('Authentication required');
+  }
+
+  // Revoke all refresh tokens and increment tokenVersion in a transaction
+  await prisma.$transaction([
+    prisma.refresh_tokens.updateMany({
+      where: { userId: req.user.userId },
+      data: { isRevoked: true, revokedAt: new Date() },
+    }),
+    prisma.users.update({
+      where: { id: req.user.userId },
+      data: { tokenVersion: { increment: 1 } },
+    }),
+  ]);
+
+  logInfo(`User ${req.user.email} logged out from all devices`);
+
+  res.status(200).json({ message: 'Logged out from all devices successfully' });
 };
 
 /**

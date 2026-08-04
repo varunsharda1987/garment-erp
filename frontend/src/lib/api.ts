@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type InternalAxiosRequestConfig, type AxiosError } from 'axios';
 import axiosRetry from 'axios-retry';
 import humps from 'humps';
 import { toast } from 'sonner';
@@ -41,6 +41,24 @@ axiosRetry(api, {
   },
 });
 
+// Token refresh state management
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (error: unknown) => void;
+}> = [];
+
+const processQueue = (error: unknown, token: string | null = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token!);
+    }
+  });
+  failedQueue = [];
+};
+
 // Request interceptor to add auth token and transform data
 api.interceptors.request.use(
   (config) => {
@@ -82,7 +100,7 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle errors and transform data
+// Response interceptor to handle errors, token refresh, and transform data
 api.interceptors.response.use(
   (response) => {
     // Transform response data from snake_case to camelCase
@@ -95,37 +113,93 @@ api.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
-    // Handle expired/invalid session - clear auth and redirect to login.
-    // A 401 is always a session problem; a 403 is only a session problem when it is a token
-    // issue: the auth middleware returns 403 { message: 'Invalid or expired token' } for an
-    // expired/malformed JWT, whereas genuine permission-denied 403s ('You do not have
-    // permission...') must still reject normally without logging the user out.
-    // Skip login/register endpoints (they return 401 on invalid credentials).
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     const status = error.response?.status;
-    const message = String(error.response?.data?.message || '').toLowerCase();
+    const message = String((error.response?.data as { message?: string })?.message || '').toLowerCase();
     const isTokenForbidden = status === 403 && (message.includes('token') || message.includes('expired'));
 
-    if (status === 401 || isTokenForbidden) {
-      const isAuthEndpoint =
-        error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/register');
+    // Check if this is an auth-related error that could benefit from token refresh
+    const isAuthError = status === 401 || isTokenForbidden;
+    const isAuthEndpoint =
+      originalRequest?.url?.includes('/auth/login') ||
+      originalRequest?.url?.includes('/auth/register') ||
+      originalRequest?.url?.includes('/auth/refresh');
 
-      if (!isAuthEndpoint) {
-        const wasAuthenticated = useAuthStore.getState().isAuthenticated;
-        useAuthStore.getState().clearAuth();
+    // BUG-AUTH6: Attempt token refresh for expired tokens (but not auth endpoints)
+    if (isAuthError && !isAuthEndpoint && !originalRequest._retry) {
+      const refreshToken = useAuthStore.getState().refreshToken;
 
-        // Show toast and redirect only if user was previously logged in (session expired)
-        if (wasAuthenticated) {
-          toast.error('Session expired. Please log in again.');
-          // Redirect to login after a brief delay for toast visibility
-          setTimeout(() => {
-            window.location.href = '/login';
-          }, 500);
+      // Only attempt refresh if we have a refresh token
+      if (refreshToken) {
+        if (isRefreshing) {
+          // If already refreshing, queue this request
+          return new Promise((resolve, reject) => {
+            failedQueue.push({ resolve, reject });
+          })
+            .then((token) => {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              return api(originalRequest);
+            })
+            .catch((err) => {
+              return Promise.reject(err);
+            });
         }
 
-        // Return a rejected promise that won't show additional error messages
-        return Promise.reject(new Error('SESSION_EXPIRED'));
+        originalRequest._retry = true;
+        isRefreshing = true;
+
+        try {
+          // Attempt to refresh the token
+          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+            refreshToken,
+          });
+
+          const { token: newToken, refreshToken: newRefreshToken } = response.data;
+
+          // Update tokens in store
+          useAuthStore.getState().setTokens(newToken, newRefreshToken);
+
+          // Process queued requests with new token
+          processQueue(null, newToken);
+
+          // Retry original request with new token
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return api(originalRequest);
+        } catch (refreshError) {
+          // Refresh failed - clear auth and redirect
+          processQueue(refreshError, null);
+
+          const wasAuthenticated = useAuthStore.getState().isAuthenticated;
+          useAuthStore.getState().clearAuth();
+
+          if (wasAuthenticated) {
+            toast.error('Session expired. Please log in again.');
+            setTimeout(() => {
+              window.location.href = '/login';
+            }, 500);
+          }
+
+          return Promise.reject(new Error('SESSION_EXPIRED'));
+        } finally {
+          isRefreshing = false;
+        }
       }
+    }
+
+    // Handle expired/invalid session when no refresh token available
+    if (isAuthError && !isAuthEndpoint) {
+      const wasAuthenticated = useAuthStore.getState().isAuthenticated;
+      useAuthStore.getState().clearAuth();
+
+      if (wasAuthenticated) {
+        toast.error('Session expired. Please log in again.');
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 500);
+      }
+
+      return Promise.reject(new Error('SESSION_EXPIRED'));
     }
 
     // Transform error response data to camelCase as well

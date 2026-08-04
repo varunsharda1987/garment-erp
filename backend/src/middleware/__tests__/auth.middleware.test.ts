@@ -114,6 +114,7 @@ describe('Auth Middleware', () => {
         userId: 'test-user-id',
         email: 'test@test.com',
         role: 'ADMIN',
+        tokenVersion: 0,
       });
       mockRequest.headers = { authorization: `Bearer ${validToken}` };
 
@@ -131,6 +132,7 @@ describe('Auth Middleware', () => {
         userId: 'test-user-id',
         email: 'test@test.com',
         role: 'ADMIN',
+        tokenVersion: 0,
       });
       // Lowercase 'bearer' - should still work as we split on space
       mockRequest.headers = { authorization: `bearer ${validToken}` };
@@ -163,6 +165,7 @@ describe('Auth Middleware', () => {
         userId: 'test-user',
         email: 'test@test.com',
         role: 'SALES',
+        tokenVersion: 0,
       };
       const middleware = authorize('ADMIN');
 
@@ -182,6 +185,7 @@ describe('Auth Middleware', () => {
         userId: 'test-user',
         email: 'test@test.com',
         role: 'ADMIN',
+        tokenVersion: 0,
       };
       const middleware = authorize('ADMIN');
 
@@ -196,6 +200,7 @@ describe('Auth Middleware', () => {
         userId: 'test-user',
         email: 'test@test.com',
         role: 'PRODUCTION_MANAGER',
+        tokenVersion: 0,
       };
       const middleware = authorize('ADMIN', 'PRODUCTION_MANAGER', 'FACTORY_SUPERVISOR');
 
@@ -210,6 +215,7 @@ describe('Auth Middleware', () => {
         userId: 'test-user',
         email: 'test@test.com',
         role: 'SALES',
+        tokenVersion: 0,
       };
       const middleware = authorize('ADMIN', 'PRODUCTION_MANAGER');
 

@@ -38,7 +38,7 @@ export default function Login() {
 
     try {
       const response = await authService.login(data);
-      setAuth(response.user, response.token);
+      setAuth(response.user, response.token, response.refreshToken);
       navigate('/dashboard');
     } catch (err: unknown) {
       const axiosError = err as { response?: { data?: { message?: string } } };

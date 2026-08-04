@@ -57,6 +57,24 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+/**
+ * Refresh token request schema
+ * Validates refresh token for access token refresh (BUG-AUTH6)
+ */
+export const refreshTokenSchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token is required'),
+});
+
+/**
+ * Logout request schema
+ * Optional refresh token to revoke on logout
+ */
+export const logoutSchema = z.object({
+  refreshToken: z.string().optional(),
+});
+
 // Type exports for TypeScript
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type RefreshTokenInput = z.infer<typeof refreshTokenSchema>;
+export type LogoutInput = z.infer<typeof logoutSchema>;

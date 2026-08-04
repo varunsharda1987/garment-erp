@@ -33,6 +33,8 @@ export interface JWTPayload {
   id: string;
   email: string;
   role: UserRole;
+  /** Token version for session invalidation (BUG-AUTH2) - increments on password change */
+  tokenVersion: number;
 }
 
 // Extend Express Request type to include user and validated data

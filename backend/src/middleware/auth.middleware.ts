@@ -25,17 +25,18 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
     // Verify token signature + expiry
     const decoded = verifyToken(token);
 
-    // Re-validate the account against the DB so deactivation, un-approval, and role changes
-    // take effect immediately instead of persisting for the token's (7-day) lifetime.
+    // Re-validate the account against the DB so deactivation, un-approval, role changes,
+    // and password changes (via tokenVersion) take effect immediately instead of persisting
+    // for the token's (7-day) lifetime.
     // Fail-OPEN on infrastructure errors (DB unreachable/query error) so a transient DB blip
     // cannot lock every user out of the shared server; fail-CLOSED only when the DB explicitly
-    // reports the user missing / inactive / unapproved.
+    // reports the user missing / inactive / unapproved / tokenVersion mismatch.
     try {
       const userId = decoded.userId || decoded.id;
       const dbUser = userId
         ? await prisma.users.findUnique({
             where: { id: userId },
-            select: { id: true, role: true, isActive: true, isApproved: true },
+            select: { id: true, role: true, isActive: true, isApproved: true, tokenVersion: true },
           })
         : null;
 
@@ -43,6 +44,17 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
         res.status(401).json({
           error: 'Unauthorized',
           message: 'Account is inactive, unapproved, or no longer exists',
+        });
+        return;
+      }
+
+      // BUG-AUTH2: Validate tokenVersion to invalidate sessions after password change.
+      // If token was issued before a password change, tokenVersion will mismatch.
+      // Skip check for tokens that don't have tokenVersion (backward compatibility).
+      if (decoded.tokenVersion !== undefined && decoded.tokenVersion !== dbUser.tokenVersion) {
+        res.status(401).json({
+          error: 'Unauthorized',
+          message: 'Session invalidated. Please log in again.',
         });
         return;
       }

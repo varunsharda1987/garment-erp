@@ -15,6 +15,8 @@ import type { User } from '../types/auth.types';
 // 4. Short-ish token expiry (7 days) limits damage window
 // 5. Backend re-validates user status on every request (auth.middleware.ts:29-48)
 // 6. Sentry scrubs tokens from error reports (frontend/src/lib/sentry.ts)
+// 7. BUG-AUTH2: tokenVersion invalidates all sessions on password change
+// 8. BUG-AUTH6: Refresh tokens enable session extension without re-login
 //
 // WHY NOT httpOnly COOKIES:
 // - Architecture: SPA + separate API server (different ports in dev, potentially
@@ -25,7 +27,6 @@ import type { User } from '../types/auth.types';
 //   Both require defense-in-depth; neither is "more secure" without full analysis
 //
 // RECOMMENDED ADDITIONAL HARDENING (future):
-// - Implement refresh tokens (short-lived access token + httpOnly refresh cookie)
 // - Add fingerprinting (bind token to browser/device characteristics)
 // - Monitor for suspicious token usage patterns
 // ====================================================================
@@ -34,11 +35,13 @@ import type { User } from '../types/auth.types';
 interface AuthState {
   user: User | null;
   token: string | null;
+  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
 
   // Actions
-  setAuth: (user: User, token: string) => void;
+  setAuth: (user: User, token: string, refreshToken: string) => void;
+  setTokens: (token: string, refreshToken: string) => void;
   setUser: (user: User) => void;
   clearAuth: () => void;
   setLoading: (loading: boolean) => void;
@@ -50,15 +53,25 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       token: null,
+      refreshToken: null,
       isAuthenticated: false,
       isLoading: false,
 
-      setAuth: (user: User, token: string) => {
+      setAuth: (user: User, token: string, refreshToken: string) => {
         set({
           user,
           token,
+          refreshToken,
           isAuthenticated: true,
           isLoading: false,
+        });
+      },
+
+      // Update tokens only (used after refresh)
+      setTokens: (token: string, refreshToken: string) => {
+        set({
+          token,
+          refreshToken,
         });
       },
 
@@ -70,6 +83,7 @@ export const useAuthStore = create<AuthState>()(
         set({
           user: null,
           token: null,
+          refreshToken: null,
           isAuthenticated: false,
           isLoading: false,
         });
@@ -85,6 +99,7 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         token: state.token, // XSS-accessible; mitigations documented above
+        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
     }

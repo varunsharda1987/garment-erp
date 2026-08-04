@@ -4,6 +4,12 @@ import type { User, AuthResponse, LoginData, RegisterData, PendingRegistrationRe
 // Re-export types for use in components
 export type { User, AuthResponse, LoginData, RegisterData, PendingRegistrationResponse };
 
+// Response types for new endpoints
+export interface RefreshTokenResponse {
+  token: string;
+  refreshToken: string;
+}
+
 // Auth service
 export const authService = {
   // Login user
@@ -22,5 +28,21 @@ export const authService = {
   getCurrentUser: async (): Promise<User> => {
     const response = await api.get<User>('/auth/me');
     return response.data;
+  },
+
+  // Refresh access token using refresh token (BUG-AUTH6)
+  refreshToken: async (refreshToken: string): Promise<RefreshTokenResponse> => {
+    const response = await api.post<RefreshTokenResponse>('/auth/refresh', { refreshToken });
+    return response.data;
+  },
+
+  // Logout - revoke refresh token
+  logout: async (refreshToken?: string): Promise<void> => {
+    await api.post('/auth/logout', { refreshToken });
+  },
+
+  // Logout from all devices
+  logoutAll: async (): Promise<void> => {
+    await api.post('/auth/logout-all');
   },
 };

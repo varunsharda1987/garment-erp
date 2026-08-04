@@ -440,18 +440,15 @@ export const changePassword = async (req: Request, res: Response): Promise<void>
   // Hash new password
   const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
 
-  // Update password
-  // TODO [BUG-AUTH2]: Password change does not invalidate existing sessions.
-  // Current JWT tokens remain valid after password change, which is a security gap.
-  // Recommended implementation:
-  // 1. Add `tokenVersion` (int) field to users table
-  // 2. Include tokenVersion in JWT payload
-  // 3. Increment tokenVersion here after password change
-  // 4. Validate tokenVersion in auth middleware (reject if mismatch)
-  // Alternative: maintain a token blacklist in Redis for invalidated tokens
+  // Update password and increment tokenVersion to invalidate all existing sessions
+  // BUG-AUTH2 FIX: Incrementing tokenVersion causes auth middleware to reject all tokens
+  // issued before this password change, effectively logging out all other sessions.
   await prisma.users.update({
     where: { id },
-    data: { password: hashedPassword },
+    data: {
+      password: hashedPassword,
+      tokenVersion: { increment: 1 },
+    },
   });
 
   logInfo(`Password changed for user: ${user.email}`);

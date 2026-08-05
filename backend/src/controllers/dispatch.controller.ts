@@ -787,10 +787,11 @@ export const dispatchDeliveryNote = async (req: Request, res: Response) => {
   if (deliveryNote?.orders?.customers?.gptBlocksShipment) {
     const styleIds = [...new Set(deliveryNote.delivery_note_items.map((i) => i.styleId))];
     for (const styleId of styleIds) {
+      // P7.3: Accept CONDITIONAL_PASS (aligns with production-blocking service semantics)
       const gptResult = await prisma.garment_physical_tests.findFirst({
         where: {
           styleId,
-          overallTestResult: 'PASS',
+          overallTestResult: { in: ['PASS', 'CONDITIONAL_PASS'] },
         },
       });
       if (!gptResult) {
@@ -1520,6 +1521,28 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
     throw new ValidationError(`Cannot dispatch sale order in ${saleOrder.status} status`);
   }
 
+  // P7.3: GPT pre-check BEFORE FG deduction (surfaces issue early, before stock is committed)
+  const customer = await prisma.customers.findUnique({
+    where: { id: saleOrder.customerId },
+    select: { gptBlocksShipment: true },
+  });
+
+  const gptWarnings: string[] = [];
+  if (customer?.gptBlocksShipment) {
+    const styleIds = [...new Set(saleOrder.items.map((i) => i.styleId))];
+    for (const styleId of styleIds) {
+      const gptResult = await prisma.garment_physical_tests.findFirst({
+        where: { styleId, overallTestResult: { in: ['PASS', 'CONDITIONAL_PASS'] } },
+      });
+      if (!gptResult) {
+        const style = saleOrder.items.find((i) => i.styleId === styleId)?.style;
+        gptWarnings.push(style?.styleCode || styleId);
+      }
+    }
+  }
+  // Don't block — warn in response (FG deduction is atomic-reversible via delete)
+  // The dispatchDeliveryNote action will hard-block if GPT still hasn't passed
+
   // Build a map of sale order items for validation
   const soItemMap = new Map(saleOrder.items.map((i) => [i.id, i]));
 
@@ -1707,12 +1730,22 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
     include: deliveryNoteIncludeOptions,
   });
 
+  // P7.3: Surface GPT warnings in response (customer requires GPT approval to actually dispatch)
+  const warnings: string[] = [];
+  if (fgShortfalls.length > 0) {
+    warnings.push(`${fgShortfalls.length} item(s) exceeded available stock`);
+  }
+  if (gptWarnings.length > 0) {
+    warnings.push(`GPT not yet passed for ${gptWarnings.join(', ')} — dispatch will be blocked until GPT approval`);
+  }
+
   res.status(201).json({
     data: transformDeliveryNote(fullNote),
     fgShortfalls: fgShortfalls.length > 0 ? fgShortfalls : undefined,
+    gptWarnings: gptWarnings.length > 0 ? gptWarnings : undefined,
     message:
-      fgShortfalls.length > 0
-        ? `Delivery note created — WARNING: ${fgShortfalls.length} item(s) exceeded available stock`
+      warnings.length > 0
+        ? `Delivery note created — WARNING: ${warnings.join('; ')}`
         : 'Delivery note created successfully from sale order',
   });
 };

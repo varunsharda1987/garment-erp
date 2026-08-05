@@ -38,6 +38,7 @@ import {
   rejectASN,
   rescheduleASN,
   deleteASN,
+  getASNReconciliation,
   // Summary endpoints
   getSummary,
   getAvailableCartons,
@@ -120,5 +121,8 @@ router.post(
   validateBody(rescheduleASNSchema),
   asyncHandler(rescheduleASN)
 );
+
+// P7.5: ASN Reconciliation - compare approved vs actual dispatched quantities
+router.get('/asn/:id/reconciliation', validateParams(idParamSchema), asyncHandler(getASNReconciliation));
 
 export default router;

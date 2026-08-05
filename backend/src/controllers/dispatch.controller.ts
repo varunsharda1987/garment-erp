@@ -1749,3 +1749,118 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
         : 'Delivery note created successfully from sale order',
   });
 };
+
+// ============================================
+// ASN RECONCILIATION (P7.5)
+// ============================================
+
+/**
+ * P7.5: Get ASN reconciliation - compare approved vs actual dispatched quantities.
+ * GET /api/dispatch/asn/:id/reconciliation
+ */
+export const getASNReconciliation = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  const asn = await prisma.asn_applications.findUnique({
+    where: { id },
+    include: {
+      order: { select: { orderNumber: true } },
+      skuBreakdown: {
+        include: {
+          color: { select: { colorName: true, colorCode: true } },
+          size: { select: { sizeName: true } },
+        },
+      },
+      deliveryNotes: {
+        include: {
+          deliveryNote: {
+            select: {
+              id: true,
+              deliveryNumber: true,
+              status: true,
+              delivery_note_items: {
+                select: {
+                  quantity: true,
+                  colorId: true,
+                  sizeId: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!asn) {
+    throw new NotFoundError('ASN application', id);
+  }
+
+  // Calculate actual dispatched quantities from linked delivery notes
+  const actualBySkuKey: Record<string, number> = {};
+  let totalActualDispatched = 0;
+
+  for (const dnExt of asn.deliveryNotes) {
+    // Only count DELIVERED or IN_TRANSIT notes
+    if (dnExt.deliveryNote.status === 'PENDING') continue;
+
+    for (const item of dnExt.deliveryNote.delivery_note_items) {
+      const key = `${item.colorId || 'null'}-${item.sizeId}`;
+      actualBySkuKey[key] = (actualBySkuKey[key] || 0) + item.quantity;
+      totalActualDispatched += item.quantity;
+    }
+  }
+
+  // Build SKU-level reconciliation
+  const skuReconciliation = asn.skuBreakdown.map((sku) => {
+    const key = `${sku.colorId}-${sku.sizeId}`;
+    const actualQty = actualBySkuKey[key] || 0;
+    return {
+      colorId: sku.colorId,
+      colorName: sku.color?.colorName || null,
+      colorCode: sku.color?.colorCode || null,
+      sizeId: sku.sizeId,
+      sizeName: sku.size?.sizeName || null,
+      plannedQty: sku.plannedQty,
+      actualQty,
+      variance: actualQty - sku.plannedQty,
+    };
+  });
+
+  // Summary-level reconciliation
+  const plannedTotal = asn.plannedDispatchQty;
+  const approvedTotal = asn.approvedQty ?? asn.plannedDispatchQty;
+  const variance = totalActualDispatched - approvedTotal;
+
+  const reconciliationStatus =
+    totalActualDispatched === 0
+      ? 'NOT_DISPATCHED'
+      : variance === 0
+        ? 'FULLY_RECONCILED'
+        : variance > 0
+          ? 'OVER_DISPATCHED'
+          : 'UNDER_DISPATCHED';
+
+  res.json({
+    data: {
+      asnId: asn.id,
+      asnNumber: asn.asnNumber,
+      orderNumber: asn.order?.orderNumber,
+      status: asn.status,
+      summary: {
+        plannedQty: plannedTotal,
+        approvedQty: approvedTotal,
+        actualDispatched: totalActualDispatched,
+        variance,
+        reconciliationStatus,
+      },
+      deliveryNotes: asn.deliveryNotes.map((dnExt) => ({
+        id: dnExt.deliveryNote.id,
+        deliveryNumber: dnExt.deliveryNote.deliveryNumber,
+        status: dnExt.deliveryNote.status,
+        totalPieces: dnExt.deliveryNote.delivery_note_items.reduce((sum, i) => sum + i.quantity, 0),
+      })),
+      skuBreakdown: skuReconciliation,
+    },
+  });
+};

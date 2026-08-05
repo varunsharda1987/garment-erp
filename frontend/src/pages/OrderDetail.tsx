@@ -555,7 +555,7 @@ export default function OrderDetail() {
         </CardContent>
       </Card>
 
-      {/* Production Workflow Tracker */}
+      {/* Production Workflow Tracker - P5.1: Extended to show full pipeline */}
       <OrderWorkflowTracker
         steps={buildWorkflowSteps(
           {
@@ -579,6 +579,44 @@ export default function OrderDetail() {
                   hasShortfall: mrpSummary.totalShortfall > 0,
                 }
               : null,
+            // P5.1: GRN status - derive from MRP received counts
+            grnSummary: mrpSummary
+              ? {
+                  totalGRNs: mrpSummary.receivedCount || 0,
+                  pendingGRNs: mrpSummary.totalRequirements - (mrpSummary.receivedCount || 0),
+                  materialsReceived: (mrpSummary.receivedCount || 0) >= mrpSummary.totalRequirements,
+                }
+              : null,
+            // P5.1: Processing - simplified (no external jobs data yet, show as N/A)
+            processingSummary: null,
+            // P5.1: Production status from work orders
+            productionSummary:
+              workOrders.length > 0
+                ? {
+                    totalWorkOrders: workOrders.length,
+                    completedQuantity: workOrders.reduce((sum, wo) => sum + (wo.completedQuantity || 0), 0),
+                    inCutting: workOrders.filter((wo) => wo.status === 'IN_PRODUCTION').length,
+                    inStitching: 0, // Would need detailed stage tracking
+                    inFinishing: 0,
+                  }
+                : null,
+            // P5.1: Dispatch status from delivery notes
+            dispatchSummary:
+              deliveryNotes.length > 0
+                ? {
+                    totalDeliveryNotes: deliveryNotes.length,
+                    dispatchedQuantity: deliveryNotes.reduce(
+                      (sum, dn) => sum + (dn.items?.reduce((s, i) => s + (i.quantity || 0), 0) || 0),
+                      0
+                    ),
+                    pendingDispatch:
+                      order.totalQuantity -
+                      deliveryNotes.reduce(
+                        (sum, dn) => sum + (dn.items?.reduce((s, i) => s + (i.quantity || 0), 0) || 0),
+                        0
+                      ),
+                  }
+                : null,
           },
           {
             onCreateBOM: handleCreateBOM,
@@ -586,6 +624,10 @@ export default function OrderDetail() {
             onCalculateMRP: handleCalculateMRP,
             onViewMRP: handleViewMRP,
             onViewPOs: () => navigate(`/procurement/purchase-orders?orderId=${order.id}`),
+            onViewGRNs: () => navigate(`/procurement/grn?orderId=${order.id}`),
+            onViewProcessing: () => navigate(`/manufacturing/job-work?orderId=${order.id}`),
+            onViewProduction: () => navigate(`/production/work-orders?orderId=${order.id}`),
+            onViewDispatch: () => navigate(`/manufacturing/dispatch?orderId=${order.id}`),
           },
           {
             bom: creatingBom,

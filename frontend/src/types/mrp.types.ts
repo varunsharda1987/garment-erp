@@ -395,6 +395,9 @@ export interface OrderRequirementsSummary {
   totalShortfall: number;
   requirementsNeedingPO: number;
   estimatedPOValue?: number;
+  // P5.1: GRN tracking fields
+  receivedCount?: number;
+  totalPOCount?: number;
 }
 
 export interface MRPDashboardStats {

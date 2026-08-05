@@ -71,6 +71,20 @@ export const getAllFGStock = async (req: Request, res: Response) => {
           select: {
             id: true,
             workOrderNumber: true,
+            orderItemId: true,
+            order_items: {
+              select: {
+                id: true,
+                order_item_costing: {
+                  select: {
+                    totalCostPerPiece: true,
+                    actualCostPerPiece: true,
+                    estimatedCostPerPiece: true,
+                    costVariancePercent: true,
+                  },
+                },
+              },
+            },
           },
         },
         style_variants: {
@@ -106,11 +120,28 @@ export const getAllFGStock = async (req: Request, res: Response) => {
           name: item.locations.locationName,
         }
       : null,
-    workOrder: item.work_orders,
+    workOrder: item.work_orders
+      ? {
+          id: item.work_orders.id,
+          workOrderNumber: item.work_orders.workOrderNumber,
+        }
+      : null,
     variant: item.style_variants
       ? {
           id: item.style_variants.id,
           sku: item.style_variants.sku,
+        }
+      : null,
+    // P6.3: Costing data from work order's order item
+    costing: item.work_orders?.order_items?.order_item_costing
+      ? {
+          estimatedCostPerPiece:
+            Number(
+              item.work_orders.order_items.order_item_costing.estimatedCostPerPiece ||
+                item.work_orders.order_items.order_item_costing.totalCostPerPiece
+            ) || null,
+          actualCostPerPiece: Number(item.work_orders.order_items.order_item_costing.actualCostPerPiece) || null,
+          costVariancePercent: Number(item.work_orders.order_items.order_item_costing.costVariancePercent) || null,
         }
       : null,
   }));

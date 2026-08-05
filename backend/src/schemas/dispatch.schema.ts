@@ -331,6 +331,34 @@ export const rescheduleASNSchema = z
   .passthrough();
 
 // ============================================================================
+// SALE ORDER DISPATCH SCHEMAS (P7.1 - B2B integration)
+// ============================================================================
+
+/**
+ * Sale Order Dispatch Item
+ */
+const saleOrderDispatchItemSchema = z.object({
+  saleOrderItemId: z.string().uuid('Invalid sale order item ID'),
+  quantity: z.number().int('Quantity must be a whole number').positive('Quantity must be positive'),
+});
+
+/**
+ * Create Delivery Note from Sale Order
+ * POST /api/dispatch/sale-order-dispatch
+ *
+ * Links delivery note to sale order (writes saleOrderId/saleOrderItemId) so
+ * dispatchedQty updates flow back and the B2B app sees accurate dispatch status.
+ */
+export const createSaleOrderDispatchSchema = z
+  .object({
+    saleOrderId: z.string().uuid('Invalid sale order ID'),
+    deliveryDate: z.coerce.date().optional(),
+    remarks: z.string().max(500).optional(),
+    items: z.array(saleOrderDispatchItemSchema).min(1, 'At least one item is required'),
+  })
+  .passthrough();
+
+// ============================================================================
 // Type Exports
 // ============================================================================
 
@@ -350,3 +378,6 @@ export type RecordPODInput = z.infer<typeof recordPODSchema>;
 export type ApproveASNInput = z.infer<typeof approveASNSchema>;
 export type RejectASNInput = z.infer<typeof rejectASNSchema>;
 export type RescheduleASNInput = z.infer<typeof rescheduleASNSchema>;
+
+// Sale Order Dispatch types
+export type CreateSaleOrderDispatchInput = z.infer<typeof createSaleOrderDispatchSchema>;

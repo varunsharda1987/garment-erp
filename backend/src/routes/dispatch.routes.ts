@@ -14,6 +14,7 @@ import {
   approveASNSchema,
   rejectASNSchema,
   rescheduleASNSchema,
+  createSaleOrderDispatchSchema,
 } from '../schemas/dispatch.schema';
 import { idParamSchema } from '../schemas/common.schema';
 import {
@@ -26,6 +27,8 @@ import {
   assignTransport,
   dispatchDeliveryNote,
   recordPOD,
+  // Sale Order Dispatch (P7.1 - B2B integration)
+  createSaleOrderDispatch,
   // ASN endpoints
   getAllASN,
   getASNById,
@@ -82,6 +85,13 @@ router.post(
   validateBody(recordPODSchema),
   asyncHandler(recordPOD)
 );
+
+// ============================================
+// SALE ORDER DISPATCH (P7.1 - B2B Integration)
+// ============================================
+
+// Create delivery note from sale order (links saleOrderId/saleOrderItemId, updates dispatchedQty)
+router.post('/sale-order-dispatch', validateBody(createSaleOrderDispatchSchema), asyncHandler(createSaleOrderDispatch));
 
 // ============================================
 // ASN ROUTES

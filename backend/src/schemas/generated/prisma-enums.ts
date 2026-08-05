@@ -149,6 +149,7 @@ export const SaleOrderStatusEnum = z.enum([
   'FULLY_ALLOCATED',
   'PARTIALLY_DISPATCHED',
   'DISPATCHED',
+  'DELIVERED',
   'CANCELLED',
 ]);
 export type SaleOrderStatus = z.infer<typeof SaleOrderStatusEnum>;

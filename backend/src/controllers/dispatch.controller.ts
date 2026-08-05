@@ -954,10 +954,89 @@ export const recordPOD = async (req: Request, res: Response) => {
 
     // Note status: DELIVERED marks the end of the journey; the POD row carries the PARTIAL/REJECTED
     // truth, and the dispatch-cap computation nets it (see createDeliveryNote).
-    await tx.delivery_notes.update({
+    const updatedNote = await tx.delivery_notes.update({
       where: { id },
       data: { status: 'DELIVERED' },
+      select: { saleOrderId: true },
     });
+
+    // P7.1: Handle sale order dispatch quantities and status
+    if (updatedNote.saleOrderId) {
+      // For REJECTED/PARTIAL PODs, decrement dispatchedQty on sale_order_items
+      if (restored > 0) {
+        // Get delivery note items to know which sale order items to update
+        const dnItems = await tx.delivery_note_items.findMany({
+          where: { deliveryNoteId: id, saleOrderItemId: { not: null } },
+          select: { saleOrderItemId: true, quantity: true },
+        });
+
+        // For REJECTED: restore full quantities; for PARTIAL: we only have header-level shortage,
+        // so distribute proportionally or just update status
+        if (deliveryStatus === 'REJECTED') {
+          for (const item of dnItems) {
+            if (item.saleOrderItemId) {
+              await tx.sale_order_items.update({
+                where: { id: item.saleOrderItemId },
+                data: { dispatchedQty: { decrement: item.quantity } },
+              });
+            }
+          }
+        }
+        // For PARTIAL with shortageQty, the exact per-item breakdown isn't known at header level,
+        // so we leave dispatchedQty as-is — the POD record captures the shortage truth
+      }
+
+      // Update sale order status based on delivery confirmation
+      if (deliveryStatus === 'FULL' || deliveryStatus === 'PARTIAL') {
+        // Check if all items in the sale order are fully delivered
+        const soItems = await tx.sale_order_items.findMany({
+          where: { saleOrderId: updatedNote.saleOrderId },
+          select: { quantity: true, dispatchedQty: true },
+        });
+
+        const totalOrdered = soItems.reduce((sum, i) => sum + i.quantity, 0);
+        const totalDispatched = soItems.reduce((sum, i) => sum + i.dispatchedQty, 0);
+
+        // If all items are dispatched AND this POD confirms delivery, mark as DELIVERED
+        if (totalDispatched >= totalOrdered) {
+          await tx.sale_orders.updateMany({
+            where: {
+              id: updatedNote.saleOrderId,
+              status: { in: ['PARTIALLY_DISPATCHED', 'DISPATCHED'] },
+            },
+            data: { status: 'DELIVERED' as any }, // P7.1: DELIVERED added to enum; user runs prisma generate
+          });
+        }
+      } else if (deliveryStatus === 'REJECTED') {
+        // Recompute status after rejection restored quantities
+        const soItems = await tx.sale_order_items.findMany({
+          where: { saleOrderId: updatedNote.saleOrderId },
+          select: { quantity: true, dispatchedQty: true },
+        });
+
+        const totalDispatched = soItems.reduce((sum, i) => sum + i.dispatchedQty, 0);
+
+        if (totalDispatched === 0) {
+          // Nothing dispatched anymore - back to FULLY_ALLOCATED or CONFIRMED
+          await tx.sale_orders.updateMany({
+            where: {
+              id: updatedNote.saleOrderId,
+              status: { in: ['PARTIALLY_DISPATCHED', 'DISPATCHED'] },
+            },
+            data: { status: 'FULLY_ALLOCATED' },
+          });
+        } else {
+          // Some still dispatched
+          await tx.sale_orders.updateMany({
+            where: {
+              id: updatedNote.saleOrderId,
+              status: 'DISPATCHED',
+            },
+            data: { status: 'PARTIALLY_DISPATCHED' },
+          });
+        }
+      }
+    }
 
     return restored;
   });
@@ -1355,5 +1434,285 @@ export const getOrdersReadyForDispatch = async (req: Request, res: Response) => 
         dispatchedPieces: toNumber(dispatchedPiecesDec), // BUG-ASN5 fix
       };
     }),
+  });
+};
+
+// ============================================
+// SALE ORDER DISPATCH (P7.1 - B2B Integration)
+// ============================================
+
+/**
+ * Recompute sale order status based on dispatched quantities.
+ * Called after any dispatch that touches sale order items.
+ */
+const recomputeSaleOrderStatus = async (tx: Prisma.TransactionClient, saleOrderId: string): Promise<void> => {
+  const items = await tx.sale_order_items.findMany({
+    where: { saleOrderId },
+    select: { quantity: true, dispatchedQty: true },
+  });
+
+  if (items.length === 0) return;
+
+  const totalOrdered = items.reduce((sum, i) => sum + i.quantity, 0);
+  const totalDispatched = items.reduce((sum, i) => sum + i.dispatchedQty, 0);
+
+  let newStatus: string | undefined;
+  if (totalDispatched >= totalOrdered) {
+    newStatus = 'DISPATCHED';
+  } else if (totalDispatched > 0) {
+    newStatus = 'PARTIALLY_DISPATCHED';
+  }
+
+  if (newStatus) {
+    await tx.sale_orders.updateMany({
+      where: {
+        id: saleOrderId,
+        status: { in: ['CONFIRMED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED', 'PARTIALLY_DISPATCHED'] },
+      },
+      data: { status: newStatus as any },
+    });
+  }
+};
+
+/**
+ * Create Delivery Note from Sale Order.
+ * POST /api/dispatch/sale-order-dispatch
+ *
+ * This endpoint enables the B2B app's dispatch flow:
+ * - Links delivery note to the sale order (saleOrderId)
+ * - Links each delivery item to the sale order item (saleOrderItemId)
+ * - Updates sale_order_items.dispatchedQty
+ * - Transitions sale order status to PARTIALLY_DISPATCHED or DISPATCHED
+ * - Deducts finished goods stock (preferring allocated stock first)
+ */
+export const createSaleOrderDispatch = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new UnauthorizedError('User not authenticated');
+  }
+  const { saleOrderId, deliveryDate, remarks, items } = req.body;
+
+  // Validate sale order exists and is in a dispatchable state
+  const saleOrder = await prisma.sale_orders.findUnique({
+    where: { id: saleOrderId },
+    include: {
+      customer: { select: { id: true, name: true } },
+      items: {
+        include: {
+          style: { select: { id: true, styleCode: true, styleName: true } },
+          color: { select: { id: true, colorName: true, colorCode: true } },
+          size: { select: { id: true, sizeName: true } },
+          allocations: {
+            where: { status: 'ALLOCATED' },
+            include: { fgStock: { select: { id: true, quantity: true } } },
+          },
+        },
+      },
+    },
+  });
+
+  if (!saleOrder) {
+    throw new NotFoundError('Sale Order', saleOrderId);
+  }
+
+  const dispatchableStatuses = ['CONFIRMED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED', 'PARTIALLY_DISPATCHED'];
+  if (!dispatchableStatuses.includes(saleOrder.status)) {
+    throw new ValidationError(`Cannot dispatch sale order in ${saleOrder.status} status`);
+  }
+
+  // Build a map of sale order items for validation
+  const soItemMap = new Map(saleOrder.items.map((i) => [i.id, i]));
+
+  // Validate all items exist and quantities don't exceed remaining
+  for (const item of items) {
+    const soItem = soItemMap.get(item.saleOrderItemId);
+    if (!soItem) {
+      throw new ValidationError(`Sale order item ${item.saleOrderItemId} not found`);
+    }
+    const remaining = soItem.quantity - soItem.dispatchedQty;
+    if (item.quantity > remaining) {
+      throw new ValidationError(
+        `Dispatch quantity (${item.quantity}) exceeds remaining for ${soItem.style?.styleCode || 'item'}: ` +
+          `ordered ${soItem.quantity}, already dispatched ${soItem.dispatchedQty}, remaining ${remaining}`
+      );
+    }
+  }
+
+  type FgAllocation = { fgStockId: string; quantity: number };
+  type FgShortfall = { saleOrderItemId: string; requested: number; deducted: number };
+
+  const attemptCreate = async (deliveryNumber: string, fgAllocations: FgAllocation[], fgShortfalls: FgShortfall[]) =>
+    prisma.$transaction(
+      async (tx) => {
+        // Create the delivery note linked to the sale order
+        const note = await tx.delivery_notes.create({
+          data: {
+            id: crypto.randomUUID(),
+            deliveryNumber,
+            saleOrderId,
+            customerId: saleOrder.customerId,
+            deliveryDate: deliveryDate ? new Date(deliveryDate) : new Date(),
+            status: 'PENDING',
+            remarks,
+            createdById: userId,
+          },
+        });
+
+        // Process each item
+        for (const item of items) {
+          const soItem = soItemMap.get(item.saleOrderItemId)!;
+          let remaining = item.quantity;
+
+          // First: consume from allocations for this sale order item (respects prior reservations)
+          for (const alloc of soItem.allocations) {
+            if (remaining <= 0) break;
+            const fgStock = alloc.fgStock;
+            if (!fgStock || fgStock.quantity <= 0) continue;
+
+            const toTake = Math.min(remaining, alloc.allocatedQty, fgStock.quantity);
+            if (toTake <= 0) continue;
+
+            // Deduct from FG stock
+            await tx.finished_goods_stock.update({
+              where: { id: fgStock.id },
+              data: { quantity: { decrement: toTake }, lastUpdated: new Date() },
+            });
+
+            // Mark allocation as consumed
+            await tx.fg_stock_allocations.update({
+              where: { id: alloc.id },
+              data: { status: 'CONSUMED', allocatedQty: { decrement: toTake } },
+            });
+
+            fgAllocations.push({ fgStockId: fgStock.id, quantity: toTake });
+            remaining -= toTake;
+          }
+
+          // Second: if still remaining, take from unallocated FG stock
+          if (remaining > 0 && soItem.colorId) {
+            const fgRows = await tx.finished_goods_stock.findMany({
+              where: {
+                styleId: soItem.styleId,
+                colorId: soItem.colorId,
+                sizeId: soItem.sizeId,
+                quantity: { gt: 0 },
+              },
+              orderBy: [{ quantity: 'desc' }, { id: 'asc' }],
+              select: { id: true },
+            });
+
+            for (const row of fgRows) {
+              if (remaining <= 0) break;
+              const taken: Array<{ taken: number }> = await tx.$queryRaw`
+                WITH before AS (
+                  SELECT quantity FROM finished_goods_stock WHERE id = ${row.id} FOR UPDATE
+                )
+                UPDATE finished_goods_stock f
+                SET quantity = f.quantity - LEAST(f.quantity, CAST(${remaining} AS int)),
+                    "lastUpdated" = now()
+                FROM before
+                WHERE f.id = ${row.id} AND f.quantity > 0
+                RETURNING LEAST(before.quantity, CAST(${remaining} AS int)) AS taken`;
+              if (taken.length > 0) {
+                const took = Number(taken[0].taken);
+                remaining -= took;
+                if (took > 0) fgAllocations.push({ fgStockId: row.id, quantity: took });
+              }
+            }
+          }
+
+          if (remaining > 0) {
+            fgShortfalls.push({
+              saleOrderItemId: item.saleOrderItemId,
+              requested: item.quantity,
+              deducted: item.quantity - remaining,
+            });
+          }
+
+          // Create delivery note item linked to sale order item
+          // Note: colorId is required in delivery_note_items schema
+          if (!soItem.colorId) {
+            throw new ValidationError(
+              `Sale order item ${item.saleOrderItemId} has no color specified - color is required for dispatch`
+            );
+          }
+          await tx.delivery_note_items.create({
+            data: {
+              id: crypto.randomUUID(),
+              deliveryNoteId: note.id,
+              saleOrderItemId: item.saleOrderItemId,
+              styleId: soItem.styleId,
+              colorId: soItem.colorId,
+              sizeId: soItem.sizeId,
+              quantity: item.quantity,
+            },
+          });
+
+          // Update dispatchedQty on the sale order item
+          await tx.sale_order_items.update({
+            where: { id: item.saleOrderItemId },
+            data: { dispatchedQty: { increment: item.quantity } },
+          });
+        }
+
+        // Persist FG allocations for potential reversal
+        if (fgAllocations.length > 0) {
+          await tx.delivery_note_fg_allocations.createMany({
+            data: fgAllocations.map((a) => ({
+              id: crypto.randomUUID(),
+              deliveryNoteId: note.id,
+              fgStockId: a.fgStockId,
+              quantity: a.quantity,
+            })),
+          });
+        }
+
+        // Update sale order status
+        await recomputeSaleOrderStatus(tx, saleOrderId);
+
+        return note;
+      },
+      { timeout: 15000, maxWait: 5000 }
+    );
+
+  // Generate delivery number with retry on collision
+  const createWithFreshNumber = async () => {
+    for (let attempt = 1; ; attempt++) {
+      const deliveryNumber = await generateDeliveryNumber();
+      const fgAllocations: FgAllocation[] = [];
+      const fgShortfalls: FgShortfall[] = [];
+      try {
+        const note = await attemptCreate(deliveryNumber, fgAllocations, fgShortfalls);
+        return { note, deliveryNumber, fgShortfalls };
+      } catch (err) {
+        if (isUniqueViolationOn(err, 'deliveryNumber') && attempt < 3) continue;
+        throw err;
+      }
+    }
+  };
+
+  const { note, deliveryNumber, fgShortfalls } = await createWithFreshNumber();
+
+  if (fgShortfalls.length > 0) {
+    logWarn(`Sale order dispatch ${deliveryNumber} created with FG stock shortfalls`, {
+      deliveryNoteId: note.id,
+      saleOrderId,
+      fgShortfalls,
+    });
+  }
+
+  // Fetch the full note for response
+  const fullNote = await prisma.delivery_notes.findUnique({
+    where: { id: note.id },
+    include: deliveryNoteIncludeOptions,
+  });
+
+  res.status(201).json({
+    data: transformDeliveryNote(fullNote),
+    fgShortfalls: fgShortfalls.length > 0 ? fgShortfalls : undefined,
+    message:
+      fgShortfalls.length > 0
+        ? `Delivery note created — WARNING: ${fgShortfalls.length} item(s) exceeded available stock`
+        : 'Delivery note created successfully from sale order',
   });
 };

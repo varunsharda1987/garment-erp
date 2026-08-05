@@ -17,6 +17,17 @@ export interface VendorSummary {
   status: 'ON_TRACK' | 'DUE_SOON' | 'OVERDUE';
 }
 
+// P5.4: Variance alert types
+export interface VarianceAlert {
+  id: string;
+  type: 'CUTTING' | 'GRN_OVER' | 'GRN_UNDER' | 'COST';
+  referenceNumber: string;
+  description: string;
+  variancePercent: number;
+  route: string;
+  date: string;
+}
+
 export interface ManufacturingAlertsResponse {
   alerts: {
     overdueLabDips: AlertCount;
@@ -34,6 +45,8 @@ export interface ManufacturingAlertsResponse {
     dueThisWeek: number;
     overdue: number;
   };
+  // P5.4: Variance watchtower
+  varianceAlerts: VarianceAlert[];
 }
 
 export const manufacturingAlertsService = {

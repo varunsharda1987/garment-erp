@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { systemSettingsService } from './system-settings.service';
 
 interface AlertCount {
   count: number;
@@ -15,6 +16,17 @@ interface VendorSummary {
   oldestSendoutDays: number;
   nextExpectedBack: string | null;
   status: 'ON_TRACK' | 'DUE_SOON' | 'OVERDUE';
+}
+
+// P5.4: Variance alert types
+interface VarianceAlert {
+  id: string;
+  type: 'CUTTING' | 'GRN_OVER' | 'GRN_UNDER' | 'COST';
+  referenceNumber: string;
+  description: string;
+  variancePercent: number;
+  route: string;
+  date: string;
 }
 
 interface ManufacturingAlertsResponse {
@@ -34,6 +46,8 @@ interface ManufacturingAlertsResponse {
     dueThisWeek: number;
     overdue: number;
   };
+  // P5.4: Variance watchtower
+  varianceAlerts: VarianceAlert[];
 }
 
 class ManufacturingAlertsService {
@@ -299,6 +313,9 @@ class ManufacturingAlertsService {
     const itemsWithVendors = vendorSummary.reduce((sum, v) => sum + v.itemsOut, 0);
     const overdueCount = vendorSummary.filter((v) => v.status === 'OVERDUE').reduce((sum, v) => sum + v.itemsOut, 0);
 
+    // P5.4: Fetch variance alerts
+    const varianceAlerts = await this.getVarianceAlerts();
+
     return {
       alerts,
       vendorSummary,
@@ -308,7 +325,146 @@ class ManufacturingAlertsService {
         dueThisWeek: dueThisWeekCount,
         overdue: overdueCount,
       },
+      varianceAlerts,
     };
+  }
+
+  /**
+   * P5.4: Get variance alerts for cutting, GRN, and cost variances
+   * Returns items that exceed the configured threshold (default 5%)
+   */
+  private async getVarianceAlerts(): Promise<VarianceAlert[]> {
+    const varianceThreshold = await systemSettingsService.getNumber('VARIANCE_ALERT_THRESHOLD_PERCENT', 5);
+    const alerts: VarianceAlert[] = [];
+
+    // 1. Cutting variance - batches with significant variance from planned
+    // Query batches where absolute variance exceeds threshold
+    const cuttingVariances = await prisma.cutting_batches.findMany({
+      where: {
+        status: { in: ['IN_PROGRESS', 'COMPLETED'] },
+        variancePercent: { not: null },
+      },
+      include: {
+        workOrder: {
+          select: { workOrderNumber: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 50, // Fetch more and filter in code for absolute value check
+    });
+
+    for (const batch of cuttingVariances) {
+      const variance = Number(batch.variancePercent) || 0;
+      if (Math.abs(variance) > varianceThreshold) {
+        alerts.push({
+          id: batch.id,
+          type: 'CUTTING',
+          referenceNumber: batch.batchNumber,
+          description: `WO: ${batch.workOrder?.workOrderNumber || 'N/A'} - ${variance > 0 ? 'Over' : 'Under'} by ${Math.abs(variance).toFixed(1)}%`,
+          variancePercent: variance,
+          route: `/manufacturing/cutting/${batch.id}`,
+          date: batch.updatedAt.toISOString().split('T')[0],
+        });
+      }
+    }
+
+    // 2. GRN over/under receipt - GRNs with qty variance from PO
+    const recentGRNs = await prisma.goods_receiving_notes.findMany({
+      where: {
+        status: { in: ['ACCEPTED', 'PARTIALLY_ACCEPTED'] },
+        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }, // Last 30 days
+      },
+      include: {
+        grn_items: {
+          include: {
+            purchase_order_items: {
+              select: { orderedQuantity: true },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    for (const grn of recentGRNs) {
+      for (const item of grn.grn_items ?? []) {
+        const ordered = Number(item.purchase_order_items?.orderedQuantity) || 0;
+        const received = Number(item.acceptedQuantity || item.receivedQuantity) || 0;
+
+        if (ordered > 0) {
+          const variancePercent = ((received - ordered) / ordered) * 100;
+
+          if (variancePercent > varianceThreshold) {
+            alerts.push({
+              id: grn.id,
+              type: 'GRN_OVER',
+              referenceNumber: grn.grnNumber,
+              description: `Over-received by ${variancePercent.toFixed(1)}% (${received} vs ${ordered} ordered)`,
+              variancePercent,
+              route: `/procurement/grn/${grn.id}`,
+              date: grn.createdAt.toISOString().split('T')[0],
+            });
+            break; // One alert per GRN
+          } else if (variancePercent < -varianceThreshold) {
+            alerts.push({
+              id: grn.id,
+              type: 'GRN_UNDER',
+              referenceNumber: grn.grnNumber,
+              description: `Under-received by ${Math.abs(variancePercent).toFixed(1)}% (${received} vs ${ordered} ordered)`,
+              variancePercent,
+              route: `/procurement/grn/${grn.id}`,
+              date: grn.createdAt.toISOString().split('T')[0],
+            });
+            break;
+          }
+        }
+      }
+    }
+
+    // 3. Cost variance - use pre-computed costVariancePercent from order_item_costing
+    const costVariances = await prisma.order_item_costing.findMany({
+      where: {
+        costVariancePercent: { not: null },
+      },
+      include: {
+        order_item: {
+          include: {
+            orders: {
+              select: { id: true, orderNumber: true },
+            },
+            styles: {
+              select: { styleCode: true },
+            },
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 50,
+    });
+
+    for (const costing of costVariances) {
+      const variancePercent = Number(costing.costVariancePercent) || 0;
+
+      if (Math.abs(variancePercent) > varianceThreshold) {
+        const orderNumber = costing.order_item?.orders?.orderNumber || 'N/A';
+        const orderId = costing.order_item?.orders?.id || '';
+        const styleCode = costing.order_item?.styles?.styleCode || '';
+
+        alerts.push({
+          id: costing.id,
+          type: 'COST',
+          referenceNumber: `${orderNumber}${styleCode ? ` / ${styleCode}` : ''}`,
+          description: `Cost ${variancePercent > 0 ? 'over' : 'under'} by ${Math.abs(variancePercent).toFixed(1)}%`,
+          variancePercent,
+          route: `/orders/${orderId}`,
+          date: costing.updatedAt.toISOString().split('T')[0],
+        });
+      }
+    }
+
+    // Sort by absolute variance (highest first), limit to top 25
+    return alerts.sort((a, b) => Math.abs(b.variancePercent) - Math.abs(a.variancePercent)).slice(0, 25);
   }
 }
 

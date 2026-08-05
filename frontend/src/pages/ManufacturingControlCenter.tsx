@@ -24,11 +24,16 @@ import {
   Scissors,
   ArrowRight,
   CheckCircle,
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  BarChart3,
 } from 'lucide-react';
 import {
   manufacturingAlertsService,
   type AlertCount,
   type VendorSummary,
+  type VarianceAlert,
 } from '@/services/manufacturingAlerts.service';
 
 const ALERT_CONFIG: Record<string, { label: string; icon: React.ElementType; route: string; description: string }> = {
@@ -362,6 +367,146 @@ export default function ManufacturingControlCenter() {
           )}
         </CardContent>
       </Card>
+
+      {/* P5.4: Variance Watchtower Section */}
+      <VarianceWatchtower varianceAlerts={data?.varianceAlerts || []} navigate={navigate} />
     </div>
+  );
+}
+
+// P5.4: Variance alert icon and color mapping
+const VARIANCE_CONFIG: Record<
+  VarianceAlert['type'],
+  { label: string; icon: React.ElementType; bgColor: string; textColor: string }
+> = {
+  CUTTING: {
+    label: 'Cutting Variance',
+    icon: Scissors,
+    bgColor: 'bg-warning/10',
+    textColor: 'text-warning',
+  },
+  GRN_OVER: {
+    label: 'GRN Over-Receipt',
+    icon: TrendingUp,
+    bgColor: 'bg-info/10',
+    textColor: 'text-info',
+  },
+  GRN_UNDER: {
+    label: 'GRN Under-Receipt',
+    icon: TrendingDown,
+    bgColor: 'bg-destructive/10',
+    textColor: 'text-destructive',
+  },
+  COST: {
+    label: 'Cost Variance',
+    icon: DollarSign,
+    bgColor: 'bg-amber-100 dark:bg-amber-900/20',
+    textColor: 'text-amber-600 dark:text-amber-400',
+  },
+};
+
+function VarianceWatchtower({
+  varianceAlerts,
+  navigate,
+}: {
+  varianceAlerts: VarianceAlert[];
+  navigate: (path: string) => void;
+}) {
+  if (varianceAlerts.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Variance Watchtower
+          </CardTitle>
+          <CardDescription>Monitor cutting, GRN, and cost variances above threshold</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="p-8 text-center text-muted-foreground">
+            <CheckCircle className="h-12 w-12 mx-auto mb-4 text-success" />
+            <p className="text-lg font-medium">No Significant Variances</p>
+            <p className="text-sm">All recent operations are within acceptable variance thresholds.</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Group alerts by type
+  const grouped = varianceAlerts.reduce(
+    (acc, alert) => {
+      if (!acc[alert.type]) acc[alert.type] = [];
+      acc[alert.type].push(alert);
+      return acc;
+    },
+    {} as Record<VarianceAlert['type'], VarianceAlert[]>
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <BarChart3 className="h-5 w-5" />
+          Variance Watchtower
+          <Badge variant="secondary" className="ml-2">
+            {varianceAlerts.length}
+          </Badge>
+        </CardTitle>
+        <CardDescription>Items exceeding variance threshold - click to investigate</CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="divide-y">
+          {Object.entries(grouped).map(([type, alerts]) => {
+            const config = VARIANCE_CONFIG[type as VarianceAlert['type']];
+            const Icon = config.icon;
+
+            return (
+              <div key={type} className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className={`p-1.5 rounded ${config.bgColor}`}>
+                    <Icon className={`h-4 w-4 ${config.textColor}`} />
+                  </div>
+                  <span className="font-medium">{config.label}</span>
+                  <Badge variant="outline" className="ml-auto">
+                    {alerts.length}
+                  </Badge>
+                </div>
+                <div className="space-y-2 ml-8">
+                  {alerts.slice(0, 5).map((alert) => (
+                    <button
+                      key={alert.id}
+                      onClick={() => navigate(alert.route)}
+                      className="w-full flex items-center justify-between p-2 rounded hover:bg-muted/50 transition-colors text-left"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">{alert.referenceNumber}</div>
+                        <div className="text-xs text-muted-foreground truncate">{alert.description}</div>
+                      </div>
+                      <div className="flex items-center gap-2 ml-2">
+                        <Badge
+                          variant={Math.abs(alert.variancePercent) > 10 ? 'destructive' : 'secondary'}
+                          className="whitespace-nowrap"
+                        >
+                          {alert.variancePercent > 0 ? '+' : ''}
+                          {alert.variancePercent.toFixed(1)}%
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">{alert.date}</span>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </button>
+                  ))}
+                  {alerts.length > 5 && (
+                    <p className="text-xs text-muted-foreground text-center py-1">
+                      +{alerts.length - 5} more {config.label.toLowerCase()} alerts
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

@@ -174,6 +174,8 @@ export const StockAdjustmentForm = lazy(() => import('../pages/StockAdjustmentFo
 export const StockCountList = lazy(() => import('../pages/StockCountList'));
 export const StockCountForm = lazy(() => import('../pages/StockCountForm'));
 export const StockCountDetail = lazy(() => import('../pages/StockCountDetail'));
+// P6.3: Finished Goods Stock visibility
+export const FGStockList = lazy(() => import('../pages/FGStockList'));
 
 // ============================================================================
 // Production Planning

@@ -86,6 +86,7 @@ import {
   StockCountList,
   StockCountForm,
   StockCountDetail,
+  FGStockList,
   WorkOrderList,
   WorkOrderDetail,
   WorkOrderForm,
@@ -524,6 +525,7 @@ function App() {
               <Route path="/inventory/movements/transfer" element={<StockTransferForm />} />
               <Route path="/inventory/movements/adjustment" element={<StockAdjustmentForm />} />
               <Route path="/inventory/stock-levels" element={<StockLevelList />} />
+              <Route path="/inventory/fg-stock" element={<FGStockList />} />
               {/* BUG-DASH3 fix: Stock Counts workflow routes verified 2026-08-02
                   - Routes match navigation.ts and backend /api/stock-counts
                   - Components: StockCountList, StockCountForm, StockCountDetail (all exist with default exports)

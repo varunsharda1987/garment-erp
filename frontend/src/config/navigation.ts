@@ -179,6 +179,13 @@ export const NAV_GROUPS: NavGroup[] = [
         keywords: ['pending', 'inward', 'outward', 'external', 'processor', 'receive', 'send'],
       },
       { title: 'Stock Levels', path: '/inventory/stock-levels', iconName: 'Package', permission: 'stockLevels' },
+      {
+        title: 'FG Stock',
+        path: '/inventory/fg-stock',
+        iconName: 'PackageCheck',
+        permission: 'stockLevels',
+        keywords: ['finished goods', 'fg', 'garments', 'ready'],
+      },
       { title: 'Stock Counts', path: '/inventory/stock-counts', iconName: 'ClipboardCheck', permission: 'stockCounts' },
       'divider',
       { title: 'Greige Stock', path: '/greige-stock', iconName: 'Package', permission: 'greigeFabricStock' },

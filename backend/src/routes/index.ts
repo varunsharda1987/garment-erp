@@ -140,6 +140,7 @@ import moodBoardRoutes from './mood-board.routes';
 import notificationRoutes from './notification.routes';
 import reportRoutes from './report.routes';
 import whatsappRoutes from './whatsapp.routes';
+import fgStockRoutes from './fg-stock.routes';
 
 /**
  * Create the versioned API router
@@ -249,6 +250,8 @@ export function createApiRouter(): Router {
   router.use('/stock-movements', stockMovementRoutes);
   // BUG-DASH3 fix: verified route registration - frontend calls /api/stock-counts
   router.use('/stock-counts', stockCountRoutes);
+  // P6.3: Finished Goods Stock visibility
+  router.use('/fg-stock', fgStockRoutes);
 
   // Job Work Processing
   router.use('/processing-batches', processingBatchRoutes);

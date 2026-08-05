@@ -1001,7 +1001,7 @@ export default function PurchaseOrderForm() {
 
     // For new POs, check for duplicates first
     if (!isEditMode) {
-      const materialIds = items.filter((item) => item.materialId).map((item) => item.materialId);
+      const materialIds = items.map((item) => item.materialId).filter((id): id is string => Boolean(id));
       if (materialIds.length > 0) {
         setIsSaving(true);
         try {

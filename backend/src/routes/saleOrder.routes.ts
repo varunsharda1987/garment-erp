@@ -7,6 +7,7 @@ import {
   updateSaleOrderSchema,
   confirmSaleOrderSchema,
   allocateStockSchema,
+  deallocateStockSchema,
   saleOrderQuerySchema,
 } from '../schemas/saleOrder.schema';
 import { authenticateToken } from '../middleware/auth.middleware';
@@ -75,6 +76,20 @@ router.post(
   '/allocate-stock',
   validateBody(allocateStockSchema),
   asyncHandler(saleOrderController.allocateStock.bind(saleOrderController))
+);
+
+// POST /api/sale-orders/deallocate-stock - Release FG stock allocation (P7.2)
+router.post(
+  '/deallocate-stock',
+  validateBody(deallocateStockSchema),
+  asyncHandler(saleOrderController.deallocate.bind(saleOrderController))
+);
+
+// POST /api/sale-orders/:id/cancel - Cancel sale order and release all allocations (P7.2) // no-body
+router.post(
+  '/:id/cancel',
+  validateParams(idParamSchema),
+  asyncHandler(saleOrderController.cancel.bind(saleOrderController))
 );
 
 export default router;

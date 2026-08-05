@@ -113,6 +113,16 @@ export const allocateStockSchema = z.object({
 });
 
 /**
+ * Deallocate Stock
+ * POST /api/sale-orders/deallocate-stock
+ * P7.2: Release a specific FG stock allocation
+ */
+export const deallocateStockSchema = z.object({
+  allocationId: z.string().uuid('Invalid allocation ID'),
+  remarks: z.string().max(500).optional(),
+});
+
+/**
  * Sale Order Query Params
  * GET /api/sale-orders
  */

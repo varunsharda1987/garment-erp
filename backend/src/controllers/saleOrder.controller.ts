@@ -174,6 +174,31 @@ export class SaleOrderController {
     const preview = await saleOrderService.getStockPreview(id);
     res.json(preview);
   }
+
+  /**
+   * Cancel a sale order and release all FG stock allocations.
+   * P7.2: Allocation lifecycle — prevents permanent phantom allocations.
+   */
+  async cancel(req: Request, res: Response) {
+    const { id } = req.params;
+    const result = await saleOrderService.cancel(id);
+    res.json({ data: result, message: 'Sale order cancelled, allocations released' });
+  }
+
+  /**
+   * Deallocate (release) a specific FG stock allocation.
+   * P7.2: Allows partial deallocation when stock needs to go elsewhere.
+   */
+  async deallocate(req: Request, res: Response) {
+    const { allocationId } = req.body;
+
+    if (!allocationId) {
+      throw new ValidationError('allocationId is required');
+    }
+
+    const result = await saleOrderService.deallocateStock(allocationId);
+    res.json({ data: result, message: 'Allocation released successfully' });
+  }
 }
 
 export const saleOrderController = new SaleOrderController();

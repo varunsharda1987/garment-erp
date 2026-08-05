@@ -243,7 +243,26 @@ export class SaleOrderService {
       throw new Error('Can only delete Sale Orders in DRAFT status');
     }
 
-    return prisma.sale_orders.delete({ where: { id } });
+    return prisma.$transaction(async (tx) => {
+      // P7.2.2: Release any allocations before delete (defensive — DRAFT shouldn't have allocations)
+      const items = await tx.sale_order_items.findMany({
+        where: { saleOrderId: id },
+        select: { id: true },
+      });
+      const itemIds = items.map((i) => i.id);
+
+      if (itemIds.length > 0) {
+        await tx.fg_stock_allocations.updateMany({
+          where: {
+            saleOrderItemId: { in: itemIds },
+            status: 'ALLOCATED',
+          },
+          data: { status: 'RELEASED' },
+        });
+      }
+
+      return tx.sale_orders.delete({ where: { id } });
+    });
   }
 
   async confirm(id: string, approvedById: string) {
@@ -264,6 +283,122 @@ export class SaleOrderService {
         approvedById,
       },
       include: this.getDefaultIncludes(),
+    });
+  }
+
+  /**
+   * Cancel a sale order and release all FG stock allocations.
+   * P7.2: Allocation lifecycle — allocations must not stay permanent phantoms.
+   */
+  async cancel(id: string) {
+    const so = await prisma.sale_orders.findUnique({
+      where: { id },
+      select: { status: true },
+    });
+
+    if (!so) throw new Error('Sale Order not found');
+
+    const terminalStatuses: SaleOrderStatus[] = [SaleOrderStatus.DELIVERED, SaleOrderStatus.CANCELLED];
+    if (terminalStatuses.includes(so.status as SaleOrderStatus)) {
+      throw new Error(`Cannot cancel sale order in ${so.status} status`);
+    }
+
+    return prisma.$transaction(async (tx) => {
+      // Get all allocations for this sale order's items
+      const items = await tx.sale_order_items.findMany({
+        where: { saleOrderId: id },
+        select: { id: true },
+      });
+
+      const itemIds = items.map((i) => i.id);
+
+      // Release all ALLOCATED allocations back to FG stock
+      const allocations = await tx.fg_stock_allocations.findMany({
+        where: {
+          saleOrderItemId: { in: itemIds },
+          status: 'ALLOCATED',
+        },
+      });
+
+      for (const alloc of allocations) {
+        // Mark allocation as RELEASED (not deleted, for audit trail)
+        await tx.fg_stock_allocations.update({
+          where: { id: alloc.id },
+          data: { status: 'RELEASED' },
+        });
+      }
+
+      // Reset allocatedQty on sale order items
+      await tx.sale_order_items.updateMany({
+        where: { saleOrderId: id },
+        data: { allocatedQty: 0 },
+      });
+
+      // Update sale order status to CANCELLED
+      return tx.sale_orders.update({
+        where: { id },
+        data: { status: SaleOrderStatus.CANCELLED },
+        include: this.getDefaultIncludes(),
+      });
+    });
+  }
+
+  /**
+   * Deallocate (release) a specific FG stock allocation.
+   * P7.2: Allows partial deallocation when stock needs to go elsewhere.
+   */
+  async deallocateStock(allocationId: string) {
+    const allocation = await prisma.fg_stock_allocations.findUnique({
+      where: { id: allocationId },
+      include: {
+        saleOrderItem: { select: { id: true, saleOrderId: true } },
+      },
+    });
+
+    if (!allocation) throw new Error('Allocation not found');
+    if (allocation.status !== 'ALLOCATED') {
+      throw new Error(`Cannot deallocate — allocation is ${allocation.status}`);
+    }
+
+    return prisma.$transaction(async (tx) => {
+      // Mark allocation as RELEASED
+      await tx.fg_stock_allocations.update({
+        where: { id: allocationId },
+        data: { status: 'RELEASED' },
+      });
+
+      // Decrement allocatedQty on the sale order item
+      await tx.sale_order_items.update({
+        where: { id: allocation.saleOrderItemId },
+        data: { allocatedQty: { decrement: allocation.allocatedQty } },
+      });
+
+      // Recompute sale order status
+      const soItem = allocation.saleOrderItem;
+      if (soItem) {
+        const allItems = await tx.sale_order_items.findMany({
+          where: { saleOrderId: soItem.saleOrderId },
+        });
+
+        const allFullyAllocated = allItems.every((item) => item.allocatedQty >= item.quantity);
+        const someAllocated = allItems.some((item) => item.allocatedQty > 0);
+
+        let newStatus: SaleOrderStatus | undefined;
+        if (allFullyAllocated) {
+          newStatus = SaleOrderStatus.FULLY_ALLOCATED;
+        } else if (someAllocated) {
+          newStatus = SaleOrderStatus.PARTIALLY_ALLOCATED;
+        } else {
+          newStatus = SaleOrderStatus.CONFIRMED;
+        }
+
+        await tx.sale_orders.update({
+          where: { id: soItem.saleOrderId },
+          data: { status: newStatus },
+        });
+      }
+
+      return { success: true };
     });
   }
 

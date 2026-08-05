@@ -359,20 +359,18 @@ export const createFinishingIssue = async (req: Request, res: Response) => {
     include: issueIncludeOptions,
   });
 
-  // Auto-create production_tracking: IN_FINISHING
+  // P6.2.2: Auto-create production_tracking: IN_FINISHING with 0 (stage started, not yet produced)
+  // Actual output is tracked when recordDailyOutput is called
   try {
-    const totalIssuedQty = skuBreakdown.reduce(
-      (sum: number, sku: any) => sum + (Number(sku.issuedQty) || Number(sku.availableQty) || 0),
-      0
-    );
     await prisma.production_tracking.create({
       data: {
         id: randomUUID(),
         workOrderId,
         productionStage: 'IN_FINISHING',
-        quantityCompleted: totalIssuedQty,
+        quantityCompleted: 0,
         updatedById: userId,
         updateDate: new Date(),
+        remarks: `Finishing issue ${issue.issueNumber} started`,
       },
     });
   } catch (err) {
@@ -562,6 +560,30 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
     throw new ValidationError('Can only record output for in-progress or packing issues');
   }
 
+  // P6.2.1: Cap cumulative output at the issued quantity — finishing output could silently exceed
+  // what stitching supplied (mirrors the stitching validation at bug-hunt production-23)
+  const [issuedAgg, producedAgg] = await Promise.all([
+    prisma.finishing_issue_skus.aggregate({
+      where: { finishingIssueId: id },
+      _sum: { issuedQty: true },
+    }),
+    prisma.finishing_output_skus.aggregate({
+      where: { dailyOutput: { finishingIssueId: id } },
+      _sum: { finishedQty: true, defectQty: true },
+    }),
+  ]);
+  const totalIssued = issuedAgg._sum.issuedQty ?? 0;
+  const alreadyRecorded = (producedAgg._sum.finishedQty ?? 0) + (producedAgg._sum.defectQty ?? 0);
+  const newTotal = (skuOutputs || []).reduce(
+    (sum: number, sku: any) => sum + (Number(sku.finishedQty) || 0) + (Number(sku.defectQty) || 0),
+    0
+  );
+  if (totalIssued > 0 && alreadyRecorded + newTotal > totalIssued) {
+    throw new ValidationError(
+      `Cannot record ${newTotal} pieces: ${alreadyRecorded} of ${totalIssued} issued pieces already recorded (only ${totalIssued - alreadyRecorded} remain)`
+    );
+  }
+
   // Create daily output record
   const dailyOutput = await prisma.finishing_daily_outputs.create({
     data: {
@@ -601,6 +623,37 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
       },
     },
   });
+
+  // P6.2.2: Update production_tracking with actual cumulative output (not just issued qty)
+  try {
+    // Get workOrderId from the finishing issue
+    const finishingIssue = await prisma.finishing_issues.findUnique({
+      where: { id },
+      select: { workOrderId: true },
+    });
+
+    if (finishingIssue?.workOrderId) {
+      // Calculate cumulative finished qty (good pieces only, defects are separate)
+      const finishedGoodPieces =
+        (producedAgg._sum.finishedQty ?? 0) +
+        (skuOutputs || []).reduce((sum: number, sku: any) => sum + (Number(sku.finishedQty) || 0), 0);
+
+      await prisma.production_tracking.create({
+        data: {
+          id: randomUUID(),
+          workOrderId: finishingIssue.workOrderId,
+          productionStage: 'IN_FINISHING',
+          quantityCompleted: finishedGoodPieces,
+          updatedById: userId,
+          updateDate: new Date(),
+          remarks: `Daily output recorded: ${newTotal} pieces`,
+        },
+      });
+    }
+  } catch (trackingError) {
+    // allow-swallow — tracking update is advisory; daily output must succeed
+    logger.error('Failed to update production_tracking for finishing output:', trackingError);
+  }
 
   res.json({ data: dailyOutput });
   // end recordDailyOutput

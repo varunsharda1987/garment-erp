@@ -384,17 +384,18 @@ export const createStitchingIssue = async (req: Request, res: Response) => {
     return created;
   });
 
-  // Auto-create production_tracking: IN_STITCHING
+  // P6.2.2: Auto-create production_tracking: IN_STITCHING with 0 (stage started, not yet produced)
+  // Actual output is tracked when recordDailyOutput is called
   try {
-    const totalIssuedQty = skuRows.reduce((sum: number, sku) => sum + (Number(sku.issuedQty) || 0), 0);
     await prisma.production_tracking.create({
       data: {
         id: randomUUID(),
         workOrderId,
         productionStage: 'IN_STITCHING',
-        quantityCompleted: totalIssuedQty,
+        quantityCompleted: 0,
         updatedById: userId,
         updateDate: new Date(),
+        remarks: `Stitching issue ${issue.issueNumber} started`,
       },
     });
   } catch (err) {
@@ -665,6 +666,37 @@ export const recordDailyOutput = async (req: Request, res: Response) => {
       },
     },
   });
+
+  // P6.2.2: Update production_tracking with actual cumulative output (not just issued qty)
+  try {
+    // Get workOrderId from the stitching issue
+    const stitchingIssue = await prisma.stitching_issues.findUnique({
+      where: { id },
+      select: { workOrderId: true },
+    });
+
+    if (stitchingIssue?.workOrderId) {
+      // Calculate cumulative good pieces (excluding defects for "completed" count)
+      const goodPieces =
+        (producedAgg._sum.goodQty ?? 0) +
+        (skuOutputs || []).reduce((sum: number, sku: any) => sum + (Number(sku.goodQty ?? sku.passedQty) || 0), 0);
+
+      await prisma.production_tracking.create({
+        data: {
+          id: randomUUID(),
+          workOrderId: stitchingIssue.workOrderId,
+          productionStage: 'IN_STITCHING',
+          quantityCompleted: goodPieces,
+          updatedById: userId,
+          updateDate: new Date(),
+          remarks: `Daily output recorded: ${newTotal} pieces`,
+        },
+      });
+    }
+  } catch (trackingError) {
+    // allow-swallow — tracking update is advisory; daily output must succeed
+    logger.error('Failed to update production_tracking for stitching output:', trackingError);
+  }
 
   res.json({ data: dailyOutput });
 };

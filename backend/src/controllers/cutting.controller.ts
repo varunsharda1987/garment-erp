@@ -294,20 +294,18 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     });
   }
 
-  // Auto-create production_tracking: IN_CUTTING
+  // P6.2.2: Auto-create production_tracking: IN_CUTTING with 0 (stage started, not yet produced)
+  // Actual output is tracked when recordCuttingOutput is called
   try {
-    const totalCutQty = (skuOutputs as Array<{ toCut?: number; plannedQty?: number }>).reduce(
-      (sum, s) => sum + (Number(s.toCut) || Number(s.plannedQty) || 0),
-      0
-    );
     await prisma.production_tracking.create({
       data: {
         id: randomUUID(),
         workOrderId,
         productionStage: 'IN_CUTTING',
-        quantityCompleted: totalCutQty,
+        quantityCompleted: 0,
         updatedById: userId,
         updateDate: new Date(),
+        remarks: `Cutting batch ${batch.batchNumber} started`,
       },
     });
   } catch (err) {
@@ -561,11 +559,12 @@ export const startCuttingBatch = async (req: Request, res: Response) => {
 // Record cutting output
 export const recordCuttingOutput = async (req: Request, res: Response) => {
   const { id } = req.params;
+  const userId = req.user?.userId;
   const { skuOutputs, defects, fabricConsumed, remarks } = req.body;
 
   const existing = await prisma.cutting_batches.findUnique({
     where: { id },
-    select: { status: true },
+    select: { status: true, workOrderId: true },
   });
 
   if (!existing) {
@@ -633,6 +632,32 @@ export const recordCuttingOutput = async (req: Request, res: Response) => {
     where: { id },
     include: batchIncludeOptions,
   });
+
+  // P6.2.2: Update production_tracking with actual cut output
+  try {
+    if (existing.workOrderId && userId) {
+      // Calculate total good pieces cut from the updated SKU outputs
+      const totalGoodPieces = (skuOutputs || []).reduce(
+        (sum: number, sku: any) => sum + ((Number(sku.cutQty) || 0) - (Number(sku.rejectedQty) || 0)),
+        0
+      );
+
+      await prisma.production_tracking.create({
+        data: {
+          id: randomUUID(),
+          workOrderId: existing.workOrderId,
+          productionStage: 'IN_CUTTING',
+          quantityCompleted: totalGoodPieces,
+          updatedById: userId,
+          updateDate: new Date(),
+          remarks: `Cutting output recorded: ${totalGoodPieces} good pieces`,
+        },
+      });
+    }
+  } catch (trackingError) {
+    // allow-swallow — tracking update is advisory; output record must succeed
+    logInfo(`Warning: Failed to update production_tracking for cutting output: ${(trackingError as Error).message}`);
+  }
 
   res.json({ data: transformCuttingBatch(batch) });
 };

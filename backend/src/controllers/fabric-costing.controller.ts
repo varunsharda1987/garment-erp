@@ -454,7 +454,13 @@ export async function getStyleFabrics(req: Request, res: Response) {
       };
 
       // Get CAD rows from CAD Planning (linked via styleFabricId)
-      const cadRows = (styleFabric as any).cadRows || [];
+      // Exclude rows superseded by a quantity-change clone: cloning keeps the
+      // source row live, so returning both double-counts batch quantities in
+      // the rate-slab lookup. Any row referenced as another returned row's
+      // clonedFromCadId is an ancestor — only the tip of each chain survives.
+      const allCadRows = (styleFabric as any).cadRows || [];
+      const supersededIds = new Set(allCadRows.map((r: any) => r.clonedFromCadId).filter(Boolean));
+      const cadRows = allCadRows.filter((r: any) => !supersededIds.has(r.id));
 
       if (cadRows.length > 0) {
         // Create ONE ROW per CAD width variant

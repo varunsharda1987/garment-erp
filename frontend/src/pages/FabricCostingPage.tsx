@@ -237,6 +237,12 @@ export default function FabricCostingPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedStyleId = searchParams.get('styleId');
+  const preselectedPurpose = searchParams.get('purpose') as CostingPurpose | null;
+
+  // Validate and determine initial purpose from URL param
+  const validPurposes: CostingPurpose[] = ['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION'];
+  const initialPurpose =
+    preselectedPurpose && validPurposes.includes(preselectedPurpose) ? preselectedPurpose : 'COSTING';
 
   // Selection state
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -246,7 +252,7 @@ export default function FabricCostingPage() {
   const [selectedStyleId, setSelectedStyleId] = useState('');
   const [orderQuantity, setOrderQuantity] = useState<number>(0);
   const [previousQuantity, setPreviousQuantity] = useState<number | null>(null);
-  const [purpose, setPurpose] = useState<CostingPurpose>('COSTING');
+  const [purpose, setPurpose] = useState<CostingPurpose>(initialPurpose);
 
   // Fabric rows
   const [fabricRows, setFabricRows] = useState<FabricCostingRow[]>([]);
@@ -992,8 +998,24 @@ export default function FabricCostingPage() {
       // The current row's processor may exist only in `overrides` (state not yet
       // committed on processor select), so substitute `row` for the current index
       // — otherwise the self-row fails the processorId match and the sum is 0.
-      batchQuantityMeters = fabricRows.reduce((sum, r, i) => {
+      //
+      // Rows sharing styleFabricId + width are the same physical fabric saved at
+      // different times (quantity-change clones) — only the newest may count, or
+      // the batch quantity inflates and the slab lookup understates the rate.
+      const newestPerFabric = new Map<string, { candidate: FabricCostingRow; t: number }>();
+      fabricRows.forEach((r, i) => {
         const candidate = i === index ? row : r;
+        const key = `${candidate.styleFabricId ?? candidate.id}|${candidate.width}`;
+        const t =
+          i === index
+            ? Number.MAX_SAFE_INTEGER // the row being edited always wins its slot
+            : candidate.createdAt
+              ? new Date(candidate.createdAt).getTime()
+              : Number.MAX_SAFE_INTEGER - 1; // unsaved rows are newer than any saved one
+        const prev = newestPerFabric.get(key);
+        if (!prev || t >= prev.t) newestPerFabric.set(key, { candidate, t });
+      });
+      batchQuantityMeters = [...newestPerFabric.values()].reduce((sum, { candidate }) => {
         if (
           candidate.greigeId === row.greigeId &&
           candidate.processorId === row.processorId &&

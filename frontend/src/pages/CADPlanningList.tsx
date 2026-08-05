@@ -27,10 +27,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import SearchInput from '@/components/SearchInput';
-import { CADStatusBadge } from '@/components/cad/CADStatusBadge';
 import ExportButton from '@/components/ExportButton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Ruler, Clock, CheckCircle2, Loader2, ChevronDown, ChevronRight, Calculator } from 'lucide-react';
+import { Ruler, Clock, CheckCircle2, Circle, Loader2, ChevronDown, ChevronRight, Calculator } from 'lucide-react';
 import { getUploadUrl } from '../config/api.config';
 
 export default function CADPlanningList() {
@@ -165,12 +164,10 @@ export default function CADPlanningList() {
     }
   };
 
-  // Get list of pending purposes for a style
-  const getPendingPurposes = (cadDetails: CADWidthDetail[]): string[] => {
+  // Get set of completed purposes for a style
+  const getCompletedPurposes = (cadDetails: CADWidthDetail[]): Set<string> => {
     const purposes = cadDetails?.map((cad) => cad.purpose).filter(Boolean) || [];
-    const completedPurposes = new Set(purposes as string[]);
-    const allPurposes = ['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION'];
-    return allPurposes.filter((p) => !completedPurposes.has(p));
+    return new Set(purposes as string[]);
   };
 
   // Get list of unique greiges for a style (returns array for stacked display)
@@ -409,8 +406,7 @@ export default function CADPlanningList() {
                         <TableHead>Buyer / Brand</TableHead>
                         <TableHead>Greige</TableHead>
                         <TableHead className="text-center w-24">Components</TableHead>
-                        <TableHead className="w-32">CAD Status</TableHead>
-                        <TableHead>Pending Purposes</TableHead>
+                        <TableHead className="w-44">Progress</TableHead>
                         <TableHead className="w-56">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -509,49 +505,54 @@ export default function CADPlanningList() {
                               </Badge>
                             </TableCell>
 
-                            {/* CAD Status */}
+                            {/* Progress - unified column showing completion state per purpose */}
                             <TableCell>
-                              <div className="flex flex-col gap-1">
-                                <CADStatusBadge status={style.cadStatus} />
-                                {/* Show status badge during search to indicate which tab */}
-                                {searchQuery && (
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-[10px] ${
-                                      style.cadStatus === 'APPROVED'
-                                        ? 'bg-success-muted text-success border-success/20'
-                                        : 'bg-warning-muted text-warning border-yellow-200'
-                                    }`}
-                                  >
-                                    {style.cadStatus === 'APPROVED' ? 'Approved' : 'Pending'}
-                                  </Badge>
-                                )}
-                                {/* Show CAD count if available */}
-                                {style.cadDetails && style.cadDetails.length > 0 && (
-                                  <span className="text-xs text-muted-foreground">
-                                    {style.cadDetails.length} width{style.cadDetails?.length !== 1 ? 's' : ''}
-                                  </span>
-                                )}
-                              </div>
-                            </TableCell>
-
-                            {/* Pending Purposes - always check actual data */}
-                            <TableCell>
-                              <div className="flex flex-wrap gap-1">
-                                {getPendingPurposes(style.cadDetails).length === 0 ? (
-                                  <span className="text-xs text-success font-medium">All Complete</span>
-                                ) : (
-                                  getPendingPurposes(style.cadDetails).map((purpose) => (
-                                    <Badge key={purpose} variant="outline" className="text-xs text-muted-foreground">
-                                      {purpose === 'COSTING'
-                                        ? 'Costing'
-                                        : purpose === 'RAW_MATERIAL_CALCULATION'
-                                          ? 'Raw Mat'
-                                          : 'Production'}
-                                    </Badge>
-                                  ))
-                                )}
-                              </div>
+                              {(() => {
+                                const completed = getCompletedPurposes(style.cadDetails);
+                                return (
+                                  <div className="flex flex-col gap-1.5">
+                                    {(['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION'] as const).map((p) => {
+                                      const isComplete = completed.has(p);
+                                      const label =
+                                        p === 'COSTING'
+                                          ? 'Costing'
+                                          : p === 'RAW_MATERIAL_CALCULATION'
+                                            ? 'Raw Mat'
+                                            : 'Production';
+                                      return (
+                                        <div key={p} className="flex items-center gap-2 text-xs">
+                                          {isComplete ? (
+                                            <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+                                          ) : (
+                                            <Circle className="h-3.5 w-3.5 text-muted-foreground" />
+                                          )}
+                                          <span className={isComplete ? 'text-foreground' : 'text-muted-foreground'}>
+                                            {label}
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                    {style.cadDetails && style.cadDetails.length > 0 && (
+                                      <span className="text-[10px] text-muted-foreground mt-0.5">
+                                        {style.cadDetails.length} width{style.cadDetails.length !== 1 ? 's' : ''}
+                                      </span>
+                                    )}
+                                    {/* Show tab indicator during search */}
+                                    {searchQuery && (
+                                      <Badge
+                                        variant="outline"
+                                        className={`text-[10px] mt-1 ${
+                                          style.cadStatus === 'APPROVED'
+                                            ? 'bg-success-muted text-success border-success/20'
+                                            : 'bg-warning-muted text-warning border-yellow-200'
+                                        }`}
+                                      >
+                                        {style.cadStatus === 'APPROVED' ? 'Approved' : 'Pending'}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </TableCell>
 
                             {/* Actions */}
@@ -571,7 +572,14 @@ export default function CADPlanningList() {
                                   variant="outline"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    navigate(`/fabric-costing?styleId=${style.id}`);
+                                    // Navigate to most relevant purpose based on what CAD data exists
+                                    const completedPurposes = getCompletedPurposes(style.cadDetails);
+                                    const targetPurpose = completedPurposes.has('PRODUCTION')
+                                      ? 'PRODUCTION'
+                                      : completedPurposes.has('RAW_MATERIAL_CALCULATION')
+                                        ? 'RAW_MATERIAL_CALCULATION'
+                                        : 'COSTING';
+                                    navigate(`/fabric-costing?styleId=${style.id}&purpose=${targetPurpose}`);
                                   }}
                                 >
                                   <Calculator className="h-4 w-4 mr-1" />
@@ -584,7 +592,7 @@ export default function CADPlanningList() {
                           {/* Expanded Row - CAD Details */}
                           {expandedRows.has(style.id) && (
                             <TableRow className="bg-muted/50">
-                              <TableCell colSpan={10} className="p-0">
+                              <TableCell colSpan={9} className="p-0">
                                 <div className="px-12 py-3 border-t border-gray-100">
                                   <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
                                     CAD Width Details

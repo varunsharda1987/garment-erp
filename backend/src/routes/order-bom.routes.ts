@@ -7,7 +7,8 @@
  */
 
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -69,11 +70,12 @@ router.put(
 /**
  * @route   PATCH /api/orders/:orderId/bom/approve
  * @desc    Approve Order BOM
- * @access  Private
+ * @access  Private (ADMIN, MERCHANDISER, PRODUCTION_MANAGER)
  * @query   styleId (optional)
  */
 router.patch(
   '/:orderId/bom/approve',
+  authorize(UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER),
   validateParams(orderIdParamSchema),
   asyncHandler(orderBomController.approveOrderBOM)
 );
@@ -81,11 +83,12 @@ router.patch(
 /**
  * @route   POST /api/orders/:orderId/bom/approve-and-calculate
  * @desc    Approve Order BOM and optionally calculate MRP
- * @access  Private
+ * @access  Private (ADMIN, MERCHANDISER, PRODUCTION_MANAGER)
  * @body    { styleId: string, calculateMRP?: boolean, requiredDate?: Date }
  */
 router.post(
   '/:orderId/bom/approve-and-calculate',
+  authorize(UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER),
   validateParams(orderIdParamSchema),
   validateBody(approveAndCalculateMRPSchema),
   asyncHandler(orderBomController.approveAndCalculateMRP)
@@ -107,10 +110,15 @@ router.post(
 /**
  * @route   PATCH /api/orders/:orderId/bom/lock
  * @desc    Lock Order BOM for production
- * @access  Private
+ * @access  Private (ADMIN, PRODUCTION_MANAGER)
  * @query   styleId (optional)
  */
-router.patch('/:orderId/bom/lock', validateParams(orderIdParamSchema), asyncHandler(orderBomController.lockOrderBOM));
+router.patch(
+  '/:orderId/bom/lock',
+  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER),
+  validateParams(orderIdParamSchema),
+  asyncHandler(orderBomController.lockOrderBOM)
+);
 
 /**
  * @route   POST /api/orders/:orderId/bom/copy/:sourceOrderId
@@ -165,9 +173,13 @@ orderBomStandaloneRouter.get('/', validateQuery(orderBOMQuerySchema), asyncHandl
 /**
  * @route   POST /api/order-bom/cleanup-cancelled
  * @desc    Deactivate BOMs for cancelled orders (one-time cleanup)
- * @access  Private
+ * @access  Private (ADMIN only)
  */
-orderBomStandaloneRouter.post('/cleanup-cancelled', asyncHandler(orderBomController.cleanupCancelledOrderBOMs));
+orderBomStandaloneRouter.post(
+  '/cleanup-cancelled',
+  authorize(UserRole.ADMIN),
+  asyncHandler(orderBomController.cleanupCancelledOrderBOMs)
+);
 
 /**
  * @route   GET /api/order-bom/:id

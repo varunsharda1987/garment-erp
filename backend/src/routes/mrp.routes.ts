@@ -4,7 +4,8 @@
  */
 
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { idParamSchema, orderIdParamSchema } from '../schemas/common.schema';
@@ -44,10 +45,15 @@ router.use(authenticateToken);
 /**
  * @route   POST /api/mrp/calculate
  * @desc    Calculate material requirements from an order's BOM
- * @access  Private
+ * @access  Private - ADMIN, PURCHASE, PRODUCTION_MANAGER, MERCHANDISER
  * @body    { orderId: string, orderItemId?: string, requiredDate: string, checkStock?: boolean }
  */
-router.post('/calculate', validateBody(calculateRequirementsSchema), asyncHandler(mrpController.calculateRequirements));
+router.post(
+  '/calculate',
+  authorize(UserRole.ADMIN, UserRole.PURCHASE, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  validateBody(calculateRequirementsSchema),
+  asyncHandler(mrpController.calculateRequirements)
+);
 
 /**
  * @route   GET /api/mrp/dashboard
@@ -166,10 +172,15 @@ router.patch(
 /**
  * @route   POST /api/mrp/generate-po
  * @desc    Generate Purchase Order from requirements
- * @access  Private
+ * @access  Private - ADMIN, PURCHASE
  * @body    { requirementIds: string[], supplierId: string, expectedDeliveryDate: string, remarks?: string, consolidate?: boolean }
  */
-router.post('/generate-po', validateBody(generatePOSchema), asyncHandler(mrpController.generatePO));
+router.post(
+  '/generate-po',
+  authorize(UserRole.ADMIN, UserRole.PURCHASE),
+  validateBody(generatePOSchema),
+  asyncHandler(mrpController.generatePO)
+);
 
 /**
  * @route   POST /api/mrp/group-by-supplier
@@ -190,10 +201,15 @@ router.post('/preview-pos', validateBody(previewPOsSchema), asyncHandler(mrpCont
 /**
  * @route   POST /api/mrp/generate-pos-bulk
  * @desc    Generate multiple POs from grouped requirements (bulk operation)
- * @access  Private
+ * @access  Private - ADMIN, PURCHASE
  * @body    { groups: [{ supplierId: string, requirementIds: string[], expectedDeliveryDate: string, remarks?: string }] }
  */
-router.post('/generate-pos-bulk', validateBody(bulkGeneratePOSchema), asyncHandler(mrpController.bulkGeneratePO));
+router.post(
+  '/generate-pos-bulk',
+  authorize(UserRole.ADMIN, UserRole.PURCHASE),
+  validateBody(bulkGeneratePOSchema),
+  asyncHandler(mrpController.bulkGeneratePO)
+);
 
 /**
  * @route   POST /api/mrp/validate-bulk-po

@@ -5,7 +5,6 @@ import {
   ArrowRight,
   CheckCircle,
   Lock,
-  Calculator,
   FileText,
   Package,
   ArrowLeftRight,
@@ -36,7 +35,6 @@ import {
   getBOMItemDisplayName,
   getBOMItemCode,
   getStatusBadgeColor,
-  calculateMRPStandalone,
   deactivateOrderBOM,
   createFromCostSheet,
 } from '../services/orderBom.service';
@@ -166,34 +164,6 @@ const OrderBOMDetail = () => {
       handleApiError(err, 'Failed to regenerate BOM');
     } finally {
       setRegenerating(false);
-    }
-  };
-
-  const handleCalculateMRP = async () => {
-    if (!bom) return;
-    try {
-      const result = await calculateMRPStandalone(bom.orderId, {
-        styleId: bom.style?.id || '',
-      });
-      const totalCalc = result.created + result.updated;
-      handleApiSuccess(
-        'MRP Recalculated',
-        `${totalCalc} material requirements calculated (${result.created} created, ${result.updated} updated)`
-      );
-
-      // Show skipped items warning
-      const skipped = result.skipped || [];
-      if (skipped.length > 0) {
-        const skippedNames = skipped
-          .map((s: { componentName: string; materialType: string }) => `${s.componentName} (${s.materialType})`)
-          .join(', ');
-        handleApiError(
-          new Error(`${skipped.length} BOM item(s) skipped: ${skippedNames}. Link material masters to fix.`),
-          'MRP Skipped Items'
-        );
-      }
-    } catch (err: unknown) {
-      handleApiError(err, 'Failed to calculate MRP');
     }
   };
 
@@ -360,14 +330,6 @@ const OrderBOMDetail = () => {
               >
                 <Wrench className="h-4 w-4 mr-2" />
                 View Outsourced Work
-              </Button>
-              <Button
-                variant="outline"
-                className="border-info text-info hover:bg-info-muted"
-                onClick={handleCalculateMRP}
-              >
-                <Calculator className="h-4 w-4 mr-2" />
-                Calculate MRP
               </Button>
               <Button className="bg-info hover:bg-info" onClick={() => setLockDialogOpen(true)}>
                 <Lock className="h-4 w-4 mr-2" />

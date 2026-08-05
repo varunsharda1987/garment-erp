@@ -166,6 +166,11 @@ export interface MaterialRequirement {
   componentName?: string | null;
   fabricWidth?: number | null;
 
+  // P5.3 Provenance fields - snapshot from approved Order BOM
+  unitPrice?: number | null;
+  rateSource?: string | null;
+  orderBomItemId?: string | null;
+
   // Relations
   order?: OrderSummary | null;
   orderItem?: OrderItemSummary | null;

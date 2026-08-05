@@ -20,9 +20,10 @@ import { checkProcessingPOReadiness } from './po-status-manager.service';
 import greigeStockService from './greige-stock.service';
 import { systemSettingsService } from './system-settings.service';
 import prisma from '../config/database'; // Use singleton to avoid connection pool leak
-import { logInfo, logError } from '../utils/logger';
+import { logInfo, logError, logWarn } from '../utils/logger';
 import { generateAtomicGRNNumber } from '../utils/atomicCodeGenerator';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { getOrCreateFinishedFabric, determineFinishType } from './helpers/processing-fabric.helper';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { addCurrency, multiplyCurrency, roundToCent, subtractCurrency, toNumber } from '../utils/currency';
 import {
@@ -821,6 +822,143 @@ class GRNService {
               defectQty: defectMetersNum,
               costPerMeter: totalCostPerMeter,
             });
+          } else if (!jobWorkOrder) {
+            // P2.8: MRP-generated PROCESSING POs don't have job_work_orders.
+            // Handle them by getting requirement info and creating fabric_stock directly.
+            logInfo('PROCESSING PO without job_work_orders - using MRP fallback', { poId: po.id });
+
+            // Get the linked PROCESSING requirement via requirement_po_links
+            const poLink = await tx.requirement_po_links.findFirst({
+              where: { purchaseOrderId: po.id },
+              include: {
+                material_requirements: {
+                  include: {
+                    materials: {
+                      select: { id: true, greigeId: true, materialType: true },
+                    },
+                    orders: { select: { id: true } },
+                    order_items: {
+                      select: {
+                        styleId: true,
+                        styles: { select: { id: true, styleCode: true, buyerStyleRef: true } },
+                      },
+                    },
+                    processor: { select: { id: true, supplierCategories: true } },
+                  },
+                },
+              },
+            });
+
+            if (poLink?.material_requirements) {
+              const req = poLink.material_requirements;
+              const greigeId = req.materials?.greigeId;
+
+              if (greigeId) {
+                // Get GRN item quantities
+                const grnItem = grn.grn_items?.[0];
+                const qtyReceived = grnItem ? Number(grnItem.acceptedQuantity || grnItem.receivedQuantity || 0) : 0;
+                const receivedWidth = grnItem ? Number(grnItem.receivedWidthInches || 44) : 44;
+
+                if (qtyReceived > 0) {
+                  // Determine finish type from processor category or requirement printingType
+                  // supplierCategories is an array; check if DYEING_PRINTING is included
+                  const processorCategory = req.processor?.supplierCategories?.includes('DYEING_PRINTING')
+                    ? 'DYEING_PRINTING'
+                    : null;
+                  const finishType = determineFinishType(processorCategory, req.printingType);
+
+                  // Get or create the finished fabric_master
+                  const fabricResult = await getOrCreateFinishedFabric(
+                    {
+                      greigeId,
+                      colorName: req.colorName || 'Natural',
+                      finishType,
+                      widthInches: receivedWidth,
+                      styleCode: req.order_items?.styles?.styleCode,
+                      styleId: req.order_items?.styleId,
+                      buyerStyleRef: req.order_items?.styles?.buyerStyleRef,
+                      userId,
+                    },
+                    tx
+                  );
+
+                  // Get processing cost from requirement
+                  const processingRate = req.processingCost ? Number(req.processingCost) : 0;
+                  // TODO: Get source greige cost from linked greige requirement's GRN
+                  const sourceCost = 0; // For now, just use processing cost
+                  const totalCostPerMeter = roundToCent(addCurrency(processingRate, sourceCost)).toNumber();
+
+                  const cutableWidth = receivedWidth > 2 ? receivedWidth - 2 : receivedWidth;
+                  const fabricFinishType = finishType === 'PRINTED' ? 'PRINTED' : 'DYED';
+
+                  // Create fabric_stock
+                  await tx.fabric_stock.create({
+                    data: {
+                      id: randomUUID(),
+                      fabricId: fabricResult.fabricId,
+                      finishedWidth: receivedWidth,
+                      cutableWidth: cutableWidth,
+                      quantityAvailable: qtyReceived,
+                      quantityReserved: 0,
+                      quantityConsumed: 0,
+                      unit: 'meters',
+                      originStyleId: req.order_items?.styleId || null,
+                      status: 'AVAILABLE',
+                      stockType: 'PLANNED_STOCK',
+                      fabricFinishType: fabricFinishType,
+                      weightedAvgCost: totalCostPerMeter,
+                      purchaseCost: totalCostPerMeter,
+                      qualityGrade: processingQC?.qualityGrade || DEFAULT_QUALITY_GRADE,
+                      defectMeters: processingQC?.defectMeters || 0,
+                      receivedDate: new Date(),
+                      agingAlertSent: false,
+                      agingDays: 0,
+                      needsEmbroidery: false,
+                      createdById: userId,
+                      warehouseId: targetWarehouseId,
+                    },
+                  });
+
+                  // Sync to stock_levels
+                  await syncStockLevelQuantity(fabricResult.fabricId, qtyReceived, targetWarehouseId, 'METER', tx);
+
+                  // Update PO status to RECEIVED
+                  await tx.purchase_orders.updateMany({
+                    where: {
+                      id: po.id,
+                      status: {
+                        in: [
+                          PurchaseOrderStatus.SENT,
+                          PurchaseOrderStatus.ACKNOWLEDGED,
+                          PurchaseOrderStatus.PARTIALLY_RECEIVED,
+                          PurchaseOrderStatus.READY_FOR_PROCESSING,
+                        ],
+                      },
+                    },
+                    data: { status: PurchaseOrderStatus.RECEIVED },
+                  });
+
+                  logInfo(`MRP PROCESSING PO approved via GRN - fabric_stock created`, {
+                    grnId: id,
+                    poId: po.id,
+                    fabricId: fabricResult.fabricId,
+                    fabricCode: fabricResult.fabricCode,
+                    isNewFabric: fabricResult.isNew,
+                    qtyReceived,
+                    costPerMeter: totalCostPerMeter,
+                  });
+                }
+              } else {
+                logWarn('PROCESSING requirement has no greigeId - cannot create fabric_stock', {
+                  poId: po.id,
+                  requirementId: req.id,
+                });
+              }
+            } else {
+              logWarn('No requirement linked to PROCESSING PO - cannot create fabric_stock', {
+                poId: po.id,
+              });
+            }
           }
 
           return approved; // Skip normal stock_movements/stock_levels

@@ -308,6 +308,7 @@ model color_options {
   stock_production_order_items   stock_production_order_items[]
   sale_order_items               sale_order_items[]
   external_process_send_out_skus external_process_send_out_skus[] @relation("ExternalProcessSkuColor")
+  rejectDispositions             reject_dispositions[]            @relation("reject_disposition_color")
 
   @@index([styleId])
   @@index([colorMasterId])
@@ -1613,6 +1614,7 @@ model size_options {
   stock_production_order_items   stock_production_order_items[]
   sale_order_items               sale_order_items[]
   external_process_send_out_skus external_process_send_out_skus[] @relation("ExternalProcessSkuSize")
+  rejectDispositions             reject_dispositions[]            @relation("reject_disposition_size")
 
   @@index([styleId])
 }
@@ -3061,6 +3063,9 @@ model users {
   packagingStockCreated                                           packaging_stock[]                 @relation("packaging_stock_creator")
   machinePartStockCreated                                         machine_part_stock[]              @relation("machine_part_stock_creator")
   otherMaterialStockCreated                                       other_material_stock[]            @relation("other_material_stock_creator")
+  // P6.2.3 Reject disposition relations
+  rejectDispositionsCreated                                       reject_dispositions[]             @relation("reject_disposition_creator")
+  rejectDispositionsResolved                                      reject_dispositions[]             @relation("reject_disposition_resolver")
 
   @@index([email])
 }
@@ -3183,6 +3188,8 @@ model work_orders {
   challans                              challans[]
   // PO source links where this production run is the source
   poSourceLinks                         po_source_links[]                 @relation("POSourceProductionRun")
+  // P6.2.3 Reject dispositions - track what happens to defective pieces
+  rejectDispositions                    reject_dispositions[]             @relation("reject_disposition_wo")
 
   @@index([warehouseId])
   @@index([orderId])
@@ -5943,6 +5950,7 @@ model cutting_batches {
   transferSlips              transfer_slips[]
   additionalFabrics          cutting_batch_fabrics[]
   external_process_send_outs external_process_send_outs[] @relation("ExternalProcessCuttingBatch")
+  rejectDispositions         reject_dispositions[]        @relation("reject_disposition_cutting")
 
   @@index([workOrderId])
   @@index([componentId])
@@ -6378,6 +6386,60 @@ model quality_inspections_mfg {
   @@index([workOrderId])
   @@index([inspectionType])
   @@index([inspectionDate])
+}
+
+/// P6.2.3 Reject Dispositions - Track what happens to defective pieces
+/// Provides audit trail for rejects that currently vanish between production stages
+model reject_dispositions {
+  id          String          @id @default(uuid())
+  workOrderId String
+  stage       ProductionStage
+  defectDate  DateTime        @default(now())
+
+  // Source reference (one of these will be set based on stage)
+  cuttingBatchId   String?
+  stitchingDailyId String?
+  finishingDailyId String?
+  qcInspectionId   String?
+
+  // SKU tracking
+  colorId  String?
+  sizeId   String?
+  quantity Int // Number of defective pieces
+
+  // Defect details
+  defectType        String
+  defectDescription String?
+  severity          Severity @default(MAJOR)
+
+  // Disposition tracking
+  disposition      DefectDisposition @default(PENDING)
+  dispositionDate  DateTime?
+  dispositionNotes String?
+  resolvedById     String? // User who resolved/disposed
+
+  // Recovery tracking (for rework)
+  recoveredQuantity Int     @default(0)
+  reworkNotes       String?
+
+  // Audit
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  workOrder    work_orders      @relation("reject_disposition_wo", fields: [workOrderId], references: [id])
+  cuttingBatch cutting_batches? @relation("reject_disposition_cutting", fields: [cuttingBatchId], references: [id])
+  color        color_options?   @relation("reject_disposition_color", fields: [colorId], references: [id])
+  size         size_options?    @relation("reject_disposition_size", fields: [sizeId], references: [id])
+  createdBy    users            @relation("reject_disposition_creator", fields: [createdById], references: [id])
+  resolvedBy   users?           @relation("reject_disposition_resolver", fields: [resolvedById], references: [id])
+
+  @@index([workOrderId])
+  @@index([stage])
+  @@index([disposition])
+  @@index([defectDate])
+  @@index([cuttingBatchId])
 }
 
 /// Polybag Entry - Polybag packing tracking
@@ -8965,6 +9027,17 @@ enum ChallanStatus {
   RECEIVED
   PARTIALLY_RECEIVED
   CANCELLED
+}
+
+/// P6.2.3 Defect Disposition Status - Track what happens to rejected pieces
+enum DefectDisposition {
+  PENDING // Defect recorded, awaiting disposition decision
+  SCRAP // Written off, disposed
+  REWORK_INITIATED // Sent for repair/rework
+  REWORK_COMPLETED // Rework done, pieces recovered
+  RETURN_TO_VENDOR // Returned to supplier/processor
+  DOWNGRADE // Sold at lower grade/price
+  DISPOSED // Final state after scrap/sale
 }
 
 enum QualityStatus {

@@ -298,6 +298,12 @@ export interface MaterialRequirementResponse {
   colorName?: string | null;
   componentName?: string | null;
   fabricWidth?: number | null;
+
+  // P5.3 Provenance fields - snapshot from approved Order BOM
+  unitPrice?: number | null;
+  rateSource?: string | null;
+  orderBomItemId?: string | null;
+
   status: MaterialRequirementStatus;
   requiredDate: string;
   calculatedAt: string;

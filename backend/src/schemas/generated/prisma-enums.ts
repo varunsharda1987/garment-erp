@@ -264,6 +264,17 @@ export const ChallanStatusEnum = z.enum([
 ]);
 export type ChallanStatus = z.infer<typeof ChallanStatusEnum>;
 
+export const DefectDispositionEnum = z.enum([
+  'PENDING',
+  'SCRAP',
+  'REWORK_INITIATED',
+  'REWORK_COMPLETED',
+  'RETURN_TO_VENDOR',
+  'DOWNGRADE',
+  'DISPOSED',
+]);
+export type DefectDisposition = z.infer<typeof DefectDispositionEnum>;
+
 export const QualityStatusEnum = z.enum(['PASS', 'FAIL', 'CONDITIONAL_PASS']);
 export type QualityStatus = z.infer<typeof QualityStatusEnum>;
 

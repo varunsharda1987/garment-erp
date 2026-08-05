@@ -635,7 +635,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       const quantityPerGarment =
         Number(material.quantityPerGarment) || (material.usageCategory === 'PACKAGING' ? 1 : 0);
       const totalQuantity = quantityPerGarment * orderQuantity;
-      const wastagePercent = Number(material.extraPercentage) || 2;
+      // P3.5+ wastage unification: use system setting instead of hardcoded 2%
+      const defaultWastage = await systemSettingsService.getNumber('TRIM_DEFAULT_WASTAGE_PERCENT', 2);
+      const wastagePercent = Number(material.extraPercentage) || defaultWastage;
       const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
       // Price resolution: try cost sheet trim price, then accessory price, then material's own unitPrice
       let unitPrice = 0;
@@ -715,6 +717,11 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
 
       let fallbackSortOrder = 100; // Start after fabric items
 
+      // P3.5+ wastage unification: fetch system defaults before loops
+      const trimDefaultWastage = await systemSettingsService.getNumber('TRIM_DEFAULT_WASTAGE_PERCENT', 2);
+      const fabricDefaultWastage = await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
+      const threadDefaultCost = await systemSettingsService.getNumber('THREAD_DEFAULT_COST_PER_GARMENT', 4);
+
       // Create BOM items from trimsDetails JSON
       // BUG-ORD4 fix: Skip trims marked "Not Applicable" on cost sheet
       for (const trim of trimsDetails) {
@@ -722,7 +729,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         const materialType = this.detectMaterialTypeFromName(trim.trimName, trim.materialType);
         const quantityPerGarment = trim.trimQuantity || 1;
         const totalQuantity = quantityPerGarment * orderQuantity;
-        const wastagePercent = 2;
+        const wastagePercent = trimDefaultWastage;
         const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
         const unitPrice = trim.trimRate || 0;
         const totalCost = totalWithWastage * unitPrice;
@@ -780,7 +787,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         const materialType = this.detectMaterialTypeFromName(acc.accessoryName, acc.materialType);
         const quantityPerGarment = acc.accessoryQuantity || 1;
         const totalQuantity = quantityPerGarment * orderQuantity;
-        const wastagePercent = 2;
+        const wastagePercent = trimDefaultWastage;
         const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
         const unitPrice = acc.accessoryRate || 0;
         const totalCost = totalWithWastage * unitPrice;
@@ -812,6 +819,8 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     }
 
     // Add fabric items - prefer relational fabricItems (has fabricId), fallback to JSON for legacy
+    // P3.5+ wastage unification: fetch fabric default wastage for fabric section
+    const fabricDefaultWastageForFabrics = await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
     const hasFabricItemsRelation = costSheet.fabricItems && costSheet.fabricItems.length > 0;
 
     if (hasFabricItemsRelation) {
@@ -928,7 +937,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           );
         }
         const totalQuantity = quantityPerGarment * orderQuantity;
-        const wastagePercent = 2;
+        const wastagePercent = fabricDefaultWastageForFabrics;
         const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
 
         // Resolve fabricId: use JSON value, then direct lookup from style_fabrics (set during CAD approval)
@@ -1124,13 +1133,17 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         }
       } else {
         // No thread at all — add from relational table
+        // P3.5+ wastage unification: fetch thread defaults
+        const threadDefaultCostSetting = await systemSettingsService.getNumber('THREAD_DEFAULT_COST_PER_GARMENT', 4);
+        const threadWastageSetting = await systemSettingsService.getNumber('TRIM_DEFAULT_WASTAGE_PERCENT', 2);
+
         for (let i = 0; i < threadItems.length; i++) {
           const threadItem = threadItems[i];
           // Thread cost is typically a flat cost per garment (not qty * rate)
-          const costPerGarment = Number(threadItem.costPerGarment) || 4;
+          const costPerGarment = Number(threadItem.costPerGarment) || threadDefaultCostSetting;
           const quantityPerGarment = 1; // 1 lot per garment
           const totalQuantity = quantityPerGarment * orderQuantity;
-          const wastagePercent = 2;
+          const wastagePercent = threadWastageSetting;
           const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
           const unitPrice = costPerGarment;
           const totalCost = totalWithWastage * unitPrice;

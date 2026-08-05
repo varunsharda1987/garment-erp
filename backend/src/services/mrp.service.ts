@@ -2908,6 +2908,12 @@ function mapToResponse(req: any): MaterialRequirementResponse {
     colorName: req.colorName || null,
     componentName: req.componentName || null,
     fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
+
+    // P5.3 Provenance fields
+    unitPrice: req.unitPrice ? Number(req.unitPrice) : null,
+    rateSource: req.rateSource || null,
+    orderBomItemId: req.orderBomItemId || null,
+
     status: req.status,
     requiredDate: req.requiredDate.toISOString(),
     calculatedAt: req.calculatedAt.toISOString(),

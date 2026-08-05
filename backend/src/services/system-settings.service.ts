@@ -55,6 +55,23 @@ const DEFAULT_SETTINGS: Array<{
     description: 'Default wastage % for lace materials',
     isSystem: true,
   },
+  // P3.5+ wastage unification: add system settings for trims and thread
+  {
+    key: 'TRIM_DEFAULT_WASTAGE_PERCENT',
+    value: '2',
+    dataType: 'NUMBER',
+    category: 'DEFAULTS',
+    description: 'Default wastage % for trim materials (buttons, zippers, elastics, etc.)',
+    isSystem: true,
+  },
+  {
+    key: 'THREAD_DEFAULT_COST_PER_GARMENT',
+    value: '4',
+    dataType: 'NUMBER',
+    category: 'DEFAULTS',
+    description: 'Default thread cost per garment (INR) when not specified in cost sheet',
+    isSystem: true,
+  },
   {
     key: 'LABEL_DEFAULT_EXTRA_PERCENT',
     value: '5',

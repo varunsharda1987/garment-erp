@@ -305,6 +305,8 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   productionTracking: 'productionTracking',
   materialRequisitions: 'materialRequisitions',
   materialRequisitionItems: 'items',
+  // P6.2.3 Reject ledger
+  rejectDispositions: 'rejectDispositions',
 
   // External Process (Smocking, Handwork, Embroidery Piece-Level)
   externalProcessSendOuts: 'externalProcessSendOuts',

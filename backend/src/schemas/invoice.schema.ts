@@ -106,6 +106,17 @@ export const updateInvoiceSchema = z.object({
 });
 
 /**
+ * P7.4: Create invoice from delivery note
+ * POST /api/invoices/from-delivery-note
+ */
+export const createFromDeliveryNoteSchema = z.object({
+  deliveryNoteId: z.string().uuid('Invalid delivery note ID format'),
+  dueDate: z.coerce.date(),
+  invoiceDate: z.coerce.date().optional(),
+  remarks: z.string().max(500, 'Remarks must be less than 500 characters').trim().optional(),
+});
+
+/**
  * Record payment request schema
  * POST /api/invoices/:id/payments
  */

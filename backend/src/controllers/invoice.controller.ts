@@ -136,3 +136,23 @@ export const updateOverdueInvoices = async (req: Request, res: Response): Promis
     data: { count },
   });
 };
+
+/**
+ * P7.4: Create invoice from a delivered delivery note
+ * POST /api/invoices/from-delivery-note
+ */
+export const createFromDeliveryNote = async (req: Request, res: Response): Promise<void> => {
+  const { deliveryNoteId, dueDate, invoiceDate, remarks } = req.body;
+
+  const invoice = await invoiceService.createFromDeliveryNote(deliveryNoteId, {
+    dueDate: new Date(dueDate),
+    invoiceDate: invoiceDate ? new Date(invoiceDate) : undefined,
+    remarks,
+    createdById: req.user!.userId,
+  });
+
+  res.status(201).json({
+    data: invoice,
+    message: 'Invoice created from delivery note',
+  });
+};

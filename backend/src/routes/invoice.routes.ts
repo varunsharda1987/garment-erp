@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import {
   createInvoice,
+  createFromDeliveryNote,
   getAllInvoices,
   getInvoiceById,
   updateInvoice,
@@ -14,6 +15,7 @@ import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createInvoiceSchema,
+  createFromDeliveryNoteSchema,
   updateInvoiceSchema,
   recordPaymentSchema,
   invoiceQuerySchema,
@@ -40,6 +42,18 @@ router.get('/summary', asyncHandler(getInvoiceSummary));
  * @access  Protected - Admin only
  */
 router.post('/update-overdue', authorize(UserRole.ADMIN), asyncHandler(updateOverdueInvoices));
+
+/**
+ * @route   POST /api/invoices/from-delivery-note
+ * @desc    P7.4: Create invoice from delivered delivery note (prefills items)
+ * @access  Protected - Admin, Accountant
+ */
+router.post(
+  '/from-delivery-note',
+  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
+  validateBody(createFromDeliveryNoteSchema),
+  asyncHandler(createFromDeliveryNote)
+);
 
 /**
  * @route   POST /api/invoices

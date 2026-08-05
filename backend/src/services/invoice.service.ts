@@ -449,6 +449,226 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
   }
 
   /**
+   * P7.4: Create invoice from a delivered delivery note.
+   * Prefills items from DN quantities, links to saleOrderId if present.
+   */
+  async createFromDeliveryNote(
+    deliveryNoteId: string,
+    data: {
+      dueDate: Date;
+      invoiceDate?: Date;
+      remarks?: string;
+      createdById: string;
+    }
+  ): Promise<invoices> {
+    const dn = await this.prisma.delivery_notes.findUnique({
+      where: { id: deliveryNoteId },
+      include: {
+        delivery_note_items: {
+          include: {
+            styles: { select: { id: true, styleCode: true, styleName: true, hsnCode: true } },
+            color_options: { select: { colorName: true } },
+            size_options: { select: { sizeName: true } },
+          },
+        },
+        customers: { select: { id: true, billingStateId: true } },
+        sale_orders: { select: { id: true } },
+      },
+    });
+
+    if (!dn) {
+      throw new NotFoundError('Delivery Note', deliveryNoteId);
+    }
+
+    if (dn.status !== 'DELIVERED') {
+      throw new ValidationError('Can only create invoice from DELIVERED delivery notes');
+    }
+
+    // Check if invoice already exists for this DN
+    // Note: deliveryNoteId added in migration 20260805100000 — cast until prisma generate runs
+    const existingInvoice = await this.prisma.invoices.findFirst({
+      where: { deliveryNoteId } as any,
+    });
+    if (existingInvoice) {
+      throw new ConflictError(`Invoice ${existingInvoice.invoiceNumber} already exists for this delivery note`);
+    }
+
+    // Build items from DN items (price comes from sale order item or style default)
+    const items: InvoiceItemDTO[] = [];
+    for (const dnItem of dn.delivery_note_items) {
+      // Try to get unit price from sale order item
+      let unitPrice = 0;
+      if (dnItem.saleOrderItemId) {
+        const soItem = await this.prisma.sale_order_items.findUnique({
+          where: { id: dnItem.saleOrderItemId },
+          select: { unitPrice: true },
+        });
+        unitPrice = soItem ? parseFloat(soItem.unitPrice.toString()) : 0;
+      }
+
+      const description = [
+        dnItem.styles?.styleCode || '',
+        dnItem.styles?.styleName || '',
+        dnItem.color_options?.colorName ? `(${dnItem.color_options.colorName})` : '',
+        dnItem.size_options?.sizeName ? `Size: ${dnItem.size_options.sizeName}` : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+
+      items.push({
+        styleId: dnItem.styleId,
+        description,
+        hsnCode: dnItem.styles?.hsnCode ?? undefined,
+        quantity: dnItem.quantity,
+        unitPrice,
+      });
+    }
+
+    // Create invoice via the existing create method, adding deliveryNoteId + saleOrderId
+    const invoiceNumber = await this.generateInvoiceNumber();
+    const placeOfSupplyId = dn.customers?.billingStateId;
+
+    if (!placeOfSupplyId) {
+      throw new ValidationError('Customer must have a billing state for GST calculation');
+    }
+
+    const isInterstate = await gstService.isInterstateByStateId(placeOfSupplyId);
+    const invoiceDate = data.invoiceDate || new Date();
+    const status = new Date() > data.dueDate ? 'OVERDUE' : 'PENDING';
+
+    // Build line items with GST
+    const itemsToCreate: Array<{
+      id: string;
+      invoiceId: string;
+      styleId: string | null;
+      description: string;
+      hsnCode: string | null;
+      quantity: number;
+      unitPrice: number;
+      totalPrice: number;
+      gstRate: number;
+      cgstRate: number;
+      cgstAmount: number;
+      sgstRate: number;
+      sgstAmount: number;
+      igstRate: number;
+      igstAmount: number;
+      taxAmount: number;
+      remarks: string | null;
+    }> = [];
+
+    for (const item of items) {
+      const totalPrice = roundToCent(multiplyCurrency(item.quantity, item.unitPrice)).toNumber();
+      const gst = await gstService.calculateLineItemGST({
+        lineTotal: totalPrice,
+        hsnSacCode: item.hsnCode ?? null,
+        isInterstate,
+        unitPrice: item.unitPrice,
+      });
+
+      itemsToCreate.push({
+        id: randomUUID(),
+        invoiceId: '',
+        styleId: item.styleId || null,
+        description: item.description,
+        hsnCode: gst.hsnCode,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice,
+        gstRate: gst.gstRate,
+        cgstRate: gst.cgstRate,
+        cgstAmount: gst.cgstAmount,
+        sgstRate: gst.sgstRate,
+        sgstAmount: gst.sgstAmount,
+        igstRate: gst.igstRate,
+        igstAmount: gst.igstAmount,
+        taxAmount: gst.taxAmount,
+        remarks: null,
+      });
+    }
+
+    const totals = gstService.calculateTotals(
+      itemsToCreate.map((item) => ({
+        lineTotal: item.totalPrice,
+        hsnCode: item.hsnCode,
+        gstRate: item.gstRate,
+        cgstRate: item.cgstRate,
+        cgstAmount: item.cgstAmount,
+        sgstRate: item.sgstRate,
+        sgstAmount: item.sgstAmount,
+        igstRate: item.igstRate,
+        igstAmount: item.igstAmount,
+        taxAmount: item.taxAmount,
+      }))
+    );
+
+    const subtotal = totals.subtotal;
+    const totalTax = totals.totalTax;
+    const totalAmount = roundToCent(addCurrency(subtotal, totalTax)).toNumber();
+    const balanceAmount = totalAmount;
+
+    // Note: deliveryNoteId added in migration 20260805100000 — cast until prisma generate runs
+    const invoiceData = {
+      id: randomUUID(),
+      invoiceNumber,
+      orderId: dn.orderId,
+      saleOrderId: dn.sale_orders?.id ?? dn.saleOrderId ?? null,
+      deliveryNoteId,
+      customerId: dn.customerId,
+      invoiceDate,
+      dueDate: data.dueDate,
+      status,
+      subtotal,
+      taxAmount: totalTax,
+      totalAmount,
+      paidAmount: 0,
+      balanceAmount,
+      placeOfSupplyId,
+      cgstAmount: totals.totalCgst,
+      sgstAmount: totals.totalSgst,
+      igstAmount: totals.totalIgst,
+      cgstRate: itemsToCreate[0]?.cgstRate ?? 0,
+      sgstRate: itemsToCreate[0]?.sgstRate ?? 0,
+      igstRate: itemsToCreate[0]?.igstRate ?? 0,
+      isInterstate,
+      remarks: data.remarks ?? null,
+      createdById: data.createdById,
+      invoice_items: {
+        create: itemsToCreate.map((item) => ({
+          id: item.id,
+          styleId: item.styleId,
+          description: item.description,
+          hsnCode: item.hsnCode,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice,
+          gstRate: item.gstRate,
+          cgstRate: item.cgstRate,
+          cgstAmount: item.cgstAmount,
+          sgstRate: item.sgstRate,
+          sgstAmount: item.sgstAmount,
+          igstRate: item.igstRate,
+          igstAmount: item.igstAmount,
+          taxAmount: item.taxAmount,
+          remarks: item.remarks,
+        })),
+      },
+    };
+    const invoice = await this.prisma.invoices.create({
+      data: invoiceData as any,
+      include: this.getDefaultIncludes(),
+    });
+
+    logInfo(`Invoice created from delivery note: ${invoiceNumber}`, {
+      deliveryNoteId,
+      saleOrderId: dn.saleOrderId,
+      itemCount: items.length,
+    });
+
+    return invoice;
+  }
+
+  /**
    * Get all invoices with pagination and filters
    */
   async getInvoices(options: InvoiceQueryOptions): Promise<PaginatedResult<invoices>> {

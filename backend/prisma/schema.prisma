@@ -717,6 +717,7 @@ model delivery_notes {
   sale_orders         sale_orders?                   @relation(fields: [saleOrderId], references: [id])
   delivery_notes_ext  delivery_notes_ext?
   fg_allocations      delivery_note_fg_allocations[]
+  invoices            invoices[] // P7.4: Back-relation for invoice→DN link
 
   @@index([orderId])
   @@index([saleOrderId])
@@ -868,6 +869,7 @@ model invoices {
   invoiceNumber    String          @unique
   orderId          String?
   saleOrderId      String?
+  deliveryNoteId   String? // P7.4: Link invoice to delivery note for dispatch→invoice traceability
   customerId       String
   invoiceDate      DateTime        @default(now())
   dueDate          DateTime
@@ -907,6 +909,7 @@ model invoices {
   customers        customers       @relation(fields: [customerId], references: [id])
   orders           orders?         @relation(fields: [orderId], references: [id])
   sale_orders      sale_orders?    @relation(fields: [saleOrderId], references: [id])
+  delivery_note    delivery_notes? @relation(fields: [deliveryNoteId], references: [id])
   placeOfSupply    indian_states?  @relation("InvoicePlaceOfSupply", fields: [placeOfSupplyId], references: [id])
   payments         payments[]
   invoice_items    invoice_items[]
@@ -916,6 +919,7 @@ model invoices {
   @@index([invoiceNumber])
   @@index([orderId])
   @@index([saleOrderId])
+  @@index([deliveryNoteId])
   @@index([placeOfSupplyId])
 }
 

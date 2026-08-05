@@ -35,6 +35,8 @@ import {
   getPurchaseOrderById,
   updatePurchaseOrder,
   sendPurchaseOrder,
+  checkForDuplicates,
+  type DuplicateCheckResult,
 } from '@/services/purchaseOrder.service';
 import type {
   CreatePurchaseOrderRequest,
@@ -281,6 +283,10 @@ export default function PurchaseOrderForm() {
   const [showMaterialPicker, setShowMaterialPicker] = useState(false);
   // For PO preview modal
   const [showPreview, setShowPreview] = useState(false);
+  // Duplicate warning dialog
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+  const [duplicateResult, setDuplicateResult] = useState<DuplicateCheckResult | null>(null);
+  const [pendingSave, setPendingSave] = useState<{ shouldSend: boolean } | null>(null);
   const [materialSearch, setMaterialSearch] = useState('');
   const [quickAddMaterialId, setQuickAddMaterialId] = useState('');
   const [materialDisplayLimit, setMaterialDisplayLimit] = useState(50);
@@ -930,9 +936,8 @@ export default function PurchaseOrderForm() {
     return true;
   };
 
-  const handleSave = async (shouldSend: boolean = false) => {
-    if (!validateForm()) return;
-
+  // Core save logic - called after duplicate check passes or user confirms
+  const executeSave = async (shouldSend: boolean = false) => {
     setIsSaving(true);
     try {
       const itemsData: CreatePurchaseOrderItemRequest[] = items.map((item) => ({
@@ -989,6 +994,50 @@ export default function PurchaseOrderForm() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSave = async (shouldSend: boolean = false) => {
+    if (!validateForm()) return;
+
+    // For new POs, check for duplicates first
+    if (!isEditMode) {
+      const materialIds = items.filter((item) => item.materialId).map((item) => item.materialId);
+      if (materialIds.length > 0) {
+        setIsSaving(true);
+        try {
+          const result = await checkForDuplicates(materialIds);
+          if (result.hasDuplicates) {
+            setDuplicateResult(result);
+            setPendingSave({ shouldSend });
+            setShowDuplicateWarning(true);
+            setIsSaving(false);
+            return;
+          }
+        } catch (err) {
+          // allow-silent-catch: duplicate check is advisory - failure shouldn't block PO creation
+          console.warn('Duplicate check failed, proceeding:', err);
+        }
+        setIsSaving(false);
+      }
+    }
+
+    // No duplicates or edit mode - proceed with save
+    await executeSave(shouldSend);
+  };
+
+  const handleProceedWithDuplicates = async () => {
+    setShowDuplicateWarning(false);
+    if (pendingSave) {
+      await executeSave(pendingSave.shouldSend);
+    }
+    setPendingSave(null);
+    setDuplicateResult(null);
+  };
+
+  const handleCancelDuplicateWarning = () => {
+    setShowDuplicateWarning(false);
+    setPendingSave(null);
+    setDuplicateResult(null);
   };
 
   const filteredMaterials = materials.filter(
@@ -2252,6 +2301,49 @@ export default function PurchaseOrderForm() {
             >
               <Check className="h-4 w-4 mr-2" />
               Confirm & Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Duplicate Warning Dialog */}
+      <Dialog open={showDuplicateWarning} onOpenChange={setShowDuplicateWarning}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-warning">
+              <Info className="h-5 w-5" />
+              Duplicate PO Warning
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-muted-foreground mb-4">
+              The following materials already have open purchase orders. Creating this PO may result in duplicate
+              ordering.
+            </p>
+            {duplicateResult?.duplicates.map((dup) => (
+              <div key={dup.materialId} className="mb-3 p-3 bg-muted rounded-lg">
+                <p className="font-medium text-sm">{dup.materialName || dup.materialId}</p>
+                <div className="mt-2 space-y-1">
+                  {dup.existingPOs.map((po) => (
+                    <div key={po.poId} className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        {po.poNumber} ({po.supplierName || 'Unknown supplier'})
+                      </span>
+                      <Badge variant="outline" className="text-[10px]">
+                        {po.status} - {po.pendingQuantity} pending
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={handleCancelDuplicateWarning}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleProceedWithDuplicates}>
+              Order Anyway
             </Button>
           </DialogFooter>
         </DialogContent>

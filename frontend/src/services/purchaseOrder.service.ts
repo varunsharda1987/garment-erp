@@ -202,6 +202,45 @@ export const amendDeliveryLocation = async (
 };
 
 // ============================================
+// Duplicate Check
+// ============================================
+
+export interface DuplicatePOInfo {
+  poId: string;
+  poNumber: string;
+  source: string | null;
+  status: string;
+  orderedQuantity: number;
+  pendingQuantity: number;
+  supplierId: string;
+  supplierName?: string;
+}
+
+export interface DuplicateCheckResult {
+  hasDuplicates: boolean;
+  duplicates: {
+    materialId: string;
+    materialName?: string;
+    existingPOs: DuplicatePOInfo[];
+  }[];
+}
+
+/**
+ * Check for duplicate POs for given materials
+ * Returns existing open POs that contain the same materials
+ */
+export const checkForDuplicates = async (
+  materialIds: string[],
+  excludePOIds?: string[]
+): Promise<DuplicateCheckResult> => {
+  const { data } = await api.post<{ success: boolean; data: DuplicateCheckResult }>(`${BASE_URL}/check-duplicates`, {
+    materialIds,
+    excludePOIds,
+  });
+  return data.data;
+};
+
+// ============================================
 // Export all functions as default object
 // ============================================
 
@@ -222,4 +261,5 @@ export default {
   acknowledgePurchaseOrder,
   cancelPurchaseOrder,
   amendDeliveryLocation,
+  checkForDuplicates,
 };

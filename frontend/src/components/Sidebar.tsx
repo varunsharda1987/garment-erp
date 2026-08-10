@@ -1,71 +1,13 @@
 import { NavLink } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Building2,
-  Package,
-  UserCircle,
-  Shirt,
-  ClipboardList,
-  ListChecks,
-  Calculator,
-  Warehouse,
-  BarChart3,
-  ClipboardCheck,
-  Wallet,
-  ChevronDown,
-  ChevronRight,
-  Factory,
-  Sparkles,
-  Ruler,
-  FileSpreadsheet,
-  Scissors,
-  Box,
-  Layers,
-  ShoppingCart,
-  PackageOpen,
-  CalendarClock,
-  FileBarChart,
-  Shuffle,
-  PackageX,
-  ShieldAlert,
-  Truck,
-  Palette,
-  Cog,
-  Beaker,
-  Droplets,
-  CheckSquare,
-  Send,
-  TestTube,
-  PackagePlus,
-  Scale,
-  Wrench,
-  Activity,
-  FlaskConical,
-  FolderTree,
-  Tag,
-  BookOpen,
-  Settings,
-  PackageSearch,
-  Lock,
-  Puzzle,
-  Calendar,
-  Users,
-  Receipt,
-  BookImage,
-  FileText,
-  UserCheck,
-  Search,
-  Star,
-  X,
-  Hash,
-  MessageCircle,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight, Search, Sparkles, Star, X } from 'lucide-react';
 import { useState, useMemo, type ReactNode } from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useUIPreferences } from '@/stores/ui-preferences.store';
+import { getNavIconComponent } from '@/config/nav-icons';
 import {
   TOP_LEVEL_ITEMS,
   NAV_GROUPS,
+  SEARCH_ONLY_ITEMS,
   getAllFlatNavItems,
   type NavItem,
   type NavItemOrDivider,
@@ -76,66 +18,8 @@ interface SidebarProps {
   isOpen: boolean;
 }
 
-// Map icon name strings to React components
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard,
-  Building2,
-  Package,
-  UserCircle,
-  Shirt,
-  ClipboardList,
-  ListChecks,
-  Calculator,
-  Warehouse,
-  BarChart3,
-  ClipboardCheck,
-  Wallet,
-  Factory,
-  Sparkles,
-  Ruler,
-  FileSpreadsheet,
-  Scissors,
-  Box,
-  Layers,
-  ShoppingCart,
-  PackageOpen,
-  CalendarClock,
-  FileBarChart,
-  Shuffle,
-  PackageX,
-  ShieldAlert,
-  Truck,
-  Palette,
-  Cog,
-  Beaker,
-  Droplets,
-  CheckSquare,
-  Send,
-  TestTube,
-  PackagePlus,
-  Scale,
-  Wrench,
-  Activity,
-  FlaskConical,
-  FolderTree,
-  Tag,
-  BookOpen,
-  Settings,
-  PackageSearch,
-  Lock,
-  Puzzle,
-  Calendar,
-  Users,
-  Receipt,
-  BookImage,
-  FileText,
-  UserCheck,
-  Hash,
-  MessageCircle,
-};
-
 function getIcon(name: string, size: 'sm' | 'md' = 'sm'): ReactNode {
-  const Icon = ICON_MAP[name];
+  const Icon = getNavIconComponent(name);
   if (!Icon) return null;
   const cls = size === 'md' ? 'h-5 w-5' : 'h-4 w-4';
   return <Icon className={cls} />;
@@ -184,7 +68,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       .filter((group) => group.items.some((item) => isNavItem(item)))
       .map((group) => ({
         ...group,
-        items: cleanDividers(group.items),
+        items: cleanDividers(cleanEmptySubHeaders(group.items)),
       }));
   }, [can]);
 
@@ -211,6 +95,17 @@ export default function Sidebar({ isOpen }: SidebarProps) {
       }))
       .filter((group) => group.items.length > 0);
   }, [filteredNavGroups, searchLower, isSearching]);
+
+  // Demoted (search-only) pages that match the filter — shown under "More pages"
+  const searchFilteredHidden = useMemo(() => {
+    if (!isSearching) return [];
+    return SEARCH_ONLY_ITEMS.filter(
+      (item) =>
+        (!item.permission || can(item.permission)) &&
+        (item.title.toLowerCase().includes(searchLower) ||
+          item.keywords?.some((keyword) => keyword.includes(searchLower)))
+    );
+  }, [isSearching, searchLower, can]);
 
   // Pinned items resolved
   const resolvedPinnedItems = useMemo(() => {
@@ -369,6 +264,33 @@ export default function Sidebar({ isOpen }: SidebarProps) {
           </div>
         )}
 
+        {/* Search - demoted pages that match, under a "More pages" heading */}
+        {isSearching && searchFilteredHidden.length > 0 && (
+          <div className="mb-2">
+            <div className="px-3 py-1 mt-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              More pages
+            </div>
+            <div className="mt-1 ml-2 space-y-0.5">
+              {searchFilteredHidden.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                      isActive
+                        ? 'bg-sidebar-accent/10 text-primary font-medium'
+                        : 'text-muted-foreground hover:bg-muted'
+                    }`
+                  }
+                >
+                  {getIcon(item.iconName)}
+                  <span className="truncate">{item.title}</span>
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Search - show AI Assistant if it matches */}
         {isSearching && can('aiAssistant') && 'ai assistant'.includes(searchLower) && (
           <NavLink
@@ -468,6 +390,9 @@ export default function Sidebar({ isOpen }: SidebarProps) {
         >
           {getIcon(item.iconName)}
           <span className="truncate">{item.title}</span>
+          {item.badge && (
+            <span className="ml-auto text-xs bg-accent/15 text-accent px-2 py-0.5 rounded-full">{item.badge}</span>
+          )}
         </NavLink>
         {!pinnedItems.includes(item.path) && (
           <button
@@ -484,14 +409,31 @@ export default function Sidebar({ isOpen }: SidebarProps) {
 }
 
 /**
- * Remove orphan dividers (dividers at start, end, or consecutive)
- * Also removes dividers adjacent to sub-headers
+ * Remove sub-headers whose section is empty after permission filtering
+ * (a sub-header's section ends at the next divider, sub-header, or end).
+ */
+function cleanEmptySubHeaders(items: NavItemOrDivider[]): NavItemOrDivider[] {
+  return items.filter((item, index, arr) => {
+    if (!isSubHeader(item)) return true;
+    const next = arr[index + 1];
+    return next !== undefined && next !== 'divider' && !isSubHeader(next);
+  });
+}
+
+/**
+ * Remove orphan dividers (dividers at start, end, or consecutive).
+ * Single pass so removals cascade (e.g. two dividers left trailing).
  */
 function cleanDividers(items: NavItemOrDivider[]): NavItemOrDivider[] {
-  return items.filter((item, index, arr) => {
-    if (item !== 'divider') return true;
-    if (index === 0 || index === arr.length - 1) return false;
-    if (arr[index - 1] === 'divider') return false;
-    return true;
-  });
+  const result: NavItemOrDivider[] = [];
+  for (const item of items) {
+    if (item === 'divider' && (result.length === 0 || result[result.length - 1] === 'divider')) {
+      continue;
+    }
+    result.push(item);
+  }
+  while (result.length > 0 && result[result.length - 1] === 'divider') {
+    result.pop();
+  }
+  return result;
 }

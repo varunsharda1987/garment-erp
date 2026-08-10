@@ -1,60 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  Building2,
-  Package,
-  UserCircle,
-  Shirt,
-  ClipboardList,
-  ListChecks,
-  Calculator,
-  Warehouse,
-  BarChart3,
-  ClipboardCheck,
-  Wallet,
-  Factory,
-  Sparkles,
-  Ruler,
-  FileSpreadsheet,
-  Scissors,
-  Box,
-  Layers,
-  ShoppingCart,
-  PackageOpen,
-  CalendarClock,
-  FileBarChart,
-  Shuffle,
-  PackageX,
-  ShieldAlert,
-  Truck,
-  Palette,
-  Cog,
-  Beaker,
-  Droplets,
-  CheckSquare,
-  Send,
-  TestTube,
-  PackagePlus,
-  Scale,
-  Wrench,
-  Activity,
-  FlaskConical,
-  FolderTree,
-  Tag,
-  BookOpen,
-  Settings,
-  PackageSearch,
-  Lock,
-  Puzzle,
-  Calendar,
-  Users,
-  Receipt,
-  BookImage,
-  FileText,
-  UserCheck,
-} from 'lucide-react';
-import {
   CommandDialog,
   CommandInput,
   CommandList,
@@ -65,62 +11,8 @@ import {
 } from '@/components/ui/command';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useUIPreferences } from '@/stores/ui-preferences.store';
+import { getNavIconComponent } from '@/config/nav-icons';
 import { getAllFlatNavItems } from '@/config/navigation';
-
-const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard,
-  Building2,
-  Package,
-  UserCircle,
-  Shirt,
-  ClipboardList,
-  ListChecks,
-  Calculator,
-  Warehouse,
-  BarChart3,
-  ClipboardCheck,
-  Wallet,
-  Factory,
-  Sparkles,
-  Ruler,
-  FileSpreadsheet,
-  Scissors,
-  Box,
-  Layers,
-  ShoppingCart,
-  PackageOpen,
-  CalendarClock,
-  FileBarChart,
-  Shuffle,
-  PackageX,
-  ShieldAlert,
-  Truck,
-  Palette,
-  Cog,
-  Beaker,
-  Droplets,
-  CheckSquare,
-  Send,
-  TestTube,
-  PackagePlus,
-  Scale,
-  Wrench,
-  Activity,
-  FlaskConical,
-  FolderTree,
-  Tag,
-  BookOpen,
-  Settings,
-  PackageSearch,
-  Lock,
-  Puzzle,
-  Calendar,
-  Users,
-  Receipt,
-  BookImage,
-  FileText,
-  UserCheck,
-};
 
 export default function CommandPalette() {
   const navigate = useNavigate();
@@ -170,7 +62,7 @@ export default function CommandPalette() {
             {groupIndex > 0 && <CommandSeparator />}
             <CommandGroup heading={group}>
               {items.map((item) => {
-                const Icon = ICON_MAP[item.iconName];
+                const Icon = getNavIconComponent(item.iconName);
                 return (
                   <CommandItem
                     key={item.path}

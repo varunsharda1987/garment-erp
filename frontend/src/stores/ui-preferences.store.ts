@@ -23,10 +23,41 @@ interface UIPreferencesState {
 
 const MAX_PINNED_ITEMS = 7;
 
+// v0 → v1 (2026-08 sidebar consolidation): merged groups were renamed, so saved
+// expanded-group titles must be mapped or that state silently resets for users.
+const GROUP_RENAMES_V1: Record<string, string | null> = {
+  'Orders & Planning': 'Orders & Sales',
+  'Sales & Billing': 'Orders & Sales',
+  Messaging: 'Team & Settings',
+  Administration: 'Team & Settings',
+  Design: 'Pre-Production',
+  // Dropped: the Process Guide group was dissolved into Team & Settings; don't
+  // auto-expand the whole admin section just because it was open.
+  'Process Guide': null,
+};
+
+interface PersistedUIPreferences {
+  expandedGroups?: string[];
+  collapsedSubSections?: string[];
+  pinnedItems?: string[];
+}
+
+export function migrateUIPreferences(persisted: unknown, version: number): PersistedUIPreferences {
+  const state = (persisted ?? {}) as PersistedUIPreferences;
+  if (version >= 1) return state;
+  const migrated = (state.expandedGroups ?? [])
+    .map((title) => (title in GROUP_RENAMES_V1 ? GROUP_RENAMES_V1[title] : title))
+    .filter((title): title is string => title !== null);
+  return {
+    ...state,
+    expandedGroups: [...new Set(migrated)],
+  };
+}
+
 export const useUIPreferences = create<UIPreferencesState>()(
   persist(
     (set, get) => ({
-      expandedGroups: ['Orders & Planning'],
+      expandedGroups: ['Orders & Sales'],
       collapsedSubSections: ['Materials & Masters::Configuration'],
       pinnedItems: [],
       commandPaletteOpen: false,
@@ -77,6 +108,10 @@ export const useUIPreferences = create<UIPreferencesState>()(
     }),
     {
       name: 'ui-preferences',
+      version: 1,
+      // Persisted shape is the partialized subset; zustand shallow-merges it
+      // over defaults on rehydrate, so returning a partial is safe.
+      migrate: (persisted, version) => migrateUIPreferences(persisted, version) as UIPreferencesState,
       partialize: (state) => ({
         expandedGroups: state.expandedGroups,
         collapsedSubSections: state.collapsedSubSections,

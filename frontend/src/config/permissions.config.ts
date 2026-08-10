@@ -152,6 +152,10 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   '/manufacturing/dispatch': 'dispatch',
   '/processing/job-work': 'jobWork',
   '/processing/batches': 'processingBatches',
+  '/job-work-orders': 'jobWork',
+
+  // Tally integration (admin tools; prefix match covers all /settings/tally/* sub-pages)
+  '/settings/tally': 'admin',
 
   // Inventory
   '/inventory/dashboard': 'inventoryDashboard',

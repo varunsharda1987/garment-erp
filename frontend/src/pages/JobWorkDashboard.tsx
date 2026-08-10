@@ -1,12 +1,15 @@
 // Job Work Dashboard - Overview of all job work processing
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import processingBatchService from '../services/processingBatch.service';
 import type { JobWorkSummary, ProcessingBatch } from '../types/processing.types';
 import { handleApiError } from '@/lib/api-error-handler';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function JobWorkDashboard() {
   const navigate = useNavigate();
+  const { can } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<JobWorkSummary | null>(null);
@@ -53,9 +56,14 @@ export default function JobWorkDashboard() {
 
   return (
     <div className="container mx-auto py-6">
-      <div className="mb-8">
-        <h2 className="text-3xl font-display font-medium text-foreground mb-2">Job Work Dashboard</h2>
-        <p className="text-muted-foreground">Overview of materials at processors</p>
+      <div className="mb-8 flex items-start justify-between">
+        <div>
+          <h2 className="text-3xl font-display font-medium text-foreground mb-2">Job Work Dashboard</h2>
+          <p className="text-muted-foreground">Overview of materials at processors</p>
+        </div>
+        <Button variant="outline" onClick={() => navigate('/job-work-orders')}>
+          Job Work Orders
+        </Button>
       </div>
 
       {error && (
@@ -94,12 +102,14 @@ export default function JobWorkDashboard() {
         <div className="p-6 border-b">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Active Processing Batches</h3>
-            <button
-              onClick={() => navigate('/processing/batches')}
-              className="px-4 py-2 bg-primary text-white rounded hover:bg-primary"
-            >
-              View All Batches
-            </button>
+            {can('processingBatches') && (
+              <button
+                onClick={() => navigate('/processing/batches')}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary"
+              >
+                View All Batches
+              </button>
+            )}
           </div>
         </div>
         <div className="p-6">

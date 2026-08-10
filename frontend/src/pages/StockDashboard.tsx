@@ -21,9 +21,11 @@ import type { StockSummaryByType } from '../services/stockLevel.service';
 import { logError } from '../lib/logger';
 import { formatCurrencyWhole } from '@/lib/currency';
 import { formatMaterialType } from '@/lib/formatters';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function StockDashboard() {
   const navigate = useNavigate();
+  const { can } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -275,6 +277,39 @@ export default function StockDashboard() {
         </CardContent>
       </Card>
 
+      {/* Specialty Stock — lace and embroidery live in their own modules */}
+      <Card className="mb-6 border-l-4 border-l-purple-500">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Layers className="h-5 w-5 text-accent" />
+            <CardTitle>Specialty Stock</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+            <Button variant="outline" className="h-auto py-4" onClick={() => navigate('/lace-stock')}>
+              Lace Stock
+            </Button>
+            <Button variant="outline" className="h-auto py-4" onClick={() => navigate('/lace-lab-dips')}>
+              Lace Lab Dips
+            </Button>
+            <Button variant="outline" className="h-auto py-4" onClick={() => navigate('/lace-defects')}>
+              Lace Defects
+            </Button>
+            {can('embroideryStock') && (
+              <>
+                <Button variant="outline" className="h-auto py-4" onClick={() => navigate('/embroidery-stock')}>
+                  Embroidery Stock
+                </Button>
+                <Button variant="outline" className="h-auto py-4" onClick={() => navigate('/embroidery-stock/pieces')}>
+                  Embroidery Pieces
+                </Button>
+              </>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Combined Low Stock & Aging Alerts */}
       {totalAlerts > 0 && (
         <Card className="mb-6">
@@ -377,7 +412,7 @@ export default function StockDashboard() {
           <CardTitle>Quick Actions</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <Button variant="outline" className="h-auto py-4" onClick={() => navigate('/inventory/movements/stock-in')}>
               Stock IN
             </Button>
@@ -391,8 +426,18 @@ export default function StockDashboard() {
             <Button variant="outline" className="h-auto py-4" onClick={() => navigate('/inventory/movements/transfer')}>
               Transfer
             </Button>
+            <Button
+              variant="outline"
+              className="h-auto py-4"
+              onClick={() => navigate('/inventory/movements/adjustment')}
+            >
+              Adjustment
+            </Button>
+            <Button variant="outline" className="h-auto py-4" onClick={() => navigate('/inventory/stock-counts')}>
+              Stock Counts
+            </Button>
             <Button variant="outline" className="h-auto py-4" onClick={() => navigate('/inventory/stock-counts/new')}>
-              Stock Count
+              New Stock Count
             </Button>
           </div>
         </CardContent>

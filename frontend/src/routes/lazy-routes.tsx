@@ -47,6 +47,16 @@ export const UserForm = lazy(() => import('../pages/UserForm'));
 export const PendingUsersPage = lazy(() => import('../pages/PendingUsersPage'));
 export const Profile = lazy(() => import('../pages/Profile'));
 export const Settings = lazy(() => import('../pages/Settings'));
+export const TallySettings = lazy(() => import('../pages/TallySettings'));
+export const TallyCustomers = lazy(() => import('../pages/TallyCustomers'));
+export const TallyInvoices = lazy(() => import('../pages/TallyInvoices'));
+export const TallyOutstanding = lazy(() => import('../pages/TallyOutstanding'));
+export const TallyCreditNotes = lazy(() => import('../pages/TallyCreditNotes'));
+export const TallySuppliers = lazy(() => import('../pages/TallySuppliers'));
+export const TallyDebitNotes = lazy(() => import('../pages/TallyDebitNotes'));
+export const TallyPayments = lazy(() => import('../pages/TallyPayments'));
+export const EInvoiceSettings = lazy(() => import('../pages/EInvoiceSettings'));
+export const EInvoiceInvoices = lazy(() => import('../pages/EInvoiceInvoices'));
 export const TemplateManager = lazy(() => import('../pages/TemplateManager'));
 
 // ============================================================================
@@ -157,6 +167,7 @@ export const DebitNoteList = lazy(() => import('../pages/DebitNoteList'));
 export const GSTReports = lazy(() => import('../pages/GSTReports'));
 export const TDSList = lazy(() => import('../pages/TDSList'));
 export const TCSList = lazy(() => import('../pages/TCSList'));
+export const TaxCompliancePage = lazy(() => import('../pages/TaxCompliancePage'));
 
 // ============================================================================
 // Inventory & Warehouse Management
@@ -223,6 +234,12 @@ export const JobWorkDashboard = lazy(() => import('../pages/JobWorkDashboard'));
 export const ProcessingBatchList = lazy(() => import('../pages/ProcessingBatchList'));
 export const ProcessingBatchDetail = lazy(() => import('../pages/ProcessingBatchDetail'));
 export const ProcessingBatchCreateForm = lazy(() => import('../pages/ProcessingBatchCreateForm'));
+
+// ============================================================================
+// Job Work Orders (Unified - Phase 7)
+// ============================================================================
+export const JobWorkOrderList = lazy(() => import('../pages/JobWorkOrderList'));
+export const JobWorkOrderDetail = lazy(() => import('../pages/JobWorkOrderDetail'));
 
 // ============================================================================
 // Fabric & Greige Management

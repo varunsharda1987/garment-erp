@@ -24,6 +24,16 @@ import {
   PendingUsersPage,
   Profile,
   Settings,
+  TallySettings,
+  TallyCustomers,
+  TallyInvoices,
+  TallyOutstanding,
+  TallyCreditNotes,
+  TallySuppliers,
+  TallyDebitNotes,
+  TallyPayments,
+  EInvoiceSettings,
+  EInvoiceInvoices,
   TemplateManager,
   WhatsAppLink,
   MessageStaff,
@@ -73,6 +83,7 @@ import {
   GSTReports,
   TDSList,
   TCSList,
+  TaxCompliancePage,
   StockDashboard,
   WarehouseList,
   WarehouseForm,
@@ -157,6 +168,8 @@ import {
   ProcessingBatchList,
   ProcessingBatchDetail,
   ProcessingBatchCreateForm,
+  JobWorkOrderList,
+  JobWorkOrderDetail,
   EmbroideryList,
   EmbroideryForm,
   EmbroideryDetail,
@@ -303,6 +316,16 @@ function App() {
               <Route path="/profile" element={<Profile />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/settings/export-templates" element={<TemplateManager />} />
+              <Route path="/settings/tally" element={<TallySettings />} />
+              <Route path="/settings/tally/customers" element={<TallyCustomers />} />
+              <Route path="/settings/tally/invoices" element={<TallyInvoices />} />
+              <Route path="/settings/tally/outstanding" element={<TallyOutstanding />} />
+              <Route path="/settings/tally/credit-notes" element={<TallyCreditNotes />} />
+              <Route path="/settings/tally/suppliers" element={<TallySuppliers />} />
+              <Route path="/settings/tally/debit-notes" element={<TallyDebitNotes />} />
+              <Route path="/settings/tally/payments" element={<TallyPayments />} />
+              <Route path="/settings/einvoice" element={<EInvoiceSettings />} />
+              <Route path="/settings/einvoice/invoices" element={<EInvoiceInvoices />} />
 
               {/* Messaging (per-user WhatsApp) */}
               <Route path="/whatsapp" element={<WhatsAppLink />} />
@@ -501,6 +524,7 @@ function App() {
               <Route path="/debit-notes" element={<DebitNoteList />} />
 
               {/* GST Reports */}
+              <Route path="/finance/tax-gst" element={<TaxCompliancePage />} />
               <Route path="/gst-reports" element={<GSTReports />} />
               <Route path="/tds" element={<TDSList />} />
               <Route path="/tcs" element={<TCSList />} />
@@ -583,6 +607,10 @@ function App() {
               <Route path="/processing/batches" element={<ProcessingBatchList />} />
               <Route path="/processing/batches/new" element={<ProcessingBatchCreateForm />} />
               <Route path="/processing/batches/:id" element={<ProcessingBatchDetail />} />
+
+              {/* Job Work Orders (Unified) */}
+              <Route path="/job-work-orders" element={<JobWorkOrderList />} />
+              <Route path="/job-work-orders/:id" element={<JobWorkOrderDetail />} />
 
               {/* Sample Tracking (Manufacturing) */}
               <Route path="/samples" element={<SampleList />} />

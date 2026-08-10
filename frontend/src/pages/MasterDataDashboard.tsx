@@ -9,6 +9,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
+import { usePermissions } from '@/hooks/usePermissions';
+import type { PermissionKey } from '@/config/permissions.config';
 import {
   masterDataService,
   type MasterDataSummary,
@@ -27,8 +29,59 @@ const CATEGORY_COLORS: Record<string, string> = {
   functional: 'bg-muted border-border',
 };
 
+// Static sections not covered by the server summary. These are this hub's only
+// click-path for several pages demoted from the sidebar, so they must render
+// even when the summary API fails (see the error branch below). Each entry's
+// permission mirrors its route guard so no role sees a card it cannot open.
+interface StaticMaster {
+  label: string;
+  route: string;
+  permission?: PermissionKey;
+}
+
+const STATIC_SECTIONS: { key: string; category: string; colorClass: string; masters: StaticMaster[] }[] = [
+  {
+    key: 'peopleEntities',
+    category: 'People & Entities',
+    colorClass: 'bg-warning-muted border-warning/20',
+    masters: [
+      { label: 'Customers', route: '/customers', permission: 'customers' },
+      { label: 'Suppliers', route: '/suppliers', permission: 'suppliers' },
+      { label: 'Agents', route: '/agents', permission: 'customers' },
+      { label: 'Agencies', route: '/agencies', permission: 'customers' },
+    ],
+  },
+  {
+    key: 'workshopOther',
+    category: 'Workshop & Other Materials',
+    colorClass: 'bg-muted border-border',
+    masters: [
+      { label: 'Machine Parts', route: '/materials/machine-part', permission: 'trimMasters' },
+      { label: 'Other Materials', route: '/materials/other', permission: 'trimMasters' },
+    ],
+  },
+  {
+    key: 'configuration',
+    category: 'Configuration',
+    colorClass: 'bg-secondary border-border',
+    masters: [
+      { label: 'Colors', route: '/colors', permission: 'colorMaster' },
+      { label: 'Seasons', route: '/seasons', permission: 'seasonMaster' },
+      { label: 'Size Categories', route: '/masters/size-categories', permission: 'sizeCategoryMaster' },
+      { label: 'Component Groups', route: '/component-groups', permission: 'componentMasters' },
+      { label: 'Component Masters', route: '/component-masters', permission: 'componentMasters' },
+      { label: 'Pattern Parts', route: '/pattern-parts', permission: 'componentMasters' },
+      { label: 'Product Categories', route: '/product-categories', permission: 'productCategories' },
+      { label: 'Processor Rate Cards', route: '/processor-rate-cards', permission: 'suppliers' },
+      { label: 'Warehouses', route: '/inventory/warehouses', permission: 'warehouses' },
+      { label: 'Export Templates', route: '/settings/export-templates', permission: 'masterData' },
+    ],
+  },
+];
+
 export default function MasterDataDashboard() {
   const navigate = useNavigate();
+  const { can } = usePermissions();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<MasterDataSummary | null>(null);
@@ -41,6 +94,9 @@ export default function MasterDataDashboard() {
     'decorative',
     'packagingLabels',
     'functional',
+    'peopleEntities',
+    'workshopOther',
+    'configuration',
   ]);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -74,15 +130,27 @@ export default function MasterDataDashboard() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchQuery.trim() || !summary) return;
+    if (!searchQuery.trim()) return;
+    const query = searchQuery.toLowerCase();
 
-    // Find matching master across all categories
-    for (const categoryData of Object.values(summary)) {
-      const matchingMaster = categoryData.masters.find((m: MasterType) =>
-        m.label.toLowerCase().includes(searchQuery.toLowerCase())
+    // Find matching master across all server categories
+    if (summary) {
+      for (const categoryData of Object.values(summary)) {
+        const matchingMaster = categoryData.masters.find((m: MasterType) => m.label.toLowerCase().includes(query));
+        if (matchingMaster) {
+          navigate(matchingMaster.route);
+          return;
+        }
+      }
+    }
+
+    // Fall back to the static sections (permission-filtered)
+    for (const section of STATIC_SECTIONS) {
+      const match = section.masters.find(
+        (m) => (!m.permission || can(m.permission)) && m.label.toLowerCase().includes(query)
       );
-      if (matchingMaster) {
-        navigate(matchingMaster.route);
+      if (match) {
+        navigate(match.route);
         return;
       }
     }
@@ -109,11 +177,70 @@ export default function MasterDataDashboard() {
     return Object.keys(filtered).length > 0 ? (filtered as unknown as MasterDataSummary) : null;
   };
 
+  const filteredStaticSections = () => {
+    const query = searchQuery.trim().toLowerCase();
+    return STATIC_SECTIONS.map((section) => ({
+      ...section,
+      masters: section.masters.filter(
+        (m) => (!m.permission || can(m.permission)) && (!query || m.label.toLowerCase().includes(query))
+      ),
+    })).filter((section) => section.masters.length > 0);
+  };
+
+  const renderStaticSections = () => (
+    <div className="space-y-4">
+      {filteredStaticSections().map((section) => {
+        const isExpanded = expandedCategories.includes(section.key);
+        return (
+          <Collapsible key={section.key} open={isExpanded} onOpenChange={() => toggleCategory(section.key)}>
+            <Card className={`border-2 ${section.colorClass}`}>
+              <CollapsibleTrigger className="w-full">
+                <CardHeader className="cursor-pointer hover:bg-card/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Layers className="h-5 w-5" />
+                      <div className="text-left">
+                        <CardTitle className="text-lg">{section.category}</CardTitle>
+                        <p className="text-sm text-muted-foreground mt-1">{section.masters.length} masters</p>
+                      </div>
+                    </div>
+                    {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                  </div>
+                </CardHeader>
+              </CollapsibleTrigger>
+
+              <CollapsibleContent>
+                <CardContent className="pt-0">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {section.masters.map((master) => (
+                      <button
+                        key={master.route}
+                        onClick={() => navigate(master.route)}
+                        className="group relative flex items-center justify-between p-4 rounded-lg border-2 border-border hover:border-primary hover:bg-primary/5 transition-all"
+                      >
+                        <div className="font-medium text-left group-hover:text-primary transition-colors">
+                          {master.label}
+                        </div>
+                        <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        );
+      })}
+    </div>
+  );
+
   if (loading) {
     return <LoadingSpinner />;
   }
 
   if (error) {
+    // Static sections must stay reachable even when the summary API is down —
+    // they are the only click-path for pages demoted from the sidebar.
     return (
       <div className="space-y-6">
         <PageHeader title="Master Data">
@@ -130,6 +257,7 @@ export default function MasterDataDashboard() {
             </Button>
           </AlertDescription>
         </Alert>
+        {renderStaticSections()}
       </div>
     );
   }
@@ -264,7 +392,10 @@ export default function MasterDataDashboard() {
         </div>
       )}
 
-      {!displaySummary && searchQuery.trim() && (
+      {/* Static sections: people, workshop materials, configuration */}
+      {renderStaticSections()}
+
+      {!displaySummary && searchQuery.trim() && filteredStaticSections().length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
             <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />

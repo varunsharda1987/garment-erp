@@ -1,4 +1,5 @@
 [
   "backend/src/schemas/processing.schema.ts :: DeliveryStatus :: ZERO-OVERLAP",
-  "backend/src/schemas/saleOrder.schema.ts :: SaleOrderStatus :: DELIVERED"
+  "backend/src/schemas/saleOrder.schema.ts :: SaleOrderStatus :: DELIVERED",
+  "backend/src/schemas/jobWorkOrder.schema.ts :: materialType :: TRIM"
 ]

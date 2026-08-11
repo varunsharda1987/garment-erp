@@ -521,10 +521,16 @@ class PurchaseOrderService {
 
   /**
    * Delete a purchase order (only in DRAFT status)
+   * Handles linked records (JWO, service requirements, requirement_po_links, etc.) first
    */
   async deletePurchaseOrder(id: string) {
     const existingPO = await prisma.purchase_orders.findUnique({
       where: { id },
+      include: {
+        jobWorkOrder: { select: { id: true } }, // 1:1 relation
+        work_order_service_requirements: { select: { id: true } },
+        requirement_po_links: { select: { id: true } },
+      },
     });
 
     if (!existingPO) {
@@ -535,8 +541,35 @@ class PurchaseOrderService {
       throw new Error('Can only delete purchase orders in DRAFT status');
     }
 
-    await prisma.purchase_orders.delete({
-      where: { id },
+    // Use transaction to handle linked records
+    await prisma.$transaction(async (tx) => {
+      // Delete requirement_po_links that reference this PO
+      if (existingPO.requirement_po_links?.length > 0) {
+        await tx.requirement_po_links.deleteMany({
+          where: { purchaseOrderId: id },
+        });
+      }
+
+      // Unlink any job_work_orders that reference this PO (1:1 relation)
+      if (existingPO.jobWorkOrder) {
+        await tx.job_work_orders.update({
+          where: { id: existingPO.jobWorkOrder.id },
+          data: { purchaseOrderId: null },
+        });
+      }
+
+      // Unlink any work_order_service_requirements that reference this PO
+      if (existingPO.work_order_service_requirements?.length > 0) {
+        await tx.work_order_service_requirements.updateMany({
+          where: { purchaseOrderId: id },
+          data: { purchaseOrderId: null },
+        });
+      }
+
+      // Now delete the PO (items cascade automatically)
+      await tx.purchase_orders.delete({
+        where: { id },
+      });
     });
 
     return { message: 'Purchase order deleted successfully' };
@@ -1123,7 +1156,7 @@ class PurchaseOrderService {
           cutableWidth: true,
           cadMeters: true,
           fabric: {
-            select: { id: true, name: true },
+            select: { id: true, fabricName: true, fabricCode: true },
           },
         },
       },

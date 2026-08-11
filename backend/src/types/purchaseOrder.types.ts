@@ -3,10 +3,25 @@
  * Type definitions for purchase order operations
  */
 
-import { PurchaseOrderStatus, Unit, POSource, DeliveryLocationType } from '@prisma/client';
+import { PurchaseOrderStatus, Unit, POSource, DeliveryLocationType, POCategory } from '@prisma/client';
 
 // Re-export Prisma types for use in controllers
 export { PurchaseOrderStatus, POSource };
+
+/**
+ * Material PO categories — the only categories the Purchase Orders page shows/creates
+ * per the Job Work Consolidation decision (2026-08-09). Processing/service work lives in
+ * Job Work Orders. Mirror of PO_GROUP_CATEGORIES.material in
+ * frontend/src/types/purchaseOrder.types.ts — keep the two lists in sync.
+ */
+export const MATERIAL_PO_CATEGORIES: POCategory[] = [
+  POCategory.FABRIC,
+  POCategory.GREIGE,
+  POCategory.TRIMS,
+  POCategory.LACE,
+  POCategory.GREIGE_LACE,
+  POCategory.GENERAL,
+];
 
 // ============================================
 // Purchase Order Item Types

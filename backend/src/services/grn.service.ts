@@ -121,17 +121,23 @@ class GRNService {
     let processingJob: Prisma.job_work_ordersGetPayload<{
       include: { style: { select: { id: true; styleCode: true; buyerStyleRef: true } } };
     }> | null = null;
-    if (po.poCategory === 'PROCESSING' && data.processingData) {
+    // Phase 4a: resolve the JWO for ANY PROCESSING PO (not just when processingData is
+    // supplied) so the GRN can be stamped with jobWorkOrderId — 4b groundwork for
+    // PO-less receiving. The receive-state validations stay gated on processingData
+    // exactly as before.
+    if (po.poCategory === 'PROCESSING') {
       processingJob = await prisma.job_work_orders.findFirst({
         where: { purchaseOrderId: po.id },
         include: { style: { select: { id: true, styleCode: true, buyerStyleRef: true } } },
       });
-      if (!processingJob) {
-        logError('No job work order linked to PROCESSING PO', { poId: po.id });
-      } else if (processingJob.receivedDate) {
-        throw new Error('This processing PO has already been received via the Printing/Dyeing module');
-      } else if (processingJob.status !== 'AT_MILL' && processingJob.status !== 'SENT_TO_MILL') {
-        throw new Error(`Cannot receive. Job status is ${processingJob.status}, expected AT_MILL`);
+      if (data.processingData) {
+        if (!processingJob) {
+          logError('No job work order linked to PROCESSING PO', { poId: po.id });
+        } else if (processingJob.receivedDate) {
+          throw new Error('This processing PO has already been received via the Printing/Dyeing module');
+        } else if (processingJob.status !== 'AT_MILL' && processingJob.status !== 'SENT_TO_MILL') {
+          throw new Error(`Cannot receive. Job status is ${processingJob.status}, expected AT_MILL`);
+        }
       }
     }
 
@@ -144,6 +150,7 @@ class GRNService {
             id: randomUUID(),
             grnNumber,
             poId: data.poId,
+            jobWorkOrderId: processingJob?.id ?? null, // Phase 4a: GRN→JWO at creation
             supplierId: po.supplierId,
             warehouseId: data.warehouseId || null, // Target warehouse for received goods
             receivingDate: data.receivingDate ? new Date(data.receivingDate) : new Date(),
@@ -293,13 +300,14 @@ class GRNService {
               toType: 'WAREHOUSE',
               toName: 'Main Warehouse',
               purchaseOrderId: po.id,
+              jobWorkOrderId: processingJob.id,
               issuedById: userId,
               unit: Unit.METER,
               remarks: receivedChallan ? `Vendor challan ref: ${receivedChallan}` : undefined,
               items: [
                 {
                   itemType: 'FABRIC',
-                  fabricId: processingJob.finishedFabricId || processingJob.fabricId,
+                  fabricId: processingJob.finishedFabricId || processingJob.fabricId || undefined,
                   description: `Processed fabric received via GRN - ${formatStyleCodeWithRef(processingJob.style?.styleCode || '', processingJob.style?.buyerStyleRef)}`,
                   quantity: actualMeters,
                   unit: Unit.METER,
@@ -420,6 +428,10 @@ class GRNService {
               name: true,
               contactPerson: true,
             },
+          },
+          // Phase 4b: PO-less GRNs identify by their Job Work Order
+          jobWorkOrder: {
+            select: { id: true, jobWorkNumber: true, processType: true },
           },
           grn_items: true,
         },
@@ -597,11 +609,19 @@ class GRNService {
           include: this.getFullInclude(),
         });
 
-        // Check PO category for processing-specific handling
-        const po = await tx.purchase_orders.findUnique({
-          where: { id: grn.poId },
-          select: { id: true, poCategory: true, supplierId: true },
-        });
+        // Check PO category for processing-specific handling (Phase 4b: poId is nullable)
+        const po = grn.poId
+          ? await tx.purchase_orders.findUnique({
+              where: { id: grn.poId },
+              select: { id: true, poCategory: true, supplierId: true },
+            })
+          : null;
+
+        // Phase 4b: PO-less receipt — the GRN keys on jobWorkOrderId alone
+        if (!po && grn.jobWorkOrderId) {
+          await this.approvePolessJwoGrnInTx(tx, grn, processingQC, targetWarehouseId, userId, id);
+          return approved;
+        }
 
         if (po?.poCategory === 'PROCESSING') {
           // For PROCESSING POs: create fabric_stock instead of stock_movements/stock_levels
@@ -776,10 +796,11 @@ class GRNService {
               }
             }
 
-            // Update job status to STOCK_UPDATED
+            // Update job status to STOCK_UPDATED and stamp the GRN link (BUG-JWC3: grnId was
+            // never written anywhere, so reverseProcessingGRNInTx could never find the JWO)
             await tx.job_work_orders.update({
               where: { id: jobWorkOrder.id },
-              data: { status: 'STOCK_UPDATED' },
+              data: { status: 'STOCK_UPDATED', grnId: id },
             });
 
             // Flip the PO to RECEIVED via a guarded updateMany (bug-hunt procurement-20).
@@ -822,10 +843,15 @@ class GRNService {
               defectQty: defectMetersNum,
               costPerMeter: totalCostPerMeter,
             });
-          } else if (!jobWorkOrder) {
-            // P2.8: MRP-generated PROCESSING POs don't have job_work_orders.
-            // Handle them by getting requirement info and creating fabric_stock directly.
-            logInfo('PROCESSING PO without job_work_orders - using MRP fallback', { poId: po.id });
+          } else {
+            // P2.8: MRP-generated PROCESSING POs historically have no job_work_orders.
+            // BUG-JWC4: also land here when a JWO exists but has no finishedFabricId yet
+            // (JWC-bridged JWO received via GRN before the send flow ran) — previously that
+            // combination fell through BOTH branches and approved with NO stock created.
+            logInfo('PROCESSING PO fallback path (no JWO, or JWO without finishedFabricId)', {
+              poId: po.id,
+              hasJobWorkOrder: !!jobWorkOrder,
+            });
 
             // Get the linked PROCESSING requirement via requirement_po_links
             const poLink = await tx.requirement_po_links.findFirst({
@@ -890,6 +916,9 @@ class GRNService {
 
                   const cutableWidth = receivedWidth > 2 ? receivedWidth - 2 : receivedWidth;
                   const fabricFinishType = finishType === 'PRINTED' ? 'PRINTED' : 'DYED';
+                  // One timestamp shared by fabric_stock and the JWO stamp — GRN reversal
+                  // matches fabric_stock rows by exact receivedDate equality
+                  const receivedAt = new Date();
 
                   // Create fabric_stock
                   await tx.fabric_stock.create({
@@ -910,7 +939,7 @@ class GRNService {
                       purchaseCost: totalCostPerMeter,
                       qualityGrade: processingQC?.qualityGrade || DEFAULT_QUALITY_GRADE,
                       defectMeters: processingQC?.defectMeters || 0,
-                      receivedDate: new Date(),
+                      receivedDate: receivedAt,
                       agingAlertSent: false,
                       agingDays: 0,
                       needsEmbroidery: false,
@@ -938,6 +967,21 @@ class GRNService {
                     data: { status: PurchaseOrderStatus.RECEIVED },
                   });
 
+                  // BUG-JWC4: if a (bridged) JWO exists, stamp it so the job-work views and
+                  // GRN reversal see the receipt — previously this case created no stock at all
+                  if (jobWorkOrder) {
+                    await tx.job_work_orders.update({
+                      where: { id: jobWorkOrder.id },
+                      data: {
+                        finishedFabricId: fabricResult.fabricId,
+                        qtyReceivedMeters: qtyReceived,
+                        receivedDate: receivedAt,
+                        grnId: id,
+                        status: 'STOCK_UPDATED',
+                      },
+                    });
+                  }
+
                   logInfo(`MRP PROCESSING PO approved via GRN - fabric_stock created`, {
                     grnId: id,
                     poId: po.id,
@@ -946,6 +990,7 @@ class GRNService {
                     isNewFabric: fabricResult.isNew,
                     qtyReceived,
                     costPerMeter: totalCostPerMeter,
+                    jwoStamped: !!jobWorkOrder,
                   });
                 }
               } else {
@@ -958,6 +1003,18 @@ class GRNService {
               logWarn('No requirement linked to PROCESSING PO - cannot create fabric_stock', {
                 poId: po.id,
               });
+            }
+          }
+
+          // BUG-JWC7 (Phase 4a): mirror of the generic loop's MRP bridge below — the PROCESSING
+          // branch early-returns before it, so requirements never advanced past PO_GENERATED
+          // while reverseGRN still decremented (a reversal could push a never-incremented
+          // requirement to PO_SENT). acceptedQuantity only: createGRN enforces
+          // accepted+rejected=received and reversal decrements acceptedQuantity — symmetric.
+          for (const item of grn.grn_items || []) {
+            const acceptedQty = Number(item.acceptedQuantity);
+            if (acceptedQty > 0 && item.poItemId) {
+              await mrpService.updateReceivedQuantity(item.poItemId, acceptedQty, tx);
             }
           }
 
@@ -1126,24 +1183,27 @@ class GRNService {
     // semantics — received < ordered is NORMAL there, and a naive recompute would wrongly
     // demote every shrinkage-bearing processing PO to PARTIALLY_RECEIVED.
     let poCategory: string | null = null;
-    try {
-      const poCat = await prisma.purchase_orders.findUnique({
-        where: { id: grn.poId },
-        select: { poCategory: true },
-      });
-      poCategory = poCat?.poCategory || null;
-      if (poCategory !== 'PROCESSING') {
-        await purchaseOrderService.updateReceivingStatus(grn.poId);
+    // Phase 4b: PO-less (JWO-keyed) GRNs have no PO status to recompute
+    if (grn.poId) {
+      try {
+        const poCat = await prisma.purchase_orders.findUnique({
+          where: { id: grn.poId },
+          select: { poCategory: true },
+        });
+        poCategory = poCat?.poCategory || null;
+        if (poCategory !== 'PROCESSING') {
+          await purchaseOrderService.updateReceivingStatus(grn.poId);
+        }
+      } catch (statusErr) {
+        const errMsg = 'Failed to recompute PO receiving status';
+        logError(errMsg, statusErr);
+        postCommitWarnings.push(errMsg);
       }
-    } catch (statusErr) {
-      const errMsg = 'Failed to recompute PO receiving status';
-      logError(errMsg, statusErr);
-      postCommitWarnings.push(errMsg);
     }
 
     // P2: Processing activation — checkProcessingPOReadiness handles BOTH GREIGE and GREIGE_LACE
     // categories, and relies on PO status being RECEIVED.
-    if (postCommit?.updateProcessingPOStatus || poCategory === 'GREIGE' || poCategory === 'GREIGE_LACE') {
+    if (grn.poId && (postCommit?.updateProcessingPOStatus || poCategory === 'GREIGE' || poCategory === 'GREIGE_LACE')) {
       try {
         const readiedPOs = await checkProcessingPOReadiness(grn.poId);
         if (readiedPOs.length > 0) {
@@ -2040,8 +2100,9 @@ class GRNService {
         include: this.getFullInclude(),
       });
 
-      // Revert PO item received quantities
+      // Revert PO item received quantities (Phase 4b: PO-less GRN items have no poItemId)
       for (const item of grnItems) {
+        if (!item.poItemId) continue;
         await tx.purchase_order_items.update({
           where: { id: item.poItemId },
           data: {
@@ -2055,8 +2116,10 @@ class GRNService {
       return rejected;
     });
 
-    // Update PO status
-    await purchaseOrderService.updateReceivingStatus(grn.poId);
+    // Update PO status (skip for PO-less JWO GRNs)
+    if (grn.poId) {
+      await purchaseOrderService.updateReceivingStatus(grn.poId);
+    }
 
     return updatedGRN;
   }
@@ -2108,6 +2171,14 @@ class GRNService {
           expectedDeliveryDate: true,
           status: true,
           poCategory: true,
+        },
+      },
+      // Phase 4b: PO-less GRNs identify by their Job Work Order
+      jobWorkOrder: {
+        select: {
+          id: true,
+          jobWorkNumber: true,
+          processType: true,
         },
       },
       suppliers: {
@@ -2345,9 +2416,20 @@ class GRNService {
         // 3. Reverse specialized stock based on PO category
         await this.reverseSpecializedStockInTx(tx, grn, po, userId, warehouseId, reason);
 
-        // 4. Handle Processing PO specific reversal
-        if (po?.poCategory === 'PROCESSING') {
-          await this.reverseProcessingGRNInTx(tx, grn, po, userId, reason);
+        // 4. Handle Processing PO specific reversal (Phase 4b: also PO-less JWO GRNs)
+        if (po?.poCategory === 'PROCESSING' || (!grn.poId && grn.jobWorkOrderId)) {
+          await this.reverseProcessingGRNInTx(tx, grn, po ?? null, userId, reason);
+          // Phase 4b: mirror the MRP receipt decrement for JWO-keyed GRNs
+          if (!grn.poId && grn.jobWorkOrderId) {
+            const totalAccepted = (grn.grn_items || []).reduce(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (sum: number, i: any) => sum + Number(i.acceptedQuantity || 0),
+              0
+            );
+            if (totalAccepted > 0) {
+              await mrpService.updateJwoReceivedQuantity(grn.jobWorkOrderId, -totalAccepted, tx);
+            }
+          }
         }
 
         return reversed;
@@ -2355,11 +2437,13 @@ class GRNService {
       { timeout: 30000, maxWait: 10000 }
     );
 
-    // Recompute PO receiving status (best-effort post-commit)
-    try {
-      await purchaseOrderService.updateReceivingStatus(grn.poId);
-    } catch (statusErr) {
-      logError('Failed to recompute PO receiving status after GRN reversal', statusErr);
+    // Recompute PO receiving status (best-effort post-commit; PO-less GRNs have none)
+    if (grn.poId) {
+      try {
+        await purchaseOrderService.updateReceivingStatus(grn.poId);
+      } catch (statusErr) {
+        logError('Failed to recompute PO receiving status after GRN reversal', statusErr);
+      }
     }
 
     logInfo(`GRN reversed: ${grn.grnNumber}`, {
@@ -2370,6 +2454,249 @@ class GRNService {
     });
 
     return reversedGRN;
+  }
+
+  /**
+   * Phase 4b: create a GRN against a Job Work Order with no purchase order.
+   * Only for PO-less JWOs (wizard-created / post-4c) — PO-backed JWOs must go
+   * through the normal PO receiving flow to keep a single receipt path per order.
+   */
+  async createGRNFromJWO(
+    data: {
+      jobWorkOrderId: string;
+      qtyReceivedMeters?: number;
+      receivedWidthInches?: number;
+      thanCount?: number;
+      foldLengthCm?: number;
+      receivedChallan?: string;
+      invoiceNumber?: string;
+      invoiceDate?: string;
+      warehouseId?: string;
+      remarks?: string;
+    },
+    userId: string
+  ) {
+    const jwo = await prisma.job_work_orders.findUnique({
+      where: { id: data.jobWorkOrderId },
+      include: {
+        processor: { select: { id: true, name: true } },
+        style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
+      },
+    });
+    if (!jwo) {
+      throw new Error('Job work order not found');
+    }
+    if (jwo.purchaseOrderId) {
+      throw new Error(`${jwo.jobWorkNumber} is linked to a purchase order — receive it through the normal PO GRN flow`);
+    }
+    if (jwo.receivedDate) {
+      throw new Error(`${jwo.jobWorkNumber} has already been received`);
+    }
+    if (jwo.status !== 'AT_MILL' && jwo.status !== 'SENT_TO_MILL') {
+      throw new Error(`Cannot receive ${jwo.jobWorkNumber}: status is ${jwo.status}, expected AT_MILL/SENT_TO_MILL`);
+    }
+
+    // Quantity: direct meters, or than-count × fold-length
+    let qtyReceived = data.qtyReceivedMeters || 0;
+    if (!qtyReceived && data.thanCount && data.foldLengthCm) {
+      qtyReceived = (data.thanCount * data.foldLengthCm) / 100;
+    }
+    if (qtyReceived <= 0) {
+      throw new Error('Received quantity must be greater than 0');
+    }
+
+    // grn_items.materialId is required — use the source fabric's materials record
+    // (materials.id === master.id invariant; ensureMaterialRecord creates if missing)
+    if (!jwo.fabricId) {
+      throw new Error(`${jwo.jobWorkNumber} has no fabric reference — cannot create a GRN item`);
+    }
+    const materialId = await ensureMaterialRecord(jwo.fabricId, 'FABRIC');
+
+    const grnNumber = await this.generateGRNNumber();
+    const grn = await prisma.goods_receiving_notes.create({
+      data: {
+        id: randomUUID(),
+        grnNumber,
+        poId: null,
+        jobWorkOrderId: jwo.id,
+        supplierId: jwo.processorId,
+        warehouseId: data.warehouseId || null,
+        receivingDate: new Date(),
+        invoiceNumber: data.invoiceNumber || null,
+        invoiceDate: data.invoiceDate ? new Date(data.invoiceDate) : null,
+        status: GRNStatus.PENDING_QC,
+        remarks:
+          [data.remarks, data.receivedChallan ? `Vendor challan ref: ${data.receivedChallan}` : null]
+            .filter(Boolean)
+            .join('\n') || null,
+        receivedById: userId,
+        grn_items: {
+          create: [
+            {
+              id: randomUUID(),
+              poItemId: null,
+              materialId,
+              orderedQuantity: jwo.qtySentMeters,
+              receivedQuantity: qtyReceived,
+              acceptedQuantity: qtyReceived,
+              rejectedQuantity: 0,
+              unit: Unit.METER,
+              receivedWidthInches: data.receivedWidthInches ?? null,
+              thanCount: data.thanCount ?? null,
+              foldLengthCm: data.foldLengthCm ?? null,
+              totalMeters: qtyReceived,
+            },
+          ],
+        },
+      },
+      include: this.getFullInclude(),
+    });
+
+    logInfo('PO-less JWO GRN created', {
+      grnId: grn.id,
+      grnNumber,
+      jobWorkOrderId: jwo.id,
+      jobWorkNumber: jwo.jobWorkNumber,
+      qtyReceived,
+    });
+    return grn;
+  }
+
+  /**
+   * Phase 4b: approve a PO-less GRN keyed on a Job Work Order.
+   * Mirrors the PROCESSING approval semantics: derive/reuse the finished fabric,
+   * create fabric_stock at (processing rate + source greige cost), stamp the JWO,
+   * and advance MRP requirements through requirement_jwo_links.
+   */
+  private async approvePolessJwoGrnInTx(
+    tx: Prisma.TransactionClient,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    grn: any,
+    processingQC: ProcessingQCData | undefined,
+    targetWarehouseId: string | null,
+    userId: string,
+    grnId: string
+  ): Promise<void> {
+    const jobWorkOrder = await tx.job_work_orders.findUnique({
+      where: { id: grn.jobWorkOrderId },
+      include: {
+        greigeStockLot: { select: { id: true, purchaseCost: true, greigeId: true } },
+        fabric: { select: { id: true, greigeId: true } },
+        style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
+      },
+    });
+    if (!jobWorkOrder) {
+      throw new Error(`Job work order ${grn.jobWorkOrderId} not found for PO-less GRN approval`);
+    }
+
+    const grnItem = grn.grn_items?.[0];
+    const qtyReceived = grnItem ? Number(grnItem.acceptedQuantity || grnItem.receivedQuantity || 0) : 0;
+    const receivedWidth = grnItem?.receivedWidthInches ? Number(grnItem.receivedWidthInches) : 44;
+    if (qtyReceived <= 0) {
+      logWarn('PO-less JWO GRN approved with zero accepted quantity — no stock created', {
+        grnId,
+        jobWorkOrderId: jobWorkOrder.id,
+      });
+      return;
+    }
+
+    // Finished fabric: reuse the JWO's, else derive from greige lineage
+    let finishedFabricId: string | null = jobWorkOrder.finishedFabricId;
+    if (!finishedFabricId) {
+      const greigeId = jobWorkOrder.greigeStockLot?.greigeId || jobWorkOrder.fabric?.greigeId || null;
+      if (!greigeId) {
+        logWarn('PO-less JWO GRN has no greige lineage — cannot create fabric_stock', {
+          grnId,
+          jobWorkOrderId: jobWorkOrder.id,
+        });
+        return;
+      }
+      const finishType = determineFinishType(null, jobWorkOrder.processType === 'PRINTING' ? 'PIGMENT' : null);
+      const fabricResult = await getOrCreateFinishedFabric(
+        {
+          greigeId,
+          colorName: 'Natural',
+          finishType,
+          widthInches: receivedWidth,
+          styleCode: jobWorkOrder.style?.styleCode,
+          styleId: jobWorkOrder.style?.id,
+          buyerStyleRef: jobWorkOrder.style?.buyerStyleRef,
+          userId,
+        },
+        tx
+      );
+      finishedFabricId = fabricResult.fabricId;
+    }
+
+    // Cost: processing rate + source greige cost (per-meter)
+    const processingRate = Number(
+      processingQC?.actualRate ?? jobWorkOrder.actualRate ?? jobWorkOrder.agreedRatePerMeter ?? 0
+    );
+    const sourceCost = jobWorkOrder.greigeStockLot?.purchaseCost ? Number(jobWorkOrder.greigeStockLot.purchaseCost) : 0;
+    const totalCostPerMeter = roundToCent(addCurrency(processingRate, sourceCost)).toNumber();
+    const cutableWidth = receivedWidth > 2 ? receivedWidth - 2 : receivedWidth;
+    // Shared timestamp: GRN reversal matches fabric_stock by exact receivedDate equality
+    const receivedAt = new Date();
+
+    await tx.fabric_stock.create({
+      data: {
+        id: randomUUID(),
+        fabricId: finishedFabricId,
+        finishedWidth: receivedWidth,
+        cutableWidth,
+        quantityAvailable: qtyReceived,
+        quantityReserved: 0,
+        quantityConsumed: 0,
+        unit: 'meters',
+        originStyleId: jobWorkOrder.style?.id || null,
+        status: 'AVAILABLE',
+        stockType: 'PLANNED_STOCK',
+        fabricFinishType: jobWorkOrder.processType === 'PRINTING' ? 'PRINTED' : 'DYED',
+        weightedAvgCost: totalCostPerMeter,
+        purchaseCost: totalCostPerMeter,
+        qualityGrade: processingQC?.qualityGrade || DEFAULT_QUALITY_GRADE,
+        defectMeters: processingQC?.defectMeters || 0,
+        receivedDate: receivedAt,
+        agingAlertSent: false,
+        agingDays: 0,
+        needsEmbroidery: false,
+        createdById: userId,
+        warehouseId: targetWarehouseId,
+      },
+    });
+    await syncStockLevelQuantity(finishedFabricId, qtyReceived, targetWarehouseId ?? undefined, 'METER', tx);
+
+    await tx.job_work_orders.update({
+      where: { id: jobWorkOrder.id },
+      data: {
+        finishedFabricId,
+        qtyReceivedMeters: qtyReceived,
+        receivedDate: jobWorkOrder.receivedDate ?? receivedAt,
+        grnId,
+        status: 'STOCK_UPDATED',
+        ...(processingQC
+          ? {
+              qualityGrade: processingQC.qualityGrade,
+              colorMatchStatus: processingQC.colorMatchStatus || null,
+              defectMeters: processingQC.defectMeters ?? null,
+              defectType: processingQC.defectType || null,
+              actualRate: processingQC.actualRate ?? null,
+            }
+          : {}),
+      },
+    });
+
+    // Phase 4b receipt bridge: advance MRP requirements via requirement_jwo_links
+    await mrpService.updateJwoReceivedQuantity(jobWorkOrder.id, qtyReceived, tx);
+
+    logInfo('PO-less JWO GRN approved — fabric_stock created', {
+      grnId,
+      jobWorkOrderId: jobWorkOrder.id,
+      jobWorkNumber: jobWorkOrder.jobWorkNumber,
+      fabricId: finishedFabricId,
+      qtyReceived,
+      costPerMeter: totalCostPerMeter,
+    });
   }
 
   // BUG-GRN6 fix: Reverse specialized stock records created during GRN approval
@@ -2838,16 +3165,19 @@ class GRNService {
   }
 
   // BUG-GRN6 fix: Reverse Processing PO specific records
+  // Phase 4b: also handles PO-less JWO GRNs (po = null, lookup via grn.jobWorkOrderId)
   private async reverseProcessingGRNInTx(
     tx: Prisma.TransactionClient,
     grn: any,
-    po: { id: string; poCategory: string | null; supplierId: string | null },
+    po: { id: string; poCategory: string | null; supplierId: string | null } | null,
     userId: string,
     reason: string
   ): Promise<void> {
-    // Find the job work order linked to this PO
+    // Find the job work order — by direct GRN link (PO-less) or via the shadow PO
     const jobWorkOrder = await tx.job_work_orders.findFirst({
-      where: { purchaseOrderId: po.id, grnId: grn.id },
+      where: grn.jobWorkOrderId
+        ? { id: grn.jobWorkOrderId, grnId: grn.id }
+        : { purchaseOrderId: po!.id, grnId: grn.id },
       include: {
         greigeStockLot: true,
         fabricStockLot: true,
@@ -2966,16 +3296,18 @@ class GRNService {
       },
     });
 
-    // 5. Reset PO status to allow re-receiving
-    await tx.purchase_orders.updateMany({
-      where: { id: po.id, status: 'RECEIVED' },
-      data: { status: 'ACKNOWLEDGED' },
-    });
+    // 5. Reset PO status to allow re-receiving (Phase 4b: PO-less GRNs have no PO)
+    if (po) {
+      await tx.purchase_orders.updateMany({
+        where: { id: po.id, status: 'RECEIVED' },
+        data: { status: 'ACKNOWLEDGED' },
+      });
+    }
 
-    logInfo(`Reset job work order and PO for GRN reversal`, {
+    logInfo(`Reset job work order${po ? ' and PO' : ''} for GRN reversal`, {
       grnId: grn.id,
       jobId: jobWorkOrder.id,
-      poId: po.id,
+      poId: po?.id ?? null,
     });
   }
 }

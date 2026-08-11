@@ -500,7 +500,7 @@ export default function DyeingList() {
   const processPOColumns: Column<ProcessPO>[] = [
     {
       key: 'poNumber',
-      header: 'PO #',
+      header: 'Order #',
       render: (item) => (
         <Badge variant="outline" className="font-mono text-xs">
           {item.poNumber}

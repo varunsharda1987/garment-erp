@@ -39,9 +39,11 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
+import { greigeStockService } from '@/services/greigeStock.service';
 
 function formatCurrency(value?: number | null): string {
   if (value === null || value === undefined) return '-';
@@ -87,6 +89,13 @@ export default function JobWorkOrderDetail() {
 
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
   const [qtyReceived, setQtyReceived] = useState('');
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [closeInvoiceNumber, setCloseInvoiceNumber] = useState('');
+  // Phase 4c: operational issue dialog (greige lot + transport)
+  const [issueDialogOpen, setIssueDialogOpen] = useState(false);
+  const [issueLotId, setIssueLotId] = useState('');
+  const [issueChallanRef, setIssueChallanRef] = useState('');
+  const [issueVehicle, setIssueVehicle] = useState('');
 
   const {
     data: jwo,
@@ -109,16 +118,34 @@ export default function JobWorkOrderDetail() {
     },
   });
 
+  // Phase 4c: available greige lots for the issue dialog
+  const { data: availableLots } = useQuery({
+    queryKey: ['greige-stock-available-for-issue'],
+    queryFn: () => greigeStockService.listAvailableStock({ excludeTransferred: true }),
+    enabled: issueDialogOpen,
+  });
+
   const issueMutation = useMutation({
-    mutationFn: () => jobWorkOrderService.issue(id!),
-    onSuccess: () => {
-      toast.success('Job work order issued');
+    mutationFn: () =>
+      jobWorkOrderService.issue(id!, {
+        greigeStockLotId: issueLotId || undefined,
+        challanNumber: issueChallanRef || undefined,
+        vehicleNumber: issueVehicle || undefined,
+      }),
+    onSuccess: (result) => {
+      setIssueDialogOpen(false);
+      setIssueLotId('');
+      setIssueChallanRef('');
+      setIssueVehicle('');
+      toast.success('Job work order issued — outward challan created');
+      if (result.warning) toast.warning(result.warning);
       queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
+      queryClient.invalidateQueries({ queryKey: ['job-work-order-reconciliation', id] });
     },
     onError: (err: any) => {
       const code = err.response?.data?.code;
-      if (code === 'GST_RATE_UNRESOLVED') {
-        toast.error('Cannot issue: GST rate is unresolved. Contact CA for rate confirmation.');
+      if (code === 'INSUFFICIENT_GREIGE') {
+        toast.error(err.response?.data?.message, { duration: 8000 });
       } else {
         toast.error(err.response?.data?.message || 'Failed to issue');
       }
@@ -158,6 +185,34 @@ export default function JobWorkOrderDetail() {
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to receive material');
+    },
+  });
+
+  // Phase 3b: computed reconciliation (challan-line balances, D5)
+  const { data: reconciliation } = useQuery({
+    queryKey: ['job-work-order-reconciliation', id],
+    queryFn: () => jobWorkOrderService.getReconciliation(id!),
+    enabled: !!id,
+  });
+
+  // Phase 3b: close (RECEIVED → CLOSED, invoice match required)
+  const closeMutation = useMutation({
+    mutationFn: () => jobWorkOrderService.close(id!, closeInvoiceNumber || undefined),
+    onSuccess: (result) => {
+      setCloseDialogOpen(false);
+      setCloseInvoiceNumber('');
+      toast.success('Job work order closed');
+      if (result.warning) toast.warning(result.warning);
+      queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
+      queryClient.invalidateQueries({ queryKey: ['job-work-order-reconciliation', id] });
+    },
+    onError: (err: any) => {
+      const code = err.response?.data?.code;
+      if (code === 'DEBIT_NOTE_REQUIRED') {
+        toast.error(err.response?.data?.message, { duration: 8000 });
+      } else {
+        toast.error(err.response?.data?.message || 'Failed to close job work order');
+      }
     },
   });
 
@@ -409,6 +464,57 @@ export default function JobWorkOrderDetail() {
               </CardContent>
             </Card>
           )}
+
+          {/* Reconciliation (Phase 3b — computed from challan lines, D5) */}
+          {reconciliation && reconciliation.components.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Reconciliation</CardTitle>
+                <CardDescription>
+                  Balance with processor, computed from challan lines
+                  {reconciliation.source === 'ORDER_SNAPSHOT' && ' (order snapshot — no challan attribution yet)'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Material</TableHead>
+                      <TableHead className="text-right">Sent Out</TableHead>
+                      <TableHead className="text-right">Received Back</TableHead>
+                      <TableHead className="text-right">With Processor</TableHead>
+                      <TableHead className="text-right">Abnormal Loss</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reconciliation.components.map((c, idx) => (
+                      <TableRow key={c.id || idx}>
+                        <TableCell>{c.name}</TableCell>
+                        <TableCell className="text-right">
+                          {c.outward.toFixed(2)} {c.unit}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {c.inward.toFixed(2)} {c.unit}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {c.balanceWithVendor.toFixed(2)} {c.unit}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {c.qtyAbnormalLoss != null && c.qtyAbnormalLoss > 0 ? (
+                            <span className="text-red-600 font-medium">
+                              {c.qtyAbnormalLoss.toFixed(2)} {c.unit}
+                            </span>
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Right Column - Commercial & Actions */}
@@ -431,7 +537,7 @@ export default function JobWorkOrderDetail() {
               )}
 
               {(currentStatus === 'APPROVED' || currentStatus === 'READY_TO_SEND') && (
-                <Button className="w-full" onClick={() => issueMutation.mutate()} disabled={issueMutation.isPending}>
+                <Button className="w-full" onClick={() => setIssueDialogOpen(true)}>
                   <Send className="mr-2 h-4 w-4" />
                   Issue to Processor
                 </Button>
@@ -445,6 +551,22 @@ export default function JobWorkOrderDetail() {
                   <Button className="w-full" onClick={() => setReceiveDialogOpen(true)}>
                     <Download className="mr-2 h-4 w-4" />
                     Receive Material
+                  </Button>
+                )}
+
+              {jwo.jwoStatus !== 'CLOSED' &&
+                (jwo.jwoStatus === 'RECEIVED' ||
+                  ['RECEIVED', 'QUALITY_CHECKED', 'STOCK_UPDATED'].includes(jwo.status)) && (
+                  <Button
+                    className="w-full"
+                    variant="secondary"
+                    onClick={() => {
+                      setCloseInvoiceNumber(jwo.invoiceNumber || '');
+                      setCloseDialogOpen(true);
+                    }}
+                  >
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Close Order
                   </Button>
                 )}
 
@@ -573,6 +695,101 @@ export default function JobWorkOrderDetail() {
               disabled={!qtyReceived || receiveMutation.isPending}
             >
               Receive & Calculate Loss
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Issue Dialog (Phase 4c: operational issue) */}
+      <Dialog open={issueDialogOpen} onOpenChange={setIssueDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Issue to Processor</DialogTitle>
+            <DialogDescription>
+              Consumes the selected greige lot ({jwo.qtySentMeters.toFixed(2)} {jwo.uom}), creates the outward challan,
+              and locks the Section 143 due date.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-1.5">
+              <Label>Greige Stock Lot {jwo.fabricType === 'GREIGE' ? '*' : '(optional)'}</Label>
+              <Select value={issueLotId || 'none'} onValueChange={(v) => setIssueLotId(v === 'none' ? '' : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select greige lot" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-- No lot (service work) --</SelectItem>
+                  {(availableLots || [])
+                    .filter((lot) => Number(lot.quantityAvailable) >= Number(jwo.qtySentMeters))
+                    .map((lot) => (
+                      <SelectItem key={lot.id} value={lot.id}>
+                        {lot.greige?.greigeCode} — {lot.greige?.greigeName} ({Number(lot.quantityAvailable).toFixed(1)}m
+                        avail, {Number(lot.greigeWidth)}″)
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Challan Ref (optional)</Label>
+                <Input value={issueChallanRef} onChange={(e) => setIssueChallanRef(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Vehicle Number</Label>
+                <Input value={issueVehicle} onChange={(e) => setIssueVehicle(e.target.value)} />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIssueDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => issueMutation.mutate()}
+              disabled={issueMutation.isPending || (jwo.fabricType === 'GREIGE' && !issueLotId)}
+            >
+              <Send className="mr-2 h-4 w-4" />
+              {issueMutation.isPending ? 'Issuing...' : 'Issue & Create Challan'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Close Dialog (Phase 3b) */}
+      <Dialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Close Job Work Order</DialogTitle>
+            <DialogDescription>
+              Closing confirms the processor invoice is matched. Orders with abnormal loss need a debit note against the
+              linked PO first.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="closeInvoice">Processor Invoice Number *</Label>
+              <Input
+                id="closeInvoice"
+                value={closeInvoiceNumber}
+                onChange={(e) => setCloseInvoiceNumber(e.target.value)}
+                placeholder="e.g. INV-2026-0412"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCloseDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => closeMutation.mutate()}
+              disabled={!closeInvoiceNumber.trim() || closeMutation.isPending}
+            >
+              Close Order
             </Button>
           </DialogFooter>
         </DialogContent>

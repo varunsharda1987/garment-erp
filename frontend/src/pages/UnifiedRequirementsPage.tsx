@@ -33,6 +33,8 @@ import ProcessingAssignDialog from '@/components/ProcessingAssignDialog';
 import BulkPOGenerationDialog from '@/components/BulkPOGenerationDialog';
 import ProcessorAllocationDialog from '@/components/ProcessorAllocationDialog';
 import BulkServicePODialog from '@/components/BulkServicePODialog';
+import OrderThreadRequirementForm from '@/components/thread/OrderThreadRequirementForm';
+import { Combobox } from '@/components/ui/combobox';
 
 // Services
 import {
@@ -56,6 +58,7 @@ import {
   getAvailableSuppliers as getThreadSuppliers,
 } from '@/services/threadRequirement.service';
 import { getAllSuppliers } from '@/services/supplier.service';
+import { getAllOrders } from '@/services/order.service';
 import type { Supplier } from '@/types/supplier.types';
 import type {
   ThreadRequirementStatus,
@@ -105,6 +108,7 @@ import {
   ArrowRight,
   X,
   Scissors,
+  Plus,
 } from 'lucide-react';
 
 type RequirementTab = 'material' | 'outsourced' | 'thread';
@@ -427,7 +431,7 @@ function MaterialRequirementsTab({
         remarks: poRemarks || undefined,
         consolidate: true,
       });
-      handleApiSuccess('PO Generated', `PO ${result.purchaseOrder.poNumber} created with ${result.totalItems} items`);
+      handleApiSuccess('PO Generated', `PO ${result.purchaseOrder?.poNumber} created with ${result.totalItems} items`);
       setShowGeneratePO(false);
       setPOSupplierId('');
       setPODeliveryDate('');
@@ -1088,6 +1092,36 @@ function ThreadRequirementsTab({
   const [poGenerating, setPOGenerating] = useState(false);
   const [availableSuppliers, setAvailableSuppliers] = useState<{ id: string; name: string; code: string }[]>([]);
 
+  // Add Thread Requirement dialog state
+  const [addThreadDialogOpen, setAddThreadDialogOpen] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState('');
+  const [orderOptions, setOrderOptions] = useState<{ value: string; label: string }[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+
+  // Fetch orders for selector
+  const loadOrders = useCallback(async (searchTerm: string) => {
+    setLoadingOrders(true);
+    try {
+      const response = await getAllOrders({ search: searchTerm, limit: 20 });
+      const options = (response.data || []).map((order: any) => ({
+        value: order.id,
+        label: `${order.orderNumber} - ${order.style?.styleCode || order.styleName || 'Unknown Style'}`,
+      }));
+      setOrderOptions(options);
+    } catch (err) {
+      handleApiError(err, 'Failed to load orders for selection');
+    } finally {
+      setLoadingOrders(false);
+    }
+  }, []);
+
+  // Load orders on dialog open
+  const handleOpenAddDialog = () => {
+    setAddThreadDialogOpen(true);
+    setSelectedOrderId('');
+    loadOrders('');
+  };
+
   // Only pending items can be selected
   const selectableIds = requirements.filter((r) => r.status === 'PENDING').map((r) => r.id);
 
@@ -1185,6 +1219,10 @@ function ThreadRequirementsTab({
             </Select>
 
             <div className="ml-auto flex items-center gap-2">
+              <Button onClick={handleOpenAddDialog} size="sm" variant="outline">
+                <Plus className="h-4 w-4 mr-1" />
+                Add Thread Requirement
+              </Button>
               {selectedIds.length > 0 && (
                 <Button onClick={handleOpenPODialog} size="sm">
                   <FileText className="h-4 w-4 mr-1" />
@@ -1233,7 +1271,7 @@ function ThreadRequirementsTab({
               ) : requirements.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
-                    No thread requirements found. Add thread requirements from the Order Detail page.
+                    No thread requirements found. Click "Add Thread Requirement" to create one.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -1375,6 +1413,54 @@ function ThreadRequirementsTab({
               {poGenerating ? 'Generating...' : 'Generate PO'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Thread Requirement Dialog */}
+      <Dialog open={addThreadDialogOpen} onOpenChange={setAddThreadDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Thread Requirement</DialogTitle>
+            <DialogDescription>
+              {selectedOrderId
+                ? 'Enter thread requirements for the selected order.'
+                : 'Select an order to add thread requirements.'}
+            </DialogDescription>
+          </DialogHeader>
+          {!selectedOrderId ? (
+            <div className="py-4">
+              <Label>Select Order</Label>
+              <Combobox
+                options={orderOptions}
+                value={selectedOrderId}
+                onValueChange={setSelectedOrderId}
+                placeholder={loadingOrders ? 'Loading orders...' : 'Search and select an order...'}
+                searchPlaceholder="Search by order number or style..."
+                emptyText="No orders found. Try a different search."
+                onSearchChange={loadOrders}
+                className="mt-2"
+              />
+            </div>
+          ) : (
+            <div className="py-4">
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  Order: {orderOptions.find((o) => o.value === selectedOrderId)?.label || selectedOrderId}
+                </span>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedOrderId('')}>
+                  Change Order
+                </Button>
+              </div>
+              <OrderThreadRequirementForm
+                orderId={selectedOrderId}
+                onSave={() => {
+                  setAddThreadDialogOpen(false);
+                  setSelectedOrderId('');
+                  queryClient.invalidateQueries({ queryKey: ['thread-requirements'] });
+                }}
+              />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
@@ -1635,7 +1721,13 @@ function OutsourcedWorkTab({
         remarks: procPORemarks || undefined,
         consolidate: true,
       });
-      handleApiSuccess('PO Generated', `PO ${result.purchaseOrder.poNumber} created with ${result.totalItems} items`);
+      handleApiSuccess(
+        result.purchaseOrder ? 'PO Generated' : 'Job Work Order Generated',
+        result.purchaseOrder
+          ? `PO ${result.purchaseOrder.poNumber} created with ${result.totalItems} items` +
+              (result.jobWorkNumber ? ` · JWO ${result.jobWorkNumber}` : '')
+          : `JWO ${result.jobWorkNumber} created covering ${result.linkedRequirements} requirement(s) — dispatch it from Job Work Orders`
+      );
       setShowGenerateProcessingPO(false);
       setProcPOSupplierId('');
       setProcPODeliveryDate('');
@@ -1658,7 +1750,7 @@ function OutsourcedWorkTab({
         expectedDeliveryDate: svcPODeliveryDate,
         remarks: svcPORemarks || undefined,
       });
-      handleApiSuccess('Service PO Generated', `PO ${result.purchaseOrder.poNumber} created`);
+      handleApiSuccess('Service PO Generated', `PO ${result.purchaseOrder?.poNumber} created`);
       setShowGenerateServicePO(false);
       setSvcPOProcessorId('');
       setSvcPODeliveryDate('');

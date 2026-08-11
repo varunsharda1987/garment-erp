@@ -81,6 +81,25 @@ export const createGRN = async (grnData: CreateGRNRequest): Promise<GRN> => {
 };
 
 /**
+ * Phase 4b: create a GRN against a Job Work Order (no purchase order)
+ */
+export const createGRNFromJWO = async (payload: {
+  jobWorkOrderId: string;
+  qtyReceivedMeters?: number;
+  receivedWidthInches?: number;
+  thanCount?: number;
+  foldLengthCm?: number;
+  receivedChallan?: string;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  warehouseId?: string;
+  remarks?: string;
+}): Promise<GRN> => {
+  const { data } = await api.post<GRNResponse>(`${BASE_URL}/jwo`, payload);
+  return data.data;
+};
+
+/**
  * Approve a GRN (PENDING_QC -> ACCEPTED)
  */
 export interface PendingCuttingInfo {

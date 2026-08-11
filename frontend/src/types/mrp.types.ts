@@ -366,13 +366,20 @@ export interface CalculationResultResponse {
 export interface POGenerationResponse {
   success: boolean;
   data: {
+    /** Phase 4c: null for PROCESSING requirements — those produce a Job Work Order only */
     purchaseOrder: {
       id: string;
       poNumber: string;
       totalAmount: number;
+    } | null;
+    jobWorkOrder?: {
+      id: string;
+      jobWorkNumber: string;
+      totalAmount: number;
     };
     linkedRequirements: number;
     totalItems: number;
+    jobWorkNumber?: string;
   };
   message?: string;
 }

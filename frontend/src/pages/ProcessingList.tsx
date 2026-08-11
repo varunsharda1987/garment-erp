@@ -572,7 +572,7 @@ export default function ProcessingList() {
     },
     {
       key: 'poNumber',
-      header: 'PO #',
+      header: 'Order #',
       render: (item) => (
         <Badge variant="outline" className="font-mono text-xs">
           {item.poNumber}

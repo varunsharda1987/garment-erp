@@ -44,7 +44,13 @@ import type {
   Unit,
   SupplierSummary,
 } from '@/types/purchaseOrder.types';
-import { PO_CATEGORY_LABELS, PO_CATEGORY_COLORS, PO_GROUP_CATEGORIES } from '@/types/purchaseOrder.types';
+import {
+  PO_CATEGORY_LABELS,
+  PO_CATEGORY_COLORS,
+  PO_GROUP_CATEGORIES,
+  DEPRECATED_PROCESSING_CATEGORIES,
+  DEPRECATED_SERVICE_CATEGORIES,
+} from '@/types/purchaseOrder.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { useAuthStore } from '@/stores/auth.store';
 import { formatCurrency } from '@/lib/currency';
@@ -170,13 +176,13 @@ interface POItemForm {
 // Helpers
 // ============================================
 
+// NOTE: Processing/Service categories deprecated - use Job Work Orders
 function isProcessingCategory(category: string): boolean {
-  return PO_GROUP_CATEGORIES.processing.includes(category);
+  return (DEPRECATED_PROCESSING_CATEGORIES as readonly string[]).includes(category);
 }
 
 function isServiceCategory(category: string): boolean {
-  // Pure services only — processing has its own flow
-  return PO_GROUP_CATEGORIES.service.includes(category);
+  return (DEPRECATED_SERVICE_CATEGORIES as readonly string[]).includes(category);
 }
 
 function isMaterialCategory(category: string): boolean {
@@ -187,10 +193,10 @@ function getDefaultUnit(category: string): Unit {
   // Material categories
   if (category === 'GREIGE' || category === 'FABRIC') return 'METER';
   if (category === 'LACE' || category === 'GREIGE_LACE') return 'METER';
-  // Processing categories
-  if (PO_GROUP_CATEGORIES.processing.includes(category)) return 'METER';
-  // Service categories
-  if (PO_GROUP_CATEGORIES.service.includes(category)) return 'PIECE';
+  // Processing categories (deprecated, but keep for existing POs)
+  if ((DEPRECATED_PROCESSING_CATEGORIES as readonly string[]).includes(category)) return 'METER';
+  // Service categories (deprecated, but keep for existing POs)
+  if ((DEPRECATED_SERVICE_CATEGORIES as readonly string[]).includes(category)) return 'PIECE';
   // Default for TRIMS and GENERAL
   return 'PIECE';
 }
@@ -1496,6 +1502,7 @@ export default function PurchaseOrderForm() {
                   </TooltipProvider>
                 )}
               </div>
+              {/* NOTE: Processing/Service categories removed - use Job Work Orders for those */}
               <Select value={poCategory} onValueChange={handleCategoryChange} disabled={isEditMode || isCategoryLocked}>
                 <SelectTrigger className={isCategoryLocked ? 'bg-muted/50' : ''}>
                   <SelectValue placeholder="Select PO category..." />
@@ -1504,22 +1511,6 @@ export default function PurchaseOrderForm() {
                   <SelectGroup>
                     <SelectLabel>Material</SelectLabel>
                     {PO_GROUP_CATEGORIES.material.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {PO_CATEGORY_LABELS[cat] || cat}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                  <SelectGroup>
-                    <SelectLabel>Processing</SelectLabel>
-                    {PO_GROUP_CATEGORIES.processing.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {PO_CATEGORY_LABELS[cat] || cat}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                  <SelectGroup>
-                    <SelectLabel>Service</SelectLabel>
-                    {PO_GROUP_CATEGORIES.service.map((cat) => (
                       <SelectItem key={cat} value={cat}>
                         {PO_CATEGORY_LABELS[cat] || cat}
                       </SelectItem>

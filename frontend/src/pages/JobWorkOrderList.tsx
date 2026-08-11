@@ -4,7 +4,7 @@
  */
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
@@ -18,7 +18,9 @@ import {
   Eye,
   FileText,
   TrendingDown,
+  Plus,
 } from 'lucide-react';
+import { JobWorkOrderCreateDialog } from '@/components/JobWorkOrderCreateDialog';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -47,6 +49,8 @@ const PROCESS_TYPES = [
   { value: 'FINISHING', label: 'Finishing' },
   { value: 'CUTTING', label: 'Cutting' },
   { value: 'HANDWORK', label: 'Handwork' },
+  { value: 'KAAJ_BUTTON', label: 'Kaaj-Button' },
+  { value: 'TRANSPORTATION', label: 'Transportation' },
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -101,9 +105,11 @@ function getSection143Status(sentDate?: string, receivedDate?: string) {
 
 export default function JobWorkOrderList() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [processType, setProcessType] = useState<string>('all');
   const [page, setPage] = useState(1);
+  const [createOpen, setCreateOpen] = useState(false);
   const limit = 20;
 
   const queryParams: JobWorkOrderQueryParams = {
@@ -138,7 +144,20 @@ export default function JobWorkOrderList() {
           </h1>
           <p className="text-muted-foreground">Manage external processing across all process types</p>
         </div>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Job Work Order
+        </Button>
       </div>
+
+      <JobWorkOrderCreateDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onCreated={() => {
+          queryClient.invalidateQueries({ queryKey: ['job-work-orders'] });
+          queryClient.invalidateQueries({ queryKey: ['job-work-orders-dashboard'] });
+        }}
+      />
 
       {/* Dashboard Cards */}
       {dashboard && (

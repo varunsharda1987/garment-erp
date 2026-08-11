@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getReceivablePurchaseOrders } from '@/services/purchaseOrder.service';
-import { createGRN, getProcessingContext, getPendingItemsForPO } from '@/services/grn.service';
+import { createGRN, createGRNFromJWO, getProcessingContext, getPendingItemsForPO } from '@/services/grn.service';
+import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { warehouseService } from '@/services/warehouse.service';
 import type { PurchaseOrder } from '@/types/purchaseOrder.types';
 import type {
@@ -117,10 +118,58 @@ export default function GRNForm() {
   const [procReceivedWidthInches, setProcReceivedWidthInches] = useState('');
   const [procReceivedChallan, setProcReceivedChallan] = useState('');
 
+  // Phase 4b: receive against a PO-less Job Work Order
+  type ReceivableJwo = Awaited<ReturnType<typeof jobWorkOrderService.getReceivable>>[number];
+  const [receivableJwos, setReceivableJwos] = useState<ReceivableJwo[]>([]);
+  const [selectedJwoId, setSelectedJwoId] = useState('');
+  const [jwoQtyMeters, setJwoQtyMeters] = useState('');
+  const [jwoWidth, setJwoWidth] = useState('');
+  const [jwoThanCount, setJwoThanCount] = useState('');
+  const [jwoFoldLengthCm, setJwoFoldLengthCm] = useState('');
+  const [jwoChallanRef, setJwoChallanRef] = useState('');
+  const [jwoSaving, setJwoSaving] = useState(false);
+  const selectedJwo = receivableJwos.find((j) => j.id === selectedJwoId) || null;
+
   useEffect(() => {
     fetchReceivablePOs();
     fetchWarehouses();
+    jobWorkOrderService
+      .getReceivable()
+      .then(setReceivableJwos)
+      .catch(() => setReceivableJwos([]));
   }, []);
+
+  const handleSaveJwoGrn = async () => {
+    if (!selectedJwoId) return;
+    const qty = parseFloat(jwoQtyMeters) || 0;
+    const thanCount = parseInt(jwoThanCount) || 0;
+    const foldLen = parseFloat(jwoFoldLengthCm) || 0;
+    if (qty <= 0 && !(thanCount > 0 && foldLen > 0)) {
+      handleApiError(new Error('Enter received meters, or than count + fold length'), 'Missing quantity');
+      return;
+    }
+    setJwoSaving(true);
+    try {
+      const grn = await createGRNFromJWO({
+        jobWorkOrderId: selectedJwoId,
+        qtyReceivedMeters: qty > 0 ? qty : undefined,
+        receivedWidthInches: parseFloat(jwoWidth) || undefined,
+        thanCount: thanCount > 0 ? thanCount : undefined,
+        foldLengthCm: foldLen > 0 ? foldLen : undefined,
+        receivedChallan: jwoChallanRef || undefined,
+        invoiceNumber: invoiceNumber || undefined,
+        invoiceDate: invoiceDate || undefined,
+        warehouseId: warehouseId || undefined,
+        remarks: remarks || undefined,
+      });
+      handleApiSuccess('GRN created', `${grn.grnNumber} created against ${selectedJwo?.jobWorkNumber}`);
+      navigate('/procurement/grn');
+    } catch (err) {
+      handleApiError(err, 'Failed to create JWO GRN');
+    } finally {
+      setJwoSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (selectedPOId) {
@@ -949,6 +998,82 @@ export default function GRNForm() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Phase 4b: receive against a PO-less Job Work Order */}
+          {receivableJwos.length > 0 && (
+            <div className="space-y-3 border rounded-md p-3 bg-muted/30">
+              <Label>Or receive against a Job Work Order (no PO)</Label>
+              <Select
+                value={selectedJwoId || 'none'}
+                onValueChange={(v) => {
+                  setSelectedJwoId(v === 'none' ? '' : v);
+                  if (v !== 'none') setSelectedPOId('');
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={`Select from ${receivableJwos.length} receivable JWO(s)`} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">-- None --</SelectItem>
+                  {receivableJwos.map((j) => (
+                    <SelectItem key={j.id} value={j.id}>
+                      {j.jobWorkNumber} — {j.processor?.name} ({j.processType}, {Number(j.qtySentMeters).toFixed(1)}{' '}
+                      {j.uom} sent{j.style?.styleCode ? `, ${j.style.styleCode}` : ''})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {selectedJwo && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Received Meters</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={jwoQtyMeters}
+                        onChange={(e) => setJwoQtyMeters(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Width (inches)</Label>
+                      <Input type="number" step="0.1" value={jwoWidth} onChange={(e) => setJwoWidth(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Than Count</Label>
+                      <Input type="number" value={jwoThanCount} onChange={(e) => setJwoThanCount(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Fold Length (cm)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={jwoFoldLengthCm}
+                        onChange={(e) => setJwoFoldLengthCm(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Vendor Challan Ref</Label>
+                      <Input value={jwoChallanRef} onChange={(e) => setJwoChallanRef(e.target.value)} />
+                    </div>
+                    <div className="flex items-end">
+                      <Button onClick={handleSaveJwoGrn} disabled={jwoSaving} className="w-full">
+                        <Save className="h-4 w-4 mr-2" />
+                        {jwoSaving ? 'Saving...' : `Save GRN for ${selectedJwo.jobWorkNumber}`}
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Warehouse, invoice and remarks below apply to this receipt too. Quantity: enter meters directly, or
+                    than count × fold length.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Warehouse & Date */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

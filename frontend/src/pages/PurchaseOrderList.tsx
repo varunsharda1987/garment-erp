@@ -112,8 +112,11 @@ export default function PurchaseOrderList() {
 
     if (specificCategory) {
       poCategories = [specificCategory];
-    } else if (activeTab !== 'all') {
-      poCategories = [...PO_GROUP_CATEGORIES[activeTab]];
+    } else {
+      // BUG-JWC2: 'all' tab must also be material-only so the table agrees with the
+      // material-only stat cards/tab counts. Processing/service work lives in Job Work
+      // Orders; deprecated-category POs stay reachable via the ?poCategory= URL param.
+      poCategories = [...PO_GROUP_CATEGORIES[activeTab === 'all' ? 'material' : activeTab]];
     }
 
     return {
@@ -165,14 +168,13 @@ export default function PurchaseOrderList() {
   }, [stats]);
 
   const tabCounts = useMemo(() => {
-    if (!normalizedStats) return { all: 0, material: 0, processing: 0, service: 0 };
+    if (!normalizedStats) return { all: 0, material: 0 };
     const { byCategory } = normalizedStats;
     const sum = (cats: string[]) => cats.reduce((s, c) => s + (byCategory[c] || 0), 0);
+    // Only show material POs - processing/service now use Job Work Orders
     return {
-      all: Object.values(byCategory).reduce((s, n) => s + n, 0),
+      all: sum(PO_GROUP_CATEGORIES.material), // Only count material categories
       material: sum(PO_GROUP_CATEGORIES.material),
-      processing: sum(PO_GROUP_CATEGORIES.processing),
-      service: sum(PO_GROUP_CATEGORIES.service),
     };
   }, [normalizedStats]);
 
@@ -378,8 +380,9 @@ export default function PurchaseOrderList() {
       </div>
 
       {/* Tabs + Content */}
+      {/* NOTE: Processing/Service tabs removed - those POs are now Job Work Orders */}
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="all">
             All{' '}
             <Badge variant="secondary" className="ml-1.5 text-xs">
@@ -390,18 +393,6 @@ export default function PurchaseOrderList() {
             Material{' '}
             <Badge variant="secondary" className="ml-1.5 text-xs">
               {tabCounts.material}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="processing">
-            Processing{' '}
-            <Badge variant="secondary" className="ml-1.5 text-xs">
-              {tabCounts.processing}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="service">
-            Service{' '}
-            <Badge variant="secondary" className="ml-1.5 text-xs">
-              {tabCounts.service}
             </Badge>
           </TabsTrigger>
         </TabsList>

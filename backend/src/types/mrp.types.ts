@@ -107,6 +107,9 @@ export interface CalculatedRequirement {
   unitPrice?: number | null;
   rateSource?: 'ORDER_BOM' | 'COST_SHEET' | 'SUPPLIER_PRICE' | 'RATE_CARD' | 'MANUAL' | null;
   orderBomItemId?: string | null;
+  // Batch group for PROCESSING requirement consolidation (from fabric_width_cad)
+  processingBatchGroupColorId?: string | null;
+  batchGroupColorName?: string | null;
 }
 
 // ============================================

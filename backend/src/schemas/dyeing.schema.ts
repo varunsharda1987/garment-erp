@@ -234,6 +234,8 @@ export const createProcessPoSchema = z
     sentDate: z.string().optional(), // Used when autoSend=true
     challanNumber: z.string().max(100).optional(), // Used when autoSend=true
     vehicleNumber: z.string().max(50).optional(), // Used when autoSend=true
+    // JWC5: proceed even though MRP already generated a processing PO for the same greige+processor
+    acknowledgeDuplicate: z.boolean().optional().default(false),
   })
   .passthrough()
   .refine((data) => data.labDipId || (data.styleId && data.fabricId && data.processorId), {

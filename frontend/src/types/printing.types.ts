@@ -460,8 +460,8 @@ export type ProcessPOStatus =
   | 'CANCELLED';
 
 export interface ProcessPO {
-  id: string;
-  poNumber: string;
+  id: string; // Phase 4c-final: this is the JOB WORK ORDER id (legacy PO ids still resolve server-side)
+  poNumber: string; // legacy PO number, or the JWO number (DJ/PJ-...) for JWO-only records
   poDate: string;
   expectedDeliveryDate: string;
   totalAmount: number | null;
@@ -481,6 +481,8 @@ export interface ProcessPO {
     totalPrice: number;
   }>;
   jobWorkOrder?: JobWorkOrder | null;
+  // Legacy shadow PO (pre-4c records only; null for JWO-only records)
+  purchaseOrder?: { id: string; poNumber: string; status: string } | null;
 }
 
 export interface CreateProcessPORequest {

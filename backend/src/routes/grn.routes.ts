@@ -12,6 +12,7 @@ import {
   getReceivingSummaryByPO,
   getProcessingContext,
   createGRN,
+  createGRNFromJWO,
   approveGRN,
   rejectGRN,
   reverseGRN, // BUG-GRN6 fix
@@ -22,6 +23,7 @@ import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
 import {
   createGRNSchema,
+  createJwoGRNSchema,
   approveGRNSchema,
   rejectGRNSchema,
   reverseGRNSchema,
@@ -94,6 +96,18 @@ router.post(
   authorize(UserRole.ADMIN, UserRole.INVENTORY, UserRole.PURCHASE),
   validateBody(createGRNSchema),
   asyncHandler(createGRN)
+);
+
+/**
+ * @route   POST /api/grn/jwo
+ * @desc    Phase 4b: Create a GRN against a Job Work Order (no purchase order)
+ * @access  Private (INVENTORY, PURCHASE, ADMIN)
+ */
+router.post(
+  '/jwo',
+  authorize(UserRole.ADMIN, UserRole.INVENTORY, UserRole.PURCHASE),
+  validateBody(createJwoGRNSchema),
+  asyncHandler(createGRNFromJWO)
 );
 
 // ============================================

@@ -116,6 +116,23 @@ const DEFAULT_SETTINGS: Array<{
     description: 'Number of days after which stock is considered aged/old',
     isSystem: true,
   },
+  // KAAJ_BUTTON processing rates (outsourced buttonhole + button attachment)
+  {
+    key: 'KAAJ_BUTTONHOLE_RATE_PER_UNIT',
+    value: '0.30',
+    dataType: 'NUMBER',
+    category: 'PROCESSING_RATES',
+    description: 'Default rate per buttonhole (₹) for outsourced kaaj work',
+    isSystem: true,
+  },
+  {
+    key: 'KAAJ_BUTTON_RATE_PER_UNIT',
+    value: '0.30',
+    dataType: 'NUMBER',
+    category: 'PROCESSING_RATES',
+    description: 'Default rate per button attachment (₹) for outsourced kaaj work',
+    isSystem: true,
+  },
 ];
 
 class SystemSettingsService {

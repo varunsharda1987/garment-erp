@@ -83,6 +83,23 @@ export const createGRNSchema = z
   .passthrough();
 
 /**
+ * Phase 4b: Create GRN against a Job Work Order (no purchase order)
+ * POST /api/grn/jwo
+ */
+export const createJwoGRNSchema = z.object({
+  jobWorkOrderId: z.string().uuid('Invalid Job Work Order ID'),
+  qtyReceivedMeters: z.number().positive().optional(),
+  receivedWidthInches: z.number().positive().optional(),
+  thanCount: z.number().int().positive().optional(),
+  foldLengthCm: z.number().positive().optional(),
+  receivedChallan: z.string().max(100).trim().optional(),
+  invoiceNumber: z.string().max(100).trim().optional().nullable(),
+  invoiceDate: z.string().optional().nullable(),
+  warehouseId: z.string().optional().nullable(),
+  remarks: z.string().max(1000).trim().optional().nullable(),
+});
+
+/**
  * Processing QC Data Schema (for PROCESSING PO GRN approval)
  */
 const processingQCSchema = z

@@ -100,6 +100,9 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
               <Badge className={ProcessPOStatusColors[status] || 'bg-muted'}>
                 {ProcessPOStatusLabels[status] || status}
               </Badge>
+              <Badge variant="outline" className="text-muted-foreground">
+                {processPO.purchaseOrder ? 'Legacy PO' : 'Job Work Order'}
+              </Badge>
             </div>
             <p className="text-sm text-muted-foreground mt-1">{title}</p>
           </div>
@@ -193,7 +196,7 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
                 <p className="font-medium">{processPO.labDip?.labDipNumber || '-'}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">PO Date</p>
+                <p className="text-sm text-muted-foreground">Order Date</p>
                 <p className="font-medium">
                   {processPO.poDate ? format(new Date(processPO.poDate), 'dd MMM yyyy') : '-'}
                 </p>

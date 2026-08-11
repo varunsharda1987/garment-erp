@@ -156,6 +156,28 @@ export interface JobWorkOrderQueryParams {
   toDate?: string;
 }
 
+/**
+ * POST /api/job-work-orders (Consolidation Phase 3)
+ * Quantity is in the process type's unit of measure (MTR fabric / PCS garment / TRIP transport).
+ * KAAJ_BUTTON: buttonholeCount/buttonCount drive the total; rates default from system settings.
+ */
+export interface CreateJobWorkOrderRequest {
+  processType: string;
+  processorId: string;
+  styleId?: string | null;
+  fabricId?: string | null;
+  quantity: number;
+  uom?: 'MTR' | 'PCS' | 'KG' | 'TRIP';
+  agreedRate?: number;
+  isRateTbd?: boolean;
+  expectedReturnDate?: string | null;
+  remarks?: string;
+  buttonholeCount?: number;
+  buttonCount?: number;
+  buttonholeRatePerUnit?: number;
+  buttonRatePerUnit?: number;
+}
+
 export interface JobWorkOrderDashboard {
   byStatus: Record<string, number>;
   byProcessType: Record<string, number>;

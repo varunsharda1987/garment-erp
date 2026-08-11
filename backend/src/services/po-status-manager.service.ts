@@ -13,6 +13,7 @@
 
 import { PurchaseOrderStatus } from '@prisma/client';
 import prisma from '../config/database';
+import { MATERIAL_PO_CATEGORIES } from '../types/purchaseOrder.types';
 
 // ============================================
 // Types & Interfaces
@@ -615,22 +616,29 @@ export async function getPOSourceStats(): Promise<{
   byStatus: Record<string, number>;
   totalValue: number;
 }> {
+  // BUG-JWC2: material-only, so the PO page's stat cards/tab counts/Total Value agree with
+  // its (material-only) table. Processing/service work is counted in Job Work Orders instead.
+  // Sole consumer of this endpoint is PurchaseOrderList.tsx.
+  const materialOnly = { poCategory: { in: MATERIAL_PO_CATEGORIES } };
   const [bySource, byCategory, byStatus, totalValueResult] = await Promise.all([
     prisma.purchase_orders.groupBy({
       by: ['poSource'],
       _count: { id: true },
+      where: materialOnly,
     }),
     prisma.purchase_orders.groupBy({
       by: ['poCategory'],
       _count: { id: true },
+      where: materialOnly,
     }),
     prisma.purchase_orders.groupBy({
       by: ['status'],
       _count: { id: true },
+      where: materialOnly,
     }),
     prisma.purchase_orders.aggregate({
       _sum: { totalAmount: true },
-      where: { status: { not: 'CANCELLED' } },
+      where: { status: { not: 'CANCELLED' }, ...materialOnly },
     }),
   ]);
 

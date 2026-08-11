@@ -11,6 +11,7 @@ import { roundToCent, multiplyCurrency, addCurrency, toCurrency, subtractCurrenc
 
 interface DebitNoteCreateInput {
   poId?: string;
+  jobWorkOrderId?: string; // Phase 4a: raise against a Job Work Order
   supplierId: string;
   debitNoteDate?: string;
   reason: DebitNoteReason;
@@ -57,6 +58,32 @@ export class DebitNoteService {
   async create(data: DebitNoteCreateInput, userId: string) {
     if (!data.items || data.items.length === 0) {
       throw new ValidationError('At least one item is required');
+    }
+
+    // Phase 4a: debit note against a Job Work Order — validate the JWO and, when no PO
+    // was given, derive it from the JWO's shadow PO so the cumulative-cap check and the
+    // Tally PO reference keep working for PO-backed JWOs.
+    let jwoForCap: { jobWorkNumber: string; totalAmount: unknown } | null = null;
+    if (data.jobWorkOrderId) {
+      const jwo = await prisma.job_work_orders.findUnique({
+        where: { id: data.jobWorkOrderId },
+        select: { id: true, jobWorkNumber: true, processorId: true, purchaseOrderId: true, totalAmount: true },
+      });
+      if (!jwo) {
+        throw new NotFoundError('Job work order', data.jobWorkOrderId);
+      }
+      if (jwo.processorId !== data.supplierId) {
+        throw new ValidationError(
+          `Job work order ${jwo.jobWorkNumber} belongs to a different processor than the selected supplier`
+        );
+      }
+      if (!data.poId && jwo.purchaseOrderId) {
+        data.poId = jwo.purchaseOrderId;
+      }
+      // Phase 4b: JWO-only note (no shadow PO) — cap against the JWO's own total
+      if (!data.poId) {
+        jwoForCap = jwo;
+      }
     }
 
     // Determine interstate status from the supplier alone — the lookup needs only supplierId,
@@ -125,6 +152,23 @@ export class DebitNoteService {
             `remaining allowance: ₹${remaining.toFixed(2)}`
         );
       }
+    } else if (jwoForCap) {
+      // Phase 4b: cumulative cap against the JWO's commercial total (JWO-only notes)
+      const jwoTotal = toCurrency(jwoForCap.totalAmount as never);
+      if (jwoTotal.gt(0)) {
+        const existingJwoNotes = await prisma.debit_notes.aggregate({
+          where: { jobWorkOrderId: data.jobWorkOrderId, status: { not: 'CANCELLED' } },
+          _sum: { totalAmount: true },
+        });
+        const existingTotal = toCurrency(existingJwoNotes._sum.totalAmount);
+        const cumulativeTotal = addCurrency(existingTotal.toNumber(), totalAmount);
+        if (cumulativeTotal.gt(jwoTotal)) {
+          throw new Error(
+            `Debit note total (₹${totalAmount.toFixed(2)}) would exceed job work order ${jwoForCap.jobWorkNumber} ` +
+              `total (₹${jwoTotal.toFixed(2)}); existing debit notes: ₹${existingTotal.toFixed(2)}`
+          );
+        }
+      }
     }
 
     // Create inside a transaction
@@ -133,6 +177,7 @@ export class DebitNoteService {
         data: {
           debitNoteNumber,
           poId: data.poId || null,
+          jobWorkOrderId: data.jobWorkOrderId || null,
           supplierId: data.supplierId,
           debitNoteDate: data.debitNoteDate ? new Date(data.debitNoteDate) : new Date(),
           reason: data.reason,
@@ -174,6 +219,12 @@ export class DebitNoteService {
             select: {
               id: true,
               poNumber: true,
+            },
+          },
+          jobWorkOrder: {
+            select: {
+              id: true,
+              jobWorkNumber: true,
             },
           },
           createdBy: {
@@ -258,6 +309,12 @@ export class DebitNoteService {
               poNumber: true,
             },
           },
+          jobWorkOrder: {
+            select: {
+              id: true,
+              jobWorkNumber: true,
+            },
+          },
           createdBy: {
             select: {
               id: true,
@@ -304,6 +361,12 @@ export class DebitNoteService {
             poNumber: true,
             poDate: true,
             status: true,
+          },
+        },
+        jobWorkOrder: {
+          select: {
+            id: true,
+            jobWorkNumber: true,
           },
         },
         createdBy: {
@@ -353,6 +416,12 @@ export class DebitNoteService {
             poNumber: true,
           },
         },
+        jobWorkOrder: {
+          select: {
+            id: true,
+            jobWorkNumber: true,
+          },
+        },
         createdBy: {
           select: {
             id: true,
@@ -397,6 +466,12 @@ export class DebitNoteService {
           select: {
             id: true,
             poNumber: true,
+          },
+        },
+        jobWorkOrder: {
+          select: {
+            id: true,
+            jobWorkNumber: true,
           },
         },
         createdBy: {

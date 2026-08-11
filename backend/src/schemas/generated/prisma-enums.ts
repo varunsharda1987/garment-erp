@@ -115,6 +115,7 @@ export const ProcessTypeEnum = z.enum([
   'TRANSPORTATION',
   'HANDWORK',
   'SMOCKING',
+  'KAAJ_BUTTON',
 ]);
 export type ProcessType = z.infer<typeof ProcessTypeEnum>;
 
@@ -616,6 +617,22 @@ export const JobWorkStatusEnum = z.enum([
   'STOCK_UPDATED',
 ]);
 export type JobWorkStatus = z.infer<typeof JobWorkStatusEnum>;
+
+export const JobWorkOrderStatusEnum = z.enum([
+  'DRAFT',
+  'PENDING_APPROVAL',
+  'APPROVED',
+  'ISSUED',
+  'IN_TRANSIT',
+  'AT_PROCESSOR',
+  'PARTIALLY_RECEIVED',
+  'RECEIVED',
+  'QUALITY_CHECKED',
+  'STOCK_UPDATED',
+  'CLOSED',
+  'CANCELLED',
+]);
+export type JobWorkOrderStatus = z.infer<typeof JobWorkOrderStatusEnum>;
 
 export const PrintMethodEnum = z.enum(['SCREEN_MACHINE', 'SCREEN_HAND', 'ROTARY', 'BLOCK']);
 export type PrintMethod = z.infer<typeof PrintMethodEnum>;

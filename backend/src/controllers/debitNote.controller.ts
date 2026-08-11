@@ -44,7 +44,7 @@ export class DebitNoteController {
    * Create new debit note
    */
   async create(req: Request, res: Response) {
-    const { poId, supplierId, debitNoteDate, reason, remarks, items } = req.body;
+    const { poId, jobWorkOrderId, supplierId, debitNoteDate, reason, remarks, items } = req.body;
     const userId = req.user?.userId;
 
     if (!supplierId) {
@@ -64,7 +64,7 @@ export class DebitNoteController {
     }
 
     const debitNote = await debitNoteService.create(
-      { poId, supplierId, debitNoteDate, reason: reason as DebitNoteReason, remarks, items },
+      { poId, jobWorkOrderId, supplierId, debitNoteDate, reason: reason as DebitNoteReason, remarks, items },
       userId
     );
 

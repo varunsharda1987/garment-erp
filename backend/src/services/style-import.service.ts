@@ -938,6 +938,7 @@ export class StyleImportService {
       [ProcessType.TRANSPORTATION]: 8,
       [ProcessType.HANDWORK]: 9,
       [ProcessType.SMOCKING]: 10,
+      [ProcessType.KAAJ_BUTTON]: 11, // Buttonhole + button attachment
     };
 
     // 1. PRINTING (Optional)

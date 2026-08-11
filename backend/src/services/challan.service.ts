@@ -32,6 +32,8 @@ export interface CreateChallanItemInput {
   threadStockId?: string;
   materialRequirementId?: string;
   serviceRequirementId?: string;
+  jobWorkOrderId?: string; // Phase 4a: line-level JWO attribution (D5 reconciliation)
+  jobWorkOrderComponentId?: string;
   foldLengthCm?: number;
   thanCount?: number;
   componentName?: string;
@@ -44,6 +46,7 @@ export interface CreateChallanInput {
   orderId?: string;
   productionRunId?: string;
   purchaseOrderId?: string;
+  jobWorkOrderId?: string; // Phase 4a: header-level JWO attribution
   fabricProcessingId?: string;
   fromType: string;
   fromId?: string;
@@ -126,6 +129,7 @@ export async function createChallan(input: CreateChallanInput, outerTx?: Prisma.
         orderId: input.orderId,
         productionRunId: input.productionRunId,
         purchaseOrderId: input.purchaseOrderId,
+        jobWorkOrderId: input.jobWorkOrderId,
         fabricProcessingId: input.fabricProcessingId,
         fromType: input.fromType,
         fromId: input.fromId,
@@ -163,6 +167,8 @@ export async function createChallan(input: CreateChallanInput, outerTx?: Prisma.
             threadStockId: item.threadStockId,
             materialRequirementId: item.materialRequirementId,
             serviceRequirementId: item.serviceRequirementId,
+            jobWorkOrderId: item.jobWorkOrderId,
+            jobWorkOrderComponentId: item.jobWorkOrderComponentId,
             componentName: item.componentName || null,
             colorName: item.colorName || null,
             foldLengthCm: item.foldLengthCm,

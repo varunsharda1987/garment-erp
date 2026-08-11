@@ -76,28 +76,35 @@ export const POSourceColors: Record<POSource, string> = {
 // PO GROUP / CATEGORY TYPES
 // ============================================
 
-export type POGroup = 'all' | 'material' | 'processing' | 'service';
+// NOTE: Service/Processing POs have been moved to Job Work Orders (JWO).
+// PO page now only shows material procurement. Processing/service groups
+// are kept for backward compatibility with existing records.
+export type POGroup = 'all' | 'material';
+
+// Material categories only - all new POs must be one of these
+export const MATERIAL_PO_CATEGORIES = ['FABRIC', 'GREIGE', 'TRIMS', 'LACE', 'GREIGE_LACE', 'GENERAL'] as const;
+
+// DEPRECATED: These categories are now handled by Job Work Orders
+// Kept for viewing existing POs only
+export const DEPRECATED_PROCESSING_CATEGORIES = ['PROCESSING', 'LACE_PROCESSING'] as const;
+export const DEPRECATED_SERVICE_CATEGORIES = [
+  'EMBROIDERY_SERVICE',
+  'WASHING_SERVICE',
+  'FINISHING_SERVICE',
+  'CUTTING_SERVICE',
+  'STITCHING_SERVICE',
+  'HANDWORK_SERVICE',
+  'SMOCKING_SERVICE',
+  'TRANSPORTATION_SERVICE',
+] as const;
 
 export const PO_GROUP_CATEGORIES: Record<Exclude<POGroup, 'all'>, string[]> = {
-  material: ['FABRIC', 'GREIGE', 'TRIMS', 'LACE', 'GREIGE_LACE', 'GENERAL'],
-  processing: ['PROCESSING', 'LACE_PROCESSING'],
-  service: [
-    'EMBROIDERY_SERVICE',
-    'WASHING_SERVICE',
-    'FINISHING_SERVICE',
-    'CUTTING_SERVICE',
-    'STITCHING_SERVICE',
-    'HANDWORK_SERVICE',
-    'SMOCKING_SERVICE',
-    'TRANSPORTATION_SERVICE',
-  ],
+  material: [...MATERIAL_PO_CATEGORIES],
 };
 
 export const PO_GROUP_LABELS: Record<POGroup, string> = {
   all: 'All',
   material: 'Material',
-  processing: 'Processing',
-  service: 'Service',
 };
 
 export const PO_CATEGORY_LABELS: Record<string, string> = {

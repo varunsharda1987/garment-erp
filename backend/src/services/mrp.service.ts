@@ -13,6 +13,8 @@ import {
   PurchaseOrderStatus,
 } from '@prisma/client';
 import { generateAtomicDocNumber, generateAtomicPONumberInTx } from '../utils/atomicCodeGenerator';
+import { generateJobWorkNumber } from '../utils/jobWorkNumber';
+import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
 import { roundToCent, toCurrency, multiplyCurrency, toNumber } from '../utils/currency';
 import { calculateGreigeQuantity } from '../utils/greige-quantity';
 import prisma from '../config/database';
@@ -37,6 +39,23 @@ import { COMPANY_CONFIG } from '../config/company.config';
 import { gstService } from './gst.service';
 import { resolveRate } from './po-rate-resolver.service';
 import logger, { logWarn } from '../utils/logger';
+import { MASTER_CONFIG } from './helpers/master-config';
+import { ensureMaterialRecord } from './helpers/material-sync.helper';
+
+/**
+ * All master FK fields derived from MASTER_CONFIG (single source of truth).
+ * Excludes FABRIC, LACE, GREIGE which have separate dedicated checks in MRP.
+ * When a new material type is added to MASTER_CONFIG, it automatically works here.
+ */
+const DEDICATED_CHECK_FIELDS = ['fabricId', 'laceId', 'greigeId'];
+const TRIM_FK_FIELDS = Object.values(MASTER_CONFIG)
+  .map((config) => config.fkField)
+  .filter((field) => !DEDICATED_CHECK_FIELDS.includes(field));
+
+/** Reverse map: FK field on order_bom_items → master type key in MASTER_CONFIG */
+const FK_TO_MASTER_TYPE: Record<string, string> = Object.fromEntries(
+  Object.entries(MASTER_CONFIG).map(([type, config]) => [config.fkField, type])
+);
 
 /**
  * Ensure a materials record exists for a fabric_master entry.
@@ -739,6 +758,14 @@ export async function calculateRequirementsFromOrder(
               label_master: true,
               packaging_master: true,
               rateCard: { select: { printingType: true } },
+              // Include CAD for batch grouping in PROCESSING requirements
+              selectedCad: {
+                select: {
+                  id: true,
+                  processingBatchGroupColorId: true,
+                  batchGroupColor: { select: { id: true, colorName: true } },
+                },
+              },
             },
           },
         },
@@ -799,8 +826,10 @@ export async function calculateRequirementsFromOrder(
     await prisma.material_requirements.updateMany({
       where: {
         orderId,
-        // Include both BOM-linked and manual (null orderBomId) requirements for this order
-        OR: [{ orderBomId: { in: activeBomIds } }, { orderBomId: null }],
+        // Include BOM-linked, manual (null orderBomId), AND stale (inactive/superseded BOM)
+        // requirements for this order. Without the isActive:false branch, requirements from
+        // deactivated BOMs linger as PO_REQUIRED and recalc creates duplicates next to them.
+        OR: [{ orderBomId: { in: activeBomIds } }, { orderBomId: null }, { orderBom: { isActive: false } }],
         // Exclude terminal statuses AND PO-progression statuses
         status: { notIn: ['RECEIVED', 'CANCELLED', 'PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
         // Also exclude any with active PO links (belt-and-suspenders)
@@ -834,27 +863,20 @@ export async function calculateRequirementsFromOrder(
       const hasGreigeProcessing = bomItem.sourcingStrategy === 'GREIGE_PROCESSED' && bomItem.greigeId;
       // LANDED GREIGE: buying greige fabric at a landed price (no processing) — single procurement requirement
       const hasLandedGreige = !hasGreigeProcessing && !!bomItem.greigeId && !bomItem.fabricId;
-      // Other master types (thread, button, zipper, elastic, label, packaging)
-      const hasSpecificMaster =
-        bomItem.buttonId ||
-        bomItem.threadId ||
-        bomItem.zipperId ||
-        bomItem.elasticId ||
-        bomItem.labelId ||
-        bomItem.packagingId;
+      // Other master types - check all trim FK fields defined in TRIM_FK_FIELDS constant
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const hasSpecificMaster = TRIM_FK_FIELDS.some((field) => (bomItem as any)[field]);
 
       // Early material resolution for specific master types (trim/accessories)
       // so stock check below can use their materialId from the materials table
       let resolvedTrimMaterialId: string | null = null;
       if (!material && hasSpecificMaster) {
-        const trimLookups: Array<{ field: string; value: string | null }> = [
-          { field: 'buttonId', value: bomItem.buttonId },
-          { field: 'threadId', value: bomItem.threadId },
-          { field: 'zipperId', value: bomItem.zipperId },
-          { field: 'elasticId', value: bomItem.elasticId },
-          { field: 'labelId', value: bomItem.labelId },
-          { field: 'packagingId', value: bomItem.packagingId },
-        ];
+        // Build trim lookups from TRIM_FK_FIELDS constant - only include fields with values
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const trimLookups = TRIM_FK_FIELDS.map((field) => ({
+          field,
+          value: (bomItem as any)[field] as string | null,
+        }));
         for (const lookup of trimLookups) {
           if (lookup.value) {
             const mat = await prisma.materials.findFirst({
@@ -876,6 +898,21 @@ export async function calculateRequirementsFromOrder(
           else if (bomItem.elasticId) created = await ensureMaterialForElastic(bomItem.elasticId);
           else if (bomItem.labelId) created = await ensureMaterialForLabel(bomItem.labelId);
           else if (bomItem.packagingId) created = await ensureMaterialForPackaging(bomItem.packagingId);
+          else {
+            // Generic fallback for all remaining trim types (hook_eye, buckle, other_fastener, ...)
+            // driven by MASTER_CONFIG, so new types work without touching this file
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const setField = TRIM_FK_FIELDS.find((field) => (bomItem as any)[field]);
+            if (setField) {
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const materialId = await ensureMaterialRecord((bomItem as any)[setField], FK_TO_MASTER_TYPE[setField]);
+                created = { id: materialId };
+              } catch (err) {
+                logWarn(`[MRP] ensureMaterialRecord fallback failed for ${setField}: ${(err as Error).message}`);
+              }
+            }
+          }
           if (created) {
             resolvedTrimMaterialId = created.id;
             console.log(
@@ -1348,6 +1385,10 @@ export async function calculateRequirementsFromOrder(
         const processingSnapshotPrice = bomItem.processingCost ? Number(bomItem.processingCost) : null;
 
         // This will be created AFTER the GREIGE requirement is saved (needs the ID)
+        // Include batch group info from CAD for consolidation
+        const batchGroupColorId = bomItem.selectedCad?.processingBatchGroupColorId || null;
+        const batchGroupColorName = bomItem.selectedCad?.batchGroupColor?.colorName || null;
+
         calculatedRequirements.push({
           orderId,
           orderItemId: orderItem.id,
@@ -1376,6 +1417,9 @@ export async function calculateRequirementsFromOrder(
           unitPrice: processingSnapshotPrice,
           rateSource: processingSnapshotPrice != null ? 'ORDER_BOM' : null,
           orderBomItemId: bomItem.id,
+          // Batch group for consolidation (from CAD)
+          processingBatchGroupColorId: batchGroupColorId,
+          batchGroupColorName: batchGroupColorName,
         });
       } else {
         // Standard requirement (READY_FABRIC, STOCK_REUSE, or no sourcing strategy)
@@ -1413,7 +1457,56 @@ export async function calculateRequirementsFromOrder(
   // Upsert requirements inside a transaction for atomicity
   // Process in two passes: first MATERIAL/GREIGE, then PROCESSING (to get linked IDs)
   const materialReqs = calculatedRequirements.filter((req) => req.requirementType === 'MATERIAL');
-  const processingReqs = calculatedRequirements.filter((req) => req.requirementType === 'PROCESSING');
+  const rawProcessingReqs = calculatedRequirements.filter((req) => req.requirementType === 'PROCESSING');
+
+  // Consolidate PROCESSING requirements by batch group
+  // Items with the same processingBatchGroupColorId + processorId + orderId should be combined
+  const processingReqs: typeof rawProcessingReqs = [];
+  const batchGroups = new Map<string, (typeof rawProcessingReqs)[0]>();
+
+  for (const req of rawProcessingReqs) {
+    const batchId = (req as any).processingBatchGroupColorId;
+    // Only consolidate if batch group is set AND processor matches
+    if (batchId && req.processorId) {
+      const batchKey = `${req.orderId}-${req.orderItemId}-${batchId}-${req.processorId}`;
+      const existing = batchGroups.get(batchKey);
+
+      if (existing) {
+        // Consolidate: sum quantities, combine component names
+        existing.totalRequired = Number(existing.totalRequired) + Number(req.totalRequired);
+        existing.shortfall = Number(existing.shortfall) + Number(req.shortfall);
+        existing.orderQuantity = (existing.orderQuantity || 0) + (req.orderQuantity || 0);
+        // Combine component names (e.g., "Kurta, Dupatta")
+        if (req.componentName && existing.componentName && !existing.componentName.includes(req.componentName)) {
+          existing.componentName = `${existing.componentName}, ${req.componentName}`;
+        }
+        // Use weighted average for processing cost if both have values
+        if (req.processingCost && existing.processingCost) {
+          const existingQty = Number(existing.totalRequired) - Number(req.totalRequired);
+          const newQty = Number(req.totalRequired);
+          const totalQty = existingQty + newQty;
+          existing.processingCost =
+            (Number(existing.processingCost) * existingQty + Number(req.processingCost) * newQty) / totalQty;
+          existing.unitPrice = existing.processingCost;
+        }
+        // Track batch color name
+        if ((req as any).batchGroupColorName) {
+          (existing as any).batchGroupColorName = (req as any).batchGroupColorName;
+        }
+      } else {
+        // First item in this batch group
+        batchGroups.set(batchKey, { ...req });
+      }
+    } else {
+      // No batch group - keep as separate requirement
+      processingReqs.push(req);
+    }
+  }
+
+  // Add consolidated batch groups to processing requirements
+  for (const consolidated of batchGroups.values()) {
+    processingReqs.push(consolidated);
+  }
 
   // Requirement numbers come from the atomic sequence generator (code_sequences UPSERT),
   // which safely hands out distinct numbers even when called repeatedly inside the
@@ -1485,6 +1578,9 @@ export async function calculateRequirementsFromOrder(
               fabricWidth: req.fabricWidth,
               cadId: req.cadId,
               calculatedAt: new Date(),
+              // Re-link to the CURRENT BOM — a revived CANCELLED requirement may point at an
+              // old inactive BOM; leaving it would orphan it on the next regenerate cycle
+              orderBomId: req.orderBomId,
               // Price snapshot update (in case cost sheet / BOM prices changed before recalc)
               unitPrice: req.unitPrice,
               rateSource: req.rateSource,
@@ -1595,6 +1691,8 @@ export async function calculateRequirementsFromOrder(
               processingCost: req.processingCost,
               linkedRequirementId: linkedGreigeId || existing.linkedRequirementId,
               calculatedAt: new Date(),
+              // Re-link to the CURRENT BOM (same reason as the MATERIAL revive block above)
+              orderBomId: req.orderBomId,
               // Price snapshot update
               unitPrice: req.unitPrice,
               rateSource: req.rateSource,
@@ -2131,12 +2229,187 @@ export async function allocateStock(data: AllocateStockRequest, userId: string):
 }
 
 /**
+ * JWC bridge (BUG-JWC1): shared shape for the Job Work Order that accompanies every
+ * MRP-generated PROCESSING PO. Used by generatePOFromRequirements (live bridge) and
+ * scripts/backfill-mrp-processing-jwos.ts (historical orphans) so the two cannot drift.
+ */
+export interface ProcessingJwoSeed {
+  poId: string | null; // Phase 4c: MRP-generated processing work is JWO-only (no shadow PO)
+  processorId: string;
+  processType: 'DYEING' | 'PRINTING';
+  styleId: string | null;
+  fabricId: string | null;
+  qtyMeters: number;
+  ratePerMeter: number;
+  expectedShrinkage: number | null;
+  expectedReturnDate: Date | null;
+  requirementNumbers: string[];
+  userId: string;
+}
+
+export function buildJwoDataForProcessingPO(seed: ProcessingJwoSeed, jobWorkNumber: string) {
+  return {
+    jobWorkNumber,
+    processType: seed.processType,
+    processorId: seed.processorId,
+    purchaseOrderId: seed.poId ?? null,
+    styleId: seed.styleId,
+    fabricId: seed.fabricId,
+    fabricType: 'GREIGE',
+    qtySentMeters: seed.qtyMeters,
+    uom: 'MTR',
+    agreedRatePerMeter: seed.ratePerMeter,
+    isRateTbd: false,
+    expectedShrinkage: seed.expectedShrinkage,
+    expectedReturnDate: seed.expectedReturnDate,
+    status: 'READY_TO_SEND' as const,
+    jwoStatus: 'DRAFT' as const,
+    remarks: `[MRP] Auto-created from ${seed.requirementNumbers.join(', ')}`,
+    createdById: seed.userId,
+  };
+}
+
+/**
+ * JWC5 (Consolidation Phase 2): find MRP PROCESSING requirements matching a manual
+ * process PO's identity (greige and/or fabric + processor), so the manual flow can
+ * link open requirements instead of double-ordering, and warn when MRP already
+ * generated a live PO for the same work.
+ */
+export interface ProcessingRequirementMatches {
+  openRequirements: Array<{
+    id: string;
+    requirementNumber: string;
+    shortfall: number;
+    orderNumber: string | null;
+  }>;
+  activePOs: Array<{
+    poId: string;
+    poNumber: string;
+    poStatus: string;
+    jobWorkNumber: string | null;
+    requirementNumbers: string[];
+  }>;
+  // Phase 4c: MRP-generated processing work is JWO-only — surface live JWOs too
+  activeJwos: Array<{
+    jwoId: string;
+    jobWorkNumber: string;
+    status: string;
+    requirementNumbers: string[];
+  }>;
+}
+
+export async function findProcessingRequirementMatches(params: {
+  greigeId: string | null;
+  fabricId: string | null;
+  processorId: string;
+}): Promise<ProcessingRequirementMatches> {
+  const identity: Prisma.material_requirementsWhereInput[] = [];
+  if (params.greigeId) identity.push({ materials: { greigeId: params.greigeId } });
+  if (params.fabricId) identity.push({ orderBomItem: { fabricId: params.fabricId } });
+  if (identity.length === 0) return { openRequirements: [], activePOs: [], activeJwos: [] };
+
+  const reqs = await prisma.material_requirements.findMany({
+    where: {
+      requirementType: 'PROCESSING',
+      AND: [
+        { OR: [{ processorId: params.processorId }, { preferredSupplierId: params.processorId }] },
+        { OR: identity },
+      ],
+      status: { in: ['PO_REQUIRED', 'PARTIAL_STOCK', 'PO_GENERATED', 'PO_SENT'] },
+    },
+    include: {
+      orders: { select: { orderNumber: true } },
+      requirement_po_links: {
+        include: {
+          purchase_orders: {
+            select: {
+              id: true,
+              poNumber: true,
+              status: true,
+              isActive: true,
+              poCategory: true,
+              jobWorkOrder: { select: { jobWorkNumber: true } },
+            },
+          },
+        },
+      },
+      // Phase 4c: JWO-only coverage
+      requirement_jwo_links: {
+        include: {
+          job_work_orders: {
+            select: { id: true, jobWorkNumber: true, status: true, jwoStatus: true, isActive: true },
+          },
+        },
+      },
+    },
+  });
+
+  const openRequirements: ProcessingRequirementMatches['openRequirements'] = [];
+  const activePOMap = new Map<string, ProcessingRequirementMatches['activePOs'][number]>();
+  const activeJwoMap = new Map<string, ProcessingRequirementMatches['activeJwos'][number]>();
+
+  for (const req of reqs) {
+    if (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') {
+      openRequirements.push({
+        id: req.id,
+        requirementNumber: req.requirementNumber,
+        shortfall: Number(req.shortfall),
+        orderNumber: req.orders?.orderNumber ?? null,
+      });
+      continue;
+    }
+    for (const link of req.requirement_po_links) {
+      const po = link.purchase_orders;
+      if (!po?.isActive || po.poCategory !== 'PROCESSING') continue;
+      if (po.status === 'CANCELLED' || po.status === 'RECEIVED') continue;
+      const existing = activePOMap.get(po.id);
+      if (existing) {
+        existing.requirementNumbers.push(req.requirementNumber);
+      } else {
+        activePOMap.set(po.id, {
+          poId: po.id,
+          poNumber: po.poNumber,
+          poStatus: po.status,
+          jobWorkNumber: po.jobWorkOrder?.jobWorkNumber ?? null,
+          requirementNumbers: [req.requirementNumber],
+        });
+      }
+    }
+    for (const link of req.requirement_jwo_links) {
+      const jwo = link.job_work_orders;
+      if (!jwo?.isActive) continue;
+      if (jwo.jwoStatus === 'CLOSED' || jwo.jwoStatus === 'CANCELLED' || jwo.status === 'STOCK_UPDATED') continue;
+      const existing = activeJwoMap.get(jwo.id);
+      if (existing) {
+        existing.requirementNumbers.push(req.requirementNumber);
+      } else {
+        activeJwoMap.set(jwo.id, {
+          jwoId: jwo.id,
+          jobWorkNumber: jwo.jobWorkNumber,
+          status: jwo.jwoStatus || jwo.status,
+          requirementNumbers: [req.requirementNumber],
+        });
+      }
+    }
+  }
+
+  return { openRequirements, activePOs: [...activePOMap.values()], activeJwos: [...activeJwoMap.values()] };
+}
+
+/**
  * Generate a Purchase Order from requirements
  */
 export async function generatePOFromRequirements(
   data: GeneratePOFromRequirementsRequest,
   userId: string
-): Promise<{ purchaseOrder: any; linkedRequirements: number; totalItems: number }> {
+): Promise<{
+  // Phase 4c: PROCESSING requirements return a jobWorkOrder and purchaseOrder: null
+  purchaseOrder: { id: string; poNumber: string; totalAmount: number } | null;
+  jobWorkOrder?: { id: string; jobWorkNumber: string; totalAmount: number };
+  linkedRequirements: number;
+  totalItems: number;
+  jobWorkNumber?: string;
+}> {
   const {
     requirementIds,
     supplierId,
@@ -2200,7 +2473,19 @@ export async function generatePOFromRequirements(
       orders: { select: { orderNumber: true } },
       order_items: {
         select: {
+          styleId: true,
           styles: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
+        },
+      },
+      // JWC bridge: BOM-line provenance for the Job Work Order (process type from the
+      // rate card, greige/fabric refs, shrinkage)
+      orderBomItem: {
+        select: {
+          rateCardId: true,
+          greigeId: true,
+          fabricId: true,
+          sourcingStrategy: true,
+          rateCard: { select: { processingType: true, printingType: true, shrinkagePercent: true } },
         },
       },
     },
@@ -2422,6 +2707,133 @@ export async function generatePOFromRequirements(
     poCategory = POCategory.PROCESSING;
   }
 
+  // JWC bridge (BUG-JWC1): derive the process type per requirement — the rate card is
+  // authoritative, else printingType implies PRINTING, else DYEING. One JWO per PO
+  // (1:1 purchaseOrderId), so a PO cannot mix process types.
+  let processingProcessType: 'DYEING' | 'PRINTING' | null = null;
+  if (isProcessingRequirements) {
+    const deriveProcessType = (req: (typeof requirements)[number]): 'DYEING' | 'PRINTING' => {
+      const rcType = (req as any).orderBomItem?.rateCard?.processingType;
+      if (rcType === 'DYEING' || rcType === 'PRINTING') return rcType;
+      return req.printingType ? 'PRINTING' : 'DYEING';
+    };
+    const processTypes = new Set(requirements.map(deriveProcessType));
+    if (processTypes.size > 1) {
+      throw new Error('Selected PROCESSING requirements mix DYEING and PRINTING — generate one PO per process type.');
+    }
+    processingProcessType = [...processTypes][0];
+  }
+
+  // ============================================================================
+  // Phase 4c: PROCESSING requirements produce a Job Work Order ONLY — no purchase
+  // order. The JWO is the commercial document (SAC-based GST via
+  // computeCommercialTotals); receiving happens through the PO-less GRN path
+  // (POST /api/grn/jwo, Phase 4b); dispatch through the JWO issue action.
+  // Greige gating is natural: material cannot be issued before the greige lot exists.
+  // ============================================================================
+  if (isProcessingRequirements && processingProcessType) {
+    const totalQtyMeters = poItems.reduce((sum, item) => sum + item.quantity, 0);
+    const ratePerMeter = poItems[0].unitPrice;
+    const primary = requirements[0] as any;
+    const styleCode = primary.order_items?.styles?.styleCode || 'STK';
+
+    const jwoResult = await prisma.$transaction(async (tx) => {
+      // Guarded status flip — same double-order race protection as the PO path
+      const allRequirementIds = [...new Set(poItems.flatMap((item) => item.requirementIds))];
+      const allowedStatuses = [MaterialRequirementStatus.PO_REQUIRED, MaterialRequirementStatus.PARTIAL_STOCK];
+      const flipResult = await tx.material_requirements.updateMany({
+        where: { id: { in: allRequirementIds }, status: { in: allowedStatuses } },
+        data: { status: MaterialRequirementStatus.PO_GENERATED },
+      });
+      if (flipResult.count !== allRequirementIds.length) {
+        throw new Error(
+          `Race condition: ${allRequirementIds.length - flipResult.count} of ${allRequirementIds.length} processing ` +
+            `requirements were already covered by a concurrent request. Aborting to prevent duplicate job work.`
+        );
+      }
+
+      const jobWorkNumber = await generateJobWorkNumber(processingProcessType!, styleCode);
+      const processTypeMaster = await tx.process_type_master.findFirst({
+        where: { code: processingProcessType!, isActive: true },
+        select: { id: true },
+      });
+      const jwo = await tx.job_work_orders.create({
+        data: {
+          ...buildJwoDataForProcessingPO(
+            {
+              poId: null,
+              processorId: supplierId,
+              processType: processingProcessType!,
+              styleId: primary.order_items?.styleId ?? null,
+              fabricId: primary.orderBomItem?.fabricId ?? null,
+              qtyMeters: totalQtyMeters,
+              ratePerMeter,
+              expectedShrinkage:
+                primary.orderBomItem?.rateCard?.shrinkagePercent != null
+                  ? Number(primary.orderBomItem.rateCard.shrinkagePercent)
+                  : null,
+              expectedReturnDate: new Date(expectedDeliveryDate),
+              requirementNumbers: requirements.map((r) => r.requirementNumber),
+              userId,
+            },
+            jobWorkNumber
+          ),
+          processTypeId: processTypeMaster?.id ?? null,
+          remarks: `[MRP] Job work for ${requirements.map((r) => r.requirementNumber).join(', ')}${remarks ? `\n${remarks}` : ''}`,
+        },
+      });
+
+      // Commercial totals (unresolved GST downgrades to subtotal-only)
+      try {
+        await jobWorkOrderService.computeCommercialTotals(jwo.id, tx);
+      } catch (error) {
+        if (error instanceof JobWorkOrderError && error.code === JWO_ERROR_CODES.GST_RATE_UNRESOLVED) {
+          await tx.job_work_orders.update({
+            where: { id: jwo.id },
+            data: { subtotal: roundToCent(totalQtyMeters * ratePerMeter).toNumber() },
+          });
+          logWarn(`[MRP] JWO ${jobWorkNumber} created without GST — ${processingProcessType} gstRate unresolved`);
+        } else {
+          throw error;
+        }
+      }
+
+      // Requirement ↔ JWO links (processing items carry exactly one requirement each)
+      let linkedCount = 0;
+      for (const item of poItems) {
+        for (const reqId of item.requirementIds) {
+          await tx.requirement_jwo_links.create({
+            data: {
+              requirementId: reqId,
+              jobWorkOrderId: jwo.id,
+              allocatedQuantity:
+                item.requirementIds.length > 1 ? item.quantity / item.requirementIds.length : item.quantity,
+            },
+          });
+          linkedCount++;
+        }
+      }
+
+      const fullJwo = await tx.job_work_orders.findUnique({
+        where: { id: jwo.id },
+        select: { id: true, jobWorkNumber: true, totalAmount: true, subtotal: true },
+      });
+      return { jwo: fullJwo!, linkedCount };
+    });
+
+    return {
+      purchaseOrder: null,
+      jobWorkOrder: {
+        id: jwoResult.jwo.id,
+        jobWorkNumber: jwoResult.jwo.jobWorkNumber,
+        totalAmount: Number(jwoResult.jwo.totalAmount ?? jwoResult.jwo.subtotal ?? 0),
+      },
+      linkedRequirements: jwoResult.linkedCount,
+      totalItems: poItems.length,
+      jobWorkNumber: jwoResult.jwo.jobWorkNumber,
+    };
+  }
+
   // For PROCESSING requirements, find the linked GREIGE PO
   let linkedGreigePOId: string | null = null;
   if (isProcessingRequirements) {
@@ -2608,7 +3020,85 @@ export async function generatePOFromRequirements(
       }
     }
 
-    return { po, linkedCount, itemCount: itemsWithGst.length };
+    // JWC bridge (BUG-JWC1): a PROCESSING PO must carry its Job Work Order — the JWO is what
+    // makes the work visible in /job-work-orders and the dyeing/printing process-PO lists,
+    // and what the GRN JWO branch keys on. Same 1:1 purchaseOrderId pattern as the
+    // dyeing/printing createProcessPO flow.
+    let bridgedJobWorkNumber: string | null = null;
+    if (isProcessingRequirements && processingProcessType) {
+      const primary = requirements[0] as any;
+      const styleCode = primary.order_items?.styles?.styleCode || 'STK';
+      const jobWorkNumber = await generateJobWorkNumber(processingProcessType, styleCode);
+      const totalQtyMeters = itemsWithGst.reduce((sum, item) => sum + item.quantity, 0);
+      // Phase 4a (BUG-JWC6): processTypeId is required for commercial totals — without it
+      // computeCommercialTotals can never resolve a GST rate for machine-created JWOs
+      const processTypeMaster = await tx.process_type_master.findFirst({
+        where: { code: processingProcessType, isActive: true },
+        select: { id: true },
+      });
+      const jwo = await tx.job_work_orders.create({
+        data: {
+          ...buildJwoDataForProcessingPO(
+            {
+              poId: po.id,
+              processorId: supplierId,
+              processType: processingProcessType,
+              styleId: primary.order_items?.styleId ?? null,
+              fabricId: primary.orderBomItem?.fabricId ?? null,
+              qtyMeters: totalQtyMeters,
+              ratePerMeter: itemsWithGst[0].unitPrice,
+              expectedShrinkage:
+                primary.orderBomItem?.rateCard?.shrinkagePercent != null
+                  ? Number(primary.orderBomItem.rateCard.shrinkagePercent)
+                  : null,
+              expectedReturnDate: new Date(expectedDeliveryDate),
+              requirementNumbers: requirements.map((r) => r.requirementNumber),
+              userId,
+            },
+            jobWorkNumber
+          ),
+          processTypeId: processTypeMaster?.id ?? null,
+        },
+      });
+
+      // Phase 4a (BUG-JWC6): the JWO carries its own commercial totals (SAC/service GST).
+      // Unresolved GST (e.g. PRINTING master rate is TBD) downgrades to subtotal-only —
+      // creation never fails; totalAmount stays null as the R1 "docs blocked" marker.
+      try {
+        await jobWorkOrderService.computeCommercialTotals(jwo.id, tx);
+      } catch (error) {
+        if (error instanceof JobWorkOrderError && error.code === JWO_ERROR_CODES.GST_RATE_UNRESOLVED) {
+          await tx.job_work_orders.update({
+            where: { id: jwo.id },
+            data: { subtotal: roundToCent(totalQtyMeters * itemsWithGst[0].unitPrice).toNumber() },
+          });
+          logWarn(
+            `[MRP] JWO ${jobWorkNumber} created without GST — ${processingProcessType} gstRate unresolved in process_type_master`
+          );
+        } else {
+          throw error;
+        }
+      }
+
+      // Phase 4a: requirement ↔ JWO links, mirroring the requirement_po_links just written
+      const poLinks = await tx.requirement_po_links.findMany({
+        where: { purchaseOrderId: po.id },
+        select: { requirementId: true, allocatedQuantity: true },
+      });
+      if (poLinks.length > 0) {
+        await tx.requirement_jwo_links.createMany({
+          data: poLinks.map((l) => ({
+            requirementId: l.requirementId,
+            jobWorkOrderId: jwo.id,
+            allocatedQuantity: l.allocatedQuantity,
+          })),
+          skipDuplicates: true,
+        });
+      }
+      bridgedJobWorkNumber = jobWorkNumber;
+    }
+
+    return { po, linkedCount, itemCount: itemsWithGst.length, jobWorkNumber: bridgedJobWorkNumber };
   });
 
   return {
@@ -2619,6 +3109,8 @@ export async function generatePOFromRequirements(
     },
     linkedRequirements: result.linkedCount,
     totalItems: result.itemCount,
+    // Phase 4a: surface the bridged JWO so the UI can show both documents
+    jobWorkNumber: result.jobWorkNumber ?? undefined,
   };
 }
 
@@ -2784,6 +3276,65 @@ export async function updateReceivedQuantity(
     } else {
       // P1.5: Zero received (after reversal) → downgrade to PO_SENT
       // (The PO was sent; we just haven't received anything yet)
+      newStatus = MaterialRequirementStatus.PO_SENT;
+    }
+
+    await client.material_requirements.update({
+      where: { id: link.requirementId },
+      data: { status: newStatus },
+    });
+  }
+}
+
+/**
+ * Phase 4b: JWO-keyed mirror of updateReceivedQuantity — advances MRP requirements
+ * through requirement_jwo_links when a PO-less JWO GRN is approved/reversed.
+ * Same semantics: atomic increment, aggregate across all JWO links of the requirement,
+ * RECEIVED / PARTIALLY_RECEIVED / PO_SENT by totals.
+ */
+export async function updateJwoReceivedQuantity(
+  jobWorkOrderId: string,
+  receivedQuantity: number,
+  tx?: any
+): Promise<void> {
+  const client = tx || prisma;
+
+  const links = await client.requirement_jwo_links.findMany({
+    where: { jobWorkOrderId },
+    select: { id: true, requirementId: true },
+  });
+
+  const updatedRequirementIds = new Set<string>();
+
+  for (const link of links) {
+    await client.requirement_jwo_links.update({
+      where: { id: link.id },
+      data: { receivedQuantity: { increment: receivedQuantity } },
+    });
+
+    if (updatedRequirementIds.has(link.requirementId)) continue;
+    updatedRequirementIds.add(link.requirementId);
+
+    const allLinks = await client.requirement_jwo_links.findMany({
+      where: { requirementId: link.requirementId },
+      select: { allocatedQuantity: true, receivedQuantity: true },
+    });
+
+    const totalAllocated = allLinks.reduce(
+      (sum: number, l: { allocatedQuantity: any }) => sum + Number(l.allocatedQuantity),
+      0
+    );
+    const totalReceived = allLinks.reduce(
+      (sum: number, l: { receivedQuantity: any }) => sum + Number(l.receivedQuantity),
+      0
+    );
+
+    let newStatus: MaterialRequirementStatus;
+    if (totalReceived >= totalAllocated) {
+      newStatus = MaterialRequirementStatus.RECEIVED;
+    } else if (totalReceived > 0) {
+      newStatus = MaterialRequirementStatus.PARTIALLY_RECEIVED;
+    } else {
       newStatus = MaterialRequirementStatus.PO_SENT;
     }
 
@@ -3141,18 +3692,22 @@ export async function generatePOsBySupplier(
         userId
       );
 
+      // Phase 4c: PROCESSING groups return a Job Work Order instead of a PO —
+      // surface it in the same list with the JWO number as the document number
+      const doc = result.purchaseOrder ?? result.jobWorkOrder;
       purchaseOrders.push({
-        id: result.purchaseOrder.id,
-        poNumber: result.purchaseOrder.poNumber,
+        id: doc?.id ?? '',
+        poNumber:
+          result.purchaseOrder?.poNumber ?? (result.jobWorkOrder ? `JWO ${result.jobWorkOrder.jobWorkNumber}` : ''),
         supplierId: group.supplierId,
-        totalAmount: result.purchaseOrder.totalAmount,
+        totalAmount: doc?.totalAmount ?? 0,
       });
 
       totalRequirements += result.linkedRequirements;
 
-      console.log('[MRP] PO generated for supplier', {
+      console.log('[MRP] Document generated for supplier', {
         supplierId: group.supplierId,
-        poNumber: result.purchaseOrder.poNumber,
+        document: result.purchaseOrder?.poNumber ?? result.jobWorkNumber,
         requirements: result.linkedRequirements,
       });
     } catch (error) {
@@ -3747,6 +4302,7 @@ export default {
   updateRequirementStatus,
   cancelRequirement,
   updateReceivedQuantity,
+  updateJwoReceivedQuantity,
   groupRequirementsBySupplier,
   generatePOsBySupplier,
   validateBulkPOGeneration,

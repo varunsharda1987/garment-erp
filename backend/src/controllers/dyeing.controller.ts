@@ -6,52 +6,23 @@ import { createChallan } from '../services/challan.service';
 import greigeStockService from '../services/greige-stock.service';
 import { generateUnifiedPONumber } from '../utils/po-number-generator';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
+import { maxNumericSuffix, seedScopedSequenceIfMissing, generateJobWorkNumber } from '../utils/jobWorkNumber';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { generateStyleLinkedFabricCode } from '../utils/fabric-code-generator';
 import { randomUUID } from 'crypto';
 import logger from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 import { systemSettingsService } from '../services/system-settings.service';
+import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from '../services/job-work-order.service';
+import { findProcessingRequirementMatches, updateJwoReceivedQuantity } from '../services/mrp.service';
+import {
+  processJwoInclude,
+  toProcessPOEnvelope,
+  resolveProcessJwo,
+} from '../services/helpers/process-po-envelope.helper';
 
-// ============================================
-// Atomic scoped numbering helpers
-// ============================================
-
-/** Highest numeric suffix among codes shaped `${prefix}-<digits>` (the dash keeps the scope exact). */
-const maxNumericSuffix = (codes: Array<string | null>, prefix: string): number => {
-  let max = 0;
-  for (const code of codes) {
-    if (!code || !code.startsWith(`${prefix}-`)) continue;
-    const suffix = code.slice(prefix.length + 1);
-    if (/^\d+$/.test(suffix)) max = Math.max(max, parseInt(suffix, 10));
-  }
-  return max;
-};
-
-/**
- * Lazily seed the atomic sequence for a per-scope compound prefix (e.g. `LDD-{styleCode}`).
- * Static seeding (scripts/seed-code-sequences.ts) is impossible for prefixes that embed a style
- * scope, so before first use in a scope: if code_sequences has no row for the prefix but rows
- * already exist in the target table, initialize the sequence with their max numeric suffix
- * (idempotent GREATEST upsert, mirroring the seed script).
- */
-const seedScopedSequenceIfMissing = async (prefix: string, findMaxSuffix: () => Promise<number>): Promise<void> => {
-  const existing = await prisma.$queryRaw<Array<{ found: number }>>(
-    Prisma.sql`SELECT 1 AS found FROM code_sequences WHERE prefix = ${prefix} LIMIT 1`
-  );
-  if (existing.length > 0) return;
-  const max = await findMaxSuffix();
-  if (max <= 0) return;
-  await prisma.$executeRaw(
-    Prisma.sql`
-      INSERT INTO code_sequences (id, prefix, "lastValue", "updatedAt")
-      VALUES (gen_random_uuid(), ${prefix}, ${max}, NOW())
-      ON CONFLICT (prefix) DO UPDATE SET
-        "lastValue" = GREATEST(code_sequences."lastValue", ${max}),
-        "updatedAt" = NOW()
-    `
-  );
-};
+// Atomic scoped numbering helpers now live in utils/jobWorkNumber.ts
+// (shared with printing.controller.ts and the MRP → JWO bridge in mrp.service.ts)
 
 // Helper to transform relations for response
 const transformLabDip = (item: any) => ({
@@ -819,23 +790,7 @@ export const searchLabDips = async (req: Request, res: Response, _next: NextFunc
 // DYE JOB ENDPOINTS
 // ============================================
 
-// Generate job work number — atomic per-style sequence; visible format preserved: DJ-{styleCode}-NNN.
-// printing.controller.ts writes the same job_work_orders.jobWorkNumber column and MUST use this
-// identical `${processPrefix}-${styleCode}` key scheme (DJ for dyeing, PJ for printing).
-const generateJobWorkNumber = async (styleCode: string): Promise<string> => {
-  const prefix = `DJ-${styleCode}`; // Dye Job
-  await seedScopedSequenceIfMissing(prefix, async () => {
-    const rows = await prisma.job_work_orders.findMany({
-      where: { jobWorkNumber: { startsWith: `${prefix}-` } },
-      select: { jobWorkNumber: true },
-    });
-    return maxNumericSuffix(
-      rows.map((r) => r.jobWorkNumber),
-      prefix
-    );
-  });
-  return generateAtomicMasterCode(prefix, 3);
-};
+// Job work number generation moved to utils/jobWorkNumber.ts (shared DJ/PJ scheme)
 
 // Get all dye jobs
 export const getAllDyeJobs = async (req: Request, res: Response, _next: NextFunction) => {
@@ -971,7 +926,7 @@ export const createDyeJob = async (req: Request, res: Response, _next: NextFunct
     throw new ValidationError('Insufficient fabric stock');
   }
 
-  const jobWorkNumber = await generateJobWorkNumber((labDip as any).style?.styleCode || 'UNKNOWN');
+  const jobWorkNumber = await generateJobWorkNumber('DYEING', (labDip as any).style?.styleCode || 'UNKNOWN');
 
   const job = await prisma.job_work_orders.create({
     data: {
@@ -1118,14 +1073,16 @@ export const sendToMill = async (req: Request, res: Response, _next: NextFunctio
   }
 
   // Update fabric stock - reduce available quantity
-  await prisma.fabric_stock.update({
-    where: { id: existing.fabricStockLotId },
-    data: {
-      quantityAvailable: {
-        decrement: Number(existing.qtySentMeters),
+  if (existing.fabricStockLotId) {
+    await prisma.fabric_stock.update({
+      where: { id: existing.fabricStockLotId },
+      data: {
+        quantityAvailable: {
+          decrement: Number(existing.qtySentMeters),
+        },
       },
-    },
-  });
+    });
+  }
 
   // Auto-create fabric_master for the finished (dyed) fabric
   let finishedFabricId: string | null = null;
@@ -1158,7 +1115,7 @@ export const sendToMill = async (req: Request, res: Response, _next: NextFunctio
         colorName,
         finishType,
         isActive: true,
-        ...(greigeId ? {} : { id: existing.fabricId }), // Match source fabric if no greige
+        ...(greigeId ? {} : existing.fabricId ? { id: existing.fabricId } : {}), // Match source fabric if no greige
       },
     });
     if (existingBySource) {
@@ -1303,6 +1260,16 @@ export const receiveFromMill = async (req: Request, res: Response, _next: NextFu
     },
     include: jobWorkOrderInclude,
   });
+
+  // Phase 6: Apply tolerance/loss split (normal vs abnormal)
+  try {
+    await jobWorkOrderService.applyLossSplit(id, actualMeters);
+  } catch (lossSplitError) {
+    logger.warn('[receiveFromMill] Loss split calculation failed:', {
+      jobId: id,
+      error: lossSplitError instanceof Error ? lossSplitError.message : lossSplitError,
+    });
+  }
 
   res.json({ data: transformJobWorkOrder(job as any) });
 };
@@ -1473,122 +1440,10 @@ export const updateStock = async (req: Request, res: Response, _next: NextFuncti
 // PROCESS PO ENDPOINTS (Unified PO + Job Work Order)
 // ============================================
 
-// Include configuration for process PO queries
-const processPOInclude = {
-  suppliers: {
-    select: {
-      id: true,
-      name: true,
-      code: true,
-    },
-  },
-  purchase_order_items: true,
-  jobWorkOrder: {
-    include: {
-      labDip: {
-        include: labDipInclude,
-      },
-      style: {
-        select: {
-          id: true,
-          styleCode: true,
-          buyerStyleRef: true,
-          styleName: true,
-        },
-      },
-      fabric: {
-        select: {
-          id: true,
-          fabricCode: true,
-          fabricName: true,
-        },
-      },
-      processor: {
-        select: {
-          id: true,
-          name: true,
-          code: true,
-        },
-      },
-      greigeStockLot: {
-        select: {
-          id: true,
-          quantityAvailable: true,
-          quantityConsumed: true,
-          purchaseCost: true,
-          greigeWidth: true,
-          greige: {
-            select: {
-              id: true,
-              greigeCode: true,
-              greigeName: true,
-              genericGreigeName: true,
-              composition: true,
-              yarnCount: true,
-            },
-          },
-        },
-      },
-      finishedFabric: {
-        select: {
-          id: true,
-          fabricCode: true,
-          fabricName: true,
-          actualWidth: true,
-        },
-      },
-      fabricStockLot: {
-        select: {
-          id: true,
-          quantityAvailable: true,
-          purchaseCost: true,
-        },
-      },
-      outwardChallan: {
-        select: {
-          id: true,
-          challanNumber: true,
-          challanDate: true,
-        },
-      },
-      inwardChallan: {
-        select: {
-          id: true,
-          challanNumber: true,
-          challanDate: true,
-        },
-      },
-      createdBy: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-        },
-      },
-    },
-  },
-};
+// Phase 4c-final: include + status ladder now live in services/helpers/process-po-envelope.helper.ts
 
-// Compute unified process PO status from PO + Job Work Order
-const computeProcessPOStatus = (po: any): string => {
-  if (po.status === 'CANCELLED') return 'CANCELLED';
-
-  const job = po.jobWorkOrder;
-  if (!job) return 'DRAFT';
-
-  const jobStatus = job.status as string;
-
-  if (jobStatus === 'STOCK_UPDATED') return 'STOCK_UPDATED';
-  if (jobStatus === 'QUALITY_CHECKED') return 'QUALITY_CHECKED';
-  if (jobStatus === 'RECEIVED') return 'RECEIVED';
-  if (jobStatus === 'AT_MILL' || jobStatus === 'SENT_TO_MILL') return 'AT_MILL';
-  if (jobStatus === 'READY_TO_SEND') return 'DRAFT';
-  if (jobStatus.includes('RETURNED')) return 'RETURNED';
-
-  return 'DRAFT';
-};
-
-// 1. Get all Process POs for Dyeing
+// 1. Get all Process orders for Dyeing (Phase 4c-final: sourced from job_work_orders —
+// covers legacy PO-paired records AND new JWO-only ones; rendered via the envelope)
 export const getProcessPOs = async (req: Request, res: Response, _next: NextFunction) => {
   const { page = '1', limit = '10', search, status } = req.query;
 
@@ -1596,28 +1451,21 @@ export const getProcessPOs = async (req: Request, res: Response, _next: NextFunc
   const limitNum = parseInt(limit as string);
   const skip = (pageNum - 1) * limitNum;
 
-  const where: Prisma.purchase_ordersWhereInput = {
-    poCategory: 'PROCESSING',
+  const where: Prisma.job_work_ordersWhereInput = {
+    processType: 'DYEING',
     isActive: true,
-    OR: [
-      { jobWorkOrder: { processType: 'DYEING' } },
-      {
-        purchase_order_items: {
-          some: {
-            serviceType: 'DYEING',
-          },
-        },
-      },
-    ],
+    // Preserve today's visibility rule for soft-deleted legacy POs
+    NOT: { purchaseOrder: { isActive: false } },
   };
 
   if (search) {
     where.AND = [
       {
         OR: [
-          { poNumber: { contains: search as string, mode: 'insensitive' } },
-          { jobWorkOrder: { style: { styleCode: { contains: search as string, mode: 'insensitive' } } } },
-          { jobWorkOrder: { style: { buyerStyleRef: { contains: search as string, mode: 'insensitive' } } } },
+          { jobWorkNumber: { contains: search as string, mode: 'insensitive' } },
+          { purchaseOrder: { poNumber: { contains: search as string, mode: 'insensitive' } } },
+          { style: { styleCode: { contains: search as string, mode: 'insensitive' } } },
+          { style: { buyerStyleRef: { contains: search as string, mode: 'insensitive' } } },
         ],
       },
     ];
@@ -1625,32 +1473,29 @@ export const getProcessPOs = async (req: Request, res: Response, _next: NextFunc
 
   if (status && status !== 'ALL') {
     // Status filtering is done post-query since it's computed
-    // but we can pre-filter on PO status for CANCELLED
+    // but we can pre-filter for CANCELLED (either surface)
     if (status === 'CANCELLED') {
-      where.status = 'CANCELLED';
+      where.OR = [{ jwoStatus: 'CANCELLED' }, { purchaseOrder: { status: 'CANCELLED' } }];
     }
   }
 
   const [items, total] = await Promise.all([
-    prisma.purchase_orders.findMany({
+    prisma.job_work_orders.findMany({
       where,
-      include: processPOInclude,
+      include: processJwoInclude,
       skip,
       take: limitNum,
       orderBy: { createdAt: 'desc' },
     }),
-    prisma.purchase_orders.count({ where }),
+    prisma.job_work_orders.count({ where }),
   ]);
 
-  let results = items.map((po: any) => ({
-    ...po,
-    processPOStatus: computeProcessPOStatus(po),
-  }));
+  let results = items.map((jwo) => toProcessPOEnvelope(jwo));
 
   // Post-filter by computed status if needed
   if (status && status !== 'ALL' && status !== 'CANCELLED') {
     const statusFilter = status as string;
-    results = results.filter((po: any) => po.processPOStatus === statusFilter);
+    results = results.filter((row: any) => row.processPOStatus === statusFilter);
   }
 
   res.json({
@@ -1664,25 +1509,16 @@ export const getProcessPOs = async (req: Request, res: Response, _next: NextFunc
   });
 };
 
-// 2. Get single Process PO by ID
+// 2. Get single Process order by ID (JWO id, or legacy PO id via dual-lookup)
 export const getProcessPOById = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
 
-  const po = await prisma.purchase_orders.findUnique({
-    where: { id },
-    include: processPOInclude,
-  });
-
-  if (!po) {
+  const jwo = await resolveProcessJwo(id, 'DYEING');
+  if (!jwo) {
     throw new NotFoundError('Process PO', id);
   }
 
-  const result = {
-    ...po,
-    processPOStatus: computeProcessPOStatus(po),
-  };
-
-  res.json({ data: result });
+  res.json({ data: toProcessPOEnvelope(jwo) });
 };
 
 // 3. Create Process PO (PO + Job Work Order together)
@@ -1713,6 +1549,8 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     sentDate,
     challanNumber,
     vehicleNumber,
+    // JWC5: caller explicitly accepts creating a PO even though MRP already generated one
+    acknowledgeDuplicate = false,
   } = req.body;
 
   // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
@@ -1795,6 +1633,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
 
   // Validate stock source (greige_stock preferred, fabric_stock as fallback)
   let validatedFabricStockLotId = fabricStockLotId;
+  let sourceGreigeId: string | null = null;
 
   if (greigeStockLotId) {
     const greigeStock = await prisma.greige_stock.findUnique({
@@ -1810,6 +1649,27 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         `Insufficient greige stock. Available: ${Number(greigeStock.quantityAvailable)} meters, Requested: ${qtySentMeters} meters`
       );
     }
+    sourceGreigeId = greigeStock.greigeId;
+  }
+
+  // JWC5 (Consolidation Phase 2): check for MRP PROCESSING requirements covering the same
+  // greige/fabric + processor. Open requirements get LINKED to this PO (below, in-tx);
+  // a live MRP-generated PO for the same work blocks creation unless explicitly acknowledged.
+  const mrpMatches = await findProcessingRequirementMatches({
+    greigeId: sourceGreigeId,
+    fabricId: resolvedFabricId ?? null,
+    processorId: resolvedProcessorId,
+  });
+  if ((mrpMatches.activePOs.length > 0 || mrpMatches.activeJwos.length > 0) && !acknowledgeDuplicate) {
+    const docList = [
+      ...mrpMatches.activePOs.map((p) => `${p.poNumber}${p.jobWorkNumber ? ` (JWO ${p.jobWorkNumber})` : ''}`),
+      ...mrpMatches.activeJwos.map((j) => `JWO ${j.jobWorkNumber}`),
+    ].join(', ');
+    throw new BusinessError(
+      `MRP already generated processing work for this greige and processor: ${docList}. ` +
+        `Use that document (Job Work Orders / Dyeing → Process POs), or resubmit with acknowledgeDuplicate to create anyway.`,
+      { duplicateProcessing: true, existingPOs: mrpMatches.activePOs, existingJwos: mrpMatches.activeJwos }
+    );
   }
 
   // Validate fabric stock lot if provided (required by schema)
@@ -1821,101 +1681,37 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     if (!fabricStock) {
       throw new NotFoundError('Fabric stock lot', fabricStockLotId);
     }
-  } else {
-    // If no fabricStockLotId provided, find or use the first available fabric stock
-    // as a placeholder (fabricStockLotId is required by schema)
-    const fallbackStock = await prisma.fabric_stock.findFirst({
-      where: { fabricId: resolvedFabricId },
-      select: { id: true },
-    });
-    if (!fallbackStock) {
-      // Create a minimal placeholder stock entry for schema compatibility
-      // Using RESERVED status to indicate this is not yet available for use
-      const placeholderStock = await prisma.fabric_stock.create({
-        data: {
-          fabricId: resolvedFabricId,
-          finishedWidth: new Prisma.Decimal(sentWidthInches),
-          cutableWidth: new Prisma.Decimal(Math.max(sentWidthInches - cutableWidthDeduction, 0)),
-          quantityAvailable: new Prisma.Decimal(0),
-          quantityReserved: new Prisma.Decimal(0),
-          quantityConsumed: new Prisma.Decimal(0),
-          unit: 'meters',
-          status: 'RESERVED',
-          stockType: 'GENERIC',
-          weightedAvgCost: new Prisma.Decimal(0),
-          purchaseCost: new Prisma.Decimal(0),
-          receivedDate: new Date(),
-          agingDays: 0,
-          createdById: userId,
-        },
-      });
-      validatedFabricStockLotId = placeholderStock.id;
-    } else {
-      validatedFabricStockLotId = fallbackStock.id;
-    }
   }
+  // Phase 4c-final (D1): no placeholder fabric_stock — fabricStockLotId is nullable
+  // in schema; the stale "required by schema" fallback created phantom RESERVED lots.
 
-  // Create PO + Job in a transaction
+  const totalAmount = qtySentMeters * agreedRatePerMeter;
+
+  // Phase 4c-final: JWO-only — no purchase order is created. The JWO IS the
+  // commercial + operational document.
   const result = await prisma.$transaction(async (tx) => {
-    // Generate PO number
-    const poNumber = await generateUnifiedPONumber();
-
-    // Calculate totals
-    const totalAmount = qtySentMeters * agreedRatePerMeter;
-
-    // Create purchase order
-    const poId = randomUUID();
-    const po = await tx.purchase_orders.create({
-      data: {
-        id: poId,
-        poNumber,
-        supplierId: resolvedProcessorId,
-        poDate: new Date(),
-        expectedDeliveryDate: expectedReturnDate
-          ? new Date(expectedReturnDate)
-          : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // default 14 days
-        status: 'DRAFT',
-        poCategory: 'PROCESSING',
-        poSource: 'MANUAL',
-        totalAmount: new Prisma.Decimal(totalAmount),
-        subtotal: new Prisma.Decimal(totalAmount),
-        remarks,
-        createdById: userId,
-      },
-    });
-
-    // Create purchase order item
-    const poItemId = randomUUID();
-    await tx.purchase_order_items.create({
-      data: {
-        id: poItemId,
-        poId: po.id,
-        serviceType: 'DYEING',
-        serviceDescription: `Dyeing processing - ${formatStyleCodeWithRef((labDip as any).style?.styleCode || '', (labDip as any).style?.buyerStyleRef)}`,
-        orderedQuantity: new Prisma.Decimal(qtySentMeters),
-        receivedQuantity: new Prisma.Decimal(0),
-        unit: 'METER',
-        unitPrice: new Prisma.Decimal(agreedRatePerMeter),
-        totalPrice: new Prisma.Decimal(totalAmount),
-      },
-    });
-
     // Generate job work number
     const styleCode = (labDip as any).style?.styleCode || 'STK';
-    const jobWorkNumber = await generateJobWorkNumber(styleCode);
+    const jobWorkNumber = await generateJobWorkNumber('DYEING', styleCode);
 
-    // Create job work order linked to PO and greige stock
+    // Phase 4a (BUG-JWC6): processTypeId enables JWO commercial totals
+    const processTypeMaster = await tx.process_type_master.findFirst({
+      where: { code: 'DYEING', isActive: true },
+      select: { id: true },
+    });
+
+    // Create job work order (greige lot attached; no PO)
     const job = await tx.job_work_orders.create({
       data: {
         jobWorkNumber,
         processType: 'DYEING',
+        processTypeId: processTypeMaster?.id ?? null,
         labDipId: labDipId || null, // Now optional for style-based PO
         styleId: resolvedStyleId,
         fabricId: resolvedFabricId,
         processorId: resolvedProcessorId,
-        fabricStockLotId: validatedFabricStockLotId,
+        fabricStockLotId: validatedFabricStockLotId || null,
         greigeStockLotId: greigeStockLotId || null,
-        purchaseOrderId: po.id,
         fabricType,
         qtySentMeters,
         sentWidthInches,
@@ -1925,22 +1721,64 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         isRateTbd, // Explicit TBD marker when rate=0 is intentional
         remarks,
         status: 'READY_TO_SEND',
+        jwoStatus: 'DRAFT',
         createdById: userId,
       },
     });
 
-    // Re-fetch the PO with full includes
-    const fullPO = await tx.purchase_orders.findUnique({
-      where: { id: po.id },
-      include: processPOInclude,
-    });
+    // Phase 4a (BUG-JWC6): JWO commercial parity — unresolved GST downgrades to
+    // subtotal-only (creation never fails; totalAmount null = R1 docs-blocked marker)
+    try {
+      await jobWorkOrderService.computeCommercialTotals(job.id, tx);
+    } catch (error) {
+      if (error instanceof JobWorkOrderError && error.code === JWO_ERROR_CODES.GST_RATE_UNRESOLVED) {
+        await tx.job_work_orders.update({
+          where: { id: job.id },
+          data: { subtotal: totalAmount },
+        });
+        logger.warn(`[ProcessPO] JWO ${jobWorkNumber} created without GST — DYEING gstRate unresolved`);
+      } else {
+        throw error;
+      }
+    }
 
-    return { fullPO, job, labDip };
+    // JWC5: link the open MRP PROCESSING requirements this manual order covers, so MRP
+    // stops re-offering them (guarded per-id flip — a concurrent generation loses the
+    // race cleanly and we simply skip that requirement). Phase 4c-final: JWO links only.
+    const linkedRequirementNumbers: string[] = [];
+    for (const openReq of mrpMatches.openRequirements) {
+      const flip = await tx.material_requirements.updateMany({
+        where: { id: openReq.id, status: { in: ['PO_REQUIRED', 'PARTIAL_STOCK'] } },
+        data: { status: 'PO_GENERATED' },
+      });
+      if (flip.count === 1) {
+        await tx.requirement_jwo_links.create({
+          data: {
+            requirementId: openReq.id,
+            jobWorkOrderId: job.id,
+            allocatedQuantity: Math.min(openReq.shortfall, qtySentMeters),
+          },
+        });
+        linkedRequirementNumbers.push(openReq.requirementNumber);
+      }
+    }
+    if (linkedRequirementNumbers.length > 0) {
+      await tx.job_work_orders.update({
+        where: { id: job.id },
+        data: {
+          remarks: `${remarks || ''}\n[Linked] Covers MRP requirement(s) ${linkedRequirementNumbers.join(', ')}`.trim(),
+        },
+      });
+      logger.info(
+        `[ProcessPO] Linked ${linkedRequirementNumbers.length} open MRP PROCESSING requirement(s) to ${jobWorkNumber}: ${linkedRequirementNumbers.join(', ')}`
+      );
+    }
+
+    return { job, labDip };
   });
 
   // If autoSend is true, immediately execute the send logic
-  if (autoSend && result.fullPO) {
-    const poId = result.fullPO.id;
+  if (autoSend) {
     const job = result.job;
 
     // 1. Consume greige stock
@@ -2015,9 +1853,9 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         fromType: 'WAREHOUSE',
         fromName: 'Main Warehouse',
         toType: 'VENDOR',
-        toId: result.fullPO.supplierId,
-        toName: result.fullPO.suppliers?.name || 'Mill',
-        purchaseOrderId: poId,
+        toId: resolvedProcessorId,
+        toName: (labDip as any).processor?.name || 'Mill',
+        jobWorkOrderId: job.id,
         vehicleNumber,
         issuedById: userId,
         unit: Unit.METER,
@@ -2025,12 +1863,13 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         items: [
           {
             itemType: 'GREIGE',
-            fabricId: job.fabricId,
+            fabricId: job.fabricId || undefined,
             greigeStockId: job.greigeStockLotId || undefined,
             description: `Greige fabric for Dyeing - ${formatStyleCodeWithRef(result.labDip?.style?.styleCode || '', result.labDip?.style?.buyerStyleRef)}`,
             quantity: Number(job.qtySentMeters),
             unit: Unit.METER,
             rate: Number(job.agreedRatePerMeter),
+            jobWorkOrderId: job.id,
           },
         ],
       });
@@ -2043,90 +1882,90 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       });
     }
 
-    // 4. Update job work order to AT_MILL
+    // 4. Update job work order to AT_MILL (D2: §143 parity — universal status + due date)
+    const issueDate = sentDate ? new Date(sentDate) : new Date();
     await prisma.job_work_orders.update({
       where: { id: job.id },
       data: {
-        sentDate: sentDate ? new Date(sentDate) : new Date(),
+        sentDate: issueDate,
         challanNumber,
         vehicleNumber,
         finishedFabricId,
         outwardChallanId,
         status: 'AT_MILL',
+        jwoStatus: 'ISSUED',
+        statutoryDueDate: jobWorkOrderService.calculateStatutoryDueDate(issueDate),
       },
     });
 
-    // 5. Update PO status to SENT
-    await prisma.purchase_orders.update({
-      where: { id: poId },
-      data: { status: 'SENT' },
-    });
-
-    // Re-fetch full PO after send
-    const finalPO = await prisma.purchase_orders.findUnique({
-      where: { id: poId },
-      include: processPOInclude,
-    });
+    // Re-fetch after send (envelope shape)
+    const finalJwo = await resolveProcessJwo(job.id, 'DYEING');
 
     return res.status(201).json({
-      data: {
-        ...finalPO,
-        processPOStatus: computeProcessPOStatus(finalPO),
-      },
-      message: 'Dyeing process PO created and sent to mill successfully',
+      data: finalJwo ? toProcessPOEnvelope(finalJwo) : null,
+      message: `Dyeing job work order ${job.jobWorkNumber} created and sent to mill successfully`,
     });
   }
 
+  const createdJwo = await resolveProcessJwo(result.job.id, 'DYEING');
   res.status(201).json({
-    data: {
-      ...result.fullPO,
-      processPOStatus: computeProcessPOStatus(result.fullPO),
-    },
-    message: 'Dyeing process PO created successfully',
+    data: createdJwo ? toProcessPOEnvelope(createdJwo) : null,
+    message: `Dyeing job work order ${result.job.jobWorkNumber} created successfully`,
   });
 };
 
-// 4. Delete Process PO (only DRAFT/READY_TO_SEND)
+// 4. Delete Process order (only DRAFT/READY_TO_SEND) — Phase 4c-final: JWO-keyed
 export const deleteProcessPO = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
 
-  const po = await prisma.purchase_orders.findUnique({
-    where: { id },
-    include: {
-      jobWorkOrder: true,
-    },
-  });
-
-  if (!po) {
+  const jwo = await resolveProcessJwo(id, 'DYEING');
+  if (!jwo) {
     throw new NotFoundError('Process PO', id);
   }
 
-  const job = (po as any).jobWorkOrder;
-  const jobStatus = job?.status as string;
-
   // Only allow delete if nothing has been sent yet
-  if (job && jobStatus !== 'READY_TO_SEND') {
+  if (jwo.status !== 'READY_TO_SEND') {
     throw new BusinessError(
-      `Cannot delete Process PO. Job status is ${jobStatus}. Only DRAFT/READY_TO_SEND POs can be deleted.`
+      `Cannot delete. Job status is ${jwo.status}. Only DRAFT/READY_TO_SEND orders can be deleted.`
     );
   }
-
-  if (po.status !== 'DRAFT') {
-    throw new BusinessError(`Cannot delete Process PO with status ${po.status}. Only DRAFT POs can be deleted.`);
+  if (jwo.jwoStatus && !['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(jwo.jwoStatus)) {
+    throw new BusinessError(`Cannot delete. Order is ${jwo.jwoStatus}.`);
+  }
+  if (jwo.purchaseOrder && jwo.purchaseOrder.status !== 'DRAFT') {
+    throw new BusinessError(`Cannot delete. Linked PO is ${jwo.purchaseOrder.status}, expected DRAFT.`);
   }
 
   await prisma.$transaction(async (tx) => {
-    // Delete job work order first (FK constraint)
-    if (job) {
-      await tx.job_work_orders.delete({ where: { id: job.id } });
+    // Revert MRP requirements this order covered back to open (mirror of PO cancel)
+    const jwoLinks = await tx.requirement_jwo_links.findMany({
+      where: { jobWorkOrderId: jwo.id },
+      select: { requirementId: true },
+    });
+    const poLinks = jwo.purchaseOrderId
+      ? await tx.requirement_po_links.findMany({
+          where: { purchaseOrderId: jwo.purchaseOrderId },
+          select: { requirementId: true },
+        })
+      : [];
+    const requirementIds = [...new Set([...jwoLinks, ...poLinks].map((l) => l.requirementId))];
+    if (requirementIds.length > 0) {
+      await tx.material_requirements.updateMany({
+        where: { id: { in: requirementIds }, status: 'PO_GENERATED' },
+        data: { status: 'PO_REQUIRED' },
+      });
     }
-    // Delete PO items
-    await tx.purchase_order_items.deleteMany({ where: { poId: id } });
-    // Delete PO
-    await tx.purchase_orders.delete({ where: { id } });
+
+    // Delete JWO first (cascades requirement_jwo_links + components)
+    await tx.job_work_orders.delete({ where: { id: jwo.id } });
+    // Then the legacy shadow PO pair, when present
+    if (jwo.purchaseOrderId) {
+      await tx.purchase_order_items.deleteMany({ where: { poId: jwo.purchaseOrderId } });
+      await tx.purchase_orders.delete({ where: { id: jwo.purchaseOrderId } });
+    }
   });
 
-  res.json({ message: 'Process PO deleted successfully' });
+  res.json({ message: 'Process order deleted successfully' });
 };
 
 // 5. Send Process PO to Mill (dispatch greige + auto OUTWARD challan)
@@ -2141,49 +1980,13 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
   // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
   const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
 
-  const po = await prisma.purchase_orders.findUnique({
-    where: { id },
-    include: {
-      suppliers: { select: { id: true, name: true, code: true } },
-      jobWorkOrder: {
-        include: {
-          labDip: {
-            include: {
-              targetColor: { select: { colorName: true, colorCode: true } },
-              fabric: {
-                select: {
-                  id: true,
-                  fabricName: true,
-                  greigeId: true,
-                  greige: {
-                    select: {
-                      id: true,
-                      greigeCode: true,
-                      greigeName: true,
-                      genericGreigeName: true,
-                      composition: true,
-                      yarnCount: true,
-                    },
-                  },
-                },
-              },
-            },
-          },
-          style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
-          greigeStockLot: true,
-        },
-      },
-    },
-  });
-
-  if (!po) {
+  // Phase 4c-final: JWO-keyed (dual-lookup accepts legacy PO ids)
+  const jwo = await resolveProcessJwo(id, 'DYEING');
+  if (!jwo) {
     throw new NotFoundError('Process PO', id);
   }
-
-  const job = (po as any).jobWorkOrder;
-  if (!job) {
-    throw new ValidationError('No job work order linked to this PO');
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const job = jwo as any;
 
   if (job.status !== 'READY_TO_SEND') {
     throw new BusinessError(`Cannot send. Job status is ${job.status}, expected READY_TO_SEND`);
@@ -2282,9 +2085,10 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
       fromType: 'WAREHOUSE',
       fromName: 'Main Warehouse',
       toType: 'VENDOR',
-      toId: po.supplierId,
-      toName: (po as any).suppliers?.name || 'Mill',
-      purchaseOrderId: po.id,
+      toId: job.processorId,
+      toName: job.processor?.name || 'Mill',
+      purchaseOrderId: job.purchaseOrderId ?? undefined,
+      jobWorkOrderId: job.id,
       vehicleNumber,
       issuedById: userId,
       unit: Unit.METER,
@@ -2298,6 +2102,7 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
           quantity: Number(job.qtySentMeters),
           unit: Unit.METER,
           rate: Number(job.agreedRatePerMeter),
+          jobWorkOrderId: job.id,
         },
       ],
     });
@@ -2310,36 +2115,35 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
     });
   }
 
-  // Update job work order
-  const updatedJob = await prisma.job_work_orders.update({
+  // Update job work order (D2: §143 parity — universal status + due date)
+  const issueDate = sentDate ? new Date(sentDate) : new Date();
+  await prisma.job_work_orders.update({
     where: { id: job.id },
     data: {
-      sentDate: sentDate ? new Date(sentDate) : new Date(),
+      sentDate: issueDate,
       challanNumber,
       vehicleNumber,
       finishedFabricId,
       outwardChallanId,
       status: 'AT_MILL',
+      jwoStatus: 'ISSUED',
+      statutoryDueDate: job.statutoryDueDate ?? jobWorkOrderService.calculateStatutoryDueDate(issueDate),
     },
   });
 
-  // Update PO status to SENT
-  await prisma.purchase_orders.update({
-    where: { id },
-    data: { status: 'SENT' },
-  });
+  // Legacy shadow PO → SENT (pre-4c pairs only)
+  if (job.purchaseOrderId) {
+    await prisma.purchase_orders.update({
+      where: { id: job.purchaseOrderId },
+      data: { status: 'SENT' },
+    });
+  }
 
-  // Re-fetch full PO
-  const fullPO = await prisma.purchase_orders.findUnique({
-    where: { id },
-    include: processPOInclude,
-  });
+  // Re-fetch (envelope shape)
+  const fullJwo = await resolveProcessJwo(job.id, 'DYEING');
 
   res.json({
-    data: {
-      ...fullPO,
-      processPOStatus: computeProcessPOStatus(fullPO),
-    },
+    data: fullJwo ? toProcessPOEnvelope(fullJwo) : null,
   });
 };
 
@@ -2363,33 +2167,26 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
   // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
   const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
 
-  const po = await prisma.purchase_orders.findUnique({
-    where: { id },
-    include: {
-      suppliers: { select: { id: true, name: true, code: true } },
-      jobWorkOrder: {
-        include: {
-          style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
-        },
-      },
-    },
-  });
-
-  if (!po) {
+  // Phase 4c-final: JWO-keyed (dual-lookup accepts legacy PO ids)
+  const jwo = await resolveProcessJwo(id, 'DYEING');
+  if (!jwo) {
     throw new NotFoundError('Process PO', id);
   }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const job = jwo as any;
 
-  // Conflict guard: check if already received via GRN
+  // Conflict guard: already received via GRN — by JWO link OR legacy PO link
+  // (closes the /api/grn/jwo-then-manual-receive double-receipt gap)
   const existingGRN = await prisma.goods_receiving_notes.findFirst({
-    where: { poId: id, status: { not: 'REJECTED' } },
+    where: {
+      status: { not: 'REJECTED' },
+      OR: [{ jobWorkOrderId: job.id }, ...(job.purchaseOrderId ? [{ poId: job.purchaseOrderId }] : [])],
+    },
   });
   if (existingGRN) {
-    throw new BusinessError(`This processing PO has already been received via GRN ${(existingGRN as any).grnNumber}`);
-  }
-
-  const job = (po as any).jobWorkOrder;
-  if (!job) {
-    throw new ValidationError('No job work order linked to this PO');
+    throw new BusinessError(
+      `This processing order has already been received via GRN ${(existingGRN as any).grnNumber}`
+    );
   }
 
   if (job.status !== 'AT_MILL' && job.status !== 'SENT_TO_MILL') {
@@ -2436,11 +2233,12 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
       challanType: 'INWARD',
       challanDate: receivedDate ? new Date(receivedDate) : new Date(),
       fromType: 'VENDOR',
-      fromId: po.supplierId,
-      fromName: (po as any).suppliers?.name || 'Mill',
+      fromId: job.processorId,
+      fromName: job.processor?.name || 'Mill',
       toType: 'WAREHOUSE',
       toName: 'Main Warehouse',
-      purchaseOrderId: po.id,
+      purchaseOrderId: job.purchaseOrderId ?? undefined,
+      jobWorkOrderId: job.id,
       issuedById: userId,
       unit: Unit.METER,
       remarks: receivedChallan ? `Vendor challan ref: ${receivedChallan}` : undefined,
@@ -2451,6 +2249,7 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
           description: `Dyed fabric received - ${formatStyleCodeWithRef(job.style?.styleCode || '', job.style?.buyerStyleRef)}`,
           quantity: actualMeters,
           unit: Unit.METER,
+          jobWorkOrderId: job.id,
         },
       ],
     });
@@ -2482,40 +2281,36 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
     },
   });
 
-  // Re-fetch full PO
-  const fullPO = await prisma.purchase_orders.findUnique({
-    where: { id },
-    include: processPOInclude,
-  });
+  // Phase 6: Apply tolerance/loss split (normal vs abnormal)
+  try {
+    await jobWorkOrderService.applyLossSplit(job.id, actualMeters);
+  } catch (lossSplitError) {
+    // Log but don't fail the receive - loss split is supplementary
+    logger.warn('[receiveProcessPO] Loss split calculation failed:', {
+      jobId: job.id,
+      error: lossSplitError instanceof Error ? lossSplitError.message : lossSplitError,
+    });
+  }
+
+  // Re-fetch (envelope shape)
+  const fullJwo = await resolveProcessJwo(job.id, 'DYEING');
 
   res.json({
-    data: {
-      ...fullPO,
-      processPOStatus: computeProcessPOStatus(fullPO),
-    },
+    data: fullJwo ? toProcessPOEnvelope(fullJwo) : null,
   });
 };
 
-// 7. Quality Check for Process PO
+// 7. Quality Check for Process order — Phase 4c-final: JWO-keyed
 export const qualityCheckProcessPO = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const { qualityGrade, colorMatchStatus, defectMeters, defectType, actualRate, remarks } = req.body;
 
-  const po = await prisma.purchase_orders.findUnique({
-    where: { id },
-    include: {
-      jobWorkOrder: true,
-    },
-  });
-
-  if (!po) {
+  const jwo = await resolveProcessJwo(id, 'DYEING');
+  if (!jwo) {
     throw new NotFoundError('Process PO', id);
   }
-
-  const job = (po as any).jobWorkOrder;
-  if (!job) {
-    throw new ValidationError('No job work order linked to this PO');
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const job = jwo as any;
 
   if (!job.receivedDate) {
     throw new ValidationError('Fabric has not been received yet');
@@ -2538,21 +2333,15 @@ export const qualityCheckProcessPO = async (req: Request, res: Response, _next: 
     },
   });
 
-  // Re-fetch full PO
-  const fullPO = await prisma.purchase_orders.findUnique({
-    where: { id },
-    include: processPOInclude,
-  });
+  // Re-fetch (envelope shape)
+  const fullJwo = await resolveProcessJwo(job.id, 'DYEING');
 
   res.json({
-    data: {
-      ...fullPO,
-      processPOStatus: computeProcessPOStatus(fullPO),
-    },
+    data: fullJwo ? toProcessPOEnvelope(fullJwo) : null,
   });
 };
 
-// 8. Update Stock for Process PO (create fabric_stock entries)
+// 8. Update Stock for Process order (create fabric_stock entries) — Phase 4c-final: JWO-keyed
 export const updateStockProcessPO = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
   const userId = req.user?.userId || req.user?.id;
@@ -2563,28 +2352,12 @@ export const updateStockProcessPO = async (req: Request, res: Response, _next: N
   // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
   const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
 
-  const po = await prisma.purchase_orders.findUnique({
-    where: { id },
-    include: {
-      purchase_order_items: true,
-      jobWorkOrder: {
-        include: {
-          fabricStockLot: true,
-          greigeStockLot: true,
-          style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
-        },
-      },
-    },
-  });
-
-  if (!po) {
+  const jwo = await resolveProcessJwo(id, 'DYEING');
+  if (!jwo) {
     throw new NotFoundError('Process PO', id);
   }
-
-  const job = (po as any).jobWorkOrder;
-  if (!job) {
-    throw new ValidationError('No job work order linked to this PO');
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const job = jwo as any;
 
   if (job.status !== 'QUALITY_CHECKED') {
     throw new ValidationError('Quality check must be completed first');
@@ -2668,34 +2441,48 @@ export const updateStockProcessPO = async (req: Request, res: Response, _next: N
     },
   });
 
-  // Update PO item receivedQuantity
-  const poItems = (po as any).purchase_order_items;
-  if (poItems && poItems.length > 0) {
-    await prisma.purchase_order_items.update({
-      where: { id: poItems[0].id },
-      data: {
-        receivedQuantity: new Prisma.Decimal(Number(job.qtyReceivedMeters)),
-      },
-    });
+  // Parity fix (4c-final): sync stock_levels — printing had this, dyeing didn't.
+  // Good and defect stock land in the same warehouse as the created fabric_stock row.
+  try {
+    const materialId = await ensureMaterialRecord(job.finishedFabricId, 'FABRIC');
+    await syncStockLevelQuantity(materialId, goodQty, fabricStock.warehouseId ?? undefined, 'METER');
+    if (defectMetersNum > 0 && defectStockId) {
+      await syncStockLevelQuantity(materialId, defectMetersNum, fabricStock.warehouseId ?? undefined, 'METER');
+    }
+  } catch (syncError) {
+    logger.error('Failed to sync stock_levels for dyed fabric', { error: syncError, jobId: job.id });
   }
 
-  // Update PO status to RECEIVED
-  await prisma.purchase_orders.update({
-    where: { id },
-    data: { status: 'RECEIVED' },
-  });
+  if (job.purchaseOrderId) {
+    // Legacy shadow PO: echo receipt onto the PO pair
+    const poItems = job.purchaseOrder?.purchase_order_items;
+    if (poItems && poItems.length > 0) {
+      await prisma.purchase_order_items.update({
+        where: { id: poItems[0].id },
+        data: {
+          receivedQuantity: new Prisma.Decimal(Number(job.qtyReceivedMeters)),
+        },
+      });
+    }
+    await prisma.purchase_orders.update({
+      where: { id: job.purchaseOrderId },
+      data: { status: 'RECEIVED' },
+    });
+  } else {
+    // JWO-only (D3): advance MRP requirements via the JWO receipt bridge — there is
+    // no GRN in the manual flow to do it
+    try {
+      await updateJwoReceivedQuantity(job.id, Number(job.qtyReceivedMeters));
+    } catch (bridgeError) {
+      logger.error('Failed to advance MRP requirements for JWO receipt', { error: bridgeError, jobId: job.id });
+    }
+  }
 
-  // Re-fetch full PO
-  const fullPO = await prisma.purchase_orders.findUnique({
-    where: { id },
-    include: processPOInclude,
-  });
+  // Re-fetch (envelope shape)
+  const fullJwo = await resolveProcessJwo(job.id, 'DYEING');
 
   res.json({
-    data: {
-      ...fullPO,
-      processPOStatus: computeProcessPOStatus(fullPO),
-    },
+    data: fullJwo ? toProcessPOEnvelope(fullJwo) : null,
     stockCreated: {
       fabricStockId: fabricStock.id,
       defectStockId,
@@ -2720,27 +2507,13 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
     throw new ValidationError('returnedQtyMeters is required and must be > 0');
   }
 
-  const po = await prisma.purchase_orders.findUnique({
-    where: { id },
-    include: {
-      suppliers: { select: { id: true, name: true, code: true } },
-      jobWorkOrder: {
-        include: {
-          style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
-          greigeStockLot: true,
-        },
-      },
-    },
-  });
-
-  if (!po) {
+  // Phase 4c-final: JWO-keyed (dual-lookup accepts legacy PO ids)
+  const jwo = await resolveProcessJwo(id, 'DYEING');
+  if (!jwo) {
     throw new NotFoundError('Process PO', id);
   }
-
-  const job = (po as any).jobWorkOrder;
-  if (!job) {
-    throw new ValidationError('No job work order linked to this PO');
-  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const job = jwo as any;
 
   if (job.status !== 'AT_MILL' && job.status !== 'SENT_TO_MILL') {
     throw new BusinessError(`Cannot return unprocessed. Job status is ${job.status}, expected AT_MILL`);
@@ -2765,11 +2538,12 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
       challanType: 'INWARD',
       challanDate: returnDate ? new Date(returnDate) : new Date(),
       fromType: 'VENDOR',
-      fromId: po.supplierId,
-      fromName: (po as any).suppliers?.name || 'Mill',
+      fromId: job.processorId,
+      fromName: job.processor?.name || 'Mill',
       toType: 'WAREHOUSE',
       toName: 'Main Warehouse',
-      purchaseOrderId: po.id,
+      purchaseOrderId: job.purchaseOrderId ?? undefined,
+      jobWorkOrderId: job.id,
       issuedById: userId,
       unit: Unit.METER,
       remarks: `Unprocessed greige returned${remarks ? ': ' + remarks : ''}`,
@@ -2781,6 +2555,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
           description: `Unprocessed greige fabric returned - ${formatStyleCodeWithRef(job.style?.styleCode || '', job.style?.buyerStyleRef)}`,
           quantity: returnedQtyMeters,
           unit: Unit.METER,
+          jobWorkOrderId: job.id,
         },
       ],
     });
@@ -2793,12 +2568,14 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
     });
   }
 
-  // Update job status -- use RECEIVED since RETURNED is not in enum
+  // Update job status -- use RECEIVED since legacy RETURNED is not in enum;
+  // Phase 4c-final: jwoStatus CANCELLED marks JWO-only rows cancelled (exits dedup guard)
   await prisma.job_work_orders.update({
     where: { id: job.id },
     data: {
       inwardChallanId,
-      status: 'RECEIVED', // closest valid enum; mark via remarks
+      status: 'RECEIVED', // closest valid legacy enum; mark via remarks
+      jwoStatus: 'CANCELLED',
       remarks:
         `${job.remarks || ''}\n[RETURNED UNPROCESSED] ${returnedQtyMeters} meters returned on ${(returnDate ? new Date(returnDate) : new Date()).toISOString().split('T')[0]}. ${remarks || ''}`.trim(),
       qtyReceivedMeters: 0, // Nothing was processed
@@ -2806,27 +2583,22 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
     },
   });
 
-  // Update PO status to CANCELLED
-  await prisma.purchase_orders.update({
-    where: { id },
-    data: {
-      status: 'CANCELLED',
-      remarks:
-        `${po.remarks || ''}\n[RETURNED UNPROCESSED] Greige returned without processing. ${remarks || ''}`.trim(),
-    },
-  });
+  // Legacy shadow PO → CANCELLED (pre-4c pairs only)
+  if (job.purchaseOrderId) {
+    await prisma.purchase_orders.update({
+      where: { id: job.purchaseOrderId },
+      data: {
+        status: 'CANCELLED',
+        remarks: `[RETURNED UNPROCESSED] Greige returned without processing. ${remarks || ''}`.trim(),
+      },
+    });
+  }
 
-  // Re-fetch full PO
-  const fullPO = await prisma.purchase_orders.findUnique({
-    where: { id },
-    include: processPOInclude,
-  });
+  // Re-fetch (envelope shape)
+  const fullJwo = await resolveProcessJwo(job.id, 'DYEING');
 
   res.json({
-    data: {
-      ...fullPO,
-      processPOStatus: 'RETURNED',
-    },
+    data: fullJwo ? { ...toProcessPOEnvelope(fullJwo), processPOStatus: 'RETURNED' } : null,
     returnDetails: {
       returnedQtyMeters,
       greigeStockCredited: !!job.greigeStockLotId,

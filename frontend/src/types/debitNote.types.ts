@@ -40,6 +40,8 @@ export interface DebitNote {
   id: string;
   debitNoteNumber: string;
   poId?: string | null;
+  jobWorkOrderId?: string | null;
+  jobWorkOrder?: { id: string; jobWorkNumber: string } | null;
   supplierId: string;
   debitNoteDate: string;
   reason: DebitNoteReason;
@@ -76,6 +78,7 @@ export interface DebitNote {
 
 export interface CreateDebitNoteRequest {
   poId?: string;
+  jobWorkOrderId?: string;
   supplierId: string;
   debitNoteDate?: string;
   reason: DebitNoteReason;

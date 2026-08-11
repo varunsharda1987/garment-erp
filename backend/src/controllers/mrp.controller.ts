@@ -232,7 +232,10 @@ export const generatePO = async (req: Request, res: Response): Promise<void> => 
   res.status(201).json({
     success: true,
     data: result,
-    message: `Purchase Order ${result.purchaseOrder.poNumber} created with ${result.totalItems} items`,
+    // Phase 4c: PROCESSING requirements produce a Job Work Order instead of a PO
+    message: result.purchaseOrder
+      ? `Purchase Order ${result.purchaseOrder.poNumber} created with ${result.totalItems} items`
+      : `Job Work Order ${result.jobWorkNumber} created covering ${result.linkedRequirements} requirement(s)`,
   });
 };
 

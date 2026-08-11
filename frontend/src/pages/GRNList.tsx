@@ -136,18 +136,31 @@ export default function GRNList() {
     },
     {
       key: 'poNumber',
-      header: 'PO Number',
-      render: (grn) => (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/procurement/purchase-orders/${grn.poId}`);
-          }}
-          className="text-sm text-info hover:underline"
-        >
-          {grn.purchaseOrders?.poNumber || '-'}
-        </button>
-      ),
+      header: 'PO / JWO',
+      render: (grn) =>
+        grn.poId ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/procurement/purchase-orders/${grn.poId}`);
+            }}
+            className="text-sm text-info hover:underline"
+          >
+            {grn.purchaseOrders?.poNumber || '-'}
+          </button>
+        ) : (grn as { jobWorkOrder?: { id: string; jobWorkNumber: string } }).jobWorkOrder ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/job-work-orders/${(grn as { jobWorkOrder?: { id: string } }).jobWorkOrder!.id}`);
+            }}
+            className="text-sm text-info hover:underline"
+          >
+            {(grn as { jobWorkOrder?: { jobWorkNumber: string } }).jobWorkOrder!.jobWorkNumber}
+          </button>
+        ) : (
+          <span className="text-sm text-muted-foreground">-</span>
+        ),
     },
     {
       key: 'supplier',

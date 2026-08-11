@@ -293,11 +293,15 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
         return printProcessPOService.create(data);
       }
     },
-    onSuccess: () => {
-      handleApiSuccess('Process PO created successfully');
+    onSuccess: (created) => {
+      handleApiSuccess(
+        created?.poNumber
+          ? `Job work order ${created.poNumber} created successfully`
+          : 'Job work order created successfully'
+      );
       navigate(backPath);
     },
-    onError: (err) => handleApiError(err, 'Failed to create Process PO'),
+    onError: (err) => handleApiError(err, 'Failed to create job work order'),
   });
 
   const handleSubmit = (autoSend = false) => {

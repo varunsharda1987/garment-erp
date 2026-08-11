@@ -293,11 +293,22 @@ class GSTReportService {
     const acceptedGrns = await prisma.goods_receiving_notes.findMany({
       where: { status: 'ACCEPTED', receivingDate: { gte: fromDate, lte: toDate } },
       select: {
+        poId: true,
         grn_items: {
           select: { acceptedQuantity: true, purchase_order_items: { select: { unitPrice: true } } },
         },
         purchase_orders: {
           select: { subtotal: true, totalCgst: true, totalSgst: true, totalIgst: true },
+        },
+        // Phase 4b: PO-less JWO GRNs carry their tax on the job work order itself
+        jobWorkOrder: {
+          select: {
+            subtotal: true,
+            cgstAmount: true,
+            sgstAmount: true,
+            igstAmount: true,
+            agreedRatePerMeter: true,
+          },
         },
       },
     });
@@ -311,6 +322,23 @@ class GSTReportService {
 
     const itc = { cgst: 0, sgst: 0, igst: 0 };
     for (const grn of acceptedGrns) {
+      // Phase 4b: PO-less JWO GRN — pro-rate the JWO's SAC-based tax by the accepted
+      // fraction of its subtotal (received value = accepted qty × agreed rate)
+      if (!grn.poId && grn.jobWorkOrder) {
+        const jwo = grn.jobWorkOrder;
+        const jwoSubtotal = Number(jwo.subtotal || 0);
+        if (jwoSubtotal <= 0) continue;
+        const receivedValue = grn.grn_items.reduce(
+          (s, it) => s + Number(it.acceptedQuantity || 0) * Number(jwo.agreedRatePerMeter || 0),
+          0
+        );
+        const fraction = Math.min(1, receivedValue / jwoSubtotal);
+        itc.cgst += Number(jwo.cgstAmount || 0) * fraction;
+        itc.sgst += Number(jwo.sgstAmount || 0) * fraction;
+        itc.igst += Number(jwo.igstAmount || 0) * fraction;
+        continue;
+      }
+
       const po = grn.purchase_orders;
       const poSubtotal = Number(po?.subtotal || 0);
       if (!po || poSubtotal <= 0) continue;

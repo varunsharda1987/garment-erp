@@ -148,6 +148,10 @@ export default function DebitNoteList() {
   const [poOptions, setPOOptions] = useState<POOption[]>([]);
   const [selectedPOId, setSelectedPOId] = useState<string>('');
   const [loadingPOs, setLoadingPOs] = useState(false);
+  // Phase 4a: optional Job Work Order link
+  const [jwoOptions, setJwoOptions] = useState<Array<{ id: string; jobWorkNumber: string; processType: string }>>([]);
+  const [selectedJwoId, setSelectedJwoId] = useState<string>('');
+  const [loadingJwos, setLoadingJwos] = useState(false);
 
   // Form fields
   const [reason, setReason] = useState<DebitNoteReason>('PURCHASE_RETURN');
@@ -180,6 +184,36 @@ export default function DebitNoteList() {
       controller.abort();
     };
   }, [supplierSearch]);
+
+  // Phase 4a: load the supplier's (processor's) Job Work Orders
+  useEffect(() => {
+    if (!selectedSupplier) {
+      setJwoOptions([]);
+      setSelectedJwoId('');
+      return;
+    }
+    const loadJwos = async () => {
+      setLoadingJwos(true);
+      try {
+        const { data: res } = await api.get('/job-work-orders', {
+          params: { processorId: selectedSupplier.id, limit: 50 },
+        });
+        const list = res.data ?? [];
+        setJwoOptions(
+          list.map((j: { id: string; jobWorkNumber: string; processType: string }) => ({
+            id: j.id,
+            jobWorkNumber: j.jobWorkNumber,
+            processType: j.processType,
+          }))
+        );
+      } catch {
+        setJwoOptions([]);
+      } finally {
+        setLoadingJwos(false);
+      }
+    };
+    loadJwos();
+  }, [selectedSupplier]);
 
   // ---- Load POs when supplier selected ----
   useEffect(() => {
@@ -235,6 +269,8 @@ export default function DebitNoteList() {
     setSupplierDropdownOpen(false);
     setPOOptions([]);
     setSelectedPOId('');
+    setJwoOptions([]);
+    setSelectedJwoId('');
     setReason('PURCHASE_RETURN');
     setRemarks('');
     setLineItems([emptyLineItem(1)]);
@@ -252,6 +288,7 @@ export default function DebitNoteList() {
       await debitNoteService.create({
         supplierId: selectedSupplier.id,
         poId: selectedPOId || undefined,
+        jobWorkOrderId: selectedJwoId || undefined,
         reason,
         remarks: remarks || undefined,
         items: validItems.map((li) => ({
@@ -379,7 +416,7 @@ export default function DebitNoteList() {
                         {dn.supplier?.code && <div className="text-xs text-muted-foreground">{dn.supplier.code}</div>}
                       </div>
                     </TableCell>
-                    <TableCell>{dn.purchaseOrder?.poNumber ?? '-'}</TableCell>
+                    <TableCell>{dn.purchaseOrder?.poNumber ?? dn.jobWorkOrder?.jobWorkNumber ?? '-'}</TableCell>
                     <TableCell>{formatDate(dn.debitNoteDate)}</TableCell>
                     <TableCell>{DebitNoteReasonLabels[dn.reason] ?? dn.reason}</TableCell>
                     <TableCell className="text-right font-medium">{formatCurrency(dn.totalAmount)}</TableCell>
@@ -578,6 +615,26 @@ export default function DebitNoteList() {
                     {poOptions.map((po) => (
                       <SelectItem key={po.id} value={po.id}>
                         {po.poNumber} ({formatCurrency(po.totalAmount)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Phase 4a: JWO select (optional) — abnormal-loss recovery against job work */}
+            {selectedSupplier && (
+              <div className="space-y-1.5">
+                <Label>Link to Job Work Order (optional)</Label>
+                <Select value={selectedJwoId || 'none'} onValueChange={(v) => setSelectedJwoId(v === 'none' ? '' : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={loadingJwos ? 'Loading JWOs...' : 'Select Job Work Order'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">-- No Job Work Order --</SelectItem>
+                    {jwoOptions.map((j) => (
+                      <SelectItem key={j.id} value={j.id}>
+                        {j.jobWorkNumber} ({j.processType})
                       </SelectItem>
                     ))}
                   </SelectContent>

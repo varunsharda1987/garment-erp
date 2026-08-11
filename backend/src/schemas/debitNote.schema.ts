@@ -38,6 +38,8 @@ const debitNoteItemSchema = z.object({
  */
 export const createDebitNoteSchema = z.object({
   poId: z.string().uuid('Invalid PO ID format').optional().nullable(),
+  // Phase 4a: debit note raised against a Job Work Order (abnormal loss recovery)
+  jobWorkOrderId: z.string().uuid('Invalid Job Work Order ID format').optional().nullable(),
   supplierId: z.string().uuid('Invalid supplier ID format'),
   debitNoteDate: z.string().optional().nullable(),
   reason: DebitNoteReasonEnum,

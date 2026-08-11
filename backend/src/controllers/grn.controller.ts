@@ -157,6 +157,28 @@ export const createGRN = async (req: Request, res: Response) => {
 };
 
 /**
+ * @route POST /api/grn/jwo
+ * @desc Phase 4b: Create a GRN against a Job Work Order (no purchase order)
+ * @access Private (WAREHOUSE, PURCHASE, ADMIN)
+ */
+export const createGRNFromJWO = async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new ValidationError('User not authenticated');
+  }
+
+  const grn = await grnService.createGRNFromJWO(req.body, userId);
+
+  logInfo(`PO-less JWO GRN created: ${grn.grnNumber}`);
+
+  res.status(201).json({
+    success: true,
+    data: grn,
+    message: 'GRN created against job work order',
+  });
+};
+
+/**
  * @route PATCH /api/grn/:id/approve
  * @desc Approve a GRN (PENDING_QC -> ACCEPTED) and create stock movements
  * @access Private (QC, ADMIN)

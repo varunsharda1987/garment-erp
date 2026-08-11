@@ -11,6 +11,8 @@ export type FabricDetail = {
   fabricTotal: number;
   // Not Applicable flag - if true, item is excluded from calculations and 0 values are allowed
   isNotApplicable?: boolean;
+  // Track if fabric was auto-populated (N/A checkbox only shows for manually added items)
+  isAutoPopulated?: boolean;
   // Sourcing Strategy Fields
   fabricId?: string;
   sourcingStrategy?: 'STOCK_REUSE' | 'READY_FABRIC' | 'GREIGE_PROCESSED';

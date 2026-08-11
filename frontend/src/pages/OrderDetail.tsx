@@ -52,7 +52,6 @@ import { formatCurrency } from '@/lib/currency';
 import { OrderWorkflowTracker, buildWorkflowSteps } from '../components/OrderWorkflowTracker';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { logError } from '../lib/logger';
-import OrderThreadRequirementForm from '../components/thread/OrderThreadRequirementForm';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 
 export default function OrderDetail() {
@@ -1007,17 +1006,6 @@ export default function OrderDetail() {
           )}
         </CardContent>
       </Card>
-
-      {/* Thread Requirements Section */}
-      <div className="mt-6">
-        <OrderThreadRequirementForm
-          orderId={order.id}
-          onSave={() => {
-            // Reload thread requirements or show success message
-            handleApiSuccess('Thread Requirements Saved', 'Thread requirements have been saved successfully');
-          }}
-        />
-      </div>
 
       {/* Production Runs Section */}
       <Card className="mt-6">

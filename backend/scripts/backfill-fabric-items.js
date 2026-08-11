@@ -29,7 +29,8 @@ async function backfill() {
     const itemsToCreate = [];
 
     for (const cad of cadRows) {
-      const key = cad.componentName || cad.styleFabricId || cad.id;
+      // BUG-FIX: Include cutableWidth in dedup key - different widths are valid distinct CAD rows
+      const key = `${cad.componentName || ''}|${cad.styleFabricId || ''}|${cad.cutableWidth || ''}`;
       if (seenComponents.has(key)) continue;
       seenComponents.add(key);
 

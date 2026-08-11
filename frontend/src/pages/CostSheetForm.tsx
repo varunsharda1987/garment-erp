@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -58,7 +58,18 @@ const CostSheetForm = () => {
   const [, setFabricWidthComparisons] = useState<Map<string, unknown>>(new Map());
   const [fabricCostResults] = useState<FabricCostCalculationResult[]>([]);
   // Costing mode selector - determines which fabric costing data to pull
-  const [costingMode, setCostingMode] = useState<'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION'>('COSTING');
+  // Auto-select from localStorage preference
+  const [costingMode, setCostingMode] = useState<'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION'>(() => {
+    const saved = localStorage.getItem('costSheet.fabricCostingMode');
+    if (saved === 'RAW_MATERIAL_CALCULATION' || saved === 'PRODUCTION') return saved;
+    return 'COSTING';
+  });
+
+  // Save costing mode preference to localStorage
+  const handleCostingModeChange = (mode: 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION') => {
+    setCostingMode(mode);
+    localStorage.setItem('costSheet.fabricCostingMode', mode);
+  };
 
   // Basic Information
   const [numberOfComponents, setNumberOfComponents] = useState<number>(0);
@@ -128,10 +139,8 @@ const CostSheetForm = () => {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [loadingRuns, setLoadingRuns] = useState(false);
 
-  // Customer/Brand display fields (auto-populated from style selection)
-  const [displayCustomerCode, setDisplayCustomerCode] = useState<string>('');
-  const [displayCustomerName, setDisplayCustomerName] = useState<string>('');
-  const [displayBrandName, setDisplayBrandName] = useState<string>('');
+  // Track if style has lace in BOM (to conditionally show Lace section)
+  const [styleHasLace, setStyleHasLace] = useState<boolean>(false);
 
   // Fetch customers on mount
   useEffect(() => {
@@ -247,14 +256,8 @@ const CostSheetForm = () => {
               );
               if (matchedCustomer) {
                 setSelectedCustomerId(matchedCustomer.id); // Fix: Set customer ID so style selector shows the style
-                setDisplayCustomerCode(matchedCustomer.code);
-                setDisplayCustomerName(matchedCustomer.name);
-              } else {
-                setDisplayCustomerName(fullStyleDetails.customerName);
-                setDisplayCustomerCode('');
               }
             }
-            setDisplayBrandName(fullStyleDetails.brandName || fullStyleDetails.brandCategories?.brandName || '');
 
             // If accessories/trims/embroidery are empty in saved cost sheet,
             // extract them from the style's styleMaterialBom
@@ -626,7 +629,11 @@ const CostSheetForm = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCustomerId, customers]);
 
-  // Fetch costing runs when style and costingMode are selected
+  // Track if mode change is from auto-detection (to avoid double fetch)
+  const isAutoModeChange = useRef(false);
+
+  // Fetch costing runs when style is selected
+  // Auto-detect mode with priority: PRODUCTION > RAW_MATERIAL_CALCULATION > COSTING
   useEffect(() => {
     const fetchCostingRuns = async () => {
       if (!selectedStyleId) {
@@ -637,13 +644,42 @@ const CostSheetForm = () => {
 
       try {
         setLoadingRuns(true);
-        const runs = await getRunsByStyle(selectedStyleId, costingMode);
-        setCostingRuns(runs);
-        // Clear selected run when style or mode changes
+
+        // Check all modes for available runs with priority order
+        const modePriority: Array<'PRODUCTION' | 'RAW_MATERIAL_CALCULATION' | 'COSTING'> = [
+          'PRODUCTION',
+          'RAW_MATERIAL_CALCULATION',
+          'COSTING',
+        ];
+
+        let bestMode = costingMode;
+        let bestRuns: CostingRun[] = [];
+
+        // Check each mode in priority order
+        for (const mode of modePriority) {
+          const runs = await getRunsByStyle(selectedStyleId, mode);
+          if (runs.length > 0) {
+            bestMode = mode;
+            bestRuns = runs;
+            break; // Found runs in highest priority mode
+          }
+        }
+
+        // If best mode differs from current, switch to it
+        if (bestMode !== costingMode && bestRuns.length > 0) {
+          isAutoModeChange.current = true;
+          handleCostingModeChange(bestMode);
+        }
+
+        // If no runs found in any mode, fetch for current mode (will be empty)
+        if (bestRuns.length === 0) {
+          bestRuns = await getRunsByStyle(selectedStyleId, costingMode);
+        }
+
+        setCostingRuns(bestRuns);
         setSelectedRunId(null);
       } catch (error) {
         console.error('Failed to fetch costing runs:', error);
-        // Don't show error - runs are optional
         setCostingRuns([]);
       } finally {
         setLoadingRuns(false);
@@ -651,7 +687,33 @@ const CostSheetForm = () => {
     };
 
     fetchCostingRuns();
-  }, [selectedStyleId, costingMode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStyleId]); // Only trigger on style change
+
+  // Refetch runs when mode is manually changed (not auto-detected)
+  useEffect(() => {
+    // Skip if this is an auto mode change (already fetched in style effect)
+    if (isAutoModeChange.current) {
+      isAutoModeChange.current = false;
+      return;
+    }
+
+    const fetchRunsForMode = async () => {
+      if (!selectedStyleId) return;
+
+      try {
+        const runs = await getRunsByStyle(selectedStyleId, costingMode);
+        setCostingRuns(runs);
+        setSelectedRunId(null);
+      } catch (error) {
+        console.error('Failed to fetch costing runs:', error);
+        setCostingRuns([]);
+      }
+    };
+
+    fetchRunsForMode();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [costingMode]);
 
   // Fetch style details when style is selected and auto-populate data
   useEffect(() => {
@@ -692,23 +754,6 @@ const CostSheetForm = () => {
 
           // Auto-populate customer/brand display fields
           // Match style.customerName to customers list to get full customer info
-          if (styleDetails.customerName) {
-            const matchedCustomer = customers.find(
-              (c) => c.name.toLowerCase() === styleDetails.customerName?.toLowerCase()
-            );
-            if (matchedCustomer) {
-              setDisplayCustomerCode(matchedCustomer.code);
-              setDisplayCustomerName(matchedCustomer.name);
-            } else {
-              // Fallback: use customerName from style if no match found
-              setDisplayCustomerName(styleDetails.customerName);
-              setDisplayCustomerCode('');
-            }
-          }
-
-          // Set brand name from style or brand_categories
-          setDisplayBrandName(styleDetails.brandName || styleDetails.brandCategories?.brandName || '');
-
           // Auto-populate fabric details from style components
           if (styleDetails.components && styleDetails.components.length > 0) {
             const fabricDetailsFromStyle: FabricDetail[] = [];
@@ -827,6 +872,7 @@ const CostSheetForm = () => {
                           processorId: opt.processorId ?? undefined,
                           greigeCost: opt.greigeCostPerMeter ? Number(opt.greigeCostPerMeter) : undefined,
                           processingCost: opt.processingPricePerMeter ? Number(opt.processingPricePerMeter) : undefined,
+                          isAutoPopulated: true,
                         });
                       }
 
@@ -866,6 +912,7 @@ const CostSheetForm = () => {
                       fabricRate: 0, // Placeholder, will be updated
                       fabricTotal: 0,
                       fabricId: fabric.fabricId ?? undefined, // Include fabricId for sourcing strategy
+                      isAutoPopulated: true,
                     });
 
                     // Fetch rate asynchronously from stock (fallback)
@@ -912,6 +959,7 @@ const CostSheetForm = () => {
                     fabricRate: fabricRate,
                     fabricTotal: fabricAverage * fabricRate,
                     fabricId: fabric.fabricId ?? undefined, // Include fabricId for sourcing strategy
+                    isAutoPopulated: true,
                   });
 
                   // Build fabric width comparisons if CAD averages exist
@@ -941,6 +989,13 @@ const CostSheetForm = () => {
             }
 
             if (fabricDetailsFromStyle.length > 0) {
+              // BUG-FIX: Filter out invalid fabric rows BEFORE deduplication
+              // Invalid rows have: no CAD average (0), no fabricId, and no rate
+              // These come from duplicate style_fabrics entries that don't match any CAD data
+              const validFabrics = fabricDetailsFromStyle.filter(
+                (f) => f.fabricAverage > 0 || f.fabricId || f.fabricRate > 0
+              );
+
               // PART 2.10 FIX: Deduplicate fabric rows that have identical values
               // This handles cases where multiple style components resolve to the same costing options
               // (e.g., "Body" and "Body - Embroidered" both matching the same approved options)
@@ -951,7 +1006,7 @@ const CostSheetForm = () => {
               const seenFabricKeys = new Set<string>();
               const deduplicatedFabrics: FabricDetail[] = [];
 
-              for (const fabric of fabricDetailsFromStyle) {
+              for (const fabric of validFabrics) {
                 // Create unique key using IDENTITY fields only
                 // fabricId is primary identifier; if absent, use fabricName + fabricWidth
                 // Include sourcingStrategy and processorId as they represent different procurement paths
@@ -968,6 +1023,10 @@ const CostSheetForm = () => {
               setFabricDetails(deduplicatedFabrics);
               setFabricWidthComparisons(widthComparisonsMap);
 
+              // Recalculate fabricsWithoutRate based on final deduplicated list
+              // (the original counter includes invalid/filtered fabrics)
+              fabricsWithoutRate = deduplicatedFabrics.filter((f) => f.fabricRate === 0).length;
+
               const ratesMessage = [];
               if (ratesFromCosting > 0) {
                 ratesMessage.push(`${ratesFromCosting} from costing`);
@@ -979,10 +1038,15 @@ const CostSheetForm = () => {
                 ratesMessage.push(`${fabricsWithoutRate} need rate`);
               }
 
-              // Show deduplicated count if different from original
+              // Show count with info about filtered/deduplicated items
+              const invalidCount = fabricDetailsFromStyle.length - validFabrics.length;
+              const duplicateCount = validFabrics.length - deduplicatedFabrics.length;
+              const removedParts: string[] = [];
+              if (invalidCount > 0) removedParts.push(`${invalidCount} invalid`);
+              if (duplicateCount > 0) removedParts.push(`${duplicateCount} duplicate`);
               const fabricCountMsg =
-                deduplicatedFabrics.length !== fabricDetailsFromStyle.length
-                  ? `${deduplicatedFabrics.length} fabrics (${fabricDetailsFromStyle.length - deduplicatedFabrics.length} duplicates removed)`
+                removedParts.length > 0
+                  ? `${deduplicatedFabrics.length} fabrics (${removedParts.join(', ')} removed)`
                   : `${deduplicatedFabrics.length} fabrics`;
 
               if (ratesMessage.length > 0) {
@@ -1196,7 +1260,14 @@ const CostSheetForm = () => {
             }
             if (extractedLaces.length > 0) {
               setLaceDetails(extractedLaces);
+              setStyleHasLace(true);
               populated.push(`${extractedLaces.length} laces`);
+            } else {
+              // Check if style has any lace in BOM even if not extracted
+              const hasLaceInBom = styleDetails.styleMaterialBom?.some(
+                (bom: { materialType?: string }) => bom.materialType === 'LACE'
+              );
+              setStyleHasLace(hasLaceInBom || false);
             }
           }
 
@@ -1358,11 +1429,11 @@ const CostSheetForm = () => {
     return calculateTotalAfterValueLoss() + calculateMarkupAmount();
   };
 
-  // Add new fabric row
+  // Add new fabric row (manually added, so N/A checkbox will be shown)
   const addFabricRow = () => {
     setFabricDetails([
       ...fabricDetails,
-      { fabricName: '', fabricWidth: 0, fabricAverage: 0, fabricRate: 0, fabricTotal: 0 },
+      { fabricName: '', fabricWidth: 0, fabricAverage: 0, fabricRate: 0, fabricTotal: 0, isAutoPopulated: false },
     ]);
   };
 
@@ -1648,6 +1719,8 @@ const CostSheetForm = () => {
             // Carry sourcing strategy from costing run
             sourcingStrategy: fab.processor ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
             processorId: fab.processor?.id,
+            // Auto-populated from costing run - N/A checkbox won't show
+            isAutoPopulated: true,
           }));
 
           setFabricDetails(fabricDetailsFromRun);
@@ -1939,13 +2012,7 @@ const CostSheetForm = () => {
                     const customer = customers.find((c) => c.name.toLowerCase() === style.customerName?.toLowerCase());
                     if (customer) {
                       setSelectedCustomerId(customer.id);
-                      setDisplayCustomerCode(customer.code);
-                      setDisplayCustomerName(customer.name);
-                    } else if (style.customerName) {
-                      setDisplayCustomerName(style.customerName);
-                      setDisplayCustomerCode('');
                     }
-                    setDisplayBrandName(style.brandName || style.brandCategories?.brandName || '');
                   }
                 }}
                 disabled={isEditMode || isApprovedCostSheet}
@@ -1956,7 +2023,7 @@ const CostSheetForm = () => {
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-2">Customer</label>
               <Input
-                value={displayCustomerName || (selectedStyleId ? 'Loading...' : 'Select a style first')}
+                value={selectedStyle?.customerName || (selectedStyleId ? 'Loading...' : 'Select a style first')}
                 disabled
                 className="bg-muted"
               />
@@ -1968,7 +2035,9 @@ const CostSheetForm = () => {
                 <label className="block text-sm font-medium mb-2">Fabric Costing Mode</label>
                 <Select
                   value={costingMode}
-                  onValueChange={(v) => setCostingMode(v as 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION')}
+                  onValueChange={(v) =>
+                    handleCostingModeChange(v as 'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION')
+                  }
                   disabled={isEditMode || isApprovedCostSheet}
                 >
                   <SelectTrigger>
@@ -1987,74 +2056,51 @@ const CostSheetForm = () => {
             )}
           </div>
 
-          {/* Costing Run Selector - Show when style has runs available */}
+          {/* Costing Run Selector - Compact inline format */}
           {selectedStyleId && !isEditMode && costingRuns.length > 0 && (
-            <div className="mt-4 p-4 border border-info/20 bg-info-muted rounded-lg">
-              <div className="mb-3">
-                <label className="block text-sm font-medium text-info mb-1">
-                  Select Costing Run
-                  <span className="text-info font-normal ml-2">({costingRuns.length} available)</span>
-                </label>
-                <p className="text-xs text-info">
-                  Select a costing run to auto-populate all fabrics with their CAD averages and rates
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {costingRuns.map((run) => (
-                  <button
-                    key={run.id}
-                    type="button"
-                    onClick={() => setSelectedRunId(selectedRunId === run.id ? null : run.id)}
-                    className={`p-3 border rounded-lg text-left transition-all ${
-                      selectedRunId === run.id
-                        ? 'border-info bg-card ring-2 ring-blue-200 shadow-sm'
-                        : 'border-info/20 bg-card hover:border-info/30'
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Costing Run:</span>
+              {costingRuns.map((run) => (
+                <button
+                  key={run.id}
+                  type="button"
+                  onClick={() => setSelectedRunId(selectedRunId === run.id ? null : run.id)}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 border rounded-full text-sm transition-all ${
+                    selectedRunId === run.id
+                      ? 'border-info bg-info/10 text-info font-medium'
+                      : 'border-border bg-card hover:border-info/50 text-foreground'
+                  }`}
+                >
+                  <span>{run.runName}</span>
+                  <span className="text-muted-foreground">•</span>
+                  <span>
+                    {run.fabricCount} fabric{run.fabricCount !== 1 ? 's' : ''}
+                  </span>
+                  {run.totalFabricCost && (
+                    <>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="font-medium">₹{Number(run.totalFabricCost).toFixed(0)}</span>
+                    </>
+                  )}
+                  <span
+                    className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs ${
+                      run.isComplete ? 'bg-success-muted text-success' : 'bg-warning/10 text-warning'
                     }`}
                   >
-                    <div className="flex justify-between items-start">
-                      <span className="text-base font-semibold text-foreground">{run.runName}</span>
-                      {selectedRunId === run.id && (
-                        <svg className="h-5 w-5 text-info" fill="currentColor" viewBox="0 0 20 20">
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      )}
-                    </div>
-
-                    <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                      <p>
-                        {run.fabricCount} fabric{run.fabricCount !== 1 ? 's' : ''}
-                      </p>
-                      {run.totalFabricCost && (
-                        <p className="font-medium text-foreground">₹{Number(run.totalFabricCost).toFixed(2)}/garment</p>
-                      )}
-                    </div>
-
-                    <div className="mt-2 flex items-center gap-2">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          run.isComplete ? 'bg-success-muted text-success' : 'bg-warning/10 text-warning'
-                        }`}
-                      >
-                        {run.isComplete ? '✓ Complete' : '⚠ Incomplete'}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(run.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              {selectedRunId && (
-                <p className="mt-3 text-sm text-info">
-                  Click "Auto-Generate from CAD" to populate fabrics from the selected run
-                </p>
-              )}
+                    {run.isComplete ? '✓' : '⚠'}
+                  </span>
+                  {selectedRunId === run.id && (
+                    <svg className="h-4 w-4 text-info" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  )}
+                </button>
+              ))}
+              {selectedRunId && <span className="text-xs text-info ml-2">→ Click Auto-Generate to use</span>}
             </div>
           )}
 
@@ -2269,24 +2315,6 @@ const CostSheetForm = () => {
             </div>
           )}
 
-          {/* Customer/Brand Information (Read-only, auto-populated from style) */}
-          {selectedStyleId && (displayCustomerCode || displayCustomerName || displayBrandName) && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 bg-muted rounded-lg">
-              <div>
-                <label className="block text-sm font-medium mb-2 text-muted-foreground">Customer Code</label>
-                <Input value={displayCustomerCode} readOnly className="bg-muted" placeholder="-" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2 text-muted-foreground">Customer Name</label>
-                <Input value={displayCustomerName} readOnly className="bg-muted" placeholder="-" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2 text-muted-foreground">Brand Name</label>
-                <Input value={displayBrandName} readOnly className="bg-muted" placeholder="-" />
-              </div>
-            </div>
-          )}
-
           {/* BUG-CS7 fix: disable fields when approved */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
             <div>
@@ -2319,42 +2347,26 @@ const CostSheetForm = () => {
             </div>
           </div>
 
-          {/* CAD Status Info Banner */}
-          {selectedStyle && (
-            <div
-              className={`mt-4 p-4 rounded-lg border ${
-                isCADApproved(selectedStyle.cadStatus)
-                  ? 'bg-success-muted border-success/25'
-                  : 'bg-warning-muted border-yellow-300'
-              }`}
-            >
+          {/* CAD Status Info Banner - Only show if NO costing runs available AND CAD not approved */}
+          {selectedStyle && !isCADApproved(selectedStyle.cadStatus) && costingRuns.length === 0 && (
+            <div className="mt-4 p-4 rounded-lg border bg-warning-muted border-yellow-300">
               <div className="flex items-start gap-3">
-                <AlertCircle
-                  className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
-                    isCADApproved(selectedStyle.cadStatus) ? 'text-success' : 'text-warning'
-                  }`}
-                />
+                <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0 text-warning" />
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="text-sm font-semibold">CAD Planning Workflow:</span>
                     <CADStatusBadge status={selectedStyle.cadStatus} size="sm" />
                   </div>
-                  <p
-                    className={`text-sm ${isCADApproved(selectedStyle.cadStatus) ? 'text-success' : 'text-yellow-800'}`}
+                  <p className="text-sm text-yellow-800">{getCADWorkflowMessage(selectedStyle.cadStatus)}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => navigate(`/cad-planning/${selectedStyleId}`)}
                   >
-                    {getCADWorkflowMessage(selectedStyle.cadStatus)}
-                  </p>
-                  {!isCADApproved(selectedStyle.cadStatus) && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="mt-3"
-                      onClick={() => navigate(`/cad-planning/${selectedStyleId}`)}
-                    >
-                      Go to CAD Planning
-                    </Button>
-                  )}
+                    Go to CAD Planning
+                  </Button>
                 </div>
               </div>
             </div>
@@ -2407,7 +2419,11 @@ const CostSheetForm = () => {
                     onStrategyChange={(strategy) => updateFabricSourcingStrategy(index, strategy)}
                     onRemove={fabricDetails.length > 1 ? () => removeFabricRow(index) : undefined}
                     isNotApplicable={fabric.isNotApplicable}
-                    onNotApplicableChange={(checked) => updateFabricRow(index, 'isNotApplicable', checked)}
+                    onNotApplicableChange={
+                      fabric.isAutoPopulated
+                        ? undefined
+                        : (checked) => updateFabricRow(index, 'isNotApplicable', checked)
+                    }
                     disabled={isApprovedCostSheet}
                   />
                 ))}
@@ -2425,16 +2441,18 @@ const CostSheetForm = () => {
           <CostComparisonTable fabricResults={fabricCostResults} className="bg-card" />
         )}
 
-        {/* Lace Details */}
-        <div className="bg-card p-6 rounded-lg shadow">
-          {/* BUG-CS7 fix: disable when approved */}
-          <LaceCostingSection
-            laceDetails={laceDetails}
-            onLaceDetailsChange={setLaceDetails}
-            styleId={selectedStyleId}
-            disabled={loading || isApprovedCostSheet}
-          />
-        </div>
+        {/* Lace Details - Only show if style has lace in BOM or user added lace items */}
+        {(styleHasLace || laceDetails.length > 0) && (
+          <div className="bg-card p-6 rounded-lg shadow">
+            {/* BUG-CS7 fix: disable when approved */}
+            <LaceCostingSection
+              laceDetails={laceDetails}
+              onLaceDetailsChange={setLaceDetails}
+              styleId={selectedStyleId}
+              disabled={loading || isApprovedCostSheet}
+            />
+          </div>
+        )}
 
         {/* Trims Details */}
         <div className="bg-card p-6 rounded-lg shadow">
@@ -3061,19 +3079,6 @@ const CostSheetForm = () => {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Notes */}
-        {/* BUG-CS7 fix: disable when approved */}
-        <div className="bg-card p-6 rounded-lg shadow">
-          <h2 className="text-xl font-display font-semibold mb-4">Notes</h2>
-          <textarea
-            className={`w-full border rounded-md p-3 min-h-[100px] ${isApprovedCostSheet ? 'bg-muted cursor-not-allowed' : ''}`}
-            placeholder="Add any additional notes or comments..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            disabled={isApprovedCostSheet}
-          />
         </div>
 
         {/* Submit */}

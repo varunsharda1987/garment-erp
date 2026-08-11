@@ -191,6 +191,21 @@ export async function getStyleFabrics(req: Request, res: Response) {
                           receivedDate: true,
                         },
                       },
+                      // Include finished fabrics for generic fabric stock badge fallback
+                      finishedFabrics: {
+                        select: {
+                          colorMasterId: true,
+                          colorName: true,
+                          finishType: true,
+                          fabricStock: {
+                            select: {
+                              weightedAvgCost: true,
+                              quantityAvailable: true,
+                              cutableWidth: true,
+                            },
+                          },
+                        },
+                      },
                     },
                   },
                   // Include all fabric_width_cad records for this fabric
@@ -300,6 +315,29 @@ export async function getStyleFabrics(req: Request, res: Response) {
                       receivedDate: true,
                     },
                   },
+                  // BUG-GF4 fix: Include finished fabrics auto-created from this greige
+                  finishedFabrics: {
+                    where: { isActive: true },
+                    select: {
+                      id: true,
+                      colorName: true,
+                      colorMasterId: true,
+                      finishType: true,
+                      cutableWidth: true,
+                      fabricStock: {
+                        where: {
+                          status: 'AVAILABLE',
+                          quantityAvailable: { gt: 0 },
+                        },
+                        select: {
+                          id: true,
+                          weightedAvgCost: true,
+                          quantityAvailable: true,
+                          cutableWidth: true,
+                        },
+                      },
+                    },
+                  },
                 },
               },
               // CAD rows from CAD Planning (linked via styleFabricId)
@@ -362,6 +400,30 @@ export async function getStyleFabrics(req: Request, res: Response) {
                           receivedDate: true,
                         },
                       },
+                      // BUG-GF4 fix: Include finished fabrics auto-created from this greige
+                      // so generic fabrics (no fabricId) can show stock from processed fabric
+                      finishedFabrics: {
+                        where: { isActive: true },
+                        select: {
+                          id: true,
+                          colorName: true,
+                          colorMasterId: true,
+                          finishType: true,
+                          cutableWidth: true,
+                          fabricStock: {
+                            where: {
+                              status: 'AVAILABLE',
+                              quantityAvailable: { gt: 0 },
+                            },
+                            select: {
+                              id: true,
+                              weightedAvgCost: true,
+                              quantityAvailable: true,
+                              cutableWidth: true,
+                            },
+                          },
+                        },
+                      },
                     },
                   },
                   processor: {
@@ -409,14 +471,61 @@ export async function getStyleFabrics(req: Request, res: Response) {
 
       // Width-matched stock (±0.5" tolerance — same rule MRP uses when allocating fabric_stock),
       // plus quantity-weighted WAC of the matched lots. Suggestive only; allocation happens at MRP.
+      // BUG-GF4 fix: For generic fabrics (no fabricId), fallback to greige's finishedFabrics stock
       const stockAtWidthFor = (
-        width: number | null
+        width: number | null,
+        greigeForFallback?: {
+          finishedFabrics?: Array<{
+            colorMasterId?: string | null;
+            colorName?: string | null;
+            finishType?: string | null;
+            fabricStock?: Array<{
+              weightedAvgCost?: unknown;
+              quantityAvailable?: unknown;
+              cutableWidth?: unknown;
+            }>;
+          }>;
+        }
       ): { stockAtWidth: number | null; stockWacAtWidth: number | null } => {
-        if (width == null || availableLots.length === 0) return { stockAtWidth: null, stockWacAtWidth: null };
+        if (width == null) return { stockAtWidth: null, stockWacAtWidth: null };
+
+        // Primary: use direct fabric stock (for fabrics with fabricId)
+        let lotsToCheck = availableLots;
+
+        // Fallback: for generic fabrics (no fabricId), aggregate stock from greige's finished fabrics
+        // matching this style's color/finish
+        if (availableLots.length === 0 && !styleFabric.fabricId && greigeForFallback?.finishedFabrics) {
+          const sfColorId = styleFabric.colorMasterId;
+          const sfColorName = styleFabric.fabricColor || (styleFabric as any).colorMaster?.colorName;
+          const sfFinish = styleFabric.fabricFinishType;
+
+          // Collect all matching finished fabric lots
+          const fallbackLots: Array<{
+            weightedAvgCost?: unknown;
+            quantityAvailable?: unknown;
+            cutableWidth?: unknown;
+          }> = [];
+
+          for (const ff of greigeForFallback.finishedFabrics) {
+            // Match by colorMasterId if both have it, else by colorName, plus finishType
+            const colorMatch =
+              (sfColorId && ff.colorMasterId && sfColorId === ff.colorMasterId) ||
+              (!sfColorId && !ff.colorMasterId && sfColorName && ff.colorName === sfColorName);
+            const finishMatch = !sfFinish || !ff.finishType || sfFinish === ff.finishType;
+
+            if (colorMatch && finishMatch && ff.fabricStock) {
+              fallbackLots.push(...ff.fabricStock);
+            }
+          }
+          lotsToCheck = fallbackLots as typeof availableLots;
+        }
+
+        if (lotsToCheck.length === 0) return { stockAtWidth: null, stockWacAtWidth: null };
+
         let qtySum = 0;
         let costQtySum = 0;
         let costQtyWeight = 0;
-        for (const lot of availableLots) {
+        for (const lot of lotsToCheck) {
           const lotWidth = lot.cutableWidth != null ? Number(lot.cutableWidth) : null;
           if (lotWidth == null || Math.abs(lotWidth - width) > 0.5) continue;
           const qty = Number(lot.quantityAvailable || 0);
@@ -528,7 +637,7 @@ export async function getStyleFabrics(req: Request, res: Response) {
             ...baseFabricData,
             cadMeters, // Per-piece consumption from cadAverage
             width, // Cutable width for this variant
-            ...stockAtWidthFor(width), // stockAtWidth + stockWacAtWidth (display-only, MRP-consistent)
+            ...stockAtWidthFor(width, greige), // stockAtWidth + stockWacAtWidth (display-only, MRP-consistent)
             purpose: cadRow.purpose || null, // PLANNING, COSTING, PRODUCTION
             greigeId: greige?.id || null,
             greigeName: greige?.greigeName || null,
@@ -627,7 +736,7 @@ export async function getStyleFabrics(req: Request, res: Response) {
           ...baseFabricData,
           cadMeters,
           width,
-          ...stockAtWidthFor(width),
+          ...stockAtWidthFor(width, greige as Parameters<typeof stockAtWidthFor>[1]),
           purpose: null,
           greigeId: greige?.id || null,
           greigeName: greige?.greigeName || null,

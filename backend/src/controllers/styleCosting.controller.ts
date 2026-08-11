@@ -277,7 +277,9 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
   const usedJsonFabrics = new Set<number>(); // Track which JSON fabrics have been matched
 
   for (const cad of cadRows) {
-    const key = cad.componentName || cad.styleFabricId || cad.id;
+    // BUG-FIX: Include cutableWidth in dedup key - different widths are valid distinct CAD rows
+    // (e.g., same componentName "Kurta" at 50" and 52" widths should create 2 fabric items)
+    const key = `${cad.componentName || ''}|${cad.styleFabricId || ''}|${cad.cutableWidth || ''}`;
     if (seenComponents.has(key)) continue;
     seenComponents.add(key);
 
@@ -959,7 +961,9 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
   const fabricItemsToCreate: any[] = [];
 
   for (const cad of cadRows) {
-    const key = cad.componentName || cad.styleFabricId || cad.id;
+    // BUG-FIX: Include cutableWidth in dedup key - different widths are valid distinct CAD rows
+    // (e.g., same componentName "Kurta" at 50" and 52" widths should create 2 fabric items)
+    const key = `${cad.componentName || ''}|${cad.styleFabricId || ''}|${cad.cutableWidth || ''}`;
     if (seenComponents.has(key)) continue;
     seenComponents.add(key);
 

@@ -27,6 +27,26 @@ import { generateSKU, checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } 
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 
 // ============================================
+// Deduplicate Style Fabrics Helper
+// Prevents duplicate fabric entries in same component (BUG-FIX)
+// ============================================
+function deduplicateStyleFabrics(fabrics: StyleFabricInput[]): StyleFabricInput[] {
+  const seen = new Set<string>();
+  const unique: StyleFabricInput[] = [];
+  for (const fab of fabrics) {
+    // Create composite key from identity fields
+    const key = `${fab.genericGreigeName || ''}|${fab.fabricFinishType || ''}|${fab.hasEmbroidery || false}|${fab.embroideryId || ''}`;
+    if (seen.has(key)) {
+      logWarn(`Duplicate fabric skipped: ${key}`);
+      continue;
+    }
+    seen.add(key);
+    unique.push(fab);
+  }
+  return unique;
+}
+
+// ============================================
 // Generic Trim FK Mapping
 // ============================================
 const GENERIC_TRIM_FK_MAP: Record<string, string> = {
@@ -373,11 +393,11 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 componentType: comp.componentType || 'OTHER',
                 componentMasterId, // Set FK if found, null otherwise
                 sortOrder: idx,
-                // Create nested fabrics if provided
+                // Create nested fabrics if provided (deduplicated to prevent duplicate entries)
                 ...(comp.fabrics && comp.fabrics.length > 0
                   ? {
                       style_fabrics: {
-                        create: comp.fabrics.map((fab: StyleFabricInput) => ({
+                        create: deduplicateStyleFabrics(comp.fabrics).map((fab: StyleFabricInput) => ({
                           id: randomUUID(),
                           fabricId: fab.fabricId || null,
                           fabricName: fab.fabricName || fab.greigeName || '',
@@ -1263,10 +1283,11 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
               },
             });
 
-            // Create nested fabrics if provided
+            // Create nested fabrics if provided (deduplicated to prevent duplicate entries)
             let firstFabricIdForComponent: string | null = null;
             if (comp.fabrics && comp.fabrics.length > 0) {
-              for (const fab of comp.fabrics as StyleFabricInput[]) {
+              const uniqueFabrics = deduplicateStyleFabrics(comp.fabrics as StyleFabricInput[]);
+              for (const fab of uniqueFabrics) {
                 const newFabricId = randomUUID();
                 if (!firstFabricIdForComponent) firstFabricIdForComponent = newFabricId;
                 await tx.style_fabrics.create({

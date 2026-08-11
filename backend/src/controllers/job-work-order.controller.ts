@@ -10,6 +10,7 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from '../services/job-work-order.service';
+import { updateWosrReceivedQuantity } from '../services/work-order-service-requirement.service';
 import logger from '../utils/logger';
 import { generateJobWorkNumber } from '../utils/jobWorkNumber';
 import { systemSettingsService } from '../services/system-settings.service';
@@ -582,6 +583,9 @@ class JobWorkOrderController {
           purchaseOrderId: null,
           receivedDate: null,
           status: { in: ['AT_MILL', 'SENT_TO_MILL'] },
+          // Phase 5a (D6): GRN receiving is fabric/meters-only; PCS job work is
+          // received on the JWO itself (POST /:id/receive)
+          uom: 'MTR',
         },
         select: {
           id: true,
@@ -907,16 +911,42 @@ class JobWorkOrderController {
         });
       }
 
-      // Apply loss split (normal vs abnormal)
-      const updated = await jobWorkOrderService.applyLossSplit(id, qtyReceived);
-
-      // Update status
-      await prisma.job_work_orders.update({
+      // Phase 5a (D6): fabric/meters job work must be received through GRN /jwo so the
+      // fabric_stock lot gets created — this endpoint is the terminal for PCS services only.
+      const existing = await prisma.job_work_orders.findUnique({
         where: { id },
-        data: {
-          receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
-          jwoStatus: 'RECEIVED',
+        select: {
+          uom: true,
+          greigeStockLotId: true,
+          _count: { select: { requirementLinks: true } },
         },
+      });
+      if (!existing) {
+        return res.status(404).json({ success: false, message: 'Job work order not found' });
+      }
+      if (existing.uom === 'MTR' && (existing.greigeStockLotId || existing._count.requirementLinks > 0)) {
+        return res.status(422).json({
+          success: false,
+          code: 'RECEIVE_VIA_GRN',
+          message: 'Fabric job work is received through a GRN (Receive against Job Work Order) so stock gets created.',
+        });
+      }
+
+      // One tx: loss split + status + service-requirement advance (Phase 5a single track)
+      const updated = await prisma.$transaction(async (txClient) => {
+        const lossSplit = await jobWorkOrderService.applyLossSplit(id, qtyReceived, txClient);
+
+        await txClient.job_work_orders.update({
+          where: { id },
+          data: {
+            receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
+            jwoStatus: 'RECEIVED',
+          },
+        });
+
+        await updateWosrReceivedQuantity(id, Number(qtyReceived), txClient);
+
+        return lossSplit;
       });
 
       const jwo = await prisma.job_work_orders.findUnique({

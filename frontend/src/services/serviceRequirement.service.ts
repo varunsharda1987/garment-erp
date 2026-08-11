@@ -8,15 +8,15 @@ import type {
   ServiceRequirement,
   SuggestProcessorRequest,
   BulkProcessorAssignment,
-  GenerateServicePORequest,
-  BulkGenerateServicePOsRequest,
+  GenerateServiceJWORequest,
+  BulkGenerateServiceJWOsRequest,
   UpdateServiceExecutionRequest,
   ServiceRequirementFilters,
   ServiceRequirementListResponse,
   ServiceRequirementResponse,
   CalculationResultResponse,
-  ServicePOGenerationResponse,
-  BulkServicePOGenerationResponse,
+  ServiceJWOGenerationResponse,
+  BulkServiceJWOGenerationResponse,
   DashboardStatsResponse,
   WorkOrderServiceSummaryResponse,
   OrderServiceSummaryResponse,
@@ -255,22 +255,24 @@ export async function groupRequirementsByProcessor(
 }
 
 /**
- * Generate a single service purchase order
- * POST /api/service-requirements/generate-po
+ * Generate Job Work Order(s) for service requirements — Phase 5a (replaces generate-po)
+ * POST /api/service-requirements/generate-jwo
  */
-export async function generateServicePO(data: GenerateServicePORequest): Promise<ServicePOGenerationResponse['data']> {
-  const response = await api.post<ServicePOGenerationResponse>('/service-requirements/generate-po', data);
+export async function generateServiceJWOs(
+  data: GenerateServiceJWORequest
+): Promise<ServiceJWOGenerationResponse['data']> {
+  const response = await api.post<ServiceJWOGenerationResponse>('/service-requirements/generate-jwo', data);
   return response.data.data;
 }
 
 /**
- * Bulk generate service purchase orders
- * POST /api/service-requirements/generate-pos-bulk
+ * Bulk generate Job Work Orders per processor group — Phase 5a (replaces generate-pos-bulk)
+ * POST /api/service-requirements/generate-jwos-bulk
  */
-export async function bulkGenerateServicePOs(
-  groups: BulkGenerateServicePOsRequest['groups']
-): Promise<BulkServicePOGenerationResponse['data']> {
-  const response = await api.post<BulkServicePOGenerationResponse>('/service-requirements/generate-pos-bulk', {
+export async function bulkGenerateServiceJWOs(
+  groups: BulkGenerateServiceJWOsRequest['groups']
+): Promise<BulkServiceJWOGenerationResponse['data']> {
+  const response = await api.post<BulkServiceJWOGenerationResponse>('/service-requirements/generate-jwos-bulk', {
     groups,
   });
   return response.data.data;
@@ -359,8 +361,8 @@ export default {
   bulkAssignProcessors,
   autoAssignProcessors,
   groupRequirementsByProcessor,
-  generateServicePO,
-  bulkGenerateServicePOs,
+  generateServiceJWOs,
+  bulkGenerateServiceJWOs,
   getRequirementsNeedingPO,
   getOverdueRequirements,
   getWorkOrderRequirements,

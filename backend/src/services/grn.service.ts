@@ -16,6 +16,7 @@ import {
 import { createChallan } from './challan.service';
 import { purchaseOrderService } from './purchaseOrder.service';
 import mrpService from './mrp.service';
+import { updateWosrReceivedQuantity } from './work-order-service-requirement.service';
 import { checkProcessingPOReadiness } from './po-status-manager.service';
 import greigeStockService from './greige-stock.service';
 import { systemSettingsService } from './system-settings.service';
@@ -2428,6 +2429,8 @@ class GRNService {
             );
             if (totalAccepted > 0) {
               await mrpService.updateJwoReceivedQuantity(grn.jobWorkOrderId, -totalAccepted, tx);
+              // Phase 5a: symmetric reversal for service-requirement links (no-op without links)
+              await updateWosrReceivedQuantity(grn.jobWorkOrderId, -totalAccepted, tx);
             }
           }
         }
@@ -2494,6 +2497,13 @@ class GRNService {
     }
     if (jwo.status !== 'AT_MILL' && jwo.status !== 'SENT_TO_MILL') {
       throw new Error(`Cannot receive ${jwo.jobWorkNumber}: status is ${jwo.status}, expected AT_MILL/SENT_TO_MILL`);
+    }
+    // Phase 5a (D6): GRN receiving is fabric/meters-shaped; piece-based job work
+    // (embroidery/handwork/smocking/kaaj) is received on the JWO itself.
+    if (jwo.uom !== 'MTR') {
+      throw new Error(
+        `${jwo.jobWorkNumber} is piece-based (${jwo.uom}) — receive it from the Job Work Order's Receive action, not a GRN`
+      );
     }
 
     // Quantity: direct meters, or than-count × fold-length
@@ -2688,6 +2698,8 @@ class GRNService {
 
     // Phase 4b receipt bridge: advance MRP requirements via requirement_jwo_links
     await mrpService.updateJwoReceivedQuantity(jobWorkOrder.id, qtyReceived, tx);
+    // Phase 5a: same hook for service requirements (no-ops when no links exist)
+    await updateWosrReceivedQuantity(jobWorkOrder.id, qtyReceived, tx);
 
     logInfo('PO-less JWO GRN approved — fabric_stock created', {
       grnId,

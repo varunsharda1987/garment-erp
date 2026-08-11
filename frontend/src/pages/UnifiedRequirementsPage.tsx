@@ -48,7 +48,7 @@ import {
 } from '@/services/mrp.service';
 import {
   getAllServiceRequirements,
-  generateServicePO,
+  generateServiceJWOs,
   getDashboardStats as getServiceDashboardStats,
 } from '@/services/serviceRequirement.service';
 import {
@@ -1744,20 +1744,27 @@ function OutsourcedWorkTab({
     if (!svcPOProcessorId || !svcPODeliveryDate || selectedServiceIds.length === 0) return;
     setIsGenerating(true);
     try {
-      const result = await generateServicePO({
+      const result = await generateServiceJWOs({
         processorId: svcPOProcessorId,
         requirementIds: selectedServiceIds,
         expectedDeliveryDate: svcPODeliveryDate,
         remarks: svcPORemarks || undefined,
       });
-      handleApiSuccess('Service PO Generated', `PO ${result.purchaseOrder?.poNumber} created`);
+      const numbers = result.jobWorkOrders.map((j) => j.jobWorkNumber).join(', ');
+      handleApiSuccess(
+        'Job Work Order Generated',
+        `JWO ${numbers} created covering ${result.linkedRequirements} requirement(s) — dispatch from Job Work Orders`
+      );
+      for (const warning of result.warnings) {
+        handleApiError(new Error(warning), 'GST warning');
+      }
       setShowGenerateServicePO(false);
       setSvcPOProcessorId('');
       setSvcPODeliveryDate('');
       setSvcPORemarks('');
       refreshData();
     } catch (err) {
-      handleApiError(err, 'Failed to generate Service PO');
+      handleApiError(err, 'Failed to generate job work order');
     } finally {
       setIsGenerating(false);
     }
@@ -1817,10 +1824,10 @@ function OutsourcedWorkTab({
                 className="bg-success hover:bg-success text-white"
                 onClick={() => setShowBulkServicePO(true)}
               >
-                Bulk Generate POs ({selectedServiceIds.length})
+                Bulk Generate JWOs ({selectedServiceIds.length})
               </Button>
               <Button size="sm" variant="outline" onClick={() => setShowGenerateServicePO(true)}>
-                Manual Service PO
+                Manual Job Work Order
               </Button>
             </>
           ) : null}
@@ -2177,13 +2184,13 @@ function OutsourcedWorkTab({
         onComplete={refreshData}
       />
 
-      {/* Manual Service PO Dialog */}
+      {/* Manual Service JWO Dialog (Phase 5a: services are job work orders) */}
       <Dialog open={showGenerateServicePO} onOpenChange={setShowGenerateServicePO}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Generate Service PO</DialogTitle>
+            <DialogTitle>Generate Job Work Order</DialogTitle>
             <DialogDescription>
-              Create a service PO for {selectedServiceIds.length} selected service requirement(s)
+              Create job work order(s) for {selectedServiceIds.length} selected service requirement(s)
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -2230,7 +2237,7 @@ function OutsourcedWorkTab({
               onClick={handleGenerateServicePOAction}
               disabled={!svcPOProcessorId || !svcPODeliveryDate || isGenerating}
             >
-              {isGenerating ? 'Generating...' : 'Generate Service PO'}
+              {isGenerating ? 'Generating...' : 'Generate Job Work Order'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -8,15 +8,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { getReceivablePurchaseOrders } from '@/services/purchaseOrder.service';
-import { createGRN, createGRNFromJWO, getProcessingContext, getPendingItemsForPO } from '@/services/grn.service';
+import { createGRN, createGRNFromJWO, getPendingItemsForPO } from '@/services/grn.service';
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { warehouseService } from '@/services/warehouse.service';
 import type { PurchaseOrder } from '@/types/purchaseOrder.types';
 import type {
   CreateGRNRequest,
   CreateGRNItemRequest,
-  ProcessingContext,
-  ProcessingReceiveData,
   GRNEntryMode,
   GRNItemDetailRequest,
   PendingPOItem,
@@ -111,12 +109,8 @@ export default function GRNForm() {
   const [items, setItems] = useState<GRNItemForm[]>([]);
   const [poSearch, setPoSearch] = useState('');
   const [poCategoryFilter, setPoCategoryFilter] = useState<string>('ALL');
-  const [processingContext, setProcessingContext] = useState<ProcessingContext | null>(null);
-  const [procThanCount, setProcThanCount] = useState('');
-  const [procFoldLengthCm, setProcFoldLengthCm] = useState('');
-  const [procQtyReceivedMeters, setProcQtyReceivedMeters] = useState('');
-  const [procReceivedWidthInches, setProcReceivedWidthInches] = useState('');
-  const [procReceivedChallan, setProcReceivedChallan] = useState('');
+  // Phase 5a: PROCESSING receipt branches removed — processing is received against
+  // Job Work Orders (section below); legacy PROCESSING POs have fully drained.
 
   // Phase 4b: receive against a PO-less Job Work Order
   type ReceivableJwo = Awaited<ReturnType<typeof jobWorkOrderService.getReceivable>>[number];
@@ -176,15 +170,9 @@ export default function GRNForm() {
       fetchPendingItems(selectedPOId);
       const po = receivablePOs.find((p) => p.id === selectedPOId);
       setSelectedPO(po || null);
-      if (po?.poCategory === 'PROCESSING') {
-        fetchProcessingContext(po.id);
-      } else {
-        setProcessingContext(null);
-      }
     } else {
       setItems([]);
       setSelectedPO(null);
-      setProcessingContext(null);
     }
   }, [selectedPOId, receivablePOs]);
 
@@ -206,17 +194,6 @@ export default function GRNForm() {
       setWarehouses(data);
     } catch (err) {
       handleApiError(err, 'Failed to load warehouses', false);
-    }
-  };
-
-  const fetchProcessingContext = async (poId: string) => {
-    try {
-      const ctx = await getProcessingContext(poId);
-      setProcessingContext(ctx);
-      setProcReceivedWidthInches(String(ctx.sentWidthInches));
-    } catch (err) {
-      handleApiError(err, 'Failed to load processing context', false);
-      setProcessingContext(null);
     }
   };
 
@@ -499,16 +476,6 @@ export default function GRNForm() {
         invoiceDate: invoiceDate || undefined,
         remarks: remarks || undefined,
         items: grnItems,
-        processingData:
-          selectedPO?.poCategory === 'PROCESSING'
-            ? ({
-                qtyReceivedMeters: procActualMeters || undefined,
-                receivedWidthInches: parseFloat(procReceivedWidthInches) || 0,
-                thanCount: procThanCount ? parseInt(procThanCount) : undefined,
-                foldLengthCm: procFoldLengthCm ? parseFloat(procFoldLengthCm) : undefined,
-                receivedChallan: procReceivedChallan || undefined,
-              } as ProcessingReceiveData)
-            : undefined,
       };
 
       const grn = await createGRN(data);
@@ -545,20 +512,14 @@ export default function GRNForm() {
     return true;
   });
 
-  // Processing computed values
-  const procCalculatedMeters =
-    procThanCount && procFoldLengthCm ? (parseFloat(procThanCount) * parseFloat(procFoldLengthCm)) / 100 : null;
-  const procActualMeters = procQtyReceivedMeters ? parseFloat(procQtyReceivedMeters) : procCalculatedMeters || 0;
-  const procShrinkage =
-    processingContext && processingContext.qtySentMeters > 0 && procActualMeters > 0
-      ? ((processingContext.qtySentMeters - procActualMeters) / processingContext.qtySentMeters) * 100
-      : 0;
-  const procWidthVar =
-    procReceivedWidthInches && processingContext
-      ? parseFloat(procReceivedWidthInches) - processingContext.sentWidthInches
-      : 0;
-
   const showMeasurementFields = isFabricOrGreige(selectedPO?.poCategory);
+
+  // Phase 5a: chips are derived from the categories actually present in receivable POs —
+  // removes the dead PROCESSING chip and covers every material category (THREAD/BUTTON/…)
+  const poCategoryChips = [
+    'ALL',
+    ...Array.from(new Set(receivablePOs.map((po) => po.poCategory).filter((c): c is string => !!c))),
+  ];
 
   // ============================================
   // Render helpers
@@ -945,7 +906,7 @@ export default function GRNForm() {
               onChange={(e) => setPoSearch(e.target.value)}
             />
             <div className="flex flex-wrap gap-1">
-              {['ALL', 'FABRIC', 'GREIGE', 'PROCESSING', 'TRIMS', 'LACE', 'GENERAL'].map((cat) => (
+              {poCategoryChips.map((cat) => (
                 <button
                   key={cat}
                   type="button"
@@ -1157,116 +1118,6 @@ export default function GRNForm() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Processing Receipt Details - only for PROCESSING POs */}
-      {selectedPO?.poCategory === 'PROCESSING' && processingContext && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Processing Receipt Details
-              <Badge variant="outline">{processingContext.processType}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="bg-muted/50 p-4 rounded-lg">
-              <h4 className="font-medium mb-2 text-sm text-muted-foreground">Sent Details</h4>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Style:</span>
-                  <p className="font-medium">{processingContext.styleCode}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Mill:</span>
-                  <p className="font-medium">{processingContext.millName}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Qty Sent:</span>
-                  <p className="font-medium">{processingContext.qtySentMeters} m</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Width Sent:</span>
-                  <p className="font-medium">{processingContext.sentWidthInches}&quot;</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Than Count</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  value={procThanCount}
-                  onChange={(e) => setProcThanCount(e.target.value)}
-                  placeholder="Number of thans"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Fold Length (cm)</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={procFoldLengthCm}
-                  onChange={(e) => setProcFoldLengthCm(e.target.value)}
-                  placeholder="Fold length in cm"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Calculated Meters</Label>
-                <Input
-                  type="text"
-                  value={procCalculatedMeters ? procCalculatedMeters.toFixed(2) : '-'}
-                  readOnly
-                  className="bg-muted"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Qty Received (meters) *</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={procQtyReceivedMeters}
-                  onChange={(e) => setProcQtyReceivedMeters(e.target.value)}
-                  placeholder={procCalculatedMeters ? procCalculatedMeters.toFixed(2) : 'Enter meters'}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Received Width (inches) *</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={procReceivedWidthInches}
-                  onChange={(e) => setProcReceivedWidthInches(e.target.value)}
-                  placeholder="Width in inches"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Vendor Challan Ref</Label>
-                <Input
-                  value={procReceivedChallan}
-                  onChange={(e) => setProcReceivedChallan(e.target.value)}
-                  placeholder="Challan reference"
-                />
-              </div>
-            </div>
-
-            {procActualMeters > 0 && (
-              <div className="flex gap-4 pt-2">
-                <Badge variant={procShrinkage > 5 ? 'destructive' : 'secondary'}>
-                  Shrinkage: {procShrinkage.toFixed(1)}%
-                </Badge>
-                <Badge variant={Math.abs(procWidthVar) > 1 ? 'destructive' : 'secondary'}>
-                  Width Variance: {procWidthVar > 0 ? '+' : ''}
-                  {procWidthVar.toFixed(1)}&quot;
-                </Badge>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* Items */}
       {items.length > 0 && (

@@ -11,8 +11,8 @@ import {
   bulkAssignProcessors,
   autoAssignProcessors,
   groupRequirementsByProcessor,
-  generateServicePO,
-  bulkGenerateServicePOs,
+  generateServiceJWOs,
+  bulkGenerateServiceJWOs,
   getServiceRequirements,
   getAllServiceRequirements,
   getServiceRequirementsSummary,
@@ -32,8 +32,8 @@ import type {
   BulkAssignProcessorsInput,
   AutoAssignProcessorsInput,
   GroupByProcessorInput,
-  GeneratePOInput,
-  BulkGeneratePOsInput,
+  GenerateJwoInput,
+  BulkGenerateJwosInput,
   UpdateExecutionInput,
 } from '../schemas/serviceRequirement.schema';
 
@@ -229,12 +229,12 @@ export const groupByProcessor = async (req: Request, res: Response) => {
 };
 
 /**
- * Generate a service purchase order
- * POST /api/service-requirements/generate-po
+ * Generate Job Work Order(s) for service requirements — Phase 5a (replaces generate-po)
+ * POST /api/service-requirements/generate-jwo
  */
-export const generatePO = async (req: Request, res: Response) => {
-  // expectedDeliveryDate arrives as a Date (z.coerce.date in generatePOSchema)
-  const { processorId, requirementIds, expectedDeliveryDate, remarks } = req.body as GeneratePOInput;
+export const generateJWO = async (req: Request, res: Response) => {
+  // expectedDeliveryDate arrives as a Date (z.coerce.date in generateJwoSchema)
+  const { processorId, requirementIds, expectedDeliveryDate, remarks } = req.body as GenerateJwoInput;
 
   // Get user ID from request (should be added by auth middleware)
   const userId = req.user?.userId;
@@ -242,7 +242,7 @@ export const generatePO = async (req: Request, res: Response) => {
     throw new ValidationError('User ID not found in request');
   }
 
-  const result = await generateServicePO({
+  const result = await generateServiceJWOs({
     processorId,
     requirementIds,
     expectedDeliveryDate,
@@ -250,20 +250,21 @@ export const generatePO = async (req: Request, res: Response) => {
     userId,
   });
 
+  const numbers = result.jobWorkOrders.map((j) => j.jobWorkNumber).join(', ');
   res.json({
     success: true,
     data: result,
-    message: `Service PO ${result.purchaseOrder.poNumber} created with ${result.linkedRequirements} requirement(s)`,
+    message: `Job work order(s) ${numbers} created covering ${result.linkedRequirements} requirement(s)`,
   });
-  // end generatePO
+  // end generateJWO
 };
 
 /**
- * Bulk generate service purchase orders
- * POST /api/service-requirements/generate-pos-bulk
+ * Bulk generate Job Work Orders per processor group — Phase 5a (replaces generate-pos-bulk)
+ * POST /api/service-requirements/generate-jwos-bulk
  */
-export const bulkGeneratePOs = async (req: Request, res: Response) => {
-  const { groups } = req.body as BulkGeneratePOsInput;
+export const bulkGenerateJWOs = async (req: Request, res: Response) => {
+  const { groups } = req.body as BulkGenerateJwosInput;
 
   // Get user ID from request (should be added by auth middleware)
   const userId = req.user?.userId;
@@ -271,16 +272,16 @@ export const bulkGeneratePOs = async (req: Request, res: Response) => {
     throw new ValidationError('User ID not found in request');
   }
 
-  const result = await bulkGenerateServicePOs(groups, userId);
+  const result = await bulkGenerateServiceJWOs(groups, userId);
 
   res.json({
     success: true,
     data: result,
-    message: `${result.totalPOs} service PO(s) generated${
+    message: `${result.totalJwos} job work order(s) generated${
       result.errors.length > 0 ? ` (${result.errors.length} error(s))` : ''
     }`,
   });
-  // end bulkGeneratePOs
+  // end bulkGenerateJWOs
 };
 
 /**

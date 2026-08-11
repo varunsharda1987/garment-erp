@@ -79,8 +79,9 @@ export async function handleGRNItemReceipt(update: GRNItemUpdate): Promise<Statu
   // 3. Update linked MRP requirements
   const mrpRequirementsUpdated = await updateLinkedMRPRequirements(update.poItemId, update.acceptedQuantity);
 
-  // 4. Update linked service requirements
-  const serviceRequirementsUpdated = await updateLinkedServiceRequirements(update.poItemId, update.acceptedQuantity);
+  // 4. Service requirements: Phase 5a — fulfilled by Job Work Orders, never POs;
+  //    updateWosrReceivedQuantity (WOSR service) is the single receipt track.
+  const serviceRequirementsUpdated: string[] = [];
 
   // 5. Check for linked Processing POs (Greige -> Processing chain)
   const processingPOsReadied = await checkProcessingPOReadiness(poItem.poId);
@@ -242,52 +243,8 @@ async function updateLinkedMRPRequirements(poItemId: string, receivedQuantity: n
   return updatedIds;
 }
 
-/**
- * Update linked service requirements when PO items are received
- */
-async function updateLinkedServiceRequirements(poItemId: string, receivedQuantity: number): Promise<string[]> {
-  const updatedIds: string[] = [];
-
-  // Find all linked service requirements via service_requirement_po_links
-  const links = await prisma.service_requirement_po_links.findMany({
-    where: { purchaseOrderItemId: poItemId },
-    select: {
-      id: true,
-      serviceRequirementId: true,
-      quantityLinked: true,
-    },
-  });
-
-  for (const link of links) {
-    // Check if service is completed (simplified - just check if received)
-    if (receivedQuantity > 0) {
-      await prisma.work_order_service_requirements.update({
-        where: { id: link.serviceRequirementId },
-        data: { status: 'IN_PROGRESS' },
-      });
-    }
-
-    updatedIds.push(link.serviceRequirementId);
-  }
-
-  // Also check po_source_links for unified tracking
-  const sourceLinks = await prisma.po_source_links.findMany({
-    where: {
-      purchaseOrderItemId: poItemId,
-      sourceType: 'SERVICE_REQUIREMENT',
-      serviceRequirementId: { not: null },
-    },
-    select: { serviceRequirementId: true },
-  });
-
-  for (const link of sourceLinks) {
-    if (link.serviceRequirementId && !updatedIds.includes(link.serviceRequirementId)) {
-      updatedIds.push(link.serviceRequirementId);
-    }
-  }
-
-  return updatedIds;
-}
+// Phase 5a: updateLinkedServiceRequirements deleted — service requirements are fulfilled by
+// Job Work Orders (service_requirement_jwo_links + updateWosrReceivedQuantity), never POs.
 
 /**
  * Check and update linked Processing POs when Greige PO is received.
@@ -500,28 +457,8 @@ export async function cancelPO(
       }
     });
 
-  // Revert linked service requirements to PENDING
-  await prisma.service_requirement_po_links
-    .findMany({
-      where: {
-        purchaseOrderItem: {
-          poId: poId,
-        },
-      },
-      select: { serviceRequirementId: true },
-    })
-    .then(async (links) => {
-      const reqIds = links.map((l) => l.serviceRequirementId);
-      if (reqIds.length > 0) {
-        await prisma.work_order_service_requirements.updateMany({
-          where: { id: { in: reqIds } },
-          data: {
-            status: 'PENDING',
-            purchaseOrderId: null,
-          },
-        });
-      }
-    });
+  // Phase 5a: no service-requirement revert — service work is never PO-backed anymore
+  // (JWO deletion/cancellation handles WOSR reversion via service_requirement_jwo_links).
 
   return { success: true, poNumber: po.poNumber };
 }

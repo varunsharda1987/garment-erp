@@ -29,7 +29,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { groupRequirementsByProcessor, bulkGenerateServicePOs } from '@/services/serviceRequirement.service';
+import { groupRequirementsByProcessor, bulkGenerateServiceJWOs } from '@/services/serviceRequirement.service';
 import type { ServiceRequirement } from '@/types/serviceRequirement.types';
 import { ServiceTypeLabels } from '@/types/serviceRequirement.types';
 import { COMPANY_CONFIG } from '@/config/company.config';
@@ -149,11 +149,11 @@ export default function BulkServicePODialog({
         remarks: group.remarks || undefined,
       }));
 
-      const result = await bulkGenerateServicePOs(groups);
+      const result = await bulkGenerateServiceJWOs(groups);
 
       handleApiSuccess(
-        'Bulk Service PO Generation Complete',
-        `${result.totalPOs} service purchase order(s) created for ₹${result.totalAmount.toFixed(2)}${
+        'Bulk Job Work Order Generation Complete',
+        `${result.totalJwos} job work order(s) created for ₹${result.totalAmount.toFixed(2)}${
           result.errors.length > 0 ? ` (${result.errors.length} failed)` : ''
         }`
       );
@@ -161,14 +161,17 @@ export default function BulkServicePODialog({
       // Show error details if any
       if (result.errors.length > 0) {
         result.errors.forEach((error) => {
-          console.error(`Failed to create service PO for processor ${error.processorId}:`, error.error);
+          handleApiError(new Error(error.error), `Failed for processor ${error.processorId}`);
         });
+      }
+      for (const warning of result.warnings) {
+        handleApiError(new Error(warning), 'GST warning');
       }
 
       onOpenChange(false);
       onComplete?.();
     } catch (err) {
-      handleApiError(err, 'Failed to generate service purchase orders');
+      handleApiError(err, 'Failed to generate job work orders');
     } finally {
       setIsGenerating(false);
     }
@@ -183,9 +186,9 @@ export default function BulkServicePODialog({
               <ShoppingCart className="h-6 w-6 text-success" />
             </div>
             <div>
-              <DialogTitle>Bulk Service PO Generation</DialogTitle>
+              <DialogTitle>Bulk Job Work Order Generation</DialogTitle>
               <DialogDescription className="mt-1">
-                Generate service purchase orders for {requirementIds.length} service requirement(s)
+                Generate job work orders for {requirementIds.length} service requirement(s)
               </DialogDescription>
             </div>
           </div>
@@ -347,12 +350,12 @@ export default function BulkServicePODialog({
             {isGenerating ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Generating Service POs...
+                Generating Job Work Orders...
               </>
             ) : (
               <>
                 <ShoppingCart className="h-4 w-4 mr-2" />
-                Generate {processorGroups.length} Service PO{processorGroups.length !== 1 ? 's' : ''}
+                Generate {processorGroups.length} Job Work Order{processorGroups.length !== 1 ? 's' : ''}
               </>
             )}
           </Button>

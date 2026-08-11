@@ -49,7 +49,9 @@ export type ServiceRequirementStatus = (typeof ServiceRequirementStatus)[keyof t
 
 export const ServiceRequirementStatusLabels: Record<ServiceRequirementStatus, string> = {
   PENDING: 'Pending',
-  PO_GENERATED: 'PO Generated',
+  // Phase 5a: the enum value stays PO_GENERATED (DB churn not worth it) but the meaning
+  // is "a Job Work Order exists for this requirement"
+  PO_GENERATED: 'JWO Created',
   IN_PROGRESS: 'In Progress',
   COMPLETED: 'Completed',
   CANCELLED: 'Cancelled',
@@ -151,10 +153,9 @@ export interface ServiceRequirement {
   estimatedRate: number | null;
   estimatedTotal: number | null;
   status: ServiceRequirementStatus;
-  purchaseOrderId: string | null;
+  // Phase 5a: job_work_orders is the ONLY execution target (legacy PO/send-out/batch
+  // pointers are dead and no longer returned)
   jobWorkOrderId: string | null;
-  embroiderySendOutId: string | null;
-  processingBatchId: string | null;
   source: RequirementSource;
   notes: string | null;
   createdAt: string;
@@ -166,9 +167,8 @@ export interface ServiceRequirement {
   styleProcess?: StyleProcessSummary | null;
   preferredProcessor?: ProcessorSummary | null;
   assignedProcessor?: ProcessorSummary | null;
-  purchaseOrder?: PurchaseOrderSummary | null;
+  jobWorkOrder?: { id: string; jobWorkNumber: string; jwoStatus: string; processType: string } | null;
   createdBy?: UserSummary;
-  poLinks?: ServiceRequirementPOLink[];
 }
 
 // ============================================
@@ -194,14 +194,14 @@ export interface GroupByProcessorRequest {
   requirementIds: string[];
 }
 
-export interface GenerateServicePORequest {
+export interface GenerateServiceJWORequest {
   processorId: string;
   requirementIds: string[];
   expectedDeliveryDate: string;
   remarks?: string;
 }
 
-export interface BulkGenerateServicePOsRequest {
+export interface BulkGenerateServiceJWOsRequest {
   groups: Array<{
     processorId: string;
     requirementIds: string[];
@@ -212,8 +212,6 @@ export interface BulkGenerateServicePOsRequest {
 
 export interface UpdateServiceExecutionRequest {
   jobWorkOrderId?: string;
-  embroiderySendOutId?: string;
-  processingBatchId?: string;
   actualQuantity?: number;
   actualCost?: number;
   status: ServiceRequirementStatus;
@@ -273,30 +271,37 @@ export interface CalculationResultResponse {
   message?: string;
 }
 
-export interface ServicePOGenerationResponse {
+export interface ServiceJWOGenerationResponse {
   success: boolean;
   data: {
-    purchaseOrder: {
+    jobWorkOrders: Array<{
       id: string;
-      poNumber: string;
-      totalAmount: number;
-    };
+      jobWorkNumber: string;
+      processType: string;
+      uom: string;
+      qtySent: number;
+      subtotal: number | null;
+      totalAmount: number | null;
+    }>;
     linkedRequirements: number;
+    warnings: string[];
   };
   message?: string;
 }
 
-export interface BulkServicePOGenerationResponse {
+export interface BulkServiceJWOGenerationResponse {
   success: boolean;
   data: {
-    purchaseOrders: Array<{
+    jobWorkOrders: Array<{
       id: string;
-      poNumber: string;
+      jobWorkNumber: string;
+      processType: string;
       processorId: string;
       totalAmount: number;
     }>;
-    totalPOs: number;
+    totalJwos: number;
     totalAmount: number;
+    warnings: string[];
     errors: Array<{
       processorId: string;
       error: string;

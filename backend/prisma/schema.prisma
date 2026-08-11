@@ -3457,6 +3457,7 @@ model work_order_service_requirements {
   serviceRequirementPoLinks service_requirement_po_links[]
   po_source_links           po_source_links[]
   challanItems              challan_items[]
+  jwoLinks                  service_requirement_jwo_links[]
 
   // Audit
   source                     RequirementSource
@@ -3834,6 +3835,23 @@ model requirement_jwo_links {
   @@unique([requirementId, jobWorkOrderId])
   @@index([jobWorkOrderId])
   @@index([requirementId])
+}
+
+/// Phase 5a: work-order service requirement ↔ JWO allocation (mirror of requirement_jwo_links).
+/// Carries the qty math for the single fulfilment track (updateWosrReceivedQuantity).
+model service_requirement_jwo_links {
+  id                              String                          @id @default(uuid())
+  serviceRequirementId            String
+  jobWorkOrderId                  String
+  allocatedQuantity               Decimal                         @db.Decimal(12, 3)
+  receivedQuantity                Decimal                         @default(0) @db.Decimal(12, 3)
+  createdAt                       DateTime                        @default(now())
+  work_order_service_requirements work_order_service_requirements @relation(fields: [serviceRequirementId], references: [id], onDelete: Cascade)
+  job_work_orders                 job_work_orders                 @relation(fields: [jobWorkOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceRequirementId, jobWorkOrderId])
+  @@index([jobWorkOrderId])
+  @@index([serviceRequirementId])
 }
 
 /// Universal PO Source Links - Tracks origin of PO items from any source
@@ -6769,29 +6787,31 @@ model job_work_orders {
   // Phase 7: Universal lifecycle status (coexists with legacy 'status' during migration)
   jwoStatus JobWorkOrderStatus?
 
-  createdBy           users                             @relation(fields: [createdById], references: [id])
-  fabric              fabric_master?                    @relation(fields: [fabricId], references: [id])
-  finishedFabric      fabric_master?                    @relation("JobWorkFinishedFabric", fields: [finishedFabricId], references: [id])
-  fabricStockLot      fabric_stock?                     @relation(fields: [fabricStockLotId], references: [id])
-  labDip              lab_dips?                         @relation(fields: [labDipId], references: [id])
-  processor           suppliers                         @relation("JobWorkProcessor", fields: [processorId], references: [id])
-  style               styles?                           @relation(fields: [styleId], references: [id])
-  workOrder           work_orders?                      @relation("JobWorkForWorkOrder", fields: [workOrderId], references: [id])
-  outwardChallan      challans?                         @relation("JobWorkOutwardChallan", fields: [outwardChallanId], references: [id])
-  inwardChallan       challans?                         @relation("JobWorkInwardChallan", fields: [inwardChallanId], references: [id])
-  purchaseOrder       purchase_orders?                  @relation("JobWorkPurchaseOrder", fields: [purchaseOrderId], references: [id])
-  greigeStockLot      greige_stock?                     @relation(fields: [greigeStockLotId], references: [id])
-  grn                 goods_receiving_notes?            @relation(fields: [grnId], references: [id])
-  processTypeMaster   process_type_master?              @relation(fields: [processTypeId], references: [id])
-  approvedBy          users?                            @relation("JobWorkApprover", fields: [approvedById], references: [id])
-  challanItems        challan_items[]                   @relation("ChallanItemJobWorkOrder")
-  components          job_work_order_components[]
+  createdBy               users                             @relation(fields: [createdById], references: [id])
+  fabric                  fabric_master?                    @relation(fields: [fabricId], references: [id])
+  finishedFabric          fabric_master?                    @relation("JobWorkFinishedFabric", fields: [finishedFabricId], references: [id])
+  fabricStockLot          fabric_stock?                     @relation(fields: [fabricStockLotId], references: [id])
+  labDip                  lab_dips?                         @relation(fields: [labDipId], references: [id])
+  processor               suppliers                         @relation("JobWorkProcessor", fields: [processorId], references: [id])
+  style                   styles?                           @relation(fields: [styleId], references: [id])
+  workOrder               work_orders?                      @relation("JobWorkForWorkOrder", fields: [workOrderId], references: [id])
+  outwardChallan          challans?                         @relation("JobWorkOutwardChallan", fields: [outwardChallanId], references: [id])
+  inwardChallan           challans?                         @relation("JobWorkInwardChallan", fields: [inwardChallanId], references: [id])
+  purchaseOrder           purchase_orders?                  @relation("JobWorkPurchaseOrder", fields: [purchaseOrderId], references: [id])
+  greigeStockLot          greige_stock?                     @relation(fields: [greigeStockLotId], references: [id])
+  grn                     goods_receiving_notes?            @relation(fields: [grnId], references: [id])
+  processTypeMaster       process_type_master?              @relation(fields: [processTypeId], references: [id])
+  approvedBy              users?                            @relation("JobWorkApprover", fields: [approvedById], references: [id])
+  challanItems            challan_items[]                   @relation("ChallanItemJobWorkOrder")
+  components              job_work_order_components[]
   // Phase 4a reverse relations (JWO IS the PO endgame)
-  debitNotes          debit_notes[]                     @relation("DebitNoteJobWorkOrder")
-  headerChallans      challans[]                        @relation("ChallanHeaderJobWorkOrder")
-  receivingGRNs       goods_receiving_notes[]           @relation("GRNJobWorkOrder")
-  requirementLinks    requirement_jwo_links[]
-  serviceRequirements work_order_service_requirements[]
+  debitNotes              debit_notes[]                     @relation("DebitNoteJobWorkOrder")
+  headerChallans          challans[]                        @relation("ChallanHeaderJobWorkOrder")
+  receivingGRNs           goods_receiving_notes[]           @relation("GRNJobWorkOrder")
+  requirementLinks        requirement_jwo_links[]
+  serviceRequirements     work_order_service_requirements[]
+  // Phase 5a: WOSR allocation links (mirror of requirementLinks for service requirements)
+  serviceRequirementLinks service_requirement_jwo_links[]
 
   @@index([labDipId])
   @@index([processTypeId])

@@ -18,8 +18,8 @@ import {
   bulkAssignProcessorsSchema,
   autoAssignProcessorsSchema,
   groupByProcessorSchema,
-  generatePOSchema,
-  bulkGeneratePOsSchema,
+  generateJwoSchema,
+  bulkGenerateJwosSchema,
   updateExecutionSchema,
 } from '../schemas/serviceRequirement.schema';
 
@@ -179,27 +179,27 @@ router.post(
 );
 
 /**
- * @route   POST /api/service-requirements/generate-po
- * @desc    Generate a service purchase order
+ * @route   POST /api/service-requirements/generate-jwo
+ * @desc    Generate Job Work Order(s) for service requirements (Phase 5a — replaces generate-po)
  * @access  Private
  * @body    { processorId: string, requirementIds: string[], expectedDeliveryDate: string, remarks?: string }
  */
 router.post(
-  '/service-requirements/generate-po',
-  validateBody(generatePOSchema),
-  asyncHandler(serviceRequirementController.generatePO)
+  '/service-requirements/generate-jwo',
+  validateBody(generateJwoSchema),
+  asyncHandler(serviceRequirementController.generateJWO)
 );
 
 /**
- * @route   POST /api/service-requirements/generate-pos-bulk
- * @desc    Bulk generate service purchase orders
+ * @route   POST /api/service-requirements/generate-jwos-bulk
+ * @desc    Bulk generate Job Work Orders per processor group (Phase 5a — replaces generate-pos-bulk)
  * @access  Private
  * @body    { groups: Array<{ processorId: string, requirementIds: string[], expectedDeliveryDate: string, remarks?: string }> }
  */
 router.post(
-  '/service-requirements/generate-pos-bulk',
-  validateBody(bulkGeneratePOsSchema),
-  asyncHandler(serviceRequirementController.bulkGeneratePOs)
+  '/service-requirements/generate-jwos-bulk',
+  validateBody(bulkGenerateJwosSchema),
+  asyncHandler(serviceRequirementController.bulkGenerateJWOs)
 );
 
 // ============================================
@@ -210,7 +210,7 @@ router.post(
  * @route   PATCH /api/service-requirements/:id/execution
  * @desc    Update service execution details
  * @access  Private
- * @body    { jobWorkOrderId?: string, embroiderySendOutId?: string, processingBatchId?: string, actualQuantity?: number, actualCost?: number, status: ServiceRequirementStatus }
+ * @body    { jobWorkOrderId?: string, actualQuantity?: number, actualCost?: number, status: ServiceRequirementStatus }
  */
 router.patch(
   '/service-requirements/:id/execution',

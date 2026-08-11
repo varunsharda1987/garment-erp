@@ -122,10 +122,10 @@ export const groupByProcessorSchema = z.object({
 });
 
 /**
- * Generate PO
- * POST /api/service-requirements/generate-po
+ * Generate Job Work Order(s) — Phase 5a (replaces generate-po)
+ * POST /api/service-requirements/generate-jwo
  */
-export const generatePOSchema = z.object({
+export const generateJwoSchema = z.object({
   processorId: z.string().uuid('Invalid processor ID'),
   requirementIds: z.array(z.string().uuid()).min(1, 'At least one requirement ID is required'),
   // Accepts 'YYYY-MM-DD' from <input type="date"> as well as full ISO strings
@@ -134,10 +134,10 @@ export const generatePOSchema = z.object({
 });
 
 /**
- * Bulk Generate POs
- * POST /api/service-requirements/generate-pos-bulk
+ * Bulk Generate Job Work Orders — Phase 5a (replaces generate-pos-bulk)
+ * POST /api/service-requirements/generate-jwos-bulk
  */
-export const bulkGeneratePOsSchema = z.object({
+export const bulkGenerateJwosSchema = z.object({
   groups: z
     .array(
       z.object({
@@ -157,11 +157,10 @@ export const bulkGeneratePOsSchema = z.object({
 /**
  * Update Execution
  * PATCH /api/service-requirements/:id/execution
+ * Phase 5a (D8): job_work_orders is the ONLY execution target.
  */
 export const updateExecutionSchema = z.object({
   jobWorkOrderId: z.string().uuid('Invalid job work order ID').optional(),
-  embroiderySendOutId: z.string().uuid('Invalid embroidery send out ID').optional(),
-  processingBatchId: z.string().uuid('Invalid processing batch ID').optional(),
   actualQuantity: z.number().positive().optional(),
   actualCost: z.number().positive().optional(),
   status: ServiceRequirementStatusEnum,
@@ -179,6 +178,6 @@ export type SuggestProcessorsBulkInput = z.infer<typeof suggestProcessorsBulkSch
 export type BulkAssignProcessorsInput = z.infer<typeof bulkAssignProcessorsSchema>;
 export type AutoAssignProcessorsInput = z.infer<typeof autoAssignProcessorsSchema>;
 export type GroupByProcessorInput = z.infer<typeof groupByProcessorSchema>;
-export type GeneratePOInput = z.infer<typeof generatePOSchema>;
-export type BulkGeneratePOsInput = z.infer<typeof bulkGeneratePOsSchema>;
+export type GenerateJwoInput = z.infer<typeof generateJwoSchema>;
+export type BulkGenerateJwosInput = z.infer<typeof bulkGenerateJwosSchema>;
 export type UpdateExecutionInput = z.infer<typeof updateExecutionSchema>;

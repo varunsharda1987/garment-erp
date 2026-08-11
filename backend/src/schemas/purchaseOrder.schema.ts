@@ -28,24 +28,17 @@ export const PurchaseOrderStatusEnum = z.enum([
 
 export const POSourceEnum = z.enum(['MANUAL', 'COST_SHEET', 'MRP', 'SERVICE_REQUIREMENT', 'PRODUCTION_RUN']);
 
-export const POCategoryEnum = z.enum([
+// Phase 5a: intentional MATERIAL-ONLY subset of the Prisma POCategory enum — purchase
+// orders can no longer be created for service/processing work (that is a Job Work Order).
+// Query filters elsewhere still accept the full Prisma enum for reading legacy rows.
+export const ManualPOCategoryEnum = z.enum([
   'FABRIC',
   'GREIGE',
-  'PROCESSING',
   'TRIMS',
   'THREAD',
   'LACE',
   'GREIGE_LACE',
-  'LACE_PROCESSING',
   'GENERAL',
-  'EMBROIDERY_SERVICE',
-  'WASHING_SERVICE',
-  'FINISHING_SERVICE',
-  'CUTTING_SERVICE',
-  'STITCHING_SERVICE',
-  'HANDWORK_SERVICE',
-  'SMOCKING_SERVICE',
-  'TRANSPORTATION_SERVICE',
   'BUTTON',
   'ZIPPER',
   'ELASTIC',
@@ -98,7 +91,7 @@ export const createPurchaseOrderSchema = z.object({
   expectedDeliveryDate: z.string().or(z.date()),
   paymentTerms: z.string().max(100).nullish(),
   remarks: z.string().max(1000).nullish(),
-  poCategory: POCategoryEnum.optional(),
+  poCategory: ManualPOCategoryEnum.optional(),
   items: z.array(purchaseOrderItemSchema).min(1, 'At least one item required'),
   // Optional traceability links (for Manual POs)
   styleId: z.string().uuid('Invalid style ID').nullish(),

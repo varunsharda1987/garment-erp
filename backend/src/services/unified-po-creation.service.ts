@@ -267,41 +267,45 @@ export async function validateUnifiedPOInput(input: UnifiedPOCreationInput): Pro
   }
 
   // 4. Category validation for source type
+  // Phase 5a: purchase orders are MATERIAL-ONLY. Service/processing work is ordered as a
+  // Job Work Order (generateServiceJWOs / MRP JWO path); the SERVICE_REQUIREMENT and
+  // PRODUCTION_RUN sources are retired and every *_SERVICE / *PROCESSING category is blocked.
+  const MATERIAL_CATEGORIES: POCategory[] = [
+    'FABRIC',
+    'GREIGE',
+    'TRIMS',
+    'THREAD',
+    'LACE',
+    'GREIGE_LACE',
+    'GENERAL',
+    'BUTTON',
+    'ZIPPER',
+    'ELASTIC',
+    'LABEL',
+    'PACKAGING',
+    'MACHINE_PART',
+    'OTHER_MATERIAL',
+  ] as POCategory[];
   const categorySourceMap: Record<POSource, POCategory[]> = {
-    MANUAL: Object.values(POCategory) as POCategory[],
-    COST_SHEET: ['FABRIC', 'GREIGE', 'PROCESSING', 'TRIMS', 'LACE', 'GREIGE_LACE', 'LACE_PROCESSING'] as POCategory[],
-    MRP: ['FABRIC', 'GREIGE', 'TRIMS', 'LACE', 'GENERAL'] as POCategory[],
-    SERVICE_REQUIREMENT: [
-      'EMBROIDERY_SERVICE',
-      'WASHING_SERVICE',
-      'FINISHING_SERVICE',
-      'CUTTING_SERVICE',
-      'STITCHING_SERVICE',
-      'HANDWORK_SERVICE',
-      'SMOCKING_SERVICE',
-      'TRANSPORTATION_SERVICE',
-      'PROCESSING',
-      'GENERAL',
-    ] as POCategory[],
-    PRODUCTION_RUN: [
-      'EMBROIDERY_SERVICE',
-      'WASHING_SERVICE',
-      'FINISHING_SERVICE',
-      'CUTTING_SERVICE',
-      'STITCHING_SERVICE',
-      'HANDWORK_SERVICE',
-      'SMOCKING_SERVICE',
-      'TRANSPORTATION_SERVICE',
-      'PROCESSING',
-      'GENERAL',
-    ] as POCategory[],
+    MANUAL: MATERIAL_CATEGORIES,
+    COST_SHEET: ['FABRIC', 'GREIGE', 'TRIMS', 'LACE', 'GREIGE_LACE'] as POCategory[],
+    MRP: MATERIAL_CATEGORIES,
+    SERVICE_REQUIREMENT: [], // retired — service work is a Job Work Order
+    PRODUCTION_RUN: [], // retired — service work is a Job Work Order
   };
+
+  if (input.source === 'SERVICE_REQUIREMENT' || input.source === 'PRODUCTION_RUN') {
+    errors.push({
+      field: 'source',
+      message: `Source "${input.source}" is retired — service/processing work is ordered as a Job Work Order, purchase orders are material-only`,
+    });
+  }
 
   const allowedCategories = categorySourceMap[input.source];
   if (!allowedCategories.includes(input.poCategory)) {
-    warnings.push({
+    errors.push({
       field: 'poCategory',
-      message: `Category "${input.poCategory}" is unusual for source "${input.source}"`,
+      message: `Category "${input.poCategory}" is not allowed for source "${input.source}" — purchase orders are material-only; order service/processing work as a Job Work Order`,
     });
   }
 

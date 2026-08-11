@@ -1,23 +1,26 @@
 /**
  * Work Order Service Requirement Service
  * Manages service requirements for work orders (embroidery, printing, dyeing, etc.)
- * Mirrors the Material MRP workflow for service procurement
+ * Mirrors the Material MRP workflow for service procurement.
+ * Phase 5a: fulfilment is Job-Work-Order-only — generateServiceJWOs creates JWOs
+ * (never purchase orders) and updateWosrReceivedQuantity is the single receipt track.
  *
  * Priority Algorithm for Processor Suggestion:
  * 1. Preferred Processor (HIGH confidence) - From processor_rate_cards
- * 2. Recent Usage (MEDIUM confidence) - From recent service POs
+ * 2. Recent Usage (MEDIUM confidence) - From recent job work orders
  * 3. No Suggestion (LOW confidence) - Requires manual assignment
  */
 
 import prisma from '../config/database';
-import { ServiceRequirementStatus, RequirementSource, ServiceType, POCategory, POSource, Unit } from '@prisma/client';
-import { generateAtomicPONumberInTx } from '../utils/atomicCodeGenerator';
-import { logDebug, logInfo, logError } from '../utils/logger';
+import { ServiceRequirementStatus, RequirementSource, ServiceType, Unit } from '@prisma/client';
+import { logDebug, logInfo, logError, logWarn } from '../utils/logger';
 import { NotFoundError, BusinessError } from '../errors';
 import { Decimal } from '@prisma/client/runtime/library';
-import { gstService } from './gst.service';
 // BUG-JWO5 fix: Import decimal.js helpers for safe cost calculations
-import { multiplyCurrency, divideCurrency, toNumber } from '../utils/currency';
+import { multiplyCurrency, divideCurrency, toNumber, roundToCent } from '../utils/currency';
+// Phase 5a: service requirements are fulfilled by Job Work Orders, not purchase orders
+import { generateJobWorkNumber } from '../utils/jobWorkNumber';
+import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
 
 // ============================================
 // TYPES
@@ -99,8 +102,8 @@ export interface ServiceRequirementResponse {
   estimatedRate?: number;
   estimatedTotal?: number;
   status: ServiceRequirementStatus;
-  purchaseOrderId?: string;
-  purchaseOrder?: any;
+  jobWorkOrderId?: string;
+  jobWorkOrder?: any;
   workOrder?: any;
   styleProcess?: any;
   source: RequirementSource;
@@ -113,26 +116,25 @@ export interface ServiceRequirementResponse {
 // HELPER FUNCTIONS
 // ============================================
 
-/**
- * Map service type to PO category
- */
-function mapServiceTypeToPOCategory(serviceType: ServiceType): POCategory {
-  const mapping: Record<ServiceType, POCategory> = {
-    [ServiceType.EMBROIDERY]: POCategory.EMBROIDERY_SERVICE,
-    [ServiceType.PRINTING]: POCategory.PROCESSING, // Printing handled at Order level as PROCESSING
-    [ServiceType.DYEING]: POCategory.PROCESSING, // Dyeing handled at Order level as PROCESSING
-    [ServiceType.WASHING]: POCategory.WASHING_SERVICE,
-    [ServiceType.FINISHING]: POCategory.FINISHING_SERVICE,
-    [ServiceType.CUTTING]: POCategory.CUTTING_SERVICE,
-    [ServiceType.STITCHING]: POCategory.STITCHING_SERVICE,
-    [ServiceType.HANDWORK]: POCategory.HANDWORK_SERVICE,
-    [ServiceType.SMOCKING]: POCategory.SMOCKING_SERVICE,
-    [ServiceType.TRANSPORTATION]: POCategory.TRANSPORTATION_SERVICE,
-    [ServiceType.OTHER]: POCategory.GENERAL, // Default for OTHER
-  };
+// Phase 5a: mapServiceTypeToPOCategory deleted — service work is ordered as Job Work Orders;
+// purchase orders are material-only.
 
-  return mapping[serviceType] || POCategory.GENERAL;
-}
+/**
+ * Phase 5a (D4): style_costing per-service cost fields used as the last rate fallback
+ * (ported from po-rate-resolver's *_SERVICE mapping).
+ */
+const STYLE_COSTING_SERVICE_FIELDS: Partial<Record<ServiceType, string>> = {
+  [ServiceType.CUTTING]: 'cuttingCost',
+  [ServiceType.EMBROIDERY]: 'embroideryWork',
+  [ServiceType.SMOCKING]: 'smockingCost',
+  [ServiceType.STITCHING]: 'stitchingCost',
+  [ServiceType.HANDWORK]: 'handWork',
+  [ServiceType.WASHING]: 'washingCost',
+  [ServiceType.FINISHING]: 'finishingCost',
+  [ServiceType.TRANSPORTATION]: 'transportCost',
+  [ServiceType.DYEING]: 'dyeingCost',
+  [ServiceType.PRINTING]: 'printingCost',
+};
 
 /**
  * Map process type string to ServiceType enum
@@ -198,11 +200,12 @@ function getRequirementIncludes() {
         isActive: true,
       },
     },
-    purchaseOrder: {
+    jobWorkOrder: {
       select: {
         id: true,
-        poNumber: true,
-        status: true,
+        jobWorkNumber: true,
+        jwoStatus: true,
+        processType: true,
       },
     },
   };
@@ -226,8 +229,8 @@ function mapToResponse(requirement: any): ServiceRequirementResponse {
     estimatedRate: requirement.estimatedRate ? Number(requirement.estimatedRate) : undefined,
     estimatedTotal: requirement.estimatedTotal ? Number(requirement.estimatedTotal) : undefined,
     status: requirement.status,
-    purchaseOrderId: requirement.purchaseOrderId || undefined,
-    purchaseOrder: requirement.purchaseOrder || undefined,
+    jobWorkOrderId: requirement.jobWorkOrderId || undefined,
+    jobWorkOrder: requirement.jobWorkOrder || undefined,
     workOrder: requirement.workOrder || undefined,
     styleProcess: requirement.styleProcess || undefined,
     source: requirement.source,
@@ -593,18 +596,15 @@ export async function suggestProcessorForService(
     }
   }
 
-  // Priority 2: Check recent service PO history (MEDIUM confidence)
-  const poCategory = mapServiceTypeToPOCategory(serviceType);
-
-  const recentPOs = await prisma.purchase_orders.findMany({
+  // Priority 2: Check recent JWO history (MEDIUM confidence)
+  // Phase 5a (D10): service POs can never exist again — job work orders are the living signal
+  const recentJwos = await prisma.job_work_orders.findMany({
     where: {
-      poCategory: poCategory,
-      status: {
-        in: ['DRAFT', 'SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED', 'RECEIVED'],
-      },
+      processType: serviceType,
+      isActive: true,
     },
     include: {
-      suppliers: {
+      processor: {
         select: {
           id: true,
           name: true,
@@ -613,26 +613,26 @@ export async function suggestProcessorForService(
       },
     },
     orderBy: { createdAt: 'desc' },
-    take: 10, // Look at last 10 POs
+    take: 10, // Look at last 10 JWOs
   });
 
-  if (recentPOs.length > 0) {
+  if (recentJwos.length > 0) {
     // Count processor frequency
     const processorCounts = new Map<string, { count: number; lastDate: Date; processor: any }>();
 
-    recentPOs.forEach((po) => {
-      const processor = po.suppliers;
+    recentJwos.forEach((jwo) => {
+      const processor = jwo.processor;
       if (processor && processor.isActive) {
         const existing = processorCounts.get(processor.id);
         if (existing) {
           existing.count += 1;
-          if (po.createdAt > existing.lastDate) {
-            existing.lastDate = po.createdAt;
+          if (jwo.createdAt > existing.lastDate) {
+            existing.lastDate = jwo.createdAt;
           }
         } else {
           processorCounts.set(processor.id, {
             count: 1,
-            lastDate: po.createdAt,
+            lastDate: jwo.createdAt,
             processor,
           });
         }
@@ -652,7 +652,7 @@ export async function suggestProcessorForService(
 
       const mostUsed = sorted[0];
 
-      logInfo('Found processor from recent POs', {
+      logInfo('Found processor from recent JWOs', {
         serviceType,
         processorId: mostUsed.processorId,
         serviceCount: mostUsed.serviceCount,
@@ -941,32 +941,49 @@ export async function groupRequirementsByProcessor(requirementIds: string[]): Pr
 }
 
 /**
- * Generate a Service PO from requirements
+ * Phase 5a: Generate Job Work Order(s) from service requirements.
+ * Replaces generateServicePO — service work is ordered as JWOs; purchase orders are material-only.
+ * One JWO per serviceType group (JWO is a single-process document: scalar processType,
+ * per-process number prefix, single-rate commercial totals).
  */
-export async function generateServicePO(data: {
+export async function generateServiceJWOs(data: {
   processorId: string;
   requirementIds: string[];
   expectedDeliveryDate: Date;
   remarks?: string;
   userId: string;
 }): Promise<{
-  purchaseOrder: any;
+  jobWorkOrders: Array<{
+    id: string;
+    jobWorkNumber: string;
+    processType: string;
+    uom: string;
+    qtySent: number;
+    subtotal: number | null;
+    totalAmount: number | null;
+  }>;
   linkedRequirements: number;
+  warnings: string[];
 }> {
   const { processorId, requirementIds, expectedDeliveryDate, remarks, userId } = data;
 
-  logInfo('Generating service PO', { processorId, requirementCount: requirementIds.length });
+  logInfo('Generating service JWOs', { processorId, requirementCount: requirementIds.length });
 
-  // Get all requirements
+  // Get all requirements (with work order + style context for numbering)
   const requirements = await prisma.work_order_service_requirements.findMany({
     where: {
       id: { in: requirementIds },
       status: { in: [ServiceRequirementStatus.PENDING, ServiceRequirementStatus.IN_PROGRESS] },
     },
+    include: {
+      workOrder: {
+        select: { id: true, workOrderNumber: true, styleId: true, styles: { select: { styleCode: true } } },
+      },
+    },
   });
 
   if (requirements.length === 0) {
-    throw new BusinessError('No valid requirements found for PO generation');
+    throw new BusinessError('No valid requirements found for job work generation');
   }
 
   // Validate processor
@@ -978,9 +995,8 @@ export async function generateServicePO(data: {
     throw new BusinessError('Processor not found or inactive');
   }
 
-  // Group requirements by service type for consolidation
+  // Group requirements by service type — one JWO per group (D1)
   const serviceGroups = new Map<ServiceType, typeof requirements>();
-
   for (const req of requirements) {
     const existing = serviceGroups.get(req.serviceType);
     if (existing) {
@@ -990,124 +1006,146 @@ export async function generateServicePO(data: {
     }
   }
 
-  // Determine interstate status for the processor
-  const { isInterstate } = await gstService.isInterstatePO(processorId);
-
-  // Validate: all service groups must have positive total price (no zero-price PO items)
-  for (const [serviceType, reqs] of serviceGroups.entries()) {
-    const totalQuantity = reqs.reduce((sum, req) => sum + Number(req.quantityRequired), 0);
-    const totalPrice = reqs.reduce((sum, req) => sum + Number(req.estimatedTotal || 0), 0);
-    // BUG-JWO5 fix: use decimal.js for safe division
-    const avgUnitPrice = totalQuantity > 0 ? toNumber(divideCurrency(totalPrice, totalQuantity)) : 0;
-
-    if (avgUnitPrice <= 0) {
-      throw new BusinessError(
-        `Cannot generate PO: ${serviceType} service has no valid pricing. ` +
-          `Please ensure estimated rates are set for all requirements.`
-      );
-    }
+  // D5: OTHER has no process_type_master row and no number prefix — not orderable as job work
+  if (serviceGroups.has(ServiceType.OTHER)) {
+    throw new BusinessError(
+      'Service type OTHER cannot be ordered as job work. Configure a specific process type on the style process first.'
+    );
   }
 
-  // Create PO with items in a transaction
-  const result = await prisma.$transaction(async (tx) => {
-    // Atomic PO number inside the creating tx (bug-hunt procurement-9: generateCode was
-    // read-max+1 on a separate PrismaClient with a silent timestamp fallback)
-    const poNumber = await generateAtomicPONumberInTx(tx);
+  // Pre-resolve process master + rate per group (fail BEFORE the tx, no partial writes)
+  const groupPlans: Array<{
+    serviceType: ServiceType;
+    reqs: typeof requirements;
+    processTypeMasterId: string;
+    uom: string;
+    totalQty: number;
+    rate: number;
+  }> = [];
 
-    // Determine PO category from first service type
-    const firstServiceType = requirements[0].serviceType;
-    const poCategory = mapServiceTypeToPOCategory(firstServiceType);
-
-    // Calculate subtotal
-    let subtotal = 0;
-    for (const req of requirements) {
-      subtotal += Number(req.estimatedTotal || 0);
+  for (const [serviceType, reqs] of serviceGroups.entries()) {
+    const processTypeMaster = await prisma.process_type_master.findFirst({
+      where: { code: serviceType, isActive: true },
+      select: { id: true, unitOfMeasure: true },
+    });
+    if (!processTypeMaster) {
+      throw new BusinessError(
+        `Process type ${serviceType} is not configured in the process type master. Add it before generating job work.`
+      );
     }
 
-    // Get workOrderId from requirements (all requirements should be from same work order ideally)
-    // Use the first requirement's workOrderId for the PO link
-    const serviceWorkOrderId = requirements[0].workOrderId;
+    const totalQty = reqs.reduce((sum, req) => sum + Number(req.quantityRequired), 0);
+    if (totalQty <= 0) {
+      throw new BusinessError(`Cannot generate job work: ${serviceType} requirements have zero quantity.`);
+    }
 
-    // Create Purchase Order (GST header totals updated after items)
-    const po = await tx.purchase_orders.create({
-      data: {
-        id: crypto.randomUUID(),
-        poNumber,
-        supplierId: processorId,
-        poCategory: poCategory,
-        poSource: POSource.SERVICE_REQUIREMENT,
-        serviceWorkOrderId, // Link PO back to work order for traceability
-        expectedDeliveryDate: new Date(expectedDeliveryDate),
-        status: 'DRAFT',
-        totalAmount: subtotal,
-        remarks,
-        createdById: userId,
-      },
-    });
-
-    // Create PO items (one per service type) with GST
-    let linkedCount = 0;
-    let poTotalCgst = 0;
-    let poTotalSgst = 0;
-    let poTotalIgst = 0;
-
-    for (const [serviceType, reqs] of serviceGroups.entries()) {
-      const totalQuantity = reqs.reduce((sum, req) => sum + Number(req.quantityRequired), 0);
-      const totalPrice = reqs.reduce((sum, req) => sum + Number(req.estimatedTotal || 0), 0);
-      // BUG-JWO5 fix: use decimal.js for safe division
-      const avgUnitPrice = totalQuantity > 0 ? toNumber(divideCurrency(totalPrice, totalQuantity)) : 0;
-
-      // Get SAC code and GST rate for the service type
-      const { sacCode, gstRate } = await gstService.getSACCodeForService(serviceType);
-      const gst = await gstService.calculateLineItemGST({
-        lineTotal: totalPrice,
-        hsnSacCode: sacCode,
-        gstRateOverride: gstRate,
-        isInterstate,
+    // D4 rate chain: weighted estimatedRate → processor rate card → approved style costing → 422
+    let rate = 0;
+    const totalEst = reqs.reduce((sum, req) => sum + Number(req.estimatedTotal ?? 0), 0);
+    if (totalEst > 0) {
+      rate = toNumber(divideCurrency(totalEst, totalQty));
+    }
+    if (rate <= 0) {
+      const rateCard = await prisma.processor_rate_card.findFirst({
+        where: { processingType: serviceType, isActive: true, processor: { isActive: true } },
+        orderBy: { createdAt: 'desc' },
+        select: { ratePerMeter: true },
       });
+      rate = rateCard?.ratePerMeter != null ? Number(rateCard.ratePerMeter) : 0;
+    }
+    if (rate <= 0) {
+      const costingField = STYLE_COSTING_SERVICE_FIELDS[serviceType];
+      const styleIds = [...new Set(reqs.map((r) => r.workOrder?.styleId).filter(Boolean))] as string[];
+      if (costingField && styleIds.length === 1) {
+        const costing = await prisma.style_costing.findFirst({
+          where: { styleId: styleIds[0], isApproved: true },
+          orderBy: { approvedAt: 'desc' },
+        });
+        rate = costing ? Number((costing as any)[costingField] ?? 0) : 0;
+      }
+    }
+    if (rate <= 0) {
+      throw new BusinessError(
+        `Cannot generate job work: no rate found for ${serviceType}. ` +
+          `Set an estimated rate on the requirement, a processor rate card, or an approved cost sheet value.`
+      );
+    }
 
-      poTotalCgst += gst.cgstAmount;
-      poTotalSgst += gst.sgstAmount;
-      poTotalIgst += gst.igstAmount;
+    groupPlans.push({
+      serviceType,
+      reqs,
+      processTypeMasterId: processTypeMaster.id,
+      uom: processTypeMaster.unitOfMeasure || 'PCS',
+      totalQty,
+      rate,
+    });
+  }
 
-      // Service POs don't have materials - materialId is now optional in schema
-      const poItem = await tx.purchase_order_items.create({
+  const warnings: string[] = [];
+
+  // One transaction for the whole call: all JWOs + flips + links, or nothing
+  const result = await prisma.$transaction(async (tx) => {
+    const jobWorkOrders: Array<{
+      id: string;
+      jobWorkNumber: string;
+      processType: string;
+      uom: string;
+      qtySent: number;
+      subtotal: number | null;
+      totalAmount: number | null;
+    }> = [];
+    let linkedCount = 0;
+
+    for (const plan of groupPlans) {
+      const { serviceType, reqs, processTypeMasterId, uom, totalQty, rate } = plan;
+
+      const styleCodes = [...new Set(reqs.map((r) => r.workOrder?.styles?.styleCode).filter(Boolean))] as string[];
+      const styleIds = [...new Set(reqs.map((r) => r.workOrder?.styleId).filter(Boolean))] as string[];
+      const workOrderIds = [...new Set(reqs.map((r) => r.workOrderId))];
+      const woNumbers = [...new Set(reqs.map((r) => r.workOrder?.workOrderNumber).filter(Boolean))];
+
+      const jobWorkNumber = await generateJobWorkNumber(serviceType, styleCodes[0] || 'STK');
+
+      const jwo = await tx.job_work_orders.create({
         data: {
-          id: crypto.randomUUID(),
-          poId: po.id,
-          materialId: null, // Service POs don't link to materials
-          serviceType: serviceType, // Track service type on PO item
-          serviceDescription: `${serviceType} Service`,
-          orderedQuantity: totalQuantity,
-          unit: Object.values(Unit).includes(reqs[0].unit as Unit) ? (reqs[0].unit as Unit) : Unit.PIECE,
-          unitPrice: avgUnitPrice,
-          totalPrice,
-          hsnCode: sacCode,
-          gstRate: gst.gstRate,
-          cgstRate: gst.cgstRate,
-          cgstAmount: gst.cgstAmount,
-          sgstRate: gst.sgstRate,
-          sgstAmount: gst.sgstAmount,
-          igstRate: gst.igstRate,
-          igstAmount: gst.igstAmount,
-          taxAmount: gst.taxAmount,
-          remarks: `${serviceType} Service`,
+          jobWorkNumber,
+          processType: serviceType,
+          processTypeId: processTypeMasterId,
+          processorId,
+          styleId: styleIds.length === 1 ? styleIds[0] : null,
+          workOrderId: workOrderIds.length === 1 ? workOrderIds[0] : null,
+          qtySentMeters: totalQty,
+          uom,
+          agreedRatePerMeter: rate,
+          expectedReturnDate: new Date(expectedDeliveryDate),
+          status: 'READY_TO_SEND',
+          jwoStatus: 'DRAFT',
+          remarks: `[Service Req] ${woNumbers.join(', ')}${remarks ? `\n${remarks}` : ''}`,
+          createdById: userId,
         },
       });
 
-      // Create links to requirements
-      for (const req of reqs) {
-        await tx.service_requirement_po_links.create({
-          data: {
-            serviceRequirementId: req.id,
-            purchaseOrderItemId: poItem.id,
-            quantityLinked: Number(req.quantityRequired),
-          },
-        });
+      // Commercial totals (R1 softening: unresolved GST → subtotal-only + warning)
+      try {
+        await jobWorkOrderService.computeCommercialTotals(jwo.id, tx);
+      } catch (error) {
+        if (error instanceof JobWorkOrderError && error.code === JWO_ERROR_CODES.GST_RATE_UNRESOLVED) {
+          await tx.job_work_orders.update({
+            where: { id: jwo.id },
+            data: { subtotal: roundToCent(totalQty * rate).toNumber() },
+          });
+          warnings.push(
+            `${jobWorkNumber}: created without GST — ${serviceType} gstRate unresolved (set it in Process Types)`
+          );
+          logWarn(`[ServiceReq] JWO ${jobWorkNumber} created without GST — ${serviceType} gstRate unresolved`);
+        } else {
+          throw error;
+        }
+      }
 
-        // Guarded status flip (bug-hunt procurement-16): statuses were read OUTSIDE this tx, so
-        // two concurrent generations could both pass the PENDING filter and double-procure.
-        // Re-checking inside the tx makes the loser abort instead.
+      for (const req of reqs) {
+        // Guarded status flip (bug-hunt procurement-16): re-check inside the tx so a
+        // concurrent generation aborts instead of double-procuring.
         const flip = await tx.work_order_service_requirements.updateMany({
           where: {
             id: req.id,
@@ -1115,55 +1153,61 @@ export async function generateServicePO(data: {
           },
           data: {
             status: ServiceRequirementStatus.PO_GENERATED,
-            purchaseOrderId: po.id,
+            jobWorkOrderId: jwo.id,
           },
         });
         if (flip.count === 0) {
           throw new BusinessError(
-            `Service requirement ${req.id} was already covered by another PO (concurrent generation)`
+            `Service requirement ${req.id} was already covered by another job work order (concurrent generation)`
           );
         }
 
+        await tx.service_requirement_jwo_links.create({
+          data: {
+            serviceRequirementId: req.id,
+            jobWorkOrderId: jwo.id,
+            allocatedQuantity: Number(req.quantityRequired),
+          },
+        });
+
         linkedCount++;
       }
+
+      const fullJwo = await tx.job_work_orders.findUnique({
+        where: { id: jwo.id },
+        select: { id: true, jobWorkNumber: true, subtotal: true, totalAmount: true },
+      });
+      jobWorkOrders.push({
+        id: jwo.id,
+        jobWorkNumber,
+        processType: serviceType,
+        uom,
+        qtySent: totalQty,
+        subtotal: fullJwo?.subtotal != null ? Number(fullJwo.subtotal) : null,
+        totalAmount: fullJwo?.totalAmount != null ? Number(fullJwo.totalAmount) : null,
+      });
     }
 
-    // Update PO header with GST totals
-    const totalTax = poTotalCgst + poTotalSgst + poTotalIgst;
-    await tx.purchase_orders.update({
-      where: { id: po.id },
-      data: {
-        subtotal,
-        totalCgst: poTotalCgst,
-        totalSgst: poTotalSgst,
-        totalIgst: poTotalIgst,
-        totalTax,
-        totalAmount: subtotal + totalTax, // allow-assign — derived absolute, not read-modify-write
-        isInterstate,
-      },
-    });
-
-    const updatedPo = await tx.purchase_orders.findUnique({ where: { id: po.id } });
-
-    return { po: updatedPo || po, linkedCount };
+    return { jobWorkOrders, linkedCount };
   });
 
-  logInfo('Service PO generated', {
-    poNumber: result.po.poNumber,
+  logInfo('Service JWOs generated', {
+    jobWorkNumbers: result.jobWorkOrders.map((j) => j.jobWorkNumber),
     linkedRequirements: result.linkedCount,
   });
 
   return {
-    purchaseOrder: result.po,
+    jobWorkOrders: result.jobWorkOrders,
     linkedRequirements: result.linkedCount,
+    warnings,
   };
 }
 
 /**
- * Generate multiple Service POs from grouped requirements
- * Creates one PO per processor in a single transaction
+ * Phase 5a: Generate Job Work Orders for multiple processor groups.
+ * Replaces bulkGenerateServicePOs — one generateServiceJWOs call per processor group.
  */
-export async function bulkGenerateServicePOs(
+export async function bulkGenerateServiceJWOs(
   groups: Array<{
     processorId: string;
     requirementIds: string[];
@@ -1172,21 +1216,34 @@ export async function bulkGenerateServicePOs(
   }>,
   userId: string
 ): Promise<{
-  purchaseOrders: Array<{ id: string; poNumber: string; processorId: string; totalAmount: number }>;
-  totalPOs: number;
+  jobWorkOrders: Array<{
+    id: string;
+    jobWorkNumber: string;
+    processType: string;
+    processorId: string;
+    totalAmount: number;
+  }>;
+  totalJwos: number;
   totalAmount: number;
+  warnings: string[];
   errors: Array<{ processorId: string; error: string }>;
 }> {
-  logInfo('Generating multiple service POs', { groupCount: groups.length });
+  logInfo('Generating service JWOs in bulk', { groupCount: groups.length });
 
-  const purchaseOrders: Array<{ id: string; poNumber: string; processorId: string; totalAmount: number }> = [];
+  const jobWorkOrders: Array<{
+    id: string;
+    jobWorkNumber: string;
+    processType: string;
+    processorId: string;
+    totalAmount: number;
+  }> = [];
   const errors: Array<{ processorId: string; error: string }> = [];
+  const warnings: string[] = [];
   let totalAmount = 0;
 
-  // Process each processor group
   for (const group of groups) {
     try {
-      const result = await generateServicePO({
+      const result = await generateServiceJWOs({
         processorId: group.processorId,
         requirementIds: group.requirementIds,
         expectedDeliveryDate: new Date(group.expectedDeliveryDate),
@@ -1194,22 +1251,26 @@ export async function bulkGenerateServicePOs(
         userId,
       });
 
-      purchaseOrders.push({
-        id: result.purchaseOrder.id,
-        poNumber: result.purchaseOrder.poNumber,
-        processorId: group.processorId,
-        totalAmount: result.purchaseOrder.totalAmount,
-      });
+      for (const jwo of result.jobWorkOrders) {
+        const amount = jwo.totalAmount ?? jwo.subtotal ?? 0;
+        jobWorkOrders.push({
+          id: jwo.id,
+          jobWorkNumber: jwo.jobWorkNumber,
+          processType: jwo.processType,
+          processorId: group.processorId,
+          totalAmount: amount,
+        });
+        totalAmount += amount;
+      }
+      warnings.push(...result.warnings);
 
-      totalAmount += result.purchaseOrder.totalAmount;
-
-      logInfo('Service PO generated for processor', {
+      logInfo('Service JWOs generated for processor', {
         processorId: group.processorId,
-        poNumber: result.purchaseOrder.poNumber,
+        jobWorkNumbers: result.jobWorkOrders.map((j) => j.jobWorkNumber),
         requirements: result.linkedRequirements,
       });
     } catch (error) {
-      logError('Failed to generate service PO for processor', { processorId: group.processorId, error });
+      logError('Failed to generate service JWOs for processor', { processorId: group.processorId, error });
       errors.push({
         processorId: group.processorId,
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -1217,18 +1278,78 @@ export async function bulkGenerateServicePOs(
     }
   }
 
-  logInfo('Bulk service PO generation complete', {
-    totalPOs: purchaseOrders.length,
+  logInfo('Bulk service JWO generation complete', {
+    totalJwos: jobWorkOrders.length,
     totalAmount,
     errors: errors.length,
   });
 
   return {
-    purchaseOrders,
-    totalPOs: purchaseOrders.length,
+    jobWorkOrders,
+    totalJwos: jobWorkOrders.length,
     totalAmount,
+    warnings,
     errors,
   };
+}
+
+/**
+ * Phase 5a single fulfilment track: advance service requirements when a JWO receives.
+ * Exact analog of mrp.updateJwoReceivedQuantity over service_requirement_jwo_links.
+ * received >= allocated → COMPLETED; > 0 → IN_PROGRESS; never regresses below PO_GENERATED
+ * (the job work order still exists). Negative deltas supported for reversal parity.
+ */
+export async function updateWosrReceivedQuantity(
+  jobWorkOrderId: string,
+  receivedQuantity: number,
+  tx?: any
+): Promise<void> {
+  const client = tx || prisma;
+
+  const links = await client.service_requirement_jwo_links.findMany({
+    where: { jobWorkOrderId },
+    select: { id: true, serviceRequirementId: true },
+  });
+
+  const updatedRequirementIds = new Set<string>();
+
+  for (const link of links) {
+    await client.service_requirement_jwo_links.update({
+      where: { id: link.id },
+      data: { receivedQuantity: { increment: receivedQuantity } },
+    });
+
+    if (updatedRequirementIds.has(link.serviceRequirementId)) continue;
+    updatedRequirementIds.add(link.serviceRequirementId);
+
+    const allLinks = await client.service_requirement_jwo_links.findMany({
+      where: { serviceRequirementId: link.serviceRequirementId },
+      select: { allocatedQuantity: true, receivedQuantity: true },
+    });
+
+    const totalAllocated = allLinks.reduce(
+      (sum: number, l: { allocatedQuantity: any }) => sum + Number(l.allocatedQuantity),
+      0
+    );
+    const totalReceived = allLinks.reduce(
+      (sum: number, l: { receivedQuantity: any }) => sum + Number(l.receivedQuantity),
+      0
+    );
+
+    let newStatus: ServiceRequirementStatus;
+    if (totalReceived >= totalAllocated && totalAllocated > 0) {
+      newStatus = ServiceRequirementStatus.COMPLETED;
+    } else if (totalReceived > 0) {
+      newStatus = ServiceRequirementStatus.IN_PROGRESS;
+    } else {
+      newStatus = ServiceRequirementStatus.PO_GENERATED;
+    }
+
+    await client.work_order_service_requirements.update({
+      where: { id: link.serviceRequirementId },
+      data: { status: newStatus },
+    });
+  }
 }
 
 // ============================================
@@ -1425,15 +1546,14 @@ export async function getOrderServiceRequirementsSummary(orderId: string): Promi
 // ============================================
 
 /**
- * Update service execution details
- * Links requirement to execution tables (job_work_orders, embroidery_send_out, processing_batch)
+ * Update service execution details.
+ * Phase 5a (D8): job_work_orders is the ONLY execution target — the legacy
+ * embroiderySendOutId/processingBatchId pointers are dead and no longer written.
  */
 export async function updateServiceExecution(
   requirementId: string,
   data: {
     jobWorkOrderId?: string;
-    embroiderySendOutId?: string;
-    processingBatchId?: string;
     actualQuantity?: number;
     actualCost?: number;
     status: ServiceRequirementStatus;
@@ -1446,8 +1566,6 @@ export async function updateServiceExecution(
   };
 
   if (data.jobWorkOrderId) updateData.jobWorkOrderId = data.jobWorkOrderId;
-  if (data.embroiderySendOutId) updateData.embroiderySendOutId = data.embroiderySendOutId;
-  if (data.processingBatchId) updateData.processingBatchId = data.processingBatchId;
 
   const updated = await prisma.work_order_service_requirements.update({
     where: { id: requirementId },
@@ -1628,8 +1746,9 @@ export default {
   bulkAssignProcessors,
   autoAssignProcessors,
   groupRequirementsByProcessor,
-  generateServicePO,
-  bulkGenerateServicePOs,
+  generateServiceJWOs,
+  bulkGenerateServiceJWOs,
+  updateWosrReceivedQuantity,
   getServiceRequirements,
   getAllServiceRequirements,
   getServiceRequirementsSummary,

@@ -2695,17 +2695,15 @@ export async function generatePOFromRequirements(
     throw new Error(`Cannot generate PO with zero-price items: ${names}. Please set prices for all items.`);
   }
 
-  // Determine PO category from material types or requirement types
+  // Determine PO category from material types (material POs only — PROCESSING
+  // requirements return early below with a JWO and never reach the PO create)
   const materialTypes = requirements.map((req) => ({
     materialType: req.materials?.materialType || null,
   }));
-  let poCategory = determinePOCategoryFromMaterials(materialTypes);
+  const poCategory = determinePOCategoryFromMaterials(materialTypes);
 
   // Check if these are PROCESSING requirements
   const isProcessingRequirements = requirements.every((req) => req.requirementType === 'PROCESSING');
-  if (isProcessingRequirements) {
-    poCategory = POCategory.PROCESSING;
-  }
 
   // JWC bridge (BUG-JWC1): derive the process type per requirement — the rate card is
   // authoritative, else printingType implies PRINTING, else DYEING. One JWO per PO
@@ -2834,25 +2832,9 @@ export async function generatePOFromRequirements(
     };
   }
 
-  // For PROCESSING requirements, find the linked GREIGE PO
-  let linkedGreigePOId: string | null = null;
-  if (isProcessingRequirements) {
-    const linkedGreigeReqIds = requirements
-      .map((req) => req.linkedRequirementId)
-      .filter((id): id is string => id !== null);
-
-    if (linkedGreigeReqIds.length > 0) {
-      const greigePoLink = await prisma.requirement_po_links.findFirst({
-        where: { requirementId: { in: linkedGreigeReqIds } },
-        select: { purchaseOrderId: true },
-      });
-      linkedGreigePOId = greigePoLink?.purchaseOrderId || null;
-    }
-  }
-
-  // Determine initial status
-  const initialStatus =
-    isProcessingRequirements && linkedGreigePOId ? PurchaseOrderStatus.PENDING_GREIGE : PurchaseOrderStatus.DRAFT;
+  // Phase 5a: dead PROCESSING tail deleted — processing requirements always return
+  // early above with a JWO, so this point is only reached by material POs.
+  const initialStatus = PurchaseOrderStatus.DRAFT;
 
   // Create PO with items in a transaction
   const result = await prisma.$transaction(async (tx) => {
@@ -2919,7 +2901,6 @@ export async function generatePOFromRequirements(
         status: initialStatus,
         poSource: POSource.MRP,
         poCategory,
-        linkedGreigePOId,
         totalAmount,
         subtotal,
         totalCgst: poTotalCgst,
@@ -2927,10 +2908,7 @@ export async function generatePOFromRequirements(
         totalIgst: poTotalIgst,
         totalTax,
         isInterstate,
-        remarks:
-          isProcessingRequirements && linkedGreigePOId
-            ? `${remarks || ''}\n[Processing PO] Waiting for greige fabric receipt.`
-            : remarks,
+        remarks,
         createdById: userId,
       },
     });

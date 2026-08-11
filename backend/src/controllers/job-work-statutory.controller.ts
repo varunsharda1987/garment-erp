@@ -10,6 +10,14 @@
 
 import { Request, Response } from 'express';
 import { jobWorkStatutoryService } from '../services/job-work-statutory.service';
+import { documentFacadeService } from '../services/document-facade.service';
+
+function sendReportPdf(res: Response, pdf: Buffer, filename: string): void {
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+  res.setHeader('Content-Length', pdf.length);
+  res.send(pdf);
+}
 
 class JobWorkStatutoryController {
   /**
@@ -22,6 +30,11 @@ class JobWorkStatutoryController {
   async getSection143Ageing(req: Request, res: Response) {
     try {
       const asOfDate = req.query.asOfDate ? new Date(req.query.asOfDate as string) : undefined;
+
+      if (req.query.format === 'pdf') {
+        const pdf = await documentFacadeService.generateAgeingReportPDF();
+        return sendReportPdf(res, pdf, 'JobWorkAgeing.pdf');
+      }
 
       const report = await jobWorkStatutoryService.getSection143Ageing(asOfDate);
 
@@ -55,6 +68,14 @@ class JobWorkStatutoryController {
           success: false,
           message: 'periodStart and periodEnd are required',
         });
+      }
+
+      if (req.query.format === 'pdf') {
+        const pdf = await documentFacadeService.generateItc04ReportPDF({
+          start: new Date(periodStart as string),
+          end: new Date(periodEnd as string),
+        });
+        return sendReportPdf(res, pdf, 'ITC04Extract.pdf');
       }
 
       const report = await jobWorkStatutoryService.getITC04Extract(
@@ -92,6 +113,14 @@ class JobWorkStatutoryController {
           success: false,
           message: 'periodStart and periodEnd are required',
         });
+      }
+
+      if (req.query.format === 'pdf') {
+        const pdf = await documentFacadeService.generateVendorPerformanceReportPDF({
+          start: new Date(periodStart as string),
+          end: new Date(periodEnd as string),
+        });
+        return sendReportPdf(res, pdf, 'VendorPerformance.pdf');
       }
 
       const report = await jobWorkStatutoryService.getVendorPerformance(

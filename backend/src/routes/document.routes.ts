@@ -283,4 +283,30 @@ router.get(
   asyncHandler(documentController.generateChallanPDF.bind(documentController))
 );
 
+// ────────────────────────────────────────────────────────────────
+// Job Work Order + GRN Endpoints (kf design, Phase A)
+// ────────────────────────────────────────────────────────────────
+
+/**
+ * @route   GET /api/documents/job-work-orders/:id/pdf
+ * @desc    Generate Job Work Order PDF (kf design system)
+ * @access  Private
+ */
+router.get(
+  '/job-work-orders/:id/pdf',
+  validateParams(idParamSchema),
+  asyncHandler(documentController.generateJobWorkOrderPDF.bind(documentController))
+);
+
+/**
+ * @route   GET /api/documents/grns/:id/pdf
+ * @desc    Generate Goods Receipt Note PDF (kf design system)
+ * @access  Private
+ */
+router.get(
+  '/grns/:id/pdf',
+  validateParams(idParamSchema),
+  asyncHandler(documentController.generateGRNPDF.bind(documentController))
+);
+
 export default router;

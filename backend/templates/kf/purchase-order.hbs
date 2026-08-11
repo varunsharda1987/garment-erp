@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Purchase Order — {{docNo}}</title>
+<link rel="stylesheet" href="assets/base.css">
+</head>
+<body>
+<div class="sheet">
+
+  {{> mast company=company docTitle="Purchase Order" docNo=docNo docPill=docPill}}
+
+  <div class="sec">
+    <div class="sec-h"><span>01 &mdash; Supplier &amp; Delivery</span><b>{{taxRegimeLabel}}</b></div>
+    <div class="kv">
+      <div>
+        <div class="row"><span class="k">Supplier</span><span class="v">{{supplierName}}</span></div>
+        <div class="row"><span class="k">Address</span><span class="v">{{dash supplierAddress}}</span></div>
+        <div class="row"><span class="k">GSTIN</span><span class="v">{{#if supplierGstin}}{{supplierGstin}}{{#if supplierStateLabel}} &middot; <span class="muted">{{supplierStateLabel}}</span>{{/if}}{{else}}<span class="muted">Unregistered</span>{{/if}}</span></div>
+        <div class="row"><span class="k">Contact</span><span class="v">{{dash supplierContact}}</span></div>
+      </div>
+      <div>
+        <div class="row"><span class="k">PO Date</span><span class="v">{{poDate}}</span></div>
+        <div class="row"><span class="k">Required By</span><span class="v">{{requiredBy}}</span></div>
+        <div class="row"><span class="k">Deliver To</span><span class="v">{{deliverTo}}</span></div>
+        <div class="row"><span class="k">Payment</span><span class="v">{{payment}}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><span>02 &mdash; Items Ordered</span><b>Rate varies by HSN</b></div>
+    <table>
+      <thead>
+        {{#if isIgst}}
+        <tr><th style="width:28px">#</th><th>Item</th><th style="width:52px">HSN</th><th style="width:44px">UOM</th>
+            <th class="num" style="width:56px">Qty</th><th class="num" style="width:60px">Rate</th>
+            <th class="num" style="width:78px">Taxable ₹</th><th class="num" style="width:40px">GST</th>
+            <th class="num" style="width:72px">IGST ₹</th></tr>
+        {{else}}
+        <tr><th style="width:28px">#</th><th>Item</th><th style="width:52px">HSN</th><th style="width:44px">UOM</th>
+            <th class="num" style="width:52px">Qty</th><th class="num" style="width:56px">Rate</th>
+            <th class="num" style="width:72px">Taxable ₹</th><th class="num" style="width:36px">GST</th>
+            <th class="num" style="width:62px">CGST ₹</th><th class="num" style="width:62px">SGST ₹</th></tr>
+        {{/if}}
+      </thead>
+      <tbody>
+        <!-- Unlike a job work order, GST is PER LINE because the rate follows
+             each item's HSN, not one process SAC. -->
+        {{#each items}}
+        <tr><td class="num">{{this.sn}}</td><td>{{this.name}}{{#if this.code}} <span class="muted">{{this.code}}</span>{{/if}}</td><td>{{this.hsn}}</td><td>{{this.uom}}</td><td class="num">{{this.qty}}</td><td class="num">{{this.rate}}</td><td class="num">{{this.taxable}}</td><td class="num">{{this.gstPct}}</td>{{#if ../isIgst}}<td class="num">{{this.igst}}</td>{{else}}<td class="num">{{this.cgst}}</td><td class="num">{{this.sgst}}</td>{{/if}}</tr>
+        {{/each}}
+        {{#if isIgst}}
+        <tr class="sub"><td colspan="6">Taxable value</td><td class="num">{{subtotal}}</td><td></td><td class="num">{{igstTotal}}</td></tr>
+        <tr class="tot"><td colspan="8">Order total including tax</td><td class="num">{{grandTotal}}</td></tr>
+        <tr><td colspan="9" style="border-bottom:none"><span class="muted">Amount in words &mdash; {{amountWords}}</span></td></tr>
+        {{else}}
+        <tr class="sub"><td colspan="6">Taxable value</td><td class="num">{{subtotal}}</td><td></td><td class="num">{{cgstTotal}}</td><td class="num">{{sgstTotal}}</td></tr>
+        <tr class="tot"><td colspan="9">Order total including tax</td><td class="num">{{grandTotal}}</td></tr>
+        <tr><td colspan="10" style="border-bottom:none"><span class="muted">Amount in words &mdash; {{amountWords}}</span></td></tr>
+        {{/if}}
+      </tbody>
+    </table>
+    <div class="callout">
+      <b>This is a goods purchase, not job work</b>
+      Title passes to {{company.name}} on receipt. If this supplier also performs a process on our material,
+      that is a <strong>separate job work order</strong> &mdash; do not combine the two on one document.
+      Mixing purchased goods into a job work order corrupts component reconciliation, because the ERP will
+      treat bought-in items as material we issued.
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><span>03 &mdash; Terms</span><b>Standard</b></div>
+    <ol class="terms">
+      <li>Goods to be supplied strictly to approved sample and specification. Quantity variance beyond &plusmn;2% requires prior written approval.</li>
+      <li>Delivery to {{deliveryPlaceName}} during working hours, against a valid tax invoice and e-way bill.</li>
+      <li>Rejected material will be returned at supplier&rsquo;s cost and debited in full.</li>
+      <li>Payment {{paymentClause}} and correct invoice. Invoice must quote this PO number or it will be returned.</li>
+      <li>Supplier&rsquo;s GSTIN must be active and returns current; input credit disallowed for supplier default is recoverable.</li>
+      <li>Prices are firm for the duration of this order and inclusive of packing.</li>
+    </ol>
+  </div>
+
+  <div class="sign">
+    <div>Prepared by / Purchase</div>
+    <div>Approved &mdash; Authorised Signatory</div>
+    <div>Supplier &mdash; Order accepted</div>
+  </div>
+
+  <div class="foot">
+    <span>{{docNo}} &middot; Page 1 of 1</span>
+    <span>Copy: Supplier &middot; Purchase &middot; Store &middot; Accounts</span>
+  </div>
+</div>
+</body>
+</html>

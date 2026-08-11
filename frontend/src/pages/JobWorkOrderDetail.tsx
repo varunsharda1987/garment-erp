@@ -44,6 +44,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { greigeStockService } from '@/services/greigeStock.service';
+import { openPDF } from '@/lib/document-utils';
 
 function formatCurrency(value?: number | null): string {
   if (value === null || value === undefined) return '-';
@@ -264,7 +265,7 @@ export default function JobWorkOrderDetail() {
         </div>
         <div className="flex items-center gap-2">
           {getStatusBadge(currentStatus)}
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" onClick={() => openPDF(`/documents/job-work-orders/${id}/pdf`)}>
             <Printer className="mr-2 h-4 w-4" />
             Print
           </Button>
@@ -580,9 +581,14 @@ export default function JobWorkOrderDetail() {
                 Compute Totals
               </Button>
 
-              <Button variant="outline" className="w-full">
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={!jwo.outwardChallanId}
+                onClick={() => jwo.outwardChallanId && openPDF(`/documents/challans/${jwo.outwardChallanId}/pdf`)}
+              >
                 <FileText className="mr-2 h-4 w-4" />
-                Print Challan
+                {jwo.outwardChallanId ? 'Print Challan' : 'Print Challan (issue first)'}
               </Button>
             </CardContent>
           </Card>

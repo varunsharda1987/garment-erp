@@ -6,6 +6,7 @@ import processingBatchService from '../services/processingBatch.service';
 import type { JobWorkSummary, ProcessingBatch } from '../types/processing.types';
 import { handleApiError } from '@/lib/api-error-handler';
 import { usePermissions } from '@/hooks/usePermissions';
+import { openPDF } from '@/lib/document-utils';
 
 export default function JobWorkDashboard() {
   const navigate = useNavigate();
@@ -61,9 +62,43 @@ export default function JobWorkDashboard() {
           <h2 className="text-3xl font-display font-medium text-foreground mb-2">Job Work Dashboard</h2>
           <p className="text-muted-foreground">Overview of materials at processors</p>
         </div>
-        <Button variant="outline" onClick={() => navigate('/job-work-orders')}>
-          Job Work Orders
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => navigate('/job-work-orders')}>
+            Job Work Orders
+          </Button>
+          {/* Statutory report PDFs (kf design) */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openPDF('/job-work-statutory/section-143-ageing?format=pdf')}
+          >
+            Ageing PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const now = new Date();
+              const start = new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString().slice(0, 10);
+              const end = now.toISOString().slice(0, 10);
+              openPDF(`/job-work-statutory/itc-04?periodStart=${start}&periodEnd=${end}&format=pdf`);
+            }}
+          >
+            ITC-04 PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const now = new Date();
+              const start = new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString().slice(0, 10);
+              const end = now.toISOString().slice(0, 10);
+              openPDF(`/job-work-statutory/vendor-performance?periodStart=${start}&periodEnd=${end}&format=pdf`);
+            }}
+          >
+            Vendor PDF
+          </Button>
+        </div>
       </div>
 
       {error && (

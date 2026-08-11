@@ -8,6 +8,7 @@ import { initializeCache, closeCache } from './lib/cache';
 import { PermissionService } from './services/permission.service';
 import { systemSettingsService } from './services/system-settings.service';
 import { startIdleSweep as startWhatsappIdleSweep, shutdownAll as shutdownWhatsapp } from './services/whatsapp.service';
+import { closeBrowser as closePdfRenderer } from './services/html-renderer.service';
 import { reclaimPort } from './utils/portReclaim';
 
 const PORT = process.env.PORT || 5000;
@@ -107,30 +108,27 @@ async function startServer() {
 let server: ReturnType<typeof app.listen> | undefined;
 
 // Handle shutdown gracefully
-process.on('SIGINT', async () => {
+async function gracefulShutdown(): Promise<void> {
   logInfo('\n🛑 Shutting down gracefully...');
   if (server) {
     server.close(() => {
       logInfo('Server closed');
     });
   }
+  await closePdfRenderer();
   await shutdownWhatsapp();
   await closeCache();
   await prisma.$disconnect();
   process.exit(0);
-});
+}
 
-process.on('SIGTERM', async () => {
-  logInfo('\n🛑 Shutting down gracefully...');
-  if (server) {
-    server.close(() => {
-      logInfo('Server closed');
-    });
-  }
-  await shutdownWhatsapp();
-  await closeCache();
-  await prisma.$disconnect();
-  process.exit(0);
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
+// PM2 on Windows signals shutdown via IPC message (ecosystem.config.js sets
+// shutdown_with_message: true) — without this handler the graceful path never
+// ran under PM2 restarts, which is how headless Chrome instances got orphaned.
+process.on('message', (msg) => {
+  if (msg === 'shutdown') void gracefulShutdown();
 });
 
 // Production-grade error handlers

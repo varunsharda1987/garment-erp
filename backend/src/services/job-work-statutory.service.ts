@@ -204,7 +204,7 @@ class JobWorkStatutoryService {
         sentDate: order.sentDate,
         balanceQty,
         balanceValue,
-        unit: 'MTR',
+        unit: order.uom,
         daysOutstanding,
         daysRemaining,
         severity,

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tax Invoice — {{docNo}}</title>
+<link rel="stylesheet" href="assets/base.css">
+</head>
+<body>
+<div class="sheet">
+
+  {{> mast company=company docTitle="Tax Invoice" docNo=docNo docPill=docPill showPan=true}}
+  {{#if company.msme}}<div class="addr" style="margin-top:4px;">MSME &middot; {{company.msme}}</div>{{/if}}
+
+  <div class="sec">
+    <div class="sec-h"><span>01 &mdash; Buyer &amp; Supply</span><b>{{supplyBanner}}</b></div>
+    <div class="kv">
+      <div>
+        <div class="row"><span class="k">Bill To</span><span class="v">{{billToName}}</span></div>
+        <div class="row"><span class="k">Address</span><span class="v">{{dash billToAddress}}</span></div>
+        <div class="row"><span class="k">GSTIN</span><span class="v">{{billToGstin}}</span></div>
+        {{#if billToState}}<div class="row"><span class="k">State</span><span class="v">{{billToState}}</span></div>{{/if}}
+        <div class="row"><span class="k">Ship To</span><span class="v">{{shipTo}}</span></div>
+      </div>
+      <div>
+        <div class="row"><span class="k">Invoice Date</span><span class="v">{{invoiceDate}}</span></div>
+        <div class="row"><span class="k">Place of Supply</span><span class="v">{{placeOfSupply}}</span></div>
+        <div class="row"><span class="k">Reverse Charge</span><span class="v">No</span></div>
+        {{#if deliveryNote}}<div class="row"><span class="k">Delivery Note</span><span class="v">{{deliveryNote}}</span></div>{{/if}}
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><span>02 &mdash; Goods Supplied</span><b>Rate by per-piece value</b></div>
+    {{#if isInterstate}}
+    <table>
+      <thead>
+        <tr><th style="width:26px">#</th><th>Description</th><th style="width:48px">HSN</th>
+            <th class="num" style="width:48px">Qty</th><th class="num" style="width:62px">Rate</th>
+            <th class="num" style="width:76px">Taxable ₹</th><th class="num" style="width:34px">%</th>
+            <th class="num" style="width:76px">IGST</th></tr>
+      </thead>
+      <tbody>
+        {{#each lines}}
+        <tr><td class="num">{{this.sn}}</td><td>{{this.description}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td><td>{{this.hsn}}</td><td class="num">{{this.qty}}</td><td class="num">{{this.rate}}</td><td class="num">{{this.taxable}}</td><td class="num">{{this.ratePct}}</td><td class="num">{{this.igst}}</td></tr>
+        {{/each}}
+        <tr class="sub"><td colspan="5">Taxable value</td><td class="num">{{subtotal}}</td><td></td><td class="num">{{igstTotal}}</td></tr>
+        <tr class="tot"><td colspan="7">Invoice total</td><td class="num">{{totalAmount}}</td></tr>
+        <tr><td colspan="8" class="muted">{{amountWords}}</td></tr>
+      </tbody>
+    </table>
+    {{else}}
+    <table>
+      <thead>
+        <tr><th style="width:26px">#</th><th>Description</th><th style="width:48px">HSN</th>
+            <th class="num" style="width:48px">Qty</th><th class="num" style="width:62px">Rate</th>
+            <th class="num" style="width:76px">Taxable ₹</th><th class="num" style="width:34px">%</th>
+            <th class="num" style="width:66px">CGST</th><th class="num" style="width:66px">SGST</th></tr>
+      </thead>
+      <tbody>
+        {{#each lines}}
+        <tr><td class="num">{{this.sn}}</td><td>{{this.description}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td><td>{{this.hsn}}</td><td class="num">{{this.qty}}</td><td class="num">{{this.rate}}</td><td class="num">{{this.taxable}}</td><td class="num">{{this.ratePct}}</td><td class="num">{{this.cgst}}</td><td class="num">{{this.sgst}}</td></tr>
+        {{/each}}
+        <tr class="sub"><td colspan="5">Taxable value</td><td class="num">{{subtotal}}</td><td></td><td class="num">{{cgstTotal}}</td><td class="num">{{sgstTotal}}</td></tr>
+        <tr class="tot"><td colspan="8">Invoice total</td><td class="num">{{totalAmount}}</td></tr>
+        <tr><td colspan="9" class="muted">{{amountWords}}</td></tr>
+      </tbody>
+    </table>
+    {{/if}}
+    {{#if showRateCallout}}
+    <div class="callout">
+      <b>Rate is a per-piece test, not per-invoice</b>
+      Garment GST turns on the value of each individual piece against the notified threshold, which is why lines on
+      this invoice carry different rates. Never apply one rate across a mixed invoice.
+    </div>
+    {{/if}}
+    {{#if hsnRows.length}}
+    <div class="muted" style="font-family:'IBM Plex Mono',monospace; letter-spacing:1px; text-transform:uppercase; margin-top:10px; margin-bottom:4px;">HSN/SAC Summary &middot; GSTR-1</div>
+    <table>
+      <thead>
+        <tr><th style="width:90px">HSN/SAC</th><th class="num">Taxable Value ₹</th>
+            {{#if isInterstate}}<th class="num" style="width:90px">IGST ₹</th>{{else}}<th class="num" style="width:90px">CGST ₹</th><th class="num" style="width:90px">SGST ₹</th>{{/if}}
+            <th class="num" style="width:90px">Total Tax ₹</th></tr>
+      </thead>
+      <tbody>
+        {{#each hsnRows}}
+        <tr><td>{{this.hsn}}</td><td class="num">{{this.taxable}}</td>{{#if ../isInterstate}}<td class="num">{{this.igst}}</td>{{else}}<td class="num">{{this.cgst}}</td><td class="num">{{this.sgst}}</td>{{/if}}<td class="num">{{this.totalTax}}</td></tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{/if}}
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><span>03 &mdash; Declaration &amp; Bank</span><b>&nbsp;</b></div>
+    <div class="kv">
+      <div>
+        <div class="row"><span class="k">Bank</span><span class="v">{{bank.bankName}}</span></div>
+        <div class="row"><span class="k">Account</span><span class="v">{{bank.accountNumber}}</span></div>
+        <div class="row"><span class="k">IFSC</span><span class="v">{{bank.ifscCode}}</span></div>
+        <div class="row"><span class="k">Branch</span><span class="v">{{bank.branchName}}</span></div>
+      </div>
+      <div>
+        <div class="row"><span class="k">Due Date</span><span class="v">{{dueDate}}</span></div>
+        {{#if eInvoice}}
+        <div class="row"><span class="k">E-Invoice IRN</span><span class="v" style="word-break:break-all;">{{eInvoice.irn}}</span></div>
+        <div class="row"><span class="k">Ack No</span><span class="v">{{eInvoice.ackNo}}</span></div>
+        <div class="row"><span class="k">Ack Date</span><span class="v">{{eInvoice.ackDate}}</span></div>
+        {{/if}}
+      </div>
+    </div>
+    {{#if eInvoice}}
+    {{#if eInvoice.cancelled}}
+    <div class="blocked">
+      <b>{{eInvoice.cancelledBand}}</b>
+      This IRN is no longer valid on the GST portal. Do not use this document to claim input tax credit.
+    </div>
+    {{else}}{{#if eInvoice.qrDataUri}}
+    <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+      <img src="{{eInvoice.qrDataUri}}" alt="e-invoice QR" style="width:76px;height:76px;">
+    </div>
+    {{/if}}{{/if}}
+    {{/if}}
+    <ol class="terms" style="margin-top:9px;">
+      <li>We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.</li>
+      <li>Goods once sold will not be taken back except against a written return authorisation.</li>
+      <li>Interest at 18% p.a. is chargeable on amounts outstanding beyond the agreed terms.</li>
+      <li>Subject to Jaipur jurisdiction.</li>
+    </ol>
+  </div>
+
+  <div class="sign">
+    <div>Prepared by</div>
+    <div>&nbsp;</div>
+    <div>For {{company.name}} &mdash; Authorised Signatory</div>
+  </div>
+
+  <div class="foot">
+    <span>{{docNo}} &middot; Page 1 of 1</span>
+    <span>Original for Recipient &middot; Duplicate for Transporter &middot; Triplicate for Supplier</span>
+  </div>
+</div>
+</body>
+</html>

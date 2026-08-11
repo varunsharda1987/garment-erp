@@ -1,0 +1,11 @@
+<div class="mast">
+  <div>
+    <div class="firm">{{company.name}}<span>{{company.tagline}}</span></div>
+    <div class="addr">{{company.addressLine}}<br>GSTIN {{company.gstin}} &middot; State Code {{company.stateCode}}{{#if showPan}}{{#if company.pan}} &middot; PAN {{company.pan}}{{/if}}{{/if}}</div>
+  </div>
+  <div class="doctype">
+    <h1>{{docTitle}}</h1>
+    <div class="docno">{{docNo}}</div>
+    {{#if docPill}}<div class="pill">{{docPill}}</div>{{/if}}
+  </div>
+</div>

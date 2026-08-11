@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Goods Receipt — {{docNo}}</title>
+<link rel="stylesheet" href="assets/base.css">
+</head>
+<body>
+<div class="sheet">
+
+  {{> mast company=company docTitle="Goods Receipt Note" docNo=docNo docPill=docPill}}
+
+  <div class="sec">
+    <div class="sec-h"><span>01 &mdash; Receipt Context</span><b>{{contextBanner}}</b></div>
+    <div class="kv">
+      <div>
+        <div class="row"><span class="k">{{partyLabel}}</span><span class="v">{{supplierName}}</span></div>
+        <div class="row"><span class="k">GSTIN</span><span class="v">{{dash supplierGstin}}</span></div>
+        {{#if isJobWork}}<div class="row"><span class="k">Process</span><span class="v">{{processLabel}}</span></div>{{/if}}
+        <div class="row"><span class="k">{{vendorDocLabel}}</span><span class="v">{{vendorDocRef}}</span></div>
+      </div>
+      <div>
+        <div class="row"><span class="k">Receipt Date</span><span class="v">{{receiptDate}}</span></div>
+        {{#if isJobWork}}<div class="row"><span class="k">Issued On</span><span class="v">{{issuedOn}}{{#if issuedDaysOut}} &middot; <span class="muted">{{issuedDaysOut}}</span>{{/if}}</span></div>
+        <div class="row"><span class="k">Statutory Due</span><span class="v">{{statutoryDue}}{{#if statutoryStatus}} &middot; <span class="muted">{{statutoryStatus}}</span>{{/if}}</span></div>{{/if}}
+        <div class="row"><span class="k">Inspected By</span><span class="v">{{inspectedBy}}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><span>02 &mdash; {{sec02Title}}</span><b>{{sec02Banner}}</b></div>
+    {{#if isJobWork}}
+    <table>
+      <thead>
+        <tr><th>Particulars</th><th class="num" style="width:80px">Qty ({{uomLabel}})</th><th class="num" style="width:64px">%</th><th style="width:210px">Remarks / Action</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Issued</td><td class="num">{{recon.issuedQty}}</td><td class="num">{{recon.issuedPct}}</td><td class="muted">{{recon.issuedRemark}}</td></tr>
+        <tr><td>Received &mdash; accepted</td><td class="num">{{recon.acceptedQty}}</td><td class="num">{{recon.acceptedPct}}</td><td class="muted">Accepted to FG stock</td></tr>
+        <tr class="open"><td>Received &mdash; B grade</td><td></td><td></td><td></td></tr>
+        <tr><td>Rejected</td><td class="num">{{recon.rejectedQty}}</td><td class="num">{{recon.rejectedPct}}</td><td class="muted">{{recon.rejectedRemark}}</td></tr>
+        <tr class="sub"><td>Normal loss{{#if tolerancePct}} (within {{tolerancePct}}){{/if}}</td><td class="num">{{recon.normalLossQty}}</td><td class="num">{{recon.normalLossPct}}</td><td class="muted">Absorbed into FG cost</td></tr>
+        <tr><td>Abnormal loss</td><td class="num">{{recon.abnormalLossQty}}</td><td class="num">{{recon.abnormalLossPct}}</td><td class="muted">{{recon.abnormalRemark}}</td></tr>
+        <tr class="tot"><td>Balance still with job worker</td><td class="num">{{recon.balanceQty}}</td><td class="num">{{recon.balancePct}}</td><td class="muted">{{recon.balanceRemark}}</td></tr>
+      </tbody>
+    </table>
+    {{else}}
+    <table>
+      <thead>
+        <tr><th style="width:30px">#</th><th>Material</th><th style="width:48px">UOM</th><th class="num" style="width:72px">Ordered</th><th class="num" style="width:72px">Received</th><th class="num" style="width:72px">Accepted</th><th class="num" style="width:72px">Rejected</th></tr>
+      </thead>
+      <tbody>
+        {{#each lines}}
+        <tr><td class="num">{{this.sn}}</td><td>{{this.material}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td><td>{{this.uom}}</td><td class="num">{{this.ordered}}</td><td class="num">{{this.received}}</td><td class="num">{{this.accepted}}</td><td class="num">{{this.rejected}}</td></tr>
+        {{/each}}
+        <tr class="tot"><td colspan="5">Total accepted to stock</td><td class="num">{{totalAccepted}}</td><td class="num">{{totalRejected}}</td></tr>
+      </tbody>
+    </table>
+    {{/if}}
+  </div>
+
+  {{#if isJobWork}}
+  <div class="sec">
+    <div class="sec-h"><span>03 &mdash; Valuation Posted to Stock</span><b>Tax-exclusive</b></div>
+    <table>
+      <thead><tr><th>Component of cost</th><th style="width:150px">Basis</th><th class="num" style="width:100px">₹</th></tr></thead>
+      <tbody>
+        <tr><td>Material issued</td><td class="muted">At rateAtIssue, snapshotted</td><td class="num">{{valuation.materialValue}}</td></tr>
+        <tr><td>Job charges</td><td class="muted">{{valuation.jobChargesBasis}}</td><td class="num">{{valuation.jobCharges}}</td></tr>
+        <tr class="tot"><td colspan="2">Finished goods value posted</td><td class="num">{{valuation.fgValue}}</td></tr>
+        <tr><td colspan="2">{{valuation.fgRateLabel}}</td><td class="num">{{valuation.fgRate}}</td></tr>
+      </tbody>
+    </table>
+    <div class="callout">
+      <b>Excluded from the figure above</b>
+      GST of ₹{{valuation.gstExcluded}} on job charges is recoverable input credit and does <strong>not</strong> enter inventory value.
+      Rejected quantity attracts no conversion charge.{{#if valuation.normalLossNote}} {{valuation.normalLossNote}}{{/if}}
+      {{valuation.abnormalNote}}
+    </div>
+  </div>
+  {{/if}}
+
+  <div class="sec">
+    <div class="sec-h"><span>04 &mdash; Quality Sign-off</span><b>Completed at inward</b></div>
+    <table>
+      <thead><tr><th>Check</th><th style="width:90px">Result</th><th>Observations</th></tr></thead>
+      <tbody>
+        <tr class="open"><td>Measurement &amp; fit against spec</td><td></td><td></td></tr>
+        <tr class="open"><td>Stitch quality / SPI</td><td></td><td></td></tr>
+        <tr class="open"><td>Shade match to approved swatch</td><td></td><td></td></tr>
+        <tr class="open"><td>Thread cut &amp; press finish</td><td></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sign">
+    <div>Received by / Store</div>
+    <div>Quality Inspector</div>
+    <div>Authorised Signatory</div>
+  </div>
+
+  <div class="foot">
+    <span>{{docNo}} &middot; Page 1 of 1</span>
+    <span>Copy: Store &middot; Accounts &middot; Quality</span>
+  </div>
+</div>
+</body>
+</html>

@@ -3,16 +3,19 @@ import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import * as wa from '../services/whatsapp.service';
 import documentGeneratorService from '../services/document-generator.service';
+import { documentFacadeService } from '../services/document-facade.service';
 import { ValidationError } from '../errors';
 
 // Maps a document type → its label + PDF generator (all return a Buffer, which sendPdf takes).
+// Invoice + PO route through the facade (kf design with pdfkit fallback); quotation/order
+// stay on pdfkit until their kf templates exist (Phase B).
 const DOC_META: Record<string, { label: string; generate: (id: string) => Promise<Buffer> }> = {
-  invoice: { label: 'Tax Invoice', generate: (id) => documentGeneratorService.generateInvoicePDF(id, {}) },
+  invoice: { label: 'Tax Invoice', generate: (id) => documentFacadeService.generateInvoicePDF(id) },
   quotation: { label: 'Proforma Invoice', generate: (id) => documentGeneratorService.generateProformaPDF(id, {}) },
   order: { label: 'Order Form', generate: (id) => documentGeneratorService.generateOrderFormPDF(id, {}) },
   purchaseOrder: {
     label: 'Purchase Order',
-    generate: (id) => documentGeneratorService.generatePurchaseOrderPDF(id, {}),
+    generate: (id) => documentFacadeService.generatePurchaseOrderPDF(id),
   },
 };
 

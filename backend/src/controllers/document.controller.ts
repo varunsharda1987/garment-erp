@@ -11,6 +11,7 @@
 
 import { Request, Response } from 'express';
 import documentGeneratorService from '../services/document-generator.service';
+import { documentFacadeService, RendererUnavailableError } from '../services/document-facade.service';
 import prisma from '../config/database';
 import path from 'path';
 import fs from 'fs';
@@ -51,8 +52,9 @@ class DocumentController {
   async generateInvoicePDF(req: Request, res: Response) {
     const { id } = req.params;
     const includeImages = req.query.includeImages === 'true';
+    const legacy = req.query.legacy === '1' || req.query.legacy === 'true';
 
-    const pdfBuffer = await documentGeneratorService.generateInvoicePDF(id, { includeImages });
+    const pdfBuffer = await documentFacadeService.generateInvoicePDF(id, { includeImages, legacy });
 
     // Get invoice number for filename
     const invoice = await prisma.invoices.findUnique({
@@ -479,8 +481,9 @@ class DocumentController {
    */
   async generatePurchaseOrderPDF(req: Request, res: Response) {
     const { id } = req.params;
+    const legacy = req.query.legacy === '1' || req.query.legacy === 'true';
 
-    const pdfBuffer = await documentGeneratorService.generatePurchaseOrderPDF(id);
+    const pdfBuffer = await documentFacadeService.generatePurchaseOrderPDF(id, { legacy });
 
     // Get PO number for filename
     const purchaseOrder = await prisma.purchase_orders.findUnique({
@@ -600,8 +603,9 @@ class DocumentController {
    */
   async generateChallanPDF(req: Request, res: Response) {
     const { id } = req.params;
+    const legacy = req.query.legacy === '1' || req.query.legacy === 'true';
 
-    const pdfBuffer = await documentGeneratorService.generateChallanPDF(id);
+    const pdfBuffer = await documentFacadeService.generateChallanPDF(id, { legacy });
 
     const challan = await prisma.challans.findUnique({
       where: { id },
@@ -614,6 +618,64 @@ class DocumentController {
     res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
     res.setHeader('Content-Length', pdfBuffer.length);
     res.send(pdfBuffer);
+  }
+
+  /**
+   * Generate Job Work Order PDF (kf design — no legacy generator exists)
+   * GET /api/documents/job-work-orders/:id/pdf
+   */
+  async generateJobWorkOrderPDF(req: Request, res: Response) {
+    const { id } = req.params;
+
+    try {
+      const pdfBuffer = await documentFacadeService.generateJobWorkOrderPDF(id);
+
+      const jwo = await prisma.job_work_orders.findUnique({
+        where: { id },
+        select: { jobWorkNumber: true },
+      });
+
+      const filename = `JobWorkOrder_${jwo?.jobWorkNumber || id}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error) {
+      if (error instanceof RendererUnavailableError) {
+        res.status(503).json({ success: false, message: error.message });
+        return;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Generate GRN PDF (kf design — no legacy generator exists)
+   * GET /api/documents/grns/:id/pdf
+   */
+  async generateGRNPDF(req: Request, res: Response) {
+    const { id } = req.params;
+
+    try {
+      const pdfBuffer = await documentFacadeService.generateGRNPDF(id);
+
+      const grn = await prisma.goods_receiving_notes.findUnique({
+        where: { id },
+        select: { grnNumber: true },
+      });
+
+      const filename = `GRN_${grn?.grnNumber || id}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error) {
+      if (error instanceof RendererUnavailableError) {
+        res.status(503).json({ success: false, message: error.message });
+        return;
+      }
+      throw error;
+    }
   }
 }
 

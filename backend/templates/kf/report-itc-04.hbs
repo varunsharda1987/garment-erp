@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ITC-04 Extract — {{companyName}}</title>
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/reports.css">
+<style>
+  /* Print fit — template-local, like the challan copymark. The report layer is
+     screen-first (1280px); the shared renderer prints fixed A4 portrait, so
+     scale the sheet to the printable width instead of clipping columns. */
+  @media print{ .report{zoom:.8;} }
+</style>
+</head>
+<body>
+<div class="report">
+
+  <div class="report-head">
+    <h1>ITC-04 Extract<span>Goods sent to and received from job workers</span></h1>
+    <div class="report-meta">
+      <strong>{{upper companyName}}</strong>
+      GSTIN {{companyGstin}}<br>
+      Period {{periodLabel}}
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">Challans &mdash; Sent</div><div class="value">{{kpiSent}}</div><div class="sub">Table A</div></div>
+    <div class="kpi"><div class="label">Challans &mdash; Received</div><div class="value">{{kpiReceived}}</div><div class="sub">Table B</div></div>
+    <div class="kpi"><div class="label">Job Workers</div><div class="value">{{kpiJobWorkers}}</div><div class="sub">{{unregisteredCount}} unregistered &mdash; still reported</div></div>
+    <div class="kpi"><div class="label">Reconciliation</div><div class="value">pending</div><div class="sub">assertion not yet computed</div></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:118px">Job Worker GSTIN</th><th>Job Worker</th>
+        <th style="width:110px">Challan</th><th style="width:72px">Date</th>
+        <th>Description</th><th style="width:48px">UQC</th>
+        <th class="num" style="width:74px">Qty</th><th class="num" style="width:84px">Taxable ₹</th>
+        <th style="width:72px">Type</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="grp"><td colspan="9">Table A &mdash; Goods sent to job worker</td></tr>
+      {{#each tableA.rows}}
+      <tr>{{#if this.gstin}}<td>{{this.gstin}}</td>{{else}}<td class="muted">Unregistered</td>{{/if}}<td>{{this.processorName}}</td><td>{{this.challanNumber}}</td><td>{{this.challanDate}}</td><td>{{this.description}}{{#if this.linkedChallanNumber}} &middot; vs {{this.linkedChallanNumber}}{{/if}}</td><td>{{this.uqc}}</td><td class="num">{{this.qty}}</td><td class="num">{{this.taxableValue}}</td><td>{{this.inputType}}</td></tr>
+      {{/each}}
+      <tr class="grp"><td colspan="6">Table A subtotal &mdash; {{tableA.totalChallans}} challan{{#unless tableA.totalChallansIsOne}}s{{/unless}}</td><td class="num">{{tableA.totalQty}}</td><td class="num">{{tableA.totalTaxableValue}}</td><td></td></tr>
+
+      <tr class="grp"><td colspan="9">Table B &mdash; Goods received back from job worker</td></tr>
+      {{#each tableB.rows}}
+      <tr>{{#if this.gstin}}<td>{{this.gstin}}</td>{{else}}<td class="muted">Unregistered</td>{{/if}}<td>{{this.processorName}}</td><td>{{this.challanNumber}}</td><td>{{this.challanDate}}</td><td>{{this.description}}{{#if this.linkedChallanNumber}} &middot; vs {{this.linkedChallanNumber}}{{/if}}</td><td>{{this.uqc}}</td><td class="num">{{this.qty}}</td><td class="num">{{this.taxableValue}}</td><td>{{this.inputType}}</td></tr>
+      {{/each}}
+      <tr class="grp"><td colspan="6">Table B subtotal &mdash; {{tableB.totalChallans}} challan{{#unless tableB.totalChallansIsOne}}s{{/unless}}</td><td class="num">{{tableB.totalQty}}</td><td class="num">{{tableB.totalTaxableValue}}</td><td></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <b>Reconciliation assertion &mdash; run before filing</b>
+    Table A quantity less Table B quantity must equal closing balance with job workers less opening balance.
+    If it does not tie, something has moved without a challan. Find it before filing, not after.
+  </div>
+
+  <div class="blocked">
+    <b>Two things to confirm before this is filed</b>
+    <strong>Filing frequency</strong> depends on your turnover slab and has been amended more than once &mdash; confirm with the CA.
+    <strong>Unregistered job workers appear in this extract by design.</strong> They charge no GST, but the reporting
+    obligation attaches to the movement and is the principal&rsquo;s, not the job worker&rsquo;s. Do not filter these rows out.
+  </div>
+
+  <div class="report-foot">
+    <span>Excludes: in-house work, internal transfers, cancelled challans</span>
+    <span>{{companyName}} &middot; generated {{generatedOn}}</span>
+  </div>
+</div>
+</body>
+</html>

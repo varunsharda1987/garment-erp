@@ -98,6 +98,8 @@ export interface JobWorkOrder {
   jwoStatus?: JobWorkOrderStatus;
   remarks?: string;
   workOrderId?: string;
+  outwardChallanId?: string;
+  inwardChallanId?: string;
   createdById: string;
   createdAt: string;
   updatedAt: string;

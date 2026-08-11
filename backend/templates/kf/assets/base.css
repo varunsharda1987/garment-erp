@@ -1,0 +1,145 @@
+/* ============================================================
+   Kashaya Fabs — document design system
+   Import into every printable document. Do not fork per document.
+
+   Committed copy of docs/files (2)/kf-documents assets/base.css with
+   exactly THREE deltas from the package original:
+   1. Google Fonts CDN @import replaced with self-hosted fonts.css
+      (server-side rendering must work offline).
+   2. `.sheet{page-break-after:always}` added under @media print so
+      multi-sheet documents (Rule-55 triplicate challan, multi-page
+      reports) break correctly in the PDF.
+   3. The mobile breakpoint is scoped to `screen` — Chrome prints A4 at
+      794 CSS px, which otherwise trips the 820px mobile collapse in
+      every PDF (single-column kv, stacked masthead).
+   ============================================================ */
+
+@import url('./fonts.css');
+
+:root{
+  --ink:#1a1a17;
+  --ink-2:#55524a;
+  --rule:#c9c5ba;
+  --rule-hard:#1a1a17;
+  --paper:#fbfaf7;
+  --wash:#f0ede4;
+  --stamp:#8a3a2a;        /* the ONLY accent. two uses. no third. */
+  --alert:#8a3a2a;
+}
+
+*{box-sizing:border-box;}
+
+body{
+  margin:0; padding:24px;
+  background:#e6e3da;
+  font-family:'IBM Plex Sans',sans-serif;
+  color:var(--ink);
+  -webkit-print-color-adjust:exact; print-color-adjust:exact;
+}
+
+.sheet{
+  width:210mm; min-height:297mm; margin:0 auto; padding:14mm 13mm;
+  background:var(--paper);
+  box-shadow:0 2px 20px rgba(0,0,0,.18);
+}
+
+/* ---------- masthead ---------- */
+.mast{display:flex; justify-content:space-between; align-items:flex-start;
+      border-bottom:2px solid var(--rule-hard); padding-bottom:9px;}
+.firm{font-size:20px; font-weight:700; letter-spacing:-.3px; line-height:1.1;}
+.firm span{display:block; font-size:9px; font-weight:500; letter-spacing:1.4px;
+           text-transform:uppercase; color:var(--ink-2); margin-top:4px;}
+.addr{font-family:'IBM Plex Mono',monospace; font-size:9px; line-height:1.6;
+      color:var(--ink-2); margin-top:7px;}
+.doctype{text-align:right;}
+.doctype h1{margin:0; font-size:13px; letter-spacing:2.6px; text-transform:uppercase; font-weight:600;}
+.docno{font-family:'IBM Plex Mono',monospace; font-size:17px; font-weight:600; margin-top:5px;}
+.pill{display:inline-block; margin-top:6px; font-family:'IBM Plex Mono',monospace;
+      font-size:8px; letter-spacing:1.2px; text-transform:uppercase;
+      border:1px solid var(--stamp); color:var(--stamp); padding:2px 7px; border-radius:2px;}
+
+/* ---------- sections ---------- */
+.sec{margin-top:16px;}
+.sec-h{font-family:'IBM Plex Mono',monospace; font-size:8.5px; letter-spacing:1.8px;
+       text-transform:uppercase; color:var(--ink-2);
+       border-bottom:1px solid var(--rule-hard); padding-bottom:3px; margin-bottom:8px;
+       display:flex; justify-content:space-between; gap:12px;}
+.sec-h b{color:var(--ink); font-weight:600; white-space:nowrap;}
+
+/* ---------- key/value ---------- */
+.kv{display:grid; grid-template-columns:1fr 1fr; gap:0 22px;}
+.kv .row{display:flex; gap:8px; padding:3.5px 0; border-bottom:1px dotted var(--rule); font-size:10.5px;}
+.kv .row .k{width:92px; flex:none; color:var(--ink-2); font-family:'IBM Plex Mono',monospace;
+            font-size:8.5px; text-transform:uppercase; letter-spacing:.5px; padding-top:1px;}
+.kv .row .v{font-weight:500;}
+
+/* ---------- tables ---------- */
+table{width:100%; border-collapse:collapse; font-size:10px;}
+th{font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:.8px;
+   text-transform:uppercase; color:var(--ink-2); font-weight:500;
+   text-align:left; padding:5px 6px; background:var(--wash);
+   border-bottom:1px solid var(--rule-hard);}
+td{padding:6px; border-bottom:1px solid var(--rule); vertical-align:top;}
+.num{text-align:right; font-family:'IBM Plex Mono',monospace; font-variant-numeric:tabular-nums;}
+.tot td{border-bottom:none; border-top:1.5px solid var(--rule-hard); font-weight:600; padding-top:7px;}
+.sub td{background:var(--wash); font-weight:500;}
+.muted{color:var(--ink-2); font-size:9px;}
+
+/* ---------- signature device: hand-filled fields ----------
+   The one memorable element. Hatched = a human fills this after printing.
+   Never hatch a system-populated field. Never leave a hand-filled field flat. */
+.open td{background:repeating-linear-gradient(45deg,transparent,transparent 5px,
+         rgba(0,0,0,.028) 5px,rgba(0,0,0,.028) 10px); height:26px;}
+.open-box{background:repeating-linear-gradient(45deg,transparent,transparent 5px,
+          rgba(0,0,0,.028) 5px,rgba(0,0,0,.028) 10px);
+          border:1px solid var(--rule); min-height:34px; border-radius:2px;}
+
+/* ---------- callouts ---------- */
+.callout{border-left:3px solid var(--stamp); background:#fff; padding:9px 12px; margin-top:9px;
+         font-size:9.5px; line-height:1.65;}
+.callout b{font-family:'IBM Plex Mono',monospace; font-size:8.5px; letter-spacing:1px;
+           text-transform:uppercase; color:var(--stamp); display:block; margin-bottom:3px;}
+
+/* Blocking state — unresolved GST rate. Must be impossible to miss. */
+.blocked{border:1.5px dashed var(--alert); background:#fff; padding:10px 12px; margin-top:9px;
+         font-size:9.5px; line-height:1.6; color:var(--alert);}
+.blocked b{font-family:'IBM Plex Mono',monospace; font-size:8.5px; letter-spacing:1px;
+           text-transform:uppercase; display:block; margin-bottom:3px;}
+
+/* ---------- terms & signatures ---------- */
+ol.terms{margin:0; padding-left:16px; font-size:9.5px; line-height:1.75;}
+ol.terms li{padding-left:3px;}
+
+.sign{display:grid; grid-template-columns:repeat(3,1fr); gap:26px; margin-top:30px;}
+.sign div{border-top:1px solid var(--rule-hard); padding-top:5px;
+          font-family:'IBM Plex Mono',monospace; font-size:8px;
+          letter-spacing:1px; text-transform:uppercase; color:var(--ink-2);}
+
+.foot{margin-top:16px; border-top:1px solid var(--rule); padding-top:6px;
+      font-family:'IBM Plex Mono',monospace; font-size:7.5px; letter-spacing:.4px;
+      color:var(--ink-2); display:flex; justify-content:space-between; gap:12px;}
+
+/* ---------- print ---------- */
+@media print{
+  body{background:#fff; padding:0;}
+  .sheet{box-shadow:none; width:auto; min-height:0; padding:10mm; page-break-after:always;}
+  .sheet:last-child{page-break-after:auto;}
+  .no-print{display:none;}
+  tr{break-inside:avoid;}
+  .sec{break-inside:avoid;}
+}
+
+/* ---------- mobile (screen only — see delta 3) ---------- */
+@media screen and (max-width:820px){
+  body{padding:10px;}
+  .sheet{width:100%; padding:16px;}
+  .kv{grid-template-columns:1fr;}
+  .mast{flex-direction:column; gap:12px;}
+  .doctype{text-align:left;}
+  .sign{grid-template-columns:1fr; gap:20px;}
+  .sec-h{flex-direction:column; gap:2px;}
+}
+
+/* ---------- accessibility floor ---------- */
+:focus-visible{outline:2px solid var(--stamp); outline-offset:2px;}
+@media(prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important;}}

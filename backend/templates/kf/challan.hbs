@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delivery Challan — {{docNo}}</title>
+<link rel="stylesheet" href="assets/base.css">
+<style>
+  /* Copy-mark band — challan-specific, not part of base */
+  .copymark{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:2px;
+            text-transform:uppercase;text-align:center;padding:4px;margin-bottom:9px;
+            border:1px solid var(--rule-hard);background:var(--wash);font-weight:600;}
+</style>
+</head>
+<body>
+
+{{#each copies}}
+<div class="sheet">
+  <div class="copymark">{{this.copyMark}}</div>
+
+  {{> mast company=../company docTitle="Delivery Challan" docNo=../docNo docPill=../docPill}}
+
+  <div class="sec">
+    <div class="sec-h"><span>01 &mdash; Movement</span><b>{{../movementLabel}}</b></div>
+    <div class="kv">
+      <div>
+        <div class="row"><span class="k">Consignor</span><span class="v">{{../consignorName}}{{#if ../consignorGstin}} &middot; <span class="muted">{{../consignorGstin}}</span>{{/if}}</span></div>
+        <div class="row"><span class="k">Consignee</span><span class="v">{{../consigneeName}}</span></div>
+        {{#if ../consigneeAddress}}<div class="row"><span class="k">Address</span><span class="v">{{../consigneeAddress}}</span></div>{{/if}}
+        {{#if ../showGst}}<div class="row"><span class="k">Consignee GST</span><span class="v">{{#if ../consigneeGstin}}{{../consigneeGstin}} &middot; <span class="muted">Registered</span>{{else}}<span class="muted">Unregistered</span>{{/if}}</span></div>{{/if}}
+        {{#if ../placeOfSupply}}<div class="row"><span class="k">Place of Supply</span><span class="v">{{../placeOfSupply}} &mdash; <span class="muted">{{../supplyKind}}</span></span></div>{{/if}}
+      </div>
+      <div>
+        <div class="row"><span class="k">Challan Date</span><span class="v">{{../challanDate}}</span></div>
+        <div class="row"><span class="k">Reason</span><span class="v">{{../reason}}</span></div>
+        {{#if ../againstOrders}}<div class="row"><span class="k">Against Order</span><span class="v">{{../againstOrders}}</span></div>{{/if}}
+        {{#if ../ewayBill}}<div class="row"><span class="k">E-Way Bill</span><span class="v">{{../ewayBill}}</span></div>{{/if}}
+        {{#if ../vehicleLr}}<div class="row"><span class="k">Vehicle / LR</span><span class="v">{{../vehicleLr}}</span></div>{{/if}}
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><span>02 &mdash; Goods Despatched</span><b>{{../goodsBanner}}</b></div>
+    <table>
+      <thead>
+        <tr><th style="width:30px">#</th><th>Description of Goods</th><th style="width:56px">HSN</th>
+            <th style="width:48px">UOM</th><th class="num" style="width:64px">Qty</th>
+            <th class="num" style="width:88px">Value ₹</th><th style="width:64px">Order Ref</th></tr>
+      </thead>
+      <tbody>
+        {{#each ../items}}
+        <tr><td class="num">{{this.sn}}</td><td>{{this.description}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td><td>{{this.hsn}}</td><td>{{this.uom}}</td><td class="num">{{this.qty}}</td><td class="num">{{this.value}}</td><td class="muted">{{this.orderRef}}</td></tr>
+        {{/each}}
+        <tr class="tot"><td colspan="5">Total value of goods despatched</td><td class="num">{{../totalValue}}</td><td></td></tr>
+      </tbody>
+    </table>
+    {{#if ../showGst}}
+    <div class="callout">
+      <b>No tax charged on this movement</b>
+      Goods are despatched for job work under Section 143 of the CGST Act. This is not a supply and no GST is payable
+      on the value shown. The value is declared for e-way bill and transit insurance only. Tax applies solely to the
+      job worker&rsquo;s conversion charges, on his invoice.
+    </div>
+    {{/if}}
+  </div>
+
+  {{#if ../showGst}}
+  <div class="sec">
+    <div class="sec-h"><span>03 &mdash; Return Undertaking</span><b>Sec. 143 &middot; 1 year</b></div>
+    <ol class="terms">
+      <li>Title to these goods remains with {{../company.name}}. The consignee holds them as bailee and shall create no lien or encumbrance.</li>
+      <li>Goods must be returned by <strong>{{../returnByDate}}</strong>. After that date this despatch is deemed a supply from {{../challanDate}}, with interest, recoverable from the consignee.</li>
+      <li>Return under the consignee&rsquo;s own challan quoting {{../docNo}}{{#if ../againstOrders}} and order {{../againstOrders}}{{/if}}.</li>
+      <li>This challan will be reported in ITC-04 for the relevant period.</li>
+    </ol>
+  </div>
+  {{/if}}
+
+  <div class="sign">
+    <div>Issued by / Gate</div>
+    <div>Authorised Signatory &mdash; {{../company.name}}</div>
+    <div>Consignee &mdash; Received in good order</div>
+  </div>
+
+  <div class="foot">
+    <span>{{../docNo}} &middot; {{this.copyMark}}</span>
+    <span>Triplicate under Rule 55, CGST Rules 2017</span>
+  </div>
+</div>
+{{/each}}
+
+</body>
+</html>

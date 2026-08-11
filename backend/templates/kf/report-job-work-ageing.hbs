@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Work Ageing — {{companyName}}</title>
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/reports.css">
+<style>
+  /* Print fit — template-local, like the challan copymark. The report layer is
+     screen-first (1280px); the shared renderer prints fixed A4 portrait, so
+     scale the sheet to the printable width instead of clipping columns. */
+  @media print{ .report{zoom:.8;} }
+</style>
+</head>
+<body>
+<div class="report">
+
+  <div class="report-head">
+    <h1>Job Work Ageing<span>Section 143 &middot; material outstanding with processors</span></h1>
+    <div class="report-meta">
+      <strong>{{upper companyName}}</strong>
+      GSTIN {{companyGstin}}<br>
+      As at {{asAt}}
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi">
+      <div class="label">Orders Outstanding</div>
+      <div class="value">{{kpiOrders}}</div>
+      <div class="sub">across {{processorCount}} processor{{#unless processorCountIsOne}}s{{/unless}}</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Value at Processors</div>
+      <div class="value">{{kpiValueShort}}</div>
+      <div class="sub">&#8377;{{kpiValueFull}} &mdash; on our books</div>
+    </div>
+    <div class="kpi is-critical">
+      <div class="label">Critical &mdash; 300d+</div>
+      <div class="value">{{kpiCritical}}</div>
+      <div class="sub">under 65 days runway</div>
+    </div>
+    <div class="kpi is-breached">
+      <div class="label">Breached</div>
+      <div class="value">{{kpiBreached}}</div>
+      <div class="sub">deemed supply has occurred</div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:104px">Order</th><th>Processor</th><th style="width:82px">Process</th>
+        <th style="width:74px">Sent</th><th class="num" style="width:76px">Balance</th>
+        <th class="num" style="width:82px">Value ₹</th><th class="num" style="width:58px">Days</th>
+        <th class="num" style="width:70px">Remaining</th><th style="width:86px">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rows}}
+      <tr{{#if this.rowClass}} class="{{this.rowClass}}"{{/if}}>
+        <td>{{this.jobWorkNumber}}</td><td>{{this.processorName}}</td><td>{{this.processType}}</td>
+        <td>{{this.sentDate}}</td><td class="num">{{this.balance}}</td><td class="num">{{this.value}}</td>
+        <td class="num">{{this.daysOutstanding}}</td><td class="num">{{this.daysRemaining}}</td>
+        <td><span class="chip {{this.chipClass}}">{{this.chipLabel}}</span></td>
+      </tr>
+      {{/each}}
+      <tr class="grp"><td colspan="4">{{kpiOrders}} order{{#unless kpiOrdersIsOne}}s{{/unless}} outstanding</td><td class="num">&mdash;</td><td class="num">{{totalValue}}</td><td colspan="3"></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <b>Why 300 days is the escalation point</b>
+    Inputs must return within one year of despatch. Past that, the original despatch is deemed a supply
+    <strong>from the despatch date</strong> &mdash; interest runs from then, not from the breach. Sixty-five days
+    is roughly the minimum to chase a processor, escalate, and raise the paperwork before the liability crystallises.
+    Capital goods run to three years; moulds, dies, jigs, fixtures and tools have no limit.
+  </div>
+
+  <div class="report-foot">
+    <span>Balance computed as quantity sent minus quantity received per job work order &middot; fully-received and inactive orders excluded</span>
+    <span>{{companyName}} &middot; generated {{generatedOn}}</span>
+  </div>
+</div>
+</body>
+</html>

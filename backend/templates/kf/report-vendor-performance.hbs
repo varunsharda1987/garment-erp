@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Processor Performance — {{companyName}}</title>
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/reports.css">
+<style>
+  /* Print fit — template-local, like the challan copymark. The report layer is
+     screen-first (1280px); the shared renderer prints fixed A4 portrait, so
+     scale the sheet to the printable width instead of clipping columns. */
+  @media print{ .report{zoom:.8;} }
+</style>
+</head>
+<body>
+<div class="report">
+
+  <div class="report-head">
+    <h1>Processor Performance<span>Loss against tolerance &middot; {{windowLabel}}</span></h1>
+    <div class="report-meta">
+      <strong>{{upper companyName}}</strong>
+      GSTIN {{companyGstin}}<br>
+      {{periodLabel}}
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">Processors</div><div class="value">{{kpiProcessors}}</div><div class="sub">across {{processTypeCount}} process type{{#unless processTypeCountIsOne}}s{{/unless}}</div></div>
+    <div class="kpi"><div class="label">Orders Closed</div><div class="value">{{kpiOrdersClosed}}</div><div class="sub">in the window</div></div>
+    <div class="kpi is-critical"><div class="label">Over Tolerance</div><div class="value">{{kpiOverTolerance}}</div><div class="sub">processors</div></div>
+    <div class="kpi"><div class="label">Recovered</div><div class="value">&#8377;{{kpiRecovered}}</div><div class="sub">via debit notes</div></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Processor</th><th style="width:82px">Process</th>
+        <th class="num" style="width:52px">Orders</th><th class="num" style="width:78px">Issued</th>
+        <th class="num" style="width:56px">Tol. %</th><th class="num" style="width:62px">Actual %</th>
+        <th style="width:120px">Against tolerance</th>
+        <th class="num" style="width:70px">Debited ₹</th><th style="width:82px">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each rows}}
+      <tr{{#if this.rowClass}} class="{{this.rowClass}}"{{/if}}>
+        <td>{{this.processorName}}</td><td>{{this.processType}}</td><td class="num">{{this.ordersCompleted}}</td><td class="num">{{this.issued}}</td>
+        <td class="num">{{this.tolerance}}</td><td class="num">{{this.actualLoss}}</td>
+        <td><div class="bar"><i{{#if this.barOver}} class="over"{{/if}} style="width:{{this.barWidthPct}}%"></i><u style="left:{{this.tickLeftPct}}%"></u></div></td>
+        <td class="num">{{this.debited}}</td><td><span class="chip {{this.chipClass}}">{{this.chipLabel}}</span></td>
+      </tr>
+      {{/each}}
+      <tr class="grp"><td colspan="7">{{kpiProcessors}} processor{{#unless kpiProcessorsIsOne}}s{{/unless}} &middot; {{kpiOrdersClosed}} order{{#unless kpiOrdersClosedIsOne}}s{{/unless}} closed</td><td class="num">{{totalDebited}}</td><td></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <b>What this report is actually for</b>
+    Per-processor tolerance is only meaningful if you have evidence to set it with. Without this report you end up
+    giving a reliable dyer and a cheap one the same 3%, which quietly subsidises the cheap one. Loss inside tolerance
+    never appears anywhere: it is absorbed into finished goods cost by design &mdash; the debit-note column shows only
+    the portion that was caught.
+  </div>
+
+  <div class="report-foot">
+    <span>Tick on each bar marks the agreed tolerance &middot; bars turn terracotta only when actual exceeds it</span>
+    <span>{{companyName}} &middot; generated {{generatedOn}}</span>
+  </div>
+</div>
+</body>
+</html>

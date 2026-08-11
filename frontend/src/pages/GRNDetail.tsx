@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { getGRNById, approveGRN, rejectGRN } from '@/services/grn.service';
+import { openPDF } from '@/lib/document-utils';
 import { warehouseService } from '@/services/warehouse.service';
 import type { GRN, GRNStatus, ProcessingQCData } from '@/types/grn.types';
 import { GRNStatusLabels } from '@/types/grn.types';
@@ -258,7 +259,7 @@ export default function GRNDetail() {
               </Button>
             </>
           )}
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => openPDF(`/documents/grns/${id}/pdf`)}>
             <Printer className="h-4 w-4 mr-2" />
             Print
           </Button>

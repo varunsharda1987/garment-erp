@@ -386,6 +386,8 @@ export const TransactionReferenceTypeEnum = z.enum([
   'PROCESSING_DELIVERY',
   'PROCUREMENT',
   'ADJUSTMENT',
+  'JOB_WORK_ORDER',
+  'EXTERNAL_PROCESS',
 ]);
 export type TransactionReferenceType = z.infer<typeof TransactionReferenceTypeEnum>;
 

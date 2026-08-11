@@ -34,15 +34,6 @@ interface WorkOrderApiResponse {
   styleId?: string;
 }
 
-interface POApiResponse {
-  id: string;
-  poNumber: string;
-  supplierId: string;
-  supplier?: { name: string };
-  suppliers?: { name: string };
-  status: string;
-}
-
 interface CuttingBatchApiResponse {
   id: string;
   batchNumber: string;
@@ -169,22 +160,34 @@ export default function SmockingSendOut() {
       return;
     }
     api
-      .get(`/purchase-orders?poCategories=SMOCKING_SERVICE&serviceWorkOrderId=${selectedWorkOrderId}&limit=100`)
+      .get(`/job-work-orders?workOrderId=${selectedWorkOrderId}&processType=SMOCKING&limit=100`)
       .then((res) => {
         // BUG-MFG22 fix: use typed response instead of `any`
-        const items = (res.data?.data || res.data || []).map((po: POApiResponse) => ({
-          id: po.id,
-          poNumber: po.poNumber,
-          supplierId: po.supplierId,
-          supplierName: po.supplier?.name || po.suppliers?.name || '',
-          status: po.status,
-        }));
+        const items = (
+          (res.data?.data || res.data || []) as Array<{
+            id: string;
+            jobWorkNumber: string;
+            processorId: string;
+            processor?: { name?: string };
+            jwoStatus?: string | null;
+            status?: string;
+            agreedRatePerMeter?: number | string | null;
+          }>
+        )
+          .filter((j) => !['CANCELLED', 'CLOSED'].includes(j.jwoStatus || ''))
+          .map((j) => ({
+            id: j.id,
+            poNumber: j.jobWorkNumber,
+            supplierId: j.processorId,
+            supplierName: j.processor?.name || '',
+            status: j.jwoStatus || j.status || '',
+          }));
         setPos(items);
       })
       .catch((err: unknown) => {
         // BUG-MFG11-18 fix: proper error extraction
         const axiosErr = err as AxiosError<{ message?: string }>;
-        const message = axiosErr?.response?.data?.message || axiosErr?.message || 'Could not load purchase orders';
+        const message = axiosErr?.response?.data?.message || axiosErr?.message || 'Could not load job work orders';
         toast.error(message);
         setPos([]);
       });
@@ -309,7 +312,7 @@ export default function SmockingSendOut() {
       agreedRate: parseFloat(agreedRate),
       sendDate,
       expectedReturnDate: expectedReturnDate || undefined,
-      purchaseOrderId: selectedPOId,
+      jobWorkOrderId: selectedPOId,
       remarks: remarks || undefined,
       skus,
     });
@@ -367,17 +370,18 @@ export default function SmockingSendOut() {
       {selectedWorkOrderId && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">2. Select Service PO (Required)</CardTitle>
+            <CardTitle className="text-base">2. Select Job Work Order (Required)</CardTitle>
           </CardHeader>
           <CardContent>
             {pos.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No SMOCKING_SERVICE POs found for this work order. Please generate one first.
+                No SMOCKING job work order found for this work order. Generate one from the work order’s service
+                requirements first.
               </p>
             ) : (
               <Select value={selectedPOId} onValueChange={setSelectedPOId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select purchase order..." />
+                  <SelectValue placeholder="Select job work order..." />
                 </SelectTrigger>
                 <SelectContent>
                   {pos.map((po) => (

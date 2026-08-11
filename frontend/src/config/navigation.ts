@@ -170,10 +170,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { title: 'Cutting', path: '/manufacturing/cutting', iconName: 'Scissors', permission: 'cutting' },
       {
         title: 'Embroidery',
-        path: '/embroidery-stock',
+        path: '/job-work-orders?processType=EMBROIDERY',
         iconName: 'Sparkles',
         permission: 'embroideryStock',
-        keywords: ['embroidery pieces', 'embroidery stock'],
+        keywords: ['embroidery pieces', 'embroidery stock', 'job work'],
       },
       { title: 'Smocking', path: '/manufacturing/smocking', iconName: 'Waves', permission: 'manufacturing' },
       { title: 'Stitching', path: '/manufacturing/stitching', iconName: 'Factory', permission: 'stitching' },

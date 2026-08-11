@@ -1,7 +1,8 @@
 // Processing Movement Routes
 import { Router } from 'express';
 import * as processingMovementController from '../controllers/processingMovement.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -18,6 +19,11 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+
+// Phase 5b: batches are FROZEN pending stage-JWO wiring — mutations are role-gated
+// (these routes previously had NO role check at all)
+const mutatingAuthorize = authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR);
+router.use((req, res, next) => (req.method === 'GET' ? next() : mutatingAuthorize(req, res, next)));
 
 // Movement management
 router.post(

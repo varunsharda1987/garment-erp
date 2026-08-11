@@ -905,13 +905,16 @@ export async function receiveChallan(id: string, input: ReceiveChallanInput) {
           });
         }
 
-        // Update linked service requirement status
+        // Update linked service requirement status.
+        // Phase 5b: JWO-linked requirements are advanced ONLY by updateWosrReceivedQuantity
+        // (the 5a single fulfilment track) — this challan-side flip stays for legacy rows
+        // that predate the JWO pointer, so there is exactly one COMPLETED writer per row.
         if (item.serviceRequirementId) {
           const serviceReq = await tx.work_order_service_requirements.findUnique({
             where: { id: item.serviceRequirementId },
-            select: { quantityRequired: true },
+            select: { quantityRequired: true, jobWorkOrderId: true },
           });
-          if (serviceReq) {
+          if (serviceReq && !serviceReq.jobWorkOrderId) {
             const requiredQty = Number(serviceReq.quantityRequired);
             // CUMULATIVE received (item.receivedQty), NOT the credit delta — a progressive receive's
             // final call has a small delta but the full cumulative total (review regression catch).

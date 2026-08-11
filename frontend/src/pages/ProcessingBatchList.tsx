@@ -144,6 +144,15 @@ export default function ProcessingBatchList() {
         </div>
       </div>
 
+      {/* Phase 5b: batches are an orchestration shell — commercial + stock reality lives on JWOs */}
+      <div className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        Multi-stage batches are an orchestration shell only — stock movements, challans and costs live on{' '}
+        <button className="underline font-medium" onClick={() => navigate('/job-work-orders')}>
+          Job Work Orders
+        </button>
+        . Batch-stage wiring will be enabled when multi-stage processing is used.
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card

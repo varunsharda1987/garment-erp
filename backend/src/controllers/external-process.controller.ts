@@ -33,7 +33,7 @@ class ExternalProcessController {
       agreedRate,
       sendDate,
       expectedReturnDate,
-      purchaseOrderId,
+      jobWorkOrderId,
       serviceRequirementId,
       embroideryId,
       remarks,
@@ -48,10 +48,10 @@ class ExternalProcessController {
       !quantitySent ||
       !sendDate ||
       !agreedRate ||
-      !purchaseOrderId
+      !jobWorkOrderId
     ) {
       throw new ValidationError(
-        'processType, sourceType, workOrderId, supplierId, quantitySent, sendDate, agreedRate, and purchaseOrderId are required'
+        'processType, sourceType, workOrderId, supplierId, quantitySent, sendDate, agreedRate, and jobWorkOrderId are required'
       );
     }
 
@@ -70,7 +70,7 @@ class ExternalProcessController {
       agreedRate: parseFloat(agreedRate),
       sendDate: new Date(sendDate),
       expectedReturnDate: expectedReturnDate ? new Date(expectedReturnDate) : undefined,
-      purchaseOrderId,
+      jobWorkOrderId,
       serviceRequirementId,
       embroideryId,
       remarks,

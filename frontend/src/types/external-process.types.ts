@@ -42,6 +42,8 @@ export interface ExternalProcessSendOut {
   sendDate: string;
   expectedReturnDate?: string;
   actualReturnDate?: string;
+  // Phase 5b: the commercial doc is a Job Work Order; purchaseOrderId is legacy-only
+  jobWorkOrderId?: string;
   purchaseOrderId?: string;
   serviceRequirementId?: string;
   outwardChallanId?: string;
@@ -60,6 +62,7 @@ export interface ExternalProcessSendOut {
   workOrder?: { workOrderNumber: string; totalQuantity?: number };
   supplier?: { name: string; code?: string; phone?: string };
   purchaseOrder?: { poNumber: string; poCategory?: string; status?: string };
+  jobWorkOrder?: { jobWorkNumber: string; jwoStatus?: string };
   order?: { orderNumber: string };
   style?: { styleCode: string; styleName: string; buyerStyleRef?: string | null };
   embroidery?: { designName: string; embroideryCode: string };
@@ -83,7 +86,8 @@ export interface CreateExternalProcessSendOutRequest {
   agreedRate: number;
   sendDate: string;
   expectedReturnDate?: string;
-  purchaseOrderId: string;
+  // Phase 5b: JWO replaces the service PO as the commercial document
+  jobWorkOrderId: string;
   serviceRequirementId?: string;
   embroideryId?: string;
   remarks?: string;

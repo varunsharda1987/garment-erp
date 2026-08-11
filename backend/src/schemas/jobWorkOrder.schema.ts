@@ -29,6 +29,10 @@ export const createJobWorkOrderSchema = z
     isRateTbd: z.boolean().optional().default(false),
     expectedReturnDate: z.coerce.date().optional().nullable(),
     remarks: z.string().max(500).optional(),
+    // Phase 5b: fabric-roll processes (EMBROIDERY) issue FROM a fabric_stock lot and
+    // may carry the embroidery design (embroidery_master uses cuid ids — no uuid constraint)
+    fabricStockLotId: z.string().min(1).optional().nullable(),
+    embroideryId: z.string().min(1).optional().nullable(),
     // KAAJ_BUTTON-specific
     buttonholeCount: z.number().int().nonnegative().optional(),
     buttonCount: z.number().int().nonnegative().optional(),
@@ -41,6 +45,9 @@ export const createJobWorkOrderSchema = z
   )
   .refine((data) => data.processType === 'KAAJ_BUTTON' || data.agreedRate > 0 || data.isRateTbd, {
     message: 'agreedRate must be greater than 0 (or set isRateTbd for an intentional TBD rate)',
+  })
+  .refine((data) => !data.embroideryId || data.processType === 'EMBROIDERY', {
+    message: 'embroideryId is only valid for EMBROIDERY job work orders',
   });
 
 export type CreateJobWorkOrderInput = z.infer<typeof createJobWorkOrderSchema>;
@@ -92,9 +99,22 @@ export type CloseJwoInput = z.infer<typeof closeJwoSchema>;
 export const issueJwoSchema = z.object({
   sentDate: z.coerce.date().optional(),
   greigeStockLotId: z.string().optional().nullable(),
+  // Phase 5b: fabric-roll issue source (EMBROIDERY) — consumes a fabric_stock lot instead of greige
+  fabricStockLotId: z.string().optional().nullable(),
   challanNumber: z.string().max(100).trim().optional(),
   vehicleNumber: z.string().max(50).trim().optional(),
 });
+
+/**
+ * POST /api/job-work-orders/:id/cancel — pre-receive cancellation.
+ * Reverses the issue (credits the source lot back, restores needsEmbroidery) and
+ * sets jwoStatus CANCELLED (exits dedup guards).
+ */
+export const cancelJwoSchema = z.object({
+  reason: z.string().max(500).optional(),
+});
+
+export type CancelJwoInput = z.infer<typeof cancelJwoSchema>;
 
 export type IssueJwoInput = z.infer<typeof issueJwoSchema>;
 

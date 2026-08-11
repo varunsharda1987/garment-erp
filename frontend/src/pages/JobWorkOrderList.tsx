@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   Factory,
@@ -106,8 +106,10 @@ function getSection143Status(sentDate?: string, receivedDate?: string) {
 export default function JobWorkOrderList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // Phase 5b: nav links can pre-filter (e.g. Embroidery → ?processType=EMBROIDERY)
+  const [searchParams] = useSearchParams();
   const [search, setSearch] = useState('');
-  const [processType, setProcessType] = useState<string>('all');
+  const [processType, setProcessType] = useState<string>(searchParams.get('processType') || 'all');
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const limit = 20;

@@ -18,6 +18,17 @@ import { logInfo, logError, logDebug } from '../utils/logger';
 import { createChallan } from './challan.service';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { randomUUID } from 'crypto';
+// Phase 5b: the Job Work Order is the commercial document for piece send-outs
+import { jobWorkOrderService } from './job-work-order.service';
+import { updateWosrReceivedQuantity } from './work-order-service-requirement.service';
+import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+
+// Phase 5b: send-out processType → JWO processType (service JWOs are keyed on ServiceType codes)
+const SENDOUT_TO_JWO_PROCESS: Record<ExternalProcessType, string> = {
+  EMBROIDERY_PIECE: 'EMBROIDERY',
+  SMOCKING: 'SMOCKING',
+  HANDWORK: 'HANDWORK',
+};
 
 // ============================================
 // Types
@@ -44,7 +55,8 @@ export interface SendOutDTO {
   agreedRate: number;
   sendDate: Date;
   expectedReturnDate?: Date;
-  purchaseOrderId: string;
+  // Phase 5b: the commercial doc is a Job Work Order (POs are material-only)
+  jobWorkOrderId: string;
   serviceRequirementId?: string;
   embroideryId?: string;
   remarks?: string;
@@ -137,14 +149,54 @@ class ExternalProcessService {
       });
       if (!supplier) throw new Error('Supplier not found');
 
-      // 3. Verify purchase order exists and matches
-      const po = await tx.purchase_orders.findUnique({
-        where: { id: data.purchaseOrderId },
-        select: { id: true, poNumber: true, poCategory: true, status: true, supplierId: true },
+      // 3. Phase 5b: verify the Job Work Order (the commercial doc) exists and matches
+      const jwo = await tx.job_work_orders.findUnique({
+        where: { id: data.jobWorkOrderId },
+        select: {
+          id: true,
+          jobWorkNumber: true,
+          processType: true,
+          processorId: true,
+          jwoStatus: true,
+          qtySentMeters: true,
+          sentDate: true,
+          statutoryDueDate: true,
+        },
       });
-      if (!po) throw new Error('Purchase order not found');
-      if (po.supplierId !== data.supplierId) {
-        throw new Error('Purchase order supplier does not match selected supplier');
+      if (!jwo) throw new Error('Job work order not found');
+      if (jwo.processorId !== data.supplierId) {
+        throw new Error('Job work order processor does not match selected vendor');
+      }
+      if (jwo.jwoStatus === 'CANCELLED' || jwo.jwoStatus === 'CLOSED') {
+        throw new Error(
+          `Job work order ${jwo.jobWorkNumber} is ${jwo.jwoStatus.toLowerCase()} — cannot send against it`
+        );
+      }
+      const expectedProcess = SENDOUT_TO_JWO_PROCESS[data.processType];
+      if (jwo.processType !== expectedProcess) {
+        throw new Error(`Job work order ${jwo.jobWorkNumber} is for ${jwo.processType}, not ${expectedProcess}`);
+      }
+      // Over-send guard: 1 JWO can back N send-out batches, but never beyond its ordered qty
+      const siblingAgg = await tx.external_process_send_outs.aggregate({
+        where: { jobWorkOrderId: jwo.id, status: { not: 'CANCELLED' }, isActive: true },
+        _sum: { quantitySent: true },
+      });
+      const alreadySent = Number(siblingAgg._sum.quantitySent ?? 0);
+      const orderedQty = Number(jwo.qtySentMeters);
+      if (alreadySent + data.quantitySent > orderedQty) {
+        throw new Error(
+          `Send quantity exceeds the job work order: ${alreadySent} of ${orderedQty} already sent on ${jwo.jobWorkNumber}, requested ${data.quantitySent}`
+        );
+      }
+
+      // Default the service requirement from the JWO's 5a execution pointer
+      let serviceRequirementId = data.serviceRequirementId;
+      if (!serviceRequirementId) {
+        const linkedWosr = await tx.work_order_service_requirements.findFirst({
+          where: { jobWorkOrderId: jwo.id },
+          select: { id: true },
+        });
+        serviceRequirementId = linkedWosr?.id;
       }
 
       // 4. Validate source based on sourceType
@@ -166,11 +218,41 @@ class ExternalProcessService {
         if (available < data.quantitySent) {
           throw new Error(`Insufficient fabric stock. Available: ${available}, Requested: ${data.quantitySent}`);
         }
-        // Deduct from fabric stock
-        await tx.fabric_stock.update({
-          where: { id: data.fabricStockId },
+        // Phase 5b ledger fix: guarded deduct + transaction row + stock_levels sync
+        // (the bare decrement left no fabric_stock_transaction and stale stock_levels)
+        const deducted = await tx.fabric_stock.updateMany({
+          where: { id: data.fabricStockId, quantityAvailable: { gte: data.quantitySent } },
           data: { quantityAvailable: { decrement: data.quantitySent } },
         });
+        if (deducted.count === 0) {
+          throw new Error('Fabric stock changed concurrently — not enough quantity available');
+        }
+        const stockRow = await tx.fabric_stock.findUnique({
+          where: { id: data.fabricStockId },
+          select: { fabricId: true, warehouseId: true, weightedAvgCost: true, quantityAvailable: true },
+        });
+        const wac = Number(stockRow?.weightedAvgCost ?? 0);
+        const balanceAfter = Number(stockRow?.quantityAvailable ?? 0);
+        await tx.fabric_stock_transaction.create({
+          data: {
+            stockId: data.fabricStockId,
+            transactionType: 'ISSUE',
+            quantity: new Decimal(data.quantitySent),
+            referenceType: 'EXTERNAL_PROCESS',
+            referenceId: data.jobWorkOrderId,
+            costPerUnit: new Decimal(wac),
+            weightedAvgCost: new Decimal(wac),
+            totalValue: new Decimal(data.quantitySent * wac),
+            balanceAfter: new Decimal(balanceAfter),
+            valueAfter: new Decimal(balanceAfter * wac),
+            notes: `External process send-out (${data.processType})`,
+            createdById: data.createdById,
+          },
+        });
+        if (stockRow?.fabricId) {
+          const materialId = await ensureMaterialRecord(stockRow.fabricId, 'FABRIC');
+          await syncStockLevelQuantity(materialId, -data.quantitySent, stockRow.warehouseId ?? undefined, 'METER', tx);
+        }
       } else if (data.sourceType === 'STITCHING_ISSUE') {
         if (!data.stitchingIssueId) throw new Error('Stitching issue ID is required for this source type');
         const issue = await tx.stitching_issues.findUnique({
@@ -210,8 +292,8 @@ class ExternalProcessService {
           agreedRate: data.agreedRate,
           sendDate: data.sendDate,
           expectedReturnDate: data.expectedReturnDate,
-          purchaseOrderId: data.purchaseOrderId,
-          serviceRequirementId: data.serviceRequirementId,
+          jobWorkOrderId: data.jobWorkOrderId,
+          serviceRequirementId,
           embroideryId: data.embroideryId,
           remarks: data.remarks,
           status: 'SENT',
@@ -220,7 +302,7 @@ class ExternalProcessService {
         include: {
           workOrder: { select: { workOrderNumber: true } },
           supplier: { select: { name: true } },
-          purchaseOrder: { select: { poNumber: true } },
+          jobWorkOrder: { select: { jobWorkNumber: true } },
           order: { select: { orderNumber: true } },
           style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
         },
@@ -239,11 +321,23 @@ class ExternalProcessService {
       }
 
       // 9. Update service requirement status if linked
-      if (data.serviceRequirementId) {
+      if (serviceRequirementId) {
         await tx.work_order_service_requirements.update({
-          where: { id: data.serviceRequirementId },
+          where: { id: serviceRequirementId },
           data: { status: 'IN_PROGRESS' },
         });
+      }
+
+      // 9b. Phase 5b first-send stamping (§143 parity with /:id/issue): the first dispatch
+      // against a JWO marks it issued and locks the statutory due date
+      if (!jwo.sentDate) {
+        await tx.job_work_orders.update({
+          where: { id: jwo.id },
+          data: { sentDate: data.sendDate, status: 'SENT_TO_MILL', jwoStatus: 'ISSUED' },
+        });
+        if (!jwo.statutoryDueDate) {
+          await jobWorkOrderService.setStatutoryDueDate(jwo.id, data.sendDate, tx);
+        }
       }
 
       logInfo('External process send-out created', {
@@ -267,7 +361,7 @@ class ExternalProcessService {
           challanDate: data.sendDate,
           orderId: sendOut.orderId || undefined,
           productionRunId: data.workOrderId,
-          purchaseOrderId: data.purchaseOrderId,
+          jobWorkOrderId: data.jobWorkOrderId,
           fromType: 'WAREHOUSE',
           fromName: data.processType === 'HANDWORK' ? 'Stitching Floor' : 'Cutting Floor',
           toType: 'VENDOR',
@@ -282,7 +376,8 @@ class ExternalProcessService {
               quantity: data.quantitySent,
               unit: data.unit,
               description: `Material for ${processLabel} — Batch ${sendOut.batchNumber}`,
-              serviceRequirementId: data.serviceRequirementId,
+              serviceRequirementId,
+              jobWorkOrderId: data.jobWorkOrderId,
             },
           ],
         },
@@ -400,15 +495,47 @@ class ExternalProcessService {
         include: {
           workOrder: { select: { workOrderNumber: true } },
           supplier: { select: { name: true } },
-          purchaseOrder: { select: { poNumber: true } },
+          jobWorkOrder: { select: { jobWorkNumber: true } },
           order: { select: { orderNumber: true } },
           style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
           skuBreakdown: true,
         },
       });
 
-      // 6. Update service requirement status if fully received
-      if (sendOut.serviceRequirementId && newStatus === 'RECEIVED') {
+      // 6. Phase 5b: aggregate receipt back onto the JWO (1 JWO : N send-out batches).
+      // WOSR completion flows through updateWosrReceivedQuantity via the JWO links,
+      // keeping ONE COMPLETED writer (5a single fulfilment track).
+      if (sendOut.jobWorkOrderId) {
+        const agg = await tx.external_process_send_outs.aggregate({
+          where: { jobWorkOrderId: sendOut.jobWorkOrderId, status: { not: 'CANCELLED' }, isActive: true },
+          _sum: { quantityReceived: true, quantitySent: true },
+        });
+        const totalReceived = Number(agg._sum.quantityReceived ?? 0);
+        const totalSent = Number(agg._sum.quantitySent ?? 0);
+        const jwoRow = await tx.job_work_orders.findUnique({
+          where: { id: sendOut.jobWorkOrderId },
+          select: { qtySentMeters: true, receivedDate: true },
+        });
+        const ordered = Number(jwoRow?.qtySentMeters ?? totalSent);
+        const fullyReceived = totalReceived >= ordered;
+        await tx.job_work_orders.update({
+          where: { id: sendOut.jobWorkOrderId },
+          data: {
+            qtyReceivedMeters: totalReceived,
+            jwoStatus: fullyReceived ? 'RECEIVED' : 'PARTIALLY_RECEIVED',
+            ...(fullyReceived
+              ? { status: 'RECEIVED', receivedDate: jwoRow?.receivedDate ?? data.actualReturnDate }
+              : {}),
+          },
+        });
+        // Advance service requirements by this receipt's delta
+        const previouslyReceived = Number(sendOut.quantityReceived ?? 0);
+        const delta = data.quantityReceived - previouslyReceived;
+        if (delta !== 0) {
+          await updateWosrReceivedQuantity(sendOut.jobWorkOrderId, delta, tx);
+        }
+      } else if (sendOut.serviceRequirementId && newStatus === 'RECEIVED') {
+        // Legacy (pre-5b) rows without a JWO: keep the old direct flip
         await tx.work_order_service_requirements.update({
           where: { id: sendOut.serviceRequirementId },
           data: { status: 'COMPLETED' },
@@ -416,11 +543,39 @@ class ExternalProcessService {
       }
 
       // 7. If fabric stock source was used (smocking on fabric), add stock back
+      // Phase 5b ledger fix: transaction row + stock_levels sync (cost uplift on the
+      // credited lot is explicitly DEFERRED — process cost lives on the JWO side)
       if (sendOut.sourceType === 'FABRIC_STOCK' && sendOut.fabricStockId && quantityGood > 0) {
         await tx.fabric_stock.update({
           where: { id: sendOut.fabricStockId },
           data: { quantityAvailable: { increment: quantityGood } },
         });
+        const stockRow = await tx.fabric_stock.findUnique({
+          where: { id: sendOut.fabricStockId },
+          select: { fabricId: true, warehouseId: true, weightedAvgCost: true, quantityAvailable: true },
+        });
+        const wac = Number(stockRow?.weightedAvgCost ?? 0);
+        const balanceAfter = Number(stockRow?.quantityAvailable ?? 0);
+        await tx.fabric_stock_transaction.create({
+          data: {
+            stockId: sendOut.fabricStockId,
+            transactionType: 'RETURN',
+            quantity: new Decimal(quantityGood),
+            referenceType: 'EXTERNAL_PROCESS',
+            referenceId: sendOut.jobWorkOrderId ?? sendOut.id,
+            costPerUnit: new Decimal(wac),
+            weightedAvgCost: new Decimal(wac),
+            totalValue: new Decimal(quantityGood * wac),
+            balanceAfter: new Decimal(balanceAfter),
+            valueAfter: new Decimal(balanceAfter * wac),
+            notes: `External process receive (${sendOut.processType})`,
+            createdById: data.createdById,
+          },
+        });
+        if (stockRow?.fabricId) {
+          const materialId = await ensureMaterialRecord(stockRow.fabricId, 'FABRIC');
+          await syncStockLevelQuantity(materialId, quantityGood, stockRow.warehouseId ?? undefined, 'METER', tx);
+        }
       }
 
       // 8. Create the INWARD job-work challan INSIDE the same transaction — receiving material back
@@ -436,7 +591,7 @@ class ExternalProcessService {
           challanDate: data.actualReturnDate,
           orderId: sendOut.orderId || undefined,
           productionRunId: sendOut.workOrderId,
-          purchaseOrderId: sendOut.purchaseOrderId || undefined,
+          jobWorkOrderId: sendOut.jobWorkOrderId || undefined,
           fromType: 'VENDOR',
           fromId: sendOut.supplierId,
           fromName: sendOut.supplier?.name || 'Vendor',
@@ -452,6 +607,7 @@ class ExternalProcessService {
               unit: sendOut.unit,
               description: `Received from ${processLabel} — Batch ${sendOut.batchNumber}`,
               serviceRequirementId: sendOut.serviceRequirementId || undefined,
+              jobWorkOrderId: sendOut.jobWorkOrderId || undefined,
             },
           ],
         },
@@ -675,6 +831,7 @@ class ExternalProcessService {
           workOrder: { select: { workOrderNumber: true, totalQuantity: true } },
           supplier: { select: { name: true, code: true } },
           purchaseOrder: { select: { poNumber: true } },
+          jobWorkOrder: { select: { jobWorkNumber: true, jwoStatus: true } },
           order: { select: { orderNumber: true } },
           style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
           embroidery: { select: { designName: true, embroideryCode: true } },
@@ -714,6 +871,7 @@ class ExternalProcessService {
         workOrder: { select: { workOrderNumber: true, totalQuantity: true, styleId: true } },
         supplier: { select: { name: true, code: true, phone: true } },
         purchaseOrder: { select: { poNumber: true, poCategory: true, status: true } },
+        jobWorkOrder: { select: { jobWorkNumber: true, jwoStatus: true } },
         order: { select: { orderNumber: true } },
         style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
         embroidery: { select: { designName: true, embroideryCode: true } },
@@ -746,19 +904,47 @@ class ExternalProcessService {
       }
 
       // Reverse fabric stock deduction if applicable
+      // Phase 5b ledger fix: reversal transaction row + stock_levels sync
       if (sendOut.sourceType === 'FABRIC_STOCK' && sendOut.fabricStockId) {
         const qty = parseFloat(sendOut.quantitySent.toString());
         await tx.fabric_stock.update({
           where: { id: sendOut.fabricStockId },
           data: { quantityAvailable: { increment: qty } },
         });
+        const stockRow = await tx.fabric_stock.findUnique({
+          where: { id: sendOut.fabricStockId },
+          select: { fabricId: true, warehouseId: true, weightedAvgCost: true, quantityAvailable: true },
+        });
+        const wac = Number(stockRow?.weightedAvgCost ?? 0);
+        const balanceAfter = Number(stockRow?.quantityAvailable ?? 0);
+        await tx.fabric_stock_transaction.create({
+          data: {
+            stockId: sendOut.fabricStockId,
+            transactionType: 'RETURN',
+            quantity: new Decimal(qty),
+            referenceType: 'EXTERNAL_PROCESS',
+            referenceId: sendOut.jobWorkOrderId ?? sendOut.id,
+            costPerUnit: new Decimal(wac),
+            weightedAvgCost: new Decimal(wac),
+            totalValue: new Decimal(qty * wac),
+            balanceAfter: new Decimal(balanceAfter),
+            valueAfter: new Decimal(balanceAfter * wac),
+            notes: `External process send-out cancelled (${sendOut.processType})`,
+            createdById: userId,
+          },
+        });
+        if (stockRow?.fabricId) {
+          const materialId = await ensureMaterialRecord(stockRow.fabricId, 'FABRIC');
+          await syncStockLevelQuantity(materialId, qty, stockRow.warehouseId ?? undefined, 'METER', tx);
+        }
       }
 
-      // Update service requirement back to PENDING
+      // Update service requirement: JWO-linked rows go back to PO_GENERATED (the JWO still
+      // exists); legacy rows without a JWO revert to PENDING as before
       if (sendOut.serviceRequirementId) {
         await tx.work_order_service_requirements.update({
           where: { id: sendOut.serviceRequirementId },
-          data: { status: 'PENDING' },
+          data: { status: sendOut.jobWorkOrderId ? 'PO_GENERATED' : 'PENDING' },
         });
       }
 
@@ -923,6 +1109,7 @@ class ExternalProcessService {
       include: {
         supplier: { select: { name: true, code: true } },
         purchaseOrder: { select: { poNumber: true } },
+        jobWorkOrder: { select: { jobWorkNumber: true, jwoStatus: true } },
         skuBreakdown: {
           include: {
             color: { select: { colorName: true } },

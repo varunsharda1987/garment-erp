@@ -7,7 +7,6 @@ import {
   receiveChallanController,
   cancelChallanController,
   getChallanStatsController,
-  createGreigeOutwardChallanController,
   quickIssueChallanController,
   resolveRateController,
   splitProductionRunController,
@@ -17,7 +16,6 @@ import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import {
   createChallanSchema,
-  createGreigeOutwardChallanSchema,
   quickIssueChallanSchema,
   receiveChallanSchema,
   splitProductionRunSchema,
@@ -36,10 +34,14 @@ router.use('/production-runs', authenticateToken);
 // Challan routes
 router.get('/challans/stats', asyncHandler(getChallanStatsController));
 router.get('/challans/today-summary', asyncHandler(getTodaySummaryController));
-router.post(
-  '/challans/greige-outward',
-  validateBody(createGreigeOutwardChallanSchema),
-  asyncHandler(createGreigeOutwardChallanController)
+// Phase 5b: RETIRED — greige dispatch to processors is the Job Work Order issue action
+// (POST /api/job-work-orders/:id/issue creates the Rule-55 outward challan atomically)
+// no-body — 410 tombstone, nothing read from the request
+router.post('/challans/greige-outward', (_req, res) =>
+  res.status(410).json({
+    success: false,
+    message: 'Greige outward challans are created by the Job Work Order issue action now',
+  })
 );
 router.post('/challans/quick-issue', validateBody(quickIssueChallanSchema), asyncHandler(quickIssueChallanController));
 router.get('/challans', asyncHandler(getChallansController));

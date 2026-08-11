@@ -16,7 +16,8 @@ import { generateJobWorkNumber } from '../utils/jobWorkNumber';
 import { systemSettingsService } from '../services/system-settings.service';
 import { createChallan } from '../services/challan.service';
 import greigeStockService from '../services/greige-stock.service';
-import { Unit } from '@prisma/client';
+import { Unit, Prisma } from '@prisma/client';
+import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 import type { CreateJobWorkOrderInput, AddJwoComponentInput, CloseJwoInput } from '../schemas/jobWorkOrder.schema';
 
 // jwoStatus values from which material has NOT yet been issued (components may change)
@@ -95,6 +96,33 @@ class JobWorkOrderController {
         });
       }
 
+      // Phase 5b: fabric-roll source lot (EMBROIDERY) — validate lot + derive fabric/width
+      let fabricLot: { id: string; fabricId: string; finishedWidth: unknown; quantityAvailable: unknown } | null = null;
+      if (body.fabricStockLotId) {
+        fabricLot = await prisma.fabric_stock.findUnique({
+          where: { id: body.fabricStockLotId },
+          select: { id: true, fabricId: true, finishedWidth: true, quantityAvailable: true },
+        });
+        if (!fabricLot) {
+          return res.status(404).json({ success: false, message: 'Fabric stock lot not found' });
+        }
+        if (Number(fabricLot.quantityAvailable) < body.quantity) {
+          return res.status(422).json({
+            success: false,
+            message: `Insufficient fabric stock. Available: ${Number(fabricLot.quantityAvailable)}, Requested: ${body.quantity}`,
+          });
+        }
+      }
+      if (body.embroideryId) {
+        const emb = await prisma.embroidery_master.findUnique({
+          where: { id: body.embroideryId },
+          select: { id: true },
+        });
+        if (!emb) {
+          return res.status(404).json({ success: false, message: 'Embroidery design not found' });
+        }
+      }
+
       // KAAJ_BUTTON: resolve rates (explicit > system settings defaults)
       const isKaaj = body.processType === 'KAAJ_BUTTON';
       const buttonholeRate = isKaaj
@@ -116,10 +144,19 @@ class JobWorkOrderController {
           processTypeId: processTypeMaster.id,
           processorId: body.processorId,
           styleId: body.styleId ?? null,
-          fabricId: body.fabricId ?? null,
-          fabricType: processTypeMaster.processCategory === 'FABRIC' ? 'GREIGE' : null,
+          fabricId: body.fabricId ?? fabricLot?.fabricId ?? null,
+          fabricType: body.fabricStockLotId
+            ? 'FINISHED'
+            : processTypeMaster.processCategory === 'FABRIC'
+              ? 'GREIGE'
+              : null,
+          fabricStockLotId: body.fabricStockLotId ?? null,
+          embroideryId: body.embroideryId ?? null,
+          sentWidthInches: fabricLot ? Number(fabricLot.finishedWidth) : null,
           qtySentMeters: body.quantity,
-          uom: body.uom || processTypeMaster.unitOfMeasure,
+          // Fabric-lot JWOs are meters (consume a roll, receive via the MTR-only GRN path)
+          // even when the process master's default unit is PCS (e.g. EMBROIDERY pieces)
+          uom: body.uom || (body.fabricStockLotId ? 'MTR' : processTypeMaster.unitOfMeasure),
           agreedRatePerMeter: isKaaj ? 0 : body.agreedRate,
           isRateTbd: isKaaj ? false : body.isRateTbd,
           expectedReturnDate: body.expectedReturnDate ?? null,
@@ -625,6 +662,7 @@ class JobWorkOrderController {
         jwoStatus,
         processType,
         processorId,
+        workOrderId,
         fromDate,
         toDate,
       } = req.query;
@@ -647,6 +685,7 @@ class JobWorkOrderController {
       if (jwoStatus) where.jwoStatus = jwoStatus;
       if (processType) where.processType = processType;
       if (processorId) where.processorId = processorId;
+      if (workOrderId) where.workOrderId = workOrderId; // Phase 5b: send-out pages scope by WO
 
       if (fromDate || toDate) {
         where.createdAt = {};
@@ -767,7 +806,7 @@ class JobWorkOrderController {
   async issue(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { sentDate, greigeStockLotId, challanNumber, vehicleNumber } = req.body;
+      const { sentDate, greigeStockLotId, fabricStockLotId, challanNumber, vehicleNumber } = req.body;
       const userId = (req as any).user?.userId;
       if (!userId) {
         return res.status(401).json({ success: false, message: 'User not authenticated' });
@@ -793,6 +832,8 @@ class JobWorkOrderController {
 
       const issueDate = sentDate ? new Date(sentDate) : new Date();
       const lotId: string | null = greigeStockLotId || jwo.greigeStockLotId || null;
+      // Phase 5b: fabric-roll source (EMBROIDERY) — consumed only when no greige lot is in play
+      const fabricLotId: string | null = !lotId ? fabricStockLotId || jwo.fabricStockLotId || null : null;
 
       // Greige consumption — validate availability before touching anything
       if (lotId) {
@@ -808,6 +849,48 @@ class JobWorkOrderController {
           });
         }
         await greigeStockService.consumeGreigeStock(lotId, Number(jwo.qtySentMeters), userId);
+      } else if (fabricLotId) {
+        // Phase 5b fabric-lot issue (mirrors the retired embroidery-stock send-out, but the
+        // decrement + ledger + challan now share one atomic path)
+        const qty = Number(jwo.qtySentMeters);
+        await prisma.$transaction(async (txClient) => {
+          const deducted = await txClient.fabric_stock.updateMany({
+            where: { id: fabricLotId, quantityAvailable: { gte: qty } },
+            data: { quantityAvailable: { decrement: qty }, needsEmbroidery: false },
+          });
+          if (deducted.count === 0) {
+            throw new JobWorkOrderError(
+              'INSUFFICIENT_FABRIC_STOCK',
+              `Insufficient fabric stock in the selected lot for ${qty}m`
+            );
+          }
+          const lotRow = await txClient.fabric_stock.findUnique({
+            where: { id: fabricLotId },
+            select: { fabricId: true, warehouseId: true, weightedAvgCost: true, quantityAvailable: true },
+          });
+          const wac = Number(lotRow?.weightedAvgCost ?? 0);
+          const balanceAfter = Number(lotRow?.quantityAvailable ?? 0);
+          await txClient.fabric_stock_transaction.create({
+            data: {
+              stockId: fabricLotId,
+              transactionType: 'EMBROIDERY_SEND_OUT',
+              quantity: new Prisma.Decimal(qty),
+              referenceType: 'JOB_WORK_ORDER',
+              referenceId: jwo.id,
+              costPerUnit: new Prisma.Decimal(wac),
+              weightedAvgCost: new Prisma.Decimal(wac),
+              totalValue: new Prisma.Decimal(qty * wac),
+              balanceAfter: new Prisma.Decimal(balanceAfter),
+              valueAfter: new Prisma.Decimal(balanceAfter * wac),
+              notes: `Issued for ${jwo.processType} — ${jwo.jobWorkNumber}`,
+              createdById: userId,
+            },
+          });
+          if (lotRow?.fabricId) {
+            const materialId = await ensureMaterialRecord(lotRow.fabricId, 'FABRIC');
+            await syncStockLevelQuantity(materialId, -qty, lotRow.warehouseId ?? undefined, 'METER', txClient);
+          }
+        });
       }
 
       // R2: statutory due date (immutable once set)
@@ -847,6 +930,7 @@ class JobWorkOrderController {
             itemType: lotId ? 'GREIGE' : 'FABRIC',
             fabricId: jwo.fabricId || undefined,
             greigeStockId: lotId || undefined,
+            fabricStockId: fabricLotId || undefined,
             description: `${jwo.processType} job work — ${jwo.jobWorkNumber}${jwo.style?.styleCode ? ` (${jwo.style.styleCode})` : ''}`,
             quantity: Number(jwo.qtySentMeters),
             unit: isMeters ? Unit.METER : Unit.PIECE,
@@ -864,6 +948,7 @@ class JobWorkOrderController {
           challanNumber: challanNumber || challan.challanNumber,
           vehicleNumber: vehicleNumber || null,
           greigeStockLotId: lotId,
+          fabricStockLotId: fabricLotId ?? jwo.fabricStockLotId,
           outwardChallanId: challan.id,
         },
         include: jwoInclude,
@@ -891,6 +976,142 @@ class JobWorkOrderController {
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to issue job work order',
+      });
+    }
+  }
+
+  /**
+   * POST /api/job-work-orders/:id/cancel
+   * Phase 5b: pre-receive cancellation. Reverses the issue (credits the source lot back,
+   * restores needsEmbroidery for embroidery fabric lots), reverts linked requirements,
+   * and sets jwoStatus CANCELLED (exits the MRP dedup guard).
+   */
+  async cancel(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { reason } = req.body as { reason?: string };
+      const userId = (req as any).user?.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'User not authenticated' });
+      }
+
+      const jwo = await prisma.job_work_orders.findUnique({ where: { id } });
+      if (!jwo) {
+        return res.status(404).json({ success: false, message: 'Job work order not found' });
+      }
+      if (jwo.jwoStatus === 'CANCELLED') {
+        return res
+          .status(422)
+          .json({ success: false, code: 'ALREADY_CANCELLED', message: `${jwo.jobWorkNumber} is already cancelled` });
+      }
+      if (jwo.receivedDate || (RECEIVED_LEGACY_STATUSES as readonly string[]).includes(jwo.status)) {
+        return res.status(422).json({
+          success: false,
+          code: 'ALREADY_RECEIVED',
+          message: `${jwo.jobWorkNumber} has received material — use the receive/close flows instead of cancelling`,
+        });
+      }
+
+      const updated = await prisma.$transaction(async (txClient) => {
+        const qty = Number(jwo.qtySentMeters);
+
+        // Reverse the issued material (only if the JWO was actually issued)
+        if (jwo.sentDate) {
+          if (jwo.greigeStockLotId) {
+            await txClient.greige_stock.update({
+              where: { id: jwo.greigeStockLotId },
+              data: {
+                quantityAvailable: { increment: qty },
+                quantityConsumed: { decrement: qty },
+                status: 'AVAILABLE',
+              },
+            });
+          } else if (jwo.fabricStockLotId) {
+            await txClient.fabric_stock.update({
+              where: { id: jwo.fabricStockLotId },
+              data: {
+                quantityAvailable: { increment: qty },
+                ...(jwo.processType === 'EMBROIDERY' ? { needsEmbroidery: true } : {}),
+              },
+            });
+            const lotRow = await txClient.fabric_stock.findUnique({
+              where: { id: jwo.fabricStockLotId },
+              select: { fabricId: true, warehouseId: true, weightedAvgCost: true, quantityAvailable: true },
+            });
+            const wac = Number(lotRow?.weightedAvgCost ?? 0);
+            const balanceAfter = Number(lotRow?.quantityAvailable ?? 0);
+            await txClient.fabric_stock_transaction.create({
+              data: {
+                stockId: jwo.fabricStockLotId,
+                transactionType: 'EMBROIDERY_CANCELLED',
+                quantity: new Prisma.Decimal(qty),
+                referenceType: 'JOB_WORK_ORDER',
+                referenceId: jwo.id,
+                costPerUnit: new Prisma.Decimal(wac),
+                weightedAvgCost: new Prisma.Decimal(wac),
+                totalValue: new Prisma.Decimal(qty * wac),
+                balanceAfter: new Prisma.Decimal(balanceAfter),
+                valueAfter: new Prisma.Decimal(balanceAfter * wac),
+                notes: `Job work cancelled — ${jwo.jobWorkNumber}`,
+                createdById: userId,
+              },
+            });
+            if (lotRow?.fabricId) {
+              const materialId = await ensureMaterialRecord(lotRow.fabricId, 'FABRIC');
+              await syncStockLevelQuantity(materialId, qty, lotRow.warehouseId ?? undefined, 'METER', txClient);
+            }
+          }
+        }
+
+        // Revert linked requirements (only rows with nothing received yet)
+        const wosrLinks = await txClient.service_requirement_jwo_links.findMany({
+          where: { jobWorkOrderId: jwo.id },
+          select: { serviceRequirementId: true, receivedQuantity: true },
+        });
+        const revertableWosr = wosrLinks
+          .filter((l) => Number(l.receivedQuantity) === 0)
+          .map((l) => l.serviceRequirementId);
+        if (revertableWosr.length > 0) {
+          await txClient.work_order_service_requirements.updateMany({
+            where: { id: { in: revertableWosr }, status: { in: ['PO_GENERATED', 'IN_PROGRESS'] } },
+            data: { status: 'PENDING', jobWorkOrderId: null },
+          });
+          await txClient.service_requirement_jwo_links.deleteMany({
+            where: { jobWorkOrderId: jwo.id, serviceRequirementId: { in: revertableWosr } },
+          });
+        }
+        const mrpLinks = await txClient.requirement_jwo_links.findMany({
+          where: { jobWorkOrderId: jwo.id },
+          select: { requirementId: true, receivedQuantity: true },
+        });
+        const revertableMrp = mrpLinks.filter((l) => Number(l.receivedQuantity) === 0).map((l) => l.requirementId);
+        if (revertableMrp.length > 0) {
+          await txClient.material_requirements.updateMany({
+            where: { id: { in: revertableMrp }, status: 'PO_GENERATED' },
+            data: { status: 'PO_REQUIRED' },
+          });
+          await txClient.requirement_jwo_links.deleteMany({
+            where: { jobWorkOrderId: jwo.id, requirementId: { in: revertableMrp } },
+          });
+        }
+
+        return txClient.job_work_orders.update({
+          where: { id },
+          data: {
+            jwoStatus: 'CANCELLED',
+            remarks: `${jwo.remarks || ''}\n[CANCELLED] ${reason || 'No reason given'}`.trim(),
+          },
+          include: jwoInclude,
+        });
+      });
+
+      logger.info(`[JWO] Cancelled ${jwo.jobWorkNumber}${jwo.sentDate ? ' (issued material credited back)' : ''}`);
+      return res.json({ success: true, data: updated, message: `${jwo.jobWorkNumber} cancelled` });
+    } catch (error) {
+      logger.error('Error cancelling JWO:', error);
+      return res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to cancel job work order',
       });
     }
   }

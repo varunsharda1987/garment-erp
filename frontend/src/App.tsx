@@ -173,9 +173,6 @@ import {
   EmbroideryList,
   EmbroideryForm,
   EmbroideryDetail,
-  EmbroideryAvailableStock,
-  EmbroideryStockSendOut,
-  EmbroideryStockReceive,
   ManufacturingControlCenter,
   SmockingDashboard,
   SmockingSendOut,
@@ -691,10 +688,17 @@ function App() {
               <Route path="/embroidery/:id/edit" element={<EmbroideryForm mode="edit" />} />
 
               {/* Embroidery Stock Management */}
-              <Route path="/embroidery-stock" element={<EmbroideryAvailableStock />} />
-              <Route path="/embroidery-stock/send-out" element={<EmbroideryStockSendOut />} />
-              <Route path="/embroidery-stock/receive" element={<EmbroideryStockReceive />} />
-              <Route path="/embroidery-stock/receive/:id" element={<EmbroideryStockReceive />} />
+              {/* Phase 5b: fabric-roll embroidery runs on Job Work Orders — old flow screens retired */}
+              <Route
+                path="/embroidery-stock"
+                element={<Navigate to="/job-work-orders?processType=EMBROIDERY" replace />}
+              />
+              <Route
+                path="/embroidery-stock/send-out"
+                element={<Navigate to="/job-work-orders?processType=EMBROIDERY" replace />}
+              />
+              <Route path="/embroidery-stock/receive" element={<Navigate to="/procurement/grn/new" replace />} />
+              <Route path="/embroidery-stock/receive/:id" element={<Navigate to="/procurement/grn/new" replace />} />
 
               {/* Embroidery Piece-Level (Cut Pieces) */}
               <Route path="/embroidery-stock/pieces" element={<EmbroideryPieceDashboard />} />

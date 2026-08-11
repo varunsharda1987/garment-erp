@@ -1606,7 +1606,7 @@ class StockMovementService {
           expectedDate: null,
           daysOut,
           isOverdue,
-          actionRoute: `/manufacturing/processing-batches/${batch.id}`,
+          actionRoute: `/processing/batches/${batch.id}`,
           actionLabel: 'Complete',
         });
       }
@@ -1614,49 +1614,51 @@ class StockMovementService {
 
     // 5. Embroidery (fabric roll) send-outs
     if (!sourceType || sourceType === 'EMBROIDERY_FABRIC') {
-      const embroideryFabric = await prisma.embroidery_send_out.findMany({
+      // Phase 5b: fabric-roll embroidery runs as EMBROIDERY Job Work Orders with a
+      // fabric-lot source (embroidery_send_out is retired, 0 rows)
+      const embroideryJwos = await prisma.job_work_orders.findMany({
         where: {
-          status: 'SENT',
-          ...(processorId && { supplierId: processorId }),
+          processType: 'EMBROIDERY',
+          isActive: true,
+          fabricStockLotId: { not: null },
+          status: { in: ['SENT_TO_MILL', 'AT_MILL'] },
+          receivedDate: null,
+          ...(processorId && { processorId }),
         },
         include: {
-          supplier: { select: { id: true, code: true, name: true } },
-          sourceFabricStock: {
-            include: {
-              fabricMaster: { select: { fabricName: true } },
-            },
-          },
+          processor: { select: { id: true, code: true, name: true } },
+          fabric: { select: { fabricName: true } },
         },
-        orderBy: { sendDate: 'asc' },
+        orderBy: { sentDate: 'asc' },
         take: 200,
       });
 
-      for (const sendOut of embroideryFabric) {
-        const sentDate = sendOut.sendDate || sendOut.createdAt;
+      for (const jwo of embroideryJwos) {
+        const sentDate = jwo.sentDate || jwo.createdAt;
         const daysOut = Math.floor((today.getTime() - sentDate.getTime()) / 86400000);
         const isOverdue = daysOut > 7;
 
         if (overdueOnly && !isOverdue) continue;
 
         results.push({
-          id: sendOut.id,
-          documentNumber: sendOut.id.slice(0, 8),
+          id: jwo.id,
+          documentNumber: jwo.jobWorkNumber,
           sourceType: 'EMBROIDERY_FABRIC',
-          sourceId: sendOut.id,
-          partyId: sendOut.supplier?.id || '',
-          partyCode: sendOut.supplier?.code || '',
-          partyName: sendOut.supplier?.name || 'Unknown Vendor',
+          sourceId: jwo.id,
+          partyId: jwo.processor?.id || '',
+          partyCode: jwo.processor?.code || '',
+          partyName: jwo.processor?.name || 'Unknown Vendor',
           partyType: 'PROCESSOR',
-          materialDescription: sendOut.sourceFabricStock?.fabricMaster?.fabricName || 'Fabric Embroidery',
-          qtyOrdered: Number(sendOut.quantitySent),
-          qtyCompleted: Number(sendOut.quantityReceived || 0),
-          qtyPending: Number(sendOut.quantitySent) - Number(sendOut.quantityReceived || 0),
-          unit: sendOut.unit || 'MTR',
+          materialDescription: jwo.fabric?.fabricName || 'Fabric Embroidery',
+          qtyOrdered: Number(jwo.qtySentMeters),
+          qtyCompleted: Number(jwo.qtyReceivedMeters || 0),
+          qtyPending: Number(jwo.qtySentMeters) - Number(jwo.qtyReceivedMeters || 0),
+          unit: jwo.uom || 'MTR',
           documentDate: sentDate,
-          expectedDate: sendOut.expectedReturnDate,
+          expectedDate: jwo.expectedReturnDate,
           daysOut,
           isOverdue,
-          actionRoute: `/embroidery-stock/receive/${sendOut.id}`,
+          actionRoute: `/job-work-orders/${jwo.id}`,
           actionLabel: 'Receive',
         });
       }
@@ -1869,45 +1871,45 @@ class StockMovementService {
           quantity: Number(batch.totalQuantitySent || 0),
           unit: 'MTR',
           createdDate: batch.createdAt,
-          actionRoute: `/manufacturing/processing-batches/${batch.id}`,
+          actionRoute: `/processing/batches/${batch.id}`,
           actionLabel: 'Send',
         });
       }
     }
 
-    // 4. Embroidery (fabric) Drafts
+    // 4. Embroidery (fabric) Drafts — Phase 5b: un-issued EMBROIDERY JWOs with a fabric lot
     if (!sourceType || sourceType === 'EMBROIDERY_FABRIC') {
-      const embroideryDrafts = await prisma.embroidery_send_out.findMany({
+      const embroideryDraftJwos = await prisma.job_work_orders.findMany({
         where: {
-          status: 'DRAFT',
-          ...(processorId && { supplierId: processorId }),
+          processType: 'EMBROIDERY',
+          isActive: true,
+          fabricStockLotId: { not: null },
+          jwoStatus: 'DRAFT',
+          sentDate: null,
+          ...(processorId && { processorId }),
         },
         include: {
-          supplier: { select: { id: true, code: true, name: true } },
-          sourceFabricStock: {
-            include: {
-              fabricMaster: { select: { fabricName: true } },
-            },
-          },
+          processor: { select: { id: true, code: true, name: true } },
+          fabric: { select: { fabricName: true } },
         },
         orderBy: { createdAt: 'desc' },
         take: 100,
       });
 
-      for (const sendOut of embroideryDrafts) {
+      for (const jwo of embroideryDraftJwos) {
         results.push({
-          id: sendOut.id,
-          documentNumber: sendOut.id.slice(0, 8),
+          id: jwo.id,
+          documentNumber: jwo.jobWorkNumber,
           sourceType: 'EMBROIDERY_FABRIC',
-          sourceId: sendOut.id,
-          partyId: sendOut.supplier?.id || '',
-          partyCode: sendOut.supplier?.code || '',
-          partyName: sendOut.supplier?.name || 'Select Vendor',
-          materialDescription: sendOut.sourceFabricStock?.fabricMaster?.fabricName || 'Fabric for Embroidery',
-          quantity: Number(sendOut.quantitySent || 0),
-          unit: sendOut.unit || 'MTR',
-          createdDate: sendOut.createdAt,
-          actionRoute: `/embroidery-stock/send-out`,
+          sourceId: jwo.id,
+          partyId: jwo.processor?.id || '',
+          partyCode: jwo.processor?.code || '',
+          partyName: jwo.processor?.name || 'Select Vendor',
+          materialDescription: jwo.fabric?.fabricName || 'Fabric for Embroidery',
+          quantity: Number(jwo.qtySentMeters || 0),
+          unit: jwo.uom || 'MTR',
+          createdDate: jwo.createdAt,
+          actionRoute: `/job-work-orders/${jwo.id}`,
           actionLabel: 'Send',
         });
       }

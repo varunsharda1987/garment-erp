@@ -4,19 +4,16 @@
  * Handles routing for fabric processing workflow endpoints
  */
 
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import {
   listProcessingBatches,
   getProcessingDetails,
-  sendForProcessing,
-  receiveFinishedFabric,
   getMillPerformance,
 } from '../controllers/fabric-processing.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody, validateParams } from '../middleware/validation.middleware';
+import { validateParams } from '../middleware/validation.middleware';
 import { idParamSchema } from '../schemas/common.schema';
-import { sendForProcessingSchema, receiveFinishedFabricSchema } from '../schemas/fabric-processing.schema';
 
 const router = Router();
 
@@ -33,15 +30,14 @@ router.get('/', asyncHandler(listProcessingBatches));
 // GET /api/processing/:id - Get processing batch details
 router.get('/:id', validateParams(idParamSchema), asyncHandler(getProcessingDetails));
 
-// POST /api/processing - Send greige for processing
-router.post('/', validateBody(sendForProcessingSchema), asyncHandler(sendForProcessing));
-
-// PUT /api/processing/:id/receive - Receive finished fabric
-router.put(
-  '/:id/receive',
-  validateParams(idParamSchema),
-  validateBody(receiveFinishedFabricSchema),
-  asyncHandler(receiveFinishedFabric)
-);
+// Phase 5b: fabric_processing writers are RETIRED — greige processing runs on Job Work
+// Orders end-to-end (dyeing/printing pages or /job-work-orders). Reads above stay.
+const gone = (_req: Request, res: Response) =>
+  res.status(410).json({
+    success: false,
+    message: 'Greige processing now runs on Job Work Orders — use the Dyeing/Printing pages or /job-work-orders',
+  });
+router.post('/', gone); // no-body — 410 tombstone, nothing read
+router.put('/:id/receive', gone); // no-body — 410 tombstone, nothing read
 
 export default router;

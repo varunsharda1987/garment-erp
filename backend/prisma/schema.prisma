@@ -2318,6 +2318,7 @@ model embroidery_master {
   embroidered_fabric_stock   fabric_stock[]
   style_fabrics              style_fabrics[]
   external_process_send_outs external_process_send_outs[] @relation("ExternalProcessEmbroidery")
+  jobWorkOrders              job_work_orders[]            @relation("JwoEmbroidery")
 
   @@index([embroideryCode])
   @@index([supplierId])
@@ -5738,6 +5739,10 @@ model processing_stage {
   movements              processing_movement[]
   batch                  processing_batch      @relation(fields: [batchId], references: [id], onDelete: Cascade)
   processor              suppliers             @relation(fields: [processorId], references: [id])
+  // Phase 5b hook (unwired while batches are frozen): a stage IS a send-out — when
+  // multi-stage batches go live, each stage gets its own 1:1 Job Work Order
+  jobWorkOrderId         String?               @unique
+  jobWorkOrder           job_work_orders?      @relation("ProcessingStageJWO", fields: [jobWorkOrderId], references: [id])
 
   @@index([batchId, stageNumber])
   @@index([processorId, status])
@@ -6812,7 +6817,13 @@ model job_work_orders {
   serviceRequirements     work_order_service_requirements[]
   // Phase 5a: WOSR allocation links (mirror of requirementLinks for service requirements)
   serviceRequirementLinks service_requirement_jwo_links[]
+  // Phase 5b: embroidery design (EMBROIDERY JWOs); piece send-out batches; frozen batch-stage hook
+  embroideryId            String?
+  embroidery              embroidery_master?                @relation("JwoEmbroidery", fields: [embroideryId], references: [id])
+  externalProcessSendOuts external_process_send_outs[]      @relation("ExternalProcessJWO")
+  processingStage         processing_stage?                 @relation("ProcessingStageJWO")
 
+  @@index([embroideryId])
   @@index([labDipId])
   @@index([processTypeId])
   @@index([styleId])
@@ -9439,6 +9450,9 @@ enum TransactionReferenceType {
   PROCESSING_DELIVERY
   PROCUREMENT
   ADJUSTMENT
+  // Phase 5b: JWO-keyed ledger rows
+  JOB_WORK_ORDER
+  EXTERNAL_PROCESS
 }
 
 enum Unit {
@@ -10132,7 +10146,9 @@ model external_process_send_outs {
   expectedReturnDate DateTime?
   actualReturnDate   DateTime?
 
-  // PO linkage (REQUIRED for every send-out)
+  // Phase 5b: JWO is the commercial document (required by service/controller);
+  // purchaseOrderId is a dead legacy column kept for the cleanup phase
+  jobWorkOrderId       String?
   purchaseOrderId      String?
   serviceRequirementId String?
 
@@ -10166,6 +10182,7 @@ model external_process_send_outs {
   stitchingIssue     stitching_issues?                @relation("ExternalProcessStitchingIssue", fields: [stitchingIssueId], references: [id])
   supplier           suppliers                        @relation("ExternalProcessSupplier", fields: [supplierId], references: [id])
   purchaseOrder      purchase_orders?                 @relation("ExternalProcessPO", fields: [purchaseOrderId], references: [id])
+  jobWorkOrder       job_work_orders?                 @relation("ExternalProcessJWO", fields: [jobWorkOrderId], references: [id])
   serviceRequirement work_order_service_requirements? @relation("ExternalProcessServiceReq", fields: [serviceRequirementId], references: [id])
   embroidery         embroidery_master?               @relation("ExternalProcessEmbroidery", fields: [embroideryId], references: [id])
   createdBy          users                            @relation("ExternalProcessCreatedBy", fields: [createdById], references: [id])
@@ -10179,6 +10196,7 @@ model external_process_send_outs {
   @@index([cuttingBatchId])
   @@index([stitchingIssueId])
   @@index([purchaseOrderId])
+  @@index([jobWorkOrderId])
   @@index([processType, status])
 }
 

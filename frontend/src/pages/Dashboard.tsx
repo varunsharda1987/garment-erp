@@ -110,7 +110,7 @@ export default function Dashboard() {
       [ProductionStage.TRIMS_NOT_ORDERED]: '/procurement/requirements?tab=material',
       [ProductionStage.IN_PRINTING]: '/manufacturing/printing',
       [ProductionStage.IN_DYING]: '/manufacturing/dyeing',
-      [ProductionStage.IN_EMBROIDERY]: '/embroidery-stock',
+      [ProductionStage.IN_EMBROIDERY]: '/job-work-orders?processType=EMBROIDERY',
       [ProductionStage.IN_HANDWORK]: '/procurement/requirements?tab=outsourced',
       [ProductionStage.IN_CUTTING]: '/manufacturing/cutting',
       [ProductionStage.IN_STITCHING]: '/manufacturing/stitching',

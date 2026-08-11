@@ -16,6 +16,7 @@ import {
   closeJwoSchema,
   issueJwoSchema,
   receiveJwoSchema,
+  cancelJwoSchema,
 } from '../schemas/jobWorkOrder.schema';
 
 const router = Router();
@@ -54,5 +55,7 @@ router.post(
 );
 // no-body — approver comes from the auth token, nothing read from the body
 router.post('/:id/approve', jobWorkOrderController.approve.bind(jobWorkOrderController));
+// Phase 5b: pre-receive cancellation (credits issued material back)
+router.post('/:id/cancel', validateBody(cancelJwoSchema), jobWorkOrderController.cancel.bind(jobWorkOrderController));
 
 export default router;

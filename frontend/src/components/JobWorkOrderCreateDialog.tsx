@@ -29,6 +29,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import { styleService } from '@/services/style.service';
+import api from '@/lib/api';
 import type { CreateJobWorkOrderRequest } from '@/types/jobWorkOrder.types';
 
 const PROCESS_OPTIONS = [
@@ -66,10 +67,37 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
   const [buttonCount, setButtonCount] = useState<string>('');
   const [buttonholeRate, setButtonholeRate] = useState<string>('0.30');
   const [buttonRate, setButtonRate] = useState<string>('0.30');
+  // EMBROIDERY (Phase 5b: fabric-roll embroidery is a JWO)
+  const [fabricStockLotId, setFabricStockLotId] = useState<string>('');
+  const [embroideryId, setEmbroideryId] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
   const selected = PROCESS_OPTIONS.find((p) => p.value === processType);
   const isKaaj = processType === 'KAAJ_BUTTON';
+  const isEmbroidery = processType === 'EMBROIDERY';
+
+  interface EmbroideryLotOption {
+    id: string;
+    quantityAvailable: number | string;
+    needsEmbroidery?: boolean;
+    fabricMaster?: { fabricCode?: string; fabricName?: string };
+    fabric?: { fabricCode?: string; fabricName?: string };
+  }
+  const { data: embLotsResponse } = useQuery({
+    queryKey: ['embroidery-pending-lots'],
+    queryFn: () => api.get('/embroidery-stock/pending-embroidery?limit=100').then((r) => r.data),
+    enabled: open && isEmbroidery,
+    staleTime: 60 * 1000,
+  });
+  const embLots: EmbroideryLotOption[] = embLotsResponse?.data || [];
+
+  const { data: designsResponse } = useQuery({
+    queryKey: ['embroidery-designs-for-jwo'],
+    queryFn: () => api.get('/embroidery?limit=100').then((r) => r.data),
+    enabled: open && isEmbroidery,
+    staleTime: 5 * 60 * 1000,
+  });
+  const designs: Array<{ id: string; embroideryCode?: string; designName?: string }> = designsResponse?.data || [];
 
   const { data: suppliersResponse } = useQuery({
     queryKey: ['suppliers-for-jwo'],
@@ -109,6 +137,8 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
     setButtonCount('');
     setButtonholeRate('0.30');
     setButtonRate('0.30');
+    setFabricStockLotId('');
+    setEmbroideryId('');
   };
 
   const canSubmit =
@@ -138,6 +168,12 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
               buttonCount: parseInt(buttonCount) || 0,
               buttonholeRatePerUnit: parseFloat(buttonholeRate) || 0,
               buttonRatePerUnit: parseFloat(buttonRate) || 0,
+            }
+          : {}),
+        ...(isEmbroidery
+          ? {
+              fabricStockLotId: fabricStockLotId || null,
+              embroideryId: embroideryId || null,
             }
           : {}),
       };
@@ -252,6 +288,49 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
                   </div>
                 )}
               </div>
+
+              {isEmbroidery && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Fabric Lot (source roll — can also be picked at issue)</Label>
+                    <Select value={fabricStockLotId} onValueChange={setFabricStockLotId}>
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={embLots.length ? 'Select fabric lot' : 'No lots pending embroidery'}
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {embLots.map((lot) => (
+                          <SelectItem key={lot.id} value={lot.id}>
+                            {lot.fabricMaster?.fabricCode ||
+                              lot.fabric?.fabricCode ||
+                              lot.fabricMaster?.fabricName ||
+                              lot.fabric?.fabricName ||
+                              lot.id.slice(0, 8)}{' '}
+                            — {Number(lot.quantityAvailable)}m
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Embroidery Design (optional)</Label>
+                    <Select value={embroideryId} onValueChange={setEmbroideryId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select design" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {designs.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.embroideryCode ? `${d.embroideryCode} — ` : ''}
+                            {d.designName || d.id.slice(0, 8)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-2">

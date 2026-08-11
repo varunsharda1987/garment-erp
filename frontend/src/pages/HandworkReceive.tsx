@@ -175,7 +175,8 @@ export default function HandworkReceive() {
                 <strong>{formatCurrency(sendOut.agreedRate)}</strong>
               </div>
               <div>
-                <span className="text-muted-foreground">PO:</span> <strong>{sendOut.purchaseOrder?.poNumber}</strong>
+                <span className="text-muted-foreground">Order:</span>{' '}
+                <strong>{sendOut.jobWorkOrder?.jobWorkNumber || sendOut.purchaseOrder?.poNumber}</strong>
               </div>
             </div>
           </CardContent>

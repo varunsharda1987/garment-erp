@@ -712,25 +712,34 @@ export default function JobWorkOrderDetail() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <div className="space-y-1.5">
-              <Label>Greige Stock Lot {jwo.fabricType === 'GREIGE' ? '*' : '(optional)'}</Label>
-              <Select value={issueLotId || 'none'} onValueChange={(v) => setIssueLotId(v === 'none' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select greige lot" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">-- No lot (service work) --</SelectItem>
-                  {(availableLots || [])
-                    .filter((lot) => Number(lot.quantityAvailable) >= Number(jwo.qtySentMeters))
-                    .map((lot) => (
-                      <SelectItem key={lot.id} value={lot.id}>
-                        {lot.greige?.greigeCode} — {lot.greige?.greigeName} ({Number(lot.quantityAvailable).toFixed(1)}m
-                        avail, {Number(lot.greigeWidth)}″)
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {jwo.fabricStockLotId ? (
+              <Alert>
+                <AlertDescription>
+                  This order issues from its selected fabric lot ({jwo.qtySentMeters.toFixed(2)} {jwo.uom} will be
+                  consumed{jwo.processType === 'EMBROIDERY' ? ' for embroidery' : ''}).
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <div className="space-y-1.5">
+                <Label>Greige Stock Lot {jwo.fabricType === 'GREIGE' ? '*' : '(optional)'}</Label>
+                <Select value={issueLotId || 'none'} onValueChange={(v) => setIssueLotId(v === 'none' ? '' : v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select greige lot" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">-- No lot (service work) --</SelectItem>
+                    {(availableLots || [])
+                      .filter((lot) => Number(lot.quantityAvailable) >= Number(jwo.qtySentMeters))
+                      .map((lot) => (
+                        <SelectItem key={lot.id} value={lot.id}>
+                          {lot.greige?.greigeCode} — {lot.greige?.greigeName} (
+                          {Number(lot.quantityAvailable).toFixed(1)}m avail, {Number(lot.greigeWidth)}″)
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Challan Ref (optional)</Label>
@@ -749,7 +758,9 @@ export default function JobWorkOrderDetail() {
             </Button>
             <Button
               onClick={() => issueMutation.mutate()}
-              disabled={issueMutation.isPending || (jwo.fabricType === 'GREIGE' && !issueLotId)}
+              disabled={
+                issueMutation.isPending || (jwo.fabricType === 'GREIGE' && !jwo.fabricStockLotId && !issueLotId)
+              }
             >
               <Send className="mr-2 h-4 w-4" />
               {issueMutation.isPending ? 'Issuing...' : 'Issue & Create Challan'}

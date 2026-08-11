@@ -2591,6 +2591,8 @@ class GRNService {
       where: { id: grn.jobWorkOrderId },
       include: {
         greigeStockLot: { select: { id: true, purchaseCost: true, greigeId: true } },
+        // Phase 5b: fabric-roll source (EMBROIDERY) — cost basis is the source lot's WAC
+        fabricStockLot: { select: { id: true, weightedAvgCost: true, fabricFinishType: true } },
         fabric: { select: { id: true, greigeId: true } },
         style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
       },
@@ -2610,8 +2612,12 @@ class GRNService {
       return;
     }
 
+    // Phase 5b: fabric-lot JWOs (embroidery on a finished roll) keep the SAME fabric master —
+    // the result lot is differentiated by embroideryId, not a new fabric (legacy parity).
+    const isFabricLotJwo = !!jobWorkOrder.fabricStockLotId && !jobWorkOrder.greigeStockLotId;
+
     // Finished fabric: reuse the JWO's, else derive from greige lineage
-    let finishedFabricId: string | null = jobWorkOrder.finishedFabricId;
+    let finishedFabricId: string | null = isFabricLotJwo ? jobWorkOrder.fabricId : jobWorkOrder.finishedFabricId;
     if (!finishedFabricId) {
       const greigeId = jobWorkOrder.greigeStockLot?.greigeId || jobWorkOrder.fabric?.greigeId || null;
       if (!greigeId) {
@@ -2638,11 +2644,16 @@ class GRNService {
       finishedFabricId = fabricResult.fabricId;
     }
 
-    // Cost: processing rate + source greige cost (per-meter)
+    // Cost: processing rate + source cost per meter (greige purchase cost, or the
+    // fabric lot's WAC for fabric-roll embroidery — legacy embroidery-receive parity)
     const processingRate = Number(
       processingQC?.actualRate ?? jobWorkOrder.actualRate ?? jobWorkOrder.agreedRatePerMeter ?? 0
     );
-    const sourceCost = jobWorkOrder.greigeStockLot?.purchaseCost ? Number(jobWorkOrder.greigeStockLot.purchaseCost) : 0;
+    const sourceCost = isFabricLotJwo
+      ? Number(jobWorkOrder.fabricStockLot?.weightedAvgCost ?? 0)
+      : jobWorkOrder.greigeStockLot?.purchaseCost
+        ? Number(jobWorkOrder.greigeStockLot.purchaseCost)
+        : 0;
     const totalCostPerMeter = roundToCent(addCurrency(processingRate, sourceCost)).toNumber();
     const cutableWidth = receivedWidth > 2 ? receivedWidth - 2 : receivedWidth;
     // Shared timestamp: GRN reversal matches fabric_stock by exact receivedDate equality
@@ -2661,7 +2672,13 @@ class GRNService {
         originStyleId: jobWorkOrder.style?.id || null,
         status: 'AVAILABLE',
         stockType: 'PLANNED_STOCK',
-        fabricFinishType: jobWorkOrder.processType === 'PRINTING' ? 'PRINTED' : 'DYED',
+        fabricFinishType: isFabricLotJwo
+          ? (jobWorkOrder.fabricStockLot?.fabricFinishType ?? 'DYED')
+          : jobWorkOrder.processType === 'PRINTING'
+            ? 'PRINTED'
+            : 'DYED',
+        // Phase 5b: the embroidered result lot carries the design id (legacy receive parity)
+        embroideryId: isFabricLotJwo ? (jobWorkOrder.embroideryId ?? null) : null,
         weightedAvgCost: totalCostPerMeter,
         purchaseCost: totalCostPerMeter,
         qualityGrade: processingQC?.qualityGrade || DEFAULT_QUALITY_GRADE,

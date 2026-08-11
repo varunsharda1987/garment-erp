@@ -176,6 +176,9 @@ export interface CreateJobWorkOrderRequest {
   buttonCount?: number;
   buttonholeRatePerUnit?: number;
   buttonRatePerUnit?: number;
+  // Phase 5b: fabric-roll embroidery source lot + design
+  fabricStockLotId?: string | null;
+  embroideryId?: string | null;
 }
 
 export interface JobWorkOrderDashboard {

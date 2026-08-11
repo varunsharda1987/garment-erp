@@ -3924,27 +3924,11 @@ export async function convertToGreigeProcessing(
     include: getRequirementIncludes(),
   });
 
-  // 7. Auto-create fabric_processing record for tracking
-  const fabricProcessing = await prisma.fabric_processing.create({
-    data: {
-      processorId: data.processorId,
-      processingType: 'DYEING', // Default; can be updated
-      greigeId: data.greigeId,
-      greigeQuantitySent: greigeQtyNeeded, // P3: shrinkage-adjusted
-      greigeCost: data.greigeCost || null,
-      processingCost: data.processingCost || null,
-      finishedFabricId: requirement.materials?.fabricId || null,
-      processingStatus: 'PLANNED',
-      componentName: (data as any).componentName || (requirement as any).componentName || null,
-      colorName: (data as any).colorName || (requirement as any).colorName || null,
-      createdById: userId,
-    },
-  });
-
+  // 7. Phase 5b: no fabric_processing shadow record — the PROCESSING requirement's
+  // JWO (created at PO-generation time) is the tracking document end-to-end.
   return {
     greigeRequirement: mapToResponse(greigeReq),
     processingRequirement: mapToResponse(procReq),
-    fabricProcessingId: fabricProcessing.id,
   };
 }
 

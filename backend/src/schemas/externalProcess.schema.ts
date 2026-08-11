@@ -55,7 +55,8 @@ export const sendOutSchema = z.object({
   quantitySent: z.number().positive(),
   unit: z.string().max(20),
   agreedRate: z.number().nonnegative().optional(),
-  purchaseOrderId: z.string().uuid().optional(),
+  // Phase 5b: the commercial doc is a Job Work Order (POs are material-only)
+  jobWorkOrderId: z.string().uuid(),
   serviceRequirementId: z.string().uuid().optional(),
   embroideryId: z.string().uuid().optional(),
   skus: z.array(sendOutSkuSchema).optional(),

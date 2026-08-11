@@ -31,6 +31,7 @@ import ExportButton from '@/components/ExportButton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Ruler, Clock, CheckCircle2, Circle, Loader2, ChevronDown, ChevronRight, Calculator } from 'lucide-react';
 import { getUploadUrl } from '../config/api.config';
+import { MiniMarkerBadge } from '@/components/cad/MiniMarkerBadge';
 
 export default function CADPlanningList() {
   const navigate = useNavigate();
@@ -407,6 +408,7 @@ export default function CADPlanningList() {
                         <TableHead>Greige</TableHead>
                         <TableHead className="text-center w-24">Components</TableHead>
                         <TableHead className="w-44">Progress</TableHead>
+                        <TableHead className="w-24 text-center">Markers</TableHead>
                         <TableHead className="w-56">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -555,6 +557,11 @@ export default function CADPlanningList() {
                               })()}
                             </TableCell>
 
+                            {/* Mini Markers */}
+                            <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                              <MiniMarkerBadge styleId={style.id} />
+                            </TableCell>
+
                             {/* Actions */}
                             <TableCell>
                               <div className="flex gap-2">
@@ -592,7 +599,7 @@ export default function CADPlanningList() {
                           {/* Expanded Row - CAD Details */}
                           {expandedRows.has(style.id) && (
                             <TableRow className="bg-muted/50">
-                              <TableCell colSpan={9} className="p-0">
+                              <TableCell colSpan={10} className="p-0">
                                 <div className="px-12 py-3 border-t border-gray-100">
                                   <div className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
                                     CAD Width Details

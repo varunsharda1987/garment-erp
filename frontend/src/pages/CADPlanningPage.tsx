@@ -9,12 +9,15 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Textarea } from '../components/ui/textarea';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { MiniMarkerBadge } from '@/components/cad/MiniMarkerBadge';
+import { miniMarkerService } from '@/services/miniMarker.service';
 import {
   Dialog,
   DialogContent,
@@ -161,6 +164,13 @@ export default function CADPlanningPage() {
   const [pushStatus, setPushStatus] = useState<CADCostingStatusResponse | null>(null);
   const [loadingPushStatus, setLoadingPushStatus] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
+
+  // Mini marker count query
+  const { data: miniMarkerCount } = useQuery({
+    queryKey: ['miniMarkerCount', id],
+    queryFn: () => miniMarkerService.getCount(id!),
+    enabled: !!id,
+  });
 
   // ============================================
   // DATA LOADING
@@ -547,13 +557,16 @@ export default function CADPlanningPage() {
             </p>
           </div>
         </div>
-        <Badge
-          variant={isApproved ? 'default' : style.cadStatus === 'IN_PROGRESS' ? 'secondary' : 'outline'}
-          className={cn('text-sm px-3 py-1', isApproved && 'bg-success')}
-        >
-          {isApproved && <CheckCircle2 className="h-4 w-4 mr-1" />}
-          {style.cadStatus}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <MiniMarkerBadge styleId={id!} count={miniMarkerCount} />
+          <Badge
+            variant={isApproved ? 'default' : style.cadStatus === 'IN_PROGRESS' ? 'secondary' : 'outline'}
+            className={cn('text-sm px-3 py-1', isApproved && 'bg-success')}
+          >
+            {isApproved && <CheckCircle2 className="h-4 w-4 mr-1" />}
+            {style.cadStatus}
+          </Badge>
+        </div>
       </div>
 
       {/* Info Banner - Compact */}

@@ -399,6 +399,7 @@ export interface CuttingChartData {
   buyer: string;
   brand: string;
   style: string;
+  styleId: string;
   styleName: string;
   styleImage: string;
   workOrderNumber: string;

@@ -2169,6 +2169,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     buyer: workOrder.orders?.customers?.name || '',
     brand: workOrder.styles?.brandName || workOrder.orders?.customers?.brandNames || '',
     style: workOrder.styles?.styleCode || '',
+    styleId: workOrder.styleId,
     buyerStyleRef: workOrder.styles?.buyerStyleRef ?? null,
     styleName: workOrder.styles?.styleName || '',
     styleImage: workOrder.styles?.imageUrl || '',

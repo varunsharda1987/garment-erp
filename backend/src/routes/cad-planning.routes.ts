@@ -62,7 +62,16 @@ import {
   getPendingVarianceApprovals,
 } from '../controllers/cad-embroidery.controller';
 import { approveCADPlan, rejectCADPlan } from '../controllers/style.controller';
+import {
+  uploadMiniMarker,
+  getMiniMarkers,
+  getMiniMarkersByPurpose,
+  getMiniMarkerCount,
+  deleteMiniMarker,
+  reorderMiniMarkers,
+} from '../controllers/cad-file.controller';
 import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
+import { uploadCadFile } from '../middleware/upload.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import {
@@ -99,6 +108,12 @@ import {
   createOrUpdateEmbroideryCadSchema,
   syncBomFabricSchema,
 } from '../schemas/cadPlanning.schema';
+import {
+  uploadCadFileSchema,
+  reorderCadFilesSchema,
+  styleIdAndPurposeParamSchema,
+  styleIdAndFileIdParamSchema,
+} from '../schemas/cadFile.schema';
 
 const router = Router();
 
@@ -643,6 +658,74 @@ router.post(
   authorize('ADMIN'),
   validateBody(approveProductionVarianceSchema),
   asyncHandler(approveProductionVariance)
+);
+
+// ============================================
+// MINI MARKER FILES
+// ============================================
+
+/**
+ * @route   GET /api/cad-planning/:styleId/mini-marker-count
+ * @desc    Get count of mini markers for a style (for list page badge)
+ * @access  All authenticated users
+ */
+router.get('/:styleId/mini-marker-count', validateParams(styleIdParamSchema), asyncHandler(getMiniMarkerCount));
+
+/**
+ * @route   GET /api/cad-planning/:styleId/mini-markers
+ * @desc    Get all mini markers for a style (grouped by purpose)
+ * @access  All authenticated users
+ */
+router.get('/:styleId/mini-markers', validateParams(styleIdParamSchema), asyncHandler(getMiniMarkers));
+
+/**
+ * @route   GET /api/cad-planning/:styleId/mini-markers/:purpose
+ * @desc    Get mini markers for a specific purpose
+ * @access  All authenticated users
+ */
+router.get(
+  '/:styleId/mini-markers/:purpose',
+  validateParams(styleIdAndPurposeParamSchema),
+  asyncHandler(getMiniMarkersByPurpose)
+);
+
+/**
+ * @route   POST /api/cad-planning/:styleId/mini-markers
+ * @desc    Upload a mini marker file
+ * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
+ */
+router.post(
+  '/:styleId/mini-markers',
+  validateParams(styleIdParamSchema),
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  uploadCadFile,
+  validateBody(uploadCadFileSchema),
+  asyncHandler(uploadMiniMarker)
+);
+
+/**
+ * @route   POST /api/cad-planning/:styleId/mini-markers/reorder
+ * @desc    Reorder mini markers within a purpose
+ * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
+ */
+router.post(
+  '/:styleId/mini-markers/reorder',
+  validateParams(styleIdParamSchema),
+  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
+  validateBody(reorderCadFilesSchema),
+  asyncHandler(reorderMiniMarkers)
+);
+
+/**
+ * @route   DELETE /api/cad-planning/:styleId/mini-markers/:fileId
+ * @desc    Delete a mini marker file
+ * @access  ADMIN, MERCHANDISER
+ */
+router.delete(
+  '/:styleId/mini-markers/:fileId',
+  validateParams(styleIdAndFileIdParamSchema),
+  authorize('ADMIN', 'MERCHANDISER'),
+  asyncHandler(deleteMiniMarker)
 );
 
 export default router;

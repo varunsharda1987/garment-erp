@@ -3,11 +3,13 @@ import logger from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
-import { Request } from 'express';
+import { Request, Response, NextFunction } from 'express';
+import { ValidationError } from '../errors';
 
 // Directory paths
 const uploadDir = path.join(__dirname, '../../uploads/styles');
 const tempImportDir = path.join(__dirname, '../../uploads/temp');
+const cadUploadDir = path.join(__dirname, '../../uploads/cad-files');
 
 // Create upload directories if they don't exist
 if (!fs.existsSync(uploadDir)) {
@@ -15,6 +17,9 @@ if (!fs.existsSync(uploadDir)) {
 }
 if (!fs.existsSync(tempImportDir)) {
   fs.mkdirSync(tempImportDir, { recursive: true });
+}
+if (!fs.existsSync(cadUploadDir)) {
+  fs.mkdirSync(cadUploadDir, { recursive: true });
 }
 
 // Storage configuration
@@ -121,4 +126,81 @@ export const cleanupOldTempFiles = (maxAgeHours: number = 24): void => {
       // Ignore errors for individual files
     }
   });
+};
+
+// ============================================
+// CAD FILE UPLOAD (Mini Markers - PDF/JPG/PNG)
+// ============================================
+
+// Storage configuration for CAD files
+const cadStorage = multer.diskStorage({
+  destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
+    cb(null, cadUploadDir);
+  },
+  filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `cad-${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
+
+// File filter for CAD files - allow PDF, JPG, PNG
+const cadFileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowedExtensions = /jpeg|jpg|png|pdf/;
+  const extname = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
+  const allowedMimetypes = ['image/jpeg', 'image/png', 'application/pdf'];
+  const mimetype = allowedMimetypes.includes(file.mimetype);
+
+  if (mimetype && extname) {
+    return cb(null, true);
+  } else {
+    cb(new Error('Only JPG, PNG, and PDF files are allowed'));
+  }
+};
+
+const cadUpload = multer({
+  storage: cadStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: cadFileFilter,
+}).single('file');
+
+/**
+ * Multer upload for CAD files (mini markers).
+ *
+ * Wraps multer so rejections (bad file type, size limit) surface as a 400 with the
+ * real reason. Raw multer passes a plain Error to next(), which the global handler
+ * reports as a 500 "An unexpected error occurred" — hiding why the upload failed.
+ */
+export const uploadCadFile = (req: Request, res: Response, next: NextFunction): void => {
+  cadUpload(req, res, (err: unknown) => {
+    if (!err) {
+      next();
+      return;
+    }
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        next(new ValidationError('File is too large. Maximum size is 10MB.'));
+        return;
+      }
+      next(new ValidationError(err.message));
+      return;
+    }
+    next(new ValidationError(err instanceof Error ? err.message : 'File upload failed'));
+  });
+};
+
+/**
+ * Delete a CAD file from disk
+ */
+export const deleteCadFile = (fileUrl: string): void => {
+  // fileUrl is like /uploads/cad-files/cad-123456789.pdf
+  const fileName = path.basename(fileUrl);
+  const filePath = path.join(cadUploadDir, fileName);
+
+  if (fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (error) {
+      logger.error('Failed to delete CAD file:', filePath, error);
+    }
+  }
 };

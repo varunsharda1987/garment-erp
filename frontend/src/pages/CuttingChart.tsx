@@ -18,6 +18,7 @@ import { getUploadUrl } from '@/config/api.config';
 import api from '@/lib/api';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Scissors, ArrowLeft, Save, Loader2, FileText, Image as ImageIcon, AlertTriangle } from 'lucide-react';
+import { MiniMarkerBadge } from '@/components/cad/MiniMarkerBadge';
 
 interface AvailableWorkOrder {
   id: string;
@@ -380,7 +381,10 @@ export default function CuttingChart() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">Order Details</CardTitle>
-                  <span className="text-lg font-bold text-primary tracking-wide">KASHAYA FABS</span>
+                  <div className="flex items-center gap-3">
+                    {chartData.styleId && <MiniMarkerBadge styleId={chartData.styleId} editable={false} />}
+                    <span className="text-lg font-bold text-primary tracking-wide">KASHAYA FABS</span>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

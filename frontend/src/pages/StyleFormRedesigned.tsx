@@ -90,6 +90,7 @@ import { cn, generateId } from '../lib/utils';
 import { getUploadUrl } from '../config/api.config';
 import api from '../lib/api';
 import { FABRIC_FINISH_TYPES, type FabricFinishType } from '../constants/fabric-finish-types';
+import { MiniMarkerBadge } from '../components/cad/MiniMarkerBadge';
 
 // Enums
 type CADStatus = 'PENDING' | 'IN_PROGRESS' | 'APPROVED';
@@ -2251,6 +2252,7 @@ export default function StyleFormRedesigned() {
                   ACTIVE
                 </Badge>
               )}
+              {isEditMode && effectiveId && <MiniMarkerBadge styleId={effectiveId} />}
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               Define style details, fabrics, and materials. CAD planning comes after creation.

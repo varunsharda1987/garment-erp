@@ -30,6 +30,7 @@ import type {
 import { CuttingBatchStatusLabels, CuttingBatchStatusColors } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { openPDF } from '@/lib/document-utils';
+import { MiniMarkerBadge } from '@/components/cad/MiniMarkerBadge';
 import {
   Scissors,
   ArrowLeft,
@@ -510,6 +511,7 @@ export default function CuttingDetail() {
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-display font-medium text-foreground">{batch.batchNumber}</h1>
                 {getStatusBadge(batch.status)}
+                {batch.workOrder?.styleId && <MiniMarkerBadge styleId={batch.workOrder.styleId} editable={false} />}
               </div>
               <p className="text-muted-foreground">
                 {batch.workOrder?.style?.styleCode}

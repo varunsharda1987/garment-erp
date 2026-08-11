@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { styleService } from '@/services/style.service';
+import { miniMarkerService } from '@/services/miniMarker.service';
 import type { Style } from '@/types/style.types';
 import { PRODUCTION_STAGE_LABELS } from '@/types/style.types';
 import { Button } from '@/components/ui/button';
@@ -14,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import type { StyleActualConsumption } from '@/types/cutting.types';
 import api from '@/lib/api';
+import { MiniMarkerBadge } from '@/components/cad/MiniMarkerBadge';
 
 export default function StyleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -25,6 +28,13 @@ export default function StyleDetail() {
   const [fabricStockLoading, setFabricStockLoading] = useState(false);
   const [actualConsumption, setActualConsumption] = useState<StyleActualConsumption[]>([]);
   const [consumptionLoading, setConsumptionLoading] = useState(false);
+
+  // Mini marker count query
+  const { data: miniMarkerCount } = useQuery({
+    queryKey: ['miniMarkerCount', id],
+    queryFn: () => miniMarkerService.getCount(id!),
+    enabled: !!id,
+  });
 
   useEffect(() => {
     if (id) {
@@ -120,7 +130,8 @@ export default function StyleDetail() {
             </h1>
             {style.styleName && <p className="text-lg text-muted-foreground mt-1">{style.styleName}</p>}
           </div>
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
+            <MiniMarkerBadge styleId={style.id} count={miniMarkerCount} />
             <Button variant="outline" onClick={() => navigate('/styles')}>
               Back to List
             </Button>

@@ -290,6 +290,36 @@ export async function getFabricCadOptions(fabricId: string): Promise<FabricCadOp
 // ============================================
 
 /**
+ * Generic trim master lookup: materialType → serialized relation key + code/name fields.
+ * All generic masters follow the { id, <type>Code, <type>Name } shape.
+ */
+const GENERIC_TRIM_MASTERS: Record<string, { relation: keyof OrderBOMItem; code: string; name: string }> = {
+  HOOK_EYE: { relation: 'hookEyeMaster', code: 'hookEyeCode', name: 'hookEyeName' },
+  SNAP_BUTTON: { relation: 'snapButtonMaster', code: 'snapButtonCode', name: 'snapButtonName' },
+  BUCKLE: { relation: 'buckleMaster', code: 'buckleCode', name: 'buckleName' },
+  BELT: { relation: 'beltMaster', code: 'beltCode', name: 'beltName' },
+  VELCRO: { relation: 'velcroMaster', code: 'velcroCode', name: 'velcroName' },
+  DRAWSTRING: { relation: 'drawstringMaster', code: 'drawstringCode', name: 'drawstringName' },
+  RIBBON: { relation: 'ribbonMaster', code: 'ribbonCode', name: 'ribbonName' },
+  SEQUIN: { relation: 'sequinMaster', code: 'sequinCode', name: 'sequinName' },
+  BEAD: { relation: 'beadMaster', code: 'beadCode', name: 'beadName' },
+  MOTIF: { relation: 'motifMaster', code: 'motifCode', name: 'motifName' },
+  INTERLINING: { relation: 'interliningMaster', code: 'interliningCode', name: 'interliningName' },
+  PADDING: { relation: 'paddingMaster', code: 'paddingCode', name: 'paddingName' },
+  OTHER_FASTENER: { relation: 'otherFastenerMaster', code: 'otherFastenerCode', name: 'otherFastenerName' },
+  OTHER_TAPE: { relation: 'otherTapeMaster', code: 'otherTapeCode', name: 'otherTapeName' },
+  OTHER_DECORATIVE: { relation: 'otherDecorativeMaster', code: 'otherDecorativeCode', name: 'otherDecorativeName' },
+  OTHER_FUNCTIONAL: { relation: 'otherFunctionalMaster', code: 'otherFunctionalCode', name: 'otherFunctionalName' },
+};
+
+function getGenericTrimMasterField(item: OrderBOMItem, field: 'code' | 'name'): string | null {
+  const config = GENERIC_TRIM_MASTERS[item.materialType as string];
+  if (!config) return null;
+  const master = item[config.relation] as Record<string, string> | null | undefined;
+  return master?.[config[field]] || null;
+}
+
+/**
  * Get the display name for a BOM item based on its material type
  */
 export function getBOMItemDisplayName(item: OrderBOMItem): string {
@@ -317,7 +347,8 @@ export function getBOMItemDisplayName(item: OrderBOMItem): string {
     case 'GENERIC':
       return item.material?.name || item.componentName || 'Material';
     default:
-      return item.componentName || 'Unknown';
+      // Generic trim types (HOOK_EYE, RIBBON, OTHER_FASTENER, ...)
+      return getGenericTrimMasterField(item, 'name') || item.componentName || 'Unknown';
   }
 }
 
@@ -371,7 +402,8 @@ export function getBOMItemCode(item: OrderBOMItem): string {
     case 'GENERIC':
       return item.material?.code || '-';
     default:
-      return '-';
+      // Generic trim types (HOOK_EYE, RIBBON, OTHER_FASTENER, ...)
+      return getGenericTrimMasterField(item, 'code') || '-';
   }
 }
 

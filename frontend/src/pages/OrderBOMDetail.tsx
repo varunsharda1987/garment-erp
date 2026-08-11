@@ -293,24 +293,25 @@ const OrderBOMDetail = () => {
             Back to List
           </Button>
 
+          {/* Regenerate button - available for DRAFT and APPROVED (not LOCKED) */}
+          {(isDraft || isApproved) && bom.sourceCostSheetId && (
+            <Button
+              variant="outline"
+              className="border-primary text-primary hover:bg-primary/10"
+              onClick={() => setRegenerateDialogOpen(true)}
+              disabled={regenerating}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Regenerate from Cost Sheet
+            </Button>
+          )}
+
+          {/* Approve button - only for DRAFT */}
           {isDraft && (
-            <>
-              {bom.sourceCostSheetId && (
-                <Button
-                  variant="outline"
-                  className="border-primary text-primary hover:bg-primary/10"
-                  onClick={() => setRegenerateDialogOpen(true)}
-                  disabled={regenerating}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Regenerate from Cost Sheet
-                </Button>
-              )}
-              <Button className="bg-success hover:bg-success" onClick={() => setApproveDialogOpen(true)}>
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Approve
-              </Button>
-            </>
+            <Button className="bg-success hover:bg-success" onClick={() => setApproveDialogOpen(true)}>
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Approve
+            </Button>
           )}
 
           {isApproved && (
@@ -718,7 +719,11 @@ const OrderBOMDetail = () => {
         open={regenerateDialogOpen}
         onOpenChange={setRegenerateDialogOpen}
         title="Regenerate BOM?"
-        description="This will delete the current Draft BOM and recreate it from the original cost sheet. Any manual edits to BOM items will be lost. Continue?"
+        description={
+          isDraft
+            ? 'This will delete the current Draft BOM and recreate it from the original cost sheet. Any manual edits to BOM items will be lost. Continue?'
+            : 'This will deactivate the current APPROVED BOM and cancel its open MRP requirements (requirements already on POs are kept). A new DRAFT BOM will be created from the original cost sheet — approve it to recalculate MRP. Continue?'
+        }
         confirmText={regenerating ? 'Regenerating...' : 'Regenerate'}
         cancelText="Cancel"
         onConfirm={handleRegenerate}

@@ -113,6 +113,23 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           elastic_master: true,
           label_master: true,
           packaging_master: true,
+          // Generic trim masters — code/name only, so the BOM UI can show the Code column
+          hook_eye_master: { select: { id: true, hookEyeCode: true, hookEyeName: true } },
+          snap_button_master: { select: { id: true, snapButtonCode: true, snapButtonName: true } },
+          buckle_master: { select: { id: true, buckleCode: true, buckleName: true } },
+          belt_master: { select: { id: true, beltCode: true, beltName: true } },
+          velcro_master: { select: { id: true, velcroCode: true, velcroName: true } },
+          drawstring_master: { select: { id: true, drawstringCode: true, drawstringName: true } },
+          ribbon_master: { select: { id: true, ribbonCode: true, ribbonName: true } },
+          sequin_master: { select: { id: true, sequinCode: true, sequinName: true } },
+          bead_master: { select: { id: true, beadCode: true, beadName: true } },
+          motif_master: { select: { id: true, motifCode: true, motifName: true } },
+          interlining_master: { select: { id: true, interliningCode: true, interliningName: true } },
+          padding_master: { select: { id: true, paddingCode: true, paddingName: true } },
+          other_fastener_master: { select: { id: true, otherFastenerCode: true, otherFastenerName: true } },
+          other_tape_master: { select: { id: true, otherTapeCode: true, otherTapeName: true } },
+          other_decorative_master: { select: { id: true, otherDecorativeCode: true, otherDecorativeName: true } },
+          other_functional_master: { select: { id: true, otherFunctionalCode: true, otherFunctionalName: true } },
           fabric_master: {
             include: {
               greige: {
@@ -510,7 +527,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     const accessoryItemsRelational = (costSheet as any).accessoryItems || [];
 
     // Convert relational to the same shape as JSON for uniform downstream processing
-    const trimsDetails =
+    const trimsDetails: CostSheetTrimDetail[] =
       trimItemsRelational.length > 0
         ? trimItemsRelational.map((t: any) => ({
             trimName: t.trimName,
@@ -520,6 +537,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
             bomId: t.bomId,
             unit: t.unit,
             materialType: t.materialType,
+            isNotApplicable: t.isNotApplicable === true,
             threadId: t.threadId,
             buttonId: t.buttonId,
             zipperId: t.zipperId,
@@ -579,7 +597,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
             isNotApplicable?: boolean;
           }>) || [];
 
-    const accessoriesDetails =
+    const accessoriesDetails: CostSheetAccessoryDetail[] =
       accessoryItemsRelational.length > 0
         ? accessoryItemsRelational.map((a: any) => ({
             accessoryName: a.accessoryName,
@@ -590,6 +608,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
             packagingId: a.packagingId,
             materialId: a.materialId,
             materialType: a.materialType,
+            isNotApplicable: a.isNotApplicable === true,
           }))
         : // Fallback to JSON for old cost sheets
           (costSheet.accessoriesDetails as unknown as Array<{
@@ -615,29 +634,42 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bomItems: any[] = [];
 
+    // Consumption tracking pairs cost sheet entries 1:1 with style BOM rows;
+    // leftovers are appended after the loop (cost-sheet-only trims)
+    const consumedTrims = new Set<CostSheetTrimDetail>();
+    const consumedAccessories = new Set<CostSheetAccessoryDetail>();
+    // P3.5+ wastage unification: use system setting instead of hardcoded 2%
+    const trimDefaultWastagePercent = await systemSettingsService.getNumber('TRIM_DEFAULT_WASTAGE_PERCENT', 2);
+
     // Add trim items from style_material_bom
     for (const material of styleMaterialBOM) {
-      // Find matching price from cost sheet (trimsDetails for GARMENT_TRIM, accessoriesDetails for PACKAGING)
-      const trimPrice = trimsDetails.find(
-        (t: CostSheetTrimDetail) =>
-          t.bomId === material.id || t.trimName?.toLowerCase() === this.getMaterialName(material)?.toLowerCase()
-      );
-
-      // Fallback: check accessoriesDetails for PACKAGING items
+      // Match cost sheet entry by master FK → bomId → normalized name
+      // (trimsDetails for GARMENT_TRIM, accessoriesDetails for PACKAGING)
+      const trimPrice = this.matchTrimDetail(material, trimsDetails, consumedTrims);
       const accessoryPrice = !trimPrice
-        ? accessoriesDetails.find(
-            (a: CostSheetAccessoryDetail) =>
-              a.accessoryName?.toLowerCase() === this.getMaterialName(material)?.toLowerCase()
-          )
+        ? this.matchAccessoryDetail(material, accessoriesDetails, consumedAccessories)
         : null;
 
-      // Default qty to 1 for PACKAGING items (1 label/polybag per garment)
-      const quantityPerGarment =
-        Number(material.quantityPerGarment) || (material.usageCategory === 'PACKAGING' ? 1 : 0);
+      // Quantity: matched cost sheet entry is the authority; style BOM value is fallback only
+      const styleQty = Number(material.quantityPerGarment) || 0;
+      const costSheetQty = trimPrice
+        ? Number(trimPrice.trimQuantity) || 0
+        : accessoryPrice
+          ? Number(accessoryPrice.accessoryQuantity) || 0
+          : 0;
+      const { qty: quantityPerGarment, source: qtySource } = this.resolveTrimQuantity(
+        styleQty,
+        costSheetQty,
+        material.usageCategory
+      );
+      if (qtySource === 'UNRESOLVED') {
+        logWarn(
+          `[OrderBOM] Quantity/garment resolves to 0 for '${material.componentName || material.materialType}' — not set in style BOM or cost sheet; MRP will purchase 0. Fix: set quantity on the cost sheet trim.`,
+          { styleId: input.styleId, materialType: material.materialType }
+        );
+      }
       const totalQuantity = quantityPerGarment * orderQuantity;
-      // P3.5+ wastage unification: use system setting instead of hardcoded 2%
-      const defaultWastage = await systemSettingsService.getNumber('TRIM_DEFAULT_WASTAGE_PERCENT', 2);
-      const wastagePercent = Number(material.extraPercentage) || defaultWastage;
+      const wastagePercent = Number(material.extraPercentage) || trimDefaultWastagePercent;
       const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
       // Price resolution: try cost sheet trim price, then accessory price, then material's own unitPrice
       let unitPrice = 0;
@@ -705,6 +737,147 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         notes: material.notes,
         sortOrder: material.sortOrder || 0,
       });
+    }
+
+    // Cost sheet entries with no matching style BOM row: append them so they still appear
+    // in the Order BOM (previously silently missing whenever style_material_bom was non-empty).
+    // Recomputed from scratch on every (re)generation, so regenerate picks up cost sheet changes.
+    if (styleMaterialBOM.length > 0) {
+      const unmatchedTrims = trimsDetails.filter((t) => t.trimName && !t.isNotApplicable && !consumedTrims.has(t));
+      const unmatchedAccessories = accessoriesDetails.filter(
+        (a) => a.accessoryName && !a.isNotApplicable && !consumedAccessories.has(a)
+      );
+
+      let appendSortOrder = 300; // after style rows (0+), Fix 9 rows (100+), thread rows (200+)
+      let appendedTrimCount = 0;
+      let appendedAccessoryCount = 0;
+
+      for (const trim of unmatchedTrims) {
+        const materialType = this.detectMaterialTypeFromName(trim.trimName!, trim.materialType);
+        // Thread cost is flat per garment — a second THREAD row would double-count it
+        if (materialType === 'THREAD' && bomItems.some((i) => i.materialType === 'THREAD')) {
+          logInfo('[OrderBOM] Skipping unmatched cost sheet thread entry — thread already in BOM', {
+            trimName: trim.trimName,
+          });
+          continue;
+        }
+        const { qty: quantityPerGarment, source: qtySource } = this.resolveTrimQuantity(
+          0,
+          Number(trim.trimQuantity) || 0,
+          'GARMENT_TRIM'
+        );
+        if (qtySource === 'UNRESOLVED') {
+          logWarn(
+            `[OrderBOM] Quantity/garment resolves to 0 for cost-sheet-only trim '${trim.trimName}' — MRP will purchase 0. Fix: set quantity on the cost sheet trim.`,
+            { styleId: input.styleId, materialType }
+          );
+        }
+        const totalQuantity = quantityPerGarment * orderQuantity;
+        const wastagePercent = trimDefaultWastagePercent;
+        const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
+        const unitPrice = Number(trim.trimRate) || 0;
+        const totalCost = totalWithWastage * unitPrice;
+
+        bomItems.push({
+          id: uuidv4(),
+          orderBomId: '',
+          materialType,
+          quantityPerGarment,
+          orderQuantity,
+          totalQuantity,
+          wastagePercent,
+          totalWithWastage,
+          unit: trim.unit || Unit.PIECE,
+          unitPrice,
+          totalCost,
+          componentName: trim.trimName,
+          usageCategory: 'GARMENT_TRIM',
+          notes: 'Auto-added from cost sheet (not in style material BOM)',
+          sortOrder: appendSortOrder++,
+          // Pass through master IDs from cost sheet
+          threadId: trim.threadId || null,
+          buttonId: trim.buttonId || null,
+          zipperId: trim.zipperId || null,
+          elasticId: trim.elasticId || null,
+          labelId: trim.labelId || null,
+          packagingId: trim.packagingId || null,
+          materialId: trim.materialId || null,
+          // Generic trim FK IDs
+          hookEyeId: trim.hookEyeId || null,
+          snapButtonId: trim.snapButtonId || null,
+          buckleId: trim.buckleId || null,
+          beltId: trim.beltId || null,
+          velcroId: trim.velcroId || null,
+          drawstringId: trim.drawstringId || null,
+          ribbonId: trim.ribbonId || null,
+          sequinId: trim.sequinId || null,
+          beadId: trim.beadId || null,
+          motifId: trim.motifId || null,
+          interliningId: trim.interliningId || null,
+          paddingId: trim.paddingId || null,
+          otherFastenerId: trim.otherFastenerId || null,
+          otherTapeId: trim.otherTapeId || null,
+          otherDecorativeId: trim.otherDecorativeId || null,
+          otherFunctionalId: trim.otherFunctionalId || null,
+        });
+        appendedTrimCount++;
+        logInfo('[OrderBOM] Appended cost sheet trim missing from style BOM', {
+          trimName: trim.trimName,
+          materialType,
+          quantityPerGarment,
+          unitPrice,
+        });
+      }
+
+      for (const acc of unmatchedAccessories) {
+        const materialType = this.detectMaterialTypeFromName(acc.accessoryName!, acc.materialType);
+        const { qty: quantityPerGarment } = this.resolveTrimQuantity(
+          0,
+          Number(acc.accessoryQuantity) || 0,
+          'PACKAGING'
+        );
+        const totalQuantity = quantityPerGarment * orderQuantity;
+        const wastagePercent = trimDefaultWastagePercent;
+        const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
+        const unitPrice = Number(acc.accessoryRate) || 0;
+        const totalCost = totalWithWastage * unitPrice;
+
+        bomItems.push({
+          id: uuidv4(),
+          orderBomId: '',
+          materialType,
+          quantityPerGarment,
+          orderQuantity,
+          totalQuantity,
+          wastagePercent,
+          totalWithWastage,
+          unit: Unit.PIECE,
+          unitPrice,
+          totalCost,
+          componentName: acc.accessoryName,
+          usageCategory: 'PACKAGING',
+          notes: 'Auto-added from cost sheet (not in style material BOM)',
+          sortOrder: appendSortOrder++,
+          // Pass through master IDs from cost sheet
+          labelId: acc.labelId || null,
+          packagingId: acc.packagingId || null,
+          materialId: acc.materialId || null,
+        });
+        appendedAccessoryCount++;
+        logInfo('[OrderBOM] Appended cost sheet accessory missing from style BOM', {
+          accessoryName: acc.accessoryName,
+          materialType,
+          quantityPerGarment,
+          unitPrice,
+        });
+      }
+
+      if (appendedTrimCount > 0 || appendedAccessoryCount > 0) {
+        logInfo('[OrderBOM] Appended cost sheet entries missing from style BOM', {
+          appendedTrims: appendedTrimCount,
+          appendedAccessories: appendedAccessoryCount,
+        });
+      }
     }
 
     // Fix 9: Fallback — create BOM items from cost sheet JSON when style_material_bom is empty
@@ -775,8 +948,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           otherTapeId: trim.otherTapeId || null,
           otherDecorativeId: trim.otherDecorativeId || null,
           otherFunctionalId: trim.otherFunctionalId || null,
-          // Generic fallback for new material types
-          masterId: trim.masterId || null,
+          // Note: masterId removed - field doesn't exist on order_bom_items (Prisma would throw)
         });
       }
 
@@ -812,8 +984,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           labelId: acc.labelId || null,
           packagingId: acc.packagingId || null,
           materialId: acc.materialId || null,
-          // Generic fallback for new material types
-          masterId: acc.masterId || null,
+          // Note: masterId removed - field doesn't exist on order_bom_items (Prisma would throw)
         });
       }
     }
@@ -1178,7 +1349,10 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
 
     // Create Order BOM in transaction
     const orderBOM = await this.prisma.$transaction(async (tx) => {
-      // Deactivate previous BOMs for this order/style
+      // Cancel open requirements of the BOMs being superseded, then deactivate them
+      await this.cancelBomRequirements(tx, {
+        orderBom: { orderId: input.orderId, styleId: input.styleId, isActive: true },
+      });
       await tx.order_bom.updateMany({
         where: {
           orderId: input.orderId,
@@ -1387,7 +1561,10 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
 
     // Create in transaction
     const newBOM = await this.prisma.$transaction(async (tx) => {
-      // Deactivate previous BOMs
+      // Cancel open requirements of the BOMs being superseded, then deactivate them
+      await this.cancelBomRequirements(tx, {
+        orderBom: { orderId: input.targetOrderId, styleId: input.styleId, isActive: true },
+      });
       await tx.order_bom.updateMany({
         where: {
           orderId: input.targetOrderId,
@@ -1605,7 +1782,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
 
     // Create new BOM version in transaction
     const newBOM = await this.prisma.$transaction(async (tx) => {
-      // Deactivate current BOM
+      // Cancel open requirements of the superseded version, then deactivate it
+      // (they are revived/recreated when the new version is approved and MRP recalculates)
+      await this.cancelBomRequirements(tx, { orderBomId: currentBOM.id });
       await tx.order_bom.update({
         where: { id: currentBOM.id },
         data: { isActive: false },
@@ -1930,6 +2109,28 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
   }
 
   /**
+   * Cancel open (non-terminal, not on a PO) MRP requirements matching the given filter.
+   * Must be called wherever a BOM is deactivated, or its requirements linger as
+   * PO_REQUIRED and duplicate on the next MRP recalculation.
+   */
+  private async cancelBomRequirements(
+    client: Prisma.TransactionClient,
+    where: Prisma.material_requirementsWhereInput
+  ): Promise<number> {
+    const result = await client.material_requirements.updateMany({
+      where: {
+        ...where,
+        status: { notIn: ['RECEIVED', 'CANCELLED', 'PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
+      },
+      data: { status: 'CANCELLED' },
+    });
+    if (result.count > 0) {
+      logInfo('Cancelled MRP requirements for deactivated BOM(s)', { where, cancelledCount: result.count });
+    }
+    return result.count;
+  }
+
+  /**
    * Deactivate Order BOM
    */
   async deactivate(id: string): Promise<void> {
@@ -1947,9 +2148,12 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       throw new BusinessError('Cannot deactivate LOCKED Order BOM');
     }
 
-    await this.prisma.order_bom.update({
-      where: { id },
-      data: { isActive: false },
+    await this.prisma.$transaction(async (tx) => {
+      await this.cancelBomRequirements(tx, { orderBomId: id });
+      await tx.order_bom.update({
+        where: { id },
+        data: { isActive: false },
+      });
     });
 
     logInfo('Order BOM deactivated', { id });
@@ -2237,6 +2441,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
 
   private getMaterialName(material: {
     materialType?: string | null;
+    componentName?: string | null;
     lace_master?: { laceName?: string } | null;
     button_master?: { buttonName?: string } | null;
     thread_master?: { threadName?: string } | null;
@@ -2245,24 +2450,182 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     label_master?: { labelName?: string } | null;
     packaging_master?: { packagingName?: string } | null;
   }): string | null {
+    let masterName: string | null = null;
     switch (material.materialType) {
       case 'LACE':
-        return material.lace_master?.laceName || null;
+        masterName = material.lace_master?.laceName || null;
+        break;
       case 'BUTTON':
-        return material.button_master?.buttonName || null;
+        masterName = material.button_master?.buttonName || null;
+        break;
       case 'THREAD':
-        return material.thread_master?.threadName || null;
+        masterName = material.thread_master?.threadName || null;
+        break;
       case 'ZIPPER':
-        return material.zipper_master?.zipperName || null;
+        masterName = material.zipper_master?.zipperName || null;
+        break;
       case 'ELASTIC':
-        return material.elastic_master?.elasticName || null;
+        masterName = material.elastic_master?.elasticName || null;
+        break;
       case 'LABEL':
-        return material.label_master?.labelName || null;
+        masterName = material.label_master?.labelName || null;
+        break;
       case 'PACKAGING':
-        return material.packaging_master?.packagingName || null;
+        masterName = material.packaging_master?.packagingName || null;
+        break;
       default:
-        return null;
+        masterName = null;
     }
+    // componentName fallback: generic trim types and rows without a linked master
+    // (style-form-created rows) would otherwise never name-match cost sheet entries
+    return masterName || material.componentName || null;
+  }
+
+  // Master FK fields shared between cost sheet trim entries and style_material_bom rows.
+  // laceId is deliberately absent: lace flows through style_costing_lace_items, not trimsDetails.
+  private static readonly TRIM_MASTER_FK_FIELDS = [
+    'materialId',
+    'threadId',
+    'buttonId',
+    'zipperId',
+    'elasticId',
+    'labelId',
+    'packagingId',
+    'hookEyeId',
+    'snapButtonId',
+    'buckleId',
+    'beltId',
+    'velcroId',
+    'drawstringId',
+    'ribbonId',
+    'sequinId',
+    'beadId',
+    'motifId',
+    'interliningId',
+    'paddingId',
+    'otherFastenerId',
+    'otherTapeId',
+    'otherDecorativeId',
+    'otherFunctionalId',
+  ] as const;
+
+  private static readonly ACCESSORY_MASTER_FK_FIELDS = ['materialId', 'labelId', 'packagingId'] as const;
+
+  private normalizeName(name?: string | null): string | null {
+    if (!name) return null;
+    const normalized = name.trim().toLowerCase().replace(/\s+/g, ' ');
+    return normalized || null;
+  }
+
+  private sharesMasterFK(
+    entry: Record<string, unknown>,
+    material: Record<string, unknown>,
+    fkFields: readonly string[]
+  ): boolean {
+    return fkFields.some((f) => entry[f] != null && material[f] != null && entry[f] === material[f]);
+  }
+
+  /**
+   * Match a style BOM row to a cost sheet trim entry: master FK → bomId → normalized name.
+   * Identity strength beats consumption freshness: an FK match on an already-consumed entry
+   * still wins over a name match on a fresh one. Within a stage, unconsumed entries are
+   * preferred so duplicate names pair 1:1; leftovers are appended by the caller.
+   */
+  private matchTrimDetail(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    material: any,
+    trims: CostSheetTrimDetail[],
+    consumed: Set<CostSheetTrimDetail>
+  ): CostSheetTrimDetail | undefined {
+    const candidates = trims.filter((t) => t.trimName && !t.isNotApplicable);
+    const materialName = this.normalizeName(this.getMaterialName(material));
+
+    const stages: Array<{ label: string; test: (t: CostSheetTrimDetail) => boolean }> = [
+      {
+        label: 'masterFK',
+        test: (t) =>
+          this.sharesMasterFK(
+            t as Record<string, unknown>,
+            material as Record<string, unknown>,
+            OrderBOMServiceClass.TRIM_MASTER_FK_FIELDS
+          ),
+      },
+      { label: 'bomId', test: (t) => !!t.bomId && t.bomId === material.id },
+      { label: 'name', test: (t) => materialName !== null && this.normalizeName(t.trimName) === materialName },
+    ];
+
+    for (const stage of stages) {
+      const matches = candidates.filter(stage.test);
+      if (matches.length === 0) continue;
+      const unconsumed = matches.find((m) => !consumed.has(m));
+      if (unconsumed) {
+        consumed.add(unconsumed);
+        return unconsumed;
+      }
+      logDebug('[OrderBOM] Reusing consumed cost sheet trim entry (more style BOM rows than entries)', {
+        stage: stage.label,
+        trimName: matches[0].trimName,
+      });
+      return matches[0];
+    }
+    return undefined;
+  }
+
+  private matchAccessoryDetail(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    material: any,
+    accessories: CostSheetAccessoryDetail[],
+    consumed: Set<CostSheetAccessoryDetail>
+  ): CostSheetAccessoryDetail | undefined {
+    const candidates = accessories.filter((a) => a.accessoryName && !a.isNotApplicable);
+    const materialName = this.normalizeName(this.getMaterialName(material));
+
+    const stages: Array<{ label: string; test: (a: CostSheetAccessoryDetail) => boolean }> = [
+      {
+        label: 'masterFK',
+        test: (a) =>
+          this.sharesMasterFK(
+            a as Record<string, unknown>,
+            material as Record<string, unknown>,
+            OrderBOMServiceClass.ACCESSORY_MASTER_FK_FIELDS
+          ),
+      },
+      { label: 'name', test: (a) => materialName !== null && this.normalizeName(a.accessoryName) === materialName },
+    ];
+
+    for (const stage of stages) {
+      const matches = candidates.filter(stage.test);
+      if (matches.length === 0) continue;
+      const unconsumed = matches.find((m) => !consumed.has(m));
+      if (unconsumed) {
+        consumed.add(unconsumed);
+        return unconsumed;
+      }
+      logDebug('[OrderBOM] Reusing consumed cost sheet accessory entry (more style BOM rows than entries)', {
+        stage: stage.label,
+        accessoryName: matches[0].accessoryName,
+      });
+      return matches[0];
+    }
+    return undefined;
+  }
+
+  /**
+   * Quantity per garment: the cost sheet is the authority — it is the only place users
+   * deliberately type quantities. Style BOM qty is a FALLBACK only (style-form rows are
+   * created with qty 0/hardcoded 1, and Fix 9a seeds are stale cost-sheet snapshots —
+   * none of these represent explicit user intent, so they must never override a matched
+   * cost sheet entry). PACKAGING defaults to 1 per garment.
+   */
+  private resolveTrimQuantity(
+    styleQty: number,
+    costSheetQty: number,
+    usageCategory?: string | null
+  ): { qty: number; source: 'COST_SHEET' | 'STYLE_BOM_FALLBACK' | 'PACKAGING_DEFAULT' | 'UNRESOLVED' } {
+    if (costSheetQty > 0) return { qty: costSheetQty, source: 'COST_SHEET' };
+    if (styleQty > 0) return { qty: styleQty, source: 'STYLE_BOM_FALLBACK' };
+    if (usageCategory === 'PACKAGING') return { qty: 1, source: 'PACKAGING_DEFAULT' };
+    return { qty: 0, source: 'UNRESOLVED' };
   }
 
   /**

@@ -91,6 +91,23 @@ export interface OrderBOMItem {
   elasticMaster?: { id: string; elasticCode: string; elasticName: string } | null;
   labelMaster?: { id: string; labelCode: string; labelName: string } | null;
   packagingMaster?: { id: string; packagingCode: string; packagingName: string } | null;
+  // Generic trim masters (all follow { id, <type>Code, <type>Name })
+  hookEyeMaster?: { id: string; hookEyeCode: string; hookEyeName: string } | null;
+  snapButtonMaster?: { id: string; snapButtonCode: string; snapButtonName: string } | null;
+  buckleMaster?: { id: string; buckleCode: string; buckleName: string } | null;
+  beltMaster?: { id: string; beltCode: string; beltName: string } | null;
+  velcroMaster?: { id: string; velcroCode: string; velcroName: string } | null;
+  drawstringMaster?: { id: string; drawstringCode: string; drawstringName: string } | null;
+  ribbonMaster?: { id: string; ribbonCode: string; ribbonName: string } | null;
+  sequinMaster?: { id: string; sequinCode: string; sequinName: string } | null;
+  beadMaster?: { id: string; beadCode: string; beadName: string } | null;
+  motifMaster?: { id: string; motifCode: string; motifName: string } | null;
+  interliningMaster?: { id: string; interliningCode: string; interliningName: string } | null;
+  paddingMaster?: { id: string; paddingCode: string; paddingName: string } | null;
+  otherFastenerMaster?: { id: string; otherFastenerCode: string; otherFastenerName: string } | null;
+  otherTapeMaster?: { id: string; otherTapeCode: string; otherTapeName: string } | null;
+  otherDecorativeMaster?: { id: string; otherDecorativeCode: string; otherDecorativeName: string } | null;
+  otherFunctionalMaster?: { id: string; otherFunctionalCode: string; otherFunctionalName: string } | null;
   fabricMaster?: {
     id: string;
     fabricCode: string;

@@ -64,13 +64,13 @@ export const TrimTypeEnum = z.enum([
  */
 export const createGenericTrimSchema = z
   .object({
-    code: z.string().max(50).optional(),
+    code: z.string().max(50).optional().nullable(),
     name: z.string().min(1).max(200).optional(),
-    description: z.string().max(500).optional(),
-    material: z.string().max(100).optional(),
-    color: z.string().max(50).optional(),
-    size: z.string().max(50).optional(),
-    supplierId: z.string().uuid('Invalid supplier ID').optional(),
+    description: z.string().max(500).optional().nullable(),
+    material: z.string().max(100).optional().nullable(),
+    color: z.string().max(50).optional().nullable(),
+    size: z.string().max(50).optional().nullable(),
+    supplierId: z.string().uuid('Invalid supplier ID').optional().nullable(),
     isActive: z.boolean().optional().default(true),
     // BUG-GT2 FIX: Explicitly validate price fields based on trim type unit
     // - pricePerPair: for PAIR unit items (hook_eye, padding)

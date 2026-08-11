@@ -16,6 +16,9 @@ import {
   Percent,
   FileCheck,
   Trash2,
+  Send,
+  CloudOff,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +26,9 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { creditNoteService } from '@/services/creditNote.service';
+import { pushCreditNoteToTally } from '@/services/tally.service';
 import { CreditNoteReasonLabels, DocumentStatusLabels, DocumentStatusColors } from '@/types/creditNote.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
@@ -81,6 +86,17 @@ export default function CreditNoteDetail() {
       navigate('/financial/credit-notes');
     },
     onError: (err) => handleApiError(err, 'Failed to delete credit note'),
+  });
+
+  // Tally push mutation
+  const tallyPushMutation = useMutation({
+    mutationFn: () => pushCreditNoteToTally(id!),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['credit-note', id] });
+      queryClient.invalidateQueries({ queryKey: ['tally-credit-notes'] });
+      handleApiSuccess(`Credit note pushed to Tally (Voucher: ${result.voucherNumber})`);
+    },
+    onError: (err) => handleApiError(err, 'Failed to push credit note to Tally'),
   });
 
   // Helpers
@@ -158,6 +174,51 @@ export default function CreditNoteDetail() {
                 Delete
               </Button>
             </>
+          )}
+
+          {/* Tally Push Button - only for approved credit notes */}
+          {creditNote.status === 'APPROVED' && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={creditNote.tallyPushedAt ? 'outline' : 'default'}
+                    onClick={() => tallyPushMutation.mutate()}
+                    disabled={tallyPushMutation.isPending}
+                    className="gap-2"
+                  >
+                    {tallyPushMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : creditNote.tallyPushedAt ? (
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    ) : creditNote.tallyLastError ? (
+                      <AlertCircle className="h-4 w-4 text-red-500" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    {creditNote.tallyPushedAt ? 'Re-push to Tally' : 'Push to Tally'}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {creditNote.tallyPushedAt ? (
+                    <p>
+                      Pushed on{' '}
+                      {new Date(creditNote.tallyPushedAt).toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </p>
+                  ) : creditNote.tallyLastError ? (
+                    <p className="text-red-500">Error: {creditNote.tallyLastError}</p>
+                  ) : (
+                    <p>Push this credit note to Tally</p>
+                  )}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
       </div>
@@ -351,6 +412,51 @@ export default function CreditNoteDetail() {
               <p className="font-medium">{formatDate(creditNote.updatedAt)}</p>
             </div>
           </div>
+
+          {/* Tally Sync Status */}
+          {creditNote.status === 'APPROVED' && (
+            <>
+              <Separator className="my-4" />
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  {creditNote.tallyPushedAt ? (
+                    <>
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      <div>
+                        <p className="text-sm font-medium text-green-700">Pushed to Tally</p>
+                        <p className="text-xs text-muted-foreground">
+                          Voucher: {creditNote.tallyVoucherNumber} •{' '}
+                          {new Date(creditNote.tallyPushedAt).toLocaleDateString('en-IN', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                    </>
+                  ) : creditNote.tallyLastError ? (
+                    <>
+                      <AlertCircle className="h-5 w-5 text-red-500" />
+                      <div>
+                        <p className="text-sm font-medium text-red-600">Tally Push Failed</p>
+                        <p className="text-xs text-red-500">{creditNote.tallyLastError}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <CloudOff className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Not pushed to Tally</p>
+                        <p className="text-xs text-muted-foreground">Click "Push to Tally" to sync this credit note</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

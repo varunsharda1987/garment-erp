@@ -13,6 +13,7 @@
 
 import PDFDocument from 'pdfkit';
 import ExcelJS from 'exceljs';
+import QRCode from 'qrcode';
 import { Prisma, Unit } from '@prisma/client';
 import prisma from '../config/database';
 import { COMPANY_CONFIG, amountToWords, INVOICE_TERMS, DEFAULT_HSN_CODES } from '../config/company.config';
@@ -120,6 +121,20 @@ class DocumentGeneratorService {
 
     const bankDetails = await this.getCompanyBankDetails();
 
+    // Pre-render the e-invoice QR (signed QR JWT from the IRP) — pdfkit drawing stays sync
+    let eInvoiceQrBuffer: Buffer | null = null;
+    if (invoice.eInvoiceIrn && invoice.eInvoiceQrCode && invoice.eInvoiceStatus === 'GENERATED') {
+      try {
+        eInvoiceQrBuffer = await QRCode.toBuffer(invoice.eInvoiceQrCode, {
+          errorCorrectionLevel: 'M',
+          margin: 0,
+          width: 256,
+        });
+      } catch (err) {
+        logWarn(`Could not render e-invoice QR for ${invoice.invoiceNumber}: ${String(err)}`);
+      }
+    }
+
     return new Promise((resolve, reject) => {
       const doc = new PDFDocument({ margin: 30, size: 'A4' });
       const chunks: Buffer[] = [];
@@ -129,7 +144,7 @@ class DocumentGeneratorService {
       doc.on('error', reject);
 
       try {
-        this.drawTaxInvoicePage(doc, invoice, bankDetails);
+        this.drawTaxInvoicePage(doc, invoice, bankDetails, eInvoiceQrBuffer);
         doc.end();
       } catch (err) {
         reject(err);
@@ -143,7 +158,8 @@ class DocumentGeneratorService {
   private drawTaxInvoicePage(
     doc: PDFKit.PDFDocument,
     invoice: NonNullable<Awaited<ReturnType<typeof this.getInvoiceWithDetails>>>,
-    bankDetails: Awaited<ReturnType<typeof this.getCompanyBankDetails>>
+    bankDetails: Awaited<ReturnType<typeof this.getCompanyBankDetails>>,
+    eInvoiceQrBuffer: Buffer | null = null
   ) {
     const pageWidth = doc.page.width;
     const marginLeft = 30;
@@ -188,6 +204,43 @@ class DocumentGeneratorService {
     // ── Horizontal Line ──
     doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
     y += 12;
+
+    // ── e-Invoice (IRN) block ── QR + IRN are statutory on e-invoiced documents
+    if (invoice.eInvoiceIrn) {
+      const qrSize = 70;
+      const textWidth = marginRight - marginLeft - qrSize - 20;
+      const blockTop = y;
+
+      doc.fontSize(8).font('Helvetica-Bold').text('IRN:', marginLeft, y);
+      doc.font('Helvetica').text(invoice.eInvoiceIrn, marginLeft + 25, y, { width: textWidth - 25 });
+      y = doc.y + 2;
+      const ackParts: string[] = [];
+      if (invoice.eInvoiceAckNo) ackParts.push(`Ack No: ${invoice.eInvoiceAckNo}`);
+      if (invoice.eInvoiceAckDate) ackParts.push(`Ack Date: ${this.formatDate(invoice.eInvoiceAckDate)}`);
+      if (ackParts.length > 0) {
+        doc.text(ackParts.join('   '), marginLeft, y, { width: textWidth });
+        y = doc.y + 2;
+      }
+      if (invoice.eInvoiceStatus === 'CANCELLED') {
+        doc
+          .font('Helvetica-Bold')
+          .fillColor('#CC0000')
+          .text(
+            `E-INVOICE CANCELLED${invoice.eInvoiceCancelledAt ? ` on ${this.formatDate(invoice.eInvoiceCancelledAt)}` : ''}`,
+            marginLeft,
+            y,
+            { width: textWidth }
+          )
+          .fillColor('#000000');
+        y = doc.y + 2;
+      } else if (eInvoiceQrBuffer) {
+        doc.image(eInvoiceQrBuffer, marginRight - qrSize, blockTop, { width: qrSize, height: qrSize });
+        y = Math.max(y, blockTop + qrSize + 4);
+      }
+
+      doc.moveTo(marginLeft, y).lineTo(marginRight, y).stroke();
+      y += 12;
+    }
 
     // ── Invoice Details Row ──
     doc.fontSize(10).font('Helvetica-Bold');

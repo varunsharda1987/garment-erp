@@ -15,6 +15,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { getInvoiceById, recordPayment, deleteInvoice } from '@/services/invoice.service';
+import { pushInvoiceToTally } from '@/services/tally.service';
+import { generateIrn, cancelIrn } from '@/services/einvoice.service';
 import type { Invoice, InvoiceItem, PaymentMethod } from '@/types/invoice.types';
 import { InvoiceStatusLabels, PaymentMethodLabels } from '@/types/invoice.types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -22,7 +24,20 @@ import { StatusBadge } from '@/components/StatusBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
-import { ArrowLeft, FileText, CreditCard, Trash2, Edit } from 'lucide-react';
+import {
+  ArrowLeft,
+  FileText,
+  CreditCard,
+  Trash2,
+  Edit,
+  Database,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  QrCode,
+  Ban,
+  Lock,
+} from 'lucide-react';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 
 export default function InvoiceDetail() {
@@ -33,6 +48,12 @@ export default function InvoiceDetail() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPushingToTally, setIsPushingToTally] = useState(false);
+  const [isGeneratingIrn, setIsGeneratingIrn] = useState(false);
+  const [cancelIrnDialogOpen, setCancelIrnDialogOpen] = useState(false);
+  const [irnCancelReason, setIrnCancelReason] = useState<'1' | '2' | '3' | '4'>('2');
+  const [irnCancelRemarks, setIrnCancelRemarks] = useState('');
+  const [isCancellingIrn, setIsCancellingIrn] = useState(false);
 
   // Payment form state
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -116,6 +137,66 @@ export default function InvoiceDetail() {
     }
   };
 
+  const handlePushToTally = async () => {
+    if (!id) return;
+
+    try {
+      setIsPushingToTally(true);
+      const result = await pushInvoiceToTally(id);
+      if (result.success) {
+        handleApiSuccess('Pushed to Tally', `Invoice pushed successfully (Voucher: ${result.voucherNumber})`);
+        fetchInvoice(id);
+      } else {
+        handleApiError(new Error(result.error || 'Push failed'), 'Failed to push to Tally');
+      }
+    } catch (err) {
+      handleApiError(err, 'Failed to push to Tally');
+    } finally {
+      setIsPushingToTally(false);
+    }
+  };
+
+  const handleGenerateIrn = async () => {
+    if (!id) return;
+
+    try {
+      setIsGeneratingIrn(true);
+      const result = await generateIrn(id);
+      if (result.success) {
+        handleApiSuccess('IRN generated', 'e-Invoice registered on the government portal. The invoice is now locked.');
+        fetchInvoice(id);
+      } else {
+        const detail = result.problems?.join(' ') || result.error || 'Generation failed';
+        handleApiError(new Error(detail), 'IRN generation failed');
+      }
+    } catch (err) {
+      handleApiError(err, 'IRN generation failed');
+    } finally {
+      setIsGeneratingIrn(false);
+    }
+  };
+
+  const handleCancelIrn = async () => {
+    if (!id) return;
+
+    try {
+      setIsCancellingIrn(true);
+      const result = await cancelIrn(id, { reason: irnCancelReason, remarks: irnCancelRemarks });
+      if (result.success) {
+        handleApiSuccess('IRN cancelled', 'The IRN has been cancelled on the government portal.');
+        setCancelIrnDialogOpen(false);
+        setIrnCancelRemarks('');
+        fetchInvoice(id);
+      } else {
+        handleApiError(new Error(result.error || 'Cancel failed'), 'IRN cancel failed');
+      }
+    } catch (err) {
+      handleApiError(err, 'IRN cancel failed');
+    } finally {
+      setIsCancellingIrn(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-IN', {
       day: '2-digit',
@@ -166,8 +247,15 @@ export default function InvoiceDetail() {
   }
 
   const canRecordPayment = invoice.balanceAmount > 0 && invoice.status !== 'PAID';
-  const canDelete = invoice.status === 'PENDING' && invoice.paidAmount === 0;
-  const canEdit = invoice.status === 'PENDING';
+  // e-Invoice freeze: an IRN-registered document is legally immutable (even after IRN cancel)
+  const irnLocked = !!invoice.eInvoiceIrn;
+  const canDelete = invoice.status === 'PENDING' && invoice.paidAmount === 0 && !irnLocked;
+  const canEdit = invoice.status === 'PENDING' && !irnLocked;
+  const irnCancelDeadline = invoice.eInvoiceAckDate
+    ? new Date(new Date(invoice.eInvoiceAckDate).getTime() + 24 * 60 * 60 * 1000)
+    : null;
+  const canCancelIrn =
+    invoice.eInvoiceStatus === 'GENERATED' && (!irnCancelDeadline || irnCancelDeadline.getTime() > Date.now());
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -215,6 +303,44 @@ export default function InvoiceDetail() {
               Delete
             </Button>
           )}
+          {/* Generate IRN Button */}
+          {!invoice.eInvoiceIrn && (
+            <Button
+              variant="secondary"
+              onClick={handleGenerateIrn}
+              disabled={isGeneratingIrn}
+              className="gap-2"
+              title={invoice.eInvoiceLastError || 'Register this invoice on the government e-Invoice portal'}
+            >
+              {isGeneratingIrn ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : invoice.eInvoiceLastError ? (
+                <AlertCircle className="h-4 w-4 text-red-600" />
+              ) : (
+                <QrCode className="h-4 w-4" />
+              )}
+              Generate IRN
+            </Button>
+          )}
+          {/* Push to Tally Button */}
+          <Button
+            variant={invoice.tallyPushedAt ? 'outline' : 'secondary'}
+            onClick={handlePushToTally}
+            disabled={isPushingToTally}
+            className="gap-2"
+            title={invoice.tallyLastError || undefined}
+          >
+            {isPushingToTally ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : invoice.tallyPushedAt ? (
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            ) : invoice.tallyLastError ? (
+              <AlertCircle className="h-4 w-4 text-red-600" />
+            ) : (
+              <Database className="h-4 w-4" />
+            )}
+            {invoice.tallyPushedAt ? 'Re-push to Tally' : 'Push to Tally'}
+          </Button>
         </div>
       </div>
 
@@ -255,6 +381,101 @@ export default function InvoiceDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Tally Status */}
+      {(invoice.tallyPushedAt || invoice.tallyLastError) && (
+        <Card
+          className={
+            invoice.tallyLastError && !invoice.tallyPushedAt
+              ? 'border-red-200 bg-red-50'
+              : 'border-green-200 bg-green-50'
+          }
+        >
+          <CardContent className="py-3">
+            <div className="flex items-center gap-2">
+              {invoice.tallyPushedAt ? (
+                <>
+                  <CheckCircle className="h-5 w-5 text-green-600" />
+                  <span className="text-green-800">
+                    Pushed to Tally on {formatDateTime(invoice.tallyPushedAt)}
+                    {invoice.tallyVoucherNumber && ` (Voucher: ${invoice.tallyVoucherNumber})`}
+                  </span>
+                </>
+              ) : invoice.tallyLastError ? (
+                <>
+                  <AlertCircle className="h-5 w-5 text-red-600" />
+                  <span className="text-red-800">Tally push failed: {invoice.tallyLastError}</span>
+                </>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* e-Invoice (IRN) Status */}
+      {(invoice.eInvoiceIrn || invoice.eInvoiceLastError) && (
+        <Card
+          className={
+            invoice.eInvoiceStatus === 'GENERATED'
+              ? 'border-green-200 bg-green-50'
+              : invoice.eInvoiceStatus === 'CANCELLED'
+                ? 'border-gray-200 bg-gray-50'
+                : 'border-red-200 bg-red-50'
+          }
+        >
+          <CardContent className="py-3 space-y-2">
+            {invoice.eInvoiceIrn ? (
+              <>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {invoice.eInvoiceStatus === 'CANCELLED' ? (
+                      <Ban className="h-5 w-5 text-gray-500" />
+                    ) : (
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    )}
+                    <span
+                      className={
+                        invoice.eInvoiceStatus === 'CANCELLED'
+                          ? 'text-gray-700 font-medium'
+                          : 'text-green-800 font-medium'
+                      }
+                    >
+                      {invoice.eInvoiceStatus === 'CANCELLED'
+                        ? `e-Invoice CANCELLED${invoice.eInvoiceCancelledAt ? ` on ${formatDateTime(invoice.eInvoiceCancelledAt)}` : ''}`
+                        : 'e-Invoice registered (IRN generated)'}
+                    </span>
+                    <span title="Invoice is locked — IRN-registered documents cannot be edited or deleted">
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                    </span>
+                  </div>
+                  {canCancelIrn && (
+                    <Button variant="outline" size="sm" onClick={() => setCancelIrnDialogOpen(true)} className="gap-1">
+                      <Ban className="h-4 w-4 text-red-500" />
+                      Cancel IRN
+                    </Button>
+                  )}
+                </div>
+                <div className="text-sm text-muted-foreground font-mono break-all">IRN: {invoice.eInvoiceIrn}</div>
+                <div className="text-sm text-muted-foreground">
+                  {invoice.eInvoiceAckNo && <>Ack No: {invoice.eInvoiceAckNo}</>}
+                  {invoice.eInvoiceAckDate && <> • Ack Date: {formatDateTime(invoice.eInvoiceAckDate)}</>}
+                  {canCancelIrn && irnCancelDeadline && (
+                    <> • Cancel window closes {formatDateTime(irnCancelDeadline.toISOString())}</>
+                  )}
+                </div>
+                {invoice.eInvoiceCancelReason && (
+                  <div className="text-sm text-muted-foreground">Cancel reason: {invoice.eInvoiceCancelReason}</div>
+                )}
+              </>
+            ) : (
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-red-600" />
+                <span className="text-red-800">IRN generation failed: {invoice.eInvoiceLastError}</span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Invoice Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -567,6 +788,58 @@ export default function InvoiceDetail() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel IRN Dialog */}
+      <Dialog open={cancelIrnDialogOpen} onOpenChange={setCancelIrnDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel IRN — {invoice.invoiceNumber}</DialogTitle>
+            <DialogDescription>
+              Cancelling removes the IRN on the government portal. This is only possible within 24 hours of generation
+              and cannot be undone — this invoice number can never be registered again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="irnCancelReason">Reason</Label>
+              <Select value={irnCancelReason} onValueChange={(v) => setIrnCancelReason(v as typeof irnCancelReason)}>
+                <SelectTrigger id="irnCancelReason">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">Duplicate</SelectItem>
+                  <SelectItem value="2">Data entry mistake</SelectItem>
+                  <SelectItem value="3">Order cancelled</SelectItem>
+                  <SelectItem value="4">Others</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="irnCancelRemarks">Remarks</Label>
+              <Textarea
+                id="irnCancelRemarks"
+                value={irnCancelRemarks}
+                onChange={(e) => setIrnCancelRemarks(e.target.value)}
+                placeholder="Short explanation (min 3 characters)"
+                rows={2}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelIrnDialogOpen(false)} disabled={isCancellingIrn}>
+              Keep IRN
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelIrn}
+              disabled={irnCancelRemarks.trim().length < 3 || isCancellingIrn}
+            >
+              {isCancellingIrn && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Cancel IRN
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

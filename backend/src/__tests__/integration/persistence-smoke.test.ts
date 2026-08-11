@@ -275,6 +275,163 @@ describe('customer accessory presets — round-trip with legacy mat-* material i
   });
 });
 
+/**
+ * Tally settings — singleton upsert round-trip.
+ * Unlike MODULES which create new records, tally_settings has a fixed "singleton" ID.
+ * The test updates the singleton and verifies all fields persist.
+ */
+describe('tally_settings — singleton upsert round-trip', () => {
+  let originalSettings: Record<string, unknown>;
+  const base = '/api/tally/settings';
+
+  it('GET returns the singleton settings (creates if needed)', async () => {
+    const res = await request(app).get(base).set(authHeader).expect(200);
+    originalSettings = (res.body.data ?? res.body) as Record<string, unknown>;
+    expect(originalSettings.id).toBe('singleton');
+  });
+
+  it('PUT updates settings and every sent field reads back', async () => {
+    const testUpdate = {
+      tallyEnabled: true,
+      tallyHost: '192.168.99.99',
+      tallyPort: 9001,
+      tallyCompanyName: `${RUN} Test Company`,
+      tallyPartyGroup: `${RUN} Debtors`,
+      tallyVoucherType: `${RUN} Sales`,
+      tallySalesLedgerIntra: `${RUN} Intra Sales`,
+      tallySalesLedgerInter: `${RUN} Inter Sales`,
+      tallyCgstLedger: `${RUN} CGST 5%`,
+      tallySgstLedger: `${RUN} SGST 5%`,
+      tallyIgstLedger: `${RUN} IGST 5%`,
+      tallyCgstLedger18: `${RUN} CGST 18%`,
+      tallySgstLedger18: `${RUN} SGST 18%`,
+      tallyIgstLedger18: `${RUN} IGST 18%`,
+      tallyRoundOffLedger: `${RUN} Round Off`,
+      tallyFreightLedger: `${RUN} Freight`,
+      tallyGodownName: `${RUN} Godown`,
+      tallyStockUnit: 'Nos',
+    };
+
+    const updateRes = await request(app).put(base).set(authHeader).send(testUpdate);
+    if (updateRes.status >= 400) {
+      throw new Error(`PUT ${base} → ${updateRes.status}: ${JSON.stringify(updateRes.body)}`);
+    }
+
+    const fetchRes = await request(app).get(base).set(authHeader).expect(200);
+    const fetched = (fetchRes.body.data ?? fetchRes.body) as Record<string, unknown>;
+
+    for (const [key, sent] of Object.entries(testUpdate)) {
+      expectFieldPersisted(fetched, key, sent);
+    }
+  });
+
+  afterAll(async () => {
+    // Restore original settings to avoid polluting other tests/runs
+    if (originalSettings) {
+      const restore: Record<string, unknown> = {};
+      const fields = [
+        'tallyEnabled',
+        'tallyHost',
+        'tallyPort',
+        'tallyCompanyName',
+        'tallyPartyGroup',
+        'tallyVoucherType',
+        'tallySalesLedgerIntra',
+        'tallySalesLedgerInter',
+        'tallyCgstLedger',
+        'tallySgstLedger',
+        'tallyIgstLedger',
+        'tallyCgstLedger18',
+        'tallySgstLedger18',
+        'tallyIgstLedger18',
+        'tallyRoundOffLedger',
+        'tallyFreightLedger',
+        'tallyGodownName',
+        'tallyStockUnit',
+      ];
+      for (const key of fields) {
+        if (key in originalSettings) restore[key] = originalSettings[key];
+      }
+      await request(app).put(base).set(authHeader).send(restore);
+    }
+  });
+});
+
+/**
+ * e-Invoice settings — singleton upsert round-trip.
+ * Same singleton pattern as tally_settings, plus the secret-masking contract:
+ * secrets (einvClientId/einvClientSecret/einvApiPassword) must come back MASKED,
+ * never as the stored plaintext.
+ */
+describe('einvoice_settings — singleton upsert round-trip', () => {
+  let originalSettings: Record<string, unknown>;
+  const base = '/api/einvoice/settings';
+  const MASK = '••••••••';
+
+  it('GET returns the singleton settings (creates if needed)', async () => {
+    const res = await request(app).get(base).set(authHeader).expect(200);
+    originalSettings = (res.body.data ?? res.body) as Record<string, unknown>;
+    expect(originalSettings.id).toBe('singleton');
+  });
+
+  it('PUT updates settings; non-secrets read back, secrets read back masked', async () => {
+    const testUpdate = {
+      einvEnabled: true,
+      einvMode: 'SANDBOX',
+      einvGstin: '08DCDPS0146D1ZU',
+      einvApiUsername: `${RUN}_apiuser`,
+      einvClientId: `${RUN}_client_id`,
+      einvClientSecret: `${RUN}_client_secret`,
+      einvApiPassword: `${RUN}_password`,
+    };
+
+    const updateRes = await request(app).put(base).set(authHeader).send(testUpdate);
+    if (updateRes.status >= 400) {
+      throw new Error(`PUT ${base} → ${updateRes.status}: ${JSON.stringify(updateRes.body)}`);
+    }
+
+    const fetchRes = await request(app).get(base).set(authHeader).expect(200);
+    const fetched = (fetchRes.body.data ?? fetchRes.body) as Record<string, unknown>;
+
+    expectFieldPersisted(fetched, 'einvEnabled', testUpdate.einvEnabled);
+    expectFieldPersisted(fetched, 'einvMode', testUpdate.einvMode);
+    expectFieldPersisted(fetched, 'einvGstin', testUpdate.einvGstin);
+    expectFieldPersisted(fetched, 'einvApiUsername', testUpdate.einvApiUsername);
+    // Secrets must be masked in responses — plaintext echo is a leak
+    expect(fetched.einvClientId).toBe(MASK);
+    expect(fetched.einvClientSecret).toBe(MASK);
+    expect(fetched.einvApiPassword).toBe(MASK);
+  });
+
+  it('PUT with the mask sentinel keeps the stored secret (round-trip safe)', async () => {
+    // Re-sending the mask (as the settings form does) must NOT overwrite the secret with '••••••••'
+    await request(app).put(base).set(authHeader).send({ einvClientId: MASK }).expect(200);
+    const res = await request(app).get(base).set(authHeader).expect(200);
+    const fetched = (res.body.data ?? res.body) as Record<string, unknown>;
+    expect(fetched.einvClientId).toBe(MASK); // still set → still masked, not cleared
+  });
+
+  afterAll(async () => {
+    // Restore originals. Secrets come back as the mask when they were set — re-sending
+    // the mask keeps the stored value; re-sending '' clears (it was blank before the test).
+    if (originalSettings) {
+      const restore: Record<string, unknown> = {};
+      for (const key of [
+        'einvEnabled',
+        'einvMode',
+        'einvGstin',
+        'einvApiUsername',
+        'einvClientId',
+        'einvClientSecret',
+        'einvApiPassword',
+      ]) {
+        if (key in originalSettings) restore[key] = originalSettings[key];
+      }
+      await request(app).put(base).set(authHeader).send(restore);
+    }
+  });
+});
+
 describe.each(MODULES)('$name — create/update round-trip persists every field', (spec) => {
   let id: string;
 

@@ -297,7 +297,20 @@ export async function getRecentAuditLogs(options?: {
  * Sanitize values before storing (remove sensitive fields)
  */
 function sanitizeValues(values: Record<string, unknown>): Record<string, unknown> {
-  const sensitiveFields = ['password', 'passwordHash', 'token', 'refreshToken', 'apiKey', 'secret'];
+  const sensitiveFields = [
+    'password',
+    'passwordHash',
+    'token',
+    'refreshToken',
+    'apiKey',
+    'secret',
+    'einvClientId',
+    'einvClientSecret',
+    'einvApiPassword',
+    'appKey',
+    'sek',
+    'authToken',
+  ];
   const sanitized = { ...values };
 
   for (const field of sensitiveFields) {

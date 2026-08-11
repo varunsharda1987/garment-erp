@@ -60,6 +60,11 @@ export interface CreditNote {
   createdAt: string;
   updatedAt: string;
 
+  // Tally push fields
+  tallyPushedAt?: string | null;
+  tallyVoucherNumber?: string | null;
+  tallyLastError?: string | null;
+
   // Relations (camelCase from serializer)
   invoice?: {
     id: string;

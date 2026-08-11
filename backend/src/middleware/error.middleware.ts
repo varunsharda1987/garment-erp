@@ -42,6 +42,11 @@ const SENSITIVE_LOG_KEYS = [
   'secret',
   'apiKey',
   'refreshToken',
+  'einvClientId',
+  'einvClientSecret',
+  'einvApiPassword',
+  'appKey',
+  'sek',
 ];
 
 /**

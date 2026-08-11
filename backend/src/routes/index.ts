@@ -92,6 +92,8 @@ import colorRoutes from './color.routes';
 import seasonRoutes from './season.routes';
 import lookupRoutes from './lookup.routes';
 import systemSettingsRoutes from './system-settings.routes';
+import tallyRoutes from './tally.routes';
+import einvoiceRoutes from './einvoice.routes';
 import trimDashboardRoutes from './trim-dashboard.routes';
 import genericTrimRoutes from './generic-trim.routes';
 import masterDataDashboardRoutes from './masterDataDashboard.routes';
@@ -141,6 +143,8 @@ import notificationRoutes from './notification.routes';
 import reportRoutes from './report.routes';
 import whatsappRoutes from './whatsapp.routes';
 import fgStockRoutes from './fg-stock.routes';
+import jobWorkStatutoryRoutes from './job-work-statutory.routes';
+import jobWorkOrderRoutes from './job-work-order.routes';
 
 /**
  * Create the versioned API router
@@ -253,6 +257,12 @@ export function createApiRouter(): Router {
   // P6.3: Finished Goods Stock visibility
   router.use('/fg-stock', fgStockRoutes);
 
+  // Job Work Statutory Reports (Phase 5)
+  router.use('/job-work-statutory', jobWorkStatutoryRoutes);
+
+  // Job Work Orders (Unified, Phase 7)
+  router.use('/job-work-orders', jobWorkOrderRoutes);
+
   // Job Work Processing
   router.use('/processing-batches', processingBatchRoutes);
   router.use('/processing-stages', processingStageRoutes);
@@ -338,6 +348,12 @@ export function createApiRouter(): Router {
 
   // System Settings (Configurable Defaults)
   router.use('/system-settings', systemSettingsRoutes);
+
+  // Tally ERP Integration
+  router.use('/tally', tallyRoutes);
+
+  // GST e-Invoice (IRN generation via IRP)
+  router.use('/einvoice', einvoiceRoutes);
 
   // Trim Masters Dashboard
   router.use('/trims', trimDashboardRoutes);

@@ -124,6 +124,21 @@ export interface Invoice {
   createdAt: string;
   updatedAt: string;
 
+  // Tally Push Fields
+  tallyPushedAt?: string | null;
+  tallyVoucherNumber?: string | null;
+  tallyLastError?: string | null;
+
+  // e-Invoice (IRN) Fields
+  eInvoiceIrn?: string | null;
+  eInvoiceAckNo?: string | null;
+  eInvoiceAckDate?: string | null;
+  eInvoiceQrCode?: string | null;
+  eInvoiceStatus?: string | null;
+  eInvoiceCancelledAt?: string | null;
+  eInvoiceCancelReason?: string | null;
+  eInvoiceLastError?: string | null;
+
   // Relations (serializer renames: customers→customer)
   customer?: {
     id: string;

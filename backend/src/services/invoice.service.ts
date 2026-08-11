@@ -787,6 +787,15 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
           throw new NotFoundError(`${this.entityName} not found`);
         }
 
+        // e-Invoice freeze: an IRN-registered document is legally immutable (the IRP only allows
+        // whole-document cancellation within 24h, never amendments). Applies even after cancel —
+        // a cancelled IRN's document number cannot be reused.
+        if (existing.eInvoiceIrn) {
+          throw new ValidationError(
+            'Invoice is locked: an e-Invoice IRN has been generated for it. Cancel the IRN (within 24 hours) or issue a credit note instead.'
+          );
+        }
+
         const updateData: any = { ...data };
         const moneyTouched =
           data.subtotal !== undefined || data.taxAmount !== undefined || data.totalAmount !== undefined;
@@ -860,6 +869,13 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
   async deleteInvoice(id: string): Promise<void> {
     try {
       const invoice = await this.getInvoiceById(id);
+
+      // e-Invoice freeze: IRN-registered documents must stay on record (even cancelled ones)
+      if (invoice.eInvoiceIrn) {
+        throw new ValidationError(
+          'Cannot delete: an e-Invoice IRN has been generated for this invoice. Cancel the IRN (within 24 hours) or issue a credit note instead.'
+        );
+      }
 
       // Check if invoice has payments
       if (parseFloat(invoice.paidAmount.toString()) > 0) {

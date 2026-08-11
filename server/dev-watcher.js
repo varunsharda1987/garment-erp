@@ -13,6 +13,17 @@ const ROOT = path.resolve(__dirname, '..');
 const FRONTEND = path.join(ROOT, 'frontend', 'src');
 const BACKEND = path.join(ROOT, 'backend', 'src');
 
+// Shared restart helper. A plain `pm2 restart` here was the single biggest orphan source on this
+// PC: on 2026-08-05 it drove garment-erp-api's restart counter to 1121 and the fleet watchdog
+// reaped 5 stale forks in 2h. The helper does stop -> wait for the port -> kill a *verified*
+// stale fork -> start -> confirm the port owner matches PM2's pid.
+const SAFE_RESTART = 'C:\\Users\\NEW\\ops\\pm2-safe-restart.js';
+
+// Build output is ~7MB/day of npm/vite/tsc noise in the PM2 log. Keep the pass/fail summary
+// lines; set DEV_WATCHER_VERBOSE=1 when you actually need to read a build failure live
+// (a FAILED build always prints its output regardless).
+const VERBOSE = process.env.DEV_WATCHER_VERBOSE === '1';
+
 let buildInProgress = false;
 let pendingFrontend = false;
 let pendingBackend = false;
@@ -35,8 +46,11 @@ function rebuild(type) {
       stdio: 'pipe'
     });
 
-    proc.stdout.on('data', (d) => process.stdout.write(d));
-    proc.stderr.on('data', (d) => process.stderr.write(d));
+    // Buffer instead of streaming: a passing build's output is pure noise in the PM2 log, but a
+    // FAILING build's output is exactly what you need, so keep it and print it on failure.
+    let output = '';
+    proc.stdout.on('data', (d) => { output += d; if (VERBOSE) process.stdout.write(d); });
+    proc.stderr.on('data', (d) => { output += d; if (VERBOSE) process.stderr.write(d); });
 
     proc.on('close', (code) => {
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -44,6 +58,7 @@ function rebuild(type) {
         console.log(`✅ Frontend rebuilt in ${elapsed}s - refresh browser to see changes`);
       } else {
         console.log(`❌ Frontend build failed (${elapsed}s)`);
+        if (!VERBOSE) process.stderr.write(output);
       }
       buildInProgress = false;
       checkPending();
@@ -56,16 +71,32 @@ function rebuild(type) {
       stdio: 'pipe'
     });
 
+    let output = '';
+    proc.stdout.on('data', (d) => { output += d; if (VERBOSE) process.stdout.write(d); });
+    proc.stderr.on('data', (d) => { output += d; if (VERBOSE) process.stderr.write(d); });
+
     proc.on('close', (code) => {
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      if (code === 0) {
-        console.log(`✅ Backend rebuilt in ${elapsed}s - restarting...`);
-        spawn('pm2', ['restart', 'garment-erp-api', '--silent'], { shell: true, stdio: 'inherit' });
-      } else {
-        console.log(`❌ Backend build failed (${elapsed}s)`);
+      if (code !== 0) {
+        console.log(`❌ Backend build failed (${elapsed}s) - API left running on the previous build`);
+        if (!VERBOSE) process.stderr.write(output);
+        buildInProgress = false;
+        checkPending();
+        return;
       }
-      buildInProgress = false;
-      checkPending();
+
+      console.log(`✅ Backend rebuilt in ${elapsed}s - restarting (safe sequence)...`);
+      // NEVER `pm2 restart` here - it races PM2's Windows kill and orphans the old fork, which
+      // then holds port 5000 while the tracked copy crash-loops on EADDRINUSE. Hold the build
+      // lock until the restart finishes so a fast second save cannot overlap two restarts.
+      const restart = spawn('node', [SAFE_RESTART, 'garment-erp-api:5000'], {
+        shell: false, stdio: 'inherit'
+      });
+      restart.on('close', (rc) => {
+        if (rc !== 0) console.log('⚠ safe restart reported a problem - check: pm2 logs garment-erp-api');
+        buildInProgress = false;
+        checkPending();
+      });
     });
   }
 }

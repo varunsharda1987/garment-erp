@@ -48,8 +48,18 @@ if %ERRORLEVEL% NEQ 0 (
 cd ..
 
 REM Step 5: Restart both apps
-echo [5/5] Restarting PM2 apps...
-call pm2 restart garment-erp-api garment-erp-web
+REM Uses the shared safe-restart helper (stop -> wait for port -> kill verified stale fork ->
+REM start -> confirm the port owner matches PM2's pid). A plain "pm2 restart" here can race
+REM PM2's Windows kill and orphan the old fork, which then holds the port while the tracked
+REM copy crash-loops on EADDRINUSE. See C:\Users\NEW\ops\pm2-safe-restart.js
+echo [5/5] Restarting PM2 apps (safe sequence)...
+call node C:\Users\NEW\ops\pm2-safe-restart.js garment-erp-api:5000 garment-erp-web:3000
+if %ERRORLEVEL% NEQ 0 (
+    echo [ERROR] Safe restart reported a problem - NOT running pm2 save.
+    echo         Check: pm2 logs garment-erp-api
+    pause
+    exit /b 1
+)
 call pm2 save
 
 echo.

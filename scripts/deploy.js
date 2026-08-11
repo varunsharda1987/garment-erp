@@ -134,11 +134,13 @@ function assertPm2VersionsMatch() {
     console.error(`\n${C.red}⚠ migrate/generate/build failed — restarting the API anyway; fix the error above and re-run npm run deploy${C.reset}`);
   } finally {
     // 4) Bring the API back (freshly built dist + regenerated client; or the old dist on failure)
-    run('pm2 restart garment-erp-api');
+    //    and 5) the web tier. Both go through the shared safe-restart helper: stop -> wait for
+    //    the port -> kill a VERIFIED stale fork -> start -> confirm the port owner matches PM2's
+    //    pid. A plain `pm2 restart` can race PM2's Windows kill and orphan the previous fork,
+    //    which keeps serving on the port while the tracked copy crash-loops on EADDRINUSE.
+    //    The helper re-runs assertPm2VersionsMatch internally, so the guard still applies.
+    run('node C:/Users/NEW/ops/pm2-safe-restart.js garment-erp-api:5000 garment-erp-web:3000');
   }
-
-  // 5) Reload web (dist already built above)
-  run('pm2 restart garment-erp-web');
 
   // 6) Health check (non-fatal)
   const healthy = await health();

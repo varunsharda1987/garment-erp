@@ -49,12 +49,15 @@ if [ "$BACKEND_CHANGED" = true ]; then
 
   if [ $BUILD_EXIT -eq 0 ]; then
     echo "✅ Backend rebuilt successfully"
-    echo "🔄 Restarting backend service..."
-    pm2 restart garment-erp-api --silent 2>/dev/null
+    echo "🔄 Restarting backend service (safe sequence)..."
+    # NOT `pm2 restart`: it races PM2's Windows kill and orphans the old fork, which then holds
+    # port 5000 while the tracked copy crash-loops on EADDRINUSE. The helper does
+    # stop -> wait for port -> kill a verified stale fork -> start -> confirm pid matches PM2.
+    node "C:/Users/NEW/ops/pm2-safe-restart.js" garment-erp-api:5000
     if [ $? -eq 0 ]; then
       echo "✅ Backend restarted"
     else
-      echo "⚠️  PM2 restart skipped (run manually if needed)"
+      echo "⚠️  Safe restart reported a problem - check: pm2 logs garment-erp-api"
     fi
   else
     echo "❌ Backend build failed (exit code: $BUILD_EXIT)"

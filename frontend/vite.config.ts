@@ -12,7 +12,12 @@ const enforceTypecheck = (): Plugin => ({
   name: 'enforce-typecheck',
   apply: 'build',
   buildStart() {
-    execSync('node --max-old-space-size=8192 ./node_modules/typescript/bin/tsc -b', {
+    // Heap CEILING (not a reservation), deliberately kept BELOW physical RAM. This PC has 12GB
+    // and typically runs with under 1GB free, so the old 8192 let a runaway typecheck page the
+    // whole machine out — which stalls the health probes and triggers watchdog restarts. At 4096
+    // a genuine runaway dies with a clear OOM instead, and a normal build (well under 2GB) is
+    // unaffected. Raise it only if you see a real "JavaScript heap out of memory" here.
+    execSync('node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc -b', {
       stdio: 'inherit',
       cwd: __dirname,
     })

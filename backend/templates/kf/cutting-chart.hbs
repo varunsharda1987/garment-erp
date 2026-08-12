@@ -13,10 +13,10 @@
         actual table has to hatch only the actual columns, so the same hatch is
         expressed per cell. Same gradient, same intent, cell scope. */
   .grid{table-layout:fixed;}
-  .grid th,.grid td{padding:3px; text-align:center;}
+  .grid th,.grid td{padding:2px 3px; text-align:center;}
   .grid th:first-child,.grid td:first-child{text-align:left; padding-left:6px; width:30%;}
   td.hand{background:repeating-linear-gradient(45deg,transparent,transparent 5px,
-          rgba(0,0,0,.028) 5px,rgba(0,0,0,.028) 10px);}
+          rgba(0,0,0,.028) 5px,rgba(0,0,0,.028) 10px); border-left:1px solid var(--rule);}
 </style>
 </head>
 <body>
@@ -36,9 +36,8 @@
       </div>
       <div>
         <div class="row"><span class="k">Work Order</span><span class="v">{{docNo}} &middot; <span class="muted">{{statusLabel}}</span></span></div>
-        <div class="row"><span class="k">Planned Run</span><span class="v">{{plannedStart}} &rarr; {{plannedEnd}}</span></div>
-        {{#if deliveryDate}}<div class="row"><span class="k">Delivery</span><span class="v">{{deliveryDate}}</span></div>{{/if}}
-        <div class="row"><span class="k">Fabric Ready</span><span class="v">{{#if lotsAvailable}}{{lotsAvailable}} m across {{lotCount}} lots{{else}}<span class="muted">No issued lot on record</span>{{/if}}</span></div>
+        <div class="row"><span class="k">Planned Run</span><span class="v">{{plannedStart}} &rarr; {{plannedEnd}}{{#if deliveryDate}} <span class="muted">&middot; delivery {{deliveryDate}}</span>{{/if}}</span></div>
+        <div class="row"><span class="k">Fabric</span><span class="v">{{#if lotsAvailable}}{{lotsAvailable}} m across {{lotCount}} lots{{else}}<span class="muted">No issued lot on record</span>{{/if}}</span></div>
         <div class="row"><span class="k">Max Cuttable</span><span class="v">{{#if maxCuttableLabel}}{{maxCuttableLabel}} pcs{{#if bottleneckPart}} <span class="muted">&mdash; limited by {{bottleneckPart}}</span>{{/if}}{{else}}<span class="muted">Not computable &mdash; no CAD average against issued stock</span>{{/if}}</span></div>
       </div>
     </div>
@@ -57,7 +56,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr><td>Ratio</td>{{#each this.ratio}}<td>{{this}}</td>{{/each}}<td>100.0%</td></tr>
+        <tr><td>Ratio</td>{{#each this.ratio}}<td>{{this}}</td>{{/each}}<td>{{this.ratioTotal}}</td></tr>
         <tr><td>Order qty</td>{{#each this.orderQty}}<td>{{this}}</td>{{/each}}<td>{{this.orderTotal}}</td></tr>
         <tr><td>Extra @ {{../extraPctLabel}}</td>{{#each this.extraQty}}<td>{{this}}</td>{{/each}}<td>{{this.extraTotal}}</td></tr>
         <tr class="sub"><td>To cut</td>{{#each this.toCut}}<td>{{this}}</td>{{/each}}<td>{{this.toCutTotal}}</td></tr>
@@ -76,10 +75,9 @@
     <div class="callout">
       <b>Cutting allowance {{extraPctLabel}}</b>
       {{extraBasis}}. It covers end-of-lay loss, shade rejects and line damage &mdash; it is not spare stock.
-      Anything cut beyond the &ldquo;to cut&rdquo; line must be written on this sheet before it leaves the table,
-      or it never reaches the work order. Measure the roll before the first lay and write the plies and metres
-      actually used in the hatched columns below: cutting to a planned average on a narrower roll is how a run
-      goes short with no shortage showing anywhere in the system.
+      Measure every roll before the first lay and write the plies and metres actually used in the hatched
+      columns: cutting to a planned average on a narrower roll is how a run goes short with no shortage
+      showing anywhere in the system.
     </div>
   </div>
 
@@ -131,7 +129,7 @@
         <!-- Always open below the recorded lays — the next lay is written here first
              and keyed into a cutting batch afterwards. -->
         <tr class="open"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-        <tr class="open"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        {{#unless layRows.length}}<tr class="open"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>{{/unless}}
       </tbody>
     </table>
   </div>

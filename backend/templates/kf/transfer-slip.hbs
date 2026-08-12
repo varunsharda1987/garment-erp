@@ -95,7 +95,7 @@
 
   <!-- 03 ───────────────────────────────────────────── -->
   <div class="sec">
-    <div class="sec-h"><span>03 &mdash; Check at Receipt</span><b>Completed by {{toLabel}}</b></div>
+    <div class="sec-h"><span>03 &mdash; Check at Receipt</span><b>Completed by {{toDepartment}}</b></div>
     <table>
       <thead><tr><th>Check</th><th style="width:86px">Result</th><th>Observation / short pieces</th></tr></thead>
       <tbody>
@@ -109,9 +109,9 @@
   </div>
 
   <div class="sign">
-    <div>Issued by &mdash; {{fromLabel}}</div>
+    <div>Issued by &mdash; {{fromDepartment}}</div>
     <div>Prepared by &mdash; {{preparedByName}}</div>
-    <div>Received by &mdash; {{#if receivedByName}}{{receivedByName}}{{else}}{{toLabel}}{{/if}}</div>
+    <div>Received by &mdash; {{#if receivedByName}}{{receivedByName}}{{else}}{{toDepartment}}{{/if}}</div>
   </div>
 
   <div class="foot">

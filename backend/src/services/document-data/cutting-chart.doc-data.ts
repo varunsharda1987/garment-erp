@@ -155,10 +155,11 @@ export type WorkOrderWithCuttingDetails = Prisma.work_ordersGetPayload<{ include
 export interface CuttingChartColourGrid {
   colour: string;
   ratio: string[];
+  ratioTotal: string;
   orderQty: string[];
   extraQty: string[];
   toCut: string[];
-  /** Recorded cut, only when cutting batches exist. null → the row is hatched for the cutter. */
+  /** Recorded cut for THIS colour. null → nothing laid in it yet, so the row is hatched. */
   actualCut: string[] | null;
   orderTotal: string;
   extraTotal: string;
@@ -209,7 +210,7 @@ export interface CuttingChartDocData {
   buyer: string | null;
   brand: string | null;
   styleLabel: string;
-  styleName: string;
+  styleName: string | null;
   orderRef: string | null;
   deliveryDate: string | null;
   plannedStart: string;
@@ -328,7 +329,6 @@ export function transformCuttingChart(
     const key = `${sku.colorId ?? ''}|${sku.sizeId}`;
     cutBySku.set(key, addCurrency(cutBySku.get(key) ?? toCurrency(0), sku.cutQty));
   }
-  const hasCutRecord = allSkuOutputs.length > 0;
 
   // ---- Size columns: breakup sizes, falling back to the style's size set ----
   const breakup = workOrder.work_order_breakup;
@@ -383,6 +383,7 @@ export function transformCuttingChart(
     let extraTotal = toCurrency(0);
     let toCutTotal = toCurrency(0);
     let actualTotal = toCurrency(0);
+    let anyRecordedInColour = false;
 
     for (const sizeId of sizeIds) {
       const planned = group.planned.get(sizeId);
@@ -409,6 +410,7 @@ export function transformCuttingChart(
       if (recorded === undefined) {
         actualCut.push('');
       } else {
+        anyRecordedInColour = true;
         actualCut.push(fmtQty(recorded.toNumber(), 'PCS'));
         actualTotal = addCurrency(actualTotal, recorded);
       }
@@ -420,14 +422,17 @@ export function transformCuttingChart(
     return {
       colour: group.colour ?? 'Colour not split',
       ratio,
+      ratioTotal: isZero(groupTotal) ? EM_DASH : '100.0%',
       orderQty,
       extraQty,
       toCut,
-      actualCut: hasCutRecord ? actualCut : null,
+      // Hatched unless THIS colour has been cut — a colour with no lay must not
+      // print a 0 next to a colour that has genuinely produced zero pieces.
+      actualCut: anyRecordedInColour ? actualCut : null,
       orderTotal: fmtQty(groupTotal.toNumber(), 'PCS'),
       extraTotal: fmtQty(extraTotal.toNumber(), 'PCS'),
       toCutTotal: fmtQty(toCutTotal.toNumber(), 'PCS'),
-      actualTotal: hasCutRecord ? fmtQty(actualTotal.toNumber(), 'PCS') : null,
+      actualTotal: anyRecordedInColour ? fmtQty(actualTotal.toNumber(), 'PCS') : null,
     };
   });
 
@@ -559,7 +564,8 @@ export function transformCuttingChart(
     buyer,
     brand: brand && brand.trim().length > 0 ? brand.split('\n')[0].trim() : null,
     styleLabel: formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef),
-    styleName: style.styleName,
+    // Many styles are named after their own code — printing "LNG211 · LNG211" says nothing.
+    styleName: style.styleName === style.styleCode ? null : style.styleName,
     orderRef: workOrder.orders?.orderNumber ?? null,
     deliveryDate: workOrder.orders?.expectedDeliveryDate ? fmtDate(workOrder.orders.expectedDeliveryDate) : null,
     plannedStart: fmtDate(workOrder.plannedStartDate),

@@ -63,6 +63,9 @@ export interface TransferSlipDocData {
   movementBanner: string;
   fromLabel: string;
   toLabel: string;
+  /** Bare department names — the signature strip has no room for the stage suffix */
+  fromDepartment: string;
+  toDepartment: string;
   transferDate: string;
   statusLabel: string;
   workOrderNumber: string;
@@ -176,11 +179,14 @@ export function transformTransferSlip(company: CompanyBlock, slip: TransferSlipW
     movementBanner: `${humanise(slip.fromStage)} → ${humanise(slip.toStage)}`,
     fromLabel: placeLabel(slip.fromDepartment, slip.fromStage),
     toLabel: placeLabel(slip.toDepartment, slip.toStage),
+    fromDepartment: slip.fromDepartment.trim().length > 0 ? slip.fromDepartment : humanise(slip.fromStage),
+    toDepartment: slip.toDepartment.trim().length > 0 ? slip.toDepartment : humanise(slip.toStage),
     transferDate: fmtDate(slip.transferDate),
     statusLabel: humanise(slip.status),
     workOrderNumber: slip.workOrder.workOrderNumber,
     styleLabel: formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef),
-    styleName: style.styleName,
+    // Many styles are named after their own code — printing "LNG211 · LNG211" says nothing.
+    styleName: style.styleName === style.styleCode ? null : style.styleName,
     componentLabel: slip.component
       ? slip.component.componentType && slip.component.componentType !== slip.component.componentName
         ? `${slip.component.componentName} · ${slip.component.componentType}`

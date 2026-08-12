@@ -1,7 +1,10 @@
 <div class="mast">
   <div>
     <div class="firm">{{company.name}}<span>{{company.tagline}}</span></div>
-    <div class="addr">{{company.addressLine}}<br>GSTIN {{company.gstin}} &middot; State Code {{company.stateCode}}{{#if showPan}}{{#if company.pan}} &middot; PAN {{company.pan}}{{/if}}{{/if}}</div>
+    <!-- hideGstin: opt-out for internal-only documents that carry no tax identity
+         (transfer slip, cutting chart). Absent everywhere else, so the GSTIN line
+         renders exactly as before for every document that does not pass it. -->
+    <div class="addr">{{company.addressLine}}{{#unless hideGstin}}<br>GSTIN {{company.gstin}} &middot; State Code {{company.stateCode}}{{#if showPan}}{{#if company.pan}} &middot; PAN {{company.pan}}{{/if}}{{/if}}{{/unless}}</div>
   </div>
   <div class="doctype">
     <h1>{{docTitle}}</h1>

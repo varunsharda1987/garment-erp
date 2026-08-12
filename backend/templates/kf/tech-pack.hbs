@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tech Pack — {{docNo}}</title>
+<link rel="stylesheet" href="assets/base.css">
+<style>
+  /* Template-local only — the precedent is challan's .copymark. Base tokens only,
+     no colour literals, and nothing here overrides a base rule.
+
+     1. Image plates: base.css has no vocabulary for pictures. This is the only
+        kf document that carries any, so the grid lives with the document.
+     2. td.fill: base hatches whole ROWS (.open td) and free-text boxes
+        (.open-box). A measurement chart needs the same hatch on a single CELL —
+        a spec can be known at one size and open at another. Same gradient,
+        same meaning: a human writes here after printing. */
+  .plates{display:grid; grid-template-columns:repeat(auto-fit,minmax(54mm,1fr)); gap:9px;}
+  .plate{border:1px solid var(--rule); background:var(--wash); padding:6px;}
+  .plate img{display:block; margin:0 auto; width:100%; max-width:64mm; height:64mm;
+             object-fit:contain; background:var(--paper);}
+  .plate .cap{font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:1.2px;
+              text-transform:uppercase; color:var(--ink-2); text-align:center; margin-top:5px;}
+  .plate .cap b{color:var(--ink); font-weight:600;}
+  td.fill{background:repeating-linear-gradient(45deg,transparent,transparent 5px,
+          rgba(0,0,0,.028) 5px,rgba(0,0,0,.028) 10px); height:22px;}
+</style>
+</head>
+<body>
+
+{{#each sheets}}
+<div class="sheet">
+
+  {{> mast company=../company docTitle="Tech Pack" docNo=../docNo docPill=../docPill}}
+
+  {{#if this.isCover}}
+  <!-- 01 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>01 &mdash; Style Identity</span><b>{{../statusBanner}}</b></div>
+    <div class="kv">
+      <div>
+        <div class="row"><span class="k">Style Name</span><span class="v">{{../styleName}}</span></div>
+        <div class="row"><span class="k">Buyer Ref</span><span class="v">{{#if ../buyerRef}}{{../buyerRef}}{{else}}<span class="muted">&mdash; not issued by buyer</span>{{/if}}</span></div>
+        <div class="row"><span class="k">Customer</span><span class="v">{{../customerName}}</span></div>
+        <div class="row"><span class="k">Brand</span><span class="v">{{../brandName}}</span></div>
+        <div class="row"><span class="k">Category</span><span class="v">{{../category}}</span></div>
+        <div class="row"><span class="k">Product Cat.</span><span class="v">{{../productCategory}}</span></div>
+        <div class="row"><span class="k">Components</span><span class="v">{{../componentSummary}}</span></div>
+      </div>
+      <div>
+        <div class="row"><span class="k">Season</span><span class="v">{{../season}}</span></div>
+        <div class="row"><span class="k">Gender</span><span class="v">{{../gender}}</span></div>
+        <div class="row"><span class="k">Style Status</span><span class="v">{{../styleStatus}} &middot; <span class="muted">CAD {{../cadStatus}}{{#if ../cadApprovedOn}}, approved {{../cadApprovedOn}}{{/if}}</span></span></div>
+        <div class="row"><span class="k">Latest Sample</span><span class="v">{{../latestSample}}</span></div>
+        <div class="row"><span class="k">Codes</span><span class="v">{{#if ../internalCode}}{{../internalCode}}{{else}}&mdash;{{/if}}{{#if ../accountingSku}} &middot; <span class="muted">SKU {{../accountingSku}}</span>{{/if}}{{#if ../hsnCode}} &middot; <span class="muted">HSN {{../hsnCode}}</span>{{/if}}</span></div>
+        {{#if ../projectGroup}}<div class="row"><span class="k">Project</span><span class="v">{{../projectGroup}}</span></div>{{/if}}
+        {{#if ../expectedOrderQty}}<div class="row"><span class="k">Exp. Order</span><span class="v">{{../expectedOrderQty}} pcs</span></div>{{/if}}
+        <div class="row"><span class="k">Dates</span><span class="v">Created {{../createdOn}} &middot; <span class="muted">last revised {{../updatedOn}}</span></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 02 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>02 &mdash; Size Run &amp; Colourways</span><b>{{../colourwaySource}}</b></div>
+    <div class="kv" style="grid-template-columns:1fr;">
+      <div><div class="row"><span class="k">Size Run</span><span class="v">{{../sizeRun}}</span></div></div>
+    </div>
+    <table style="margin-top:8px;">
+      <thead>
+        <tr><th style="width:34px">#</th><th>Colourway</th><th style="width:70px">Colour Code</th>
+            <th>Sizes Carried</th><th class="num" style="width:56px">SKUs</th></tr>
+      </thead>
+      <tbody>
+        {{#if ../colourways.length}}
+        {{#each ../colourways}}
+        <tr><td class="num">{{this.sn}}</td><td>{{this.colour}}</td><td>{{this.code}}</td><td>{{this.sizes}}</td><td class="num">{{this.skus}}</td></tr>
+        {{/each}}
+        {{else}}
+        <tr class="open"><td class="num">1</td><td></td><td></td><td></td><td></td></tr>
+        <tr class="open"><td class="num">2</td><td></td><td></td><td></td><td></td></tr>
+        <tr class="open"><td class="num">3</td><td></td><td></td><td></td><td></td></tr>
+        {{/if}}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 03 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>03 &mdash; Image Plates</span><b>{{#if ../plates.length}}{{../plates.length}} plate(s){{else}}None on file{{/if}}</b></div>
+    {{#if ../plates.length}}
+    <div class="plates">
+      {{#each ../plates}}
+      <div class="plate">
+        <img src="{{this.src}}" alt="{{this.label}}">
+        <div class="cap"><b>{{this.label}}</b>{{#if this.caption}}<br>{{this.caption}}{{/if}}</div>
+      </div>
+      {{/each}}
+    </div>
+    {{else}}
+    <div class="callout">
+      <b>No plate printed</b>
+      {{../platesNote}}
+      A tech pack without a front, back and detail view is not fit to cut against &mdash; the pattern master
+      is entitled to refuse it.
+    </div>
+    {{/if}}
+  </div>
+  {{/if}}
+
+  {{#if this.isBom}}
+  {{#if this.showFabric}}
+  <!-- 04 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>04 &mdash; Fabric &amp; Cutting</span><b>Consumption per garment</b></div>
+    <table>
+      <thead>
+        <tr><th style="width:26px">#</th><th style="width:64px">Component</th><th>Fabric</th>
+            <th style="width:78px">Composition</th><th style="width:68px">Constr. / Yarn</th>
+            <th class="num" style="width:38px">GSM</th><th class="num" style="width:58px">Width</th>
+            <th style="width:88px">Finish &middot; Colour</th><th class="num" style="width:52px">Cons.</th></tr>
+      </thead>
+      <tbody>
+        {{#if this.fabricRows.length}}
+        {{#each this.fabricRows}}
+        <tr><td class="num">{{this.sn}}</td><td>{{this.component}}</td>
+            <td>{{this.fabric}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td>
+            <td>{{this.composition}}</td><td>{{this.construction}}</td><td class="num">{{this.gsm}}</td>
+            <td class="num">{{this.width}}</td><td>{{this.finish}}</td><td class="num">{{this.consumption}}</td></tr>
+        {{/each}}
+        <tr class="tot"><td colspan="8">Total fabric per garment &mdash; metres, from approved CAD only</td><td class="num">{{this.fabricTotal}}</td></tr>
+        {{else}}
+        <tr class="open"><td class="num">1</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr class="open"><td class="num">2</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        {{/if}}
+      </tbody>
+    </table>
+    {{#unless this.fabricRows.length}}
+    <div class="callout">
+      <b>No fabric is linked to this style</b>
+      Nothing can be planned, costed or cut from this pack until fabric is attached to each component
+      and a CAD average is approved. The rows above are open for a hand-written interim spec only.
+    </div>
+    {{/unless}}
+  </div>
+  {{/if}}
+
+  <!-- 05 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>05 &mdash; Trims, Accessories &amp; Value Addition</span><b>{{#if this.continued}}Continued{{else}}Quantity per garment{{/if}}</b></div>
+    <table>
+      <thead>
+        <tr><th style="width:26px">#</th><th>Item</th><th style="width:76px">Type</th>
+            <th style="width:80px">Usage</th><th class="num" style="width:60px">Qty / Gmt</th>
+            <th style="width:48px">Unit</th><th class="num" style="width:52px">Extra</th><th style="width:96px">Remark</th></tr>
+      </thead>
+      <tbody>
+        {{#if this.trimRows.length}}
+        {{#each this.trimRows}}
+        <tr><td class="num">{{this.sn}}</td>
+            <td>{{this.item}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td>
+            <td>{{this.type}}</td><td>{{this.usage}}</td><td class="num">{{this.qty}}</td>
+            <td>{{this.unit}}</td><td class="num">{{this.wastage}}</td><td class="muted">{{this.remark}}</td></tr>
+        {{/each}}
+        {{else}}
+        <tr class="open"><td class="num">1</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr class="open"><td class="num">2</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr class="open"><td class="num">3</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        {{/if}}
+      </tbody>
+    </table>
+    {{#if this.trimNote}}
+    <div class="callout">
+      <b>Read before raising materials</b>
+      {{this.trimNote}}
+    </div>
+    {{/if}}
+  </div>
+  {{/if}}
+
+  {{#if this.isMeasure}}
+  <!-- 06 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>06 &mdash; Measurement Chart{{#if this.continued}} (cont.){{/if}}</span><b>{{../measureBanner}}</b></div>
+    <table>
+      <thead>
+        <tr><th>Point of Measure</th><th class="num" style="width:46px">Tol. &plusmn;</th>
+            {{#each this.measureSizes}}<th class="num" style="width:52px">{{this}}</th>{{/each}}</tr>
+      </thead>
+      <tbody>
+        {{#each this.measureBlocks}}
+        <tr class="sub"><td colspan="{{../measureColspan}}">{{this.title}}{{#if this.note}} &mdash; <span class="muted">{{this.note}}</span>{{/if}}</td></tr>
+        {{#each this.rows}}
+        <tr><td>{{this.point}}</td>
+            {{#if this.tolerance}}<td class="num">{{this.tolerance}}</td>{{else}}<td class="num fill"></td>{{/if}}
+            {{#each this.values}}{{#if this}}<td class="num">{{this}}</td>{{else}}<td class="num fill"></td>{{/if}}{{/each}}</tr>
+        {{/each}}
+        {{/each}}
+      </tbody>
+    </table>
+    {{#if this.showMeasureCallout}}
+    <div class="callout">
+      <b>Chart issued blank &mdash; on purpose</b>
+      No approved measurement set exists for this style, so no figure is printed. Hatched cells are filled by
+      the pattern master in ink, against the sealed sample, and the sheet is signed below. A typed-in guess
+      here becomes a shipment-wide rejection, which is why nothing is pre-filled.
+      All measurements in inches unless the row states otherwise; tolerance is the full &plusmn; band.
+    </div>
+    {{/if}}
+  </div>
+  {{/if}}
+
+  {{#if this.isNotes}}
+  <!-- 07 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>07 &mdash; Construction &amp; Finishing</span><b>{{#if ../handFillNotes}}To be written on this sheet{{else}}From style record{{/if}}</b></div>
+    {{#if ../specRows.length}}
+    <div class="kv">
+      {{#each ../specRows}}
+      <div><div class="row"><span class="k">{{this.label}}</span><span class="v">{{this.value}}</span></div></div>
+      {{/each}}
+    </div>
+    {{/if}}
+    {{#each ../noteBlocks}}
+    <div class="muted" style="font-family:'IBM Plex Mono',monospace; letter-spacing:1px; text-transform:uppercase; margin-top:9px; margin-bottom:3px;">{{this.title}}</div>
+    <ol class="terms">
+      {{#each this.lines}}<li>{{this}}</li>{{/each}}
+    </ol>
+    {{/each}}
+    {{#if ../handFillNotes}}
+    <div class="muted" style="font-family:'IBM Plex Mono',monospace; letter-spacing:1px; text-transform:uppercase; margin-top:4px; margin-bottom:4px;">Stitching, seam &amp; finishing instructions</div>
+    <div class="open-box" style="min-height:88px;"></div>
+    {{/if}}
+    {{#if ../processRows.length}}
+    <table style="margin-top:10px;">
+      <thead>
+        <tr><th style="width:26px">#</th><th>Process Step</th><th style="width:90px">Type</th>
+            <th style="width:70px">Requirement</th><th class="num" style="width:48px">Days</th>
+            <th style="width:100px">Partner</th><th style="width:96px">Notes</th></tr>
+      </thead>
+      <tbody>
+        {{#each ../processRows}}
+        <tr><td class="num">{{this.sn}}</td><td>{{this.process}}</td><td>{{this.kind}}</td>
+            <td>{{this.required}}</td><td class="num">{{this.days}}</td><td>{{this.partner}}</td>
+            <td class="muted">{{this.notes}}</td></tr>
+        {{/each}}
+      </tbody>
+    </table>
+    {{/if}}
+  </div>
+
+  <!-- 08 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>08 &mdash; Packing &amp; Labelling</span><b>{{#if ../packIsBlank}}Not specified &mdash; agree with buyer{{else}}From style record{{/if}}</b></div>
+    <table>
+      <thead>
+        <tr><th style="width:26px">#</th><th>Item</th><th style="width:96px">Type</th>
+            <th>Specification</th><th class="num" style="width:44px">Qty</th><th style="width:82px">Basis</th></tr>
+      </thead>
+      <tbody>
+        {{#if ../packRows.length}}
+        {{#each ../packRows}}
+        <tr><td class="num">{{this.sn}}</td><td>{{this.item}}</td><td>{{this.kind}}</td><td>{{this.spec}}</td><td class="num">{{this.qty}}</td><td class="muted">{{this.basis}}</td></tr>
+        {{/each}}
+        {{else}}
+        <tr class="open"><td class="num">1</td><td>Polybag &mdash; size &amp; print</td><td></td><td></td><td></td><td></td></tr>
+        <tr class="open"><td class="num">2</td><td>Main label / care label placement</td><td></td><td></td><td></td><td></td></tr>
+        <tr class="open"><td class="num">3</td><td>Hangtag &amp; price sticker</td><td></td><td></td><td></td><td></td></tr>
+        <tr class="open"><td class="num">4</td><td>Carton &amp; shipping marks</td><td></td><td></td><td></td><td></td></tr>
+        {{/if}}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 09 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>09 &mdash; Sample &amp; Fit Approval</span><b>{{#if ../sampleIsBlank}}No sample on record{{else}}{{../sampleRows.length}} on record{{/if}}</b></div>
+    <table>
+      <thead>
+        <tr><th style="width:26px">#</th><th style="width:100px">Sample No.</th><th style="width:96px">Type</th>
+            <th style="width:96px">Status</th><th style="width:74px">Requested</th>
+            <th style="width:74px">Completed</th><th>Fit Comment / Action</th></tr>
+      </thead>
+      <tbody>
+        {{#if ../sampleRows.length}}
+        {{#each ../sampleRows}}
+        <tr><td class="num">{{this.sn}}</td><td>{{this.sampleNo}}</td><td>{{this.kind}}</td><td>{{this.status}}</td>
+            <td>{{this.requested}}</td><td>{{this.completed}}</td><td class="muted">{{this.feedback}}</td></tr>
+        {{/each}}
+        {{else}}
+        <tr class="open"><td class="num">1</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr class="open"><td class="num">2</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr class="open"><td class="num">3</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        {{/if}}
+      </tbody>
+    </table>
+    <ol class="terms" style="margin-top:9px;">
+      <li>This pack, once signed below, is the only authority for cutting. Any change &mdash; fabric, trim, measurement or finishing &mdash; requires a reissued pack with a later revision date; a verbal instruction is not a change.</li>
+      <li>Measurements are checked against the sealed sample at the pre-production meeting. Discrepancies are recorded on this sheet before bulk cutting starts.</li>
+      <li>Trims must match the approved trim card. Substitutions require written approval from merchandising.</li>
+      <li>All quantities on this pack are per garment. Wastage percentages are planning allowances, not licence to over-issue.</li>
+    </ol>
+  </div>
+
+  <div class="sign">
+    <div>Designer &mdash; issued</div>
+    <div>Pattern Master &mdash; measurements filled &amp; verified</div>
+    <div>Merchandiser &mdash; approved for production</div>
+  </div>
+  {{/if}}
+
+  <div class="foot">
+    <span>Tech Pack {{../docNo}} &middot; Page {{this.pageNo}} of {{../pageTotal}}</span>
+    <span>{{../company.name}} &middot; revised {{../updatedOn}} &middot; supersedes all earlier packs</span>
+  </div>
+</div>
+{{/each}}
+
+</body>
+</html>

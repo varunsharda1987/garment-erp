@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Line Sheet — {{docNo}}</title>
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/catalogue.css">
+</head>
+<body class="doc-line-sheet">
+
+<!-- Multi-page: the ADAPTER paginates and emits one .sheet per printed page,
+     so the page numbers in .foot are true and a row never splits across a
+     break. base.css's print rule breaks after every .sheet. -->
+{{#each pages}}
+<div class="sheet">
+
+  {{> mast company=../company docTitle="Line Sheet" docNo=../docNo docPill=../docPill}}
+
+  {{#if this.isFirst}}
+  <div class="sec">
+    <div class="sec-h"><span>01 &mdash; Collection</span><b>{{../priceNote}}</b></div>
+    <div class="kv">
+      <div>
+        {{#if ../preparedFor}}<div class="row"><span class="k">Prepared For</span><span class="v">{{../preparedFor}}</span></div>{{/if}}
+        <div class="row"><span class="k">Collection</span><span class="v">{{../collectionLabel}}</span></div>
+        <div class="row"><span class="k">Season</span><span class="v">{{../seasonLabel}}</span></div>
+        <div class="row"><span class="k">Categories</span><span class="v">{{../categoryLabel}}</span></div>
+      </div>
+      <div>
+        <div class="row"><span class="k">Issued</span><span class="v">{{../issuedOn}}</span></div>
+        <div class="row"><span class="k">Styles</span><span class="v">{{../styleCount}}</span></div>
+        <div class="row"><span class="k">Currency</span><span class="v">INR &#8377; &middot; <span class="muted">per piece</span></span></div>
+        <div class="row"><span class="k">Contact</span><span class="v">{{dash ../company.phone}}{{#if ../company.email}} &middot; <span class="muted">{{../company.email}}</span>{{/if}}</span></div>
+      </div>
+    </div>
+  </div>
+  {{/if}}
+
+  {{#if this.rows.length}}
+  <div class="sec">
+    <div class="sec-h"><span>02 &mdash; Styles{{#unless this.isFirst}} (continued){{/unless}}</span><b>{{this.rangeLabel}}</b></div>
+    <table class="ls">
+      <thead>
+        <tr>
+          <th style="width:74px">Photo</th>
+          <th>Code &amp; Description</th>
+          <th style="width:78px">Colourways</th>
+          <th style="width:72px">Sizes</th>
+          <th style="width:80px">Fabric</th>
+          <th style="width:58px">HSN</th>
+          <th class="num" style="width:78px">Wholesale &#8377;</th>
+          <th class="num" style="width:62px">MRP &#8377;</th>
+          <th style="width:48px">Order Qty</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each this.rows}}
+        <tr>
+          <td><div class="plate ls-plate{{#unless this.imageUrl}} is-empty{{/unless}}">{{#if this.imageUrl}}<img src="{{this.imageUrl}}" alt="">{{/if}}</div></td>
+          <td>
+            <div class="ls-code">{{this.code}}{{#if this.buyerRef}}<span class="ls-ref">Buyer ref {{this.buyerRef}}</span>{{/if}}</div>
+            <div class="ls-name">{{this.name}}</div>
+            {{#if this.meta}}<div class="ls-meta">{{this.meta}}</div>{{/if}}
+          </td>
+          <td><div class="ls-list">{{this.colours}}{{#if this.coloursExtra}} <span class="ls-more">+{{this.coloursExtra}}</span>{{/if}}</div></td>
+          <td><div class="ls-list">{{this.sizes}}{{#if this.sizesExtra}} <span class="ls-more">+{{this.sizesExtra}}</span>{{/if}}</div></td>
+          <td><div class="ls-list">{{this.fabric}}</div></td>
+          <td><div class="ls-list">{{this.hsn}}</div></td>
+          <td class="num">{{this.wholesale}}</td>
+          <td class="num">{{this.mrp}}</td>
+          <!-- hatched = a human fills this after printing (base.css device) -->
+          <td><div class="open-box"></div></td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+  {{/if}}
+
+  {{#if this.summary}}
+  <div class="sec">
+    <div class="sec-h"><span>03 &mdash; Summary</span><b>{{this.summary.styleCount}} style{{#unless this.summary.styleCountIsOne}}s{{/unless}} offered</b></div>
+    <div class="band">
+      <div>
+        <div class="label">Styles</div>
+        <div class="value">{{this.summary.styleCount}}</div>
+        <div class="sub">{{this.summary.imagesShown}} with photography</div>
+      </div>
+      <div>
+        <div class="label">Wholesale &#8377;</div>
+        <div class="value">{{this.summary.wholesaleBand}}</div>
+        <div class="sub">{{this.summary.wholesaleSub}}</div>
+      </div>
+      <div>
+        <div class="label">MRP &#8377;</div>
+        <div class="value">{{this.summary.mrpBand}}</div>
+        <div class="sub">{{this.summary.mrpSub}}</div>
+      </div>
+    </div>
+    <div class="callout">
+      <b>How to order from this sheet</b>
+      Write quantities in the hatched column and return the sheet &mdash; the hatching means that column is
+      filled by hand, never by us. Quantities become an order only when we acknowledge them on a sale order
+      against these style codes. Where a price cell is blank the style has no published price yet: ask before
+      you commit a quantity to it, because an unpriced style is one whose costing is still open.
+    </div>
+  </div>
+  {{/if}}
+
+  <div class="foot">
+    <span>{{../docNo}} &middot; Page {{this.pageNo}} of {{../pageCount}}</span>
+    <span>{{../company.name}} &middot; GSTIN {{../company.gstin}} &middot; Issued {{../issuedOn}}</span>
+  </div>
+</div>
+{{/each}}
+</body>
+</html>

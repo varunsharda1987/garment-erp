@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proforma Invoice — {{docNo}}</title>
+<link rel="stylesheet" href="assets/base.css">
+</head>
+<body>
+<div class="sheet">
+
+  {{> mast company=company docTitle="Proforma Invoice" docNo=docNo docPill=docPill showPan=true}}
+  <div class="addr" style="margin-top:4px;">{{#if company.msme}}MSME &middot; {{company.msme}}{{#if company.phone}} &middot; {{/if}}{{/if}}{{#if company.phone}}{{company.phone}}{{/if}}{{#if company.email}} &middot; {{company.email}}{{/if}}</div>
+
+  <!-- 01 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>01 &mdash; Buyer &amp; Validity</span><b>{{supplyBanner}}</b></div>
+    <div class="kv">
+      <div>
+        <div class="row"><span class="k">Bill To</span><span class="v">{{billToName}}</span></div>
+        <div class="row"><span class="k">Address</span><span class="v">{{dash billToAddress}}</span></div>
+        <div class="row"><span class="k">GSTIN</span><span class="v">{{billToGstin}}{{#if billToState}} &middot; <span class="muted">{{billToState}}</span>{{/if}}</span></div>
+        <div class="row"><span class="k">Contact</span><span class="v">{{dash billToContact}}</span></div>
+        <div class="row"><span class="k">Ship To</span><span class="v">{{shipTo}}</span></div>
+      </div>
+      <div>
+        <div class="row"><span class="k">Issued On</span><span class="v">{{quotationDate}}</span></div>
+        <div class="row"><span class="k">Valid Until</span><span class="v">{{validUntil}}{{#if validityNote}} &middot; <span class="muted">{{validityNote}}</span>{{/if}}</span></div>
+        <div class="row"><span class="k">Place of Supply</span><span class="v">{{placeOfSupply}}</span></div>
+        <div class="row"><span class="k">Status</span><span class="v">{{statusLabel}}</span></div>
+        <div class="row"><span class="k">Delivery</span><span class="v">{{deliveryLead}}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 02 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>02 &mdash; Goods Quoted</span><b>GST estimated, not charged</b></div>
+    {{#if isInterstate}}
+    <table>
+      <thead>
+        <tr><th style="width:26px">#</th><th>Description</th><th style="width:48px">HSN</th>
+            <th class="num" style="width:48px">Qty</th><th class="num" style="width:62px">Rate</th>
+            <th class="num" style="width:76px">Taxable ₹</th><th class="num" style="width:34px">%</th>
+            <th class="num" style="width:76px">IGST</th></tr>
+      </thead>
+      <tbody>
+        {{#each lines}}
+        <tr><td class="num">{{this.sn}}</td><td>{{this.description}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td><td>{{this.hsn}}</td><td class="num">{{this.qty}}</td><td class="num">{{this.rate}}</td><td class="num">{{this.taxable}}</td><td class="num">{{this.ratePct}}</td><td class="num">{{this.igst}}</td></tr>
+        {{/each}}
+        <tr class="sub"><td colspan="3">Taxable value</td><td class="num">{{totalQty}}</td><td></td><td class="num">{{subtotal}}</td><td></td><td class="num">{{igstTotal}}</td></tr>
+        <tr class="tot"><td colspan="7">Estimated total payable</td><td class="num">{{grandTotal}}</td></tr>
+        <tr><td colspan="8" style="border-bottom:none"><span class="muted">Amount in words &mdash; {{amountWords}}</span></td></tr>
+      </tbody>
+    </table>
+    {{else}}
+    <table>
+      <thead>
+        <tr><th style="width:26px">#</th><th>Description</th><th style="width:48px">HSN</th>
+            <th class="num" style="width:48px">Qty</th><th class="num" style="width:62px">Rate</th>
+            <th class="num" style="width:76px">Taxable ₹</th><th class="num" style="width:34px">%</th>
+            <th class="num" style="width:66px">CGST</th><th class="num" style="width:66px">SGST</th></tr>
+      </thead>
+      <tbody>
+        {{#each lines}}
+        <tr><td class="num">{{this.sn}}</td><td>{{this.description}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td><td>{{this.hsn}}</td><td class="num">{{this.qty}}</td><td class="num">{{this.rate}}</td><td class="num">{{this.taxable}}</td><td class="num">{{this.ratePct}}</td><td class="num">{{this.cgst}}</td><td class="num">{{this.sgst}}</td></tr>
+        {{/each}}
+        <tr class="sub"><td colspan="3">Taxable value</td><td class="num">{{totalQty}}</td><td></td><td class="num">{{subtotal}}</td><td></td><td class="num">{{cgstTotal}}</td><td class="num">{{sgstTotal}}</td></tr>
+        <tr class="tot"><td colspan="8">Estimated total payable</td><td class="num">{{grandTotal}}</td></tr>
+        <tr><td colspan="9" style="border-bottom:none"><span class="muted">Amount in words &mdash; {{amountWords}}</span></td></tr>
+      </tbody>
+    </table>
+    {{/if}}
+    <div class="callout">
+      <b>This is a proforma &mdash; not a tax invoice</b>
+      No supply has taken place and <strong>no GST is charged here</strong>. The tax shown is an estimate to let you
+      budget and release an advance; it is <strong>not</strong> a Section 31 invoice and <strong>confers no input tax
+      credit</strong>. Do not enter this document in your purchase register. A tax invoice quoting this reference is
+      raised on despatch &mdash; credit is claimable only against that invoice, once it appears in your GSTR-2B.
+    </div>
+    {{#if showRateCallout}}
+    <div class="callout">
+      <b>Rate is a per-piece test, not per-document</b>
+      Garment GST turns on the value of each individual piece against the notified threshold, which is why lines above
+      carry different rates. Never apply one rate across a mixed order.
+    </div>
+    {{/if}}
+  </div>
+
+  <!-- 03 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>03 &mdash; Payment Instructions</span><b>Remit in INR only</b></div>
+    <div class="kv">
+      <div>
+        <div class="row"><span class="k">Bank</span><span class="v">{{bank.bankName}}</span></div>
+        <div class="row"><span class="k">Account Name</span><span class="v">{{bank.accountHolderName}}</span></div>
+        <div class="row"><span class="k">Account</span><span class="v">{{bank.accountNumber}}</span></div>
+      </div>
+      <div>
+        <div class="row"><span class="k">IFSC</span><span class="v">{{bank.ifscCode}}</span></div>
+        <div class="row"><span class="k">Branch</span><span class="v">{{bank.branchName}}</span></div>
+        <div class="row"><span class="k">Payment</span><span class="v">{{payment}}</span></div>
+      </div>
+    </div>
+    {{#if remarks}}<div class="muted" style="margin-top:8px;">Remarks &mdash; {{remarks}}</div>{{/if}}
+  </div>
+
+  <!-- 04 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>04 &mdash; Terms</span><b>Standard</b></div>
+    <ol class="terms">
+      <li>Prices hold until {{validUntil}}. After that date this proforma lapses and must be reissued &mdash; yarn, fabric and job-work rates move.</li>
+      <li>Quantities above are the quoted lot. Production is released only against a written order confirmation quoting this number.</li>
+      <li>Payment {{paymentClause}}, by NEFT/RTGS to the account above. Please quote {{docNo}} in the remittance narration.</li>
+      <li>GST shown is an estimate at today&rsquo;s notified rates and follows the per-piece value of each style. The rate charged is the rate in force on the date of supply.</li>
+      <li>Goods will be made to the approved sample and specification. Any change in specification, size ratio or packing may change the rate.</li>
+      <li>Freight, insurance and any buyer-mandated testing are charged at actuals unless separately agreed in writing.</li>
+      {{#if extraTerms}}<li>{{extraTerms}}</li>{{/if}}
+      <li>Subject to Jaipur jurisdiction.</li>
+    </ol>
+  </div>
+
+  <div class="sign">
+    <div>Prepared by / Merchandising</div>
+    <div>For {{company.name}} &mdash; Authorised Signatory</div>
+    <div>Customer &mdash; Proforma accepted, order confirmed</div>
+  </div>
+
+  <div class="foot">
+    <span>{{docNo}} &middot; Page 1 of 1</span>
+    <span>Proforma invoice &middot; Not valid for input tax credit &middot; Not a Section 31 document</span>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Order Form — {{docNo}}</title>
+<link rel="stylesheet" href="assets/base.css">
+</head>
+<body>
+<div class="sheet">
+
+  {{> mast company=company docTitle="Order Form" docNo=docNo docPill=docPill}}
+  {{#if company.phone}}<div class="addr" style="margin-top:4px;">{{company.phone}}{{#if company.email}} &middot; {{company.email}}{{/if}}</div>{{/if}}
+
+  <!-- 01 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>01 &mdash; Buyer &amp; Delivery</span><b>{{statusBanner}}</b></div>
+    <div class="kv">
+      <div>
+        <div class="row"><span class="k">Buyer</span><span class="v">{{buyerName}}{{#if buyerLegalName}}<br><span class="muted">{{buyerLegalName}}</span>{{/if}}</span></div>
+        <div class="row"><span class="k">GSTIN</span><span class="v">{{buyerGstin}}{{#if buyerState}} &middot; <span class="muted">{{buyerState}}</span>{{/if}}</span></div>
+        <div class="row"><span class="k">Contact</span><span class="v">{{dash buyerContact}}</span></div>
+        <div class="row"><span class="k">Ship To</span><span class="v">{{shipTo}}</span></div>
+      </div>
+      <div>
+        <div class="row"><span class="k">Order Date</span><span class="v">{{orderDate}}</span></div>
+        <div class="row"><span class="k">Delivery By</span><span class="v">{{deliveryBy}}</span></div>
+        <div class="row"><span class="k">Payment</span><span class="v">{{payment}}</span></div>
+        <div class="row"><span class="k">Approved By</span><span class="v">{{dash approvedBy}}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 02 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>02 &mdash; Styles Ordered</span><b>{{itemsBanner}}</b></div>
+    <table>
+      <thead>
+        <tr><th style="width:28px">#</th><th>Style</th><th style="width:56px">HSN</th>
+            <th style="width:76px">Delivery</th><th style="width:62px">Status</th>
+            <th class="num" style="width:56px">Qty</th><th class="num" style="width:66px">Rate ₹</th>
+            <th class="num" style="width:88px">Value ₹</th></tr>
+      </thead>
+      <tbody>
+        {{#each items}}
+        <tr><td class="num">{{this.sn}}</td><td>{{this.style}}<br><span class="muted">{{this.styleName}}</span></td><td>{{this.hsn}}</td><td>{{this.delivery}}</td><td>{{this.status}}</td><td class="num">{{this.qty}}</td><td class="num">{{this.rate}}</td><td class="num">{{this.value}}</td></tr>
+        {{/each}}
+        <tr class="sub"><td colspan="5">Sum of lines</td><td class="num">{{lineQtyTotal}}</td><td></td><td class="num">{{lineValueTotal}}</td></tr>
+        <tr class="tot"><td colspan="5">Order total &mdash; exclusive of GST</td><td class="num">{{orderQtyTotal}}</td><td></td><td class="num">{{orderValueTotal}}</td></tr>
+      </tbody>
+    </table>
+    <div class="callout">
+      <b>What this document commits</b>
+      Signed, this form <strong>authorises production</strong> of the styles and quantities above: BOM, material
+      requirement planning, procurement and cutting are released against it, and material bought to it is committed
+      to this order. It does <strong>not</strong> commit tax &mdash; this is <strong>not an invoice</strong>, no GST is
+      charged on it and it creates no input credit for the buyer. The tax charge arises only on the tax invoice raised
+      at despatch, which is what the buyer records and claims against.
+    </div>
+  </div>
+
+  <!-- 03 ───────────────────────────────────────────── -->
+  {{#if grids.length}}
+  <div class="sec">
+    <div class="sec-h"><span>03 &mdash; Size &amp; Colour Breakdown</span><b>Cutting ratio</b></div>
+    {{#each grids}}
+    <table {{#unless @first}}style="margin-top:10px;"{{/unless}}>
+      <thead>
+        <tr><th colspan="{{this.spanAll}}">{{this.style}} &mdash; {{this.styleName}}</th></tr>
+        <tr><th>Colour</th>{{#each this.sizes}}<th class="num" style="width:54px">{{this}}</th>{{/each}}<th class="num" style="width:72px">Total</th></tr>
+      </thead>
+      <tbody>
+        {{#each this.rows}}
+        <tr{{#if this.open}} class="open"{{/if}}><td>{{this.colour}}</td>{{#each this.cells}}<td class="num">{{this}}</td>{{/each}}<td class="num">{{this.total}}</td></tr>
+        {{/each}}
+        {{#if this.handFill}}
+        <tr class="tot"><td colspan="{{this.spanLabel}}">Ratio not yet recorded &mdash; complete by hand, must total</td><td class="num">{{this.gridTotal}}</td></tr>
+        {{else}}
+        <tr class="sub"><td>Per size</td>{{#each this.colTotals}}<td class="num">{{this}}</td>{{/each}}<td class="num">{{this.gridTotal}}</td></tr>
+        {{/if}}
+      </tbody>
+    </table>
+    {{/each}}
+    {{#if anyHandFill}}
+    <div class="callout">
+      <b>Do not cut against an unconfirmed ratio</b>
+      Where the grid above is blank the order carries no size breakup in the system. Fabric is consumed per size, so a
+      lay planned on an assumed ratio produces the wrong sizes at the right total &mdash; unsellable against the buyer&rsquo;s
+      pack. Record the ratio in the order before raising the cutting plan.
+    </div>
+    {{/if}}
+  </div>
+  {{/if}}
+
+  <!-- 04 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>04 &mdash; Terms</span><b>Internal &middot; Standard</b></div>
+    {{#if remarks}}<div class="muted" style="margin-bottom:7px;">Remarks &mdash; {{remarks}}</div>{{/if}}
+    <ol class="terms">
+      <li>Quantities and rates above are the confirmed order. Any revision needs a written amendment quoting {{docNo}} &mdash; a verbal change is not actioned and will not be costed.</li>
+      <li>Delivery by {{deliveryBy}} ex-factory. Slippage must be flagged to merchandising the day it is known, not at the delivery date.</li>
+      <li>Goods are made to the approved sample and specification. Fabric, trims and packing follow the approved BOM for this order.</li>
+      <li>Buyer testing requirements configured on the customer master (FPT / GPT) apply to this order and gate production or shipment accordingly.</li>
+      <li>Payment {{paymentClause}}, against the tax invoice raised at despatch. This form is not an invoice and is not to be entered in either party&rsquo;s tax records.</li>
+      <li>Subject to Jaipur jurisdiction.</li>
+    </ol>
+  </div>
+
+  <div class="sign">
+    <div>Merchandising &mdash; Prepared by</div>
+    <div>For {{company.name}} &mdash; Authorised Signatory</div>
+    <div>Production &mdash; Accepted for planning</div>
+  </div>
+
+  <div class="foot">
+    <span>{{docNo}} &middot; Page 1 of 1</span>
+    <span>Copy: Merchandising &middot; Production &middot; Store &middot; Accounts</span>
+  </div>
+</div>
+</body>
+</html>

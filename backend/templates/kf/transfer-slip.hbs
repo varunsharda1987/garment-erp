@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Transfer Slip — {{docNo}}</title>
+<link rel="stylesheet" href="assets/base.css">
+<style>
+  /* Sizes-across count grid. base.css tables are built for description + a few
+     right-aligned money columns; a size grid needs equal, centred columns that
+     stay legible once seven or eight of them share the sheet width. */
+  .grid{table-layout:fixed;}
+  .grid th,.grid td{padding:5px 3px; text-align:center;}
+  .grid th:first-child,.grid td:first-child{text-align:left; padding-left:6px; width:32%;}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  {{> mast company=company docTitle="Transfer Slip" docNo=docNo docPill=docPill hideGstin=hideGstin}}
+
+  <!-- 01 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>01 &mdash; Movement</span><b>{{movementBanner}}</b></div>
+    <div class="kv">
+      <div>
+        <div class="row"><span class="k">From</span><span class="v">{{fromLabel}}</span></div>
+        <div class="row"><span class="k">To</span><span class="v">{{toLabel}}</span></div>
+        <div class="row"><span class="k">Work Order</span><span class="v">{{workOrderNumber}}</span></div>
+        <div class="row"><span class="k">Style</span><span class="v">{{styleLabel}}{{#if styleName}} &middot; <span class="muted">{{styleName}}</span>{{/if}}</span></div>
+        {{#if componentLabel}}<div class="row"><span class="k">Component</span><span class="v">{{componentLabel}}</span></div>{{/if}}
+      </div>
+      <div>
+        <div class="row"><span class="k">Slip Date</span><span class="v">{{transferDate}}</span></div>
+        <div class="row"><span class="k">Status</span><span class="v">{{statusLabel}}{{#if receivedDate}} &middot; <span class="muted">received {{receivedDate}}</span>{{/if}}</span></div>
+        {{#if batchLabel}}<div class="row"><span class="k">Cut Batch</span><span class="v">{{batchLabel}}</span></div>{{/if}}
+        {{#if issuedToName}}<div class="row"><span class="k">Issued To</span><span class="v">{{issuedToName}}</span></div>{{/if}}
+        {{#if orderRef}}<div class="row"><span class="k">Order</span><span class="v">{{orderRef}}</span></div>{{/if}}
+      </div>
+    </div>
+  </div>
+
+  <!-- 02 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>02 &mdash; Pieces Handed Over</span><b>{{issuedTotal}} pcs declared</b></div>
+    {{#if sizes.length}}
+    <table class="grid">
+      <thead>
+        <tr>
+          <th>Colour / Count</th>
+          {{#each sizes}}<th style="text-align:center">{{this}}</th>{{/each}}
+          <th style="text-align:center">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Issued row is system data; the row underneath is hatched because the
+             receiving stage counts by hand — the schema has no per-size received
+             column, so it is never printed, only left open. -->
+        {{#each colourRows}}
+        <tr><td>{{this.colour}} &mdash; issued</td>{{#each this.cells}}<td>{{this}}</td>{{/each}}<td>{{this.total}}</td></tr>
+        <tr class="open"><td>{{this.colour}} &mdash; counted on receipt</td>{{#each ../sizes}}<td></td>{{/each}}<td></td></tr>
+        {{/each}}
+        <tr class="tot"><td>Total pieces issued</td>{{#each sizeTotals}}<td>{{this}}</td>{{/each}}<td>{{issuedTotal}}</td></tr>
+      </tbody>
+    </table>
+    {{#unless countsAgree}}
+    <div class="blocked">
+      <b>Line counts do not match the slip header</b>
+      The size lines add up to {{issuedTotal}} pieces but this slip was raised for {{declaredTotal}}.
+      Do not move the bundles until the difference is resolved &mdash; the receiving stage will otherwise
+      be short against the work order for the rest of the run.
+    </div>
+    {{/unless}}
+    {{else}}
+    <table class="grid">
+      <thead><tr><th>Size</th><th style="text-align:center">Bundles</th><th style="text-align:center">Pieces</th><th style="text-align:center">Counted by</th></tr></thead>
+      <tbody>
+        <!-- No size lines on the slip: the whole count block is hand-filled. -->
+        <tr class="open"><td></td><td></td><td></td><td></td></tr>
+        <tr class="open"><td></td><td></td><td></td><td></td></tr>
+        <tr class="open"><td></td><td></td><td></td><td></td></tr>
+        <tr class="tot"><td>Declared on this slip</td><td></td><td>{{declaredTotal}}</td><td></td></tr>
+      </tbody>
+    </table>
+    {{/if}}
+
+    <div class="callout">
+      <b>Internal movement &mdash; not a supply</b>
+      These pieces move between departments of {{company.name}}. Ownership does not change, nothing is sold,
+      and no GST arises &mdash; which is why this slip carries no tax, no rate and no GSTIN for either side.
+      It is not a delivery challan and must never be used to move goods off the premises: a movement to an
+      outside job worker needs a Rule 55 delivery challan against a job work order.
+    </div>
+  </div>
+
+  <!-- 03 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>03 &mdash; Check at Receipt</span><b>Completed by {{toLabel}}</b></div>
+    <table>
+      <thead><tr><th>Check</th><th style="width:86px">Result</th><th>Observation / short pieces</th></tr></thead>
+      <tbody>
+        <tr class="open"><td>Bundle count against this slip</td><td></td><td></td></tr>
+        <tr class="open"><td>Piece count inside opened bundles</td><td></td><td></td></tr>
+        <tr class="open"><td>Shade / lot consistent across bundles</td><td></td><td></td></tr>
+        <tr class="open"><td>Damage, soil or cutting defects</td><td></td><td></td></tr>
+      </tbody>
+    </table>
+    {{#if remarks}}<div class="callout"><b>Remarks on issue</b>{{remarks}}</div>{{/if}}
+  </div>
+
+  <div class="sign">
+    <div>Issued by &mdash; {{fromLabel}}</div>
+    <div>Prepared by &mdash; {{preparedByName}}</div>
+    <div>Received by &mdash; {{#if receivedByName}}{{receivedByName}}{{else}}{{toLabel}}{{/if}}</div>
+  </div>
+
+  <div class="foot">
+    <span>{{docNo}} &middot; {{workOrderNumber}} &middot; Page 1 of 1</span>
+    <span>Internal document &mdash; not valid for movement outside the premises</span>
+  </div>
+</div>
+</body>
+</html>

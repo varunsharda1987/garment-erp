@@ -38,6 +38,21 @@ async function buildData(template: KfTemplateName, id: string): Promise<{ data: 
       return { data: await lazyAdapter('reports.doc-data', 'buildItc04ReportData')() };
     case 'report-vendor-performance':
       return { data: await lazyAdapter('reports.doc-data', 'buildVendorPerformanceReportData')() };
+    // Phase B (kf-style templates authored in-house)
+    case 'proforma-invoice':
+      return { data: await lazyAdapter('proforma-invoice.doc-data', 'buildProformaInvoiceDocData')(id) };
+    case 'order-form':
+      return { data: await lazyAdapter('order-form.doc-data', 'buildOrderFormDocData')(id) };
+    case 'transfer-slip':
+      return { data: await lazyAdapter('transfer-slip.doc-data', 'buildTransferSlipDocData')(id) };
+    case 'cutting-chart':
+      return { data: await lazyAdapter('cutting-chart.doc-data', 'buildCuttingChartDocData')(id) };
+    case 'tech-pack':
+      return { data: await lazyAdapter('tech-pack.doc-data', 'buildTechPackDocData')(id) };
+    case 'line-sheet':
+      return { data: await lazyAdapter('line-sheet.doc-data', 'buildLineSheetDocData')(id) };
+    case 'catalogue':
+      return { data: await lazyAdapter('catalogue.doc-data', 'buildCatalogueDocData')(id) };
     default:
       throw new Error(`No preview binding for template: ${template}`);
   }

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cutting Chart — {{docNo}}</title>
+<link rel="stylesheet" href="assets/base.css">
+<style>
+  /* Two things this sheet needs that base.css does not carry:
+     1. A size grid — equal, centred columns that survive eight or more sizes.
+        base.css tables assume a wide description column plus a few money columns.
+     2. A hand-fill CELL. base.css hatches whole rows (.open td); a planned-vs-
+        actual table has to hatch only the actual columns, so the same hatch is
+        expressed per cell. Same gradient, same intent, cell scope. */
+  .grid{table-layout:fixed;}
+  .grid th,.grid td{padding:3px; text-align:center;}
+  .grid th:first-child,.grid td:first-child{text-align:left; padding-left:6px; width:30%;}
+  td.hand{background:repeating-linear-gradient(45deg,transparent,transparent 5px,
+          rgba(0,0,0,.028) 5px,rgba(0,0,0,.028) 10px);}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  {{> mast company=company docTitle="Cutting Chart" docNo=docNo docPill=docPill hideGstin=hideGstin}}
+
+  <!-- 01 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>01 &mdash; Style &amp; Work Order</span><b>{{cutQtyLabel}} pcs to cut</b></div>
+    <div class="kv">
+      <div>
+        <div class="row"><span class="k">Style</span><span class="v">{{styleLabel}}{{#if styleName}} &middot; <span class="muted">{{styleName}}</span>{{/if}}</span></div>
+        {{#if buyer}}<div class="row"><span class="k">Buyer</span><span class="v">{{buyer}}{{#if brand}} &middot; <span class="muted">{{brand}}</span>{{/if}}</span></div>{{/if}}
+        {{#if orderRef}}<div class="row"><span class="k">Order</span><span class="v">{{orderRef}}</span></div>{{/if}}
+        <div class="row"><span class="k">Qty</span><span class="v">{{orderQtyLabel}} ordered &rarr; <strong>{{cutQtyLabel}} to cut</strong> <span class="muted">incl. {{extraPctLabel}} extra</span></span></div>
+      </div>
+      <div>
+        <div class="row"><span class="k">Work Order</span><span class="v">{{docNo}} &middot; <span class="muted">{{statusLabel}}</span></span></div>
+        <div class="row"><span class="k">Planned Run</span><span class="v">{{plannedStart}} &rarr; {{plannedEnd}}</span></div>
+        {{#if deliveryDate}}<div class="row"><span class="k">Delivery</span><span class="v">{{deliveryDate}}</span></div>{{/if}}
+        <div class="row"><span class="k">Fabric Ready</span><span class="v">{{#if lotsAvailable}}{{lotsAvailable}} m across {{lotCount}} lots{{else}}<span class="muted">No issued lot on record</span>{{/if}}</span></div>
+        <div class="row"><span class="k">Max Cuttable</span><span class="v">{{#if maxCuttableLabel}}{{maxCuttableLabel}} pcs{{#if bottleneckPart}} <span class="muted">&mdash; limited by {{bottleneckPart}}</span>{{/if}}{{else}}<span class="muted">Not computable &mdash; no CAD average against issued stock</span>{{/if}}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 02 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>02 &mdash; Size Ratio &amp; Cut Plan</span><b>{{sizeSource}}</b></div>
+    {{#each grids}}
+    <table class="grid" style="margin-bottom:9px">
+      <thead>
+        <tr>
+          <th>{{this.colour}}</th>
+          {{#each ../sizes}}<th style="text-align:center">{{this}}</th>{{/each}}
+          <th style="text-align:center">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Ratio</td>{{#each this.ratio}}<td>{{this}}</td>{{/each}}<td>100.0%</td></tr>
+        <tr><td>Order qty</td>{{#each this.orderQty}}<td>{{this}}</td>{{/each}}<td>{{this.orderTotal}}</td></tr>
+        <tr><td>Extra @ {{../extraPctLabel}}</td>{{#each this.extraQty}}<td>{{this}}</td>{{/each}}<td>{{this.extraTotal}}</td></tr>
+        <tr class="sub"><td>To cut</td>{{#each this.toCut}}<td>{{this}}</td>{{/each}}<td>{{this.toCutTotal}}</td></tr>
+        <!-- Actual side: printed when cutting batches exist (base.css: never hatch a
+             system-populated field), hatched for the cutter when nothing is laid yet.
+             Either way exactly one hand-fill row stays open. -->
+        {{#if this.actualCut}}
+        <tr><td>Cut &mdash; recorded</td>{{#each this.actualCut}}<td>{{this}}</td>{{/each}}<td>{{this.actualTotal}}</td></tr>
+        <tr class="open"><td>Short / excess</td>{{#each ../sizes}}<td></td>{{/each}}<td></td></tr>
+        {{else}}
+        <tr class="open"><td>Cut &mdash; actual</td>{{#each ../sizes}}<td></td>{{/each}}<td></td></tr>
+        {{/if}}
+      </tbody>
+    </table>
+    {{/each}}
+    <div class="callout">
+      <b>Cutting allowance {{extraPctLabel}}</b>
+      {{extraBasis}}. It covers end-of-lay loss, shade rejects and line damage &mdash; it is not spare stock.
+      Anything cut beyond the &ldquo;to cut&rdquo; line must be written on this sheet before it leaves the table,
+      or it never reaches the work order. Measure the roll before the first lay and write the plies and metres
+      actually used in the hatched columns below: cutting to a planned average on a narrower roll is how a run
+      goes short with no shortage showing anywhere in the system.
+    </div>
+  </div>
+
+  <!-- 03 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>03 &mdash; Marker, Width &amp; Lay Plan</span><b>{{markerBanner}}</b></div>
+    <table>
+      <thead>
+        <tr><th>Part / Fabric</th><th style="width:62px">Basis</th><th class="num" style="width:48px">Width</th>
+            <th class="num" style="width:56px">Marker m</th><th class="num" style="width:42px">Pcs/mkr</th>
+            <th class="num" style="width:52px">Avg m/pc</th><th class="num" style="width:60px">Planned m</th>
+            <th class="num" style="width:44px">Plies</th><th class="num" style="width:56px">Actual m</th></tr>
+      </thead>
+      <tbody>
+        {{#each markerRows}}
+        <tr>
+          <td>{{this.part}} &mdash; {{this.fabric}}{{#if this.fabricSubline}}<br><span class="muted">{{this.fabricSubline}}</span>{{/if}}{{#if this.markerRatio}}<br><span class="muted">Marker ratio {{this.markerRatio}}</span>{{/if}}{{#each this.lots}}<br><span class="muted">Rolls {{this.rolls}} &middot; {{this.width}} &middot; {{this.available}} m &middot; grade {{this.grade}}</span>{{/each}}</td>
+          <td class="muted">{{this.basis}}</td>
+          <td class="num">{{this.width}}</td>
+          <td class="num">{{this.markerLength}}</td>
+          <td class="num">{{this.piecesPerMarker}}</td>
+          <td class="num">{{this.cadAverage}}</td>
+          <td class="num">{{this.plannedMeters}}</td>
+          <td class="num hand"></td>
+          <td class="num hand"></td>
+        </tr>
+        {{else}}
+        <tr class="open"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr class="open"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 04 ───────────────────────────────────────────── -->
+  <div class="sec">
+    <div class="sec-h"><span>04 &mdash; Lay Record</span><b>{{#if alreadyCut}}{{alreadyCut}} pcs cut so far{{else}}Nothing laid yet{{/if}}</b></div>
+    <table>
+      <thead>
+        <tr><th style="width:96px">Batch</th><th style="width:70px">Date</th><th>Rolls laid</th>
+            <th class="num" style="width:46px">Width</th><th class="num" style="width:40px">Plies</th>
+            <th class="num" style="width:36px">Lays</th><th class="num" style="width:58px">Fabric m</th>
+            <th class="num" style="width:48px">Pcs cut</th></tr>
+      </thead>
+      <tbody>
+        {{#each layRows}}
+        <tr><td>{{this.batch}}<br><span class="muted">{{this.status}}</span></td><td>{{this.date}}</td><td class="muted">{{this.rolls}}</td><td class="num">{{this.width}}</td><td class="num">{{this.plies}}</td><td class="num">{{this.lays}}</td><td class="num">{{this.consumed}}</td><td class="num">{{this.cut}}</td></tr>
+        {{/each}}
+        <!-- Always open below the recorded lays — the next lay is written here first
+             and keyed into a cutting batch afterwards. -->
+        <tr class="open"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        <tr class="open"><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="sign">
+    <div>Cutting Master</div>
+    <div>Store &mdash; Fabric issued</div>
+    <div>Production Manager</div>
+  </div>
+
+  <div class="foot">
+    <span>{{docNo}} &middot; {{styleLabel}} &middot; Page 1 of 1</span>
+    <span>Internal working sheet &mdash; return to production office after the last lay</span>
+  </div>
+</div>
+</body>
+</html>

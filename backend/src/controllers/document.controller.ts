@@ -10,7 +10,7 @@
  */
 
 import { Request, Response } from 'express';
-import documentGeneratorService from '../services/document-generator.service';
+import documentGeneratorService, { CatalogueFilters, CatalogueOptions } from '../services/document-generator.service';
 import { documentFacadeService, RendererUnavailableError } from '../services/document-facade.service';
 import prisma from '../config/database';
 import path from 'path';
@@ -43,6 +43,38 @@ function cleanupTempCatalogues() {
   }
 }
 cleanupTempCatalogues();
+
+/**
+ * Catalogue rendering (Phase B): the kf catalogue adapter selects styles from a
+ * token string (ids/codes + key=value filters + flags), while this endpoint's
+ * legacy contract passes a filter OBJECT whose category/brand/season members are
+ * ID arrays. Explicit style ids translate cleanly; the ID-array filters do not,
+ * so those requests stay on pdfkit rather than silently selecting the wrong set.
+ */
+async function renderCatalogue(
+  filters: CatalogueFilters,
+  options: { priceDisplay?: string; includeIndex?: boolean; catalogueName?: string } & Record<string, unknown>
+): Promise<Buffer> {
+  const hasExplicitStyles = Array.isArray(filters.styleIds) && filters.styleIds.length > 0;
+  const hasIdArrayFilters =
+    (filters.categoryIds?.length ?? 0) > 0 ||
+    (filters.brandCategoryIds?.length ?? 0) > 0 ||
+    (filters.seasons?.length ?? 0) > 0 ||
+    filters.priceRange != null;
+
+  if (!hasExplicitStyles || hasIdArrayFilters) {
+    return documentGeneratorService.generateCataloguePDF(filters, options as CatalogueOptions);
+  }
+
+  const selection = [
+    ...(filters.styleIds as string[]),
+    options.priceDisplay && options.priceDisplay !== 'none' ? 'prices' : 'noprices',
+    options.includeIndex ? 'index' : 'noindex',
+    ...(options.catalogueName ? [`title=${String(options.catalogueName).replace(/,/g, ' ')}`] : []),
+  ].join(',');
+
+  return documentFacadeService.generateCataloguePDF(selection);
+}
 
 class DocumentController {
   /**
@@ -148,9 +180,9 @@ class DocumentController {
    */
   async generateProformaPDF(req: Request, res: Response) {
     const { id } = req.params;
-    const includeImages = req.query.includeImages === 'true';
+    const legacy = req.query.legacy === '1' || req.query.legacy === 'true';
 
-    const pdfBuffer = await documentGeneratorService.generateProformaPDF(id, { includeImages });
+    const pdfBuffer = await documentFacadeService.generateProformaPDF(id, { legacy });
 
     // Get quotation number for filename
     const quotation = await prisma.quotations.findUnique({
@@ -172,9 +204,9 @@ class DocumentController {
    */
   async generateOrderFormPDF(req: Request, res: Response) {
     const { id } = req.params;
-    const includeImages = req.query.includeImages === 'true';
+    const legacy = req.query.legacy === '1' || req.query.legacy === 'true';
 
-    const pdfBuffer = await documentGeneratorService.generateOrderFormPDF(id, { includeImages });
+    const pdfBuffer = await documentFacadeService.generateOrderFormPDF(id, { legacy });
 
     // Get order number for filename
     const order = await prisma.orders.findUnique({
@@ -228,7 +260,7 @@ class DocumentController {
       catalogueName,
     };
 
-    const pdfBuffer = await documentGeneratorService.generateCataloguePDF(filters, options);
+    const pdfBuffer = await renderCatalogue(filters, options);
 
     const filename = `Catalogue_${catalogueName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
 
@@ -261,7 +293,7 @@ class DocumentController {
     const filters = { styleIds, categoryIds, brandCategoryIds, seasons, priceRange };
     const options = { priceDisplay, showFabricDetails, showSizeRange, includeIndex, columnsPerPage, catalogueName };
 
-    const pdfBuffer = await documentGeneratorService.generateCataloguePDF(filters, options);
+    const pdfBuffer = await renderCatalogue(filters, options);
 
     // Generate unique ID and save to temp directory
     const { v4: uuidv4 } = await import('uuid');
@@ -402,8 +434,9 @@ class DocumentController {
    */
   async generateTechPackPDF(req: Request, res: Response) {
     const { styleId } = req.params;
+    const legacy = req.query.legacy === '1' || req.query.legacy === 'true';
 
-    const pdfBuffer = await documentGeneratorService.generateTechPackPDF(styleId);
+    const pdfBuffer = await documentFacadeService.generateTechPackPDF(styleId, { legacy });
 
     // Get style code for filename
     const style = await prisma.styles.findUnique({
@@ -432,13 +465,21 @@ class DocumentController {
     // The client (and generateLineSheetSchema) send these FLAT, not nested under `options`.
     // Reading a nested `options` key meant it was always undefined, so every line-sheet option
     // (price toggles, buyer details, title) was silently ignored.
-    const { styleIds, ...options } = req.body;
+    const { styleIds, legacy, ...options } = req.body;
 
     if (!styleIds || !Array.isArray(styleIds) || styleIds.length === 0) {
       throw new ValidationError('styleIds array is required');
     }
 
-    const pdfBuffer = await documentGeneratorService.generateLineSheetPDF(styleIds, options);
+    // kf line sheet takes a selection string; price columns are opt-in via the
+    // same flags the client already sends (showWholesalePrice / title).
+    const selection = [
+      ...styleIds,
+      options.showWholesalePrice ? 'prices' : 'noprices',
+      ...(options.title ? [`title=${String(options.title).replace(/,/g, ' ')}`] : []),
+    ].join(',');
+
+    const pdfBuffer = await documentFacadeService.generateLineSheetPDF(selection, { legacy: legacy === true });
 
     const filename = `LineSheet_${new Date().toISOString().split('T')[0]}.pdf`;
 
@@ -554,14 +595,13 @@ class DocumentController {
   async generateCuttingChartPDF(req: Request, res: Response) {
     const { workOrderId } = req.params;
     const { colorId, extraPercent } = req.query;
+    const legacy = req.query.legacy === '1' || req.query.legacy === 'true';
 
-    const pdfBuffer = await documentGeneratorService.generateCuttingChartPDF(
-      workOrderId,
-      colorId as string | undefined,
-      {
-        extraPercent: extraPercent ? parseFloat(extraPercent as string) : 1,
-      }
-    );
+    const pdfBuffer = await documentFacadeService.generateCuttingChartPDF(workOrderId, {
+      legacy,
+      colorId: colorId as string | undefined,
+      extraPercent: extraPercent ? parseFloat(extraPercent as string) : 1,
+    });
 
     const workOrder = await prisma.work_orders.findUnique({
       where: { id: workOrderId },
@@ -581,8 +621,9 @@ class DocumentController {
    */
   async generateTransferSlipPDF(req: Request, res: Response) {
     const { id } = req.params;
+    const legacy = req.query.legacy === '1' || req.query.legacy === 'true';
 
-    const pdfBuffer = await documentGeneratorService.generateTransferSlipPDF(id);
+    const pdfBuffer = await documentFacadeService.generateTransferSlipPDF(id, { legacy });
 
     const slip = await prisma.transfer_slips.findUnique({
       where: { id },

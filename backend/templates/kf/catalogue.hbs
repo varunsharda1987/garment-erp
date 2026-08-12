@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalogue — {{docNo}}</title>
+<link rel="stylesheet" href="assets/base.css">
+<link rel="stylesheet" href="assets/catalogue.css">
+</head>
+<body class="doc-catalogue">
+
+<!-- Multi-page: the ADAPTER paginates (cover → optional index → card pages)
+     and emits one .sheet per printed page, which is what lets the index quote
+     real page numbers and guarantees no card is split across a break. -->
+
+<div class="sheet cover">
+  <div class="cover-top">
+    <div class="firm">{{company.name}}<span>{{company.tagline}}</span></div>
+    <div class="addr">{{company.addressLine}}<br>GSTIN {{company.gstin}} &middot; State Code {{company.stateCode}}</div>
+  </div>
+
+  <div class="cover-mid">
+    <h1 class="cover-title">{{title}}</h1>
+    <div class="cover-rule"></div>
+    <div class="cover-sub">
+      {{#if seasonLabel}}{{seasonLabel}}<br>{{/if}}{{collectionLabel}}{{#if preparedFor}}<br>Prepared for {{preparedFor}}{{/if}}
+    </div>
+    <div class="cover-facts">
+      <div><div class="label">Styles</div><div class="value">{{styleCount}}</div></div>
+      <div><div class="label">Issued</div><div class="value">{{issuedOn}}</div></div>
+      <div><div class="label">Reference</div><div class="value">{{docNo}}</div></div>
+    </div>
+    {{#unless showPrices}}
+    <div class="callout" style="max-width:420px">
+      <b>Prices are not printed here</b>
+      This copy carries specification only. Ask for the line sheet when you need wholesale prices and the
+      ordering columns &mdash; that is the document a buyer orders from.
+    </div>
+    {{/unless}}
+  </div>
+
+  <div class="cover-foot">
+    <span>{{dash company.phone}}{{#if company.email}} &middot; {{company.email}}{{/if}}</span>
+    <span>{{categoryLabel}}</span>
+  </div>
+</div>
+
+{{#each indexPages}}
+<div class="sheet">
+  {{> mast company=../company docTitle="Catalogue" docNo=../docNo docPill=../docPill}}
+
+  <div class="sec">
+    <div class="sec-h"><span>Index{{#if this.continued}} (continued){{/if}}</span><b>{{../styleCount}} style{{#unless ../styleCountIsOne}}s{{/unless}}</b></div>
+    <table class="cat-index">
+      <thead>
+        <tr><th style="width:34px">#</th><th style="width:150px">Style Code</th><th>Style Name</th><th style="width:130px">Category</th><th class="num" style="width:52px">Page</th></tr>
+      </thead>
+      <tbody>
+        {{#each this.rows}}
+        <tr>
+          <td class="num">{{this.sn}}</td>
+          <td class="ix-code">{{this.code}}</td>
+          <td>{{this.name}}</td>
+          <td class="muted">{{this.category}}</td>
+          <td class="num">{{this.pageNo}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="foot">
+    <span>{{../docNo}} &middot; Page {{this.pageNo}} of {{../pageCount}}</span>
+    <span>{{../company.name}} &middot; Issued {{../issuedOn}}</span>
+  </div>
+</div>
+{{/each}}
+
+{{#each cardPages}}
+<div class="sheet">
+  {{> mast company=../company docTitle="Catalogue" docNo=../docNo docPill=../docPill}}
+
+  <div class="sec">
+    <div class="sec-h"><span>{{../title}}{{#if this.continued}} (continued){{/if}}</span><b>Styles {{this.rangeLabel}}</b></div>
+    <div class="cards">
+      {{#each this.cards}}
+      <article class="card">
+        <div class="plate{{#unless this.imageUrl}} is-empty{{/unless}}">{{#if this.imageUrl}}<img src="{{this.imageUrl}}" alt="">{{/if}}</div>
+        <div class="card-body">
+          <div class="card-code"><span>{{this.code}}</span>{{#if this.seasonLabel}}<em>{{this.seasonLabel}}</em>{{else}}{{#if this.category}}<em>{{this.category}}</em>{{/if}}{{/if}}</div>
+          <div class="card-name">{{this.name}}{{#if this.buyerRef}} <span class="muted">({{this.buyerRef}})</span>{{/if}}</div>
+          <div class="card-spec">
+            {{#if this.colours}}<div><span>Colour</span>{{this.colours}}</div>{{/if}}
+            {{#if this.sizes}}<div><span>Sizes</span>{{this.sizes}}</div>{{/if}}
+            {{#if this.fabric}}<div><span>Fabric</span>{{this.fabric}}</div>{{/if}}
+            {{#unless this.colours}}{{#unless this.sizes}}{{#unless this.fabric}}<div><span>Spec</span>on request</div>{{/unless}}{{/unless}}{{/unless}}
+          </div>
+          {{#if ../../showPrices}}
+          {{#if this.wholesale}}<div class="card-price"><em>Wholesale &#8377;</em>{{this.wholesale}}{{#if this.mrp}}<b><em>MRP &#8377;</em>{{this.mrp}}</b>{{/if}}</div>
+          {{else}}{{#if this.mrp}}<div class="card-price"><em>MRP &#8377;</em>{{this.mrp}}</div>{{/if}}{{/if}}
+          {{/if}}
+        </div>
+      </article>
+      {{/each}}
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>{{../docNo}} &middot; Page {{this.pageNo}} of {{../pageCount}}</span>
+    <span>{{../company.name}} &middot; GSTIN {{../company.gstin}} &middot; Issued {{../issuedOn}}</span>
+  </div>
+</div>
+{{/each}}
+</body>
+</html>

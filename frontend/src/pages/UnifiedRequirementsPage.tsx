@@ -109,6 +109,7 @@ import {
   X,
   Scissors,
   Plus,
+  Download,
 } from 'lucide-react';
 
 type RequirementTab = 'material' | 'outsourced' | 'thread';
@@ -1043,6 +1044,8 @@ interface OutsourcedRow {
   componentName?: string | null;
   colorName?: string | null;
   fabricWidth?: number | null;
+  jwoLink?: string; // navigation path to JWO detail
+  jwoNumber?: string | null; // JWO number for display/export
   // Original data references for bulk operations
   originalProcessing?: MaterialRequirement;
   originalService?: ServiceRequirement;
@@ -1581,6 +1584,8 @@ function OutsourcedWorkTab({
     if (sourceFilter !== 'service') {
       const processingItems = processingResponse?.data || [];
       for (const req of processingItems) {
+        // Extract JWO link from jwoLinks (Phase 4c: JWO-based processing)
+        const jwo = (req as any).jwoLinks?.[0]?.jobWorkOrder;
         result.push({
           id: req.id,
           rowKey: `proc-${req.id}`,
@@ -1597,12 +1602,16 @@ function OutsourcedWorkTab({
           cost: req.processingCost ?? null,
           status: req.status,
           statusColor: MaterialRequirementStatusColors[req.status] || 'bg-muted text-foreground',
-          statusLabel: MaterialRequirementStatusLabels[req.status] || req.status,
+          // Phase 4c: PROCESSING uses JWOs, not POs — show "JWO Created" instead of "PO Generated"
+          statusLabel:
+            req.status === 'PO_GENERATED' ? 'JWO Created' : MaterialRequirementStatusLabels[req.status] || req.status,
           isSelectable: req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK',
           createdAt: req.createdAt,
           componentName: req.componentName || null,
           colorName: req.colorName || null,
           fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
+          jwoLink: jwo ? `/job-work-orders/${jwo.id}` : undefined,
+          jwoNumber: jwo?.jobWorkNumber || null,
           originalProcessing: req,
         });
       }
@@ -1700,6 +1709,51 @@ function OutsourcedWorkTab({
   const clearSelection = () => {
     setSelectedProcessingIds([]);
     setSelectedServiceIds([]);
+  };
+
+  // CSV Export handler
+  const handleExport = () => {
+    const headers = [
+      'Style',
+      'Buyer Ref',
+      'Component',
+      'Color',
+      'Width',
+      'Work Type',
+      'Printing Type',
+      'Reference',
+      'Processor',
+      'Quantity',
+      'Cost',
+      'Status',
+      'JWO Number',
+      'Created At',
+    ];
+    const csvRows = rows.map((row) => [
+      row.style,
+      row.buyerStyleRef || '',
+      row.componentName || '',
+      row.colorName || '',
+      row.fabricWidth ? `${row.fabricWidth}"` : '',
+      row.workType,
+      row.printingType || '',
+      row.reference,
+      row.processor,
+      row.quantity,
+      row.cost != null ? row.cost.toFixed(2) : '',
+      row.statusLabel,
+      row.jwoNumber || '',
+      new Date(row.createdAt).toLocaleDateString(),
+    ]);
+
+    const csv = [headers.join(','), ...csvRows.map((r) => r.map((c) => `"${c}"`).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `outsourced-work-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const refreshData = () => {
@@ -1914,6 +1968,11 @@ function OutsourcedWorkTab({
                 ))}
               </SelectContent>
             </Select>
+
+            <Button variant="outline" onClick={handleExport} disabled={rows.length === 0}>
+              <Download className="h-4 w-4 mr-1" />
+              Export
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -2055,11 +2114,20 @@ function OutsourcedWorkTab({
                       </span>
                     </TableCell>
                     <TableCell>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${row.statusColor}`}
-                      >
-                        {row.statusLabel}
-                      </span>
+                      {row.jwoLink ? (
+                        <button
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${row.statusColor} hover:underline cursor-pointer`}
+                          onClick={() => navigate(row.jwoLink!)}
+                        >
+                          {row.statusLabel}
+                        </button>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${row.statusColor}`}
+                        >
+                          {row.statusLabel}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{formatDate(row.createdAt)}</TableCell>
                   </TableRow>

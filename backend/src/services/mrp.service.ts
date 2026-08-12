@@ -3589,6 +3589,18 @@ function getRequirementIncludes() {
     orderBom: {
       select: { id: true, version: true },
     },
+    requirement_jwo_links: {
+      include: {
+        job_work_orders: {
+          select: {
+            id: true,
+            jobWorkNumber: true,
+            status: true,
+            jwoStatus: true,
+          },
+        },
+      },
+    },
     linkedRequirement: {
       select: {
         id: true,
@@ -3710,6 +3722,22 @@ function mapToResponse(req: any): MaterialRequirementResponse {
             orderedQuantity: Number(link.purchase_order_items.orderedQuantity),
             receivedQuantity: Number(link.purchase_order_items.receivedQuantity),
             unitPrice: Number(link.purchase_order_items.unitPrice),
+          }
+        : undefined,
+    })),
+    jwoLinks: req.requirement_jwo_links?.map((link: any) => ({
+      id: link.id,
+      requirementId: link.requirementId,
+      jobWorkOrderId: link.jobWorkOrderId,
+      allocatedQuantity: Number(link.allocatedQuantity),
+      receivedQuantity: Number(link.receivedQuantity),
+      createdAt: link.createdAt.toISOString(),
+      jobWorkOrder: link.job_work_orders
+        ? {
+            id: link.job_work_orders.id,
+            jobWorkNumber: link.job_work_orders.jobWorkNumber,
+            status: link.job_work_orders.status,
+            jwoStatus: link.job_work_orders.jwoStatus,
           }
         : undefined,
     })),

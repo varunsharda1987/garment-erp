@@ -352,6 +352,7 @@ export interface MaterialRequirementResponse {
     lastName: string;
   };
   poLinks?: RequirementPOLinkResponse[];
+  jwoLinks?: RequirementJWOLinkResponse[];
   orderBom?: {
     id: string;
     version: number;
@@ -394,6 +395,26 @@ export interface RequirementPOLinkResponse {
     orderedQuantity: number;
     receivedQuantity: number;
     unitPrice: number;
+  };
+}
+
+/**
+ * Requirement to JWO link with relations (Phase 4c: Job Work consolidation)
+ */
+export interface RequirementJWOLinkResponse {
+  id: string;
+  requirementId: string;
+  jobWorkOrderId: string;
+  allocatedQuantity: number;
+  receivedQuantity: number;
+  createdAt: string;
+
+  // Relations
+  jobWorkOrder?: {
+    id: string;
+    jobWorkNumber: string;
+    status: string;
+    jwoStatus: string;
   };
 }
 

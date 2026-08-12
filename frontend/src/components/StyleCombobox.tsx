@@ -13,47 +13,52 @@ interface StyleComboboxProps {
   onChange: (styleId: string, style?: Style) => void;
   disabled?: boolean;
   placeholder?: string;
-  status?: string;
+  /** Status filter for styles. Defaults to 'ACTIVE'. Pass null to include all statuses. */
+  status?: string | null;
 }
 
 export function StyleCombobox({ value, onChange, disabled, placeholder, status = 'ACTIVE' }: StyleComboboxProps) {
+  // If status is null, don't filter by status (include all)
+  const effectiveStatus = status === null ? undefined : status;
   const [options, setOptions] = useState<ComboboxOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [stylesMap, setStylesMap] = useState<Map<string, Style>>(new Map());
 
-  const loadStyles = useCallback(async (search: string) => {
-    setIsLoading(true);
-    try {
-      const response = await styleService.getAllStyles(
-        1,
-        50,
-        search || undefined,
-        undefined,
-        undefined,
-        undefined,
-        status
-      );
-      const styles = response.data;
+  const loadStyles = useCallback(
+    async (search: string) => {
+      setIsLoading(true);
+      try {
+        const response = await styleService.getAllStyles(
+          1,
+          50,
+          search || undefined,
+          undefined,
+          undefined,
+          undefined,
+          effectiveStatus
+        );
+        const styles = response.data;
 
-      // Store full style objects for lookup
-      const map = new Map<string, Style>();
-      styles.forEach((s) => map.set(s.id, s));
-      setStylesMap(map);
+        // Store full style objects for lookup
+        const map = new Map<string, Style>();
+        styles.forEach((s) => map.set(s.id, s));
+        setStylesMap(map);
 
-      // Transform to combobox options
-      const opts: ComboboxOption[] = styles.map((s) => ({
-        value: s.id,
-        label: `${s.styleCode}${s.buyerStyleRef ? ` (${s.buyerStyleRef})` : ''} - ${s.styleName} (${s.customerName || 'No customer'})`,
-        searchText: `${s.styleCode} ${s.buyerStyleRef || ''} ${s.styleName} ${s.customerName || ''}`,
-      }));
-      setOptions(opts);
-    } catch (error) {
-      console.error('Failed to load styles:', error);
-    } finally {
-      setIsLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+        // Transform to combobox options
+        const opts: ComboboxOption[] = styles.map((s) => ({
+          value: s.id,
+          label: `${s.styleCode}${s.buyerStyleRef ? ` (${s.buyerStyleRef})` : ''} - ${s.styleName} (${s.customerName || 'No customer'})`,
+          searchText: `${s.styleCode} ${s.buyerStyleRef || ''} ${s.styleName} ${s.customerName || ''}`,
+        }));
+        setOptions(opts);
+      } catch (error) {
+        console.error('Failed to load styles:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [effectiveStatus]
+  );
 
   // Load initial styles
   useEffect(() => {

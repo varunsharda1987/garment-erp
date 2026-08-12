@@ -15,7 +15,8 @@ interface FabricCostingRowProps {
   orderQuantity?: number;
   styleId?: string;
   currentStrategy?: 'STOCK_REUSE' | 'READY_FABRIC' | 'GREIGE_PROCESSED';
-  currentCost?: number;
+  pricePerMeter?: number; // Fabric price per meter from Fabric Costing
+  currentCost?: number; // Total cost (CAD × pricePerMeter)
   onStrategyChange: (strategy: {
     sourcingStrategy: 'STOCK_REUSE' | 'READY_FABRIC' | 'GREIGE_PROCESSED';
     cost: number;
@@ -44,6 +45,7 @@ export default function FabricCostingRow({
   orderQuantity,
   styleId,
   currentStrategy,
+  pricePerMeter,
   currentCost,
   onStrategyChange,
   onRemove,
@@ -243,7 +245,14 @@ export default function FabricCostingRow({
           )}
         </td>
 
-        {/* Cost */}
+        {/* Price per meter */}
+        <td
+          className={`px-4 py-3 text-sm text-right ${isNotApplicable ? 'text-muted-foreground line-through' : 'text-foreground'}`}
+        >
+          {isNotApplicable ? 'N/A' : formatCurrency(pricePerMeter)}
+        </td>
+
+        {/* Total Cost */}
         <td
           className={`px-4 py-3 text-sm font-semibold text-right ${isNotApplicable ? 'text-muted-foreground line-through' : 'text-foreground'}`}
         >

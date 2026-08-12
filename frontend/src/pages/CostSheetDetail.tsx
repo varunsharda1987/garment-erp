@@ -386,7 +386,9 @@ const CostSheetDetail = () => {
                     <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
                       Average (m)
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Rate</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                      Price (₹/m)
+                    </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Total</th>
                   </tr>
                 </thead>

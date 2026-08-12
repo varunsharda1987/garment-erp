@@ -605,6 +605,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
               return {
                 id: randomUUID(),
                 materialType: bom.materialType,
+                materialId: bom.materialId || null,
                 usageCategory: bom.usageCategory || 'GARMENT_TRIM',
                 // Set the appropriate FK based on materialType
                 // Use null if materialId is empty/undefined to avoid FK violations
@@ -1676,6 +1677,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 id: randomUUID(),
                 styleId: id,
                 materialType: bom.materialType,
+                materialId: bom.materialId || null,
                 usageCategory: bom.usageCategory || 'GARMENT_TRIM',
                 // Set the appropriate FK based on materialType
                 // Use null if materialId is empty/undefined to avoid FK violations

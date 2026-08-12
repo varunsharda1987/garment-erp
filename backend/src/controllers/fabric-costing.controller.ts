@@ -1087,8 +1087,21 @@ export async function getCostingOptions(req: Request, res: Response) {
     where.purpose = purpose as string;
   }
 
-  // If customerId filter, we need to join through brand_categories
-  const styleFilter: any = customerId ? { brand_categories: { customerId: customerId as string } } : {};
+  // If customerId filter, we need to filter by BOTH brand_categories.customerId AND direct customerName
+  // (some styles use brand_categories relation, others have customerName set directly)
+  let styleFilter: any = {};
+  if (customerId) {
+    const customer = await prisma.customers.findUnique({
+      where: { id: customerId as string },
+      select: { name: true },
+    });
+
+    if (customer) {
+      styleFilter = {
+        OR: [{ brand_categories: { customerId: customerId as string } }, { customerName: customer.name }],
+      };
+    }
+  }
 
   const options = await prisma.fabric_width_cad.findMany({
     where: {

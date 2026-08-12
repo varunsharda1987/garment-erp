@@ -2017,6 +2017,7 @@ const CostSheetForm = () => {
                 }}
                 disabled={isEditMode || isApprovedCostSheet}
                 placeholder="Type style code to search..."
+                status={null} // Include both ACTIVE and DRAFT styles for costing
               />
               <p className="text-xs text-muted-foreground mt-1">Search by style code, name, or customer</p>
             </div>
@@ -2393,7 +2394,10 @@ const CostSheetForm = () => {
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">CAD (m)</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase">Width</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Sourcing</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Cost</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                    Price (₹/m)
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">Total</th>
                   <th
                     className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase"
                     title="Not Applicable"
@@ -2415,6 +2419,7 @@ const CostSheetForm = () => {
                     orderQuantity={selectedStyle?.orderQuantity}
                     styleId={selectedStyleId}
                     currentStrategy={fabric.sourcingStrategy}
+                    pricePerMeter={fabric.fabricRate}
                     currentCost={fabric.fabricTotal}
                     onStrategyChange={(strategy) => updateFabricSourcingStrategy(index, strategy)}
                     onRemove={fabricDetails.length > 1 ? () => removeFabricRow(index) : undefined}

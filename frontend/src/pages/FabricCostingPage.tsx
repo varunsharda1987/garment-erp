@@ -372,41 +372,49 @@ export default function FabricCostingPage() {
   }, [preselectedStyleId, customers]);
 
   // Style search with debounce
-  const handleStyleSearch = useCallback((query: string) => {
-    setStyleSearchQuery(query);
+  const handleStyleSearch = useCallback(
+    (query: string) => {
+      setStyleSearchQuery(query);
 
-    // Clear previous timeout
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    if (query.length < 2) {
-      setStyleSearchResults([]);
-      setShowSearchResults(false);
-      return;
-    }
-
-    // Debounce search
-    searchTimeoutRef.current = setTimeout(async () => {
-      setIsSearching(true);
-      try {
-        const response = await styleService.getAllStyles(1, 20, query, undefined, undefined, undefined, 'ACTIVE');
-        setStyleSearchResults(response.data);
-        setShowSearchResults(true);
-
-        // Fetch costing status for search results
-        if (response.data.length > 0) {
-          const styleIds = response.data.map((s: Style) => s.id);
-          const statusMap = await fabricCostingService.getStylesCostingStatus(styleIds);
-          setStyleCostingStatus(statusMap);
-        }
-      } catch {
-        notify.error('Failed to search styles');
-      } finally {
-        setIsSearching(false);
+      // Clear previous timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
       }
-    }, 300);
-  }, []);
+
+      if (query.length < 2) {
+        setStyleSearchResults([]);
+        setShowSearchResults(false);
+        return;
+      }
+
+      // Debounce search
+      searchTimeoutRef.current = setTimeout(async () => {
+        setIsSearching(true);
+        try {
+          // BUG FIX: Respect selected customer filter when searching
+          const customerName = selectedCustomerId
+            ? customers.find((c) => c.id === selectedCustomerId)?.name
+            : undefined;
+          // Include both ACTIVE and DRAFT styles for costing (no status filter)
+          const response = await styleService.getAllStyles(1, 20, query, undefined, undefined, customerName, undefined);
+          setStyleSearchResults(response.data);
+          setShowSearchResults(true);
+
+          // Fetch costing status for search results
+          if (response.data.length > 0) {
+            const styleIds = response.data.map((s: Style) => s.id);
+            const statusMap = await fabricCostingService.getStylesCostingStatus(styleIds);
+            setStyleCostingStatus(statusMap);
+          }
+        } catch {
+          notify.error('Failed to search styles');
+        } finally {
+          setIsSearching(false);
+        }
+      }, 300);
+    },
+    [selectedCustomerId, customers]
+  );
 
   // Handle style selection from search
   const handleSearchResultSelect = (style: Style) => {
@@ -459,6 +467,15 @@ export default function FabricCostingPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Cleanup search timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // BUG-FC3 fix: Track changes to fabric rows after initial load
   // (The useUnsavedChanges hook handles beforeunload AND in-app navigation blocking)
   useEffect(() => {
@@ -490,6 +507,7 @@ export default function FabricCostingPage() {
           return;
         }
 
+        // Include both ACTIVE and DRAFT styles for costing (no status filter)
         const response = await styleService.getAllStyles(
           1,
           1000,
@@ -497,7 +515,7 @@ export default function FabricCostingPage() {
           undefined,
           undefined,
           selectedCustomer.name,
-          'ACTIVE'
+          undefined
         );
         setStyles(response.data);
       } catch {

@@ -500,6 +500,83 @@ async function ensureMaterialForLabel(labelId: string): Promise<{ id: string } |
 }
 
 /**
+ * Ensure a materials record exists for a label_size_variants entry.
+ * Uses sizeVariantId as the material ID (same-id convention).
+ * These are per-size label materials for size-based labels.
+ */
+async function ensureMaterialForLabelSizeVariant(sizeVariantId: string): Promise<{ id: string } | null> {
+  try {
+    // Check for existing material by sizeVariantId (unique field)
+    const existing = await prisma.materials.findFirst({ where: { sizeVariantId } });
+    if (existing) return existing;
+
+    // Get size variant details with parent label
+    const variant = await prisma.label_size_variants.findUnique({
+      where: { id: sizeVariantId },
+      include: {
+        label: {
+          select: { id: true, labelCode: true, labelName: true, supplierId: true },
+        },
+      },
+    });
+    if (!variant || !variant.label) {
+      console.warn(`[MRP] label_size_variants not found for sizeVariantId: ${sizeVariantId}`);
+      return null;
+    }
+
+    // Get or create category for LABEL type
+    const categoryId = await materialService.getOrCreateCategory('LABEL');
+
+    // Create material with sizeVariantId as the ID (same-id convention for size variants)
+    const material = await prisma.materials.create({
+      data: {
+        id: sizeVariantId, // Same ID as size variant
+        code: `${variant.label.labelCode}-${variant.size}`,
+        name: `${variant.label.labelName} (${variant.size})`,
+        categoryId,
+        materialType: 'LABEL',
+        unit: 'PIECE',
+        labelId: variant.label.id, // Link to parent label
+        sizeVariantId: variant.id, // Link to this size variant
+        isActive: true,
+      },
+    });
+    console.log(
+      `[MRP] Auto-created materials record for label size variant: ${variant.label.labelCode}-${variant.size}`
+    );
+
+    // Link to supplier if parent label has one
+    if (variant.label.supplierId) {
+      try {
+        await prisma.material_suppliers.create({
+          data: {
+            materialId: material.id,
+            supplierId: variant.label.supplierId,
+            isPreferred: true,
+            isActive: true,
+            notes: 'Auto-linked from label_master default supplier (size variant)',
+          },
+        });
+      } catch (err) {
+        if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
+          throw err;
+        }
+        // P2002: supplier link already exists — idempotent
+      }
+    }
+
+    return material;
+  } catch (err: any) {
+    if (err?.code === 'P2002') {
+      const justCreated = await prisma.materials.findFirst({ where: { sizeVariantId } });
+      if (justCreated) return justCreated;
+    }
+    logger.error(`[MRP] Failed to auto-create materials record for sizeVariantId ${sizeVariantId}:`, err);
+    return null;
+  }
+}
+
+/**
  * Ensure a materials record exists for a packaging_master entry.
  * Auto-creates one using materialService.createFromMaster if missing.
  */
@@ -879,8 +956,15 @@ export async function calculateRequirementsFromOrder(
         }));
         for (const lookup of trimLookups) {
           if (lookup.value) {
+            // For labels, ensure we get the BASE material (not a size variant)
+            // Labels can have multiple materials: one base + one per size variant
+            const whereClause =
+              lookup.field === 'labelId'
+                ? { [lookup.field]: lookup.value, sizeVariantId: null }
+                : { [lookup.field]: lookup.value };
+
             const mat = await prisma.materials.findFirst({
-              where: { [lookup.field]: lookup.value },
+              where: whereClause,
             });
             if (mat) {
               resolvedTrimMaterialId = mat.id;
@@ -1286,6 +1370,106 @@ export async function calculateRequirementsFromOrder(
         }
       }
 
+      // SIZE-BASED LABEL HANDLING: Check if label has size variants
+      // If yes, create per-size requirements using order_item_breakup quantities
+      if (bomItem.labelId && !effectiveMaterialId) {
+        const labelSizeVariants = await prisma.label_size_variants.findMany({
+          where: { labelId: bomItem.labelId, isActive: true },
+          include: {
+            label: { select: { labelCode: true, labelName: true, supplierId: true } },
+          },
+        });
+
+        if (labelSizeVariants.length > 0) {
+          // This label has size variants - check for order size breakup
+          const orderBreakup = await prisma.order_item_breakup.findMany({
+            where: { orderItemId: orderItem.id },
+            include: { size_options: true },
+          });
+
+          // Filter for VALID breakup entries (must have size info and quantity > 0)
+          const validBreakup = orderBreakup.filter((b) => (b.size_options?.sizeName || b.sizeId) && b.quantity > 0);
+
+          if (validBreakup.length > 0) {
+            // Create per-size requirements
+            let createdSizeRequirements = false;
+            for (const breakup of validBreakup) {
+              const sizeName = breakup.size_options?.sizeName || breakup.sizeId;
+
+              // Find matching size variant (case-insensitive)
+              const variant = labelSizeVariants.find((v) => v.size.toLowerCase() === sizeName.toLowerCase());
+
+              if (!variant) {
+                logWarn(`[MRP] No size variant for label ${bomItem.labelId} size "${sizeName}" - skipping this size`);
+                continue;
+              }
+
+              // Get/create material for this size variant
+              const sizeVariantMaterial = await ensureMaterialForLabelSizeVariant(variant.id);
+              if (!sizeVariantMaterial) {
+                logWarn(`[MRP] Failed to create material for label size variant ${variant.id}`);
+                continue;
+              }
+
+              // Calculate per-size quantity with wastage using decimal.js
+              const sizeQty = breakup.quantity;
+              const baseRequiredDecimalForSize = multiplyCurrency(sizeQty, quantityPerUnit);
+              const wastageAmountForSize = baseRequiredDecimalForSize.times(toCurrency(wastagePercent).dividedBy(100));
+              const sizeRequired = toNumber(baseRequiredDecimalForSize.plus(wastageAmountForSize));
+
+              // Get supplier from parent label
+              const labelSupplierId = variant.label?.supplierId || null;
+
+              calculatedRequirements.push({
+                orderId,
+                orderItemId: orderItem.id,
+                materialId: sizeVariantMaterial.id,
+                orderBomId: bom.id,
+                orderQuantity: sizeQty,
+                quantityPerUnit,
+                wastagePercent,
+                totalRequired: sizeRequired,
+                unit: normalizeUnit(bomItem.unit),
+                availableStock: 0, // Label stock not tracked per-size currently
+                allocatedFromStock: 0,
+                shortfall: sizeRequired,
+                preferredSupplierId: labelSupplierId,
+                status: MaterialRequirementStatus.PO_REQUIRED,
+                requirementType: 'MATERIAL',
+                unitPrice: bomItem.unitPrice ? Number(bomItem.unitPrice) : null,
+                rateSource: bomItem.unitPrice ? 'ORDER_BOM' : null,
+                orderBomItemId: bomItem.id,
+                componentName: `${bomItem.componentName || variant.label?.labelName || 'Label'} (${sizeName})`,
+              });
+              createdSizeRequirements = true;
+            }
+
+            if (createdSizeRequirements) {
+              // Skip the normal single-requirement path for this BOM item
+              console.log(
+                `[MRP] Created per-size requirements for label "${bomItem.componentName}" (${labelSizeVariants.length} sizes)`
+              );
+              continue;
+            }
+            // If no size requirements were created (all sizes skipped), fall through to single requirement
+          } else {
+            // SIZE-BASED LABEL BUT NO SIZE BREAKUP:
+            // Cannot create meaningful requirements - we don't know how many of each size to order
+            // Skip this item and warn the user
+            skippedItems.push({
+              componentName: bomItem.componentName || labelSizeVariants[0]?.label?.labelName || 'Size-based Label',
+              materialType: bomItem.materialType,
+              reason: `Size-based label requires size breakup. Add size-wise quantity breakdown to the order to generate label requirements.`,
+            });
+            console.warn(
+              `[MRP] Skipped size-based label "${bomItem.componentName}" - no size breakup available for order item ${orderItem.id}`
+            );
+            continue;
+          }
+        }
+        // No size variants - fall through to existing single-requirement logic (non-size-based label)
+      }
+
       // For other master types (thread, button, zipper, elastic, label, packaging),
       // reuse early-resolved material ID or look up by specific master ID
       if (!effectiveMaterialId && hasSpecificMaster) {
@@ -1302,8 +1486,15 @@ export async function calculateRequirementsFromOrder(
           ];
           for (const lookup of lookups) {
             if (lookup.value) {
+              // For labels, ensure we get the BASE material (not a size variant)
+              // Labels can have multiple materials: one base + one per size variant
+              const whereClause =
+                lookup.field === 'labelId'
+                  ? { [lookup.field]: lookup.value, sizeVariantId: null }
+                  : { [lookup.field]: lookup.value };
+
               const mat = await prisma.materials.findFirst({
-                where: { [lookup.field]: lookup.value },
+                where: whereClause,
               });
               if (mat) {
                 effectiveMaterialId = mat.id;

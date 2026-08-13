@@ -707,7 +707,9 @@ export default function WorkOrderDetail() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => navigate(`/service-requirements/list?workOrderId=${id}&status=PENDING`)}
+                          onClick={() =>
+                            navigate(`/procurement/requirements?tab=outsourced&workOrderId=${id}&status=PENDING`)
+                          }
                           className="text-accent border-accent hover:bg-accent/10"
                         >
                           <UserCheck className="h-4 w-4 mr-1" />
@@ -719,7 +721,9 @@ export default function WorkOrderDetail() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => navigate(`/service-requirements/list?workOrderId=${id}&status=PENDING`)}
+                            onClick={() =>
+                              navigate(`/procurement/requirements?tab=outsourced&workOrderId=${id}&status=PENDING`)
+                            }
                             className="text-success border-success hover:bg-success-muted"
                           >
                             <ShoppingCart className="h-4 w-4 mr-1" />

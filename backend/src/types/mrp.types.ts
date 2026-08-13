@@ -42,7 +42,8 @@ export type RequirementSource = (typeof RequirementSource)[keyof typeof Requirem
 export interface CalculateRequirementsInput {
   orderId: string;
   orderItemId?: string; // Optional - if not provided, calculate for all items
-  requiredDate: Date;
+  /** MRP-08: optional — falls back to the order's expectedDeliveryDate. */
+  requiredDate?: Date;
   checkStock?: boolean; // Default true - whether to check available stock
 }
 
@@ -122,7 +123,11 @@ export interface CalculatedRequirement {
 export interface CalculateRequirementsRequest {
   orderId: string;
   orderItemId?: string;
-  requiredDate: string; // ISO date string
+  /**
+   * ISO date string. MRP-08: optional — omit it and the service uses the order's
+   * expectedDeliveryDate, which is the truthful due date for everything the order needs.
+   */
+  requiredDate?: string;
   checkStock?: boolean;
 }
 
@@ -220,6 +225,9 @@ export interface POPreviewRequest {
     requirementIds: string[];
     expectedDeliveryDate: string;
     remarks?: string;
+    /** MRP-05/47: review-step edits, keyed by preview groupKey (materialId fallback). */
+    itemPrices?: Record<string, number>;
+    itemQuantities?: Record<string, number>;
   }[];
 }
 
@@ -446,6 +454,10 @@ export interface MRPDashboardStats {
   awaitingReceipt: number;
   overdueRequirements: number;
   processingRequirementsCount: number;
+  /** PROCESSING rows still awaiting a processor/JWO (PENDING, PO_REQUIRED, PARTIAL_STOCK). */
+  processingNeedingAssignment: number;
+  /** PROCESSING rows whose Job Work Order exists (PO_GENERATED, PO_SENT). */
+  processingPoGenerated: number;
   byMaterialType: {
     materialType: string;
     count: number;

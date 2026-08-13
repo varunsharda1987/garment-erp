@@ -163,6 +163,10 @@ export default function BulkPOGenerationDialog({
         requirementIds: group.requirements.map((r) => r.id),
         expectedDeliveryDate: group.deliveryDate,
         remarks: group.remarks || undefined,
+        // MRP-05: send any edits already made, so re-previewing reprices server-side through the
+        // same path that will create the PO.
+        itemPrices: editedPrices[group.supplierId],
+        itemQuantities: editedQuantities[group.supplierId],
       }));
 
       const result = await previewPOs(groups);

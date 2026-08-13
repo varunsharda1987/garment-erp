@@ -22,6 +22,9 @@ export const MaterialRequirementStatusEnum = z.enum([
   'PARTIALLY_RECEIVED',
   'RECEIVED',
   'CANCELLED',
+  // MRP-45: present in the Prisma enum and written by convert-to-greige, but missing here — so
+  // PATCH /requirements/:id/status could never set (or restore) CONVERTED without a 400.
+  'CONVERTED',
 ]);
 
 export const RequirementSourceEnum = z.enum(['SALES_ORDER', 'WORK_ORDER', 'MANUAL']);
@@ -42,7 +45,10 @@ export const RequirementTypeEnum = z.enum(['MATERIAL', 'PROCESSING']);
 export const calculateRequirementsSchema = z.object({
   orderId: z.string().uuid('Invalid order ID'),
   orderItemId: z.string().uuid('Invalid order item ID').optional(),
-  requiredDate: z.string(),
+  // MRP-08: optional — when omitted the service derives it from the order's
+  // expectedDeliveryDate. Callers used to invent "today + 30 days", which overwrote the real
+  // delivery date on every requirement a recalculation created.
+  requiredDate: z.string().optional(),
   checkStock: z.boolean().optional().default(true),
 });
 
@@ -139,6 +145,13 @@ export const poPreviewGroupSchema = z.object({
   requirementIds: z.array(z.string().uuid()).min(1),
   expectedDeliveryDate: z.string(),
   remarks: z.string().max(1000).optional(),
+  // MRP-47: BulkPOGenerationDialog has always SENT these (the prices/quantities the user edits in
+  // the review step), but they were absent here — and validateBody does `req.body = schema.parse()`,
+  // which strips unknown keys. So every edited price was silently discarded and the PO was created
+  // at the originally-resolved rate. Same keys the single-PO schema uses; the service already
+  // reads groupKey-then-materialId.
+  itemPrices: z.record(z.string(), z.number().nonnegative()).optional(),
+  itemQuantities: z.record(z.string(), z.number().positive()).optional(),
 });
 
 /**
@@ -273,8 +286,33 @@ export const requirementsQuerySchema = z.object({
   search: z.string().max(100).optional(),
   page: z.string().transform(Number).pipe(z.number().int().positive()).optional(),
   limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
-  sortBy: z.string().optional(),
+  // MRP-45: this was `z.string()`, and the value lands directly in Prisma's `orderBy: { [sortBy]: ... }`.
+  // Any non-column string was an instant 500. Whitelisted to indexed/meaningful columns.
+  sortBy: z
+    .enum([
+      'createdAt',
+      'updatedAt',
+      'requiredDate',
+      'calculatedAt',
+      'requirementNumber',
+      'status',
+      'totalRequired',
+      'shortfall',
+      'unitPrice',
+    ])
+    .optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
+});
+
+/**
+ * Distinct requirement styles (filter dropdown)
+ * GET /api/mrp/requirements/styles
+ *
+ * MRP-42: previously unvalidated — the controller cast `req.query.requirementType` straight to a
+ * string and passed it into a Prisma `where`.
+ */
+export const requirementStylesQuerySchema = z.object({
+  requirementType: RequirementTypeEnum.optional(),
 });
 
 // ============================================================================

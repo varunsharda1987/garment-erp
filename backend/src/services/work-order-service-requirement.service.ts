@@ -1677,62 +1677,61 @@ export interface ServiceDashboardStats {
  * Get dashboard stats for all service requirements
  */
 export async function getDashboardStats(): Promise<ServiceDashboardStats> {
-  const requirements = await prisma.work_order_service_requirements.findMany({
-    where: { status: { not: ServiceRequirementStatus.CANCELLED } },
-  });
+  // MRP-40: this used to hydrate EVERY non-cancelled service requirement (no select, no
+  // pagination) and count them in a JS loop. It is called on every Requirements page load, on
+  // window focus in production, and by every `invalidateQueries(['service-requirements'])` —
+  // so the whole table was being pulled across the wire several times a minute. Same numbers,
+  // computed by the database.
+  const notCancelled = { status: { not: ServiceRequirementStatus.CANCELLED } } as const;
 
-  const stats: ServiceDashboardStats = {
-    totalServices: requirements.length,
-    pendingCount: 0,
-    processorAssignedCount: 0,
-    needsProcessorCount: 0,
-    poGeneratedCount: 0,
-    inProgressCount: 0,
-    completedCount: 0,
-    cancelledCount: 0,
-    estimatedTotalCost: 0,
-    byServiceType: {},
-  };
+  const [byStatus, byProcessorAssigned, byType, costAgg, cancelledCount] = await Promise.all([
+    prisma.work_order_service_requirements.groupBy({
+      by: ['status'],
+      where: notCancelled,
+      _count: { _all: true },
+    }),
+    prisma.work_order_service_requirements.count({
+      where: { ...notCancelled, assignedProcessorId: { not: null } },
+    }),
+    prisma.work_order_service_requirements.groupBy({
+      by: ['serviceType'],
+      where: notCancelled,
+      _count: { _all: true },
+    }),
+    prisma.work_order_service_requirements.aggregate({
+      where: notCancelled,
+      _sum: { estimatedTotal: true },
+      _count: { _all: true },
+    }),
+    prisma.work_order_service_requirements.count({
+      where: { status: ServiceRequirementStatus.CANCELLED },
+    }),
+  ]);
 
-  for (const req of requirements) {
-    if (req.estimatedTotal) {
-      stats.estimatedTotalCost += Number(req.estimatedTotal);
-    }
+  const statusCount = (s: ServiceRequirementStatus): number =>
+    byStatus.find((row) => row.status === s)?._count._all ?? 0;
 
-    if (req.assignedProcessorId) {
-      stats.processorAssignedCount++;
-    } else {
-      stats.needsProcessorCount++;
-    }
+  const totalServices = costAgg._count._all;
 
-    switch (req.status) {
-      case ServiceRequirementStatus.PENDING:
-        stats.pendingCount++;
-        break;
-      case ServiceRequirementStatus.PO_GENERATED:
-        stats.poGeneratedCount++;
-        break;
-      case ServiceRequirementStatus.IN_PROGRESS:
-        stats.inProgressCount++;
-        break;
-      case ServiceRequirementStatus.COMPLETED:
-        stats.completedCount++;
-        break;
-    }
-
-    if (!stats.byServiceType[req.serviceType]) {
-      stats.byServiceType[req.serviceType] = 0;
-    }
-    stats.byServiceType[req.serviceType]++;
+  const byServiceType: Record<string, number> = {};
+  for (const row of byType) {
+    byServiceType[row.serviceType] = row._count._all;
   }
 
-  // Count cancelled separately
-  const cancelledCount = await prisma.work_order_service_requirements.count({
-    where: { status: ServiceRequirementStatus.CANCELLED },
-  });
-  stats.cancelledCount = cancelledCount;
-
-  return stats;
+  return {
+    totalServices,
+    pendingCount: statusCount(ServiceRequirementStatus.PENDING),
+    processorAssignedCount: byProcessorAssigned,
+    // Kept as a subtraction so the two halves always sum to totalServices, exactly as the
+    // previous if/else over the same row set did.
+    needsProcessorCount: totalServices - byProcessorAssigned,
+    poGeneratedCount: statusCount(ServiceRequirementStatus.PO_GENERATED),
+    inProgressCount: statusCount(ServiceRequirementStatus.IN_PROGRESS),
+    completedCount: statusCount(ServiceRequirementStatus.COMPLETED),
+    cancelledCount,
+    estimatedTotalCost: Number(costAgg._sum.estimatedTotal ?? 0),
+    byServiceType,
+  };
 }
 
 // ============================================

@@ -128,6 +128,28 @@ export interface RequirementPOLink {
   };
 }
 
+/**
+ * Job Work Order link for PROCESSING requirements.
+ *
+ * MRP-45: the API has returned this since the Job Work Consolidation, but the type never did —
+ * the page read it through `(req as any).jwoLinks`, so a backend rename would have silently
+ * blanked the JWO status links instead of failing the build.
+ */
+export interface RequirementJWOLink {
+  id: string;
+  requirementId: string;
+  jobWorkOrderId: string;
+  allocatedQuantity: number;
+  receivedQuantity: number;
+  createdAt: string;
+  jobWorkOrder?: {
+    id: string;
+    jobWorkNumber: string;
+    status: string;
+    jwoStatus: string;
+  };
+}
+
 // ============================================
 // MATERIAL REQUIREMENT
 // ============================================
@@ -178,6 +200,7 @@ export interface MaterialRequirement {
   preferredSupplier?: SupplierSummary | null;
   createdBy?: UserSummary;
   poLinks?: RequirementPOLink[];
+  jwoLinks?: RequirementJWOLink[];
   orderBom?: { id: string; version: number } | null;
   // NEW: Processing relations
   processor?: SupplierSummary | null;
@@ -191,7 +214,12 @@ export interface MaterialRequirement {
 export interface CalculateRequirementsRequest {
   orderId: string;
   orderItemId?: string;
-  requiredDate: string;
+  /**
+   * MRP-08: optional — omit it and the backend uses the order's own expectedDeliveryDate. Callers
+   * used to synthesise "today + 30 days", which overwrote the real due date on every requirement
+   * a recalculation created.
+   */
+  requiredDate?: string;
   checkStock?: boolean;
 }
 
@@ -415,6 +443,10 @@ export interface MRPDashboardStats {
   awaitingReceipt: number;
   overdueRequirements: number;
   processingRequirementsCount: number;
+  /** PROCESSING rows still awaiting a processor/JWO (PENDING, PO_REQUIRED, PARTIAL_STOCK). */
+  processingNeedingAssignment: number;
+  /** PROCESSING rows whose Job Work Order exists (PO_GENERATED, PO_SENT). */
+  processingPoGenerated: number;
   byMaterialType: {
     materialType: string;
     count: number;

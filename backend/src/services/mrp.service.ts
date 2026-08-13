@@ -15,7 +15,8 @@ import {
 import { generateAtomicDocNumber, generateAtomicPONumberInTx } from '../utils/atomicCodeGenerator';
 import { generateJobWorkNumber } from '../utils/jobWorkNumber';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
-import { roundToCent, toCurrency, multiplyCurrency, toNumber } from '../utils/currency';
+import { roundToCent, toCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
+import { validateTransition } from '../utils/stateMachine';
 import { calculateGreigeQuantity } from '../utils/greige-quantity';
 import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
@@ -780,6 +781,20 @@ async function generateRequirementNumber(tx?: Prisma.TransactionClient): Promise
 }
 
 /**
+ * MRP-03: free-to-plan stock from a Prisma `_sum` over a lot table.
+ *
+ * Every netting path used to sum `quantityAvailable` alone, but allocateStock reserves against a
+ * lot by incrementing `quantityReserved` WITHOUT decrementing `quantityAvailable`. Stock already
+ * promised to order A therefore counted as free for order B, and MRP systematically under-ordered.
+ * Reserved quantity is committed elsewhere, so subtract it.
+ */
+function netFreeStock(sum: { quantityAvailable?: unknown; quantityReserved?: unknown } | null | undefined): number {
+  const available = Number(sum?.quantityAvailable ?? 0);
+  const reserved = Number(sum?.quantityReserved ?? 0);
+  return Math.max(0, available - reserved);
+}
+
+/**
  * Calculate material requirements from an order's BOM
  * Formula: totalRequired = orderQuantity × quantityPerUnit × (1 + wastagePercent/100)
  */
@@ -792,7 +807,7 @@ export async function calculateRequirementsFromOrder(
   requirements: MaterialRequirementResponse[];
   skipped: { componentName: string; materialType: string; reason: string }[];
 }> {
-  const { orderId, orderItemId, requiredDate, checkStock = true } = input;
+  const { orderId, orderItemId, requiredDate: requiredDateInput, checkStock = true } = input;
 
   // Track skipped BOM items with reasons for transparency
   const skippedItems: { componentName: string; materialType: string; reason: string }[] = [];
@@ -808,10 +823,13 @@ export async function calculateRequirementsFromOrder(
         },
       },
       // P3: MRP gate - only fetch APPROVED BOMs, ordered by version desc for deterministic pick
+      // MRP-07: LOCKED is APPROVED-and-frozen-for-production, not a rejection. Excluding it made
+      // every recalc on a locked order throw "no approved BOM" (see order-bom.controller, which
+      // has always accepted APPROVED || LOCKED for the same operation).
       orderBoms: {
         where: {
           isActive: true,
-          status: 'APPROVED', // P3: Require approved BOM
+          status: { in: ['APPROVED', 'LOCKED'] },
         },
         orderBy: { version: 'desc' }, // P3: Deterministic pick - highest version first
         include: {
@@ -854,6 +872,20 @@ export async function calculateRequirementsFromOrder(
     throw new Error(`Order ${orderId} not found`);
   }
 
+  // MRP-08: the order's own delivery date is the truthful due date for everything it needs.
+  // Callers (the Re-calculate button in particular) used to synthesise "today + 30 days" and
+  // stamp it onto every requirement the recalc created, silently overwriting real dates.
+  const requiredDate = requiredDateInput ?? order.expectedDeliveryDate;
+
+  // MRP-09: a cancelled order must not acquire new live requirements (which are then
+  // purchasable). order-bom approve/lock already guard on this; MRP never did.
+  if (order.status === 'CANCELLED') {
+    throw new Error(
+      `Cannot calculate MRP: order ${order.orderNumber} is CANCELLED. ` +
+        `Reactivate the order before planning materials for it.`
+    );
+  }
+
   // P3: MRP gate - require at least one approved BOM
   if (order.orderBoms.length === 0) {
     // Check if there are any BOMs at all (just not approved)
@@ -876,14 +908,23 @@ export async function calculateRequirementsFromOrder(
   // This prevents wiping requirements from other styles when recalculating for one style
   // CRITICAL: Do NOT cancel requirements that have POs generated/sent/partially received
   // - canceling PO_GENERATED/PO_SENT/PARTIALLY_RECEIVED requirements causes duplicate orders
+  //
+  // MRP-01: this pass used to execute HERE, outside the rebuild transaction at the bottom of
+  // this function. A rebuild that timed out (30s, hundreds of serialized queries) or threw left
+  // the order with every requirement CANCELLED and nothing recreated — silent data loss. It is
+  // now a closure invoked as the first statement INSIDE that transaction, so a failed rebuild
+  // rolls the cancel back with it. The revive-CANCELLED lookups further down see these rows
+  // because they run in the same transaction.
   const activeBomIds = order.orderBoms.map((b) => b.id);
-  if (activeBomIds.length > 0) {
+  const cancelSupersededRequirements = async (tx: Prisma.TransactionClient): Promise<void> => {
+    if (activeBomIds.length === 0) return;
+
     // First, find ALL requirements for this order that have active PO links (PO not cancelled)
     // BUG-ORD3 FIX: Query by orderId alone (not orderBomId) because:
     // 1. Manual requirements have null orderBomId
     // 2. The `in` filter doesn't match null values
     // 3. This caused requirements with PO links to be cancelled -> duplicate POs
-    const linkedReqs = await prisma.requirement_po_links.findMany({
+    const linkedReqs = await tx.requirement_po_links.findMany({
       where: {
         material_requirements: {
           orderId,
@@ -896,36 +937,70 @@ export async function calculateRequirementsFromOrder(
     });
     const poLinkedIds = linkedReqs.map((l) => l.requirementId);
 
+    // MRP-02: protect convert-to-greige chains. The CONVERTED parent carries shortfall 0 and is
+    // deliberately not re-plannable; its greige child (linkedRequirementId -> parent) and the
+    // processing grandchild (linkedRequirementId -> greige child) inherit the parent's
+    // orderBomId, so the OR branch below matched them and a recalc silently cancelled the whole
+    // conversion, then recreated the original ready-fabric requirement it had replaced.
+    const convertedParents = await tx.material_requirements.findMany({
+      where: { orderId, status: 'CONVERTED' },
+      select: { id: true },
+    });
+    const conversionChainIds: string[] = convertedParents.map((r) => r.id);
+    let frontier = conversionChainIds;
+    // Two generations today (greige, then processing); the loop keeps it correct if the
+    // conversion chain ever grows a third.
+    while (frontier.length > 0) {
+      const children = await tx.material_requirements.findMany({
+        where: { orderId, linkedRequirementId: { in: frontier } },
+        select: { id: true },
+      });
+      frontier = children.map((r) => r.id).filter((id) => !conversionChainIds.includes(id));
+      conversionChainIds.push(...frontier);
+    }
+
     // Cancel only requirements:
     // 1. Belonging to this order AND one of the active BOMs (or null orderBomId for manual reqs)
     // 2. NOT in terminal/PO-progression statuses
-    // 3. NOT linked to active POs
-    await prisma.material_requirements.updateMany({
+    // 3. NOT linked to active POs, and NOT part of a convert-to-greige chain
+    await tx.material_requirements.updateMany({
       where: {
         orderId,
+        // MRP-01: when the caller scopes the rebuild to a single order item, the cancel must be
+        // scoped identically — otherwise it wipes sibling items the rebuild will never recreate.
+        ...(orderItemId ? { orderItemId } : {}),
         // Include BOM-linked, manual (null orderBomId), AND stale (inactive/superseded BOM)
         // requirements for this order. Without the isActive:false branch, requirements from
         // deactivated BOMs linger as PO_REQUIRED and recalc creates duplicates next to them.
         OR: [{ orderBomId: { in: activeBomIds } }, { orderBomId: null }, { orderBom: { isActive: false } }],
         // Exclude terminal statuses AND PO-progression statuses
-        status: { notIn: ['RECEIVED', 'CANCELLED', 'PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
-        // Also exclude any with active PO links (belt-and-suspenders)
-        id: { notIn: poLinkedIds },
+        status: { notIn: ['RECEIVED', 'CANCELLED', 'CONVERTED', 'PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
+        // Also exclude any with active PO links (belt-and-suspenders) or a live conversion chain
+        id: { notIn: [...poLinkedIds, ...conversionChainIds] },
       },
       data: { status: 'CANCELLED' },
     });
-  }
+  };
 
   const calculatedRequirements: CalculatedRequirement[] = [];
 
   // Process each order item
   for (const orderItem of order.order_items) {
     const style = orderItem.styles;
-    // Find the active order BOM for this style
-    const bom = order.orderBoms.find((b: any) => b.styleId === style.id);
+    // MRP-16: order_bom carries an optional orderItemId, and every BOM in this database currently
+    // uses it. Matching on styleId alone meant two order lines of the SAME style both bound to the
+    // first (highest-version) BOM, so the second line's own BOM was never exploded and its
+    // requirements silently came out of the wrong bill. Prefer the BOM scoped to this exact order
+    // item; fall back to an unscoped BOM for the style (the legacy shape).
+    const bom =
+      order.orderBoms.find((b: any) => b.styleId === style.id && b.orderItemId === orderItem.id) ??
+      order.orderBoms.find((b: any) => b.styleId === style.id && !b.orderItemId);
 
     if (!bom) {
-      console.warn(`No active BOM found for style ${style.styleCode}`);
+      logWarn(
+        `[MRP] No active BOM found for style ${style.styleCode} on order item ${orderItem.id} — skipping. ` +
+          `(An item-scoped BOM for a different order item does not apply here.)`
+      );
       continue;
     }
 
@@ -1145,10 +1220,14 @@ export async function calculateRequirementsFromOrder(
               greigeId: bomItem.greigeId,
               status: 'AVAILABLE',
               quantityAvailable: { gt: 0 },
+              // MRP-14: greige physically sitting at a processor is not available to plan against.
+              // derived_stock_view (what the trim path reads) already excludes it; this aggregate
+              // did not, so the two stock readers disagreed on the same material.
+              processorId: null,
             },
-            _sum: { quantityAvailable: true },
+            _sum: { quantityAvailable: true, quantityReserved: true },
           });
-          const totalGreigeStock = Number(greigeStockResult._sum?.quantityAvailable || 0);
+          const totalGreigeStock = netFreeStock(greigeStockResult._sum);
 
           if (totalGreigeStock >= totalRequired) {
             availableStock = totalGreigeStock;
@@ -1174,9 +1253,9 @@ export async function calculateRequirementsFromOrder(
               cutableWidth: { gte: bomWidth - 0.5, lte: bomWidth + 0.5 },
               status: 'AVAILABLE',
             },
-            _sum: { quantityAvailable: true },
+            _sum: { quantityAvailable: true, quantityReserved: true },
           });
-          const stockAtBomWidth = Number(fabricStockAtWidth._sum?.quantityAvailable || 0);
+          const stockAtBomWidth = netFreeStock(fabricStockAtWidth._sum);
 
           // Also check stock at ANY width for this fabric (for split scenarios)
           const fabricStockAnyWidth = await prisma.fabric_stock.aggregate({
@@ -1184,9 +1263,9 @@ export async function calculateRequirementsFromOrder(
               fabricId: bomItem.fabricId,
               status: 'AVAILABLE',
             },
-            _sum: { quantityAvailable: true },
+            _sum: { quantityAvailable: true, quantityReserved: true },
           });
-          const totalFabricStock = Number(fabricStockAnyWidth._sum?.quantityAvailable || 0);
+          const totalFabricStock = netFreeStock(fabricStockAnyWidth._sum);
 
           if (stockAtBomWidth >= totalRequired) {
             // Fully available at requested width
@@ -1200,13 +1279,18 @@ export async function calculateRequirementsFromOrder(
             allocatedFromStock = stockAtBomWidth;
             shortfall = totalRequired - stockAtBomWidth;
             status = MaterialRequirementStatus.PARTIAL_STOCK;
-          } else if (totalFabricStock > 0 && totalFabricStock < totalRequired) {
-            // Stock exists but at different width — create split requirement
-            // Main requirement: use stock at available width
+          } else if (totalFabricStock > 0) {
+            // Stock exists, but only at a different width — net it the same way the partial
+            // branch above does.
+            // MRP-13: this used to read `totalFabricStock > 0 && totalFabricStock < totalRequired`,
+            // so when off-width stock FULLY covered the need no branch matched at all and the row
+            // silently fell through to PO_REQUIRED with availableStock 0 — more stock produced
+            // less netting.
             availableStock = totalFabricStock;
-            allocatedFromStock = totalFabricStock;
-            shortfall = totalRequired - totalFabricStock;
-            status = MaterialRequirementStatus.PARTIAL_STOCK;
+            allocatedFromStock = Math.min(totalFabricStock, totalRequired);
+            shortfall = Math.max(0, totalRequired - totalFabricStock);
+            status =
+              shortfall === 0 ? MaterialRequirementStatus.FULFILLED_STOCK : MaterialRequirementStatus.PARTIAL_STOCK;
           }
           // else: no stock at all, defaults remain (PO_REQUIRED)
         } else if (bomItem.materialType === 'FABRIC' && bomItem.fabricId && !bomItem.fabricWidthInches) {
@@ -1216,9 +1300,9 @@ export async function calculateRequirementsFromOrder(
               fabricId: bomItem.fabricId,
               status: 'AVAILABLE',
             },
-            _sum: { quantityAvailable: true },
+            _sum: { quantityAvailable: true, quantityReserved: true },
           });
-          const totalFabricStock = Number(fabricStockAnyWidth._sum?.quantityAvailable || 0);
+          const totalFabricStock = netFreeStock(fabricStockAnyWidth._sum);
 
           if (totalFabricStock >= totalRequired) {
             availableStock = totalFabricStock;
@@ -1240,9 +1324,9 @@ export async function calculateRequirementsFromOrder(
               status: 'AVAILABLE',
               quantityAvailable: { gt: 0 },
             },
-            _sum: { quantityAvailable: true },
+            _sum: { quantityAvailable: true, quantityReserved: true },
           });
-          const totalLaceStock = Number(laceStockResult._sum?.quantityAvailable || 0);
+          const totalLaceStock = netFreeStock(laceStockResult._sum);
 
           if (totalLaceStock >= totalRequired) {
             // Fully available from lace stock
@@ -1709,6 +1793,9 @@ export async function calculateRequirementsFromOrder(
       let updated = 0;
       const savedRequirements: MaterialRequirementResponse[] = [];
 
+      // MRP-01: supersede-cancel and rebuild are one atomic unit — see the closure definition.
+      await cancelSupersededRequirements(tx);
+
       // Track GREIGE requirements by materialId for linking PROCESSING requirements
       const greigeRequirementIds: Map<string, string> = new Map();
 
@@ -1716,17 +1803,34 @@ export async function calculateRequirementsFromOrder(
       for (const req of materialReqs) {
         // CRITICAL: First check if a requirement already exists with an active PO
         // (PO_GENERATED, PO_SENT, PARTIALLY_RECEIVED) — do NOT create duplicates
-        const existingWithPO = await tx.material_requirements.findFirst({
+        // MRP-39: probe with a bare id first. This runs once per requirement inside the
+        // transaction and almost always misses, but it used to drag getRequirementIncludes()
+        // (13 relations) on every single miss. Hydrate only on the rare hit, where the row is
+        // actually returned to the caller.
+        const existingWithPOId = await tx.material_requirements.findFirst({
           where: {
             orderId: req.orderId,
             orderItemId: req.orderItemId,
             materialId: req.materialId,
             requirementType: req.requirementType || 'MATERIAL',
             colorName: req.colorName || null,
+            // MRP-26: the identity key was (order, item, material, type, colour) — which cannot
+            // tell two BOM lines apart when they use the SAME fabric and colour at different
+            // widths/CADs (live example: one Kurta component planned at 52" and 50"). Without
+            // this, the second line matched the first line's row: if the first had a PO the
+            // second was skipped and silently never planned, and on recalculation the two fought
+            // over the same revived row. orderBomItemId is the true line identity.
+            orderBomItemId: req.orderBomItemId ?? null,
             status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
           },
-          include: getRequirementIncludes(),
+          select: { id: true },
         });
+        const existingWithPO = existingWithPOId
+          ? await tx.material_requirements.findUnique({
+              where: { id: existingWithPOId.id },
+              include: getRequirementIncludes(),
+            })
+          : null;
 
         if (existingWithPO) {
           // Skip - already has an active PO, don't duplicate
@@ -1749,8 +1853,12 @@ export async function calculateRequirementsFromOrder(
             materialId: req.materialId,
             requirementType: req.requirementType || 'MATERIAL',
             colorName: req.colorName || null, // Different colors = separate requirements
+            orderBomItemId: req.orderBomItemId ?? null, // MRP-26: …and different BOM lines too
             status: 'CANCELLED', // Only reuse CANCELLED — prevents second BOM item overwriting first
           },
+          // MRP-26: deterministic pick — this had no ordering, so with several cancelled
+          // candidates the revived row (and therefore its requirement number) was arbitrary.
+          orderBy: { createdAt: 'desc' },
         });
 
         let saved;
@@ -1836,17 +1944,25 @@ export async function calculateRequirementsFromOrder(
 
         // CRITICAL: First check if a requirement already exists with an active PO
         // (PO_GENERATED, PO_SENT, PARTIALLY_RECEIVED) — do NOT create duplicates
-        const existingWithPO = await tx.material_requirements.findFirst({
+        // MRP-39: cheap probe, hydrate only on the rare hit (see the MATERIAL pass above).
+        const existingProcWithPOId = await tx.material_requirements.findFirst({
           where: {
             orderId: req.orderId,
             orderItemId: req.orderItemId,
             materialId: req.materialId,
             requirementType: 'PROCESSING',
             colorName: req.colorName || null,
+            orderBomItemId: req.orderBomItemId ?? null, // MRP-26: distinguish BOM lines
             status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
           },
-          include: getRequirementIncludes(),
+          select: { id: true },
         });
+        const existingWithPO = existingProcWithPOId
+          ? await tx.material_requirements.findUnique({
+              where: { id: existingProcWithPOId.id },
+              include: getRequirementIncludes(),
+            })
+          : null;
 
         if (existingWithPO) {
           // Skip - already has an active PO, don't duplicate
@@ -1861,8 +1977,10 @@ export async function calculateRequirementsFromOrder(
             materialId: req.materialId,
             requirementType: 'PROCESSING',
             colorName: req.colorName || null,
+            orderBomItemId: req.orderBomItemId ?? null, // MRP-26: distinguish BOM lines
             status: 'CANCELLED', // Only reuse CANCELLED — prevents second BOM item overwriting first
           },
+          orderBy: { createdAt: 'desc' }, // MRP-26: deterministic revive
         });
 
         let saved;
@@ -1936,8 +2054,12 @@ export async function calculateRequirementsFromOrder(
 
       return { created, updated, savedRequirements };
     },
-    { timeout: 30000 }
-  ); // 30s timeout for large BOMs
+    // The supersede-cancel now shares this transaction (MRP-01), and the persist loop still costs
+    // 3-4 serialized round trips per requirement, so a large multi-style order can legitimately
+    // run past 30s. A timeout here is no longer destructive (everything rolls back) but it is
+    // still a failed recalc for the user.
+    { timeout: 60000, maxWait: 10000 }
+  );
 
   // Log summary for debugging
   if (skippedItems.length > 0) {
@@ -2093,6 +2215,10 @@ export async function getDistinctRequirementStyles(requirementType?: string) {
   };
   if (requirementType) where.requirementType = requirementType;
 
+  // MRP-42: this feeds a filter dropdown but ran as an unbounded `distinct` scan of the whole
+  // requirements table on every page load, with no take and no ordering. Newest-first + a hard
+  // cap keeps it proportional to a dropdown; the distinct is still per order item, so the style
+  // dedup below is unchanged.
   const items = await prisma.material_requirements.findMany({
     where,
     select: {
@@ -2104,6 +2230,8 @@ export async function getDistinctRequirementStyles(requirementType?: string) {
       },
     },
     distinct: ['orderItemId'],
+    orderBy: { createdAt: 'desc' },
+    take: 500,
   });
 
   // Deduplicate by styleId (multiple order_items may reference the same style)
@@ -2195,6 +2323,8 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
     awaitingReceiptCount,
     overdueCount,
     processingCount,
+    processingNeedingAssignmentCount,
+    processingPoGeneratedCount,
     byMaterialType,
     bySupplier,
   ] = await Promise.all([
@@ -2249,6 +2379,28 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
         status: { notIn: [MaterialRequirementStatus.RECEIVED, MaterialRequirementStatus.CANCELLED] },
       },
     }),
+    // MRP-27: the total above spans every live PROCESSING row, including ones that already have a
+    // processor and a Job Work Order. The summary cards need the two halves separately —
+    // otherwise a row the table labels "JWO Created" is counted under "Needs Assignment" AND
+    // omitted from "PO Generated".
+    prisma.material_requirements.count({
+      where: {
+        requirementType: 'PROCESSING',
+        status: {
+          in: [
+            MaterialRequirementStatus.PENDING,
+            MaterialRequirementStatus.PO_REQUIRED,
+            MaterialRequirementStatus.PARTIAL_STOCK,
+          ],
+        },
+      },
+    }),
+    prisma.material_requirements.count({
+      where: {
+        requirementType: 'PROCESSING',
+        status: { in: [MaterialRequirementStatus.PO_GENERATED, MaterialRequirementStatus.PO_SENT] },
+      },
+    }),
     // By material type
     prisma.$queryRaw`
       SELECT m."materialType", COUNT(*)::int as count, SUM(mr.shortfall)::float as shortfall
@@ -2281,6 +2433,8 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
     awaitingReceipt: awaitingReceiptCount,
     overdueRequirements: overdueCount,
     processingRequirementsCount: processingCount,
+    processingNeedingAssignment: processingNeedingAssignmentCount,
+    processingPoGenerated: processingPoGeneratedCount,
     byMaterialType: byMaterialType || [],
     bySupplier: bySupplier || [],
   };
@@ -2436,6 +2590,30 @@ export interface ProcessingJwoSeed {
   expectedReturnDate: Date | null;
   requirementNumbers: string[];
   userId: string;
+  /**
+   * MRP-15: job_work_orders.uom is free text (MTR / PCS / KG) and was hard-coded to 'MTR'
+   * regardless of what the requirement was actually measured in, so a job priced per piece was
+   * documented as metres. Optional to keep the historical backfill script working unchanged.
+   */
+  uom?: string;
+}
+
+/** MRP-15: Prisma `Unit` → the short codes job_work_orders.uom uses. */
+export function unitToJwoUom(unit: string | null | undefined): string {
+  switch (unit) {
+    case 'METER':
+      return 'MTR';
+    case 'YARD':
+      return 'YDS';
+    case 'KILOGRAM':
+      return 'KG';
+    case 'GRAM':
+      return 'GM';
+    case 'PIECE':
+      return 'PCS';
+    default:
+      return 'MTR';
+  }
 }
 
 export function buildJwoDataForProcessingPO(seed: ProcessingJwoSeed, jobWorkNumber: string) {
@@ -2448,7 +2626,8 @@ export function buildJwoDataForProcessingPO(seed: ProcessingJwoSeed, jobWorkNumb
     fabricId: seed.fabricId,
     fabricType: 'GREIGE',
     qtySentMeters: seed.qtyMeters,
-    uom: 'MTR',
+    uom: seed.uom ?? 'MTR', // MRP-15
+
     agreedRatePerMeter: seed.ratePerMeter,
     isRateTbd: false,
     expectedShrinkage: seed.expectedShrinkage,
@@ -2686,6 +2865,20 @@ export async function generatePOFromRequirements(
     throw new Error('No valid requirements found for PO generation');
   }
 
+  // MRP-04: PROCESSING requirements are Job-Work-Order-only (Job Work Consolidation phases
+  // 4c/5a — dyeing and printing never ride on a purchase order). The JWO branch further down is
+  // gated on `requirements.every(PROCESSING)`, so a MIXED selection silently failed that test
+  // and fell through to the PO path, putting a dyeing job on a material PO as a line item.
+  // Reject the mix rather than quietly emitting the wrong document type.
+  const selectedTypes = [...new Set(requirements.map((r) => r.requirementType))];
+  if (selectedTypes.length > 1) {
+    throw new Error(
+      `Cannot generate a single document for mixed requirement types (${selectedTypes.join(' + ')}). ` +
+        `PROCESSING requirements produce a Job Work Order and MATERIAL requirements produce a ` +
+        `Purchase Order — select one type at a time.`
+    );
+  }
+
   // Look up supplier prices from material_suppliers (UUID-based)
   const materialIds = [...new Set(requirements.map((r) => r.materialId))];
   const supplierPrices = await prisma.material_suppliers.findMany({
@@ -2703,60 +2896,61 @@ export async function generatePOFromRequirements(
   );
 
   // Resolve cost-sheet rates for each material (FABRIC / GREIGE / PROCESSING)
+  //
+  // MRP-41: each iteration awaits an independent rate lookup, so this ran strictly serially —
+  // N round trips for N requirements, then the whole thing again at generation time. The lookups
+  // do not depend on each other, so run them concurrently and write the map afterwards.
   const costSheetRateMap = new Map<string, number>();
-  for (const req of requirements) {
-    if (itemPrices?.[req.materialId] != null) continue; // manual override takes priority, skip
-    const costSheetId = (req as any).orderBom?.sourceCostSheetId ?? null;
-    const fabricId = (req.materials as any)?.fabricId ?? null;
-    const matType = req.materials?.materialType;
+  const rateResolutions = await Promise.all(
+    requirements.map(async (req): Promise<{ key: string; rate: number } | null> => {
+      if (itemPrices?.[req.materialId] != null) return null; // manual override takes priority
 
-    // PROCESSING requirements: resolve from processor rate card or stored processingCost
-    if (req.requirementType === 'PROCESSING') {
-      const groupKey = req.id; // Each PROCESSING req is a separate PO item
-      if (itemPrices?.[groupKey] != null) continue;
+      if (req.requirementType === 'PROCESSING') {
+        const groupKey = req.id;
+        if (itemPrices?.[groupKey] != null) return null;
+        // MRP-06: price against the processor the document is actually issued to.
+        if (req.processorId && req.processorId !== supplierId) {
+          logWarn(
+            `[MRP] Requirement ${req.requirementNumber} is assigned to processor ${req.processorId} but the job ` +
+              `work order is being issued to ${supplierId} — pricing against ${supplierId}'s rate card.`
+          );
+        }
+        try {
+          const resolved = await resolveRate({
+            poCategory: 'PROCESSING' as any,
+            supplierId,
+            printingType: req.printingType || undefined,
+            materialId: req.materialId,
+          });
+          if (resolved.rate && resolved.rate > 0) return { key: groupKey, rate: resolved.rate };
+        } catch {
+          /* fall through to the stored processing cost */
+        }
+        return req.processingCost ? { key: groupKey, rate: Number(req.processingCost) } : null;
+      }
+
+      const costSheetId = (req as any).orderBom?.sourceCostSheetId ?? null;
+      const matType = req.materials?.materialType;
+      if (!costSheetId) return null;
+      if (matType !== 'FABRIC' && matType !== 'GREIGE') return null;
       try {
         const resolved = await resolveRate({
-          poCategory: 'PROCESSING' as any,
-          supplierId: req.processorId || req.preferredSupplierId || supplierId,
-          printingType: req.printingType || undefined,
+          poCategory: (matType === 'GREIGE' ? 'GREIGE' : 'FABRIC') as any,
+          costSheetId,
+          fabricId: ((req.materials as any)?.fabricId ?? undefined) || undefined,
+          greigeId: ((req.materials as any)?.greigeId ?? undefined) || undefined,
+          supplierId,
           materialId: req.materialId,
         });
-        if (resolved.rate && resolved.rate > 0) {
-          costSheetRateMap.set(groupKey, resolved.rate);
-        } else if (req.processingCost) {
-          costSheetRateMap.set(groupKey, Number(req.processingCost));
-        }
+        if (resolved.rate && resolved.rate > 0) return { key: req.materialId, rate: resolved.rate };
       } catch {
-        if (req.processingCost) {
-          costSheetRateMap.set(groupKey, Number(req.processingCost));
-        }
+        // silently skip — supplier price will be used as fallback
       }
-      continue;
-    }
-
-    // FABRIC / GREIGE: resolve from cost sheet (fallback for legacy requirements without snapshot).
-    // P1 note: D3 (trims/lace/thread rates skipped) is fixed by req.unitPrice snapshot above.
-    // This fallback path still only handles FABRIC/GREIGE since resolveRate doesn't support TRIMS.
-    if (!costSheetId) continue;
-    if (matType !== 'FABRIC' && matType !== 'GREIGE') continue;
-    const poCategory = matType === 'GREIGE' ? 'GREIGE' : 'FABRIC';
-    // P1.7: Pass greigeId for GREIGE materials (fabricId is null for them)
-    const greigeId = (req.materials as any)?.greigeId ?? null;
-    try {
-      const resolved = await resolveRate({
-        poCategory: poCategory as any,
-        costSheetId,
-        fabricId: fabricId ?? undefined,
-        greigeId: greigeId ?? undefined,
-        supplierId,
-        materialId: req.materialId,
-      });
-      if (resolved.rate && resolved.rate > 0) {
-        costSheetRateMap.set(req.materialId, resolved.rate);
-      }
-    } catch {
-      // silently skip — supplier price will be used as fallback
-    }
+      return null;
+    })
+  );
+  for (const resolution of rateResolutions) {
+    if (resolution) costSheetRateMap.set(resolution.key, resolution.rate);
   }
 
   // Determine supplier state for GST calculation
@@ -2922,7 +3116,31 @@ export async function generatePOFromRequirements(
   // ============================================================================
   if (isProcessingRequirements && processingProcessType) {
     const totalQtyMeters = poItems.reduce((sum, item) => sum + item.quantity, 0);
-    const ratePerMeter = poItems[0].unitPrice;
+
+    // MRP-15: the JWO stores a single qty + a single rate, but a job work order can bundle several
+    // requirements. This used to take `poItems[0].unitPrice` — the FIRST item's rate — and apply it
+    // to the SUMMED quantity, so a bundle of items priced differently was billed entirely at
+    // whichever happened to be first. Use the value-weighted average, which reproduces the exact
+    // line-total sum, and refuse to guess when the units differ.
+    const jwoUnits = [...new Set(poItems.map((item) => normalizeUnit(item.unit)))];
+    if (jwoUnits.length > 1) {
+      throw new Error(
+        `Cannot create one job work order for requirements measured in different units (${jwoUnits.join(', ')}). ` +
+          `Generate a separate job work order per unit.`
+      );
+    }
+    const jwoUom = jwoUnits[0] ?? 'METER';
+    const totalJobValue = poItems.reduce(
+      (sum, item) => toNumber(addCurrency(sum, multiplyCurrency(item.quantity, item.unitPrice))),
+      0
+    );
+    const ratePerMeter = totalQtyMeters > 0 ? toNumber(roundToCent(totalJobValue / totalQtyMeters)) : 0;
+    if (poItems.length > 1 && new Set(poItems.map((i) => i.unitPrice)).size > 1) {
+      logWarn(
+        `[MRP] Job work order bundles ${poItems.length} items at different rates — storing the value-weighted ` +
+          `average ${ratePerMeter} so the total (${totalJobValue}) is preserved.`
+      );
+    }
     const primary = requirements[0] as any;
     const styleCode = primary.order_items?.styles?.styleCode || 'STK';
 
@@ -2957,6 +3175,7 @@ export async function generatePOFromRequirements(
               fabricId: primary.orderBomItem?.fabricId ?? null,
               qtyMeters: totalQtyMeters,
               ratePerMeter,
+              uom: unitToJwoUom(jwoUom), // MRP-15: carry the requirement's real unit
               expectedShrinkage:
                 primary.orderBomItem?.rateCard?.shrinkagePercent != null
                   ? Number(primary.orderBomItem.rateCard.shrinkagePercent)
@@ -3189,85 +3408,13 @@ export async function generatePOFromRequirements(
       }
     }
 
-    // JWC bridge (BUG-JWC1): a PROCESSING PO must carry its Job Work Order — the JWO is what
-    // makes the work visible in /job-work-orders and the dyeing/printing process-PO lists,
-    // and what the GRN JWO branch keys on. Same 1:1 purchaseOrderId pattern as the
-    // dyeing/printing createProcessPO flow.
-    let bridgedJobWorkNumber: string | null = null;
-    if (isProcessingRequirements && processingProcessType) {
-      const primary = requirements[0] as any;
-      const styleCode = primary.order_items?.styles?.styleCode || 'STK';
-      const jobWorkNumber = await generateJobWorkNumber(processingProcessType, styleCode);
-      const totalQtyMeters = itemsWithGst.reduce((sum, item) => sum + item.quantity, 0);
-      // Phase 4a (BUG-JWC6): processTypeId is required for commercial totals — without it
-      // computeCommercialTotals can never resolve a GST rate for machine-created JWOs
-      const processTypeMaster = await tx.process_type_master.findFirst({
-        where: { code: processingProcessType, isActive: true },
-        select: { id: true },
-      });
-      const jwo = await tx.job_work_orders.create({
-        data: {
-          ...buildJwoDataForProcessingPO(
-            {
-              poId: po.id,
-              processorId: supplierId,
-              processType: processingProcessType,
-              styleId: primary.order_items?.styleId ?? null,
-              fabricId: primary.orderBomItem?.fabricId ?? null,
-              qtyMeters: totalQtyMeters,
-              ratePerMeter: itemsWithGst[0].unitPrice,
-              expectedShrinkage:
-                primary.orderBomItem?.rateCard?.shrinkagePercent != null
-                  ? Number(primary.orderBomItem.rateCard.shrinkagePercent)
-                  : null,
-              expectedReturnDate: new Date(expectedDeliveryDate),
-              requirementNumbers: requirements.map((r) => r.requirementNumber),
-              userId,
-            },
-            jobWorkNumber
-          ),
-          processTypeId: processTypeMaster?.id ?? null,
-        },
-      });
-
-      // Phase 4a (BUG-JWC6): the JWO carries its own commercial totals (SAC/service GST).
-      // Unresolved GST (e.g. PRINTING master rate is TBD) downgrades to subtotal-only —
-      // creation never fails; totalAmount stays null as the R1 "docs blocked" marker.
-      try {
-        await jobWorkOrderService.computeCommercialTotals(jwo.id, tx);
-      } catch (error) {
-        if (error instanceof JobWorkOrderError && error.code === JWO_ERROR_CODES.GST_RATE_UNRESOLVED) {
-          await tx.job_work_orders.update({
-            where: { id: jwo.id },
-            data: { subtotal: roundToCent(totalQtyMeters * itemsWithGst[0].unitPrice).toNumber() },
-          });
-          logWarn(
-            `[MRP] JWO ${jobWorkNumber} created without GST — ${processingProcessType} gstRate unresolved in process_type_master`
-          );
-        } else {
-          throw error;
-        }
-      }
-
-      // Phase 4a: requirement ↔ JWO links, mirroring the requirement_po_links just written
-      const poLinks = await tx.requirement_po_links.findMany({
-        where: { purchaseOrderId: po.id },
-        select: { requirementId: true, allocatedQuantity: true },
-      });
-      if (poLinks.length > 0) {
-        await tx.requirement_jwo_links.createMany({
-          data: poLinks.map((l) => ({
-            requirementId: l.requirementId,
-            jobWorkOrderId: jwo.id,
-            allocatedQuantity: l.allocatedQuantity,
-          })),
-          skipDuplicates: true,
-        });
-      }
-      bridgedJobWorkNumber = jobWorkNumber;
-    }
-
-    return { po, linkedCount, itemCount: itemsWithGst.length, jobWorkNumber: bridgedJobWorkNumber };
+    // MRP-44: the PROCESSING-PO bridge that used to sit here (a JWO carrying poId, from the
+    // pre-consolidation design) was dead code — PROCESSING selections return from the JWO-only
+    // branch far above and can never reach this point, and mixed selections are now rejected
+    // outright (MRP-04). It was left as a re-entry hazard: relaxing the `every()` gate would
+    // have silently resurrected PROCESSING-on-a-PO. Deleted; the JWO-only branch is the single
+    // path for dyeing/printing.
+    return { po, linkedCount, itemCount: itemsWithGst.length };
   });
 
   return {
@@ -3278,8 +3425,6 @@ export async function generatePOFromRequirements(
     },
     linkedRequirements: result.linkedCount,
     totalItems: result.itemCount,
-    // Phase 4a: surface the bridged JWO so the UI can show both documents
-    jobWorkNumber: result.jobWorkNumber ?? undefined,
   };
 }
 
@@ -3348,8 +3493,30 @@ export async function linkRequirementToPO(
 export async function updateRequirementStatus(
   id: string,
   status: MaterialRequirementStatus,
-  userId: string
+  userId: string,
+  userRole?: string
 ): Promise<MaterialRequirementResponse> {
+  // MRP-24: this was a raw `update({ data: { status } })` with no read of the current value — the
+  // endpoint could walk a RECEIVED requirement back to PO_REQUIRED and make already-delivered
+  // material re-orderable. Route it through the shared state machine like every other document.
+  const current = await prisma.material_requirements.findUnique({
+    where: { id },
+    select: { status: true, requirementNumber: true },
+  });
+  if (!current) {
+    throw new Error(`Requirement ${id} not found`);
+  }
+
+  const transition = validateTransition('materialRequirement', current.status, status, userRole);
+  if (!transition.valid) {
+    throw new Error(transition.message || `Cannot change status from ${current.status} to ${status}`);
+  }
+  if (transition.isAdminOverride) {
+    logWarn(
+      `[MRP] ADMIN OVERRIDE: requirement ${current.requirementNumber} forced ${current.status} → ${status} by user ${userId}`
+    );
+  }
+
   const updated = await prisma.material_requirements.update({
     where: { id },
     data: { status },
@@ -3363,6 +3530,33 @@ export async function updateRequirementStatus(
  * Cancel a requirement
  */
 export async function cancelRequirement(id: string, userId: string): Promise<MaterialRequirementResponse> {
+  // MRP-24: refuse to cancel something that has already been received, or that still carries a
+  // live PO/JWO — cancelling those silently detaches real goods and real commitments from the plan.
+  const current = await prisma.material_requirements.findUnique({
+    where: { id },
+    select: {
+      status: true,
+      requirementNumber: true,
+      requirement_po_links: {
+        where: { purchase_orders: { status: { notIn: ['CANCELLED'] } } },
+        select: { id: true },
+      },
+      requirement_jwo_links: { select: { id: true } },
+    },
+  });
+  if (!current) {
+    throw new Error(`Requirement ${id} not found`);
+  }
+  if (current.status === MaterialRequirementStatus.RECEIVED) {
+    throw new Error(`Cannot cancel ${current.requirementNumber}: it has already been received.`);
+  }
+  if (current.requirement_po_links.length > 0 || current.requirement_jwo_links.length > 0) {
+    throw new Error(
+      `Cannot cancel ${current.requirementNumber}: it is linked to an active purchase order or job work order. ` +
+        `Cancel that document first.`
+    );
+  }
+
   const updated = await prisma.material_requirements.update({
     where: { id },
     data: { status: MaterialRequirementStatus.CANCELLED },
@@ -3801,6 +3995,27 @@ export async function groupRequirementsBySupplier(requirementIds: string[]): Pro
   const groups = new Map<string, MaterialRequirementResponse[]>();
   const unassigned: MaterialRequirementResponse[] = [];
 
+  // MRP-04 (defence in depth): a PROCESSING requirement's preferredSupplierId IS its processor,
+  // so a processor who also supplies greige would land both types in one supplier group. The UI
+  // cannot select across types (each tab queries a single requirementType) and
+  // generatePOFromRequirements now hard-rejects a mixed set, but surface it here too — this is
+  // the only place the mixing would otherwise be silent.
+  const mixedTypeSuppliers = new Map<string, Set<string>>();
+  for (const req of requirements) {
+    if (!req.preferredSupplierId) continue;
+    const seen = mixedTypeSuppliers.get(req.preferredSupplierId) ?? new Set<string>();
+    seen.add(req.requirementType);
+    mixedTypeSuppliers.set(req.preferredSupplierId, seen);
+  }
+  for (const [supplierId, types] of mixedTypeSuppliers) {
+    if (types.size > 1) {
+      logWarn(
+        `[MRP] Supplier ${supplierId} has mixed requirement types in one bulk group (${[...types].join(' + ')}) — ` +
+          `PO generation will reject this group. Generate PROCESSING (Job Work) and MATERIAL separately.`
+      );
+    }
+  }
+
   for (const req of requirements) {
     const mapped = mapToResponse(req);
 
@@ -4051,11 +4266,13 @@ export async function convertToGreigeProcessing(
   }
 
   // 3. Check greige stock for the adjusted quantity
+  // MRP-03/MRP-14: same netting rules as the main calculation — exclude reserved quantity and
+  // greige held at a processor, so this dialog and the recalc agree on what is actually free.
   const greigeStockResult = await prisma.greige_stock.aggregate({
-    where: { greigeId: data.greigeId, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
-    _sum: { quantityAvailable: true },
+    where: { greigeId: data.greigeId, status: 'AVAILABLE', quantityAvailable: { gt: 0 }, processorId: null },
+    _sum: { quantityAvailable: true, quantityReserved: true },
   });
-  const greigeAvailable = Number(greigeStockResult._sum?.quantityAvailable || 0);
+  const greigeAvailable = netFreeStock(greigeStockResult._sum);
 
   const greigeAllocated = Math.min(greigeAvailable, greigeQtyNeeded);
   const greigeShortfall = greigeQtyNeeded - greigeAllocated;
@@ -4066,81 +4283,88 @@ export async function convertToGreigeProcessing(
         ? MaterialRequirementStatus.PARTIAL_STOCK
         : MaterialRequirementStatus.PO_REQUIRED;
 
-  // 4. Update original requirement — mark as CONVERTED (P3: truthful status)
-  // The fabric requirement is not "fulfilled from stock" — it was converted to greige+processing
-  await prisma.material_requirements.update({
-    where: { id: requirementId },
-    data: {
-      shortfall: 0,
-      status: MaterialRequirementStatus.CONVERTED,
-    },
-  });
+  // MRP-25: steps 4-6 were three unrelated writes with no transaction. A failure between them
+  // left the parent CONVERTED with shortfall 0 and no greige/processing rows to replace it —
+  // the fabric silently stopped being planned at all. They are now atomic.
+  const { greigeReq, procReq } = await prisma.$transaction(async (tx) => {
+    // 4. Update original requirement — mark as CONVERTED (P3: truthful status)
+    // The fabric requirement is not "fulfilled from stock" — it was converted to greige+processing
+    await tx.material_requirements.update({
+      where: { id: requirementId },
+      data: {
+        shortfall: 0,
+        status: MaterialRequirementStatus.CONVERTED,
+      },
+    });
 
-  // 5. Create GREIGE requirement with price snapshot (P1: rateSource='MANUAL' for user-initiated convert-to-greige)
-  const greigeReqNumber = await generateRequirementNumber();
-  const greigeReq = await prisma.material_requirements.create({
-    data: {
-      requirementNumber: greigeReqNumber,
-      source: requirement.source,
-      orderId: requirement.orderId,
-      orderItemId: requirement.orderItemId,
-      materialId: greigeMaterialId,
-      orderBomId: requirement.orderBomId,
-      orderQuantity: requirement.orderQuantity,
-      quantityPerUnit: requirement.quantityPerUnit,
-      wastagePercent: requirement.wastagePercent,
-      totalRequired: greigeQtyNeeded, // P3: shrinkage-adjusted quantity
-      unit: requirement.unit,
-      availableStock: greigeAvailable,
-      allocatedFromStock: greigeAllocated,
-      shortfall: greigeShortfall,
-      status: greigeStatus,
-      requirementType: 'MATERIAL',
-      processorId: data.processorId,
-      processingCost: data.processingCost || null,
-      requiredDate: requirement.requiredDate,
-      linkedRequirementId: requirementId,
-      createdById: userId,
-      // P1 snapshot: user-provided greige cost, manual conversion
-      unitPrice: data.greigeCost ?? null,
-      rateSource: 'MANUAL',
-      orderBomItemId: null, // No direct BOM item — manual conversion
-    },
-    include: getRequirementIncludes(),
-  });
+    // 5. Create GREIGE requirement with price snapshot (P1: rateSource='MANUAL' for user-initiated convert-to-greige)
+    const greigeReqNumber = await generateRequirementNumber(tx);
+    const greigeReq = await tx.material_requirements.create({
+      data: {
+        requirementNumber: greigeReqNumber,
+        source: requirement.source,
+        orderId: requirement.orderId,
+        orderItemId: requirement.orderItemId,
+        materialId: greigeMaterialId,
+        orderBomId: requirement.orderBomId,
+        orderQuantity: requirement.orderQuantity,
+        quantityPerUnit: requirement.quantityPerUnit,
+        wastagePercent: requirement.wastagePercent,
+        totalRequired: greigeQtyNeeded, // P3: shrinkage-adjusted quantity
+        unit: requirement.unit,
+        availableStock: greigeAvailable,
+        allocatedFromStock: greigeAllocated,
+        shortfall: greigeShortfall,
+        status: greigeStatus,
+        requirementType: 'MATERIAL',
+        processorId: data.processorId,
+        processingCost: data.processingCost || null,
+        requiredDate: requirement.requiredDate,
+        linkedRequirementId: requirementId,
+        createdById: userId,
+        // P1 snapshot: user-provided greige cost, manual conversion
+        unitPrice: data.greigeCost ?? null,
+        rateSource: 'MANUAL',
+        orderBomItemId: null, // No direct BOM item — manual conversion
+      },
+      include: getRequirementIncludes(),
+    });
 
-  // 6. Create PROCESSING requirement (linked to greige) with price snapshot
-  const procReqNumber = await generateRequirementNumber();
-  const procReq = await prisma.material_requirements.create({
-    data: {
-      requirementNumber: procReqNumber,
-      source: requirement.source,
-      orderId: requirement.orderId,
-      orderItemId: requirement.orderItemId,
-      materialId: greigeMaterialId,
-      orderBomId: requirement.orderBomId,
-      orderQuantity: requirement.orderQuantity,
-      quantityPerUnit: requirement.quantityPerUnit,
-      wastagePercent: requirement.wastagePercent,
-      totalRequired: greigeQtyNeeded, // P3: same qty as greige (shrinkage-adjusted)
-      unit: requirement.unit,
-      availableStock: 0,
-      allocatedFromStock: 0,
-      shortfall: greigeQtyNeeded, // P3: shrinkage-adjusted
-      status: MaterialRequirementStatus.PO_REQUIRED,
-      requirementType: 'PROCESSING',
-      preferredSupplierId: data.processorId,
-      processorId: data.processorId,
-      processingCost: data.processingCost || null,
-      linkedRequirementId: greigeReq.id,
-      requiredDate: requirement.requiredDate,
-      createdById: userId,
-      // P1 snapshot: user-provided processing cost, manual conversion
-      unitPrice: data.processingCost ?? null,
-      rateSource: 'MANUAL',
-      orderBomItemId: null, // No direct BOM item — manual conversion
-    },
-    include: getRequirementIncludes(),
+    // 6. Create PROCESSING requirement (linked to greige) with price snapshot
+    const procReqNumber = await generateRequirementNumber(tx);
+    const procReq = await tx.material_requirements.create({
+      data: {
+        requirementNumber: procReqNumber,
+        source: requirement.source,
+        orderId: requirement.orderId,
+        orderItemId: requirement.orderItemId,
+        materialId: greigeMaterialId,
+        orderBomId: requirement.orderBomId,
+        orderQuantity: requirement.orderQuantity,
+        quantityPerUnit: requirement.quantityPerUnit,
+        wastagePercent: requirement.wastagePercent,
+        totalRequired: greigeQtyNeeded, // P3: same qty as greige (shrinkage-adjusted)
+        unit: requirement.unit,
+        availableStock: 0,
+        allocatedFromStock: 0,
+        shortfall: greigeQtyNeeded, // P3: shrinkage-adjusted
+        status: MaterialRequirementStatus.PO_REQUIRED,
+        requirementType: 'PROCESSING',
+        preferredSupplierId: data.processorId,
+        processorId: data.processorId,
+        processingCost: data.processingCost || null,
+        linkedRequirementId: greigeReq.id,
+        requiredDate: requirement.requiredDate,
+        createdById: userId,
+        // P1 snapshot: user-provided processing cost, manual conversion
+        unitPrice: data.processingCost ?? null,
+        rateSource: 'MANUAL',
+        orderBomItemId: null, // No direct BOM item — manual conversion
+      },
+      include: getRequirementIncludes(),
+    });
+
+    return { greigeReq, procReq };
   });
 
   // 7. Phase 5b: no fabric_processing shadow record — the PROCESSING requirement's
@@ -4158,7 +4382,9 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
   const groups: POPreviewGroup[] = [];
 
   for (const group of request.groups) {
-    const { supplierId, requirementIds } = group;
+    // MRP-05: itemPrices/itemQuantities are the review-step edits; they must shape the preview
+    // totals the same way they shape the generated PO.
+    const { supplierId, requirementIds, itemPrices, itemQuantities } = group;
 
     // Fetch supplier info with address
     const supplier = await prisma.suppliers.findUnique({
@@ -4202,10 +4428,23 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
 
     const isInterstate = supplierStateCode ? supplierStateCode !== COMPANY_CONFIG.stateCode : false;
 
+    // MRP-05: exclude requirements that already carry an active PO link — generatePOFromRequirements
+    // drops them, so a preview that included them promised line items the created PO never had.
+    const previewPOLinks = await prisma.requirement_po_links.findMany({
+      where: {
+        requirementId: { in: requirementIds },
+        purchase_orders: { status: { notIn: ['CANCELLED'] } },
+      },
+      select: { requirementId: true },
+    });
+    const previewLinkedIds = new Set(previewPOLinks.map((l) => l.requirementId));
+    const previewableIds = requirementIds.filter((id) => !previewLinkedIds.has(id));
+    if (previewableIds.length === 0) continue;
+
     // Fetch requirements with materials, order, and style info for enriched PO preview
     const requirements = await prisma.material_requirements.findMany({
       where: {
-        id: { in: requirementIds },
+        id: { in: previewableIds },
         status: { in: [MaterialRequirementStatus.PO_REQUIRED, MaterialRequirementStatus.PARTIAL_STOCK] },
       },
       include: {
@@ -4247,7 +4486,10 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         try {
           const resolved = await resolveRate({
             poCategory: 'PROCESSING' as any,
-            supplierId: req.processorId || req.preferredSupplierId || supplierId,
+            // MRP-06: price against the processor the document will be issued to (see the same
+            // fix in generatePOFromRequirements) — otherwise the preview quotes one processor's
+            // rate for a job that goes out in another's name.
+            supplierId,
             printingType: req.printingType || undefined,
             materialId: req.materialId,
           });
@@ -4371,37 +4613,31 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
           : priceMap.has(mg.materialId)
             ? 'SUPPLIER_PRICE'
             : null;
-      const priceRequired = unitPrice === 0;
+      // MRP-05: honour the prices/quantities the user edited in the review step, exactly as
+      // generatePOFromRequirements does (same groupKey-then-materialId lookup order). Without
+      // this the preview showed resolved rates while the created PO used the edited ones.
+      const effectiveUnitPrice = itemPrices?.[groupKey] ?? itemPrices?.[mg.materialId] ?? unitPrice;
+      const effectiveQuantity = itemQuantities?.[groupKey] ?? itemQuantities?.[mg.materialId] ?? mg.quantity;
+
+      const priceRequired = effectiveUnitPrice === 0;
       if (priceRequired) hasZeroPriceItems = true;
 
-      const lineTotal = mg.quantity * unitPrice;
-      // BUG-FIN4 fix: Use async getGSTRate() instead of deprecated getDefaultGSTRate()
-      // This enables price-based apparel GST slab (5% ≤₹2,500 / 18% >₹2,500)
-      const gstRate = mat?.gstRate
-        ? Number(mat.gstRate)
-        : await gstService.getGSTRate({
-            hsnSacCode: mat?.hsnCode || undefined,
-            materialId: mg.materialId,
-            unitPrice: unitPrice || undefined,
-          });
+      const lineTotal = toNumber(multiplyCurrency(effectiveQuantity, effectiveUnitPrice));
 
-      // Calculate GST
-      let cgstRate = 0,
-        cgstAmount = 0,
-        sgstRate = 0,
-        sgstAmount = 0,
-        igstRate = 0,
-        igstAmount = 0;
-      if (isInterstate) {
-        igstRate = gstRate;
-        igstAmount = parseFloat(((lineTotal * gstRate) / 100).toFixed(2));
-      } else {
-        cgstRate = gstRate / 2;
-        sgstRate = gstRate / 2;
-        cgstAmount = parseFloat(((lineTotal * cgstRate) / 100).toFixed(2));
-        sgstAmount = parseFloat(((lineTotal * sgstRate) / 100).toFixed(2));
-      }
-      const taxAmount = cgstAmount + sgstAmount + igstAmount;
+      // MRP-05: the preview used to resolve the rate itself and hand-roll the split on raw floats
+      // (`parseFloat(((lineTotal * rate)/100).toFixed(2))`), while generation called
+      // gstService.calculateLineItemGST (decimal.js, HSN resolution chain, apparel price slab).
+      // Two implementations of the same tax meant the totals you approved were not necessarily the
+      // totals that got created. Preview now calls the same authority with the same arguments, so
+      // the two agree by construction.
+      const gst = await gstService.calculateLineItemGST({
+        lineTotal,
+        hsnSacCode: mat?.hsnCode || null,
+        materialId: mg.materialId || null,
+        isInterstate,
+        unitPrice: effectiveUnitPrice,
+      });
+      const { gstRate, cgstRate, cgstAmount, sgstRate, sgstAmount, igstRate, igstAmount, taxAmount } = gst;
 
       items.push({
         materialId: mg.materialId,
@@ -4410,9 +4646,9 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         materialType: matType,
         hsnCode: mat?.hsnCode || null,
         gstRate,
-        quantity: mg.quantity,
+        quantity: effectiveQuantity,
         unit: mg.unit,
-        unitPrice,
+        unitPrice: effectiveUnitPrice,
         lineTotal,
         cgstRate,
         cgstAmount,
@@ -4439,13 +4675,16 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         fabricWidth: mg.fabricWidth,
       });
 
-      subtotal += lineTotal;
-      totalCgst += cgstAmount;
-      totalSgst += sgstAmount;
-      totalIgst += igstAmount;
+      // MRP-05: decimal accumulation of the already-rounded line amounts, matching how
+      // gst.service.calculateTotals builds PO headers — float `+=` drifted paise against the
+      // stored item rows.
+      subtotal = toNumber(addCurrency(subtotal, lineTotal));
+      totalCgst = toNumber(addCurrency(totalCgst, cgstAmount));
+      totalSgst = toNumber(addCurrency(totalSgst, sgstAmount));
+      totalIgst = toNumber(addCurrency(totalIgst, igstAmount));
     }
 
-    const totalTax = totalCgst + totalSgst + totalIgst;
+    const totalTax = toNumber(addCurrency(totalCgst, totalSgst, totalIgst));
 
     groups.push({
       supplierId,
@@ -4456,12 +4695,12 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
       isInterstate,
       supplierStateCode,
       items,
-      subtotal: parseFloat(subtotal.toFixed(2)),
-      totalCgst: parseFloat(totalCgst.toFixed(2)),
-      totalSgst: parseFloat(totalSgst.toFixed(2)),
-      totalIgst: parseFloat(totalIgst.toFixed(2)),
-      totalTax: parseFloat(totalTax.toFixed(2)),
-      grandTotal: parseFloat((subtotal + totalTax).toFixed(2)),
+      subtotal: toNumber(roundToCent(subtotal)),
+      totalCgst: toNumber(roundToCent(totalCgst)),
+      totalSgst: toNumber(roundToCent(totalSgst)),
+      totalIgst: toNumber(roundToCent(totalIgst)),
+      totalTax: toNumber(roundToCent(totalTax)),
+      grandTotal: toNumber(roundToCent(addCurrency(subtotal, totalTax))),
       hasZeroPriceItems,
     });
   }

@@ -11,12 +11,14 @@ export type ThreadPackagingType = 'CONE' | 'TUBE' | 'SPOOL' | 'CONE_5K' | 'CONE_
 
 export type ThreadQuantityInput = 'UNITS' | 'BOXES';
 
-export const THREAD_PLY_LABELS = {
+// MRP-38: typed as Record<…> so a new enum member fails the build instead of rendering
+// "undefined" in the requirements table.
+export const THREAD_PLY_LABELS: Record<ThreadPly, string> = {
   TWO_PLY: '2-Ply',
   THREE_PLY: '3-Ply',
 };
 
-export const THREAD_MATERIAL_LABELS = {
+export const THREAD_MATERIAL_LABELS: Record<ThreadMaterial, string> = {
   POLYESTER: 'Polyester',
   COTTON: 'Cotton',
 };

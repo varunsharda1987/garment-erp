@@ -295,7 +295,8 @@ export const updateStatus = async (req: Request, res: Response): Promise<void> =
     throw new ValidationError(`Invalid status. Must be one of: ${validStatuses.join(', ')}`);
   }
 
-  const requirement = await mrpService.updateRequirementStatus(id, status, userId);
+  // MRP-24: pass the role so ADMIN keeps the documented override on an otherwise-guarded transition
+  const requirement = await mrpService.updateRequirementStatus(id, status, userId, req.user?.role);
 
   res.json({
     success: true,

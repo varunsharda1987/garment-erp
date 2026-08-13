@@ -182,6 +182,8 @@ export interface MaterialRequirement {
   requirementType?: 'MATERIAL' | 'PROCESSING';
   processorId?: string | null;
   linkedRequirementId?: string | null;
+  /** MRP-12: set when this row is the uncovered balance of a partially-ordered requirement. */
+  splitFromId?: string | null;
   processingCost?: number | null;
   printingType?: string | null;
   colorName?: string | null;

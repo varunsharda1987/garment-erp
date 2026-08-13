@@ -867,7 +867,16 @@ function MaterialRequirementsTab({
                           />
                         )}
                       </TableCell>
-                      <TableCell className="text-sm font-medium">{req.requirementNumber}</TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {req.requirementNumber}
+                        {/* MRP-12: a split remainder would otherwise look like an unexplained
+                            duplicate row — say what it is. */}
+                        {req.splitFromId && (
+                          <Badge variant="outline" className="ml-2 text-xs font-normal">
+                            Balance
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <div>
                           <div className="text-sm font-medium">{req.material?.name || 'N/A'}</div>

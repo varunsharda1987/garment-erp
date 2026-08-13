@@ -15,7 +15,7 @@ import {
 import { generateAtomicDocNumber, generateAtomicPONumberInTx } from '../utils/atomicCodeGenerator';
 import { generateJobWorkNumber } from '../utils/jobWorkNumber';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
-import { roundToCent, toCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
+import { roundToCent, toCurrency, multiplyCurrency, addCurrency, subtractCurrency, toNumber } from '../utils/currency';
 import { validateTransition } from '../utils/stateMachine';
 import { calculateGreigeQuantity } from '../utils/greige-quantity';
 import prisma from '../config/database';
@@ -959,10 +959,20 @@ export async function calculateRequirementsFromOrder(
       conversionChainIds.push(...frontier);
     }
 
+    // MRP-12: a split remainder is a deliberate, still-outstanding balance whose parent is
+    // already on a PO/JWO. The parent is protected by its PO-progression status, but the child
+    // sits at PO_REQUIRED with the same orderBomId — so the blanket cancel below would have
+    // wiped exactly the balance the split was created to preserve.
+    const splitRemainderRows = await tx.material_requirements.findMany({
+      where: { orderId, splitFromId: { not: null } },
+      select: { id: true },
+    });
+    const splitRemainderIds = splitRemainderRows.map((r) => r.id);
+
     // Cancel only requirements:
     // 1. Belonging to this order AND one of the active BOMs (or null orderBomId for manual reqs)
     // 2. NOT in terminal/PO-progression statuses
-    // 3. NOT linked to active POs, and NOT part of a convert-to-greige chain
+    // 3. NOT linked to active POs, NOT part of a convert-to-greige chain, NOT a split remainder
     await tx.material_requirements.updateMany({
       where: {
         orderId,
@@ -975,8 +985,9 @@ export async function calculateRequirementsFromOrder(
         OR: [{ orderBomId: { in: activeBomIds } }, { orderBomId: null }, { orderBom: { isActive: false } }],
         // Exclude terminal statuses AND PO-progression statuses
         status: { notIn: ['RECEIVED', 'CANCELLED', 'CONVERTED', 'PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
-        // Also exclude any with active PO links (belt-and-suspenders) or a live conversion chain
-        id: { notIn: [...poLinkedIds, ...conversionChainIds] },
+        // Also exclude any with active PO links (belt-and-suspenders), a live conversion chain,
+        // or an outstanding split balance
+        id: { notIn: [...poLinkedIds, ...conversionChainIds, ...splitRemainderIds] },
       },
       data: { status: 'CANCELLED' },
     });
@@ -3222,6 +3233,59 @@ export async function generatePOFromRequirements(
         }
       }
 
+      // MRP-12: same partial-coverage rule as the purchase-order path — a job work order that
+      // covers only part of a processing requirement leaves the balance orderable rather than
+      // closing the requirement silently. See the detailed note in the PO branch below.
+      for (const req of requirements) {
+        const allocated = await tx.requirement_jwo_links.aggregate({
+          where: { requirementId: req.id },
+          _sum: { allocatedQuantity: true },
+        });
+        const covered = Number(allocated._sum.allocatedQuantity ?? 0);
+        const remainder = toNumber(subtractCurrency(Number(req.shortfall), covered));
+        if (remainder <= 0.001) continue;
+
+        const childNumber = await generateRequirementNumber(tx);
+        await tx.material_requirements.create({
+          data: {
+            requirementNumber: childNumber,
+            source: req.source,
+            orderId: req.orderId,
+            orderItemId: req.orderItemId,
+            materialId: req.materialId,
+            orderBomId: req.orderBomId,
+            orderBomItemId: req.orderBomItemId,
+            orderQuantity: req.orderQuantity,
+            quantityPerUnit: req.quantityPerUnit,
+            wastagePercent: req.wastagePercent,
+            totalRequired: remainder,
+            unit: req.unit,
+            availableStock: 0,
+            allocatedFromStock: 0,
+            shortfall: remainder,
+            preferredSupplierId: req.preferredSupplierId,
+            status: MaterialRequirementStatus.PO_REQUIRED,
+            requirementType: req.requirementType,
+            processorId: req.processorId,
+            processingCost: req.processingCost,
+            printingType: req.printingType,
+            linkedRequirementId: req.linkedRequirementId,
+            colorName: req.colorName,
+            componentName: req.componentName,
+            requiredDate: req.requiredDate,
+            createdById: userId,
+            unitPrice: req.unitPrice,
+            rateSource: req.rateSource,
+            splitFromId: req.id,
+          },
+        });
+        await tx.material_requirements.update({ where: { id: req.id }, data: { shortfall: covered } });
+        logWarn(
+          `[MRP] JWO ${jobWorkNumber} covers ${covered} of ${Number(req.shortfall)} for ${req.requirementNumber}; ` +
+            `balance ${remainder} carried forward as ${childNumber}`
+        );
+      }
+
       const fullJwo = await tx.job_work_orders.findUnique({
         where: { id: jwo.id },
         select: { id: true, jobWorkNumber: true, totalAmount: true, subtotal: true },
@@ -3406,6 +3470,88 @@ export async function generatePOFromRequirements(
         // P1.6: Status already flipped by the bulk updateMany above (guarded double-order race fix)
         linkedCount++;
       }
+    }
+
+    // ========================================================================
+    // MRP-12: carry the UNCOVERED remainder forward as a split requirement.
+    //
+    // A purchase order may deliberately cover only part of a requirement — split across two
+    // suppliers, or staged against cash flow. Until now the requirement flipped wholesale to
+    // PO_GENERATED regardless of how much was actually ordered, and the duplicate-prevention
+    // guard then excluded it from ever receiving a second PO. The uncovered balance silently
+    // vanished from the plan. (This became reachable in practice once MRP-47 made the dialog's
+    // quantity edits actually take effect.)
+    //
+    // The schema already anticipated this: material_requirements.splitFromId, self-relation
+    // "mrp_split". The parent keeps what was ordered; a child row carries the balance and stays
+    // orderable.
+    // ========================================================================
+    const splitRemainders: string[] = [];
+    for (const req of requirements) {
+      const allocatedToThisReq = await tx.requirement_po_links.aggregate({
+        where: { requirementId: req.id, purchase_orders: { status: { notIn: ['CANCELLED'] } } },
+        _sum: { allocatedQuantity: true },
+      });
+      const covered = Number(allocatedToThisReq._sum.allocatedQuantity ?? 0);
+      const needed = Number(req.shortfall);
+      const remainder = toNumber(subtractCurrency(needed, covered));
+
+      // Ignore rounding dust from proportional allocation — only a materially uncovered
+      // balance is worth carrying forward.
+      if (remainder <= 0.001) continue;
+
+      const childNumber = await generateRequirementNumber(tx);
+      const child = await tx.material_requirements.create({
+        data: {
+          requirementNumber: childNumber,
+          source: req.source,
+          orderId: req.orderId,
+          orderItemId: req.orderItemId,
+          materialId: req.materialId,
+          orderBomId: req.orderBomId,
+          orderBomItemId: req.orderBomItemId,
+          orderQuantity: req.orderQuantity,
+          quantityPerUnit: req.quantityPerUnit,
+          wastagePercent: req.wastagePercent,
+          // The child represents only the balance: nothing of it is covered by stock (the parent
+          // already absorbed the stock allocation) and nothing of it is on a PO yet.
+          totalRequired: remainder,
+          unit: req.unit,
+          availableStock: 0,
+          allocatedFromStock: 0,
+          shortfall: remainder,
+          preferredSupplierId: req.preferredSupplierId,
+          status: MaterialRequirementStatus.PO_REQUIRED,
+          fabricWidth: req.fabricWidth,
+          cadId: req.cadId,
+          requirementType: req.requirementType,
+          processorId: req.processorId,
+          processingCost: req.processingCost,
+          printingType: req.printingType,
+          colorName: req.colorName,
+          componentName: req.componentName,
+          requiredDate: req.requiredDate,
+          createdById: userId,
+          unitPrice: req.unitPrice,
+          rateSource: req.rateSource,
+          splitFromId: req.id,
+        },
+        select: { id: true, requirementNumber: true },
+      });
+
+      // The parent now represents only what was actually ordered, so its shortfall is closed.
+      await tx.material_requirements.update({
+        where: { id: req.id },
+        data: { shortfall: covered },
+      });
+
+      splitRemainders.push(`${req.requirementNumber} → ${child.requirementNumber} (${remainder} ${req.unit})`);
+    }
+    if (splitRemainders.length > 0) {
+      logWarn(
+        `[MRP] PO ${po.poNumber} covers less than the full requirement for ${splitRemainders.length} line(s); ` +
+          `the balance remains orderable as: ${splitRemainders.join('; ')}`
+      );
     }
 
     // MRP-44: the PROCESSING-PO bridge that used to sit here (a JWO carrying poId, from the
@@ -3831,6 +3977,9 @@ function mapToResponse(req: any): MaterialRequirementResponse {
     processingCost: req.processingCost ? Number(req.processingCost) : null,
     printingType: req.printingType || null,
     linkedRequirementId: req.linkedRequirementId || null,
+    // MRP-12: set when this row is the uncovered balance of a partially-ordered requirement.
+    // Without it a split remainder looks like an unexplained duplicate in the list.
+    splitFromId: req.splitFromId || null,
     colorName: req.colorName || null,
     componentName: req.componentName || null,
     fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,

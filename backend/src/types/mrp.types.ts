@@ -306,6 +306,8 @@ export interface MaterialRequirementResponse {
   processingCost?: number | null;
   printingType?: string | null;
   linkedRequirementId?: string | null;
+  /** MRP-12: set when this row is the uncovered balance of a partially-ordered requirement. */
+  splitFromId?: string | null;
   colorName?: string | null;
   componentName?: string | null;
   fabricWidth?: number | null;

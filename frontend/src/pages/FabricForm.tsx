@@ -807,7 +807,10 @@ export default function FabricForm({ mode = 'create' }: FabricFormProps) {
         defaultCutableWidth:
           formData.cutableWidth || (formData.actualWidth > 4 ? formData.actualWidth - 4 : formData.actualWidth),
         composition: formData.composition || '100% Cotton',
-        averageShrinkagePercent: 8,
+        // MRP-48: this used to hard-code `averageShrinkagePercent: 8` with no field on screen, so
+        // a greige created from here silently carried a fabricated 8% that MRP then bought
+        // against. Shrinkage belongs to the processor's rate card (per process and print type);
+        // leave it unset here rather than inventing one.
         isActive: true,
         suppliers: [],
       });

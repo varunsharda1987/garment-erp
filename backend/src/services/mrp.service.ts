@@ -781,6 +781,33 @@ async function generateRequirementNumber(tx?: Prisma.TransactionClient): Promise
 }
 
 /**
+ * MRP-48: resolve the shrinkage percentage to plan a greige purchase with.
+ *
+ * Authority order, and nothing else:
+ *  1. the attached **processor rate card** — the only record keyed on the things that actually
+ *     determine loss (which processor, dyeing vs printing, which print type, which greige);
+ *  2. the **greige master average** — a labelled fallback for a BOM line with no rate card yet;
+ *  3. none — plan flat, and say so loudly.
+ *
+ * There is deliberately no hard-coded literal in this chain. A missing value returns 0 with
+ * source 'NONE' so the caller can warn, rather than silently inventing an allowance.
+ */
+function resolveShrinkagePercent(bomItem: {
+  rateCard?: { shrinkagePercent?: unknown } | null;
+  greige?: { averageShrinkagePercent?: unknown } | null;
+}): { percent: number; source: 'RATE_CARD' | 'GREIGE_MASTER_FALLBACK' | 'NONE' } {
+  const cardValue = bomItem.rateCard?.shrinkagePercent;
+  if (cardValue !== null && cardValue !== undefined) {
+    return { percent: Number(cardValue), source: 'RATE_CARD' };
+  }
+  const masterValue = bomItem.greige?.averageShrinkagePercent;
+  if (masterValue !== null && masterValue !== undefined) {
+    return { percent: Number(masterValue), source: 'GREIGE_MASTER_FALLBACK' };
+  }
+  return { percent: 0, source: 'NONE' };
+}
+
+/**
  * MRP-03: free-to-plan stock from a Prisma `_sum` over a lot table.
  *
  * Every netting path used to sum `quantityAvailable` alone, but allocateStock reserves against a
@@ -852,7 +879,18 @@ export async function calculateRequirementsFromOrder(
               elastic_master: true,
               label_master: true,
               packaging_master: true,
-              rateCard: { select: { printingType: true } },
+              // MRP-48: shrinkage is a property of THIS processor doing THIS process on THIS
+              // greige — which is exactly what the rate card is keyed on. Pull it here so the
+              // quantity we buy is derived from the same row that prices the job and that the
+              // JWO holds the processor to.
+              rateCard: {
+                select: {
+                  printingType: true,
+                  processingType: true,
+                  shrinkagePercent: true,
+                  processorId: true,
+                },
+              },
               // Include CAD for batch grouping in PROCESSING requirements
               selectedCad: {
                 select: {
@@ -1195,11 +1233,30 @@ export async function calculateRequirementsFromOrder(
 
       // P3: For GREIGE items, apply shrinkage adjustment using shared formula
       // Formula: orderQty = need × (1 + wastage%/100) ÷ (1 − shrinkage%/100)
-      // Shrinkage comes from greige_master.averageShrinkagePercent (relation: greige)
+      //
+      // MRP-48: the shrinkage source is the PROCESSOR RATE CARD, not the greige master.
+      // Every dyer loses a different amount on each process (dyeing vs pigment vs procian vs
+      // discharge print), which is precisely what processor_rate_card is keyed on
+      // (processor × processingType × printingType × greige). This used to read
+      // greige_master.averageShrinkagePercent — a single average per greige that cannot express
+      // any of that — so the quantity we bought, the rate we costed at, and the loss the
+      // processor was held to were three different numbers for the same job.
+      // The greige master is now only a labelled fallback for when no rate card is attached yet.
       if ((hasGreigeProcessing || hasLandedGreige) && bomItem.greigeId) {
-        const shrinkagePercent = bomItem.greige?.averageShrinkagePercent
-          ? Number(bomItem.greige.averageShrinkagePercent)
-          : 0;
+        const { percent: shrinkagePercent, source: shrinkageSource } = resolveShrinkagePercent(bomItem);
+        if (shrinkageSource === 'GREIGE_MASTER_FALLBACK') {
+          logWarn(
+            `[MRP] ${bomItem.componentName || 'fabric'}: no processor rate card shrinkage available — ` +
+              `planning on the greige master average (${shrinkagePercent}%). Attach a rate card so the ` +
+              `quantity bought matches the processor's committed loss.`
+          );
+        } else if (shrinkageSource === 'NONE') {
+          logWarn(
+            `[MRP] ${bomItem.componentName || 'fabric'}: no shrinkage configured on the rate card OR the ` +
+              `greige master — planning with NO shrinkage allowance. Greige purchased will be short if the ` +
+              `fabric shrinks.`
+          );
+        }
         if (shrinkagePercent > 0) {
           const greigeResult = calculateGreigeQuantity({
             need: totalRequired,
@@ -4392,12 +4449,34 @@ export async function convertToGreigeProcessing(
     greigeMaterialId = created.id;
   }
 
-  // P3: Fetch greige_master for shrinkage percent
+  // MRP-48: same authority as the main calculation — the processor the user just picked in this
+  // dialog decides the shrinkage, via their rate card for this greige. The greige master average
+  // is only the fallback when that processor has no card for it yet.
+  const activeCard = await prisma.processor_rate_card.findFirst({
+    where: {
+      processorId: data.processorId,
+      greigeId: data.greigeId,
+      isActive: true,
+      shrinkagePercent: { not: null },
+    },
+    select: { shrinkagePercent: true },
+    orderBy: { effectiveFrom: 'desc' },
+  });
   const greigeMaster = await prisma.greige_master.findUnique({
     where: { id: data.greigeId },
     select: { averageShrinkagePercent: true },
   });
-  const shrinkagePercent = greigeMaster?.averageShrinkagePercent ? Number(greigeMaster.averageShrinkagePercent) : 0;
+  const shrinkagePercent = activeCard?.shrinkagePercent
+    ? Number(activeCard.shrinkagePercent)
+    : greigeMaster?.averageShrinkagePercent
+      ? Number(greigeMaster.averageShrinkagePercent)
+      : 0;
+  if (!activeCard?.shrinkagePercent) {
+    logWarn(
+      `[MRP] convert-to-greige: processor ${data.processorId} has no rate-card shrinkage for this greige — ` +
+        `using the greige master average (${shrinkagePercent}%).`
+    );
+  }
 
   // P3: Apply shrinkage adjustment to shortfall using shared formula
   // Formula: orderQty = need ÷ (1 − shrinkage%/100)

@@ -1882,8 +1882,11 @@ export async function pushFromCAD(req: Request, res: Response) {
         totalCostPerMeter,
         // Initialize other costing fields
         processingPricePerMeter: 0,
-        shrinkagePercent: 0,
-        shrinkageCostPerMeter: 0,
+        // MRP-48: these were seeded to 0, which is not "unknown" — it silently prices the fabric
+        // with NO shrinkage uplift and reads as a deliberate zero. Left null so the costing grid
+        // shows the value as unresolved until a processor rate card supplies it.
+        shrinkagePercent: null,
+        shrinkageCostPerMeter: null,
         screenCostPerMeter: 0,
         costInputMode: 'BUILD_UP',
       },

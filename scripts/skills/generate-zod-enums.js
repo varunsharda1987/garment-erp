@@ -108,7 +108,12 @@ function main() {
     } catch {
       /* missing counts as stale */
     }
-    if (existing !== output) {
+    // Compare content, not line endings. git's autocrlf checks this file out as CRLF on Windows
+    // while the generator emits LF, so a byte comparison reported "stale" on every fresh checkout
+    // even when the file was correct — blocking commits and sending you to regenerate a file that
+    // did not need regenerating. Same CRLF root cause as the value parser above.
+    const sameContent = (a, b) => a.replace(/\r\n/g, '\n') === b.replace(/\r\n/g, '\n');
+    if (existing === null || !sameContent(existing, output)) {
       console.error(
         `✗ ${path.relative(REPO_ROOT, OUT_PATH)} is stale vs schema.prisma (${enums.length} enums). ` +
           'Run: node scripts/skills/generate-zod-enums.js'

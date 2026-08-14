@@ -21,6 +21,7 @@ import {
   Calculator,
   Send,
   Download,
+  Trash2,
 } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,6 +44,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
+import { dyeProcessPOService } from '@/services/dyeing.service';
+import { processPOService as printProcessPOService } from '@/services/printing.service';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { greigeStockService } from '@/services/greigeStock.service';
 import { openPDF } from '@/lib/document-utils';
 
@@ -89,6 +93,7 @@ export default function JobWorkOrderDetail() {
   const queryClient = useQueryClient();
 
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [qtyReceived, setQtyReceived] = useState('');
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [closeInvoiceNumber, setCloseInvoiceNumber] = useState('');
@@ -106,6 +111,23 @@ export default function JobWorkOrderDetail() {
     queryKey: ['job-work-order', id],
     queryFn: () => jobWorkOrderService.getById(id!),
     enabled: !!id,
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () =>
+      jwo?.processType === 'PRINTING' ? printProcessPOService.delete(id!) : dyeProcessPOService.delete(id!),
+    onSuccess: () => {
+      toast.success(`${jwo?.jobWorkNumber ?? 'Job work order'} deleted. Linked requirements are open again.`);
+      queryClient.invalidateQueries({ queryKey: ['job-work-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['mrp'] });
+      navigate('/job-work-orders');
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Failed to delete job work order';
+      toast.error(msg);
+    },
   });
 
   const approveMutation = useMutation({
@@ -245,6 +267,20 @@ export default function JobWorkOrderDetail() {
   const hasAbnormalLoss = (jwo.qtyAbnormalLoss || 0) > 0;
   const currentStatus = jwo.jwoStatus || jwo.status;
 
+  // Job Work Consolidation left the lifecycle actions on the old dyeing/printing screens, so the
+  // page named after the document could not delete it — you had to know to go to
+  // /manufacturing/dyeing instead. This reuses the SAME guarded endpoint that screen calls
+  // (it is already keyed on the JWO id), rather than adding a second delete path: the backend
+  // refuses unless status is READY_TO_SEND and jwoStatus is DRAFT, and it reverts the linked MRP
+  // requirements back to open so they can be re-planned.
+  const canDelete =
+    jwo.status === 'READY_TO_SEND' &&
+    // Mirror the backend guard EXACTLY (dyeing.controller deleteProcessPO). Being stricter here is
+    // what caused the original problem: the dyeing list only offered Delete for status 'DRAFT',
+    // so records the backend was happy to delete had no button anywhere in the UI.
+    (!jwo.jwoStatus || ['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(jwo.jwoStatus)) &&
+    (jwo.processType === 'DYEING' || jwo.processType === 'PRINTING');
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
@@ -269,6 +305,18 @@ export default function JobWorkOrderDetail() {
             <Printer className="mr-2 h-4 w-4" />
             Print
           </Button>
+          {canDelete && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => setDeleteDialogOpen(true)}
+              disabled={deleteMutation.isPending}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -811,6 +859,21 @@ export default function JobWorkOrderDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        title="Delete job work order"
+        description={
+          `Delete ${jwo.jobWorkNumber}? Nothing has been sent to ${jwo.processor?.name ?? 'the processor'} yet, ` +
+          'so no goods or documents are affected. Any material requirements this order covered go back to ' +
+          'open, so they can be planned again. This cannot be undone.'
+        }
+        confirmText="Delete"
+        cancelText="Keep"
+        variant="destructive"
+        onConfirm={() => deleteMutation.mutate()}
+      />
     </div>
   );
 }

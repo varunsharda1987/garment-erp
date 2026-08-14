@@ -211,7 +211,7 @@ export default function DyeingList() {
         fetchLabDips();
       } else {
         await dyeingService.processPOs.delete(itemToDelete.id);
-        handleApiSuccess('Process PO deleted', `${itemToDelete.number} has been successfully deleted.`);
+        handleApiSuccess('Job work order deleted', `${itemToDelete.number} has been successfully deleted.`);
         fetchProcessPOs();
       }
       fetchSummary();
@@ -496,7 +496,7 @@ export default function DyeingList() {
     }
   };
 
-  // Process PO columns
+  // Job Work Order columns
   const processPOColumns: Column<ProcessPO>[] = [
     {
       key: 'poNumber',
@@ -775,7 +775,7 @@ export default function DyeingList() {
           </Button>
           <Button onClick={() => navigate('/manufacturing/dyeing/process-pos/new')}>
             <Plus className="h-4 w-4 mr-2" />
-            New Process PO
+            New Job Work Order
           </Button>
         </div>
       </div>
@@ -860,7 +860,7 @@ export default function DyeingList() {
           </TabsTrigger>
           <TabsTrigger value="process-pos" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            Process POs
+            Job Work Orders
           </TabsTrigger>
         </TabsList>
 
@@ -991,7 +991,7 @@ export default function DyeingList() {
             </CardContent>
           </Card>
 
-          {/* Process POs Table */}
+          {/* Job Work Orders Table */}
           <Card>
             <CardContent className="p-0">
               {error ? (
@@ -1035,7 +1035,7 @@ export default function DyeingList() {
           if (!open) setItemToDelete(null);
         }}
         onConfirm={confirmDelete}
-        title={`Delete ${itemToDelete?.type === 'labDip' ? 'Lab Dip' : 'Process PO'}`}
+        title={`Delete ${itemToDelete?.type === 'labDip' ? 'Lab Dip' : 'Job Work Order'}`}
         description={`Are you sure you want to delete "${itemToDelete?.number}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="destructive"

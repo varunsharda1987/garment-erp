@@ -44,60 +44,21 @@ export interface StatusUpdateResult {
 // Main Status Update Functions
 // ============================================
 
-/**
- * Handle GRN item receipt - updates PO item, PO status, and all linked records
+/*
+ * MRP-45: `handleGRNItemReceipt` and its private helper `updateLinkedMRPRequirements` were
+ * removed here.
  *
- * Call this when a GRN item is received/updated
+ * They were a second, unreferenced implementation of the receipt path — a near-copy of
+ * mrp.service.updateReceivedQuantity that incremented the SAME requirement_po_links rows and
+ * derived the same statuses. Nothing called it (verified repo-wide), so it caused no harm; the
+ * hazard was that wiring it in beside the live path in grn.service.ts would have double-counted
+ * every received quantity, and it could never join a caller's transaction because it always used
+ * the bare client. It also lacked the zero/negative branch, so it never downgraded a requirement
+ * back to PO_SENT on a GRN reversal.
+ *
+ * The single receipt track is: grn.service.ts → mrpService.updateReceivedQuantity /
+ * updateJwoReceivedQuantity (both tx-aware, both atomic increments).
  */
-export async function handleGRNItemReceipt(update: GRNItemUpdate): Promise<StatusUpdateResult> {
-  const poItem = await prisma.purchase_order_items.findUnique({
-    where: { id: update.poItemId },
-    include: {
-      purchase_orders: true,
-    },
-  });
-
-  if (!poItem) {
-    throw new Error(`PO Item not found: ${update.poItemId}`);
-  }
-
-  const previousStatus = poItem.purchase_orders.status;
-
-  // 1. Update PO item received quantity
-  await prisma.purchase_order_items.update({
-    where: { id: update.poItemId },
-    data: {
-      receivedQuantity: {
-        increment: update.acceptedQuantity,
-      },
-    },
-  });
-
-  // 2. Update PO receiving status
-  const newStatus = await updatePOReceivingStatus(poItem.poId);
-
-  // 3. Update linked MRP requirements
-  const mrpRequirementsUpdated = await updateLinkedMRPRequirements(update.poItemId, update.acceptedQuantity);
-
-  // 4. Service requirements: Phase 5a — fulfilled by Job Work Orders, never POs;
-  //    updateWosrReceivedQuantity (WOSR service) is the single receipt track.
-  const serviceRequirementsUpdated: string[] = [];
-
-  // 5. Check for linked Processing POs (Greige -> Processing chain)
-  const processingPOsReadied = await checkProcessingPOReadiness(poItem.poId);
-
-  return {
-    poId: poItem.poId,
-    poNumber: poItem.purchase_orders.poNumber,
-    previousStatus,
-    newStatus,
-    linkedUpdates: {
-      processingPOsReadied,
-      mrpRequirementsUpdated,
-      serviceRequirementsUpdated,
-    },
-  };
-}
 
 /**
  * Update PO status based on receiving progress
@@ -167,80 +128,6 @@ export async function updatePOReceivingStatus(poId: string): Promise<PurchaseOrd
   }
 
   return po?.status || 'DRAFT';
-}
-
-/**
- * Update linked MRP requirements when PO items are received
- */
-async function updateLinkedMRPRequirements(poItemId: string, receivedQuantity: number): Promise<string[]> {
-  const updatedIds: string[] = [];
-
-  // Find all linked MRP requirements via requirement_po_links
-  const links = await prisma.requirement_po_links.findMany({
-    where: { purchaseOrderItemId: poItemId },
-    select: {
-      id: true,
-      requirementId: true,
-      allocatedQuantity: true,
-    },
-  });
-
-  for (const link of links) {
-    // Update received quantity on the link
-    await prisma.requirement_po_links.update({
-      where: { id: link.id },
-      data: {
-        receivedQuantity: {
-          increment: receivedQuantity,
-        },
-      },
-    });
-
-    // Check if requirement is fully fulfilled
-    const allLinks = await prisma.requirement_po_links.findMany({
-      where: { requirementId: link.requirementId },
-      select: {
-        allocatedQuantity: true,
-        receivedQuantity: true,
-      },
-    });
-
-    const totalAllocated = allLinks.reduce((sum, l) => sum + Number(l.allocatedQuantity), 0);
-    const totalReceived = allLinks.reduce((sum, l) => sum + Number(l.receivedQuantity), 0);
-
-    // Update requirement status
-    if (totalReceived >= totalAllocated) {
-      await prisma.material_requirements.update({
-        where: { id: link.requirementId },
-        data: { status: 'RECEIVED' },
-      });
-    } else if (totalReceived > 0) {
-      await prisma.material_requirements.update({
-        where: { id: link.requirementId },
-        data: { status: 'PARTIALLY_RECEIVED' },
-      });
-    }
-
-    updatedIds.push(link.requirementId);
-  }
-
-  // Also update via po_source_links for new unified tracking
-  const sourceLinks = await prisma.po_source_links.findMany({
-    where: {
-      purchaseOrderItemId: poItemId,
-      sourceType: 'MRP',
-      materialRequirementId: { not: null },
-    },
-    select: { materialRequirementId: true },
-  });
-
-  for (const link of sourceLinks) {
-    if (link.materialRequirementId && !updatedIds.includes(link.materialRequirementId)) {
-      updatedIds.push(link.materialRequirementId);
-    }
-  }
-
-  return updatedIds;
 }
 
 // Phase 5a: updateLinkedServiceRequirements deleted — service requirements are fulfilled by
@@ -589,7 +476,6 @@ export async function getPOSourceStats(): Promise<{
 
 // Export default for convenience
 export default {
-  handleGRNItemReceipt,
   updatePOReceivingStatus,
   sendPO,
   acknowledgePO,

@@ -187,7 +187,11 @@ export default function OrderList() {
     if (bom.status === 'APPROVED')
       return { label: 'Lock BOM', type: 'navigate' as const, path: `/order-bom/${bom.id}` };
     if (bom.status === 'LOCKED')
-      return { label: 'View MRP', type: 'navigate' as const, path: `/mrp/requirements?orderId=${order.id}` };
+      return {
+        label: 'View MRP',
+        type: 'navigate' as const,
+        path: `/procurement/requirements?tab=material&orderId=${order.id}`,
+      };
     return null;
   };
 

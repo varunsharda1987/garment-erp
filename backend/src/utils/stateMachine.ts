@@ -15,7 +15,14 @@
  *   // → { valid: true, isAdminOverride: true }
  */
 
-export type EntityType = 'order' | 'purchaseOrder' | 'invoice' | 'challan' | 'saleOrder' | 'quotation';
+export type EntityType =
+  | 'order'
+  | 'purchaseOrder'
+  | 'invoice'
+  | 'challan'
+  | 'saleOrder'
+  | 'quotation'
+  | 'materialRequirement';
 
 export interface TransitionResult {
   valid: boolean;
@@ -78,6 +85,25 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
     ACCEPTED: [], // Terminal
     REJECTED: [], // Terminal
     EXPIRED: [], // Terminal
+  },
+
+  // MRP-24: material_requirements.status was a raw unguarded update — the API could move a
+  // RECEIVED requirement back to PO_REQUIRED (making it re-orderable after goods had arrived)
+  // with nothing to stop it. Mirrors MaterialRequirementStatus in schema.prisma.
+  materialRequirement: {
+    PENDING: ['PO_REQUIRED', 'PARTIAL_STOCK', 'FULFILLED_STOCK', 'CONVERTED', 'CANCELLED'],
+    // Stock allocation can move either way while nothing has been ordered yet
+    FULFILLED_STOCK: ['PARTIAL_STOCK', 'PO_REQUIRED', 'CONVERTED', 'CANCELLED'],
+    PARTIAL_STOCK: ['PO_REQUIRED', 'FULFILLED_STOCK', 'PO_GENERATED', 'CONVERTED', 'CANCELLED'],
+    PO_REQUIRED: ['PO_GENERATED', 'PARTIAL_STOCK', 'FULFILLED_STOCK', 'CONVERTED', 'CANCELLED'],
+    // PO/JWO raised → sent → received. Back to PO_REQUIRED only via PO cancellation.
+    PO_GENERATED: ['PO_SENT', 'PARTIALLY_RECEIVED', 'RECEIVED', 'PO_REQUIRED', 'CANCELLED'],
+    PO_SENT: ['PARTIALLY_RECEIVED', 'RECEIVED', 'PO_REQUIRED', 'CANCELLED'],
+    // Receipt reversal (negative GRN) legitimately walks these back
+    PARTIALLY_RECEIVED: ['RECEIVED', 'PO_SENT', 'PARTIALLY_RECEIVED'],
+    RECEIVED: ['PARTIALLY_RECEIVED'], // only a GRN reversal may undo a completed receipt
+    CONVERTED: ['CANCELLED'], // the greige/processing children carry the plan now
+    CANCELLED: [], // Terminal — recalculation revives by rewriting the row, not by transition
   },
 };
 

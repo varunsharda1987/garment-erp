@@ -390,7 +390,7 @@ export const processStages: ProcessStage[] = [
     pages: [
       {
         title: 'Material Requirements',
-        path: '/mrp/requirements',
+        path: '/procurement/requirements?tab=material',
         icon: <FileBarChart className="h-4 w-4" />,
       },
       {

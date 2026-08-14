@@ -274,7 +274,7 @@ export default function OrderDetail() {
         title: 'MRP Calculated',
         description: `Created ${result.created} requirements, updated ${result.updated}`,
       });
-      navigate(`/mrp/requirements?orderId=${order.id}`);
+      navigate(`/procurement/requirements?tab=material&orderId=${order.id}`);
     } catch (err) {
       handleApiError(err, 'Failed to calculate MRP requirements');
       logError('Failed to calculate MRP:', err);
@@ -285,7 +285,7 @@ export default function OrderDetail() {
 
   // Navigate to MRP requirements page
   const handleViewMRP = () => {
-    navigate(`/mrp/requirements?orderId=${order?.id}`);
+    navigate(`/procurement/requirements?tab=material&orderId=${order?.id}`);
   };
 
   const calculateProgress = (wo: WorkOrder) => {

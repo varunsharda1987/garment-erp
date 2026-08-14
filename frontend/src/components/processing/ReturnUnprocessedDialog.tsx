@@ -58,7 +58,7 @@ export default function ReturnUnprocessedDialog({
   // Return mutation
   const returnMutation = useMutation({
     mutationFn: async () => {
-      if (!processPO) throw new Error('No Process PO');
+      if (!processPO) throw new Error('No job work order');
       const data = {
         returnedQtyMeters,
         returnDate,

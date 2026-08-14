@@ -228,7 +228,7 @@ export const printingSummaryService = {
 };
 
 // ============================================
-// Process PO Service
+// Job Work Order Service
 // ============================================
 
 export const processPOService = {

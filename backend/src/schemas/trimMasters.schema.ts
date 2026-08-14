@@ -457,7 +457,7 @@ export const createLaceSchema = z
     // Greige lace support
     isGreige: z.boolean().optional().default(false),
     // Controller does parseFloat() on these - coerce to handle string inputs
-    expectedShrinkagePercent: z.coerce.number().min(0).max(100).optional().nullable(),
+    expectedShrinkagePercent: z.coerce.number().min(0).lt(100).optional().nullable(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
     costPerMeterGreige: z.coerce.number().nonnegative().optional().nullable(),
     sourceGreigeLaceId: z.string().uuid().optional().nullable(),
   })

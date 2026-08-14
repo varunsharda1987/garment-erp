@@ -1,5 +1,5 @@
-// Shared Process PO Create Form - works for both Dyeing and Printing
-// Creates a Process PO from an approved lab dip OR directly from style+fabric+processor
+// Shared Job Work Order Create Form - works for both Dyeing and Printing
+// Creates a Job Work Order from an approved lab dip OR directly from style+fabric+processor
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -17,6 +17,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { dyeLabDipService, dyeProcessPOService } from '@/services/dyeing.service';
+import { processorRateCardV2Service } from '@/services/processorRateCardV2.service';
 import {
   labDipService as printLabDipService,
   processPOService as printProcessPOService,
@@ -83,6 +84,8 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
   const [greigeWidth, setGreigeWidth] = useState<number>(0); // Read-only display from greige stock
   const [expectedFinishedWidth, setExpectedFinishedWidth] = useState<number>(0); // From CAD or manual
   const [expectedShrinkage, setExpectedShrinkage] = useState<number>(0);
+  // MRP-48g: true once the processor rate card has supplied the shrinkage.
+  const [shrinkageFromRateCard, setShrinkageFromRateCard] = useState(false);
   const [agreedRatePerMeter, setAgreedRatePerMeter] = useState<number>(0);
   const [isRateTbd, setIsRateTbd] = useState(false); // Explicit TBD when rate=0 is intentional
   const [expectedReturnDate, setExpectedReturnDate] = useState('');
@@ -262,27 +265,61 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
       const width = Number(selectedGreigeStock.greigeWidth || 0);
       setGreigeWidth(width);
 
-      // Calculate shrinkage if we have both widths
-      if (expectedFinishedWidth > 0 && width > 0) {
+      // MRP-48g: estimate from widths only until the rate card answers (see below).
+      if (!shrinkageFromRateCard && expectedFinishedWidth > 0 && width > 0) {
         const shrinkage = ((width - expectedFinishedWidth) / width) * 100;
         setExpectedShrinkage(Math.round(shrinkage * 100) / 100);
       }
     }
   }, [selectedGreigeStock, expectedFinishedWidth]);
 
-  // Update shrinkage when expected finished width changes
+  // Fallback estimate from width delta — only while no rate card has supplied a value.
   useEffect(() => {
+    if (shrinkageFromRateCard) return;
     if (expectedFinishedWidth > 0 && greigeWidth > 0) {
       const shrinkage = ((greigeWidth - expectedFinishedWidth) / greigeWidth) * 100;
       setExpectedShrinkage(Math.round(shrinkage * 100) / 100);
     }
-  }, [expectedFinishedWidth, greigeWidth]);
+  }, [expectedFinishedWidth, greigeWidth, shrinkageFromRateCard]);
 
   const greigeStockItems = greigeStockData || [];
 
   // Derive effective process type from selected style fabric or prop
   const effectiveProcessType =
     createMode === 'style-based' && selectedStyleFabric?._processType ? selectedStyleFabric._processType : processType;
+
+  // MRP-48g: the processor's rate card is the source of truth for shrinkage — it is what the
+  // job work order holds them to and what MRP buys against. This form used to derive its own
+  // figure from the width difference, a fourth formula that could disagree with all of them.
+  // The width-delta is now only a starting estimate when the processor has no card for this
+  // greige; the card wins whenever one exists.
+  useEffect(() => {
+    let cancelled = false;
+    const greigeId = selectedGreigeStock?.greigeId;
+    const processorId = selectedProcessor?.id;
+    if (!greigeId || !processorId) return;
+    (async () => {
+      try {
+        const rate = await processorRateCardV2Service.lookupRate(
+          processorId,
+          effectiveProcessType as 'DYEING' | 'PRINTING',
+          greigeId,
+          qtySentMeters || 1
+        );
+        if (!cancelled && rate?.shrinkagePercent != null) {
+          setExpectedShrinkage(rate.shrinkagePercent);
+          setShrinkageFromRateCard(true);
+        } else if (!cancelled) {
+          setShrinkageFromRateCard(false);
+        }
+      } catch {
+        if (!cancelled) setShrinkageFromRateCard(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGreigeStock, selectedProcessor, effectiveProcessType, qtySentMeters]);
 
   // Create mutation
   const createMutation = useMutation({
@@ -436,7 +473,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
         <Card>
           <CardHeader>
             <CardTitle>Approved Lab Dip</CardTitle>
-            <CardDescription>Select an approved lab dip to create a Process PO</CardDescription>
+            <CardDescription>Select an approved lab dip to create a job work order</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -547,7 +584,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
         <Card>
           <CardHeader>
             <CardTitle>Style, Fabric & Processor</CardTitle>
-            <CardDescription>Select style, fabric, and processor to create a direct Process PO</CardDescription>
+            <CardDescription>Select style, fabric, and processor to create a direct job work order</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Style Selector */}

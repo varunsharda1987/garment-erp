@@ -30,7 +30,7 @@ export const createGreigeMasterSchema = z.object({
   defaultCutableWidth: z.number().positive().optional(),
   expectedFinishedWidthMin: z.number().positive().optional(),
   expectedFinishedWidthMax: z.number().positive().optional(),
-  averageShrinkagePercent: z.number().min(0).max(100).optional().nullable(),
+  averageShrinkagePercent: z.number().min(0).lt(100).optional().nullable(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
   gsmRange: z.string().max(50).optional(),
   costPerMeter: z.number().nonnegative().optional(),
   moq: z.number().positive().optional(),
@@ -70,7 +70,7 @@ export const updateGreigeMasterSchema = z.object({
   defaultCutableWidth: z.number().positive().optional().nullable(),
   expectedFinishedWidthMin: z.number().positive().optional().nullable(),
   expectedFinishedWidthMax: z.number().positive().optional().nullable(),
-  averageShrinkagePercent: z.number().min(0).max(100).optional().nullable(),
+  averageShrinkagePercent: z.number().min(0).lt(100).optional().nullable(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
   gsmRange: z.string().max(50).optional().nullable(),
   costPerMeter: z.number().nonnegative().optional().nullable(),
   moq: z.number().positive().optional().nullable(),
@@ -116,7 +116,7 @@ export const bulkImportGreigeSchema = z.object({
         defaultCutableWidth: z.number().positive().optional(),
         expectedFinishedWidthMin: z.number().positive().optional(),
         expectedFinishedWidthMax: z.number().positive().optional(),
-        averageShrinkagePercent: z.number().min(0).max(100).optional().nullable(),
+        averageShrinkagePercent: z.number().min(0).lt(100).optional().nullable(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
         gsmRange: z.string().max(50).optional(),
         costPerMeter: z.number().nonnegative().optional(),
         description: z.string().max(1000).optional(),

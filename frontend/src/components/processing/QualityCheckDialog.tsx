@@ -1,4 +1,4 @@
-// Quality Check Dialog - Record quality check results for a Process PO
+// Quality Check Dialog - Record quality check results for a Job Work Order
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Loader2, CheckCircle } from 'lucide-react';
@@ -76,7 +76,7 @@ export default function QualityCheckDialog({
   // Quality check mutation
   const qcMutation = useMutation({
     mutationFn: async (data: QualityCheckRequest) => {
-      if (!processPO) throw new Error('No Process PO');
+      if (!processPO) throw new Error('No job work order');
       if (processType === 'DYEING') {
         return dyeProcessPOService.qualityCheck(processPO.id, data);
       } else {

@@ -152,7 +152,7 @@ export const createDyeJobSchema = z
     qtySentMeters: z.number().positive('Quantity must be positive'),
     sentWidthInches: z.number().positive('Width must be positive'),
     expectedReturnDate: z.string().optional().nullable(),
-    expectedShrinkage: z.number().min(0).max(100).optional(),
+    expectedShrinkage: z.number().min(0).lt(100).optional(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
     agreedRatePerMeter: z.number().nonnegative('Rate cannot be negative'),
     remarks: z.string().max(500).optional(),
   })
@@ -173,7 +173,7 @@ export const updateDyeJobSchema = z
     qtySentMeters: z.number().positive().optional(),
     sentWidthInches: z.number().positive().optional(),
     expectedReturnDate: z.string().optional().nullable(),
-    expectedShrinkage: z.number().min(0).max(100).optional().nullable(),
+    expectedShrinkage: z.number().min(0).lt(100).optional().nullable(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
     agreedRatePerMeter: z.number().nonnegative().optional(),
     remarks: z.string().max(500).optional().nullable(),
   })
@@ -226,7 +226,7 @@ export const createProcessPoSchema = z
     agreedRatePerMeter: z.number().nonnegative('Rate cannot be negative'),
     isRateTbd: z.boolean().optional().default(false), // Explicit TBD marker when rate=0 is intentional
     expectedReturnDate: z.string().optional().nullable(),
-    expectedShrinkage: z.number().min(0).max(100).optional(),
+    expectedShrinkage: z.number().min(0).lt(100).optional(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
     fabricType: z.string().max(50).optional().default('GREIGE'),
     remarks: z.string().max(500).optional(),
     // Auto-send fields (Create & Send one-click)
@@ -261,7 +261,7 @@ export const bulkCreateProcessPoSchema = z.object({
         sentWidthInches: z.number().positive('Width must be positive'),
         agreedRatePerMeter: z.number().nonnegative('Rate cannot be negative'),
         expectedReturnDate: z.string().optional().nullable(),
-        expectedShrinkage: z.number().min(0).max(100).optional(),
+        expectedShrinkage: z.number().min(0).lt(100).optional(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
         // For PRINTING
         printMethod: z.string().max(100).optional(),
         printChemistry: z.string().max(100).optional(),

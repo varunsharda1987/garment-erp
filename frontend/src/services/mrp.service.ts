@@ -189,6 +189,9 @@ export async function previewPOs(
     requirementIds: string[];
     expectedDeliveryDate: string;
     remarks?: string;
+    /** MRP-05: review-step edits, so the server prices the preview exactly as it will price the PO. */
+    itemPrices?: Record<string, number>;
+    itemQuantities?: Record<string, number>;
   }>
 ): Promise<POPreviewGroup[]> {
   const response = await api.post<{

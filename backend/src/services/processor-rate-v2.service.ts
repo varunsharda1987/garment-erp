@@ -1699,6 +1699,42 @@ export async function lookupLaceRate(query: LaceRateLookupQuery): Promise<LaceRa
   };
 }
 
+/**
+ * MRP-48c: find the shrinkage rate card(s) a processor holds for one greige.
+ *
+ * Shared by MRP planning and cost-sheet creation so both agree on which card applies and neither
+ * re-implements the rule. Callers that need a single number must use `unambiguous`: when a
+ * processor holds several DIFFERENT shrinkage values for the same greige (dyeing vs the various
+ * print types genuinely differ), there is no safe way to pick one from a BOM line — it has no
+ * print-type column — so `unambiguous` is null and the caller must fall back and say so.
+ */
+export async function findRateCardsForShrinkage(
+  processorId: string,
+  greigeId: string
+): Promise<{
+  cards: Array<{ id: string; shrinkagePercent: number; processingType: string; printingType: string | null }>;
+  distinctPercents: number[];
+  unambiguous: { id: string; shrinkagePercent: number } | null;
+}> {
+  const found = await prisma.processor_rate_card.findMany({
+    where: { processorId, greigeId, isActive: true, shrinkagePercent: { not: null } },
+    select: { id: true, shrinkagePercent: true, processingType: true, printingType: true },
+    orderBy: { effectiveFrom: 'desc' },
+  });
+  const cards = found.map((c) => ({
+    id: c.id,
+    shrinkagePercent: Number(c.shrinkagePercent),
+    processingType: String(c.processingType),
+    printingType: c.printingType ? String(c.printingType) : null,
+  }));
+  const distinctPercents = [...new Set(cards.map((c) => c.shrinkagePercent))];
+  return {
+    cards,
+    distinctPercents,
+    unambiguous: distinctPercents.length === 1 ? { id: cards[0].id, shrinkagePercent: distinctPercents[0] } : null,
+  };
+}
+
 export default {
   getAllDyeingPrintingProcessors,
   getProcessorRateMatrix,
@@ -1717,4 +1753,5 @@ export default {
   addLaceToProcessor,
   removeLaceFromProcessor,
   lookupLaceRate,
+  findRateCardsForShrinkage,
 };

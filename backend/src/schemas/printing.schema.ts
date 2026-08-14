@@ -136,7 +136,7 @@ export const createPrintJobSchema = z
     qtySentMeters: z.number().positive('Quantity must be positive'),
     sentWidthInches: z.number().positive('Width must be positive'),
     expectedReturnDate: z.coerce.date().optional(),
-    expectedShrinkage: z.number().min(0).max(100).optional(),
+    expectedShrinkage: z.number().min(0).lt(100).optional(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
     agreedRatePerMeter: z.number().nonnegative('Rate cannot be negative'),
     remarks: z.string().max(500).optional(),
   })
@@ -157,7 +157,7 @@ export const updatePrintJobSchema = z
     qtySentMeters: z.number().positive().optional(),
     sentWidthInches: z.number().positive().optional(),
     expectedReturnDate: z.coerce.date().optional().nullable(),
-    expectedShrinkage: z.number().min(0).max(100).optional().nullable(),
+    expectedShrinkage: z.number().min(0).lt(100).optional().nullable(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
     agreedRatePerMeter: z.number().nonnegative().optional().nullable(),
     remarks: z.string().max(500).optional().nullable(),
   })
@@ -237,7 +237,7 @@ export const createPrintProcessPoSchema = z
     agreedRatePerMeter: z.number().nonnegative('Rate cannot be negative'),
     isRateTbd: z.boolean().optional().default(false), // Explicit TBD marker when rate=0 is intentional
     expectedReturnDate: z.coerce.date().optional(),
-    expectedShrinkage: z.number().min(0).max(100).optional(),
+    expectedShrinkage: z.number().min(0).lt(100).optional(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
     fabricType: z.string().max(50).optional().default('GREIGE'),
     remarks: z.string().max(500).optional(),
     // Auto-send fields (Create & Send one-click)

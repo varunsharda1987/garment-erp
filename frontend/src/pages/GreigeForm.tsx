@@ -34,7 +34,10 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
     defaultCutableWidth: undefined,
     expectedFinishedWidthMin: undefined,
     expectedFinishedWidthMax: undefined,
-    averageShrinkagePercent: 8.0,
+    // MRP-48: no pre-filled default. This is now only a fallback for when no processor rate card
+    // exists — pre-filling 8.0 made a fabricated number look like a considered one, and it is
+    // where most of the 8% values in the data came from.
+    averageShrinkagePercent: undefined,
     gsmRange: '',
     description: '',
     notes: '',
@@ -433,18 +436,21 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Average Shrinkage (%) <span className="text-destructive">*</span>
-              </label>
+              {/* MRP-48: no longer required — the processor's rate card is the source of truth
+                  for shrinkage. This is the fallback used only when a BOM line has no rate card. */}
+              <label className="block text-sm font-medium text-foreground mb-1">Fallback Shrinkage (%)</label>
               <Input
                 type="number"
                 name="averageShrinkagePercent"
-                value={formData.averageShrinkagePercent}
+                value={formData.averageShrinkagePercent ?? ''}
                 onChange={handleChange}
-                placeholder="e.g., 8.0"
+                placeholder="Leave blank — set shrinkage on the processor rate card"
                 step="0.1"
-                required
               />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Planning uses the processor rate card (per processor, process and print type). This value is only used
+                when a BOM line has no rate card attached.
+              </p>
             </div>
 
             <div>

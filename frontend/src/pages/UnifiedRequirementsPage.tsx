@@ -1,11 +1,12 @@
 /**
  * Unified Requirements Page
- * Two tabs:
+ * Three tabs:
  *   1. Material Requirements — only requirementType='MATERIAL' items
  *   2. Outsourced Work — PROCESSING items (from material_requirements) + SERVICE items (from work_order_service_requirements)
+ *   3. Thread Requirements — order_thread_requirements
  */
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useListQuery, queryKeys } from '@/hooks/useQuery';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
@@ -45,6 +46,7 @@ import {
   getDashboardStats as getMRPDashboardStats,
   getRequirementStyles,
   convertToGreigeProcessing,
+  previewPOs,
 } from '@/services/mrp.service';
 import {
   getAllServiceRequirements,
@@ -58,6 +60,9 @@ import {
   getAvailableSuppliers as getThreadSuppliers,
 } from '@/services/threadRequirement.service';
 import { getAllSuppliers } from '@/services/supplier.service';
+import { workOrderService } from '@/services/workOrder.service';
+import { getProcessorSuppliers } from '@/services/vendorSuggestion.service';
+import { useDebounce } from '@/hooks/useDebounce';
 import { getAllOrders } from '@/services/order.service';
 import type { Supplier } from '@/types/supplier.types';
 import type {
@@ -92,6 +97,7 @@ import type { ServiceDashboardStats } from '@/types/serviceRequirement.types';
 // Utilities
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { formatCurrency } from '@/lib/currency';
+import { formatQuantity } from '@/lib/formatters';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   FileText,
@@ -114,12 +120,51 @@ import {
 
 type RequirementTab = 'material' | 'outsourced' | 'thread';
 
+/**
+ * MRP-43: search boxes on this page wrote straight to the URL on every keystroke, and the URL is
+ * the query key — so typing "cotton" fired six list requests, each joining a dozen relations per
+ * row (twelve on the Outsourced "all" view, which queries two backends). This keeps the input
+ * responsive locally and pushes to the URL once the user pauses.
+ *
+ * Returns the live input value plus its setter; the URL (and therefore the query) follows.
+ */
+function useDebouncedSearchParam(
+  searchParams: URLSearchParams,
+  updateURLParams: (updates: Record<string, string | undefined>) => void,
+  delay = 350
+) {
+  const urlSearch = searchParams.get('search') || '';
+  const [value, setValue] = useState(urlSearch);
+  const debounced = useDebounce(value, delay);
+
+  // Adopt changes made to the URL elsewhere (tab switch clears it, a deep link arrives with one).
+  useEffect(() => {
+    setValue((current) => (current === urlSearch ? current : urlSearch));
+  }, [urlSearch]);
+
+  useEffect(() => {
+    if (debounced !== urlSearch) {
+      updateURLParams({ search: debounced || undefined, page: undefined });
+    }
+    // updateURLParams identity changes with searchParams; depending on it would re-push loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounced]);
+
+  return [value, setValue] as const;
+}
+
 export default function UnifiedRequirementsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
-  const activeTab = (searchParams.get('tab') || 'material') as RequirementTab;
+  // MRP-37: an unrecognised ?tab= used to fall through the render ternary and silently show the
+  // Outsourced tab. Validate against the union and fall back to the default instead.
+  const TAB_VALUES: RequirementTab[] = ['material', 'outsourced', 'thread'];
+  const tabParam = searchParams.get('tab');
+  const activeTab: RequirementTab = TAB_VALUES.includes(tabParam as RequirementTab)
+    ? (tabParam as RequirementTab)
+    : 'material';
 
   // ─── Stats Queries ─────────────────────────────────────────
 
@@ -148,19 +193,35 @@ export default function UnifiedRequirementsPage() {
     (mrpStats?.awaitingReceipt || 0) +
     (mrpStats?.processingRequirementsCount || 0) +
     (serviceStats?.totalServices || 0);
+  // MRP-27: these two cards used to contradict each other and the table. "Needs Assignment"
+  // added EVERY live PROCESSING row — including ones that already have a processor and a Job
+  // Work Order — while "PO Generated" counted only MATERIAL rows, so the very row the table
+  // labels "JWO Created" was reported as needing assignment and missing from PO Generated.
+  // The backend now splits the PROCESSING total into the two halves these cards mean.
   const needsAssignment =
     (mrpStats?.requirementsNeedingPO || 0) +
-    (mrpStats?.processingRequirementsCount || 0) +
+    (mrpStats?.processingNeedingAssignment || 0) +
     (serviceStats?.needsProcessorCount || 0);
-  const poGenerated = (mrpStats?.poInProgress || 0) + (serviceStats?.poGeneratedCount || 0);
+  const poGenerated =
+    (mrpStats?.poInProgress || 0) + (mrpStats?.processingPoGenerated || 0) + (serviceStats?.poGeneratedCount || 0);
   const overdueCount = mrpStats?.overdueRequirements || 0;
   const estimatedValue = serviceStats?.estimatedTotalCost || 0;
 
   // ─── Tab Switch ────────────────────────────────────────────
 
+  // MRP-20: this used to build a fresh URLSearchParams containing only `tab`, so switching tabs
+  // dropped the order/work-order context every inbound deep link arrives with (OrderDetail,
+  // OrderBOMDetail and the dashboard cards all link in with ?orderId=…). Entity scope now
+  // survives the switch; genuinely tab-local state (status vocabularies differ per tab, search,
+  // pagination, per-tab pickers) is still cleared, which is what you want when changing view.
+  const CROSS_TAB_PARAMS = ['orderId', 'workOrderId'];
   const handleTabChange = (tab: string) => {
     const newParams = new URLSearchParams();
     newParams.set('tab', tab);
+    for (const key of CROSS_TAB_PARAMS) {
+      const value = searchParams.get(key);
+      if (value) newParams.set(key, value);
+    }
     setSearchParams(newParams, { replace: true });
   };
 
@@ -193,13 +254,17 @@ export default function UnifiedRequirementsPage() {
             onClick={() => {
               queryClient.invalidateQueries({ queryKey: queryKeys.mrp.all });
               queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequirements.all });
+              // MRP-21: the thread tab has its own query prefix — without this, pressing Refresh
+              // while looking at Thread Requirements did nothing at all.
+              queryClient.invalidateQueries({ queryKey: ['thread-requirements'] });
             }}
           >
             <RefreshCw className="h-4 w-4 mr-1" />
             Refresh
           </Button>
+          {/* MRP-36: this only ever navigated — it never calculated anything. */}
           <Button variant="outline" size="sm" onClick={() => navigate('/orders')}>
-            Calculate from Orders
+            Go to Orders
           </Button>
         </div>
       </div>
@@ -359,6 +424,8 @@ function MaterialRequirementsTab({
   const [processingCostInput, setProcessingCostInput] = useState('');
   const [isConverting, setIsConverting] = useState(false);
 
+  const [searchInput, setSearchInput] = useDebouncedSearchParam(searchParams, updateURLParams);
+
   // Filters — hard-code requirementType to MATERIAL
   const filters = useMemo(
     (): RequirementFilters => ({
@@ -407,8 +474,23 @@ function MaterialRequirementsTab({
     [requirements]
   );
 
+  // MRP-17: selection used to survive filter, search and page changes. The bulk bar kept counting
+  // rows that were no longer on screen — and Bulk Generate POs would happily raise POs for them.
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [filters]);
+
+  // MRP-17: "select all" is a page-scoped control, so its checked state must be page-scoped too.
+  // Comparing a global selection COUNT against this page's selectable count rendered the header
+  // checked whenever the two numbers happened to match (3 selected on page 1, 3 selectable here).
+  const allOnPageSelected =
+    selectableRequirements.length > 0 && selectableRequirements.every((r) => selectedIds.includes(r.id));
+
   const handleSelectAll = (checked: boolean) => {
-    setSelectedIds(checked ? selectableRequirements.map((r) => r.id) : []);
+    const pageIds = selectableRequirements.map((r) => r.id);
+    setSelectedIds((prev) =>
+      checked ? [...new Set([...prev, ...pageIds])] : prev.filter((id) => !pageIds.includes(id))
+    );
   };
 
   const handleSelectOne = (id: string, checked: boolean) => {
@@ -417,8 +499,49 @@ function MaterialRequirementsTab({
 
   const refreshData = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.mrp.all });
+    // MRP-23: generating a PO here never invalidated the Purchase Orders list, so a freshly
+    // created PO could be missing from /procurement/purchase-orders for up to the 5-minute
+    // staleTime — long enough to look like the PO was never created.
+    queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all });
     setSelectedIds([]);
   };
+
+  // MRP-18: "Manual PO" puts every selected requirement on ONE purchase order for ONE supplier,
+  // but selection is grouped only by status — so rows whose preferred vendor is a different
+  // supplier (or unassigned) could be silently bought from whoever was picked in the dialog. The
+  // Bulk flow groups by supplier and never has this problem; surface the mismatch here.
+  const selectedRequirementRows = useMemo(
+    () => requirements.filter((r) => selectedIds.includes(r.id)),
+    [requirements, selectedIds]
+  );
+  const selectedSupplierNames = useMemo(() => {
+    const names = new Set<string>();
+    for (const r of selectedRequirementRows) {
+      names.add(r.preferredSupplier?.name ?? 'Not Assigned');
+    }
+    return [...names];
+  }, [selectedRequirementRows]);
+  const manualPOSupplierMismatch =
+    poSupplierId.length > 0 &&
+    selectedRequirementRows.some((r) => r.preferredSupplierId && r.preferredSupplierId !== poSupplierId);
+
+  // MRP-22: the Bulk flow shows priced, GST-inclusive totals before anything is created; the
+  // manual dialog committed blind. Same server endpoint, so what is shown here is what gets
+  // created — including the zero-price warning that would otherwise surface only as a failure.
+  const { data: manualPOPreview, isFetching: manualPOPreviewLoading } = useQuery({
+    queryKey: ['mrp', 'manual-po-preview', poSupplierId, poDeliveryDate, selectedIds],
+    queryFn: () =>
+      previewPOs([
+        {
+          supplierId: poSupplierId,
+          requirementIds: selectedIds,
+          expectedDeliveryDate: poDeliveryDate,
+        },
+      ]),
+    enabled: showGeneratePO && !!poSupplierId && !!poDeliveryDate && selectedIds.length > 0,
+    staleTime: 30 * 1000,
+  });
+  const manualPOGroup = manualPOPreview?.[0];
 
   // Manual PO generation
   const handleGeneratePO = async () => {
@@ -516,27 +639,27 @@ function MaterialRequirementsTab({
     }
   };
 
-  // Re-calculate MRP for the filtered order(s)
+  // Re-calculate MRP for the currently filtered order.
+  //
+  // MRP-08: this used to take the distinct orderIds of whatever 20 rows happened to be on screen
+  // and fire one FULL-ORDER recalculation per order, sequentially — up to 20 heavy calls behind a
+  // single spinner, each one cancelling and rebuilding every requirement of an order the user
+  // never asked about. It also invented `requiredDate = today + 30 days` and stamped it on every
+  // requirement it created, discarding the real delivery date. Now: one order, explicitly chosen
+  // via the order filter, and the backend derives the date from the order itself.
+  const recalcOrderId = filters.orderId;
+  const orderLabelForRecalc =
+    requirements.find((r) => r.orderId === recalcOrderId)?.order?.orderNumber ?? 'the selected order';
   const handleRecalculateMRP = async () => {
-    const orderIds = [...new Set(requirements.map((r) => r.orderId).filter(Boolean))] as string[];
-    if (orderIds.length === 0) return;
+    if (!recalcOrderId) return;
 
     setIsRecalculating(true);
     setRecalcDialogOpen(false);
     try {
-      const requiredDate = new Date();
-      requiredDate.setDate(requiredDate.getDate() + 30);
-
-      for (const orderId of orderIds) {
-        await calculateRequirements({
-          orderId,
-          requiredDate: requiredDate.toISOString().split('T')[0],
-          checkStock: true,
-        });
-      }
+      await calculateRequirements({ orderId: recalcOrderId, checkStock: true });
       handleApiSuccess(
         'MRP Re-calculated',
-        `Requirements recalculated for ${orderIds.length} order(s). Fabric/greige requirements should now appear.`
+        'Requirements recalculated for this order. Fabric/greige requirements should now appear.'
       );
       refreshData();
     } catch (err) {
@@ -590,7 +713,9 @@ function MaterialRequirementsTab({
               Select All for Style ({selectableRequirements.length})
             </Button>
           )}
-          {requirements.length > 0 && (
+          {/* MRP-08: only offered when a single order is in scope — recalculation rewrites that
+              order's requirements, so it must be an explicit choice, not "whatever is on screen". */}
+          {recalcOrderId && requirements.length > 0 && (
             <Button size="sm" variant="outline" onClick={() => setRecalcDialogOpen(true)} disabled={isRecalculating}>
               <RefreshCw className={`h-4 w-4 mr-1 ${isRecalculating ? 'animate-spin' : ''}`} />
               {isRecalculating ? 'Re-calculating...' : 'Re-calculate MRP'}
@@ -631,8 +756,8 @@ function MaterialRequirementsTab({
             <div className="flex-1 min-w-[200px]">
               <Input
                 placeholder="Search by material, order, style..."
-                value={searchParams.get('search') || ''}
-                onChange={(e) => updateURLParams({ search: e.target.value || undefined, page: undefined })}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
               />
             </div>
 
@@ -702,10 +827,7 @@ function MaterialRequirementsTab({
             <TableHeader>
               <TableRow>
                 <TableHead className="w-10">
-                  <Checkbox
-                    checked={selectableRequirements.length > 0 && selectedIds.length === selectableRequirements.length}
-                    onCheckedChange={handleSelectAll}
-                  />
+                  <Checkbox checked={allOnPageSelected} onCheckedChange={handleSelectAll} />
                 </TableHead>
                 <TableHead>Requirement #</TableHead>
                 <TableHead>Material</TableHead>
@@ -745,7 +867,16 @@ function MaterialRequirementsTab({
                           />
                         )}
                       </TableCell>
-                      <TableCell className="text-sm font-medium">{req.requirementNumber}</TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {req.requirementNumber}
+                        {/* MRP-12: a split remainder would otherwise look like an unexplained
+                            duplicate row — say what it is. */}
+                        {req.splitFromId && (
+                          <Badge variant="outline" className="ml-2 text-xs font-normal">
+                            Balance
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <div>
                           <div className="text-sm font-medium">{req.material?.name || 'N/A'}</div>
@@ -769,12 +900,34 @@ function MaterialRequirementsTab({
                           <div className="text-xs text-muted-foreground">BOM v{req.orderBom.version}</div>
                         )}
                       </TableCell>
+                      {/* MRP-29: both were raw Decimal-derived floats (1234.5670000000002 MTR was
+                          renderable) and Shortfall silently dropped its unit. */}
                       <TableCell className="text-right text-sm">
-                        {req.totalRequired} {req.unit}
+                        {formatQuantity(req.totalRequired, req.unit)}
+                        {/* MRP-48f: a greige quantity is shrinkage-inflated. Say which shrinkage,
+                            and warn when it rests on a fallback average rather than the
+                            processor's committed figure — this previously reached a log only. */}
+                        {req.shrinkagePercentUsed != null && req.shrinkageSource !== 'NONE' && (
+                          <div
+                            className={`text-xs ${
+                              req.shrinkageSource === 'GREIGE_MASTER_FALLBACK'
+                                ? 'text-primary'
+                                : 'text-muted-foreground'
+                            }`}
+                            title={
+                              req.shrinkageSource === 'GREIGE_MASTER_FALLBACK'
+                                ? 'No processor rate card found — planned on the greige master average. Attach a rate card so the quantity matches the processor’s committed loss.'
+                                : 'Shrinkage from the processor’s rate card'
+                            }
+                          >
+                            incl. {req.shrinkagePercentUsed}% shrinkage
+                            {req.shrinkageSource === 'GREIGE_MASTER_FALLBACK' && ' (assumed)'}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <span className={`text-sm font-medium ${req.shortfall > 0 ? 'text-primary' : 'text-success'}`}>
-                          {req.shortfall > 0 ? req.shortfall : 'Fulfilled'}
+                          {req.shortfall > 0 ? formatQuantity(req.shortfall, req.unit) : 'Fulfilled'}
                         </span>
                       </TableCell>
                       <TableCell className="text-sm">{formatDate(req.requiredDate)}</TableCell>
@@ -885,7 +1038,11 @@ function MaterialRequirementsTab({
         open={recalcDialogOpen}
         onOpenChange={setRecalcDialogOpen}
         title="Re-calculate MRP"
-        description="This will re-calculate all material requirements for the displayed order(s). Existing non-final requirements will be refreshed. Any missing fabric/greige requirements will be created."
+        description={
+          `This re-calculates every material requirement for order ${orderLabelForRecalc}. ` +
+          'Requirements that already have a PO or Job Work Order are left untouched; other non-final ' +
+          'requirements are rebuilt from the approved BOM, and missing fabric/greige requirements are created.'
+        }
         confirmText="Re-calculate"
         cancelText="Cancel"
         onConfirm={handleRecalculateMRP}
@@ -896,9 +1053,25 @@ function MaterialRequirementsTab({
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Generate Purchase Order</DialogTitle>
-            <DialogDescription>Create a PO for {selectedIds.length} selected requirement(s)</DialogDescription>
+            <DialogDescription>
+              Create ONE purchase order covering {selectedIds.length} selected requirement(s).
+              {selectedSupplierNames.length > 1 && (
+                <> Preferred vendors in this selection: {selectedSupplierNames.join(', ')}.</>
+              )}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* MRP-18 */}
+            {manualPOSupplierMismatch && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Some selected requirements have a different preferred vendor. Continuing puts them all on one purchase
+                  order for the supplier chosen below. Use <strong>Bulk Generate POs</strong> to raise a separate PO per
+                  vendor instead.
+                </AlertDescription>
+              </Alert>
+            )}
             <div>
               <Label>Supplier</Label>
               <Select value={poSupplierId} onValueChange={setPOSupplierId}>
@@ -933,6 +1106,40 @@ function MaterialRequirementsTab({
                 rows={2}
               />
             </div>
+
+            {/* MRP-22: priced preview from the same endpoint the PO is created through */}
+            {manualPOPreviewLoading && <div className="text-sm text-muted-foreground">Pricing…</div>}
+            {manualPOGroup && !manualPOPreviewLoading && (
+              <div className="rounded-md border p-3 space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Items</span>
+                  <span>{manualPOGroup.items.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Subtotal</span>
+                  <span>{formatCurrency(manualPOGroup.subtotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">
+                    GST {manualPOGroup.isInterstate ? '(IGST)' : '(CGST + SGST)'}
+                  </span>
+                  <span>{formatCurrency(manualPOGroup.totalTax)}</span>
+                </div>
+                <div className="flex justify-between font-medium pt-1 border-t">
+                  <span>Total</span>
+                  <span>{formatCurrency(manualPOGroup.grandTotal)}</span>
+                </div>
+                {manualPOGroup.hasZeroPriceItems && (
+                  <Alert variant="destructive" className="mt-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      One or more items have no resolved price. Set a rate on the material or supplier first — a
+                      zero-priced purchase order will be rejected.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowGeneratePO(false)}>
@@ -1035,7 +1242,11 @@ interface OutsourcedRow {
   processor: string;
   processorAssigned: boolean;
   quantity: string; // "100 MTR"
-  cost: number | null;
+  // MRP-28: one "Est. Cost" column used to show a PER-UNIT rate for processing rows and a TOTAL
+  // for service rows, so in the merged view the column meant nothing. Both are now carried
+  // explicitly: rate for reference, total as the comparable figure.
+  costRate: number | null;
+  costTotal: number | null;
   status: string;
   statusColor: string;
   statusLabel: string;
@@ -1069,6 +1280,7 @@ function ThreadRequirementsTab({
   const search = searchParams.get('search') || '';
   const statusFilter = searchParams.get('status') || '';
   const page = parseInt(searchParams.get('page') || '1');
+  const [searchInput, setSearchInput] = useDebouncedSearchParam(searchParams, updateURLParams);
 
   // Fetch thread requirements
   const { data: threadData, isLoading } = useQuery<PaginatedThreadRequirements>({
@@ -1106,10 +1318,22 @@ function ThreadRequirementsTab({
     setLoadingOrders(true);
     try {
       const response = await getAllOrders({ search: searchTerm, limit: 20 });
-      const options = (response.data || []).map((order: any) => ({
-        value: order.id,
-        label: `${order.orderNumber} - ${order.style?.styleCode || order.styleName || 'Unknown Style'}`,
-      }));
+      // MRP-30: this read `order.style` / `order.styleName`, neither of which exists on Order —
+      // styles hang off orderItems — so every option in this picker read "Unknown Style". The
+      // `any` cast was hiding it from the compiler.
+      const options = (response.data || []).map((order) => {
+        const styleCodes = [...new Set((order.orderItems || []).map((item) => item.style?.styleCode).filter(Boolean))];
+        const styleLabel =
+          styleCodes.length === 0
+            ? (order.customer?.name ?? 'No style')
+            : styleCodes.length <= 2
+              ? styleCodes.join(', ')
+              : `${styleCodes.slice(0, 2).join(', ')} +${styleCodes.length - 2}`;
+        return {
+          value: order.id,
+          label: `${order.orderNumber} - ${styleLabel}`,
+        };
+      });
       setOrderOptions(options);
     } catch (err) {
       handleApiError(err, 'Failed to load orders for selection');
@@ -1147,7 +1371,7 @@ function ThreadRequirementsTab({
       const suppliers = await getThreadSuppliers(selectedIds);
       setAvailableSuppliers(suppliers);
       setPODialogOpen(true);
-    } catch (err: any) {
+    } catch (err) {
       handleApiError(err, 'Failed to fetch suppliers');
     }
   };
@@ -1170,7 +1394,7 @@ function ThreadRequirementsTab({
       setPODeliveryDate('');
       setPORemarks('');
       queryClient.invalidateQueries({ queryKey: ['thread-requirements'] });
-    } catch (err: any) {
+    } catch (err) {
       handleApiError(err, 'Failed to generate thread PO');
     } finally {
       setPOGenerating(false);
@@ -1200,8 +1424,8 @@ function ThreadRequirementsTab({
           <div className="flex flex-wrap items-center gap-3">
             <Input
               placeholder="Search thread, order..."
-              value={search}
-              onChange={(e) => updateURLParams({ search: e.target.value || undefined, page: undefined })}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="w-64"
             />
             <Select
@@ -1300,15 +1524,20 @@ function ThreadRequirementsTab({
                       <div className="text-xs text-muted-foreground">{req.threadName}</div>
                     </TableCell>
                     <TableCell className="text-sm">
-                      {THREAD_PLY_LABELS[req.ply]} / {THREAD_MATERIAL_LABELS[req.materialComposition]}
+                      {/* MRP-38: fall back to the raw value like the packaging column already
+                          did — an unmapped enum used to render "undefined / undefined". */}
+                      {THREAD_PLY_LABELS[req.ply] || req.ply || '-'} /{' '}
+                      {THREAD_MATERIAL_LABELS[req.materialComposition] || req.materialComposition || '-'}
                     </TableCell>
                     <TableCell className="text-sm">{req.colorName}</TableCell>
                     <TableCell className="text-sm">
                       {THREAD_PACKAGING_LABELS[req.packagingType] || req.packagingType}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-sm">{req.totalUnits}</TableCell>
-                    <TableCell className="text-right font-mono text-sm">{req.totalBoxes}</TableCell>
-                    <TableCell className="text-right font-mono text-sm">{req.totalMeters.toLocaleString()}</TableCell>
+                    {/* MRP-29: three quantity columns previously used three different formats —
+                        two raw, one bare toLocaleString() that silently rounded to 3 decimals. */}
+                    <TableCell className="text-right font-mono text-sm">{formatQuantity(req.totalUnits)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm">{formatQuantity(req.totalBoxes)}</TableCell>
+                    <TableCell className="text-right font-mono text-sm">{formatQuantity(req.totalMeters)}</TableCell>
                     <TableCell className="text-right font-mono text-sm">
                       {req.unitPrice ? formatCurrency(req.unitPrice) : '-'}
                     </TableCell>
@@ -1510,9 +1739,47 @@ function OutsourcedWorkTab({
   const [isGenerating, setIsGenerating] = useState(false);
 
   const page = parseInt(searchParams.get('page') || '1');
-  const statusFilter = searchParams.get('status') || undefined;
   const searchFilter = searchParams.get('search') || undefined;
   const processorIdFilter = searchParams.get('processorId') || undefined;
+  const [searchInput, setSearchInput] = useDebouncedSearchParam(searchParams, updateURLParams);
+
+  // MRP-11: this tab drives TWO backends with one status dropdown, and their status vocabularies
+  // only partly overlap. IN_PROGRESS/COMPLETED are not MaterialRequirementStatus values (Prisma
+  // threw → 500 on the processing list) and PO_REQUIRED is not a ServiceRequirementStatus (strict
+  // Zod → 400 on the service list), so 3 of the 6 options broke half the table. Options are now
+  // per-source, and in the merged "all" view only the statuses both sides understand are offered.
+  const MATERIAL_STATUS_OPTIONS = [
+    { value: 'PENDING', label: 'Pending' },
+    { value: 'PO_REQUIRED', label: 'PO Required' },
+    { value: 'PARTIAL_STOCK', label: 'Partial Stock' },
+    { value: 'PO_GENERATED', label: 'JWO Created' },
+    { value: 'PO_SENT', label: 'Sent to Processor' },
+    { value: 'PARTIALLY_RECEIVED', label: 'Partially Received' },
+    { value: 'RECEIVED', label: 'Received' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ];
+  const SERVICE_STATUS_OPTIONS = [
+    { value: 'PENDING', label: 'Pending' },
+    { value: 'PO_GENERATED', label: 'JWO Created' },
+    { value: 'IN_PROGRESS', label: 'In Progress' },
+    { value: 'COMPLETED', label: 'Completed' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ];
+  // Intersection of the two enums — safe to send to either backend.
+  const SHARED_STATUS_OPTIONS = [
+    { value: 'PENDING', label: 'Pending' },
+    { value: 'PO_GENERATED', label: 'JWO Created' },
+    { value: 'CANCELLED', label: 'Cancelled' },
+  ];
+  const statusOptions =
+    sourceFilter === 'processing'
+      ? MATERIAL_STATUS_OPTIONS
+      : sourceFilter === 'service'
+        ? SERVICE_STATUS_OPTIONS
+        : SHARED_STATUS_OPTIONS;
+  // A status left in the URL by another source (or hand-typed) must not reach the API.
+  const rawStatusParam = searchParams.get('status') || undefined;
+  const statusFilter = statusOptions.some((o) => o.value === rawStatusParam) ? rawStatusParam : undefined;
 
   // ─── Data Fetching ─────────────────────────────────────────
 
@@ -1520,10 +1787,22 @@ function OutsourcedWorkTab({
   const orderIdFilter = searchParams.get('orderId') || undefined;
   const workOrderIdFilter = searchParams.get('workOrderId') || undefined;
 
+  // MRP-19: material_requirements has no work-order column, so ?workOrderId= (how WorkOrderDetail
+  // links in) was silently ignored for PROCESSING rows — the tab showed that work order's services
+  // next to EVERY processing requirement in the database. Resolve the work order to its order /
+  // order item and scope the processing list with that instead.
+  const { data: scopeWorkOrder } = useQuery({
+    queryKey: ['work-order', 'requirements-scope', workOrderIdFilter],
+    queryFn: () => workOrderService.getById(workOrderIdFilter as string),
+    enabled: !!workOrderIdFilter,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const processingFilters = useMemo(
     (): RequirementFilters => ({
       requirementType: 'PROCESSING',
-      orderId: orderIdFilter,
+      orderId: orderIdFilter ?? (workOrderIdFilter ? (scopeWorkOrder?.orderId ?? undefined) : undefined),
+      orderItemId: workOrderIdFilter ? (scopeWorkOrder?.orderItemId ?? undefined) : undefined,
       status: statusFilter?.split(',') as MaterialRequirementStatus[] | undefined,
       search: searchFilter,
       page,
@@ -1531,14 +1810,16 @@ function OutsourcedWorkTab({
       sortBy: 'createdAt',
       sortOrder: 'desc',
     }),
-    [statusFilter, searchFilter, orderIdFilter, page]
+    [statusFilter, searchFilter, orderIdFilter, workOrderIdFilter, scopeWorkOrder, page]
   );
 
   const { data: processingResponse, isLoading: processingLoading } = useQuery({
     queryKey: [...queryKeys.mrp.all, 'processing-list', processingFilters],
     queryFn: () => getRequirements(processingFilters),
     staleTime: 30 * 1000,
-    enabled: sourceFilter === 'all' || sourceFilter === 'processing',
+    // Wait for the work-order scope to resolve (MRP-19) — firing early would briefly list every
+    // processing requirement in the database, which is the bug being fixed.
+    enabled: (sourceFilter === 'all' || sourceFilter === 'processing') && (!workOrderIdFilter || !!scopeWorkOrder),
   });
 
   // Service requirements (from service-requirements/list)
@@ -1564,13 +1845,24 @@ function OutsourcedWorkTab({
     enabled: sourceFilter === 'all' || sourceFilter === 'service',
   });
 
-  // Suppliers list for dialogs
-  const { data: suppliersResponse } = useListQuery(
-    queryKeys.suppliers.list({ limit: 100 }),
-    () => getAllSuppliers({ limit: 100 }),
-    { staleTime: 5 * 60 * 1000 }
-  );
-  const suppliers: Supplier[] = suppliersResponse?.data || [];
+  // MRP-17: drop selections whenever the visible set changes — otherwise the bulk actions operate
+  // on rows the user can no longer see (and did not intend to include).
+  useEffect(() => {
+    setSelectedProcessingIds([]);
+  }, [processingFilters]);
+  useEffect(() => {
+    setSelectedServiceIds([]);
+  }, [serviceFilters]);
+
+  // MRP-33: the processor roster (complete, capability-filtered) drives the processor filter and
+  // both manual job-work dialogs. This tab used to load the generic first-100-suppliers list,
+  // which both offered non-processors and hid processor #101; that query is gone with it.
+  const { data: processorListResponse } = useQuery({
+    queryKey: ['mrp', 'processor-list'],
+    queryFn: getProcessorSuppliers,
+    staleTime: 5 * 60 * 1000,
+  });
+  const processors = processorListResponse?.processorList || [];
 
   const isLoading =
     (sourceFilter !== 'service' && processingLoading) || (sourceFilter !== 'processing' && serviceLoading);
@@ -1585,7 +1877,7 @@ function OutsourcedWorkTab({
       const processingItems = processingResponse?.data || [];
       for (const req of processingItems) {
         // Extract JWO link from jwoLinks (Phase 4c: JWO-based processing)
-        const jwo = (req as any).jwoLinks?.[0]?.jobWorkOrder;
+        const jwo = req.jwoLinks?.[0]?.jobWorkOrder;
         result.push({
           id: req.id,
           rowKey: `proc-${req.id}`,
@@ -1598,8 +1890,11 @@ function OutsourcedWorkTab({
           referenceLink: req.orderId ? `/orders/${req.orderId}` : undefined,
           processor: req.processor?.name || req.preferredSupplier?.name || 'Not Assigned',
           processorAssigned: !!(req.processorId || req.preferredSupplierId),
-          quantity: `${req.totalRequired} ${req.unit}`,
-          cost: req.processingCost ?? null,
+          quantity: formatQuantity(req.totalRequired, req.unit),
+          // processingCost is a per-unit rate (the convert-to-greige dialog labels it
+          // "Processing Cost (per unit)"), so the comparable total is rate × quantity.
+          costRate: req.processingCost ?? null,
+          costTotal: req.processingCost != null ? Number(req.processingCost) * Number(req.totalRequired) : null,
           status: req.status,
           statusColor: MaterialRequirementStatusColors[req.status] || 'bg-muted text-foreground',
           // Phase 4c: PROCESSING uses JWOs, not POs — show "JWO Created" instead of "PO Generated"
@@ -1632,8 +1927,9 @@ function OutsourcedWorkTab({
           referenceLink: req.workOrderId ? `/production/work-orders/${req.workOrderId}` : undefined,
           processor: req.assignedProcessor?.name || req.preferredProcessor?.name || 'Not Assigned',
           processorAssigned: !!(req.assignedProcessorId || req.preferredProcessorId),
-          quantity: `${req.quantityRequired} ${req.unit}`,
-          cost: req.estimatedTotal ?? null,
+          quantity: formatQuantity(req.quantityRequired, req.unit),
+          costRate: req.estimatedRate ?? null,
+          costTotal: req.estimatedTotal ?? null,
           status: req.status,
           statusColor: ServiceRequirementStatusColors[req.status] || 'bg-muted text-foreground',
           statusLabel: ServiceRequirementStatusLabels[req.status] || req.status,
@@ -1724,7 +2020,8 @@ function OutsourcedWorkTab({
       'Reference',
       'Processor',
       'Quantity',
-      'Cost',
+      'Rate/Unit',
+      'Est. Total',
       'Status',
       'JWO Number',
       'Created At',
@@ -1740,13 +2037,19 @@ function OutsourcedWorkTab({
       row.reference,
       row.processor,
       row.quantity,
-      row.cost != null ? row.cost.toFixed(2) : '',
+      row.costRate != null ? row.costRate.toFixed(2) : '',
+      row.costTotal != null ? row.costTotal.toFixed(2) : '',
       row.statusLabel,
       row.jwoNumber || '',
-      new Date(row.createdAt).toLocaleDateString(),
+      // MRP-35: the table renders dates as en-IN; the export used the machine locale, so the same
+      // date came out in two formats depending on who ran it.
+      new Date(row.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
     ]);
 
-    const csv = [headers.join(','), ...csvRows.map((r) => r.map((c) => `"${c}"`).join(','))].join('\n');
+    // MRP-35: values were wrapped in quotes without escaping the quotes inside them, so a fabric
+    // width note like 44" broke the row into extra columns. RFC 4180 doubles them.
+    const escapeCsv = (value: string | number) => `"${String(value).replace(/"/g, '""')}"`;
+    const csv = [headers.map(escapeCsv).join(','), ...csvRows.map((r) => r.map(escapeCsv).join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1759,6 +2062,9 @@ function OutsourcedWorkTab({
   const refreshData = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.mrp.all });
     queryClient.invalidateQueries({ queryKey: queryKeys.serviceRequirements.all });
+    // MRP-23: keep the Purchase Orders / Job Work Order lists in step with what was just created.
+    queryClient.invalidateQueries({ queryKey: queryKeys.purchaseOrders.all });
+    queryClient.invalidateQueries({ queryKey: ['job-work-orders'] });
     clearSelection();
   };
 
@@ -1928,13 +2234,15 @@ function OutsourcedWorkTab({
             <div className="flex-1 min-w-[200px]">
               <Input
                 placeholder="Search by material, work order, service..."
-                value={searchParams.get('search') || ''}
-                onChange={(e) => updateURLParams({ search: e.target.value || undefined, page: undefined })}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
               />
             </div>
 
+            {/* MRP-11: options come from the active source so every one of them is a status the
+                backend(s) behind that view actually accept. */}
             <Select
-              value={searchParams.get('status') || 'all'}
+              value={statusFilter || 'all'}
               onValueChange={(v) => updateURLParams({ status: v === 'all' ? undefined : v, page: undefined })}
             >
               <SelectTrigger className="w-[180px]">
@@ -1942,13 +2250,11 @@ function OutsourcedWorkTab({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                {/* Show combined status options */}
-                <SelectItem value="PENDING">Pending</SelectItem>
-                <SelectItem value="PO_REQUIRED">PO Required</SelectItem>
-                <SelectItem value="PO_GENERATED">PO Generated</SelectItem>
-                <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-                <SelectItem value="COMPLETED">Completed</SelectItem>
-                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                {statusOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
 
@@ -1959,9 +2265,13 @@ function OutsourcedWorkTab({
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="All Processors" />
               </SelectTrigger>
+              {/* MRP-33: this listed the first 100 SUPPLIERS of any kind, so it both offered
+                  non-processors and silently omitted processor #101. It now uses the processor
+                  roster (suppliers categorised DYEING_PRINTING / WASHING / FINISHING_CONTRACTOR),
+                  which is complete and unpaginated. */}
               <SelectContent>
                 <SelectItem value="all">All Processors</SelectItem>
-                {suppliers.map((p: Supplier) => (
+                {processors.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
                   </SelectItem>
@@ -1969,18 +2279,34 @@ function OutsourcedWorkTab({
               </SelectContent>
             </Select>
 
-            <Button variant="outline" onClick={handleExport} disabled={rows.length === 0}>
+            {/* MRP-35: the export only ever contained the rows currently loaded. Say so in the
+                label rather than letting it read as a full export of the filtered set. */}
+            <Button
+              variant="outline"
+              onClick={handleExport}
+              disabled={rows.length === 0}
+              title={`Exports the ${rows.length} row(s) on this page`}
+            >
               <Download className="h-4 w-4 mr-1" />
-              Export
+              Export page ({rows.length})
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Results summary */}
+      {/* Results summary.
+          MRP-32: in the merged "All" view the two sources paginate independently (20 each), so a
+          page can hold anywhere between 0 and 40 rows and later pages often carry only one source.
+          Say that plainly instead of implying a single uniform sequence. */}
       <div className="text-sm text-muted-foreground px-1">
         Showing {rows.length} outsourced work items
-        {pagination.total > 0 && ` (${pagination.total} total)`}
+        {pagination.total > 0 && ` of ${pagination.total}`}
+        {sourceFilter === 'all' && pagination.totalPages > 1 && (
+          <span className="ml-1">
+            (page {pagination.page} of {pagination.totalPages}; processing and services are paged separately, so a page
+            may show only one of the two)
+          </span>
+        )}
       </div>
 
       {/* Table */}
@@ -2004,7 +2330,10 @@ function OutsourcedWorkTab({
                 <TableHead>Work Type</TableHead>
                 {sourceFilter !== 'service' && <TableHead>Printing Type</TableHead>}
                 <TableHead>Reference</TableHead>
-                {sourceFilter !== 'service' && <TableHead>Processor / Vendor</TableHead>}
+                {/* MRP-34: this was hidden in the Service-only view — the one view whose primary
+                    action is "Assign Processors", so the assigned processor was invisible exactly
+                    where it mattered. Service rows carry a processor too. */}
+                <TableHead>Processor / Vendor</TableHead>
                 <TableHead className="text-right">Quantity</TableHead>
                 <TableHead className="text-right">Est. Cost</TableHead>
                 <TableHead>Status</TableHead>
@@ -2015,7 +2344,7 @@ function OutsourcedWorkTab({
               {isLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={sourceFilter === 'service' ? 10 : 15}
+                    colSpan={sourceFilter === 'service' ? 11 : 15}
                     className="text-center py-12 text-muted-foreground"
                   >
                     Loading outsourced work items...
@@ -2024,7 +2353,7 @@ function OutsourcedWorkTab({
               ) : rows.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={sourceFilter === 'service' ? 10 : 15}
+                    colSpan={sourceFilter === 'service' ? 11 : 15}
                     className="text-center py-12 text-muted-foreground"
                   >
                     No outsourced work items found
@@ -2100,18 +2429,20 @@ function OutsourcedWorkTab({
                         <span className="text-sm">{row.reference}</span>
                       )}
                     </TableCell>
-                    {sourceFilter !== 'service' && (
-                      <TableCell>
-                        <span className={`text-sm ${row.processorAssigned ? '' : 'text-primary'}`}>
-                          {row.processor}
-                        </span>
-                      </TableCell>
-                    )}
+                    {/* MRP-34: always rendered — see the header comment. */}
+                    <TableCell>
+                      <span className={`text-sm ${row.processorAssigned ? '' : 'text-primary'}`}>{row.processor}</span>
+                    </TableCell>
                     <TableCell className="text-right text-sm">{row.quantity}</TableCell>
+                    {/* MRP-28: the headline figure is always the estimated TOTAL; the per-unit
+                        rate sits underneath so the two sources stay comparable. */}
                     <TableCell className="text-right">
                       <span className="text-sm font-medium text-accent">
-                        {row.cost != null ? formatCurrency(row.cost) : '-'}
+                        {row.costTotal != null ? formatCurrency(row.costTotal) : '-'}
                       </span>
+                      {row.costRate != null && (
+                        <div className="text-xs text-muted-foreground">{formatCurrency(row.costRate)}/unit</div>
+                      )}
                     </TableCell>
                     <TableCell>
                       {row.jwoLink ? (
@@ -2189,15 +2520,17 @@ function OutsourcedWorkTab({
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <Label>Supplier / Processor</Label>
+              <Label>Processor</Label>
+              {/* MRP-33: dyeing/printing work can only go to a processor — offering the generic
+                  supplier list invited issuing a job-work order to a button vendor. */}
               <Select value={procPOSupplierId} onValueChange={setProcPOSupplierId}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="Select supplier" />
+                  <SelectValue placeholder="Select processor" />
                 </SelectTrigger>
                 <SelectContent>
-                  {suppliers.map((s: Supplier) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
+                  {processors.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -2264,12 +2597,13 @@ function OutsourcedWorkTab({
           <div className="space-y-4 py-4">
             <div>
               <Label>Processor</Label>
+              {/* MRP-33: processor roster, not the truncated all-suppliers list. */}
               <Select value={svcPOProcessorId} onValueChange={setSvcPOProcessorId}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Select processor" />
                 </SelectTrigger>
                 <SelectContent>
-                  {suppliers.map((p: Supplier) => (
+                  {processors.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
                     </SelectItem>

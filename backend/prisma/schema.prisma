@@ -2837,6 +2837,7 @@ model processor_rate_card {
   fabricCostingItems style_costing_fabric_items[] @relation("fabric_costing_rate_card")
   laceCostingItems   style_costing_lace_items[]   @relation("lace_costing_rate_card")
   orderBomItems      order_bom_items[]            @relation("bom_item_rate_card")
+  fabricWidthCads    fabric_width_cad[]           @relation("fabric_width_cad_rate_card")
 
   // Self-relation for rate history chain
   supersededBy processor_rate_card?  @relation("RateHistory", fields: [supersededById], references: [id])
@@ -3752,13 +3753,19 @@ model material_requirements {
   splitFromId         String?
 
   // NEW: Processing support fields
-  requirementType     String   @default("MATERIAL") // 'MATERIAL' | 'PROCESSING'
-  processorId         String? // FK to suppliers (for PROCESSING type)
-  linkedRequirementId String? // Links PROCESSING to its parent GREIGE requirement
-  processingCost      Decimal? @db.Decimal(12, 2)
-  printingType        String? // PrintingType: PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
-  colorName           String? // Dye/processing color — differentiates same greige with different colors
-  componentName       String? // Garment component (Top, Shirt) — for traceability through PO/GRN
+  requirementType      String   @default("MATERIAL") // 'MATERIAL' | 'PROCESSING'
+  processorId          String? // FK to suppliers (for PROCESSING type)
+  linkedRequirementId  String? // Links PROCESSING to its parent GREIGE requirement
+  processingCost       Decimal? @db.Decimal(12, 2)
+  printingType         String?
+  // MRP-48f: audit of the shrinkage actually used to inflate totalRequired, and where it came
+  // from (RATE_CARD | RATE_CARD_RESOLVED | GREIGE_MASTER_FALLBACK | NONE). Without these the
+  // percentage was baked into the quantity with no record, so a planner could not tell whether a
+  // number came from the processor's commitment or from a fallback average.
+  shrinkagePercentUsed Decimal? @db.Decimal(5, 2)
+  shrinkageSource      String? // PrintingType: PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
+  colorName            String? // Dye/processing color — differentiates same greige with different colors
+  componentName        String? // Garment component (Top, Shirt) — for traceability through PO/GRN
 
   // Price snapshot from the approved Order BOM (single source of truth for PO pricing).
   // null unitPrice = legacy/manual requirement → PO generation falls back to live rate resolution.
@@ -4563,6 +4570,12 @@ model fabric_width_cad {
   cadPatternParts             cad_pattern_parts[]          @relation("cad_multi_parts")
   batchGroupColor             color_master?                @relation("fabric_cad_batch_color", fields: [processingBatchGroupColorId], references: [id])
   processor                   suppliers?                   @relation("fabric_width_cad_processor", fields: [processorId], references: [id])
+  // MRP-48d: the processor rate card this CAD row was costed against. Fabric Costing already
+  // resolves it (FabricCostingPage lookupRate) and dropped it on save, so the card — which pins
+  // BOTH processingType and printingType via its unique key — never reached the cost sheet, the
+  // BOM, or MRP. Nullable: unset until a rate is looked up.
+  rateCardId                  String?
+  rateCard                    processor_rate_card?         @relation("fabric_width_cad_rate_card", fields: [rateCardId], references: [id])
   procurement                 fabric_procurement?          @relation("cad_procurement", fields: [procurementId], references: [id])
   styleCosting                style_costing?               @relation("cad_style_costing", fields: [styleCostingId], references: [id])
   styleFabric                 style_fabrics?               @relation("style_fabric_cad_rows", fields: [styleFabricId], references: [id], onDelete: Cascade)
@@ -4583,6 +4596,7 @@ model fabric_width_cad {
   @@index([isPreferred])
   @@index([greigeId])
   @@index([processorId])
+  @@index([rateCardId])
   @@index([costingStyleId])
   @@index([patternPartId])
   @@index([purpose])

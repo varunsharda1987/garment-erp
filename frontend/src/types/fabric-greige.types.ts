@@ -15,7 +15,8 @@ export interface GreigeMaster {
   defaultCutableWidth?: number; // Default finished/cutable width for CAD planning
   expectedFinishedWidthMin?: number;
   expectedFinishedWidthMax?: number;
-  averageShrinkagePercent: number;
+  /** MRP-48: fallback only — the processor rate card is the source of truth for shrinkage. */
+  averageShrinkagePercent?: number;
   supplierId?: string;
   gsmRange?: string;
   costPerMeter?: number;
@@ -270,7 +271,8 @@ export interface GreigeMasterFormData {
   defaultCutableWidth?: number; // Default finished/cutable width for CAD planning
   expectedFinishedWidthMin?: number;
   expectedFinishedWidthMax?: number;
-  averageShrinkagePercent: number;
+  /** MRP-48: fallback only — the processor rate card is the source of truth for shrinkage. */
+  averageShrinkagePercent?: number;
   gsmRange?: string;
   description?: string;
   notes?: string;

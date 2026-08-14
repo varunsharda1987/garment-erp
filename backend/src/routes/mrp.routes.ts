@@ -31,6 +31,7 @@ import {
   bulkAssignProcessorsSchema,
   autoAssignProcessorsSchema,
   requirementsQuerySchema,
+  requirementStylesQuerySchema,
 } from '../schemas/mrp.schema';
 
 const router = Router();
@@ -72,7 +73,11 @@ router.get('/dashboard', asyncHandler(mrpController.getDashboardStats));
  * @access  Private
  * @query   requirementType
  */
-router.get('/requirements/styles', asyncHandler(mrpController.getDistinctRequirementStyles));
+router.get(
+  '/requirements/styles',
+  validateQuery(requirementStylesQuerySchema),
+  asyncHandler(mrpController.getDistinctRequirementStyles)
+);
 
 /**
  * @route   GET /api/mrp/requirements

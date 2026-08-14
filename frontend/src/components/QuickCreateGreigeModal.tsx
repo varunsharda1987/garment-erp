@@ -29,7 +29,7 @@ export function QuickCreateGreigeModal({
     greigeWidth: 48,
     defaultCutableWidth: 44,
     composition: '100% Cotton',
-    averageShrinkagePercent: 8,
+    averageShrinkagePercent: undefined, // MRP-48: no fabricated default
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,7 +91,7 @@ export function QuickCreateGreigeModal({
         greigeWidth: 48,
         defaultCutableWidth: 44,
         composition: '100% Cotton',
-        averageShrinkagePercent: 8,
+        averageShrinkagePercent: undefined, // MRP-48: no fabricated default
       });
     } catch (error) {
       logError('Error creating greige:', error);
@@ -174,14 +174,14 @@ export function QuickCreateGreigeModal({
 
           {/* Shrinkage */}
           <div>
-            <Label htmlFor="averageShrinkagePercent">Average Shrinkage %</Label>
+            <Label htmlFor="averageShrinkagePercent">Fallback Shrinkage %</Label>
             <Input
               id="averageShrinkagePercent"
               name="averageShrinkagePercent"
               type="number"
-              value={formData.averageShrinkagePercent}
+              value={formData.averageShrinkagePercent ?? ''}
               onChange={handleChange}
-              placeholder="8"
+              placeholder="Set on the processor rate card"
               step="0.5"
               min="0"
               max="30"

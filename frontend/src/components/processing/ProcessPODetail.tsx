@@ -1,4 +1,4 @@
-// Shared Process PO Detail Page - works for both Dyeing and Printing
+// Shared Job Work Order Detail Page - works for both Dyeing and Printing
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -39,7 +39,7 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
 
-  // Fetch Process PO
+  // Fetch Job Work Order
   const {
     data: processPO,
     isLoading,
@@ -68,7 +68,7 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
   if (error || !processPO) {
     return (
       <div className="container mx-auto py-12 text-center">
-        <p className="text-destructive">Failed to load Process PO details</p>
+        <p className="text-destructive">Failed to load job work order details</p>
         <Button variant="outline" onClick={() => navigate(backPath)} className="mt-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
@@ -436,7 +436,7 @@ export default function ProcessPODetail({ processType, backPath, title }: Proces
       <div className="flex justify-center pt-4">
         <Button variant="outline" onClick={() => navigate('/manufacturing/processing?tab=process-pos')}>
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Process PO List
+          Back to Job Work Orders
         </Button>
       </div>
     </div>

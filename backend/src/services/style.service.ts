@@ -1771,7 +1771,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           accountingSKU: data.accountingSKU !== undefined ? data.accountingSKU : undefined,
           accountingUnit: data.accountingUnit !== undefined ? data.accountingUnit : undefined,
           bulletPoints: data.bulletPoints !== undefined ? data.bulletPoints : undefined,
-          specifications: data.specifications !== undefined ? data.specifications : undefined,
+          specifications:
+            data.specifications !== undefined
+              ? data.specifications
+              : data.category !== undefined
+                ? data.category
+                : undefined,
           imageUrl: data.imageUrl !== undefined ? data.imageUrl : undefined,
           buyerStyleRef: data.buyerStyleRef !== undefined ? data.buyerStyleRef || null : undefined,
           customerAccessoriesPresetId:

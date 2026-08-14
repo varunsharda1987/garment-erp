@@ -124,7 +124,7 @@ export default function PrintingList() {
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [selectedPOForReturn, setSelectedPOForReturn] = useState<ProcessPO | null>(null);
 
-  // Process PO status filter
+  // Job Work Order status filter
   const [processPOsStatusFilter, setProcessPOsStatusFilter] = useState<string>('all');
 
   useEffect(() => {
@@ -219,7 +219,7 @@ export default function PrintingList() {
         fetchLabDips();
       } else {
         await printingService.processPOs.delete(itemToDelete.id);
-        handleApiSuccess('Process PO deleted', `${itemToDelete.number} has been successfully deleted.`);
+        handleApiSuccess('Job work order deleted', `${itemToDelete.number} has been successfully deleted.`);
         fetchProcessPOs();
       }
       fetchSummary();
@@ -486,7 +486,7 @@ export default function PrintingList() {
     },
   ];
 
-  // Process PO columns
+  // Job Work Order columns
   const processPOColumns: Column<ProcessPO>[] = [
     {
       key: 'poNumber',
@@ -764,7 +764,7 @@ export default function PrintingList() {
           </Button>
           <Button onClick={() => navigate('/manufacturing/printing/process-pos/new')}>
             <Plus className="h-4 w-4 mr-2" />
-            New Process PO
+            New Job Work Order
           </Button>
         </div>
       </div>
@@ -779,7 +779,7 @@ export default function PrintingList() {
                   <Printer className="h-5 w-5 text-accent" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Total Process POs</p>
+                  <p className="text-sm text-muted-foreground">Total Job Work Orders</p>
                   <p className="text-2xl font-bold">{summary.total}</p>
                 </div>
               </div>
@@ -849,7 +849,7 @@ export default function PrintingList() {
           </TabsTrigger>
           <TabsTrigger value="process-pos" className="flex items-center gap-2">
             <Send className="h-4 w-4" />
-            Process POs
+            Job Work Orders
           </TabsTrigger>
         </TabsList>
 
@@ -980,7 +980,7 @@ export default function PrintingList() {
             </CardContent>
           </Card>
 
-          {/* Process POs Table */}
+          {/* Job Work Orders Table */}
           <Card>
             <CardContent className="p-0">
               {error ? (
@@ -1024,7 +1024,7 @@ export default function PrintingList() {
           if (!open) setItemToDelete(null);
         }}
         onConfirm={confirmDelete}
-        title={`Delete ${itemToDelete?.type === 'labDip' ? 'Lab Dip' : 'Process PO'}`}
+        title={`Delete ${itemToDelete?.type === 'labDip' ? 'Lab Dip' : 'Job Work Order'}`}
         description={`Are you sure you want to delete "${itemToDelete?.number}"? This action cannot be undone.`}
         confirmText="Delete"
         variant="destructive"

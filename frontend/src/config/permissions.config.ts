@@ -169,7 +169,12 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   // Procurement
   '/procurement/purchase-orders': 'purchaseOrders',
   '/procurement/grn': 'grn',
-  '/mrp/requirements': 'materialRequirements',
+  // MRP-46: /mrp and /mrp/requirements are the SAME destination (both redirect to
+  // /procurement/requirements), but they were guarded by two different permission keys — so
+  // whether a user could reach the Requirements page depended on which legacy URL they arrived
+  // by. The sidebar entry uses 'mrp'; align on that and register the live path too.
+  '/mrp/requirements': 'mrp',
+  '/procurement/requirements': 'mrp',
 
   // Masters
   '/master-data': 'masterData',

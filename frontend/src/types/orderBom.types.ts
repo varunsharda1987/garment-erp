@@ -31,6 +31,14 @@ export type OrderBOMItemMaterialType =
 export type OrderBOMItemUsageCategory = 'GARMENT_TRIM' | 'PACKAGING' | 'VALUE_ADDITION' | 'FABRIC';
 
 export interface OrderBOMItem {
+  /**
+   * MRP-31: display-only. The greige this line will actually consume — the finished CAD
+   * consumption divided by the processor's shrinkage. Not persisted; computed on read by the
+   * same resolver MRP plans with.
+   */
+  greigeRequired?: number | null;
+  shrinkagePercentUsed?: number | null;
+  shrinkageSource?: 'RATE_CARD' | 'RATE_CARD_RESOLVED' | 'GREIGE_MASTER_FALLBACK' | 'NONE' | null;
   id: string;
   orderBomId: string;
   materialType: OrderBOMItemMaterialType;

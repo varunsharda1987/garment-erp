@@ -12,6 +12,7 @@ import {
   getOrderStatisticsByCustomer,
   cancelOrderWithOptions,
   getOrderLaceAllocations,
+  createWorkOrdersForOrder,
 } from '../controllers/order.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { UserRole } from '@prisma/client';
@@ -23,6 +24,7 @@ import {
   updateOrderStatusSchema,
   cancelOrderSchema,
   orderQuerySchema,
+  createWorkOrdersForOrderSchema,
 } from '../schemas/order.schema';
 import { idParamSchema } from '../schemas/common.schema';
 
@@ -82,5 +84,16 @@ router.post(
   asyncHandler(cancelOrderWithOptions)
 );
 router.get('/:id/lace-allocations', validateParams(idParamSchema), asyncHandler(getOrderLaceAllocations));
+
+/**
+ * Create any missing production work orders for an order.
+ * Explicit replacement for the fallback that used to run silently inside BOM approval —
+ * scheduling production is a separate decision from approving a bill of materials.
+ */
+router.post(
+  '/:orderId/work-orders',
+  validateBody(createWorkOrdersForOrderSchema),
+  asyncHandler(createWorkOrdersForOrder)
+);
 
 export default router;

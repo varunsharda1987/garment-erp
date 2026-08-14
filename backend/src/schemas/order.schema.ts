@@ -99,3 +99,16 @@ export type UpdateOrderInput = z.infer<typeof updateOrderSchema>;
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
 export type CancelOrderInput = z.infer<typeof cancelOrderSchema>;
 export type OrderQueryInput = z.infer<typeof orderQuerySchema>;
+
+/**
+ * MRP-49: create missing production work orders for an order.
+ * POST /api/orders/:orderId/work-orders
+ *
+ * All optional — sensible defaults are derived from the order itself (plannedEndDate falls back
+ * to the order's expectedDeliveryDate rather than an invented "+30 days").
+ */
+export const createWorkOrdersForOrderSchema = z.object({
+  plannedStartDate: z.coerce.date().optional(),
+  plannedEndDate: z.coerce.date().optional(),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
+});

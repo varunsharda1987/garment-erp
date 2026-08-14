@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDetailQuery, queryKeys } from '@/hooks/useQuery';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -23,7 +23,7 @@ import {
   FileText,
   Truck,
 } from 'lucide-react';
-import { getOrderById } from '../services/order.service';
+import { getOrderById, createWorkOrdersForOrder } from '../services/order.service';
 import workOrderService from '../services/workOrder.service';
 import { getInvoices } from '../services/invoice.service';
 import { deliveryNoteService } from '../services/dispatch.service';
@@ -57,7 +57,27 @@ import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  useQueryClient(); // Ensure query client is available
+  const queryClient = useQueryClient();
+
+  // MRP-49: explicit production scheduling (was a hidden side effect of BOM approval).
+  const createWorkOrdersMutation = useMutation({
+    mutationFn: () => createWorkOrdersForOrder(id!),
+    onSuccess: (result) => {
+      if (result.failed.length > 0) {
+        handleApiError(
+          new Error(result.failed.map((f) => f.reason).join('; ')),
+          `${result.created.length} created, ${result.failed.length} could not be created`
+        );
+      } else if (result.created.length === 0) {
+        handleApiSuccess('Nothing to create', 'Every order item already has a work order.');
+      } else {
+        handleApiSuccess('Work Orders Created', `${result.created.length} work order(s) created.`);
+      }
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+    },
+    onError: (err) => handleApiError(err, 'Failed to create work orders'),
+  });
 
   // Modal state
   const [splitModalOpen, setSplitModalOpen] = useState(false);
@@ -479,6 +499,16 @@ export default function OrderDetail() {
           <DocumentShareMenu documentType="order" documentId={order.id} documentNumber={order.orderNumber} />
           <Button variant="outline" onClick={() => navigate('/orders')}>
             Back to Orders
+          </Button>
+          {/* MRP-49: production scheduling is now an explicit action rather than a hidden side
+              effect of approving the BOM. Fabric is routinely bought — and sent for dyeing —
+              weeks before anyone is ready to cut, and neither needs a colour/size breakup. */}
+          <Button
+            variant="outline"
+            onClick={() => createWorkOrdersMutation.mutate()}
+            disabled={createWorkOrdersMutation.isPending}
+          >
+            {createWorkOrdersMutation.isPending ? 'Creating…' : 'Create Work Orders'}
           </Button>
           <Button onClick={() => navigate(`/orders/${order.id}/edit`)}>Edit Order</Button>
         </div>

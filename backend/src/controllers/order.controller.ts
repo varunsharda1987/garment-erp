@@ -5,7 +5,8 @@ import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { logInfo, logWarn } from '../utils/logger';
 import { orderService } from '../services/order.service';
-import { NotFoundError, ValidationError, BusinessError } from '../errors';
+import { NotFoundError, ValidationError, BusinessError, UnauthorizedError } from '../errors';
+import workOrderService from '../services/workOrder.service';
 import { generateAtomicOrderNumber } from '../utils/atomicCodeGenerator';
 import { multiplyCurrency, roundToCent, Decimal } from '../utils/currency';
 import type { OrderQueryInput } from '../schemas/order.schema';
@@ -1177,5 +1178,75 @@ export const getOrderStatisticsByCustomer = async (req: Request, res: Response):
   res.json({
     data: result,
     totals,
+  });
+};
+
+/**
+ * Create any missing production work orders for an order.
+ * POST /api/orders/:orderId/work-orders
+ *
+ * Explicit replacement for the silent fallback that used to run inside
+ * approveAndCalculateMRP. Approving a bill of materials and planning materials is a
+ * procurement decision; scheduling production is a separate one with different
+ * prerequisites (a colour/size breakup) and different timing — you often buy fabric weeks
+ * before you are ready to cut. Burying work-order creation inside BOM approval meant a
+ * cutting-stage prerequisite surfaced as an error on a procurement action, and it stamped
+ * invented planned dates (now, now + 30 days) onto anything it did create.
+ *
+ * Idempotent: skips order items that already have a work order for their style.
+ */
+export const createWorkOrdersForOrder = async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new UnauthorizedError('User not authenticated');
+  }
+  const { orderId } = req.params;
+  const { plannedStartDate, plannedEndDate, priority } = req.body ?? {};
+
+  const order = await prisma.orders.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      orderNumber: true,
+      expectedDeliveryDate: true,
+      order_items: { select: { id: true, styleId: true } },
+    },
+  });
+  if (!order) {
+    throw new NotFoundError('Order', orderId);
+  }
+
+  const created: string[] = [];
+  const skipped: string[] = [];
+  const failed: { styleId: string; reason: string }[] = [];
+
+  for (const item of order.order_items) {
+    const existing = await prisma.work_orders.findFirst({ where: { orderId, styleId: item.styleId } });
+    if (existing) {
+      skipped.push(item.styleId);
+      continue;
+    }
+    try {
+      const wo = await workOrderService.createFromOrderItem(item.id, orderId, {
+        // Default to the order's own delivery date rather than an invented +30 days.
+        plannedStartDate: plannedStartDate ? new Date(plannedStartDate) : new Date(),
+        plannedEndDate: plannedEndDate ? new Date(plannedEndDate) : order.expectedDeliveryDate,
+        priority: priority || 'MEDIUM',
+        createdById: userId,
+      });
+      created.push((wo as { workOrderNumber?: string })?.workOrderNumber ?? item.styleId);
+    } catch (error) {
+      // Per item, so one unbreakable item does not abandon the rest.
+      failed.push({ styleId: item.styleId, reason: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  }
+
+  res.json({
+    success: true,
+    data: { created, skipped, failed },
+    message:
+      failed.length > 0
+        ? `${created.length} work order(s) created, ${failed.length} could not be created`
+        : `${created.length} work order(s) created`,
   });
 };

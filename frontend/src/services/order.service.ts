@@ -112,3 +112,18 @@ export const getOrderStatisticsByCustomer = async (): Promise<OrderStatisticsRes
   const { data } = await api.get('/orders/statistics/by-customer');
   return data;
 };
+
+/**
+ * MRP-49: create any missing production work orders for an order.
+ *
+ * Explicit replacement for the fallback that used to run inside BOM approval. Approving a bill of
+ * materials and planning materials is procurement; scheduling production is a separate decision
+ * that needs a colour/size breakup — which dyeing and printing never require. Idempotent: order
+ * items that already have a work order for their style are skipped.
+ */
+export const createWorkOrdersForOrder = async (
+  orderId: string
+): Promise<{ created: string[]; skipped: string[]; failed: { styleId: string; reason: string }[] }> => {
+  const { data } = await api.post(`/orders/${orderId}/work-orders`, {});
+  return data.data;
+};

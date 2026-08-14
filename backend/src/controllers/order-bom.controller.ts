@@ -275,51 +275,23 @@ export const approveAndCalculateMRP = async (req: Request, res: Response) => {
     }
   }
 
-  // Step 3: Auto-create work orders if none exist (Fix 14)
-  let workOrdersCreated = 0;
-  let workOrderError: string | null = null;
-
-  if (calculateServices) {
-    try {
-      const db = (await import('../config/database')).default;
-
-      // Get all order items for this order
-      const orderForWO = await db.orders.findUnique({
-        where: { id: orderId },
-        include: {
-          order_items: {
-            select: {
-              id: true,
-              styleId: true,
-            },
-          },
-        },
-      });
-
-      if (orderForWO?.order_items) {
-        for (const item of orderForWO.order_items) {
-          // Check if work order already exists for this order+style
-          const existingWO = await db.work_orders.findFirst({
-            where: { orderId, styleId: item.styleId },
-          });
-
-          if (!existingWO) {
-            // Use createFromOrderItem which properly copies order_item_breakup → work_order_breakup
-            await workOrderService.createFromOrderItem(item.id, orderId, {
-              plannedStartDate: new Date(),
-              plannedEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-              priority: 'MEDIUM',
-              createdById: userId,
-            });
-            workOrdersCreated++;
-          }
-        }
-      }
-    } catch (error) {
-      logError('Auto work order creation failed during BOM approval:', error);
-      workOrderError = error instanceof Error ? error.message : 'Failed to create work orders';
-    }
-  }
+  // Step 3: production work orders — see MRP-49 below.
+  // MRP-49: work-order creation was removed from here.
+  //
+  // It silently retried what order creation already does (order.service.ts), during an action
+  // that is about approving a bill of materials and planning materials — so a CUTTING-stage
+  // prerequisite (the colour/size breakup) surfaced as an error on a PROCUREMENT action, on an
+  // order whose materials had planned perfectly well. Fabric is routinely bought weeks before
+  // anyone is ready to cut, and dyeing/printing needs no size breakup at all.
+  //
+  // It also stamped invented dates on anything it created: plannedStartDate = now,
+  // plannedEndDate = now + 30 days, unrelated to the order's actual delivery date.
+  //
+  // Production scheduling is now explicit: POST /api/orders/:orderId/work-orders (idempotent,
+  // defaults plannedEndDate to the order's expectedDeliveryDate), surfaced as "Create Work
+  // Orders" on the order page.
+  const workOrdersCreated = 0;
+  const workOrderError: string | null = null;
 
   // Step 4: Optionally calculate service requirements for all work orders (Fix 15)
   let serviceResult = null;

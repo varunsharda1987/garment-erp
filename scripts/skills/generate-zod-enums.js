@@ -35,7 +35,16 @@ function parseEnums(prismaSource) {
   while ((m = re.exec(prismaSource))) {
     const name = m[1];
     const values = m[2]
-      .split('\n')
+      // Split on CRLF *or* LF. On a Windows checkout every line ends with \r, and in JS `.` does
+      // not match \r (it is a line terminator), so `//.*$` could never reach end-of-string and the
+      // comment strip silently did nothing. The value then read "MANUAL // Direct creation via …",
+      // failed the \w+ test, and was dropped. Any enum whose values ALL carry an inline comment
+      // therefore yielded zero values and was skipped entirely — silently losing 8 in-use enums
+      // (POSource, SeasonType, ChallanType, CostSheetPurpose, CostSheetVarianceStatus,
+      // DefectDisposition, ThreadPackagingType, ThreadQuantityInput) plus individual commented
+      // values from others. Regenerating then broke the build, which made the guardrail's own
+      // "regenerate the enums" instruction a trap on Windows.
+      .split(/\r?\n/)
       .map((l) => l.replace(/\/\/.*$/, '').trim())
       .filter((l) => /^\w+$/.test(l));
     if (values.length) enums.push({ name, values });

@@ -2,47 +2,71 @@
 # POST-COMMIT HOOK: Auto-rebuild after successful commits
 # =============================================================================
 # Detects what changed and rebuilds/restarts as needed:
-#   - Frontend changes → rebuild frontend/dist
-#   - Backend changes → rebuild backend/dist + restart PM2 backend
+#   - Frontend changes → rebuild, then swap into frontend/dist only if it worked
+#   - Backend changes  → rebuild backend/dist + restart PM2 backend (only if it worked)
+#
+# 2026-08-14 — two bugs fixed here after this hook took the web app down silently:
+#
+#  1. `npm run build | tail -20; BUILD_EXIT=$?` captured TAIL's exit status, not the
+#     build's. tail practically always succeeds, so BUILD_EXIT was ALWAYS 0: the hook
+#     printed "✅ rebuilt successfully" after a failed build, and restarted the backend
+#     onto a stale dist. `set -o pipefail` makes the pipeline report the build's status.
+#
+#  2. vite empties the output directory before it writes. A build that failed or was
+#     interrupted therefore left frontend/dist containing only the copied public/ assets —
+#     every page 404s while PM2 still reports the process healthy, so nothing alerts you.
+#     The frontend now builds into dist.staging and is swapped in only after index.html is
+#     confirmed present, so a bad build leaves the running app untouched.
 # =============================================================================
+
+set -o pipefail
 
 echo ""
 echo "═══════════════════════════════════════════════════"
 echo "       POST-COMMIT AUTO-REBUILD                    "
 echo "═══════════════════════════════════════════════════"
 
-# Get list of changed files in the last commit
 CHANGED_FILES=$(git diff-tree --no-commit-id --name-only -r HEAD)
 
-# Check what changed
 FRONTEND_CHANGED=false
 BACKEND_CHANGED=false
+FAILED=false
 
 echo "$CHANGED_FILES" | grep -q "^frontend/" && FRONTEND_CHANGED=true
 echo "$CHANGED_FILES" | grep -q "^backend/" && BACKEND_CHANGED=true
 
-# Rebuild frontend if changed
+# ---------------------------------------------------------------------------
+# Frontend — build to a staging dir, swap only on a verified-good result
+# ---------------------------------------------------------------------------
 if [ "$FRONTEND_CHANGED" = true ]; then
   echo ""
   echo "📦 Frontend changes detected - rebuilding..."
-  cd frontend
-  npm run build 2>&1 | tail -20
+  cd frontend || exit 1
+  rm -rf dist.staging
+  npm run build -- --outDir dist.staging --emptyOutDir 2>&1 | tail -20
   BUILD_EXIT=$?
-  cd ..
 
-  if [ $BUILD_EXIT -eq 0 ]; then
-    echo "✅ Frontend rebuilt successfully"
+  if [ $BUILD_EXIT -eq 0 ] && [ -f dist.staging/index.html ]; then
+    # Swap. The window where dist is absent is milliseconds, versus the ~2 minutes
+    # the old in-place build left it empty.
+    rm -rf dist && mv dist.staging dist
+    echo "✅ Frontend rebuilt and swapped in"
   else
-    echo "❌ Frontend build failed (exit code: $BUILD_EXIT)"
-    echo "   Run 'cd frontend && npm run build' to see full errors"
+    rm -rf dist.staging
+    FAILED=true
+    echo "❌ Frontend build FAILED (exit $BUILD_EXIT) — the running app was left untouched"
+    echo "   Run 'cd frontend && npm run build' to see the errors"
   fi
+  cd ..
 fi
 
-# Rebuild and restart backend if changed
+# ---------------------------------------------------------------------------
+# Backend — restart ONLY on a genuinely successful build
+# ---------------------------------------------------------------------------
 if [ "$BACKEND_CHANGED" = true ]; then
   echo ""
   echo "🔧 Backend changes detected - rebuilding..."
-  cd backend
+  cd backend || exit 1
   npm run build 2>&1 | tail -10
   BUILD_EXIT=$?
   cd ..
@@ -57,11 +81,13 @@ if [ "$BACKEND_CHANGED" = true ]; then
     if [ $? -eq 0 ]; then
       echo "✅ Backend restarted"
     else
+      FAILED=true
       echo "⚠️  Safe restart reported a problem - check: pm2 logs garment-erp-api"
     fi
   else
-    echo "❌ Backend build failed (exit code: $BUILD_EXIT)"
-    echo "   Run 'cd backend && npm run build' to see full errors"
+    FAILED=true
+    echo "❌ Backend build FAILED (exit $BUILD_EXIT) — NOT restarting; the running API keeps the last good build"
+    echo "   Run 'cd backend && npm run build' to see the errors"
   fi
 fi
 
@@ -70,5 +96,9 @@ if [ "$FRONTEND_CHANGED" = false ] && [ "$BACKEND_CHANGED" = false ]; then
 fi
 
 echo ""
+if [ "$FAILED" = true ]; then
+  echo "⚠️  BUILD DID NOT FULLY SUCCEED — the deployed app is still on the previous build."
+  echo "    Your commit is safe; fix the build and commit again (or rebuild manually)."
+fi
 echo "═══════════════════════════════════════════════════"
 echo ""

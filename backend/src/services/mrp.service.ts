@@ -39,6 +39,7 @@ import { materialService } from './material.service';
 import { COMPANY_CONFIG } from '../config/company.config';
 import { gstService } from './gst.service';
 import { resolveRate } from './po-rate-resolver.service';
+import { findRateCardsForShrinkage } from './processor-rate-v2.service';
 import logger, { logWarn } from '../utils/logger';
 import { MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
@@ -811,30 +812,22 @@ async function resolveShrinkagePercent(bomItem: {
   // arrives with a null pointer and the authoritative value was unreachable. Resolve it here from
   // the same key the rate lookup uses, rather than silently dropping to the greige average.
   if (bomItem.greigeId && bomItem.processorId) {
-    const cards = await prisma.processor_rate_card.findMany({
-      where: {
-        processorId: bomItem.processorId,
-        greigeId: bomItem.greigeId,
-        isActive: true,
-        shrinkagePercent: { not: null },
-      },
-      select: { shrinkagePercent: true, processingType: true, printingType: true },
-    });
-    const distinct = [...new Set(cards.map((c) => Number(c.shrinkagePercent)))];
-
-    if (distinct.length === 1) {
-      // This processor loses the same amount on this greige whichever process applies — no
-      // ambiguity, so use it.
-      return { percent: distinct[0], source: 'RATE_CARD_RESOLVED' };
+    const { cards, distinctPercents, unambiguous } = await findRateCardsForShrinkage(
+      bomItem.processorId,
+      bomItem.greigeId
+    );
+    if (unambiguous) {
+      // This processor loses the same amount on this greige whichever process applies.
+      return { percent: unambiguous.shrinkagePercent, source: 'RATE_CARD_RESOLVED' };
     }
-    if (distinct.length > 1) {
+    if (distinctPercents.length > 1) {
       // Dyeing and the various print types genuinely differ, and order_bom_items has no
       // printingType column to pick between them (MRP historically read the print type OFF the
       // rate card, so it cannot be used to find one). Refuse to guess — a wrong pick here changes
       // the quantity purchased. Fall through to the labelled fallback with an explicit warning.
       logWarn(
-        `[MRP] Processor ${bomItem.processorId} has ${distinct.length} different shrinkage values for this greige ` +
-          `(${cards.map((c) => `${c.processingType}${c.printingType ? '/' + c.printingType : ''}=${Number(c.shrinkagePercent)}%`).join(', ')}). ` +
+        `[MRP] Processor ${bomItem.processorId} has ${distinctPercents.length} different shrinkage values for this ` +
+          `greige (${cards.map((c) => `${c.processingType}${c.printingType ? '/' + c.printingType : ''}=${c.shrinkagePercent}%`).join(', ')}). ` +
           `Cannot tell which process applies from the BOM line — attach the correct rate card to it. ` +
           `Planning on the greige master average for now.`
       );

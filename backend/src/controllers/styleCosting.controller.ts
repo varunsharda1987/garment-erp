@@ -6,6 +6,7 @@ import { logInfo } from '../utils/logger';
 import { UnauthorizedError, NotFoundError, ValidationError, BusinessError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
 import { processorRateValidationService } from '../services/processor-rate-validation.service';
+import { findRateCardsForShrinkage } from '../services/processor-rate-v2.service';
 import {
   StyleCostingWhereInput,
   FabricDetail,
@@ -43,6 +44,20 @@ export {
  * Create a new Cost Sheet for a style
  * POST /api/style-costing
  */
+/**
+ * MRP-48c: the rate card a fabric cost line was priced against, when it can be identified without
+ * guessing. Shared rule with MRP planning (findRateCardsForShrinkage) so the cost sheet and the
+ * purchase quantity can never disagree about which card applies.
+ */
+async function resolveFabricRateCardId(
+  processorId: string | null | undefined,
+  greigeId: string | null | undefined
+): Promise<string | null> {
+  if (!processorId || !greigeId) return null;
+  const { unambiguous } = await findRateCardsForShrinkage(processorId, greigeId);
+  return unambiguous?.id ?? null;
+}
+
 export const createCostSheet = async (req: Request, res: Response): Promise<void> => {
   // Body already validated by the route's validateBody(CreateCostSheetSchema) — validateBody REPLACES
   // req.body with the parse result (defaults materialized), so no re-parse here.
@@ -352,6 +367,13 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       totalCost: effectiveCad * cadRate,
       sourcingStrategy: cad.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
       processorId: cad.processorId || null,
+      // MRP-48c: record WHICH processor rate card this line was costed against. Lace items have
+      // always carried this (see the lace block below); fabric items never did, so
+      // order_bom_items.rateCardId — copied straight from here — was null on every fabric BOM
+      // line, and the authoritative shrinkage was unreachable downstream. Only set when the
+      // processor holds a single unambiguous shrinkage for this greige; when several apply, leave
+      // it null so MRP falls back loudly instead of inheriting a guess.
+      rateCardId: await resolveFabricRateCardId(cad.processorId, cad.greigeId || cad.fabric?.greigeId || null),
       greigeCost: cad.greigeCostPerMeter ?? null,
       processingCost: cad.processingPricePerMeter ?? null,
     });
@@ -994,6 +1016,13 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
       totalCost: effectiveCad * cadRate,
       sourcingStrategy: cad.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
       processorId: cad.processorId || null,
+      // MRP-48c: record WHICH processor rate card this line was costed against. Lace items have
+      // always carried this (see the lace block below); fabric items never did, so
+      // order_bom_items.rateCardId — copied straight from here — was null on every fabric BOM
+      // line, and the authoritative shrinkage was unreachable downstream. Only set when the
+      // processor holds a single unambiguous shrinkage for this greige; when several apply, leave
+      // it null so MRP falls back loudly instead of inheriting a guess.
+      rateCardId: await resolveFabricRateCardId(cad.processorId, cad.greigeId || cad.fabric?.greigeId || null),
       greigeCost: cad.greigeCostPerMeter ?? null,
       processingCost: cad.processingPricePerMeter ?? null,
     });

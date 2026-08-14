@@ -21,6 +21,25 @@
 
 set -o pipefail
 
+# Poll a URL until it answers, or give up. Deploys here are unattended, so each step
+# verifies its own result instead of assuming: a process can be "online" in PM2 while
+# serving nothing (empty dist), and the API needs ~20s to bind after a restart.
+#   wait_for_http <url> <attempts> <label>   — 3s between attempts
+wait_for_http() {
+  url="$1"; attempts="$2"; label="$3"
+  i=0
+  while [ $i -lt "$attempts" ]; do
+    code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$url" 2>/dev/null)
+    if [ -n "$code" ] && [ "$code" != "000" ]; then
+      return 0
+    fi
+    i=$((i + 1))
+    sleep 3
+  done
+  echo "   ($label did not respond after $((attempts * 3))s)"
+  return 1
+}
+
 echo ""
 echo "═══════════════════════════════════════════════════"
 echo "       POST-COMMIT AUTO-REBUILD                    "
@@ -51,6 +70,17 @@ if [ "$FRONTEND_CHANGED" = true ]; then
     # the old in-place build left it empty.
     rm -rf dist && mv dist.staging dist
     echo "✅ Frontend rebuilt and swapped in"
+    cd ..
+    # Confirm the swap actually serves. The whole point of automating the deploy is
+    # that nobody is watching it — so it has to check its own result rather than
+    # assume. Today's outage was precisely "web app not serving" going unnoticed.
+    if ! wait_for_http "http://localhost:3000/" 5 "web app"; then
+      FAILED=true
+      echo "❌ Frontend swapped but http://localhost:3000/ is NOT serving — check: pm2 logs garment-erp-web"
+    else
+      echo "✅ Web app responding"
+    fi
+    cd frontend || exit 1
   else
     rm -rf dist.staging
     FAILED=true
@@ -80,6 +110,14 @@ if [ "$BACKEND_CHANGED" = true ]; then
     node "C:/Users/NEW/ops/pm2-safe-restart.js" garment-erp-api:5000
     if [ $? -eq 0 ]; then
       echo "✅ Backend restarted"
+      # The helper asserts the port owner matches PM2, but the API still needs ~20s to
+      # finish booting (Ollama provider init) before it answers. Confirm it actually does.
+      if wait_for_http "http://localhost:5000/health" 15 "API"; then
+        echo "✅ API responding"
+      else
+        FAILED=true
+        echo "❌ Backend restarted but /health is NOT responding — check: pm2 logs garment-erp-api"
+      fi
     else
       FAILED=true
       echo "⚠️  Safe restart reported a problem - check: pm2 logs garment-erp-api"

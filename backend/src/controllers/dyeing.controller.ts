@@ -15,6 +15,7 @@ import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helper
 import { systemSettingsService } from '../services/system-settings.service';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from '../services/job-work-order.service';
 import { findProcessingRequirementMatches, updateJwoReceivedQuantity } from '../services/mrp.service';
+import { resolveJwoExpectedShrinkage } from '../services/helpers/shrinkage-resolver.helper';
 import {
   processJwoInclude,
   toProcessPOEnvelope,
@@ -1689,6 +1690,17 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
 
   // Phase 4c-final: JWO-only — no purchase order is created. The JWO IS the
   // commercial + operational document.
+  // MRP-48i: fill expectedShrinkage from the processor's rate card when the caller did not
+  // supply one. Left null, the challan prints an expected return of 100% of what was sent.
+  const greigeForShrinkage = greigeStockLotId
+    ? await prisma.greige_stock.findUnique({ where: { id: greigeStockLotId }, select: { greigeId: true } })
+    : null;
+  const resolvedExpectedShrinkage = await resolveJwoExpectedShrinkage({
+    supplied: expectedShrinkage,
+    processorId: resolvedProcessorId,
+    greigeId: greigeForShrinkage?.greigeId ?? null,
+  });
+
   const result = await prisma.$transaction(async (tx) => {
     // Generate job work number
     const styleCode = (labDip as any).style?.styleCode || 'STK';
@@ -1716,7 +1728,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         qtySentMeters,
         sentWidthInches,
         expectedReturnDate: expectedReturnDate ? new Date(expectedReturnDate) : null,
-        expectedShrinkage,
+        expectedShrinkage: resolvedExpectedShrinkage,
         agreedRatePerMeter,
         isRateTbd, // Explicit TBD marker when rate=0 is intentional
         remarks,

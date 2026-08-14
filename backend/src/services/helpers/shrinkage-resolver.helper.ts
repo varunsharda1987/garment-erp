@@ -66,3 +66,28 @@ export async function resolveShrinkagePercent(bomItem: {
   }
   return { percent: 0, source: 'NONE', competingValues };
 }
+
+/**
+ * MRP-48i: the expected shrinkage to stamp on a job work order.
+ *
+ * `job_work_orders.expectedShrinkage` is what the processor is held to — the challan prints the
+ * expected return quantity from it (`1 - expectedShrinkage/100`), so a null means the document
+ * says "return 100% of what I sent", which no dyer can do. The dyeing/printing create endpoints
+ * took this straight from the request body, so an API call that simply omitted it produced
+ * exactly that.
+ *
+ * An explicitly supplied value still wins — there are legitimate reasons to override for one job.
+ * This only fills the gap, from the processor's own committed rate, instead of leaving it blank.
+ */
+export async function resolveJwoExpectedShrinkage(params: {
+  supplied?: number | null;
+  processorId?: string | null;
+  greigeId?: string | null;
+}): Promise<number | null> {
+  if (params.supplied !== undefined && params.supplied !== null) {
+    return Number(params.supplied);
+  }
+  if (!params.processorId || !params.greigeId) return null;
+  const { unambiguous } = await findRateCardsForShrinkage(params.processorId, params.greigeId);
+  return unambiguous ? unambiguous.shrinkagePercent : null;
+}

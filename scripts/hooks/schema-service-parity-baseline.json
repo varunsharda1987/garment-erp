@@ -1,5 +1,6 @@
 [
   "backend/src/schemas/purchaseOrder.schema.ts :: updatePurchaseOrderSchema :: deliveryLocationId",
+  "backend/src/schemas/style.schema.ts :: updateStyleSchema :: category",
   "backend/src/schemas/stockLevel.schema.ts :: updateStockLevelSchema :: avgConsumptionPerDay",
   "backend/src/schemas/stockLevel.schema.ts :: updateStockLevelSchema :: leadTimeDays",
   "backend/src/schemas/stockLevel.schema.ts :: updateStockLevelSchema :: remarks",

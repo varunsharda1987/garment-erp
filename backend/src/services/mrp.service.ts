@@ -792,14 +792,56 @@ async function generateRequirementNumber(tx?: Prisma.TransactionClient): Promise
  * There is deliberately no hard-coded literal in this chain. A missing value returns 0 with
  * source 'NONE' so the caller can warn, rather than silently inventing an allowance.
  */
-function resolveShrinkagePercent(bomItem: {
+async function resolveShrinkagePercent(bomItem: {
   rateCard?: { shrinkagePercent?: unknown } | null;
   greige?: { averageShrinkagePercent?: unknown } | null;
-}): { percent: number; source: 'RATE_CARD' | 'GREIGE_MASTER_FALLBACK' | 'NONE' } {
+  greigeId?: string | null;
+  processorId?: string | null;
+}): Promise<{ percent: number; source: 'RATE_CARD' | 'RATE_CARD_RESOLVED' | 'GREIGE_MASTER_FALLBACK' | 'NONE' }> {
+  // 1. The rate card explicitly attached to this BOM line.
   const cardValue = bomItem.rateCard?.shrinkagePercent;
   if (cardValue !== null && cardValue !== undefined) {
     return { percent: Number(cardValue), source: 'RATE_CARD' };
   }
+
+  // 2. MRP-48b: no rateCardId on the line — but the line still names the processor and the greige,
+  // which is enough to find the card. `order_bom_items.rateCardId` is copied from the cost sheet
+  // (order-bom.service.ts:1093), and the cost-sheet writer never populates it for FABRIC items
+  // (it does for lace, styleCosting.controller.ts:434) — so in practice every fabric BOM line
+  // arrives with a null pointer and the authoritative value was unreachable. Resolve it here from
+  // the same key the rate lookup uses, rather than silently dropping to the greige average.
+  if (bomItem.greigeId && bomItem.processorId) {
+    const cards = await prisma.processor_rate_card.findMany({
+      where: {
+        processorId: bomItem.processorId,
+        greigeId: bomItem.greigeId,
+        isActive: true,
+        shrinkagePercent: { not: null },
+      },
+      select: { shrinkagePercent: true, processingType: true, printingType: true },
+    });
+    const distinct = [...new Set(cards.map((c) => Number(c.shrinkagePercent)))];
+
+    if (distinct.length === 1) {
+      // This processor loses the same amount on this greige whichever process applies — no
+      // ambiguity, so use it.
+      return { percent: distinct[0], source: 'RATE_CARD_RESOLVED' };
+    }
+    if (distinct.length > 1) {
+      // Dyeing and the various print types genuinely differ, and order_bom_items has no
+      // printingType column to pick between them (MRP historically read the print type OFF the
+      // rate card, so it cannot be used to find one). Refuse to guess — a wrong pick here changes
+      // the quantity purchased. Fall through to the labelled fallback with an explicit warning.
+      logWarn(
+        `[MRP] Processor ${bomItem.processorId} has ${distinct.length} different shrinkage values for this greige ` +
+          `(${cards.map((c) => `${c.processingType}${c.printingType ? '/' + c.printingType : ''}=${Number(c.shrinkagePercent)}%`).join(', ')}). ` +
+          `Cannot tell which process applies from the BOM line — attach the correct rate card to it. ` +
+          `Planning on the greige master average for now.`
+      );
+    }
+  }
+
+  // 3. Labelled fallback.
   const masterValue = bomItem.greige?.averageShrinkagePercent;
   if (masterValue !== null && masterValue !== undefined) {
     return { percent: Number(masterValue), source: 'GREIGE_MASTER_FALLBACK' };
@@ -1243,7 +1285,7 @@ export async function calculateRequirementsFromOrder(
       // processor was held to were three different numbers for the same job.
       // The greige master is now only a labelled fallback for when no rate card is attached yet.
       if ((hasGreigeProcessing || hasLandedGreige) && bomItem.greigeId) {
-        const { percent: shrinkagePercent, source: shrinkageSource } = resolveShrinkagePercent(bomItem);
+        const { percent: shrinkagePercent, source: shrinkageSource } = await resolveShrinkagePercent(bomItem);
         if (shrinkageSource === 'GREIGE_MASTER_FALLBACK') {
           logWarn(
             `[MRP] ${bomItem.componentName || 'fabric'}: no processor rate card shrinkage available — ` +

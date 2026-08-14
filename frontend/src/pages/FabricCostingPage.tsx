@@ -1231,6 +1231,11 @@ export default function FabricCostingPage() {
             transportCostPerMeter: row.costInputMode === 'BUILD_UP' ? row.transportCostPerMeter : null,
             // Processing
             processorId: row.processorId,
+            // MRP-48d: the card the rate lookup resolved (held in row state since :1090) was
+            // being dropped here. Sending it persists WHICH processor rate — and therefore which
+            // committed shrinkage, process type and print type — these numbers came from, so the
+            // cost sheet, BOM and MRP all price and plan off the same row.
+            rateCardId: row.rateCardId ?? null,
             processingCostPerMeter: row.costInputMode === 'BUILD_UP' ? row.processingCostPerMeter : null,
             // Shrinkage
             shrinkagePercent: row.shrinkagePercent,

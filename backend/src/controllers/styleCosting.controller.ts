@@ -373,7 +373,12 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       // line, and the authoritative shrinkage was unreachable downstream. Only set when the
       // processor holds a single unambiguous shrinkage for this greige; when several apply, leave
       // it null so MRP falls back loudly instead of inheriting a guess.
-      rateCardId: await resolveFabricRateCardId(cad.processorId, cad.greigeId || cad.fabric?.greigeId || null),
+      // MRP-48d: prefer the card the CAD row was actually costed against — it pins the process
+      // and print type exactly. Only fall back to resolving by processor+greige for CAD rows
+      // saved before that link existed.
+      rateCardId:
+        cad.rateCardId ??
+        (await resolveFabricRateCardId(cad.processorId, cad.greigeId || cad.fabric?.greigeId || null)),
       greigeCost: cad.greigeCostPerMeter ?? null,
       processingCost: cad.processingPricePerMeter ?? null,
     });
@@ -1022,7 +1027,12 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
       // line, and the authoritative shrinkage was unreachable downstream. Only set when the
       // processor holds a single unambiguous shrinkage for this greige; when several apply, leave
       // it null so MRP falls back loudly instead of inheriting a guess.
-      rateCardId: await resolveFabricRateCardId(cad.processorId, cad.greigeId || cad.fabric?.greigeId || null),
+      // MRP-48d: prefer the card the CAD row was actually costed against — it pins the process
+      // and print type exactly. Only fall back to resolving by processor+greige for CAD rows
+      // saved before that link existed.
+      rateCardId:
+        cad.rateCardId ??
+        (await resolveFabricRateCardId(cad.processorId, cad.greigeId || cad.fabric?.greigeId || null)),
       greigeCost: cad.greigeCostPerMeter ?? null,
       processingCost: cad.processingPricePerMeter ?? null,
     });

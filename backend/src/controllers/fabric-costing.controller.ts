@@ -1036,6 +1036,10 @@ export async function saveFabricCosting(req: Request, res: Response) {
         screenType: costing.screenType || null, // ROTARY, FLATBELT, or TABLE
         totalCostPerMeter: costing.totalCostPerMeter ? parseFloat(costing.totalCostPerMeter) : null,
         processorId: costing.processorId || null,
+        // MRP-48d: persist which rate card produced these numbers, so the chain
+        // costing -> CAD -> cost sheet -> BOM -> MRP -> JWO carries the processor's committed
+        // shrinkage (and, via the card's unique key, the process and print type) explicitly.
+        rateCardId: costing.rateCardId || null,
         numberOfColors: costing.numberOfColors ? parseInt(costing.numberOfColors) : null,
         costInputMode: costing.costInputMode || null,
         orderQuantityPcs: costing.orderQuantityPcs != null ? parseInt(costing.orderQuantityPcs) : null,

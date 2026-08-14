@@ -4487,29 +4487,28 @@ export async function convertToGreigeProcessing(
   // MRP-48: same authority as the main calculation — the processor the user just picked in this
   // dialog decides the shrinkage, via their rate card for this greige. The greige master average
   // is only the fallback when that processor has no card for it yet.
-  const activeCard = await prisma.processor_rate_card.findFirst({
-    where: {
-      processorId: data.processorId,
-      greigeId: data.greigeId,
-      isActive: true,
-      shrinkagePercent: { not: null },
-    },
-    select: { shrinkagePercent: true },
-    orderBy: { effectiveFrom: 'desc' },
-  });
+  // MRP-48e: use the SHARED resolver, not a local findFirst. This previously ordered by
+  // effectiveFrom desc and took the newest card — so where a processor held several divergent
+  // shrinkage values it silently picked one, which is the opposite of the main calculation's
+  // refuse-and-fall-back rule. Two paths, two policies, same decision: now one.
+  const { cards, distinctPercents, unambiguous } = await findRateCardsForShrinkage(data.processorId, data.greigeId);
   const greigeMaster = await prisma.greige_master.findUnique({
     where: { id: data.greigeId },
     select: { averageShrinkagePercent: true },
   });
-  const shrinkagePercent = activeCard?.shrinkagePercent
-    ? Number(activeCard.shrinkagePercent)
+  const shrinkagePercent = unambiguous
+    ? unambiguous.shrinkagePercent
     : greigeMaster?.averageShrinkagePercent
       ? Number(greigeMaster.averageShrinkagePercent)
       : 0;
-  if (!activeCard?.shrinkagePercent) {
+  if (!unambiguous) {
     logWarn(
-      `[MRP] convert-to-greige: processor ${data.processorId} has no rate-card shrinkage for this greige — ` +
-        `using the greige master average (${shrinkagePercent}%).`
+      distinctPercents.length > 1
+        ? `[MRP] convert-to-greige: processor ${data.processorId} holds ${distinctPercents.length} different ` +
+            `shrinkage values for this greige (${cards.map((c) => `${c.processingType}${c.printingType ? '/' + c.printingType : ''}=${c.shrinkagePercent}%`).join(', ')}). ` +
+            `Not guessing — using the greige master average (${shrinkagePercent}%).`
+        : `[MRP] convert-to-greige: processor ${data.processorId} has no rate-card shrinkage for this greige — ` +
+            `using the greige master average (${shrinkagePercent}%).`
     );
   }
 

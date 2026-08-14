@@ -57,6 +57,9 @@ export const saveFabricCostingSchema = z.object({
           transportCostPerMeter: z.number().nonnegative().nullable().optional(),
           // Processing
           processorId: z.string().uuid().nullable().optional(),
+          // MRP-48d: the rate card the row was priced against. Declared here or validateBody
+          // strips it (req.body = schema.parse) and the link never reaches the DB.
+          rateCardId: z.string().uuid().nullable().optional(),
           processingCostPerMeter: z.number().nonnegative().nullable().optional(),
           // Shrinkage
           shrinkagePercent: z.number().min(0).max(100).nullable().optional(),

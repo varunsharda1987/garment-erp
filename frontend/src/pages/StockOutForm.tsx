@@ -1,6 +1,6 @@
 // Stock Out Form - Issue materials via challan (purpose-first flow)
-// 3 purposes: Purchase Return (to supplier) | Internal Issue (dept to dept) | Send for Processing (redirects to Process PO)
-// Processing is handled via Process PO for proper job work tracking - this form only handles returns and internal transfers
+// 3 purposes: Purchase Return (to supplier) | Internal Issue (dept to dept) | Send for Processing (redirects to Job Work Order)
+// Processing is handled via Job Work Order for proper job work tracking - this form only handles returns and internal transfers
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -693,7 +693,7 @@ export default function StockOutForm() {
                 <Factory className="h-4 w-4 text-purple-600" />
                 <AlertDescription className="flex items-center justify-between">
                   <span>
-                    Processing issuance uses the <strong>Process PO</strong> workflow for proper job work tracking.
+                    Processing issuance uses the <strong>Job Work Order</strong> workflow for proper job work tracking.
                   </span>
                   <Button type="button" onClick={() => navigate('/manufacturing/processing')} className="ml-4">
                     <Beaker className="h-4 w-4 mr-2" />

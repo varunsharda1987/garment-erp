@@ -904,6 +904,26 @@ function MaterialRequirementsTab({
                           renderable) and Shortfall silently dropped its unit. */}
                       <TableCell className="text-right text-sm">
                         {formatQuantity(req.totalRequired, req.unit)}
+                        {/* MRP-48f: a greige quantity is shrinkage-inflated. Say which shrinkage,
+                            and warn when it rests on a fallback average rather than the
+                            processor's committed figure — this previously reached a log only. */}
+                        {req.shrinkagePercentUsed != null && req.shrinkageSource !== 'NONE' && (
+                          <div
+                            className={`text-xs ${
+                              req.shrinkageSource === 'GREIGE_MASTER_FALLBACK'
+                                ? 'text-primary'
+                                : 'text-muted-foreground'
+                            }`}
+                            title={
+                              req.shrinkageSource === 'GREIGE_MASTER_FALLBACK'
+                                ? 'No processor rate card found — planned on the greige master average. Attach a rate card so the quantity matches the processor’s committed loss.'
+                                : 'Shrinkage from the processor’s rate card'
+                            }
+                          >
+                            incl. {req.shrinkagePercentUsed}% shrinkage
+                            {req.shrinkageSource === 'GREIGE_MASTER_FALLBACK' && ' (assumed)'}
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <span className={`text-sm font-medium ${req.shortfall > 0 ? 'text-primary' : 'text-success'}`}>

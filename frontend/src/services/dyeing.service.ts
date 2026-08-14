@@ -257,7 +257,7 @@ export const dyeingSummaryService = {
 };
 
 // ============================================
-// Dye Process PO Service
+// Dye Job Work Order Service
 // ============================================
 
 export const dyeProcessPOService = {

@@ -3753,13 +3753,19 @@ model material_requirements {
   splitFromId         String?
 
   // NEW: Processing support fields
-  requirementType     String   @default("MATERIAL") // 'MATERIAL' | 'PROCESSING'
-  processorId         String? // FK to suppliers (for PROCESSING type)
-  linkedRequirementId String? // Links PROCESSING to its parent GREIGE requirement
-  processingCost      Decimal? @db.Decimal(12, 2)
-  printingType        String? // PrintingType: PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
-  colorName           String? // Dye/processing color — differentiates same greige with different colors
-  componentName       String? // Garment component (Top, Shirt) — for traceability through PO/GRN
+  requirementType      String   @default("MATERIAL") // 'MATERIAL' | 'PROCESSING'
+  processorId          String? // FK to suppliers (for PROCESSING type)
+  linkedRequirementId  String? // Links PROCESSING to its parent GREIGE requirement
+  processingCost       Decimal? @db.Decimal(12, 2)
+  printingType         String?
+  // MRP-48f: audit of the shrinkage actually used to inflate totalRequired, and where it came
+  // from (RATE_CARD | RATE_CARD_RESOLVED | GREIGE_MASTER_FALLBACK | NONE). Without these the
+  // percentage was baked into the quantity with no record, so a planner could not tell whether a
+  // number came from the processor's commitment or from a fallback average.
+  shrinkagePercentUsed Decimal? @db.Decimal(5, 2)
+  shrinkageSource      String? // PrintingType: PIGMENT, PROCIAN, DISCHARGE, PIGMENT_DISCHARGE
+  colorName            String? // Dye/processing color — differentiates same greige with different colors
+  componentName        String? // Garment component (Top, Shirt) — for traceability through PO/GRN
 
   // Price snapshot from the approved Order BOM (single source of truth for PO pricing).
   // null unitPrice = legacy/manual requirement → PO generation falls back to live rate resolution.

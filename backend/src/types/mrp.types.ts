@@ -102,6 +102,9 @@ export interface CalculatedRequirement {
   printingType?: string | null;
   linkedGreigeMaterialId?: string;
   isGreigeRequirement?: boolean;
+  /** MRP-48f: shrinkage % actually applied, and where it was resolved from. */
+  shrinkagePercentUsed?: number | null;
+  shrinkageSourceUsed?: string | null;
   colorName?: string | null;
   componentName?: string | null;
   // Price snapshot from the approved Order BOM (single source of truth for PO pricing)
@@ -308,6 +311,9 @@ export interface MaterialRequirementResponse {
   linkedRequirementId?: string | null;
   /** MRP-12: set when this row is the uncovered balance of a partially-ordered requirement. */
   splitFromId?: string | null;
+  /** MRP-48f: shrinkage applied to this requirement and where it was resolved from. */
+  shrinkagePercentUsed?: number | null;
+  shrinkageSource?: string | null;
   colorName?: string | null;
   componentName?: string | null;
   fabricWidth?: number | null;

@@ -62,7 +62,7 @@ export const saveFabricCostingSchema = z.object({
           rateCardId: z.string().uuid().nullable().optional(),
           processingCostPerMeter: z.number().nonnegative().nullable().optional(),
           // Shrinkage
-          shrinkagePercent: z.number().min(0).max(100).nullable().optional(),
+          shrinkagePercent: z.number().min(0).lt(100).nullable().optional(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
           shrinkageCostPerMeter: z.number().nonnegative().nullable().optional(),
           // Screen cost (for printing)
           screenCostPerMeter: z.number().nonnegative().nullable().optional(),

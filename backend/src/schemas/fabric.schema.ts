@@ -64,7 +64,7 @@ export const createFabricSchema = z.object({
   dyeMethod: z.string().max(50).optional(),
   washType: z.string().max(50).optional(),
   finish: z.string().max(100).optional(),
-  shrinkage: z.number().min(0).max(100).optional(),
+  shrinkage: z.number().min(0).lt(100).optional(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
   price: z.number().nonnegative().optional(),
   currency: z.string().length(3).default('INR'),
   minimumOrderQuantity: z.number().positive().optional(),

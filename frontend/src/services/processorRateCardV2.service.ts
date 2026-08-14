@@ -157,6 +157,10 @@ export const processorRateCardV2Service = {
     ratePerMeter: number;
     totalCost: number;
     slabLabel: string;
+    /** MRP-48g: the processor's committed shrinkage for this greige+process. The backend has
+        always returned it; the type omitted it, so callers could not use it and fell back to
+        guessing from width. */
+    shrinkagePercent: number | null;
   } | null> {
     try {
       const body: {
@@ -175,6 +179,7 @@ export const processorRateCardV2Service = {
           ratePerMeter: number;
           totalCost: number;
           slabLabel: string;
+          shrinkagePercent: number | null;
         }>
       >(`${BASE_URL}/lookup`, body);
       return response.data.data;

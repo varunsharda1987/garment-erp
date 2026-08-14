@@ -19,7 +19,7 @@ export const sendForProcessingSchema = z.object({
   greigeWidth: z.number().positive(),
   expectedFinishedWidthMin: z.number().positive(),
   expectedFinishedWidthMax: z.number().positive(),
-  expectedShrinkagePercent: z.number().min(0).max(100),
+  expectedShrinkagePercent: z.number().min(0).lt(100), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
   greigeCost: z.number().positive(),
   processingCost: z.number().positive(),
   sentDate: z.coerce.date(),

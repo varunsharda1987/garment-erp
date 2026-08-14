@@ -522,7 +522,7 @@ export type UnifiedProcessType = 'DYEING' | 'PRINTING';
 // Unified Lab Dip - union type with discriminator
 export type UnifiedLabDip = (DyeLabDip & { _processType: 'DYEING' }) | (PrintLabDip & { _processType: 'PRINTING' });
 
-// Unified Process PO with discriminator
+// Unified Job Work Order with discriminator
 export type UnifiedProcessPO = ProcessPO & { _processType: UnifiedProcessType };
 
 // Type guards

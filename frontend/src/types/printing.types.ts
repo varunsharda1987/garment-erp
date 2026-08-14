@@ -447,7 +447,7 @@ export const ColorMatchRatingColors: Record<string, string> = {
 };
 
 // ============================================
-// Process PO Types
+// Job Work Order Types
 // ============================================
 
 export type ProcessPOStatus =

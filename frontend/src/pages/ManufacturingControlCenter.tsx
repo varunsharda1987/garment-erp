@@ -44,7 +44,7 @@ const ALERT_CONFIG: Record<string, { label: string; icon: React.ElementType; rou
     description: 'Lab dips sent to mill but not received',
   },
   overdueProcessPOs: {
-    label: 'Overdue Process POs',
+    label: 'Overdue Job Work Orders',
     icon: Factory,
     route: '/processing/batches?status=AT_MILL',
     description: 'Fabric at mill past expected return date',

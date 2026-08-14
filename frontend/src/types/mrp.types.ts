@@ -184,6 +184,9 @@ export interface MaterialRequirement {
   linkedRequirementId?: string | null;
   /** MRP-12: set when this row is the uncovered balance of a partially-ordered requirement. */
   splitFromId?: string | null;
+  /** MRP-48f: shrinkage applied and where it came from (RATE_CARD | RATE_CARD_RESOLVED | GREIGE_MASTER_FALLBACK | NONE). */
+  shrinkagePercentUsed?: number | null;
+  shrinkageSource?: string | null;
   processingCost?: number | null;
   printingType?: string | null;
   colorName?: string | null;

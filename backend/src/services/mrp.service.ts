@@ -1277,8 +1277,13 @@ export async function calculateRequirementsFromOrder(
       // any of that — so the quantity we bought, the rate we costed at, and the loss the
       // processor was held to were three different numbers for the same job.
       // The greige master is now only a labelled fallback for when no rate card is attached yet.
+      // MRP-48f: remember what was used, so the requirement can record it.
+      let shrinkagePercentUsed: number | null = null;
+      let shrinkageSourceUsed: string | null = null;
       if ((hasGreigeProcessing || hasLandedGreige) && bomItem.greigeId) {
         const { percent: shrinkagePercent, source: shrinkageSource } = await resolveShrinkagePercent(bomItem);
+        shrinkagePercentUsed = shrinkagePercent;
+        shrinkageSourceUsed = shrinkageSource;
         if (shrinkageSource === 'GREIGE_MASTER_FALLBACK') {
           logWarn(
             `[MRP] ${bomItem.componentName || 'fabric'}: no processor rate card shrinkage available — ` +
@@ -1748,6 +1753,8 @@ export async function calculateRequirementsFromOrder(
           fabricWidth: bomItem.fabricWidthInches ? Number(bomItem.fabricWidthInches) : undefined,
           cadId: bomItem.selectedCadId || undefined,
           isGreigeRequirement: true, // Flag for creating linked processing requirement
+          shrinkagePercentUsed, // MRP-48f
+          shrinkageSourceUsed,
           processorId: bomItem.processorId || null, // Store for processing requirement
           processingCost: bomItem.processingCost ? Number(bomItem.processingCost) : null,
           colorName: (bomItem as any).colorName || null,
@@ -1983,6 +1990,8 @@ export async function calculateRequirementsFromOrder(
               // Re-link to the CURRENT BOM — a revived CANCELLED requirement may point at an
               // old inactive BOM; leaving it would orphan it on the next regenerate cycle
               orderBomId: req.orderBomId,
+              shrinkagePercentUsed: req.shrinkagePercentUsed ?? null, // MRP-48f
+              shrinkageSource: req.shrinkageSourceUsed ?? null,
               // Price snapshot update (in case cost sheet / BOM prices changed before recalc)
               unitPrice: req.unitPrice,
               rateSource: req.rateSource,
@@ -2018,6 +2027,9 @@ export async function calculateRequirementsFromOrder(
               componentName: req.componentName || null,
               requiredDate,
               createdById: userId,
+              // MRP-48f: audit which shrinkage was applied and where it came from
+              shrinkagePercentUsed: req.shrinkagePercentUsed ?? null,
+              shrinkageSource: req.shrinkageSourceUsed ?? null,
               // Price snapshot from approved BOM
               unitPrice: req.unitPrice,
               rateSource: req.rateSource,
@@ -2142,6 +2154,9 @@ export async function calculateRequirementsFromOrder(
               componentName: req.componentName || null,
               requiredDate,
               createdById: userId,
+              // MRP-48f: audit which shrinkage was applied and where it came from
+              shrinkagePercentUsed: req.shrinkagePercentUsed ?? null,
+              shrinkageSource: req.shrinkageSourceUsed ?? null,
               // Price snapshot from approved BOM
               unitPrice: req.unitPrice,
               rateSource: req.rateSource,
@@ -4072,6 +4087,10 @@ function mapToResponse(req: any): MaterialRequirementResponse {
     // MRP-12: set when this row is the uncovered balance of a partially-ordered requirement.
     // Without it a split remainder looks like an unexplained duplicate in the list.
     splitFromId: req.splitFromId || null,
+    // MRP-48f: so the UI can show whether the quantity rests on the processor's committed
+    // shrinkage or on a fallback average.
+    shrinkagePercentUsed: req.shrinkagePercentUsed != null ? Number(req.shrinkagePercentUsed) : null,
+    shrinkageSource: req.shrinkageSource || null,
     colorName: req.colorName || null,
     componentName: req.componentName || null,
     fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,

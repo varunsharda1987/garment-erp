@@ -6,7 +6,7 @@
 export type { LabDipStatus, JobWorkStatus } from './printing.types';
 export { LabDipStatusLabels, LabDipStatusColors, JobWorkStatusLabels, JobWorkStatusColors } from './printing.types';
 
-// Re-export Process PO types from printing (shared models)
+// Re-export Job Work Order types from printing (shared models)
 export type {
   ProcessPOStatus,
   ProcessPO,

@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams, useParams } from 'react-router-dom';
 import { useAuthStore } from './stores/auth.store';
 import { Toaster } from './components/ui/toaster';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -251,6 +251,27 @@ import {
 } from './routes/lazy-routes';
 
 /** Redirect that preserves existing query params while merging new ones */
+/**
+ * Redirect that preserves BOTH the :id path param and the query string.
+ *
+ * Dyeing and printing "process POs" have created job_work_orders since the Job Work
+ * Consolidation — the name was all that remained of purchase orders. The routes are now
+ * /job-work/, and these keep every existing bookmark, link and browser-history entry working.
+ */
+function RedirectWithId({ to }: { to: string }) {
+  const params = useParams();
+  const [searchParams] = useSearchParams();
+  let target = to;
+  for (const [key, value] of Object.entries(params)) {
+    if (value) target = target.replace(`:${key}`, value);
+  }
+  const url = new URL(target, window.location.origin);
+  searchParams.forEach((value, key) => {
+    if (!url.searchParams.has(key)) url.searchParams.set(key, value);
+  });
+  return <Navigate to={url.pathname + url.search} replace />;
+}
+
 function RedirectWithParams({ to }: { to: string }) {
   const [searchParams] = useSearchParams();
   const url = new URL(to, window.location.origin);
@@ -622,23 +643,50 @@ function App() {
               <Route path="/manufacturing/printing" element={<PrintingList />} />
               <Route path="/manufacturing/printing/lab-dips/new" element={<PrintLabDipCreate />} />
               <Route path="/manufacturing/printing/lab-dips/:id" element={<PrintLabDipDetail />} />
-              <Route path="/manufacturing/printing/process-pos/new" element={<PrintProcessPOCreate />} />
-              <Route path="/manufacturing/printing/process-pos/:id" element={<PrintProcessPODetail />} />
+              <Route path="/manufacturing/printing/job-work/new" element={<PrintProcessPOCreate />} />
+              <Route path="/manufacturing/printing/job-work/:id" element={<PrintProcessPODetail />} />
+              {/* Legacy process-PO paths — kept so existing links and bookmarks resolve */}
+              <Route
+                path="/manufacturing/printing/process-pos/new"
+                element={<RedirectWithId to="/manufacturing/printing/job-work/new" />}
+              />
+              <Route
+                path="/manufacturing/printing/process-pos/:id"
+                element={<RedirectWithId to="/manufacturing/printing/job-work/:id" />}
+              />
 
               {/* Dyeing (Manufacturing - Fabric Processing) */}
               <Route path="/manufacturing/dyeing" element={<DyeingList />} />
               <Route path="/manufacturing/dyeing/lab-dips/new" element={<DyeLabDipCreate />} />
               <Route path="/manufacturing/dyeing/lab-dips/:id" element={<DyeLabDipDetail />} />
-              <Route path="/manufacturing/dyeing/process-pos/new" element={<DyeProcessPOCreate />} />
-              <Route path="/manufacturing/dyeing/process-pos/:id" element={<DyeProcessPODetail />} />
+              <Route path="/manufacturing/dyeing/job-work/new" element={<DyeProcessPOCreate />} />
+              <Route path="/manufacturing/dyeing/job-work/:id" element={<DyeProcessPODetail />} />
+              {/* Legacy process-PO paths — kept so existing links and bookmarks resolve */}
+              <Route
+                path="/manufacturing/dyeing/process-pos/new"
+                element={<RedirectWithId to="/manufacturing/dyeing/job-work/new" />}
+              />
+              <Route
+                path="/manufacturing/dyeing/process-pos/:id"
+                element={<RedirectWithId to="/manufacturing/dyeing/job-work/:id" />}
+              />
 
               {/* Unified Processing (Dyeing & Printing Combined) */}
               <Route path="/manufacturing/processing" element={<ProcessingList />} />
               {/* BUG-DASH4 fix: use unified wrapper with correct backPath for lab dips */}
               <Route path="/manufacturing/processing/lab-dips/new" element={<UnifiedLabDipCreate />} />
               {/* BUG-DASH4 fix: corrected route path - use unified wrapper with correct backPath */}
-              <Route path="/manufacturing/processing/process-pos/new" element={<UnifiedProcessPOCreate />} />
-              <Route path="/manufacturing/processing/process-pos/:id" element={<UnifiedProcessPODetail />} />
+              <Route path="/manufacturing/processing/job-work/new" element={<UnifiedProcessPOCreate />} />
+              <Route path="/manufacturing/processing/job-work/:id" element={<UnifiedProcessPODetail />} />
+              {/* Legacy process-PO paths — kept so existing links and bookmarks resolve */}
+              <Route
+                path="/manufacturing/processing/process-pos/new"
+                element={<RedirectWithId to="/manufacturing/processing/job-work/new" />}
+              />
+              <Route
+                path="/manufacturing/processing/process-pos/:id"
+                element={<RedirectWithId to="/manufacturing/processing/job-work/:id" />}
+              />
 
               {/* Cutting (Manufacturing - Production) */}
               <Route path="/manufacturing/cutting" element={<CuttingList />} />

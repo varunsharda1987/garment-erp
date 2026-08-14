@@ -1,5 +1,5 @@
 // BUG-DASH4: Dye Job Work Order Detail Page - Thin wrapper around shared ProcessPODetail
-// Route: /manufacturing/dyeing/process-pos/:id
+// Route: /manufacturing/dyeing/job-work/:id
 import ProcessPODetail from '@/components/processing/ProcessPODetail';
 
 export default function DyeProcessPODetail() {

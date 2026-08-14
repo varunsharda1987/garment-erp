@@ -1,5 +1,5 @@
 // BUG-DASH4 fix: corrected route path - Unified Job Work Order Detail Page
-// Route: /manufacturing/processing/process-pos/:id
+// Route: /manufacturing/processing/job-work/:id
 // Fetches the Job Work Order to determine its type, then redirects to dyeing or printing detail
 import { useParams, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -35,8 +35,8 @@ export default function UnifiedProcessPODetail() {
 
   // Redirect to the appropriate type-specific detail page
   if (dyePO?.type === 'DYEING' && dyePO.po) {
-    return <Navigate to={`/manufacturing/dyeing/process-pos/${id}`} replace />;
+    return <Navigate to={`/manufacturing/dyeing/job-work/${id}`} replace />;
   } else {
-    return <Navigate to={`/manufacturing/printing/process-pos/${id}`} replace />;
+    return <Navigate to={`/manufacturing/printing/job-work/${id}`} replace />;
   }
 }

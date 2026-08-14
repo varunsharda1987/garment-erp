@@ -635,7 +635,7 @@ export default function PrintingList() {
             size="sm"
             onClick={(e) => {
               e.stopPropagation();
-              navigate(`/manufacturing/printing/process-pos/${item.id}`);
+              navigate(`/manufacturing/printing/job-work/${item.id}`);
             }}
             title="View details"
           >
@@ -762,7 +762,7 @@ export default function PrintingList() {
             <Droplets className="h-4 w-4 mr-2" />
             New Lab Dip
           </Button>
-          <Button onClick={() => navigate('/manufacturing/printing/process-pos/new')}>
+          <Button onClick={() => navigate('/manufacturing/printing/job-work/new')}>
             <Plus className="h-4 w-4 mr-2" />
             New Job Work Order
           </Button>
@@ -996,7 +996,7 @@ export default function PrintingList() {
                   data={processPOs}
                   keyExtractor={(item) => item.id}
                   loading={isLoading}
-                  onRowClick={(item) => navigate(`/manufacturing/printing/process-pos/${item.id}`)}
+                  onRowClick={(item) => navigate(`/manufacturing/printing/job-work/${item.id}`)}
                   emptyState={{
                     title: 'No process POs found',
                     description: 'Get started by creating a new process PO',

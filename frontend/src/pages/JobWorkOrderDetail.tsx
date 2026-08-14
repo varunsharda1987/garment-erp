@@ -22,6 +22,7 @@ import {
   Send,
   Download,
   Trash2,
+  Ban,
 } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -94,6 +95,8 @@ export default function JobWorkOrderDetail() {
 
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
   const [qtyReceived, setQtyReceived] = useState('');
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [closeInvoiceNumber, setCloseInvoiceNumber] = useState('');
@@ -126,6 +129,28 @@ export default function JobWorkOrderDetail() {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         'Failed to delete job work order';
+      toast.error(msg);
+    },
+  });
+
+  // Cancel is the universal withdrawal path: it works for every process type (delete exists only
+  // on the legacy dyeing/printing routes), credits issued material back to stock, and reverts the
+  // requirements this order covered to open. Refused once anything has been received.
+  const cancelMutation = useMutation({
+    mutationFn: () => jobWorkOrderService.cancel(id!, cancelReason || undefined),
+    onSuccess: () => {
+      toast.success(`${jwo?.jobWorkNumber ?? 'Job work order'} cancelled. Covered requirements are open again.`);
+      setCancelDialogOpen(false);
+      setCancelReason('');
+      queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
+      queryClient.invalidateQueries({ queryKey: ['job-work-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['mrp'] });
+      queryClient.invalidateQueries({ queryKey: ['service-requirements'] });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Failed to cancel job work order';
       toast.error(msg);
     },
   });
@@ -273,6 +298,9 @@ export default function JobWorkOrderDetail() {
   // (it is already keyed on the JWO id), rather than adding a second delete path: the backend
   // refuses unless status is READY_TO_SEND and jwoStatus is DRAFT, and it reverts the linked MRP
   // requirements back to open so they can be re-planned.
+  // Mirrors the backend guard: not already cancelled, and nothing received yet.
+  const canCancel = jwo.jwoStatus !== 'CANCELLED' && !jwo.receivedDate && !jwo.qtyReceivedMeters;
+
   const canDelete =
     jwo.status === 'READY_TO_SEND' &&
     // Mirror the backend guard EXACTLY (dyeing.controller deleteProcessPO). Being stricter here is
@@ -305,6 +333,17 @@ export default function JobWorkOrderDetail() {
             <Printer className="mr-2 h-4 w-4" />
             Print
           </Button>
+          {canCancel && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCancelDialogOpen(true)}
+              disabled={cancelMutation.isPending}
+            >
+              <Ban className="mr-2 h-4 w-4" />
+              {cancelMutation.isPending ? 'Cancelling…' : 'Cancel'}
+            </Button>
+          )}
           {canDelete && (
             <Button
               variant="outline"
@@ -855,6 +894,37 @@ export default function JobWorkOrderDetail() {
               disabled={!closeInvoiceNumber.trim() || closeMutation.isPending}
             >
               Close Order
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel job work order</DialogTitle>
+            <DialogDescription>
+              {jwo.jobWorkNumber} will be withdrawn. Any material already issued is credited back to stock, and the
+              requirements this order covered return to open so you can adjust the quantity and generate again. The
+              record is kept with an audit trail rather than removed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="cancel-reason">Reason (optional)</Label>
+            <Input
+              id="cancel-reason"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="e.g. quantity revised after checking greige stock"
+              maxLength={500}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
+              Keep
+            </Button>
+            <Button variant="destructive" onClick={() => cancelMutation.mutate()} disabled={cancelMutation.isPending}>
+              {cancelMutation.isPending ? 'Cancelling…' : 'Cancel job work order'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -117,6 +117,17 @@ export const jobWorkOrderService = {
   /**
    * Approve a job work order
    */
+  /**
+   * Withdraw a job work order before anything is received. Unlike delete (which exists only on the
+   * legacy dyeing/printing routes), cancel works for EVERY process type, credits any issued
+   * material back to stock, and reverts the requirements it covered to open so they can be
+   * re-planned. Refused once goods have been received.
+   */
+  async cancel(id: string, reason?: string): Promise<JobWorkOrder> {
+    const response = await api.post(`${BASE_URL}/${id}/cancel`, reason ? { reason } : {});
+    return response.data.data;
+  },
+
   async approve(id: string): Promise<JobWorkOrder> {
     const response = await api.post(`${BASE_URL}/${id}/approve`);
     return response.data.data;

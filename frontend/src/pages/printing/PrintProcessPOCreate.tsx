@@ -1,5 +1,5 @@
 // BUG-DASH4: Print Job Work Order Create Page - Thin wrapper around shared ProcessPOCreateForm
-// Route: /manufacturing/printing/process-pos/new
+// Route: /manufacturing/printing/job-work/new
 import ProcessPOCreateForm from '@/components/processing/ProcessPOCreateForm';
 
 export default function PrintProcessPOCreate() {

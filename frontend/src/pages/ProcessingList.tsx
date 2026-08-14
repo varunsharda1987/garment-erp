@@ -705,8 +705,8 @@ export default function ProcessingList() {
                 e.stopPropagation();
                 const route =
                   item._processType === 'DYEING'
-                    ? `/manufacturing/dyeing/process-pos/${item.id}`
-                    : `/manufacturing/printing/process-pos/${item.id}`;
+                    ? `/manufacturing/dyeing/job-work/${item.id}`
+                    : `/manufacturing/printing/job-work/${item.id}`;
                 navigate(route);
               }}
               title="View details"
@@ -821,7 +821,7 @@ export default function ProcessingList() {
             <Beaker className="h-4 w-4 mr-2" />
             New Lab Dip
           </Button>
-          <Button onClick={() => navigate('/manufacturing/processing/process-pos/new')}>
+          <Button onClick={() => navigate('/manufacturing/processing/job-work/new')}>
             <Plus className="h-4 w-4 mr-2" />
             New Job Work Order
           </Button>
@@ -1097,8 +1097,8 @@ export default function ProcessingList() {
                     const po = item as UnifiedProcessPO;
                     const route =
                       po._processType === 'DYEING'
-                        ? `/manufacturing/dyeing/process-pos/${po.id}`
-                        : `/manufacturing/printing/process-pos/${po.id}`;
+                        ? `/manufacturing/dyeing/job-work/${po.id}`
+                        : `/manufacturing/printing/job-work/${po.id}`;
                     navigate(route);
                   }}
                   emptyState={{

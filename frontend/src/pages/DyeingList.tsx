@@ -655,7 +655,7 @@ export default function DyeingList() {
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/manufacturing/dyeing/process-pos/${item.id}`);
+                navigate(`/manufacturing/dyeing/job-work/${item.id}`);
               }}
               title="View details"
             >
@@ -773,7 +773,7 @@ export default function DyeingList() {
             <Beaker className="h-4 w-4 mr-2" />
             New Lab Dip
           </Button>
-          <Button onClick={() => navigate('/manufacturing/dyeing/process-pos/new')}>
+          <Button onClick={() => navigate('/manufacturing/dyeing/job-work/new')}>
             <Plus className="h-4 w-4 mr-2" />
             New Job Work Order
           </Button>
@@ -1007,7 +1007,7 @@ export default function DyeingList() {
                   data={processPOs}
                   keyExtractor={(item) => item.id}
                   loading={isLoading}
-                  onRowClick={(item) => navigate(`/manufacturing/dyeing/process-pos/${item.id}`)}
+                  onRowClick={(item) => navigate(`/manufacturing/dyeing/job-work/${item.id}`)}
                   emptyState={{
                     title: 'No process POs found',
                     description: 'Get started by creating a new process PO',

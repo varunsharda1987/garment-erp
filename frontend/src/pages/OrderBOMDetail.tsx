@@ -575,6 +575,12 @@ const OrderBOMDetail = () => {
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
                       Total Qty
                     </th>
+                    {/* MRP-31: a greige line's Total Qty is FINISHED fabric (CAD marker
+                        consumption). What procurement actually buys is that divided by the
+                        processor's shrinkage. Showing both stops the BOM understating the order. */}
+                    <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
+                      Greige Req
+                    </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
                       Wastage%
                     </th>
@@ -619,6 +625,33 @@ const OrderBOMDetail = () => {
                       <td className="px-4 py-3 text-sm text-right font-medium">
                         {Number(item.totalWithWastage ?? item.totalQuantity).toFixed(2)}
                       </td>
+                      {/* MRP-31 */}
+                      <td className="px-4 py-3 text-sm text-right">
+                        {item.greigeId && item.greigeRequired != null ? (
+                          <>
+                            <div className="font-medium">{Number(item.greigeRequired).toFixed(2)}</div>
+                            {item.shrinkagePercentUsed ? (
+                              <div
+                                className={`text-xs ${
+                                  item.shrinkageSource === 'GREIGE_MASTER_FALLBACK'
+                                    ? 'text-primary'
+                                    : 'text-muted-foreground'
+                                }`}
+                                title={
+                                  item.shrinkageSource === 'GREIGE_MASTER_FALLBACK'
+                                    ? 'No processor rate card — using the greige master average. Attach a rate card so this matches what the processor commits to.'
+                                    : "From the processor's rate card"
+                                }
+                              >
+                                +{item.shrinkagePercentUsed}% shrink
+                                {item.shrinkageSource === 'GREIGE_MASTER_FALLBACK' && '*'}
+                              </div>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm text-right">
                         {isDraft ? (
                           <Input
@@ -655,7 +688,7 @@ const OrderBOMDetail = () => {
                 </tbody>
                 <tfoot className="bg-muted">
                   <tr>
-                    <td colSpan={!isLocked ? 12 : 11} className="px-4 py-3 text-sm font-semibold text-right">
+                    <td colSpan={!isLocked ? 13 : 12} className="px-4 py-3 text-sm font-semibold text-right">
                       Total:
                     </td>
                     <td className="px-4 py-3 text-sm font-bold text-right">

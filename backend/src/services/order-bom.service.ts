@@ -12,6 +12,8 @@ import { ConflictError, NotFoundError, ValidationError, BusinessError } from '..
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { processorRateValidationService } from './processor-rate-validation.service';
 import { systemSettingsService } from './system-settings.service';
+import { resolveShrinkagePercent } from './helpers/shrinkage-resolver.helper';
+import { divideByShrinkage, toNumber } from '../utils/currency';
 import { SearchFilter } from '../types/prisma.types';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -1922,7 +1924,38 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       throw new NotFoundError('Order BOM', id);
     }
 
-    return this.transformBOM(bom);
+    return this.withGreigeRequirement(this.transformBOM(bom));
+  }
+
+  /**
+   * MRP-31: annotate greige-processed lines with the greige quantity the order will actually
+   * consume.
+   *
+   * A GREIGE_PROCESSED line shows the greige master's name against `quantityPerGarment`, which is
+   * the CAD marker consumption at cutable width — i.e. FINISHED fabric, before shrinkage. MRP then
+   * divides by (1 - shrinkage) to decide what to buy, so the BOM understated the real greige by
+   * the shrinkage allowance and nothing on the page hinted at it. Same resolver MRP uses, so the
+   * two pages cannot drift.
+   *
+   * Display-only: nothing is persisted, and `totalWithWastage` is left untouched.
+   */
+  private async withGreigeRequirement(bom: order_bom): Promise<order_bom> {
+    const items = (bom as unknown as { items?: any[] }).items;
+    if (!Array.isArray(items) || items.length === 0) return bom;
+
+    await Promise.all(
+      items.map(async (item) => {
+        if (!item?.greigeId) return;
+        const { percent, source } = await resolveShrinkagePercent(item);
+        const finished = Number(item.totalWithWastage ?? item.totalQuantity ?? 0);
+        item.shrinkagePercentUsed = percent;
+        item.shrinkageSource = source;
+        // Same formula as planning — guarded against a 100% divisor.
+        item.greigeRequired = percent > 0 ? toNumber(divideByShrinkage(finished, percent)) : finished;
+      })
+    );
+
+    return bom;
   }
 
   // ============================================

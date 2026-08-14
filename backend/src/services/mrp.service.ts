@@ -40,6 +40,7 @@ import { COMPANY_CONFIG } from '../config/company.config';
 import { gstService } from './gst.service';
 import { resolveRate } from './po-rate-resolver.service';
 import { findRateCardsForShrinkage } from './processor-rate-v2.service';
+import { resolveShrinkagePercent } from './helpers/shrinkage-resolver.helper';
 import logger, { logWarn } from '../utils/logger';
 import { MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
@@ -779,67 +780,6 @@ function determinePOCategoryFromMaterials(materials: Array<{ materialType: strin
  */
 async function generateRequirementNumber(tx?: Prisma.TransactionClient): Promise<string> {
   return generateAtomicDocNumber('MR', tx);
-}
-
-/**
- * MRP-48: resolve the shrinkage percentage to plan a greige purchase with.
- *
- * Authority order, and nothing else:
- *  1. the attached **processor rate card** — the only record keyed on the things that actually
- *     determine loss (which processor, dyeing vs printing, which print type, which greige);
- *  2. the **greige master average** — a labelled fallback for a BOM line with no rate card yet;
- *  3. none — plan flat, and say so loudly.
- *
- * There is deliberately no hard-coded literal in this chain. A missing value returns 0 with
- * source 'NONE' so the caller can warn, rather than silently inventing an allowance.
- */
-async function resolveShrinkagePercent(bomItem: {
-  rateCard?: { shrinkagePercent?: unknown } | null;
-  greige?: { averageShrinkagePercent?: unknown } | null;
-  greigeId?: string | null;
-  processorId?: string | null;
-}): Promise<{ percent: number; source: 'RATE_CARD' | 'RATE_CARD_RESOLVED' | 'GREIGE_MASTER_FALLBACK' | 'NONE' }> {
-  // 1. The rate card explicitly attached to this BOM line.
-  const cardValue = bomItem.rateCard?.shrinkagePercent;
-  if (cardValue !== null && cardValue !== undefined) {
-    return { percent: Number(cardValue), source: 'RATE_CARD' };
-  }
-
-  // 2. MRP-48b: no rateCardId on the line — but the line still names the processor and the greige,
-  // which is enough to find the card. `order_bom_items.rateCardId` is copied from the cost sheet
-  // (order-bom.service.ts:1093), and the cost-sheet writer never populates it for FABRIC items
-  // (it does for lace, styleCosting.controller.ts:434) — so in practice every fabric BOM line
-  // arrives with a null pointer and the authoritative value was unreachable. Resolve it here from
-  // the same key the rate lookup uses, rather than silently dropping to the greige average.
-  if (bomItem.greigeId && bomItem.processorId) {
-    const { cards, distinctPercents, unambiguous } = await findRateCardsForShrinkage(
-      bomItem.processorId,
-      bomItem.greigeId
-    );
-    if (unambiguous) {
-      // This processor loses the same amount on this greige whichever process applies.
-      return { percent: unambiguous.shrinkagePercent, source: 'RATE_CARD_RESOLVED' };
-    }
-    if (distinctPercents.length > 1) {
-      // Dyeing and the various print types genuinely differ, and order_bom_items has no
-      // printingType column to pick between them (MRP historically read the print type OFF the
-      // rate card, so it cannot be used to find one). Refuse to guess — a wrong pick here changes
-      // the quantity purchased. Fall through to the labelled fallback with an explicit warning.
-      logWarn(
-        `[MRP] Processor ${bomItem.processorId} has ${distinctPercents.length} different shrinkage values for this ` +
-          `greige (${cards.map((c) => `${c.processingType}${c.printingType ? '/' + c.printingType : ''}=${c.shrinkagePercent}%`).join(', ')}). ` +
-          `Cannot tell which process applies from the BOM line — attach the correct rate card to it. ` +
-          `Planning on the greige master average for now.`
-      );
-    }
-  }
-
-  // 3. Labelled fallback.
-  const masterValue = bomItem.greige?.averageShrinkagePercent;
-  if (masterValue !== null && masterValue !== undefined) {
-    return { percent: Number(masterValue), source: 'GREIGE_MASTER_FALLBACK' };
-  }
-  return { percent: 0, source: 'NONE' };
 }
 
 /**

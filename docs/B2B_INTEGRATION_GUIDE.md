@@ -34,7 +34,8 @@ error. The account must stay active with access to the routes in §2.
 | `POST /sale-orders` | Create the sale order | Size-wise items — see §3 |
 | `PUT /sale-orders/:id` | Re-send after PO edit | Same items shape; ERP replaces items wholesale; **DRAFT-only** |
 | `GET /sale-orders/:id` | Status read-back + background sync | Fields read in §4 |
-| `GET /production-status/by-order?styleId=&limit=` | Production progress per style | Kebab-case mount; `styleId` filters at DB level |
+| `GET /production-status/by-order?styleId=&limit=` | Production progress per style | Kebab-case mount; `styleId` filters at DB level. **Since 2026-08-16 `?saleOrderId=` is the PRECISE per-PO filter** (returns only order items of production orders linked to that sale order — no cross-buyer bleed). B2B should switch to it, keeping `styleId` as fallback for pre-link orders. |
+| `POST /sale-orders/:id/start-production` | *(factory-side action, not called by B2B)* | Creates the linked production order (`orders.saleOrderId`) for the full SO quantity — listed here because its result is what `?saleOrderId=` reads |
 | `POST /styles` | **Auto-create an unknown PO style** (since 2026-07-26) | Bare create: `{styleCode, styleName, brandName, customerName, sellingPrice?, status:'DRAFT'}` — **deliberately no `skuVariants`** (that create-time loop is non-transactional; a mid-loop SKU conflict leaves a half-created style). New style lands DRAFT for the factory to build on. |
 | `POST /styles/:id/variants` | Add the PO's sizes to a style (new or existing) | `{variants:[{size, sku, isActive:true}]}` — relies on `upsertVariants` find-or-creating `size_options` by `sizeName`. SKU convention: `STYLECODE+SIZE` uppercased/alphanumeric (the ERP UI's own convention; canonical `XXXL`, not the Tally `3XL` token). |
 
@@ -44,6 +45,7 @@ error. The account must stay active with access to the routes in §2.
 POST /api/sale-orders
 {
   "customerId": "c4a5436d-0ae3-40ca-be18-2cfd553f89ea",
+  "buyerPoNumber": "PO-0012",
   "expectedShipDate": "2026-08-15T00:00:00.000Z",
   "remarks": "House of Kasya PO PO-0012 (KASYA) — …",
   "items": [
@@ -58,6 +60,10 @@ POST /api/sale-orders
 - `unitPrice` is the **GST-exclusive net rate** from the B2B price agreement (owner rule).
 - `colorId` is best-effort (matched by `colorName`); `null` when the colour isn't on the style.
 - `PUT` sends the identical shape; the ERP replaces the item set wholesale.
+- **`buyerPoNumber` (optional string ≤100, added 2026-08-16):** the HOK PO number as a structured
+  field — the B2B tracking key, shown on the factory's Sale Order and linked production order.
+  B2B should send `po.poNo` here (keep the human-readable `remarks` too). Omitting it is fine
+  (older pushes only have it in remarks).
 
 **History (why the schema looks like this):** until 2026-07-23 `saleOrder.schema.ts` stripped
 `sizeId`/`colorId`/`unitPrice` (fields the service layer requires) and had no `expectedShipDate`,
@@ -86,6 +92,13 @@ serializer — note `_count` becomes `count`):
 since earlier but they were silently dropped — now persisted). `items[].style` and the top-level
 `style` relation now also include `buyerStyleRef` (buyer's own style number, nullable). B2B may
 ignore all of these; nothing it currently reads changed shape.
+
+**Additive fields (2026-08-16, backward-compatible):** `buyerPoNumber` (nullable string, echoes
+what was pushed) and `productionOrders[]` — the linked make-to-order production orders, each
+`{id, orderNumber, status, totalQuantity, expectedDeliveryDate, createdAt}`. Empty array until the
+factory clicks **Start Production**. B2B can use it for an "in production" badge and to know the
+exact production `orderNumber` for its PO. No `SaleOrderStatus` values were added — the §4 status
+list and terminal logic are untouched.
 
 From `GET /production-status/by-order?styleId=`:
 `orderNumber, customerId, customerName, quantity, currentStage, piecesInStage, overallProgress,
@@ -156,9 +169,12 @@ SKUs), then retry from the B2B side.
   persisting it would make unmatched colours visible on the factory side.
 - **`expectedShipDate` can't be cleared** via update (absent = no change; it isn't nullable in the
   update path). Clearing the date on a B2B PO therefore never clears it here.
-- **No sale-order → production-order link** in the schema. The B2B app matches production progress
-  **by style**, which can show another buyer's production of the same style. A structured link
-  (sale order ↔ orders/work_orders) would make factory tracking exact.
+- ~~**No sale-order → production-order link** in the schema.~~ **FIXED 2026-08-16:**
+  `orders.saleOrderId` now links a production order to its sale order; the factory's
+  **Start Production** action on a confirmed SO creates it (full SO quantity, make-to-order).
+  Read it back via `productionOrders[]` on the SO (§4) and filter production progress precisely
+  with `GET /production-status/by-order?saleOrderId=` (§2). B2B follow-up: send `buyerPoNumber`,
+  switch the factory-status modal to `?saleOrderId=` (style fallback for pre-link orders).
 - **This ERP's own frontend header-only sale-order create sends `items: []`**, which the controller
   rejects — its create-from-list flow is broken independent of the B2B app (found 2026-07-22).
 

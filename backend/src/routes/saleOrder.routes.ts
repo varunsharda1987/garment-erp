@@ -6,6 +6,7 @@ import {
   createSaleOrderSchema,
   updateSaleOrderSchema,
   confirmSaleOrderSchema,
+  startProductionSchema,
   allocateStockSchema,
   deallocateStockSchema,
   saleOrderQuerySchema,
@@ -69,6 +70,14 @@ router.post(
   validateParams(idParamSchema),
   validateBody(confirmSaleOrderSchema),
   asyncHandler(saleOrderController.confirm.bind(saleOrderController))
+);
+
+// POST /api/sale-orders/:id/start-production - Create linked production order (make-to-order)
+router.post(
+  '/:id/start-production',
+  validateParams(idParamSchema),
+  validateBody(startProductionSchema),
+  asyncHandler(saleOrderController.startProduction.bind(saleOrderController))
 );
 
 // POST /api/sale-orders/allocate-stock - Allocate FG stock to sale order item

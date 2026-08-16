@@ -2,9 +2,13 @@ import prisma from '../config/database';
 import { Prisma, SaleOrderStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
+import { multiplyCurrency, divideCurrency, roundToCent } from '../utils/currency';
+import { orderService, OrderItemInput, OrderPriority } from './order.service';
+import { NotFoundError, ValidationError, ConflictError, BusinessError } from '../errors';
 
 interface SOCreateInput {
   customerId: string;
+  buyerPoNumber?: string | null; // Buyer's (HOK) PO number — B2B tracking key
   styleId?: string | null; // Primary style for the order
   expectedShipDate?: Date | null;
   buyerDeadline?: Date | null; // Buyer's required completion date
@@ -26,6 +30,7 @@ interface SOCreateInput {
 
 interface SOUpdateInput {
   customerId?: string; // BUG-ORD5 fix: Allow changing customer on draft orders
+  buyerPoNumber?: string | null; // undefined = leave unchanged, null = clear
   styleId?: string | null; // Primary style for the order
   expectedShipDate?: Date | null;
   buyerDeadline?: Date | null; // Buyer's required completion date
@@ -70,6 +75,7 @@ export class SaleOrderService {
       data: {
         id: randomUUID(),
         saleOrderNumber,
+        buyerPoNumber: data.buyerPoNumber ?? null,
         customerId: data.customerId,
         styleId: data.styleId || null,
         expectedShipDate: data.expectedShipDate || null,
@@ -117,6 +123,7 @@ export class SaleOrderService {
     if (search) {
       where.OR = [
         { saleOrderNumber: { contains: search, mode: 'insensitive' } },
+        { buyerPoNumber: { contains: search, mode: 'insensitive' } },
         { customer: { name: { contains: search, mode: 'insensitive' } } },
       ];
     }
@@ -217,6 +224,7 @@ export class SaleOrderService {
         data: {
           // BUG-ORD5 fix: Include customerId in update
           ...(data.customerId && { customerId: data.customerId }),
+          buyerPoNumber: data.buyerPoNumber,
           styleId: data.styleId,
           expectedShipDate: data.expectedShipDate,
           buyerDeadline: data.buyerDeadline,
@@ -287,6 +295,145 @@ export class SaleOrderService {
   }
 
   /**
+   * Start production for a confirmed sale order (make-to-order).
+   * Creates a linked production order (`orders.saleOrderId`) for the FULL sale-order quantity —
+   * one order item per style, size/colour breakup carried from the SO items, work orders
+   * auto-created by orderService.createWithItems.
+   */
+  async startProduction(
+    id: string,
+    userId: string,
+    input: { expectedDeliveryDate?: string; priority?: string; remarks?: string } = {}
+  ) {
+    const so = await prisma.sale_orders.findUnique({
+      where: { id },
+      include: {
+        items: {
+          include: { style: { select: { id: true, styleCode: true } } },
+        },
+      },
+    });
+
+    if (!so) throw new NotFoundError('Sale Order', id);
+
+    const startableStatuses: SaleOrderStatus[] = [SaleOrderStatus.CONFIRMED, SaleOrderStatus.PARTIALLY_ALLOCATED];
+    if (!startableStatuses.includes(so.status)) {
+      throw new BusinessError(
+        so.status === SaleOrderStatus.DRAFT
+          ? 'Confirm the sale order before starting production'
+          : `Cannot start production for a sale order in ${so.status} status`
+      );
+    }
+
+    if (so.items.length === 0) {
+      throw new BusinessError('Sale order has no items — nothing to produce');
+    }
+
+    // Duplicate guard: one active production order per sale order (a CANCELLED one may be replaced).
+    // findFirst check only — the double-click race is mitigated by the UI disabling the button.
+    const existing = await prisma.orders.findFirst({
+      where: { saleOrderId: id, status: { not: 'CANCELLED' }, isActive: true },
+      select: { orderNumber: true },
+    });
+    if (existing) {
+      throw new ConflictError(`Production order ${existing.orderNumber} already exists for this sale order`);
+    }
+
+    // Cost-sheet gate: same predicate the Order form enforces client-side —
+    // an APPROVED cost sheet for RAW_MATERIAL_CALCULATION or PRODUCTION purpose per style.
+    const styleIds = [...new Set(so.items.map((i) => i.styleId))];
+    const approvedCostings = await prisma.style_costing.findMany({
+      where: {
+        styleId: { in: styleIds },
+        purpose: { in: ['RAW_MATERIAL_CALCULATION', 'PRODUCTION'] },
+        OR: [{ approvalStatus: 'APPROVED' }, { isApproved: true }],
+      },
+      select: { styleId: true },
+    });
+    const approvedStyleIds = new Set(approvedCostings.map((c) => c.styleId));
+    const missingStyles = styleIds.filter((sid) => !approvedStyleIds.has(sid));
+    if (missingStyles.length > 0) {
+      const codes = missingStyles
+        .map((sid) => so.items.find((i) => i.styleId === sid)?.style?.styleCode ?? sid)
+        .join(', ');
+      throw new ValidationError(`Cannot start production — no approved cost sheet for: ${codes}`);
+    }
+
+    // Delivery date: explicit override, else the SO's own dates; required by the orders table.
+    const deliveryDate =
+      (input.expectedDeliveryDate ? new Date(input.expectedDeliveryDate) : null) ??
+      so.buyerDeadline ??
+      so.expectedShipDate ??
+      so.deliveryDate;
+    if (!deliveryDate) {
+      throw new ValidationError('expectedDeliveryDate is required — the sale order has no buyer deadline or ship date');
+    }
+
+    // Map SO items (style+colour+size grain) → order items (one per style, breakup per colour/size).
+    const byStyle = new Map<string, typeof so.items>();
+    for (const item of so.items) {
+      const group = byStyle.get(item.styleId) ?? [];
+      group.push(item);
+      byStyle.set(item.styleId, group);
+    }
+
+    const orderItems: OrderItemInput[] = [...byStyle.values()].map((group) => {
+      // Aggregate by (colorId, sizeId) — defends against nulls-distinct duplicate SO rows and
+      // guarantees breakup sum === totalQuantity, which work-order auto-creation requires.
+      const breakupMap = new Map<string, { colorId: string | null; sizeId: string; quantity: number }>();
+      for (const item of group) {
+        const key = `${item.colorId ?? ''}|${item.sizeId}`;
+        const entry = breakupMap.get(key);
+        if (entry) {
+          entry.quantity += item.quantity;
+        } else {
+          breakupMap.set(key, { colorId: item.colorId ?? null, sizeId: item.sizeId, quantity: item.quantity });
+        }
+      }
+
+      // order_items has a single unitPrice; SO grain is finer. Shared price → use it,
+      // mixed prices → quantity-weighted average (decimal-safe), noted in item remarks.
+      const prices = new Set(group.map((i) => Number(i.unitPrice)));
+      let unitPrice: number;
+      let priceNote: string | undefined;
+      if (prices.size === 1) {
+        unitPrice = [...prices][0];
+      } else {
+        const totalQty = group.reduce((sum, i) => sum + i.quantity, 0);
+        const totalValue = group.reduce(
+          (dec, i) => dec.plus(multiplyCurrency(i.quantity, Number(i.unitPrice))),
+          multiplyCurrency(0, 0)
+        );
+        unitPrice = roundToCent(divideCurrency(totalValue, totalQty)).toNumber();
+        priceNote = `Weighted avg of ${prices.size} SO line prices`;
+      }
+
+      return {
+        styleId: group[0].styleId,
+        unitPrice,
+        remarks: priceNote,
+        breakup: [...breakupMap.values()],
+      };
+    });
+
+    const defaultRemarks = `Production for ${so.saleOrderNumber}${so.buyerPoNumber ? ` / Buyer PO ${so.buyerPoNumber}` : ''}`;
+
+    return orderService.createWithItems(
+      {
+        customerId: so.customerId,
+        saleOrderId: id,
+        expectedDeliveryDate: deliveryDate.toISOString(),
+        priority: (input.priority as OrderPriority) || undefined,
+        paymentTerms: so.paymentTerms ?? undefined,
+        shippingAddress: so.deliveryAddress ?? undefined,
+        remarks: input.remarks || defaultRemarks,
+        items: orderItems,
+      },
+      userId
+    );
+  }
+
+  /**
    * Cancel a sale order and release all FG stock allocations.
    * P7.2: Allocation lifecycle — allocations must not stay permanent phantoms.
    */
@@ -301,6 +448,17 @@ export class SaleOrderService {
     const terminalStatuses: SaleOrderStatus[] = [SaleOrderStatus.DELIVERED, SaleOrderStatus.CANCELLED];
     if (terminalStatuses.includes(so.status as SaleOrderStatus)) {
       throw new Error(`Cannot cancel sale order in ${so.status} status`);
+    }
+
+    // Block cancel while a linked production order is active — the factory is already making it.
+    const activeProduction = await prisma.orders.findFirst({
+      where: { saleOrderId: id, status: { not: 'CANCELLED' }, isActive: true },
+      select: { orderNumber: true },
+    });
+    if (activeProduction) {
+      throw new BusinessError(
+        `Cannot cancel — production order ${activeProduction.orderNumber} is active. Cancel the production order first.`
+      );
     }
 
     return prisma.$transaction(async (tx) => {
@@ -519,6 +677,7 @@ export class SaleOrderService {
     if (search) {
       where.OR = [
         { saleOrderNumber: { contains: search, mode: 'insensitive' } },
+        { buyerPoNumber: { contains: search, mode: 'insensitive' } },
         { customer: { name: { contains: search, mode: 'insensitive' } } },
       ];
     }
@@ -727,6 +886,16 @@ export class SaleOrderService {
       },
       approvedBy: {
         select: { id: true, firstName: true, lastName: true },
+      },
+      productionOrders: {
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          totalQuantity: true,
+          expectedDeliveryDate: true,
+          createdAt: true,
+        },
       },
       _count: {
         select: { items: true, delivery_notes: true, invoices: true },

@@ -243,6 +243,18 @@ export default function OrderList() {
             {order.orderNumber}
           </button>
           <div className="text-xs text-muted-foreground mt-0.5">{formatDate(order.orderDate)}</div>
+          {order.saleOrder && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/sale-orders/${order.saleOrder!.id}`);
+              }}
+              className="mt-0.5 inline-flex items-center rounded border px-1.5 py-0.5 text-xs font-mono text-muted-foreground hover:bg-muted"
+              title={order.saleOrder.buyerPoNumber ? `Buyer PO ${order.saleOrder.buyerPoNumber}` : 'Linked sale order'}
+            >
+              SO {order.saleOrder.saleOrderNumber}
+            </button>
+          )}
         </div>
       ),
     },

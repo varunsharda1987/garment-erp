@@ -6,6 +6,7 @@
  */
 
 import { z } from 'zod';
+import { PriorityEnum } from './generated/prisma-enums';
 
 // ============================================================================
 // Enums
@@ -19,7 +20,6 @@ export const SaleOrderStatusEnum = z.enum([
   'FULLY_ALLOCATED',
   'PARTIALLY_DISPATCHED',
   'DISPATCHED',
-  // DELIVERED is not in the Prisma enum but is a documented B2B terminal status (B2B_INTEGRATION_GUIDE.md:77) — kept intentionally.
   'DELIVERED',
   'CANCELLED',
 ]);
@@ -46,6 +46,7 @@ const saleOrderItemSchema = z.object({
  */
 export const createSaleOrderSchema = z.object({
   customerId: z.string().uuid('Invalid customer ID'),
+  buyerPoNumber: z.string().max(100).optional(), // Buyer's (HOK) PO number — B2B tracking key
   styleId: z.string().uuid('Invalid style ID').optional().nullable(), // Primary style for the order
   // Bare 'YYYY-MM-DD' (the frontend's <input type="date">) and full ISO must both pass —
   // the controller does new Date(expectedShipDate) either way.
@@ -73,6 +74,7 @@ export const createSaleOrderSchema = z.object({
  */
 export const updateSaleOrderSchema = z.object({
   customerId: z.string().uuid('Invalid customer ID').optional(),
+  buyerPoNumber: z.string().max(100).optional().nullable(), // Buyer's (HOK) PO number — B2B tracking key
   styleId: z.string().uuid('Invalid style ID').optional().nullable(), // Primary style for the order
   expectedShipDate: z
     .string()
@@ -98,6 +100,20 @@ export const updateSaleOrderSchema = z.object({
  * POST /api/sale-orders/:id/confirm
  */
 export const confirmSaleOrderSchema = z.object({
+  remarks: z.string().max(500).optional(),
+});
+
+/**
+ * Start Production (make-to-order: create the linked production order for the full SO quantity)
+ * POST /api/sale-orders/:id/start-production
+ */
+export const startProductionSchema = z.object({
+  // Optional override; falls back to buyerDeadline ?? expectedShipDate ?? deliveryDate server-side
+  expectedDeliveryDate: z
+    .string()
+    .refine((v) => !Number.isNaN(Date.parse(v)), 'Invalid date')
+    .optional(),
+  priority: PriorityEnum.optional(),
   remarks: z.string().max(500).optional(),
 });
 
@@ -143,5 +159,6 @@ export const saleOrderQuerySchema = z.object({
 export type CreateSaleOrderInput = z.infer<typeof createSaleOrderSchema>;
 export type UpdateSaleOrderInput = z.infer<typeof updateSaleOrderSchema>;
 export type ConfirmSaleOrderInput = z.infer<typeof confirmSaleOrderSchema>;
+export type StartProductionInput = z.infer<typeof startProductionSchema>;
 export type AllocateStockInput = z.infer<typeof allocateStockSchema>;
 export type SaleOrderQueryInput = z.infer<typeof saleOrderQuerySchema>;

@@ -1281,11 +1281,14 @@ model orders {
   paymentTerms                     String?
   shippingAddress                  String?
   remarks                          String?
+  // Make-to-order origin: the HOK B2B sale order this production order fulfils
+  saleOrderId                      String?
   createdById                      String
   approvedById                     String?
   createdAt                        DateTime                     @default(now())
   updatedAt                        DateTime                     @updatedAt
   isActive                         Boolean                      @default(true)
+  sale_orders                      sale_orders?                 @relation(fields: [saleOrderId], references: [id])
   asn_applications                 asn_applications[]
   delivery_notes                   delivery_notes[]
   embroiderySendOuts               embroidery_send_out[]        @relation("EmbroideryForOrder")
@@ -1319,6 +1322,7 @@ model orders {
   @@index([customerId])
   @@index([orderNumber])
   @@index([status])
+  @@index([saleOrderId])
   // Performance: composite indexes for common query patterns
   @@index([customerId, status])
   @@index([status, createdAt])
@@ -3339,6 +3343,7 @@ model stock_production_order_items {
 model sale_orders {
   id               String          @id @default(uuid())
   saleOrderNumber  String          @unique
+  buyerPoNumber    String? // Buyer's (House of Kasya) purchase-order number — the B2B tracking key
   customerId       String
   styleId          String? // Primary style for the order (optional - multi-style orders leave null)
   saleDate         DateTime        @default(now())
@@ -3359,18 +3364,20 @@ model sale_orders {
   updatedAt        DateTime        @updatedAt
   isActive         Boolean         @default(true)
 
-  customer       customers          @relation(fields: [customerId], references: [id])
-  style          styles?            @relation("so_primaryStyle", fields: [styleId], references: [id])
-  createdBy      users              @relation("so_createdBy", fields: [createdById], references: [id])
-  approvedBy     users?             @relation("so_approvedBy", fields: [approvedById], references: [id])
-  items          sale_order_items[]
-  delivery_notes delivery_notes[]
-  invoices       invoices[]
+  customer         customers          @relation(fields: [customerId], references: [id])
+  style            styles?            @relation("so_primaryStyle", fields: [styleId], references: [id])
+  createdBy        users              @relation("so_createdBy", fields: [createdById], references: [id])
+  approvedBy       users?             @relation("so_approvedBy", fields: [approvedById], references: [id])
+  items            sale_order_items[]
+  delivery_notes   delivery_notes[]
+  invoices         invoices[]
+  productionOrders orders[]
 
   @@index([customerId])
   @@index([styleId])
   @@index([status])
   @@index([saleOrderNumber])
+  @@index([buyerPoNumber])
 }
 
 /// Sale Order Items - Line items with FG stock allocation tracking

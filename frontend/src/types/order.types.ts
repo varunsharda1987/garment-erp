@@ -179,6 +179,13 @@ export interface Order {
   } | null;
   orderItems?: OrderItem[];
   orderBoms?: Array<{ id: string; status: string }>;
+  /** Make-to-order origin: the HOK B2B sale order this production order fulfils */
+  saleOrder?: {
+    id: string;
+    saleOrderNumber: string;
+    buyerPoNumber?: string | null;
+    status: string;
+  } | null;
   _count?: {
     orderItems: number;
   };

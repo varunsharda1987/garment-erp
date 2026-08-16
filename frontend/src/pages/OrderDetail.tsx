@@ -518,7 +518,20 @@ export default function OrderDetail() {
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>{order.orderNumber}</span>
+            <span className="flex items-center gap-3">
+              {order.orderNumber}
+              {order.saleOrder && (
+                <button
+                  onClick={() => navigate(`/sale-orders/${order.saleOrder!.id}`)}
+                  className="inline-flex items-center rounded border px-2 py-0.5 text-xs font-mono font-normal text-muted-foreground hover:bg-muted"
+                  title={
+                    order.saleOrder.buyerPoNumber ? `Buyer PO ${order.saleOrder.buyerPoNumber}` : 'Linked sale order'
+                  }
+                >
+                  SO {order.saleOrder.saleOrderNumber}
+                </button>
+              )}
+            </span>
             <div className="flex gap-2">
               <span className={`px-3 py-1 rounded text-sm font-medium ${getPriorityBadgeColor(order.priority)}`}>
                 {PriorityLabels[order.priority]}

@@ -22,7 +22,7 @@ export type OrderStatus = 'PENDING' | 'IN_PRODUCTION' | 'COMPLETED' | 'DISPATCHE
 export type OrderPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
 export interface OrderItemBreakup {
-  colorId: string;
+  colorId: string | null; // null = size-only breakup (handled downstream)
   sizeId: string;
   quantity: number;
 }
@@ -39,6 +39,7 @@ export interface OrderItemInput {
 
 export interface CreateOrderDTO {
   customerId: string;
+  saleOrderId?: string; // Make-to-order origin: the HOK B2B sale order this production order fulfils
   expectedDeliveryDate: string;
   priority?: OrderPriority;
   totalQuantity?: number; // Direct total quantity (used when no size breakdown)
@@ -185,6 +186,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
           id: orderId,
           orderNumber,
           customers: { connect: { id: data.customerId } },
+          ...(data.saleOrderId ? { sale_orders: { connect: { id: data.saleOrderId } } } : {}),
           orderDate,
           expectedDeliveryDate,
           priority,

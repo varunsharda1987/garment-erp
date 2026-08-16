@@ -31,6 +31,7 @@ export const getOrderStatusList = async (req: Request, res: Response): Promise<v
     sortOrder: req.query.sortOrder as 'asc' | 'desc',
     styleId: req.query.styleId as string,
     orderId: req.query.orderId as string,
+    saleOrderId: req.query.saleOrderId as string,
   };
 
   logDebug('Getting order production status list', options);

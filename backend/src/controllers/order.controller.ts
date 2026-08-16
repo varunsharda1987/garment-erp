@@ -470,6 +470,10 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
           orderBy: { version: 'desc' as const },
           take: 1,
         },
+        // Make-to-order origin (serializes as saleOrder)
+        sale_orders: {
+          select: { id: true, saleOrderNumber: true, buyerPoNumber: true, status: true },
+        },
         _count: {
           select: { order_items: true },
         },
@@ -532,6 +536,10 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
       },
       orderBoms: {
         select: { id: true, status: true, styleId: true },
+      },
+      // Make-to-order origin (serializes as saleOrder)
+      sale_orders: {
+        select: { id: true, saleOrderNumber: true, buyerPoNumber: true, status: true },
       },
       material_requirements: {
         where: { status: { notIn: ['CANCELLED'] } },

@@ -33,6 +33,7 @@ const STATUS_COLORS: Record<SaleOrderStatus, string> = {
   FULLY_ALLOCATED: 'bg-success-muted text-success',
   PARTIALLY_DISPATCHED: 'bg-accent/10 text-accent',
   DISPATCHED: 'bg-teal-100 text-teal-800',
+  DELIVERED: 'bg-success-muted text-success',
   CANCELLED: 'bg-destructive/10 text-destructive',
 };
 
@@ -226,7 +227,12 @@ export default function SaleOrderList() {
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => navigate(`/sale-orders/${so.id}`)}
                   >
-                    <TableCell className="font-mono font-medium">{so.saleOrderNumber}</TableCell>
+                    <TableCell className="font-mono font-medium">
+                      {so.saleOrderNumber}
+                      {so.buyerPoNumber && (
+                        <div className="text-xs text-muted-foreground font-normal">PO {so.buyerPoNumber}</div>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <div>
                         <div className="font-medium">{so.customer?.name}</div>

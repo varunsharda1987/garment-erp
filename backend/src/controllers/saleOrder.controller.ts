@@ -43,6 +43,7 @@ export class SaleOrderController {
   async create(req: Request, res: Response) {
     const {
       customerId,
+      buyerPoNumber,
       styleId,
       expectedShipDate,
       buyerDeadline,
@@ -67,6 +68,7 @@ export class SaleOrderController {
 
     const so = await saleOrderService.create({
       customerId,
+      buyerPoNumber: buyerPoNumber ?? null,
       styleId: styleId || null,
       expectedShipDate: expectedShipDate ? new Date(expectedShipDate) : null,
       buyerDeadline: buyerDeadline ? new Date(buyerDeadline) : null,
@@ -88,6 +90,7 @@ export class SaleOrderController {
     // BUG-ORD5 fix: Include customerId in destructuring (was silently dropped before)
     const {
       customerId,
+      buyerPoNumber,
       styleId,
       expectedShipDate,
       buyerDeadline,
@@ -101,6 +104,7 @@ export class SaleOrderController {
 
     const so = await saleOrderService.update(id, {
       customerId,
+      buyerPoNumber,
       styleId,
       expectedShipDate: expectedShipDate ? new Date(expectedShipDate) : null,
       buyerDeadline: buyerDeadline ? new Date(buyerDeadline) : null,
@@ -131,6 +135,27 @@ export class SaleOrderController {
 
     const so = await saleOrderService.confirm(id, userId);
     res.json(so);
+  }
+
+  /**
+   * Start production for a confirmed sale order (make-to-order).
+   * Creates a linked production order for the full SO quantity; work orders auto-created.
+   */
+  async startProduction(req: Request, res: Response) {
+    const { id } = req.params;
+    const { expectedDeliveryDate, priority, remarks } = req.body;
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedError();
+    }
+
+    const order = await saleOrderService.startProduction(id, userId, {
+      expectedDeliveryDate,
+      priority,
+      remarks,
+    });
+
+    res.status(201).json({ data: order, message: 'Production order created' });
   }
 
   async allocateStock(req: Request, res: Response) {

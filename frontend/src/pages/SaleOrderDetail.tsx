@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle, Package, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Factory, Package, ShoppingBag } from 'lucide-react';
 import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,14 @@ import { SmartConfirmDialog } from '@/components/SmartConfirmDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getSaleOrderById, confirmSaleOrder, allocateStock, getAvailableStock } from '@/services/saleOrder.service';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  getSaleOrderById,
+  confirmSaleOrder,
+  allocateStock,
+  getAvailableStock,
+  startProduction,
+} from '@/services/saleOrder.service';
 import type { SaleOrderStatus, SaleOrderItem, AvailableFGStock } from '@/types/saleOrder.types';
 
 const STATUS_COLORS: Record<SaleOrderStatus, string> = {
@@ -22,14 +29,26 @@ const STATUS_COLORS: Record<SaleOrderStatus, string> = {
   FULLY_ALLOCATED: 'bg-success-muted text-success',
   PARTIALLY_DISPATCHED: 'bg-accent/10 text-accent',
   DISPATCHED: 'bg-teal-100 text-teal-800',
+  DELIVERED: 'bg-success-muted text-success',
   CANCELLED: 'bg-destructive/10 text-destructive',
 };
+
+/** Pre-fill for the Start Production date input (YYYY-MM-DD for <input type="date">) */
+function toDateInputValue(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+}
 
 export default function SaleOrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [startProdDialogOpen, setStartProdDialogOpen] = useState(false);
+  const [prodDeliveryDate, setProdDeliveryDate] = useState('');
+  const [prodPriority, setProdPriority] = useState('MEDIUM');
+  const [prodRemarks, setProdRemarks] = useState('');
   const [allocateDialogOpen, setAllocateDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<SaleOrderItem | null>(null);
   const [allocateQty, setAllocateQty] = useState('');
@@ -66,6 +85,31 @@ export default function SaleOrderDetail() {
     },
   });
 
+  const startProductionMutation = useMutation({
+    mutationFn: () =>
+      startProduction(id!, {
+        expectedDeliveryDate: prodDeliveryDate || undefined,
+        priority: prodPriority || undefined,
+        remarks: prodRemarks.trim() || undefined,
+      }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') });
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      if (result.data.workOrderFailures?.length) {
+        toast.warning(
+          `Production order ${result.data.orderNumber} created, but some work orders failed — create them manually from the order page`
+        );
+      } else {
+        toast.success(`Production order ${result.data.orderNumber} created`);
+      }
+      setStartProdDialogOpen(false);
+    },
+    onError: (error: unknown) => {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr?.response?.data?.message || 'Failed to start production');
+    },
+  });
+
   const allocateMutation = useMutation({
     mutationFn: (data: { saleOrderItemId: string; fgStockId: string; quantity: number }) => allocateStock(data),
     onSuccess: () => {
@@ -93,6 +137,8 @@ export default function SaleOrderDetail() {
 
   const isDraft = so.status === 'DRAFT';
   const canAllocate = ['CONFIRMED', 'PARTIALLY_ALLOCATED'].includes(so.status);
+  const activeProductionOrders = (so.productionOrders || []).filter((po) => po.status !== 'CANCELLED');
+  const canStartProduction = canAllocate && activeProductionOrders.length === 0 && (so.items?.length || 0) > 0;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
@@ -111,7 +157,10 @@ export default function SaleOrderDetail() {
               <ShoppingBag className="h-6 w-6" />
               {so.saleOrderNumber}
             </h1>
-            <p className="text-muted-foreground">Sale Order</p>
+            <p className="text-muted-foreground">
+              Sale Order
+              {so.buyerPoNumber && <span className="ml-2 font-mono">· Buyer PO {so.buyerPoNumber}</span>}
+            </p>
           </div>
           <Badge className={STATUS_COLORS[so.status]} variant="secondary">
             {so.status.replace(/_/g, ' ')}
@@ -124,8 +173,51 @@ export default function SaleOrderDetail() {
               Confirm
             </Button>
           )}
+          {canStartProduction && (
+            <Button
+              onClick={() => {
+                setProdDeliveryDate(toDateInputValue(so.buyerDeadline ?? so.expectedShipDate ?? so.deliveryDate));
+                setProdPriority('MEDIUM');
+                setProdRemarks('');
+                setStartProdDialogOpen(true);
+              }}
+            >
+              <Factory className="h-4 w-4 mr-2" />
+              Start Production
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Linked Production Orders (make-to-order) */}
+      {activeProductionOrders.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Factory className="h-4 w-4" />
+              Production
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {activeProductionOrders.map((po) => (
+                <div key={po.id} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-3">
+                    <Link to={`/orders/${po.id}`} className="font-mono font-medium text-info hover:underline">
+                      {po.orderNumber}
+                    </Link>
+                    <Badge variant="secondary">{po.status.replace(/_/g, ' ')}</Badge>
+                  </div>
+                  <div className="text-muted-foreground">
+                    {po.totalQuantity} pcs
+                    {po.expectedDeliveryDate && ` · due ${new Date(po.expectedDeliveryDate).toLocaleDateString()}`}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -312,6 +404,64 @@ export default function SaleOrderDetail() {
         onConfirm={() => confirmMutation.mutate()}
         isConfirming={confirmMutation.isPending}
       />
+
+      {/* Start Production Dialog (make-to-order: full SO quantity) */}
+      <Dialog open={startProdDialogOpen} onOpenChange={setStartProdDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Start Production</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Creates a production order for the full sale-order quantity (
+              {so.items?.reduce((sum, i) => sum + i.quantity, 0) || 0} pcs) with work orders per style.
+            </p>
+            <div className="space-y-2">
+              <Label>Expected Delivery Date</Label>
+              <Input type="date" value={prodDeliveryDate} onChange={(e) => setProdDeliveryDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Priority</Label>
+              <Select value={prodPriority} onValueChange={setProdPriority}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LOW">Low</SelectItem>
+                  <SelectItem value="MEDIUM">Medium</SelectItem>
+                  <SelectItem value="HIGH">High</SelectItem>
+                  <SelectItem value="URGENT">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Remarks (optional)</Label>
+              <Input
+                value={prodRemarks}
+                onChange={(e) => setProdRemarks(e.target.value)}
+                placeholder={`Production for ${so.saleOrderNumber}`}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStartProdDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!prodDeliveryDate) {
+                  toast.error('Expected delivery date is required');
+                  return;
+                }
+                startProductionMutation.mutate();
+              }}
+              disabled={startProductionMutation.isPending}
+            >
+              {startProductionMutation.isPending ? 'Creating...' : 'Create Production Order'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Allocate Stock Dialog */}
       <Dialog

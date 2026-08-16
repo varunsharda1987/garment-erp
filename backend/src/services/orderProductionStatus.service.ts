@@ -22,6 +22,7 @@ interface OrderProductionStatusQueryOptions {
   sortOrder?: 'asc' | 'desc';
   styleId?: string;
   orderId?: string;
+  saleOrderId?: string; // Precise per-sale-order filter (B2B: replaces cross-buyer styleId matching)
 }
 
 interface BlockerInfo {
@@ -68,6 +69,7 @@ class OrderProductionStatusService {
       sortOrder = 'desc',
       styleId,
       orderId,
+      saleOrderId,
     } = options;
 
     const skip = (page - 1) * limit;
@@ -134,6 +136,14 @@ class OrderProductionStatusService {
             ...(deliveryDateFrom && { gte: new Date(deliveryDateFrom) }),
             ...(deliveryDateTo && { lte: new Date(deliveryDateTo) }),
           },
+        };
+      }
+
+      // Sale-order link filter — must come after the other orders-spread merges so nothing clobbers it
+      if (saleOrderId) {
+        orderItemWhere.orders = {
+          ...(orderItemWhere.orders as Prisma.ordersWhereInput),
+          saleOrderId,
         };
       }
 

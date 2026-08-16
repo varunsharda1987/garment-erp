@@ -5,7 +5,18 @@ export type SaleOrderStatus =
   | 'FULLY_ALLOCATED'
   | 'PARTIALLY_DISPATCHED'
   | 'DISPATCHED'
+  | 'DELIVERED'
   | 'CANCELLED';
+
+/** Linked production order summary (make-to-order: orders.saleOrderId) */
+export interface LinkedProductionOrder {
+  id: string;
+  orderNumber: string;
+  status: string;
+  totalQuantity: number;
+  expectedDeliveryDate?: string | null;
+  createdAt?: string;
+}
 
 export interface SaleOrderItem {
   id: string;
@@ -51,6 +62,7 @@ export interface SaleOrderItem {
 export interface SaleOrder {
   id: string;
   saleOrderNumber: string;
+  buyerPoNumber?: string | null; // Buyer's (HOK) PO number — B2B tracking key
   customerId: string;
   styleId?: string | null; // Primary style for the order
   saleDate: string;
@@ -96,6 +108,7 @@ export interface SaleOrder {
     firstName: string;
     lastName: string;
   } | null;
+  productionOrders?: LinkedProductionOrder[];
   _count?: {
     items: number;
     deliveryNotes: number;
@@ -105,6 +118,7 @@ export interface SaleOrder {
 
 export interface CreateSORequest {
   customerId: string;
+  buyerPoNumber?: string; // Buyer's (HOK) PO number
   styleId?: string | null; // Primary style for the order
   expectedShipDate?: string;
   buyerDeadline?: string; // Buyer's required completion date
@@ -119,6 +133,7 @@ export interface CreateSORequest {
 }
 
 export interface UpdateSORequest {
+  buyerPoNumber?: string | null; // Buyer's (HOK) PO number
   styleId?: string | null; // Primary style for the order
   expectedShipDate?: string;
   buyerDeadline?: string | null; // Buyer's required completion date

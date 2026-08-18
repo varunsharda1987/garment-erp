@@ -5,50 +5,82 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Job Work Order — {{docNo}}</title>
 <link rel="stylesheet" href="assets/base.css">
+<style>
+  /* Copy-mark band (same device as the challan triplicate) */
+  .copymark{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:2px;
+            text-transform:uppercase;text-align:center;padding:3px;margin-bottom:6px;
+            border:1px solid var(--rule-hard);background:var(--wash);font-weight:600;}
+  /* Pre-issue draft band — a draft must not pass for an issued order */
+  .draftband{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:2px;
+             text-transform:uppercase;text-align:center;padding:2px;margin-bottom:6px;
+             border:1.5px dashed var(--alert);color:var(--alert);font-weight:600;}
+  /* One-pager: compact vertical rhythm so each copy fits a single A4 page.
+     The office copy is the tall one (reconciliation worksheet + costing callout). */
+  .sec{margin-top:8px;}
+  .sec-h{margin-bottom:5px;}
+  .kv .row{padding:2.5px 0;font-size:10px;}
+  th{padding:4px 6px;}
+  td{padding:4px 6px;}
+  .tot td{padding-top:5px;}
+  ol.terms{font-size:8px;line-height:1.4;}
+  .callout{padding:6px 10px;font-size:8.5px;line-height:1.45;margin-top:6px;}
+  .blocked{padding:7px 10px;font-size:8.5px;line-height:1.45;margin-top:6px;}
+  .sign{margin-top:12px;gap:20px;}
+  .foot{margin-top:7px;}
+  @media print{ .sheet{padding:7mm 10mm;} }
+</style>
 </head>
 <body>
 
+{{#each copies}}
 <div class="sheet">
+  <div class="copymark">{{this.copyMark}}</div>
 
-  {{> mast company=company docTitle="Job Work Order" docNo=docNo docPill=docPill}}
+  {{> mast company=../company docTitle="Job Work Order" docNo=../docNo docPill=../docPill}}
+
+  {{#if ../isDraft}}<div class="draftband">Draft &mdash; material not yet issued &middot; quantities &amp; lot confirmed on despatch challan</div>{{/if}}
 
   <!-- 01 ───────────────────────────────────────────── -->
   <div class="sec">
-    <div class="sec-h"><span>01 &mdash; Order &amp; Job Worker</span><b>{{processBanner}}</b></div>
+    <div class="sec-h"><span>01 &mdash; Order &amp; Job Worker</span><b>{{../processBanner}}</b></div>
     <div class="kv">
       <div>
-        <div class="row"><span class="k">Job Worker</span><span class="v">{{jobWorkerName}}</span></div>
-        {{#if jobWorkerAddress}}<div class="row"><span class="k">Address</span><span class="v">{{jobWorkerAddress}}</span></div>{{/if}}
-        <div class="row"><span class="k">GSTIN</span><span class="v">{{#if jobWorkerGstin}}{{jobWorkerGstin}} &middot; <span class="muted">Registered</span>{{else}}<span class="muted">Unregistered</span>{{/if}}</span></div>
-        {{#if jobWorkerContact}}<div class="row"><span class="k">Contact</span><span class="v">{{jobWorkerContact}}</span></div>{{/if}}
-        {{#if buyerRef}}<div class="row"><span class="k">Buyer Ref</span><span class="v">{{buyerRef}}</span></div>{{/if}}
+        <div class="row"><span class="k">Job Worker</span><span class="v">{{../jobWorkerName}}</span></div>
+        {{#if ../jobWorkerAddress}}<div class="row"><span class="k">Address</span><span class="v">{{../jobWorkerAddress}}</span></div>{{/if}}
+        <div class="row"><span class="k">GSTIN</span><span class="v">{{#if ../jobWorkerGstin}}{{../jobWorkerGstin}} &middot; <span class="muted">Registered</span>{{else}}<span class="muted">Unregistered</span>{{/if}}</span></div>
+        {{#if ../jobWorkerContact}}<div class="row"><span class="k">Contact</span><span class="v">{{../jobWorkerContact}}</span></div>{{/if}}
+        {{#if ../styleLine}}<div class="row"><span class="k">Style</span><span class="v">{{../styleLine}}</span></div>{{/if}}
+        {{#if ../colourLine}}<div class="row"><span class="k">Colour</span><span class="v"><strong>{{../colourLine}}</strong></span></div>{{/if}}
       </div>
       <div>
-        <div class="row"><span class="k">Order Date</span><span class="v">{{orderDate}}{{#if approvedByName}} &middot; <span class="muted">appr. {{approvedByName}}</span>{{/if}}</span></div>
-        <div class="row"><span class="k">Challan No.</span><span class="v">{{challanRef}}</span></div>
-        <div class="row"><span class="k">Due Back</span><span class="v">{{dueBack}}</span></div>
-        <div class="row"><span class="k">Statutory Due</span><span class="v">{{statutoryDue}} <span class="muted">&mdash; Sec 143, 1 yr</span></span></div>
+        <div class="row"><span class="k">Order Date</span><span class="v">{{../orderDate}}{{#unless this.processorCopy}}{{#if ../approvedByName}} &middot; <span class="muted">appr. {{../approvedByName}}</span>{{/if}}{{/unless}}</span></div>
+        {{#if ../buyerRef}}<div class="row"><span class="k">Buyer Ref</span><span class="v">{{../buyerRef}}</span></div>{{/if}}
+        <div class="row"><span class="k">Challan No.</span><span class="v">{{../challanRef}}</span></div>
+        <div class="row"><span class="k">Due Back</span><span class="v">{{../dueBack}}</span></div>
+        {{#unless this.processorCopy}}
+        <div class="row"><span class="k">Statutory Due</span><span class="v">{{../statutoryDue}} <span class="muted">&mdash; Sec 143, 1 yr</span></span></div>
+        {{/unless}}
       </div>
     </div>
   </div>
 
   <!-- 02 ───────────────────────────────────────────── -->
   <div class="sec">
-    <div class="sec-h"><span>02 &mdash; Material Issued &middot; Ownership retained by {{company.name}}</span><b>No tax &mdash; not a supply</b></div>
+    <div class="sec-h"><span>02 &mdash; Material Issued &middot; Ownership retained by {{../company.name}}</span><b>No tax &mdash; not a supply</b></div>
     <table>
       <thead>
         <tr><th style="width:34px">#</th><th>Item / Lot</th><th style="width:56px">UOM</th>
             <th class="num" style="width:70px">Qty</th><th class="num" style="width:70px">Rate</th><th class="num" style="width:88px">Value ₹</th></tr>
       </thead>
       <tbody>
-        {{#if materialRows.length}}
-        {{#each materialRows}}
+        {{#if ../materialRows.length}}
+        {{#each ../materialRows}}
         <tr><td class="num">{{this.sn}}</td><td>{{this.item}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td><td>{{this.uom}}</td><td class="num">{{this.qty}}</td><td class="num">{{this.rate}}</td><td class="num">{{this.value}}</td></tr>
         {{/each}}
         {{else}}
         <tr class="open"><td class="num">1</td><td></td><td></td><td></td><td></td><td></td></tr>
         {{/if}}
-        <tr class="tot"><td colspan="5">Total material value issued &mdash; for delivery challan / e-way bill only</td><td class="num">{{materialTotal}}</td></tr>
+        <tr class="tot"><td colspan="5">Total material value issued &mdash; for delivery challan / e-way bill only</td><td class="num">{{../materialTotal}}</td></tr>
       </tbody>
     </table>
   </div>
@@ -59,84 +91,88 @@
     <table>
       <thead>
         <tr><th>Output Item</th><th style="width:74px">Spec</th><th class="num" style="width:64px">Exp. Qty</th>
-            <th class="num" style="width:54px">Tol.</th><th class="num" style="width:70px">{{rateColLabel}}</th><th class="num" style="width:88px">Amount ₹</th></tr>
+            <th class="num" style="width:54px">Tol.</th><th class="num" style="width:70px">{{../rateColLabel}}</th><th class="num" style="width:88px">Amount ₹</th></tr>
       </thead>
       <tbody>
-        {{#each chargeRows}}
+        {{#each ../chargeRows}}
         <tr><td>{{this.item}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td><td>{{this.spec}}</td><td class="num">{{this.expQty}}</td><td class="num">{{this.tolerance}}</td><td class="num">{{this.rate}}</td><td class="num">{{this.amount}}</td></tr>
         {{/each}}
-        <tr class="sub"><td colspan="5">Taxable value of job work service &middot; SAC {{sacCode}}</td><td class="num">{{taxableValue}}</td></tr>
-        {{#if isResolved}}
-        {{#if isInterstate}}
-        <tr><td colspan="5">IGST @ {{gstRatePct}} <span class="muted">&mdash; inter-state</span></td><td class="num">{{igst}}</td></tr>
+        <tr class="sub"><td colspan="5">Taxable value of job work service &middot; SAC {{../sacCode}}</td><td class="num">{{../taxableValue}}</td></tr>
+        {{#if ../isResolved}}
+        {{#if ../isInterstate}}
+        <tr><td colspan="5">IGST @ {{../gstRatePct}} <span class="muted">&mdash; inter-state</span></td><td class="num">{{../igst}}</td></tr>
         {{else}}
-        <tr><td colspan="5">CGST @ {{halfGstRatePct}}</td><td class="num">{{cgst}}</td></tr>
-        <tr><td colspan="5">SGST @ {{halfGstRatePct}} <span class="muted">&mdash; intra-state, both parties State {{company.stateCode}}</span></td><td class="num">{{sgst}}</td></tr>
+        <tr><td colspan="5">CGST @ {{../halfGstRatePct}}</td><td class="num">{{../cgst}}</td></tr>
+        <tr><td colspan="5">SGST @ {{../halfGstRatePct}} <span class="muted">&mdash; intra-state, both parties State {{../company.stateCode}}</span></td><td class="num">{{../sgst}}</td></tr>
         {{/if}}
-        <tr class="tot"><td colspan="5">Gross commitment to job worker <span class="muted">(GST recoverable as ITC &mdash; not product cost)</span></td><td class="num">{{gross}}</td></tr>
+        <tr class="tot"><td colspan="5">Gross commitment to job worker{{#unless this.processorCopy}} <span class="muted">(GST recoverable as ITC &mdash; not product cost)</span>{{/unless}}</td><td class="num">{{../gross}}</td></tr>
         {{else}}
-        <tr class="tot"><td colspan="5">GST &mdash; rate not resolved, see below</td><td class="num">&mdash;</td></tr>
+        <tr class="tot"><td colspan="5">GST &mdash; rate not resolved{{#unless this.processorCopy}}, see below{{/unless}}</td><td class="num">&mdash;</td></tr>
         {{/if}}
       </tbody>
     </table>
 
-    {{#unless isResolved}}
+    {{#unless this.processorCopy}}
+    {{#unless ../isResolved}}
     <div class="blocked">
       <b>GST rate unresolved &mdash; do not treat this figure as final</b>
-      No GST rate is configured for <strong>{{processName}}</strong>. Dyeing and printing of textiles were removed from the 5% job-work entry by Notification 15/2021-CT(R) and taxed at 12%.
+      No GST rate is configured for <strong>{{../processName}}</strong>. Dyeing and printing of textiles were removed from the 5% job-work entry by Notification 15/2021-CT(R) and taxed at 12%.
       That slab was abolished on 22 Sep 2025. Whether the carve-out survives &mdash; making this 18% &mdash; or was folded back into the
       5% textile entry has not been confirmed against the consolidated notification text.
-      Confirm with the firm&rsquo;s CA, then set <code>ProcessType.gstRate</code> for {{processCode}} once.
+      Confirm with the firm&rsquo;s CA, then set <code>ProcessType.gstRate</code> for {{../processCode}} once.
     </div>
     {{/unless}}
 
-    {{#if showCostingCallout}}
+    {{#if ../showCostingCallout}}
     <div class="callout">
-      {{#if isResolved}}
+      {{#if ../isResolved}}
       <b>Costing basis &mdash; tax-exclusive</b>
-      FG value = material ₹{{fgMaterial}} + job charges ₹{{fgCharges}} = <strong>₹{{fgValue}}</strong>.
-      At {{expQtyStr}} {{uomShort}} expected this is <strong>₹{{fgRate}} {{fgRateUnit}}</strong>. Loss within {{toleranceStr}} tolerance is absorbed into this rate.
-      GST of ₹{{gstExcluded}} is <strong>excluded</strong> &mdash; it is input credit, not inventory cost.
+      FG value = material ₹{{../fgMaterial}} + job charges ₹{{../fgCharges}} = <strong>₹{{../fgValue}}</strong>.
+      At {{../expQtyStr}} {{../uomShort}} expected this is <strong>₹{{../fgRate}} {{../fgRateUnit}}</strong>. Loss within {{../toleranceStr}} tolerance is absorbed into this rate.
+      GST of ₹{{../gstExcluded}} is <strong>excluded</strong> &mdash; it is input credit, not inventory cost.
       Shortfall beyond tolerance is recovered by debit note at issued rate and must not be loaded onto FG.
       {{else}}
       <b>Costing basis is unaffected</b>
-      FG value = ₹{{fgMaterial}} + ₹{{fgCharges}} = <strong>₹{{fgValue}}</strong> &rarr; <strong>₹{{fgRate}} {{fgRateUnit}}</strong> at {{expQtyStr}} {{uomShort}}.
+      FG value = ₹{{../fgMaterial}} + ₹{{../fgCharges}} = <strong>₹{{../fgValue}}</strong> &rarr; <strong>₹{{../fgRate}} {{../fgRateUnit}}</strong> at {{../expQtyStr}} {{../uomShort}}.
       This is tax-exclusive either way, so the open rate question does not change inventory valuation &mdash;
       only the cash payable and the credit recoverable.
       {{/if}}
     </div>
     {{/if}}
+    {{/unless}}
   </div>
 
-  <!-- 04 ───────────────────────────────────────────── -->
+  {{#unless this.processorCopy}}
+  <!-- 04 — internal gate-inward worksheet: office copy only ─────────────── -->
   <div class="sec">
     <div class="sec-h"><span>04 &mdash; Return Reconciliation</span><b>Completed at gate inward</b></div>
     <table>
       <thead>
-        <tr><th>Particulars</th><th class="num" style="width:80px">Qty ({{uomHead}})</th><th class="num" style="width:64px">%</th><th style="width:200px">Remarks / Action</th></tr>
+        <tr><th>Particulars</th><th class="num" style="width:80px">Qty ({{../uomHead}})</th><th class="num" style="width:64px">%</th><th style="width:200px">Remarks / Action</th></tr>
       </thead>
       <tbody>
-        <tr><td>Issued</td><td class="num">{{issuedQty}}</td><td class="num">100.0</td><td class="muted">{{issuedRemark}}</td></tr>
+        <tr><td>Issued</td><td class="num">{{../issuedQty}}</td><td class="num">100.0</td><td class="muted">{{../issuedRemark}}</td></tr>
         <tr class="open"><td>Received &mdash; A grade</td><td></td><td></td><td></td></tr>
         <tr class="open"><td>Received &mdash; B grade / seconds</td><td></td><td></td><td></td></tr>
-        <tr class="open"><td>Normal loss (within {{toleranceStr}})</td><td></td><td></td><td></td></tr>
+        <tr class="open"><td>Normal loss (within {{../toleranceStr}})</td><td></td><td></td><td></td></tr>
         <tr class="open"><td>Abnormal loss / damage</td><td></td><td></td><td></td></tr>
         <tr class="open"><td>Balance still with job worker</td><td></td><td></td><td></td></tr>
       </tbody>
     </table>
   </div>
+  {{/unless}}
 
-  <!-- 05 ───────────────────────────────────────────── -->
+  <!-- Terms ─────────────────────────────────────────── -->
   <div class="sec">
-    <div class="sec-h"><span>05 &mdash; Terms</span><b>Sec. 143 CGST &middot; Rule 55</b></div>
+    <div class="sec-h"><span>{{#if this.processorCopy}}04{{else}}05{{/if}} &mdash; Terms</span><b>Sec. 143 CGST &middot; Rule 55</b></div>
     <ol class="terms">
-      <li>Goods are issued for job work only. Title remains with {{company.name}} at all times; the job worker holds them as bailee and shall not create any lien or encumbrance.</li>
+      <li>Goods are issued for job work only. Title remains with {{../company.name}} at all times; the job worker holds them as bailee and shall not create any lien or encumbrance.</li>
       <li>Material must be returned within <strong>one year</strong> of despatch. Beyond this the despatch is deemed a supply from the original despatch date, with interest &mdash; recoverable from the job worker.</li>
       <li>Movement is against delivery challan under Rule 55 (triplicate). Return under the job worker&rsquo;s own challan quoting this order number.</li>
-      <li>The job worker&rsquo;s invoice shall cover <strong>conversion charges only</strong>, at SAC {{sacCode}}. Any material sold by the job worker to us requires a separate purchase order and separate invoice.</li>
-      <li>Wastage beyond the stated tolerance of {{toleranceStr}} is to the job worker&rsquo;s account and will be debited at issued material rate.</li>
+      <li>The job worker&rsquo;s invoice shall cover <strong>conversion charges only</strong>, at SAC {{../sacCode}}. Any material sold by the job worker to us requires a separate purchase order and separate invoice.</li>
+      <li>Wastage beyond the stated tolerance of {{../toleranceStr}} is to the job worker&rsquo;s account and will be debited at issued material rate.</li>
       <li>Output must match the approved sample and spec. Rejections return freight-to-pay; no conversion charge is payable on rejected quantity.</li>
-      <li>Payment within 30 days of receipt of goods and a correct invoice, after the reconciliation above is signed off.</li>
+      <li>Payment within 30 days of receipt of goods and a correct invoice, after return quantities are reconciled and signed off.</li>
       <li>Quantities will be reported in ITC-04 for the relevant period. Job worker to acknowledge receipt on the duplicate challan copy.</li>
       <li>Sub-contracting to a third party without prior written consent is not permitted.</li>
     </ol>
@@ -144,15 +180,16 @@
 
   <div class="sign">
     <div>Prepared by / Store</div>
-    <div>Authorised Signatory &mdash; {{company.name}}</div>
+    <div>Authorised Signatory &mdash; {{../company.name}}</div>
     <div>Job Worker &mdash; Received goods &amp; accepted terms</div>
   </div>
 
   <div class="foot">
-    <span>{{docNo}} &middot; Page 1 of 1</span>
-    <span>Copy: Job Worker &middot; Store &middot; Accounts</span>
+    <span>{{../docNo}} &middot; {{this.copyMark}}</span>
+    <span>Page 1 of 1 &middot; this copy</span>
   </div>
 </div>
+{{/each}}
 
 </body>
 </html>

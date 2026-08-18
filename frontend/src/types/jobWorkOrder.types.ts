@@ -136,6 +136,16 @@ export interface JobWorkOrder {
 
   // Relations
   processor?: { id: string; name: string; code: string; phone?: string | null; contactPerson?: string | null };
+  /** Issued greige lot (post-issue) — carries the greige master identity. */
+  greigeStockLot?: { id: string; greige?: { id: string; greigeCode: string; greigeName: string } | null } | null;
+  /** Pre-issue MRP chain — greige identity + colour before any lot exists. */
+  requirementLinks?: Array<{
+    materialRequirements?: {
+      colorName?: string | null;
+      materials?: { name: string; code: string } | null;
+      orderBomItem?: { greige?: { id: string; greigeCode: string; greigeName: string } | null } | null;
+    } | null;
+  }>;
   style?: { id: string; styleCode: string; buyerStyleRef?: string };
   fabric?: { id: string; fabricCode: string; fabricName: string };
   processTypeMaster?: {

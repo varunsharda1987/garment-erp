@@ -667,9 +667,13 @@ class DocumentController {
    */
   async generateJobWorkOrderPDF(req: Request, res: Response) {
     const { id } = req.params;
+    // ?variant=processor|office|both (default both): processor = the trimmed Job Worker
+    // Copy only (what WhatsApp attaches), office = the full internal copy.
+    const rawVariant = String(req.query.variant || 'both');
+    const variant = rawVariant === 'processor' || rawVariant === 'office' ? rawVariant : 'both';
 
     try {
-      const pdfBuffer = await documentFacadeService.generateJobWorkOrderPDF(id);
+      const pdfBuffer = await documentFacadeService.generateJobWorkOrderPDF(id, { variant });
 
       const jwo = await prisma.job_work_orders.findUnique({
         where: { id },

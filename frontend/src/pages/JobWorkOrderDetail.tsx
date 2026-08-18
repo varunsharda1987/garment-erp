@@ -435,10 +435,30 @@ export default function JobWorkOrderDetail() {
                     )}
                   </p>
                 </div>
-                <div>
-                  <Label className="text-muted-foreground">Fabric</Label>
-                  <p className="font-medium">{jwo.fabric?.fabricCode || '-'}</p>
-                </div>
+                {jwo.fabricType === 'GREIGE' ? (
+                  <div>
+                    {/* We ISSUE greige — the finished fabric gets its identity on receipt */}
+                    <Label className="text-muted-foreground">Greige</Label>
+                    <p className="font-medium">
+                      {jwo.greigeStockLot?.greige?.greigeName ??
+                        jwo.requirementLinks?.[0]?.materialRequirements?.orderBomItem?.greige?.greigeName ??
+                        jwo.requirementLinks?.[0]?.materialRequirements?.materials?.name ??
+                        '-'}
+                    </p>
+                    {(jwo.greigeStockLot?.greige?.greigeCode ??
+                      jwo.requirementLinks?.[0]?.materialRequirements?.orderBomItem?.greige?.greigeCode) && (
+                      <p className="text-xs text-muted-foreground">
+                        {jwo.greigeStockLot?.greige?.greigeCode ??
+                          jwo.requirementLinks?.[0]?.materialRequirements?.orderBomItem?.greige?.greigeCode}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <Label className="text-muted-foreground">Fabric</Label>
+                    <p className="font-medium">{jwo.fabric?.fabricName || jwo.fabric?.fabricCode || '-'}</p>
+                  </div>
+                )}
                 <div>
                   <Label className="text-muted-foreground">Rate per {jwo.uom}</Label>
                   <p className="font-medium">

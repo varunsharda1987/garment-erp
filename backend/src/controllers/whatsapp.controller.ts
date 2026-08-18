@@ -19,7 +19,9 @@ const DOC_META: Record<string, { label: string; generate: (id: string) => Promis
   },
   jobWorkOrder: {
     label: 'Job Work Order',
-    generate: (id) => documentFacadeService.generateJobWorkOrderPDF(id),
+    // Processor-facing copy only — the office copy (reconciliation worksheet, statutory
+    // tracking, FG costing) stays internal.
+    generate: (id) => documentFacadeService.generateJobWorkOrderPDF(id, { variant: 'processor' }),
   },
 };
 

@@ -76,6 +76,27 @@ const jwoDocInclude = {
     take: 1,
   },
   approvedBy: { select: { firstName: true, lastName: true } },
+  // Colour + greige lineage for MRP JWOs (no lab dip; no stock lot before issue) —
+  // the linked requirement carries the dye colour and the BOM greige with its snapshot cost.
+  requirementLinks: {
+    take: 1,
+    select: {
+      material_requirements: {
+        select: {
+          colorName: true,
+          componentName: true,
+          materials: { select: { name: true, code: true } },
+          orderBomItem: {
+            select: {
+              colorName: true,
+              greigeCost: true,
+              greige: { select: { greigeCode: true, greigeName: true } },
+            },
+          },
+        },
+      },
+    },
+  },
 } satisfies Prisma.job_work_ordersInclude;
 
 type JwoWithDetails = Prisma.job_work_ordersGetPayload<{ include: typeof jwoDocInclude }>;
@@ -111,12 +132,18 @@ export interface JobWorkOrderDocData {
   processName: string;
   processCode: string;
   sacCode: string;
+  /** Pre-issue draft — template shows a DRAFT pill so it can't pass for an issued order. */
+  isDraft: boolean;
   // 01 — order & job worker
   jobWorkerName: string;
   jobWorkerAddress: string | null;
   jobWorkerGstin: string | null;
   jobWorkerContact: string | null;
   buyerRef: string | null;
+  /** "ESSKY086LS — PERI" — the style this job work belongs to. */
+  styleLine: string | null;
+  /** The dye/processing colour ("Beige") — the core instruction on a dyeing order. */
+  colourLine: string | null;
   orderDate: string;
   approvedByName: string | null;
   challanRef: string;
@@ -194,6 +221,11 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
   const contactBits = [p.contactPerson?.trim(), p.phone?.trim()].filter((b): b is string => !!b && b.length > 0);
   const challan = jwo.outwardChallan ?? jwo.headerChallans[0] ?? null;
 
+  // Primary MRP requirement link — colour + greige lineage when there's no lab dip / lot yet
+  const reqLink = jwo.requirementLinks[0]?.material_requirements ?? null;
+  const colourName =
+    jwo.labDip?.targetColor?.colorName ?? reqLink?.colorName ?? reqLink?.orderBomItem?.colorName ?? null;
+
   // ── 02 — material issued ─────────────────────────────────────────────────
   const materialRows: JwoMaterialRow[] = [];
   let materialTotal: Decimal | null = null; // null = unknown → em-dash + no callout
@@ -250,8 +282,32 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
       value: fmtMoney(value),
     });
     materialTotal = toCurrency(value);
+  } else if (reqLink) {
+    // Pre-issue MRP JWO — no lot attached yet, but the requirement chain knows the greige.
+    // User rule (2026-08-18): the processor sees the material AND its value (he holds the
+    // goods as bailee; wastage is debited at issued material rate per the terms).
+    const greigeName = reqLink.orderBomItem?.greige?.greigeName ?? reqLink.materials?.name ?? 'Greige (per BOM)';
+    const greigeCode = reqLink.orderBomItem?.greige?.greigeCode ?? reqLink.materials?.code ?? null;
+    const bomGreigeRate = reqLink.orderBomItem?.greigeCost != null ? Number(reqLink.orderBomItem.greigeCost) : null;
+    const value =
+      bomGreigeRate != null ? roundToCent(multiplyCurrency(jwo.qtySentMeters, bomGreigeRate)).toNumber() : null;
+    const sublineBits = [
+      greigeCode,
+      jwo.greigeWidthInches != null ? `${fmtQty(Number(jwo.greigeWidthInches))}″ greige width` : null,
+      'lot assigned on despatch challan',
+    ].filter((b): b is string => !!b);
+    materialRows.push({
+      sn: 1,
+      item: greigeName,
+      subline: sublineBits.join(' · '),
+      uom: jwo.uom,
+      qty: fmtQty(Number(jwo.qtySentMeters), jwo.uom),
+      rate: bomGreigeRate != null ? fmtMoney(bomGreigeRate) : EM_DASH,
+      value: value != null ? fmtMoney(value) : EM_DASH,
+    });
+    materialTotal = value != null ? toCurrency(value) : null;
   }
-  // else: no components and no lot — template renders the hatched .open row
+  // else: no components, no lot, no requirement link — template renders the hatched .open row
 
   // ── 03 — expected output, job charges & tax ──────────────────────────────
   const uomForRate = (ptm?.unitOfMeasure ?? jwo.uom).toUpperCase();
@@ -271,8 +327,10 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
   }
   const expQtyStr = fmtQty(expectedQty.toNumber(), isMeters ? 'MTR' : 'PCS');
 
+  // Colour first — on a dyeing/printing order the shade IS the spec. Falls back to the
+  // embroidery design, then the style code.
   const specStr =
-    jwo.labDip?.targetColor?.colorName ??
+    colourName ??
     (jwo.embroidery ? `${jwo.embroidery.embroideryCode} — ${jwo.embroidery.designName}` : null) ??
     jwo.style?.styleCode ??
     EM_DASH;
@@ -319,6 +377,13 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     const widthSpecParts: string[] = [];
     if (jwo.sentWidthInches != null) widthSpecParts.push(`Finish width ${fmtQty(Number(jwo.sentWidthInches))}″`);
     if (jwo.greigeWidthInches != null) widthSpecParts.push(`greige ${fmtQty(Number(jwo.greigeWidthInches))}″`);
+    // Say the quantity math out loud: expected shrinkage links issued greige to fabric due back
+    if (jwo.expectedShrinkage != null && Number(jwo.expectedShrinkage) > 0) {
+      widthSpecParts.push(
+        `expected shrinkage ${Number(jwo.expectedShrinkage)}% ` +
+          `(${fmtQty(Number(jwo.qtySentMeters), jwo.uom)} → ${expQtyStr} ${jwo.uom})`
+      );
+    }
     chargeRows.push({
       item: outputItem,
       subline: widthSpecParts.length ? widthSpecParts.join(' · ') : null,
@@ -352,6 +417,7 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     company,
     docNo: jwo.jobWorkNumber,
     docPill: 'Material issued on challan · Not a sale',
+    isDraft: !jwo.sentDate && (!jwo.jwoStatus || ['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(jwo.jwoStatus)),
     isResolved,
     isInterstate: jwo.isInterstate,
     processBanner: `Process: ${processName} · SAC ${sacCode}`,
@@ -362,7 +428,10 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     jobWorkerAddress: addressBits.length > 0 ? addressBits.join(', ') : null,
     jobWorkerGstin: p.gst_numbers[0]?.gstNumber ?? null,
     jobWorkerContact: contactBits.length > 0 ? contactBits.join(' · ') : null,
-    buyerRef: jwo.style ? [jwo.style.styleCode, jwo.style.buyerStyleRef].filter(Boolean).join(' · ') : null,
+    // Style gets its own row now — buyerRef only prints a REAL buyer reference
+    buyerRef: jwo.style?.buyerStyleRef ?? null,
+    styleLine: jwo.style ? [jwo.style.styleCode, jwo.style.styleName].filter(Boolean).join(' — ') : null,
+    colourLine: colourName,
     orderDate: fmtDate(jwo.approvedAt ?? jwo.createdAt),
     approvedByName: jwo.approvedBy ? `${jwo.approvedBy.firstName} ${jwo.approvedBy.lastName}`.trim() : null,
     challanRef: challan ? `${challan.challanNumber} · ${fmtDate(challan.challanDate)}` : '— issued on despatch',

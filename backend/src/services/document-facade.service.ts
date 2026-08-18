@@ -105,10 +105,21 @@ export const documentFacadeService = {
     );
   },
 
-  /** Net-new — no legacy generator exists. RendererUnavailableError bubbles up. */
-  async generateJobWorkOrderPDF(jwoId: string): Promise<Buffer> {
+  /**
+   * Net-new — no legacy generator exists. RendererUnavailableError bubbles up.
+   * Two copies per print: the Job Worker Copy hides internal sections (return-reconciliation
+   * worksheet, statutory tracking, FG costing) via the template's `processorCopy` flag;
+   * the Office Copy keeps everything for store/accounts. `variant` picks one copy —
+   * 'processor' is what WhatsApp attaches.
+   */
+  async generateJobWorkOrderPDF(jwoId: string, opts?: { variant?: 'both' | 'processor' | 'office' }): Promise<Buffer> {
     const data = await buildJobWorkOrderDocData(jwoId);
-    return renderDocument('job-work-order', data as unknown as Record<string, unknown>);
+    const processorCopy = { copyMark: 'Job Worker Copy', processorCopy: true };
+    const officeCopy = { copyMark: 'Office Copy — Store & Accounts' };
+    const variant = opts?.variant ?? 'both';
+    const copies =
+      variant === 'processor' ? [processorCopy] : variant === 'office' ? [officeCopy] : [processorCopy, officeCopy];
+    return renderDocument('job-work-order', data as unknown as Record<string, unknown>, { copies });
   },
 
   /** Net-new — no legacy generator exists. */

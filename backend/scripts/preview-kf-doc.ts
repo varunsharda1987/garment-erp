@@ -20,12 +20,19 @@ function lazyAdapter(moduleName: string, fnName: string): (id?: string) => Promi
   return mod[fnName];
 }
 
-async function buildData(template: KfTemplateName, id: string): Promise<{ data: Record<string, unknown>; copies?: string[] }> {
+async function buildData(
+  template: KfTemplateName,
+  id: string
+): Promise<{ data: Record<string, unknown>; copies?: Array<string | { copyMark: string; [key: string]: unknown }> }> {
   switch (template) {
     case 'challan':
       return { data: (await buildChallanDocData(id)) as unknown as Record<string, unknown>, copies: CHALLAN_COPY_MARKS };
     case 'job-work-order':
-      return { data: await lazyAdapter('job-work-order.doc-data', 'buildJobWorkOrderDocData')(id) };
+      return {
+        data: await lazyAdapter('job-work-order.doc-data', 'buildJobWorkOrderDocData')(id),
+        // Same pair the facade renders: trimmed processor copy + full office copy
+        copies: [{ copyMark: 'Job Worker Copy', processorCopy: true }, { copyMark: 'Office Copy — Store & Accounts' }],
+      };
     case 'grn':
       return { data: await lazyAdapter('grn.doc-data', 'buildGrnDocData')(id) };
     case 'tax-invoice':

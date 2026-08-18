@@ -127,8 +127,12 @@ function getTemplate(name: KfTemplateName): Handlebars.TemplateDelegate {
 }
 
 export interface RenderDocumentOptions {
-  /** Copy marks — the template renders one .sheet per entry (Rule-55 triplicate) */
-  copies?: string[];
+  /**
+   * Copy marks — the template renders one .sheet per entry (Rule-55 triplicate).
+   * A plain string becomes `{ copyMark }`; an object may carry extra per-copy flags
+   * the template branches on (e.g. the JWO's `processorCopy` trimming internal sections).
+   */
+  copies?: Array<string | { copyMark: string; [key: string]: unknown }>;
   timeoutMs?: number;
 }
 
@@ -140,7 +144,7 @@ export async function renderDocument(
   const compiled = getTemplate(template);
   const renderData: Record<string, unknown> = { ...data };
   if (opts?.copies?.length) {
-    renderData.copies = opts.copies.map((copyMark) => ({ copyMark }));
+    renderData.copies = opts.copies.map((copy) => (typeof copy === 'string' ? { copyMark: copy } : copy));
   }
   const html = compiled(renderData);
   // Rendered next to its assets: the renderer writes a temp .html in TEMPLATE_DIR

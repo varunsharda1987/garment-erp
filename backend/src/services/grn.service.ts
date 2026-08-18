@@ -25,6 +25,7 @@ import { logInfo, logError, logWarn } from '../utils/logger';
 import { generateAtomicGRNNumber } from '../utils/atomicCodeGenerator';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { determineFinishType } from './helpers/processing-fabric.helper';
+import { jobWorkOrderService } from './job-work-order.service';
 import {
   getOrCreateFinishedFabricV2,
   rebuildAutoFabricName,
@@ -33,7 +34,14 @@ import {
   stampStyleFabricLink,
 } from './helpers/fabric-identity.helper';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
-import { addCurrency, multiplyCurrency, roundToCent, subtractCurrency, toNumber } from '../utils/currency';
+import {
+  addCurrency,
+  applyShrinkageLoss,
+  multiplyCurrency,
+  roundToCent,
+  subtractCurrency,
+  toNumber,
+} from '../utils/currency';
 import {
   validateSourceMismatchOverride,
   executeSourceMismatchCleanup,
@@ -351,6 +359,18 @@ class GRNService {
           });
           if (jobUpdate.count === 0) {
             throw new Error('This processing PO has already been received via the Printing/Dyeing module');
+          }
+
+          // Loss split (expected-output basis). GRN receives previously skipped this
+          // entirely, so loss fields stayed null and the close-time debit gate never
+          // fired for GRN-received orders. Best-effort like the module receive paths.
+          try {
+            await jobWorkOrderService.applyLossSplit(processingJob.id, actualMeters, tx);
+          } catch (lossSplitError) {
+            logWarn('[GRN] Loss split failed for processing receive', {
+              jobId: processingJob.id,
+              error: lossSplitError instanceof Error ? lossSplitError.message : lossSplitError,
+            });
           }
 
           logInfo(`Processing PO received via GRN ${newGRN.grnNumber}`, {
@@ -2555,6 +2575,24 @@ class GRNService {
       throw new Error('Received quantity must be greater than 0');
     }
 
+    // Expected FABRIC due back (billable = sent × (1 − shrinkage)) — the GRN's
+    // "ordered" basis. The greige sent is NOT the expectation: measuring receipts
+    // against it hid over-receipts up to sent × (1 + tolerance).
+    const expectedFabricMeters =
+      jwo.qtyBillable != null
+        ? Number(jwo.qtyBillable)
+        : toNumber(roundToCent(applyShrinkageLoss(jwo.qtySentMeters, jwo.expectedShrinkage ?? 0)));
+
+    // Over-receipt cap (this path previously had NONE — the PO path caps at :86)
+    const overReceiptTolerance = await systemSettingsService.getNumber('GRN_OVER_RECEIPT_TOLERANCE_PERCENT', 10);
+    const maxReceivable = toNumber(roundToCent(multiplyCurrency(expectedFabricMeters, 1 + overReceiptTolerance / 100)));
+    if (qtyReceived > maxReceivable) {
+      throw new Error(
+        `Received ${qtyReceived} MTR exceeds the expected fabric ${expectedFabricMeters.toFixed(2)} MTR ` +
+          `plus ${overReceiptTolerance}% over-receipt tolerance (max ${maxReceivable.toFixed(2)} MTR)`
+      );
+    }
+
     // grn_items.materialId is required — use the source fabric's materials record
     // (materials.id === master.id invariant; ensureMaterialRecord creates if missing)
     if (!jwo.fabricId) {
@@ -2586,7 +2624,8 @@ class GRNService {
               id: randomUUID(),
               poItemId: null,
               materialId,
-              orderedQuantity: jwo.qtySentMeters,
+              // Expected fabric due back (billable basis), not the greige sent
+              orderedQuantity: expectedFabricMeters,
               receivedQuantity: qtyReceived,
               acceptedQuantity: qtyReceived,
               rejectedQuantity: 0,
@@ -2820,6 +2859,17 @@ class GRNService {
           : {}),
       },
     });
+
+    // Loss split (expected-output basis). This PO-less path previously skipped it, so
+    // the close-time debit gate never fired for GRN-received JWOs. Best-effort.
+    try {
+      await jobWorkOrderService.applyLossSplit(jobWorkOrder.id, qtyReceived, tx);
+    } catch (lossSplitError) {
+      logWarn('[GRN] Loss split failed for PO-less JWO receive', {
+        jobWorkOrderId: jobWorkOrder.id,
+        error: lossSplitError instanceof Error ? lossSplitError.message : lossSplitError,
+      });
+    }
 
     // Phase 4b receipt bridge: advance MRP requirements via requirement_jwo_links
     await mrpService.updateJwoReceivedQuantity(jobWorkOrder.id, qtyReceived, tx);
@@ -3415,6 +3465,9 @@ class GRNService {
         receivedDate: null,
         receivedChallan: null,
         actualShrinkage: null,
+        // Loss split is a receive-time computation — clear it with the receive
+        qtyNormalLoss: null,
+        qtyAbnormalLoss: null,
         widthVariance: null,
         thanCount: null,
         foldLengthCm: null,

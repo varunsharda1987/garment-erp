@@ -41,7 +41,7 @@
         <tr><td>Received &mdash; accepted</td><td class="num">{{recon.acceptedQty}}</td><td class="num">{{recon.acceptedPct}}</td><td class="muted">Accepted to FG stock</td></tr>
         <tr class="open"><td>Received &mdash; B grade</td><td></td><td></td><td></td></tr>
         <tr><td>Rejected</td><td class="num">{{recon.rejectedQty}}</td><td class="num">{{recon.rejectedPct}}</td><td class="muted">{{recon.rejectedRemark}}</td></tr>
-        <tr class="sub"><td>Normal loss{{#if tolerancePct}} (within {{tolerancePct}}){{/if}}</td><td class="num">{{recon.normalLossQty}}</td><td class="num">{{recon.normalLossPct}}</td><td class="muted">Absorbed into FG cost</td></tr>
+        <tr class="sub"><td>Normal loss{{#if tolerancePct}} (shrinkage + {{tolerancePct}} tolerance){{/if}}</td><td class="num">{{recon.normalLossQty}}</td><td class="num">{{recon.normalLossPct}}</td><td class="muted">Absorbed into FG cost</td></tr>
         <tr><td>Abnormal loss</td><td class="num">{{recon.abnormalLossQty}}</td><td class="num">{{recon.abnormalLossPct}}</td><td class="muted">{{recon.abnormalRemark}}</td></tr>
         <tr class="tot"><td>Balance still with job worker</td><td class="num">{{recon.balanceQty}}</td><td class="num">{{recon.balancePct}}</td><td class="muted">{{recon.balanceRemark}}</td></tr>
       </tbody>

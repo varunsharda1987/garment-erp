@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { billableFromGreige } from '@/utils/shrinkage';
 import { ArrowLeft, Save, PackageOpen, Plus, Trash2, AlertTriangle, Info } from 'lucide-react';
 
 // ============================================
@@ -978,8 +979,10 @@ export default function GRNForm() {
                   <SelectItem value="none">-- None --</SelectItem>
                   {receivableJwos.map((j) => (
                     <SelectItem key={j.id} value={j.id}>
-                      {j.jobWorkNumber} — {j.processor?.name} ({j.processType}, {Number(j.qtySentMeters).toFixed(1)}{' '}
-                      {j.uom} sent{j.style?.styleCode ? `, ${j.style.styleCode}` : ''})
+                      {j.jobWorkNumber} — {j.processor?.name} ({j.processType},{' '}
+                      {(j.qtyBillable ?? billableFromGreige(Number(j.qtySentMeters), j.expectedShrinkage)).toFixed(1)}{' '}
+                      {j.uom} due back, {Number(j.qtySentMeters).toFixed(1)} sent
+                      {j.style?.styleCode ? `, ${j.style.styleCode}` : ''})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -987,6 +990,19 @@ export default function GRNForm() {
 
               {selectedJwo && (
                 <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Expected fabric:{' '}
+                    <span className="font-medium text-foreground">
+                      {(
+                        selectedJwo.qtyBillable ??
+                        billableFromGreige(Number(selectedJwo.qtySentMeters), selectedJwo.expectedShrinkage)
+                      ).toFixed(2)}{' '}
+                      {selectedJwo.uom}
+                    </span>
+                    {selectedJwo.expectedShrinkage != null && Number(selectedJwo.expectedShrinkage) > 0
+                      ? ` (${Number(selectedJwo.qtySentMeters).toFixed(2)} greige − ${Number(selectedJwo.expectedShrinkage)}% shrinkage)`
+                      : ''}
+                  </p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Received Meters</Label>

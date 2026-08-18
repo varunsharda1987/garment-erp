@@ -22,6 +22,7 @@ import {
   percentOf,
   roundToCent,
   isZero,
+  applyShrinkageLoss,
   Decimal,
 } from '../utils/currency';
 
@@ -44,15 +45,46 @@ export class JobWorkOrderError extends Error {
 }
 
 /**
+ * Input for the tolerance/loss calculation.
+ * Loss accountability is measured against the CONTRACTED EXPECTED OUTPUT
+ * (qtyBillable = sent × (1 − rate-card shrinkage)), never against the greige sent —
+ * expected process shrinkage is not "loss", it is the contract.
+ */
+export interface LossSplitInput {
+  /** Greige meters issued to the processor. */
+  qtySent: Decimal | number;
+  /** Finished goods received back (fabric basis). */
+  qtyReceived: Decimal | number;
+  /** Contracted output (jwo.qtyBillable). Null → derived from expectedShrinkagePercent, else = qtySent. */
+  qtyExpected?: Decimal | number | null;
+  /** Rate-card shrinkage %, used only when qtyExpected is null (legacy rows). */
+  expectedShrinkagePercent?: Decimal | number | null;
+  /** Allowed EXTRA shortfall beyond expected output (0 = strict). */
+  tolerancePercent: Decimal | number;
+  /** For the debit-note amount on abnormal loss. */
+  ratePerMeter?: Decimal | number;
+}
+
+/**
  * Result of tolerance/loss calculation
  */
-interface LossSplitResult {
+export interface LossSplitResult {
   qtySent: Decimal;
   qtyReceived: Decimal;
+  /** Effective contracted output the split was measured against. */
+  qtyExpected: Decimal;
+  /** sent − expected: the shrinkage the contract already accounts for (never "loss"). */
+  expectedShrinkageLoss: Decimal;
+  /** max(0, expected − received): deficit vs the contract. */
+  shortfall: Decimal;
+  /** max(0, sent − received): physical loss (statistic; meaning unchanged). */
   totalLoss: Decimal;
   tolerancePercent: Decimal;
+  /** percentOf(expected, tolerance): allowed extra shortfall beyond expected output. */
   allowedLoss: Decimal;
+  /** ALL commercially accepted loss = expected shrinkage incurred + tolerance consumed (= totalLoss − abnormal). */
   qtyNormalLoss: Decimal;
+  /** Shortfall beyond (expected − allowance) → debit-note gate at close. */
   qtyAbnormalLoss: Decimal;
   isOverTolerance: boolean;
   debitNoteRequired: boolean;
@@ -75,26 +107,27 @@ interface GSTCalculationResult {
 
 class JobWorkOrderService {
   /**
-   * Calculate normal vs abnormal loss when material returns
-   * Phase 6: Tolerance/loss split logic
+   * Calculate normal vs abnormal loss when material returns.
    *
-   * Rule: Loss within tolerance = normal (no debit), beyond = abnormal (debit note)
+   * Basis fix (2026-08-18): loss accountability is measured against the CONTRACTED
+   * EXPECTED OUTPUT (qtyBillable / shrinkage-derived), NOT the greige sent. The old
+   * formula charged the processor for the expected shrinkage itself: returning exactly
+   * the contracted 1686.59 m against 1833.25 m greige @8% recorded 91.66 m "abnormal
+   * loss" and demanded a ₹916.63 debit note — for meeting the contract.
    *
-   * @param qtySent - Meters sent to processor
-   * @param qtyReceived - Meters received back
-   * @param tolerancePercent - Allowed shrinkage/loss percentage (can be 0 for strict)
-   * @param ratePerMeter - Rate per meter (for debit note calculation)
+   * Tolerance allowance basis = EXPECTED OUTPUT (percentOf(expected, tol)) — a
+   * deliberate business choice: tolerance covers extra shortfall on the deliverable;
+   * sent-basis would credit the shrinkage portion twice. When expected == sent
+   * (PCS jobs, legacy rows without shrinkage) this degrades to the old formula exactly.
+   *
+   * Identity: when received ≤ sent, qtyNormalLoss + qtyAbnormalLoss == totalLoss, and
+   * qtyNormalLoss = expectedShrinkageLoss + min(shortfall, allowedLoss).
    */
-  calculateLossSplit(
-    qtySent: Decimal | number,
-    qtyReceived: Decimal | number,
-    tolerancePercent: Decimal | number,
-    ratePerMeter?: Decimal | number
-  ): LossSplitResult {
-    const sent = toCurrency(qtySent);
-    const received = toCurrency(qtyReceived);
-    const tolerance = toCurrency(tolerancePercent);
-    const rate = toCurrency(ratePerMeter);
+  calculateLossSplit(input: LossSplitInput): LossSplitResult {
+    const sent = toCurrency(input.qtySent);
+    const received = toCurrency(input.qtyReceived);
+    const tolerance = toCurrency(input.tolerancePercent);
+    const rate = toCurrency(input.ratePerMeter);
 
     // Guard: qtySent must be positive for meaningful calculation
     if (sent.lte(0)) {
@@ -104,10 +137,24 @@ class JobWorkOrderService {
       );
     }
 
-    const totalLoss = Decimal.max(new Decimal(0), sent.minus(received));
-    const allowedLoss = percentOf(sent, tolerance);
-    const qtyNormalLoss = Decimal.min(totalLoss, allowedLoss);
-    const qtyAbnormalLoss = Decimal.max(new Decimal(0), totalLoss.minus(allowedLoss));
+    // Effective contracted output. Clamped to sent: after close, qtyBillable is settled
+    // to the received qty which can legitimately exceed sent (stenter growth) — the
+    // contract can never expect more back than was issued.
+    const shrink = input.expectedShrinkagePercent != null ? toCurrency(input.expectedShrinkagePercent) : new Decimal(0);
+    const rawExpected =
+      input.qtyExpected != null
+        ? toCurrency(input.qtyExpected)
+        : shrink.gt(0) && shrink.lt(100)
+          ? applyShrinkageLoss(sent, shrink)
+          : sent;
+    const expected = Decimal.min(rawExpected, sent);
+
+    const expectedShrinkageLoss = sent.minus(expected); // >= 0 by the clamp
+    const totalLoss = Decimal.max(new Decimal(0), sent.minus(received)); // physical
+    const shortfall = Decimal.max(new Decimal(0), expected.minus(received)); // vs contract
+    const allowedLoss = percentOf(expected, tolerance); // allowance on the deliverable
+    const qtyAbnormalLoss = Decimal.max(new Decimal(0), shortfall.minus(allowedLoss));
+    const qtyNormalLoss = Decimal.max(new Decimal(0), totalLoss.minus(qtyAbnormalLoss));
     const isOverTolerance = qtyAbnormalLoss.gt(0);
 
     let debitNoteAmount: Decimal | null = null;
@@ -118,6 +165,9 @@ class JobWorkOrderService {
     return {
       qtySent: sent,
       qtyReceived: received,
+      qtyExpected: expected,
+      expectedShrinkageLoss,
+      shortfall,
       totalLoss,
       tolerancePercent: tolerance,
       allowedLoss,
@@ -263,7 +313,17 @@ class JobWorkOrderService {
     const ratePerMeter = toCurrency(jwo.agreedRatePerMeter);
     const received = toCurrency(qtyReceived);
 
-    const lossSplit = this.calculateLossSplit(qtySent, received, tolerancePercent, ratePerMeter);
+    // Ordering contract: runs at RECEIVE, before close's settle-on-actuals overwrites
+    // qtyBillable with the received qty. Never re-run after CLOSED — the contracted
+    // expected qty is gone from the row by then (deliberate settlement behaviour).
+    const lossSplit = this.calculateLossSplit({
+      qtySent,
+      qtyReceived: received,
+      qtyExpected: jwo.qtyBillable,
+      expectedShrinkagePercent: jwo.expectedShrinkage,
+      tolerancePercent,
+      ratePerMeter,
+    });
 
     const actualShrinkage = this.calculateShrinkagePercent(qtySent, received);
 

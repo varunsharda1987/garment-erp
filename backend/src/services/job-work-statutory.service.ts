@@ -453,7 +453,8 @@ class JobWorkStatutoryService {
         orders: 0,
         totalIssued: 0,
         totalReceived: 0,
-        tolerancePercent: Number(order.processTypeMaster?.tolerancePercent || 3),
+        // ?? not ||: a configured 0% tolerance is STRICT, not "use 3%"; missing = strict too
+        tolerancePercent: Number(order.processTypeMaster?.tolerancePercent ?? 0),
         debitedAmount: 0,
       };
 

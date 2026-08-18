@@ -6806,9 +6806,10 @@ model job_work_orders {
   declaredValue    Decimal?  @db.Decimal(12, 2) // Value for e-way bill/insurance
 
   // Tolerance and loss tracking (spec requirement)
-  tolerancePercent Decimal? @db.Decimal(5, 2) // From process_type_master, can override
-  qtyNormalLoss    Decimal? @db.Decimal(10, 2) // Loss within tolerance
-  qtyAbnormalLoss  Decimal? @db.Decimal(10, 2) // Loss beyond tolerance (debit note)
+  // Loss split is measured against the CONTRACTED EXPECTED OUTPUT (qtyBillable), not greige sent (2026-08-18)
+  tolerancePercent Decimal? @db.Decimal(5, 2) // Resolved chain persisted at receive: jwo ?? process_type_master ?? 0 (strict)
+  qtyNormalLoss    Decimal? @db.Decimal(10, 2) // Commercially accepted loss: expected shrinkage incurred + tolerance consumed
+  qtyAbnormalLoss  Decimal? @db.Decimal(10, 2) // Shortfall beyond (expected output − tolerance allowance) → debit-note gate at close
 
   // ===== KAAJ_BUTTON specific fields (only used when processType = KAAJ_BUTTON) =====
   buttonholeCount       Int? // Number of buttonholes to make

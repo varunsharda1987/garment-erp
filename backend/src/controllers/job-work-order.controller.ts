@@ -680,6 +680,9 @@ class JobWorkOrderController {
           jobWorkNumber: true,
           processType: true,
           qtySentMeters: true,
+          // Expected fabric due back (billable basis) — what the GRN measures against
+          qtyBillable: true,
+          expectedShrinkage: true,
           uom: true,
           sentDate: true,
           expectedReturnDate: true,

@@ -51,7 +51,7 @@ import { processPOService as printProcessPOService } from '@/services/printing.s
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { greigeStockService } from '@/services/greigeStock.service';
 import { openPDF } from '@/lib/document-utils';
-import { billableFromGreige } from '@/utils/shrinkage';
+import { billableFromGreige, effectiveTolerancePercent } from '@/utils/shrinkage';
 import { JwoWhatsAppSendDialog } from '@/components/JwoWhatsAppSendDialog';
 import { useDefaultSettings } from '@/hooks/useDefaultSettings';
 
@@ -472,9 +472,7 @@ export default function JobWorkOrderDetail() {
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Tolerance</Label>
-                  <p className="font-medium">
-                    {jwo.tolerancePercent?.toFixed(1) || jwo.processTypeMaster?.tolerancePercent?.toFixed(1) || '3.0'}%
-                  </p>
+                  <p className="font-medium">{effectiveTolerancePercent(jwo).toFixed(1)}%</p>
                 </div>
               </div>
             </CardContent>
@@ -610,7 +608,7 @@ export default function JobWorkOrderDetail() {
                   <p className="font-medium">{jwo.actualShrinkage ? `${jwo.actualShrinkage.toFixed(2)}%` : '-'}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Normal Loss</Label>
+                  <Label className="text-muted-foreground">Process Loss (shrinkage + tolerance)</Label>
                   <p className="font-medium text-muted-foreground">
                     {jwo.qtyNormalLoss ? `${jwo.qtyNormalLoss.toFixed(2)} ${jwo.uom}` : '-'}
                   </p>
@@ -881,7 +879,9 @@ export default function JobWorkOrderDetail() {
             </div>
             <div>
               <Label>Tolerance</Label>
-              <p className="text-sm text-muted-foreground">{jwo.tolerancePercent?.toFixed(1) || '3.0'}% allowed loss</p>
+              <p className="text-sm text-muted-foreground">
+                {effectiveTolerancePercent(jwo).toFixed(1)}% allowed extra loss beyond expected shrinkage
+              </p>
             </div>
           </div>
 

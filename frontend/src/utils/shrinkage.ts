@@ -24,3 +24,15 @@ export function billableFromGreige(greigeQty: number, shrinkagePercent?: number 
   if (!Number.isFinite(s) || s <= 0 || s >= 100) return greigeQty;
   return round2((greigeQty * (100 - s)) / 100);
 }
+
+/**
+ * Loss tolerance a JWO is actually held to — mirrors the backend chain in
+ * jobWorkOrderService.applyLossSplit: JWO override → process-type default → 0 (STRICT).
+ * Never invent 3%: a missing tolerance means all shortfall beyond expected is abnormal.
+ */
+export function effectiveTolerancePercent(jwo: {
+  tolerancePercent?: number | null;
+  processTypeMaster?: { tolerancePercent?: number | null } | null;
+}): number {
+  return jwo.tolerancePercent ?? jwo.processTypeMaster?.tolerancePercent ?? 0;
+}

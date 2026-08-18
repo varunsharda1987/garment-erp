@@ -269,25 +269,14 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
   // When greige stock is selected, update greige width
   useEffect(() => {
     if (selectedGreigeStock) {
-      const width = Number(selectedGreigeStock.greigeWidth || 0);
-      setGreigeWidth(width);
-
-      // MRP-48g: estimate from widths only until the rate card answers (see below).
-      if (!shrinkageFromRateCard && expectedFinishedWidth > 0 && width > 0) {
-        const shrinkage = ((width - expectedFinishedWidth) / width) * 100;
-        setExpectedShrinkage(Math.round(shrinkage * 100) / 100);
-      }
+      setGreigeWidth(Number(selectedGreigeStock.greigeWidth || 0));
     }
-  }, [selectedGreigeStock, expectedFinishedWidth]);
+  }, [selectedGreigeStock]);
 
-  // Fallback estimate from width delta — only while no rate card has supplied a value.
-  useEffect(() => {
-    if (shrinkageFromRateCard) return;
-    if (expectedFinishedWidth > 0 && greigeWidth > 0) {
-      const shrinkage = ((greigeWidth - expectedFinishedWidth) / greigeWidth) * 100;
-      setExpectedShrinkage(Math.round(shrinkage * 100) / 100);
-    }
-  }, [expectedFinishedWidth, greigeWidth, shrinkageFromRateCard]);
+  // Shrinkage comes ONLY from the processor's rate card (single source of truth) or a
+  // deliberate manual entry. The old width-delta formula ((greige−finished)/greige, e.g.
+  // 14.3% for a 63"→54" job whose real rate-card shrinkage is 8%) measured WIDTH change
+  // and had nothing to do with length shrinkage — removed 2026-08-18.
 
   const greigeStockItems = greigeStockData || [];
 
@@ -296,10 +285,8 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
     createMode === 'style-based' && selectedStyleFabric?._processType ? selectedStyleFabric._processType : processType;
 
   // MRP-48g: the processor's rate card is the source of truth for shrinkage — it is what the
-  // job work order holds them to and what MRP buys against. This form used to derive its own
-  // figure from the width difference, a fourth formula that could disagree with all of them.
-  // The width-delta is now only a starting estimate when the processor has no card for this
-  // greige; the card wins whenever one exists.
+  // job work order holds them to and what MRP buys against. No card → the field stays at the
+  // user's manual entry (0 by default) with a visible warning; nothing is invented.
   useEffect(() => {
     let cancelled = false;
     const greigeId = selectedGreigeStock?.greigeId;
@@ -1068,9 +1055,16 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                 step={0.1}
                 value={expectedShrinkage || ''}
                 onChange={(e) => setExpectedShrinkage(parseFloat(e.target.value) || 0)}
-                placeholder="Auto-calculated from widths"
+                placeholder="From processor rate card"
               />
-              <p className="text-xs text-muted-foreground">Auto-calculated: ((Greige - Finished) / Greige) × 100</p>
+              {shrinkageFromRateCard ? (
+                <p className="text-xs text-muted-foreground">From processor rate card: {expectedShrinkage}%</p>
+              ) : (
+                <p className="text-xs text-amber-600">
+                  No rate-card shrinkage for this processor + greige — enter the contracted % or add a rate card. At 0,
+                  the order expects 100% of the greige back.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

@@ -66,6 +66,9 @@ export const jobWorkOrderService = {
       jobWorkNumber: string;
       processType: string;
       qtySentMeters: number;
+      /** Expected fabric due back (billable = sent × (1 − shrinkage)) */
+      qtyBillable?: number | null;
+      expectedShrinkage?: number | null;
       uom: string;
       sentDate?: string;
       expectedReturnDate?: string;

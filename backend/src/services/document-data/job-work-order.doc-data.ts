@@ -117,7 +117,10 @@ export interface JwoChargeRow {
   subline: string | null;
   spec: string;
   expQty: string;
-  tolerance: string;
+  /** The shrinkage % that EXPLAINS Exp. Qty (sent × (1 − s)). Tolerance — the allowed
+   *  extra loss — lives in Terms clause 5 and the §04 worksheet, never beside Exp. Qty
+   *  where it reads as the derivation and contradicts the number. */
+  shrinkage: string;
   rate: string;
   amount: string;
 }
@@ -319,13 +322,17 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
   const qtySent = toCurrency(jwo.qtySentMeters);
   // Expected output = the billable qty when stored (billing basis: the processor charges
   // for the finished goods returned); derived from shrinkage for legacy rows without it.
+  // Any shrinkage-bearing row derives — the old FABRIC-category gate printed the raw
+  // sent qty as "expected" for other categories.
   let expectedQty = qtySent;
   if (jwo.qtyBillable != null) {
     expectedQty = toCurrency(jwo.qtyBillable);
-  } else if (ptm?.processCategory === 'FABRIC') {
-    expectedQty = applyShrinkageLoss(qtySent, jwo.expectedShrinkage ?? 0);
+  } else if (jwo.expectedShrinkage != null && Number(jwo.expectedShrinkage) > 0) {
+    expectedQty = applyShrinkageLoss(qtySent, jwo.expectedShrinkage);
   }
   const expQtyStr = fmtQty(expectedQty.toNumber(), isMeters ? 'MTR' : 'PCS');
+  // The % column beside Exp. Qty is the SHRINKAGE that produced it — not the loss tolerance
+  const shrinkageColStr = fmtPct(jwo.expectedShrinkage != null ? Number(jwo.expectedShrinkage) : null);
 
   // Colour first — on a dyeing/printing order the shade IS the spec. Falls back to the
   // embroidery design, then the style code.
@@ -356,7 +363,7 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
         subline: null,
         spec: first ? specStr : EM_DASH,
         expQty: count != null ? fmtQty(count, 'PCS') : EM_DASH,
-        tolerance: first ? toleranceStr : EM_DASH,
+        shrinkage: EM_DASH, // piece work — no shrinkage concept
         rate: rate != null ? fmtMoney(Number(rate)) : EM_DASH,
         amount: amount != null ? fmtMoney(amount) : EM_DASH,
       });
@@ -389,7 +396,7 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
       subline: widthSpecParts.length ? widthSpecParts.join(' · ') : null,
       spec: specStr,
       expQty: expQtyStr,
-      tolerance: toleranceStr,
+      shrinkage: shrinkageColStr,
       rate: jwo.isRateTbd ? EM_DASH : fmtMoney(Number(jwo.agreedRatePerMeter)),
       amount: chargesValue != null ? fmtMoney(chargesValue) : EM_DASH,
     });

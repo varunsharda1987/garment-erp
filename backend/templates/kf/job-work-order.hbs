@@ -91,11 +91,11 @@
     <table>
       <thead>
         <tr><th>Output Item</th><th style="width:74px">Spec</th><th class="num" style="width:64px">Exp. Qty</th>
-            <th class="num" style="width:54px">Tol.</th><th class="num" style="width:70px">{{../rateColLabel}}</th><th class="num" style="width:88px">Amount ₹</th></tr>
+            <th class="num" style="width:54px">Shrink.</th><th class="num" style="width:70px">{{../rateColLabel}}</th><th class="num" style="width:88px">Amount ₹</th></tr>
       </thead>
       <tbody>
         {{#each ../chargeRows}}
-        <tr><td>{{this.item}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td><td>{{this.spec}}</td><td class="num">{{this.expQty}}</td><td class="num">{{this.tolerance}}</td><td class="num">{{this.rate}}</td><td class="num">{{this.amount}}</td></tr>
+        <tr><td>{{this.item}}{{#if this.subline}}<br><span class="muted">{{this.subline}}</span>{{/if}}</td><td>{{this.spec}}</td><td class="num">{{this.expQty}}</td><td class="num">{{this.shrinkage}}</td><td class="num">{{this.rate}}</td><td class="num">{{this.amount}}</td></tr>
         {{/each}}
         <tr class="sub"><td colspan="5">Taxable value of job work service &middot; SAC {{../sacCode}}</td><td class="num">{{../taxableValue}}</td></tr>
         {{#if ../isResolved}}
@@ -154,7 +154,7 @@
         <tr><td>Issued</td><td class="num">{{../issuedQty}}</td><td class="num">100.0</td><td class="muted">{{../issuedRemark}}</td></tr>
         <tr class="open"><td>Received &mdash; A grade</td><td></td><td></td><td></td></tr>
         <tr class="open"><td>Received &mdash; B grade / seconds</td><td></td><td></td><td></td></tr>
-        <tr class="open"><td>Normal loss (within {{../toleranceStr}})</td><td></td><td></td><td></td></tr>
+        <tr class="open"><td>Normal loss (shrinkage + {{../toleranceStr}} tolerance)</td><td></td><td></td><td></td></tr>
         <tr class="open"><td>Abnormal loss / damage</td><td></td><td></td><td></td></tr>
         <tr class="open"><td>Balance still with job worker</td><td></td><td></td><td></td></tr>
       </tbody>

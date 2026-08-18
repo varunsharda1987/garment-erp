@@ -26,6 +26,7 @@ import { greigeStockService, type GreigeStockEntry } from '@/services/greigeStoc
 import { styleService } from '@/services/style.service';
 import { fabricService } from '@/services/fabricGreigeService';
 import { getAllSuppliers } from '@/services/supplier.service';
+import { useDefaultSettings } from '@/hooks/useDefaultSettings';
 import type { DyeLabDip } from '@/types/dyeing.types';
 import type { LabDip, CreateProcessPORequest } from '@/types/printing.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -83,6 +84,10 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
   const [qtySentMeters, setQtySentMeters] = useState<number>(0);
   const [greigeWidth, setGreigeWidth] = useState<number>(0); // Read-only display from greige stock
   const [expectedFinishedWidth, setExpectedFinishedWidth] = useState<number>(0); // From CAD or manual
+  // Industry model (2026-08-18): the processor is asked for a FINISHED (stenter) width =
+  // CAD cutable width + selvedge deduction. Prefilling the bare cutable width under-asks
+  // by the deduction and the marker no longer fits.
+  const { cutableWidthDeduction } = useDefaultSettings();
   const [expectedShrinkage, setExpectedShrinkage] = useState<number>(0);
   // MRP-48g: true once the processor rate card has supplied the shrinkage.
   const [shrinkageFromRateCard, setShrinkageFromRateCard] = useState(false);
@@ -231,18 +236,20 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
           fabricName: selectedStyleFabric.fabricName || 'Unknown',
         });
       }
-      // Get cutableWidth from style fabric
+      // Asked finished width = CAD cutable width + selvedge deduction (NOT bare cutable —
+      // finishing at the cutable width would leave too little after selvedge trim)
       if (selectedStyleFabric.cutableWidth) {
-        setExpectedFinishedWidth(Number(selectedStyleFabric.cutableWidth));
+        setExpectedFinishedWidth(Number(selectedStyleFabric.cutableWidth) + cutableWidthDeduction);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStyleFabric]);
 
   // When lab dip or style+fabric is selected, try to get expected width from CAD
   useEffect(() => {
     // For style-based mode, prefer styleFabric (already has cutableWidth) over searched fabric
     if (createMode === 'style-based' && selectedStyleFabric?.cutableWidth) {
-      setExpectedFinishedWidth(Number(selectedStyleFabric.cutableWidth));
+      setExpectedFinishedWidth(Number(selectedStyleFabric.cutableWidth) + cutableWidthDeduction);
       return;
     }
 
@@ -254,10 +261,10 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
       const matchingFabric = fabrics.find((sf: any) => sf.fabricId === fabricIdToMatch);
 
       if (matchingFabric?.cutableWidth) {
-        setExpectedFinishedWidth(Number(matchingFabric.cutableWidth));
+        setExpectedFinishedWidth(Number(matchingFabric.cutableWidth) + cutableWidthDeduction);
       }
     }
-  }, [styleData, selectedLabDip, selectedFabric, selectedStyleFabric, createMode]);
+  }, [styleData, selectedLabDip, selectedFabric, selectedStyleFabric, createMode, cutableWidthDeduction]);
 
   // When greige stock is selected, update greige width
   useEffect(() => {
@@ -435,8 +442,8 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             {createMode === 'lab-dip'
-              ? 'Create a process PO from an approved lab dip'
-              : 'Create a process PO directly from style, fabric, and processor'}
+              ? 'Create a job work order from an approved lab dip'
+              : 'Create a job work order directly from style, fabric, and processor'}
           </p>
         </div>
       </div>
@@ -460,8 +467,8 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
             <Alert className="mt-4">
               <Info className="h-4 w-4" />
               <AlertDescription>
-                Style-based PO creation bypasses the lab dip approval process. Use this when you need to proceed without
-                waiting for buyer approval.
+                Style-based job work creation bypasses the lab dip approval process. Use this when you need to proceed
+                without waiting for buyer approval.
               </AlertDescription>
             </Alert>
           )}
@@ -1044,9 +1051,9 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                   placeholder="e.g., 44"
                 />
                 <p className="text-xs text-muted-foreground">
-                  {expectedFinishedWidth > 0 && greigeWidth > 0
-                    ? `This is stored as sentWidthInches`
-                    : 'Pre-filled from CAD if available'}
+                  {expectedFinishedWidth > 0
+                    ? `Gives ${(expectedFinishedWidth - cutableWidthDeduction).toFixed(1)}" cutable after ${cutableWidthDeduction}" selvedge`
+                    : `Pre-filled as CAD cutable width + ${cutableWidthDeduction}" selvedge`}
                 </p>
               </div>
             </div>

@@ -6732,6 +6732,12 @@ model job_work_orders {
   fabricType             String? // Optional for garment JWOs
   reprocessReason        String?
   qtySentMeters          Decimal       @db.Decimal(10, 2)
+  /// Greige (loom-state) width of the material issued, e.g. 63". Distinct from
+  /// sentWidthInches, which holds the FINISHED width asked of the processor.
+  greigeWidthInches      Decimal?      @db.Decimal(10, 2)
+  /// ASKED FINISHED width (selvedge-to-selvedge target the processor must deliver,
+  /// set on the stenter) = CAD cutable width + selvedge deduction. Historically named
+  /// "sent", but no flow ever stored the greige width here.
   sentWidthInches        Decimal?      @db.Decimal(10, 2) // Optional for garments
   uom                    String        @default("MTR") // MTR, PCS, KG
   sentDate               DateTime?
@@ -6739,6 +6745,9 @@ model job_work_orders {
   vehicleNumber          String?
   expectedReturnDate     DateTime?
   expectedShrinkage      Decimal?      @db.Decimal(5, 2)
+  /// Billing qty = FINISHED goods the processor returns (fabric out), not the greige issued.
+  /// NULL = legacy/piece-based job → billing falls back to qtySentMeters.
+  qtyBillable            Decimal?      @db.Decimal(10, 2)
   agreedRatePerMeter     Decimal       @db.Decimal(10, 2)
   isRateTbd              Boolean       @default(false) // True when rate=0 is intentional TBD
   qtyReceivedMeters      Decimal?      @db.Decimal(10, 2)

@@ -875,7 +875,7 @@ export const bulkImportFabricMasters = async (req: Request, res: Response) => {
   const currentCount = await prisma.fabric_master.count();
 
   // BUG-GR8 fix: Use configurable cutable width deduction from system settings
-  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+  const cutableWidthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
 
   // buyerStyleRef lookups for auto-generated names, cached per import run
   // (one query per unique style code; null = style not found → plain code)

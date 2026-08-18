@@ -19,8 +19,11 @@ import {
   FileText,
   TrendingDown,
   Plus,
+  MessageCircle,
 } from 'lucide-react';
 import { JobWorkOrderCreateDialog } from '@/components/JobWorkOrderCreateDialog';
+import { JwoWhatsAppSendDialog } from '@/components/JwoWhatsAppSendDialog';
+import { openPDF } from '@/lib/document-utils';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -112,6 +115,7 @@ export default function JobWorkOrderList() {
   const [processType, setProcessType] = useState<string>(searchParams.get('processType') || 'all');
   const [page, setPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
+  const [waJwo, setWaJwo] = useState<JobWorkOrder | null>(null);
   const limit = 20;
 
   const queryParams: JobWorkOrderQueryParams = {
@@ -160,6 +164,8 @@ export default function JobWorkOrderList() {
           queryClient.invalidateQueries({ queryKey: ['job-work-orders-dashboard'] });
         }}
       />
+
+      <JwoWhatsAppSendDialog jwo={waJwo} open={!!waJwo} onOpenChange={(open) => !open && setWaJwo(null)} />
 
       {/* Dashboard Cards */}
       {dashboard && (
@@ -257,9 +263,14 @@ export default function JobWorkOrderList() {
                   <TableHead>Process</TableHead>
                   <TableHead>Processor</TableHead>
                   <TableHead>Style</TableHead>
-                  <TableHead className="text-right">Qty Sent</TableHead>
+                  {/* DB-field vocabulary (user 2026-08-17): Greige = qtySentMeters, Fabric = qtyBillable */}
+                  <TableHead className="text-right">Greige</TableHead>
+                  <TableHead className="text-right">Fabric</TableHead>
+                  {/* Widths (industry model): greige loom width → asked FINISHED width (stenter target) */}
+                  <TableHead>Width</TableHead>
                   <TableHead className="text-right">Qty Received</TableHead>
                   <TableHead>Sent Date</TableHead>
+                  <TableHead>Need By</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Section 143</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
@@ -269,7 +280,7 @@ export default function JobWorkOrderList() {
                 {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 10 }).map((_, j) => (
+                      {Array.from({ length: 13 }).map((_, j) => (
                         <TableCell key={j}>
                           <Skeleton className="h-4 w-full" />
                         </TableCell>
@@ -278,13 +289,13 @@ export default function JobWorkOrderList() {
                   ))
                 ) : error ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center text-destructive">
+                    <TableCell colSpan={13} className="text-center text-destructive">
                       Failed to load job work orders
                     </TableCell>
                   </TableRow>
                 ) : data?.data.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center text-muted-foreground">
+                    <TableCell colSpan={13} className="text-center text-muted-foreground">
                       No job work orders found
                     </TableCell>
                   </TableRow>
@@ -314,9 +325,67 @@ export default function JobWorkOrderList() {
                           {jwo.qtySentMeters.toFixed(2)} {jwo.uom}
                         </TableCell>
                         <TableCell className="text-right">
+                          {/* Billing basis: what the processor returns and bills for */}
+                          {jwo.qtyBillable != null ? (
+                            <>
+                              {jwo.qtyBillable.toFixed(2)} {jwo.uom}
+                              {jwo.expectedShrinkage != null && jwo.expectedShrinkage > 0 && (
+                                <div className="text-[10px] text-muted-foreground">
+                                  Shrinkage: {jwo.expectedShrinkage}%
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-sm">
+                          {/* greige loom width → asked finished width; received (measured) below.
+                              received < asked ⟺ cutable target missed (asked = cutable + deduction) */}
+                          {jwo.greigeWidthInches != null || jwo.sentWidthInches != null ? (
+                            <>
+                              {jwo.greigeWidthInches != null ? `${Number(jwo.greigeWidthInches)}"` : '—'}
+                              {' → '}
+                              {jwo.sentWidthInches != null ? `${Number(jwo.sentWidthInches)}"` : '—'}
+                              {jwo.receivedWidthInches != null && (
+                                <div
+                                  className={`text-[10px] ${
+                                    jwo.sentWidthInches != null &&
+                                    Number(jwo.receivedWidthInches) < Number(jwo.sentWidthInches)
+                                      ? 'text-red-600 font-medium'
+                                      : 'text-muted-foreground'
+                                  }`}
+                                >
+                                  recd {Number(jwo.receivedWidthInches)}"
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
                           {jwo.qtyReceivedMeters ? `${jwo.qtyReceivedMeters.toFixed(2)} ${jwo.uom}` : '-'}
                         </TableCell>
                         <TableCell>{jwo.sentDate ? format(new Date(jwo.sentDate), 'dd MMM yyyy') : '-'}</TableCell>
+                        <TableCell>
+                          {jwo.expectedReturnDate ? (
+                            <span
+                              className={
+                                !jwo.receivedDate &&
+                                jwo.jwoStatus !== 'CLOSED' &&
+                                jwo.jwoStatus !== 'CANCELLED' &&
+                                new Date(jwo.expectedReturnDate) < new Date()
+                                  ? 'text-red-600 font-medium'
+                                  : ''
+                              }
+                            >
+                              {format(new Date(jwo.expectedReturnDate), 'dd MMM yyyy')}
+                            </span>
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
                         <TableCell>{getStatusBadge(jwo.jwoStatus || jwo.status)}</TableCell>
                         <TableCell>
                           {section143 ? (
@@ -337,14 +406,20 @@ export default function JobWorkOrderList() {
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            {/* stopPropagation: menu clicks bubble through the React tree to the
+                                row's navigate onClick (portal ≠ DOM tree), hijacking these actions */}
+                            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                               <DropdownMenuItem onClick={() => navigate(`/job-work-orders/${jwo.id}`)}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openPDF(`/documents/job-work-orders/${jwo.id}/pdf`)}>
                                 <FileText className="mr-2 h-4 w-4" />
                                 Print JWO
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setWaJwo(jwo)}>
+                                <MessageCircle className="mr-2 h-4 w-4" />
+                                Send via WhatsApp
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

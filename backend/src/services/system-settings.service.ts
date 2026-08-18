@@ -81,13 +81,15 @@ const DEFAULT_SETTINGS: Array<{
     isSystem: true,
   },
   {
-    // BUG-GR8 fix: This setting is now used in fabric-stock, stock-routing, and fabric controllers
+    // BUG-GR8 fix: This setting is now used in fabric-stock, stock-routing, and fabric controllers.
+    // NOTE: the key says _CM but the value IS AND ALWAYS WAS INCHES (historical misnomer). Read it
+    // ONLY via systemSettingsService.getCutableWidthDeductionInches() so the key lives in one place.
     key: 'GREIGE_CUTABLE_WIDTH_DEDUCTION_CM',
     value: '2',
     dataType: 'NUMBER',
     category: 'DEFAULTS',
     description:
-      'Default inches to deduct from greige/fabric width to calculate cutable width (e.g., width - 2"). Used in greige stock, fabric stock, and fabric master creation.',
+      'Selvedge/pin-mark deduction in INCHES: finished width − deduction = cutable width; cutable + deduction = finished width to ask the processor for. (Key name says CM for historical reasons — the value is inches.)',
     isSystem: true,
   },
   {
@@ -171,6 +173,16 @@ class SystemSettingsService {
     if (!setting) return fallback;
     const num = Number(setting.value);
     return isNaN(num) ? fallback : num;
+  }
+
+  /**
+   * Selvedge/pin-mark deduction (INCHES) converting finished width → cutable width,
+   * and cutable → the finished width to ASK a processor for (cutable + deduction).
+   * Single source of truth — the stored key is a historical misnomer (says _CM, value
+   * has always been inches); keep the key string HERE only so a future rename is one line.
+   */
+  async getCutableWidthDeductionInches(): Promise<number> {
+    return this.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
   }
 
   /**

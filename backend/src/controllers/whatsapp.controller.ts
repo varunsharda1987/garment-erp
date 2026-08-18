@@ -17,6 +17,10 @@ const DOC_META: Record<string, { label: string; generate: (id: string) => Promis
     label: 'Purchase Order',
     generate: (id) => documentFacadeService.generatePurchaseOrderPDF(id),
   },
+  jobWorkOrder: {
+    label: 'Job Work Order',
+    generate: (id) => documentFacadeService.generateJobWorkOrderPDF(id),
+  },
 };
 
 /** One recipient's send outcome — a batch never aborts on a single failure. */
@@ -53,6 +57,13 @@ export const sendTextHandler = async (req: Request, res: Response) => {
   const { to, text } = req.body as { to: string; text: string };
   const result = await wa.sendTextForUser(req.user!.userId, to, text);
   res.json({ data: result, message: 'Message sent' });
+};
+
+// GET /api/whatsapp/groups — the current user's WhatsApp groups, for the recipient picker
+// when sharing documents. Requires a linked (ready) session.
+export const groupsHandler = async (req: Request, res: Response) => {
+  const groups = await wa.listGroupsForUser(req.user!.userId);
+  res.json({ data: groups });
 };
 
 // GET /api/whatsapp/staff-directory — active staff who have a WhatsApp number on file, so the
@@ -113,16 +124,59 @@ export const messageStaffHandler = async (req: Request, res: Response) => {
   res.json({ data: { results } });
 };
 
-// POST /api/whatsapp/send-document — generate a document PDF and send it straight into a chat
+// POST /api/whatsapp/send-document — generate a document PDF and send it straight into chat(s)
 // through the LOGGED-IN user's own WhatsApp (replaces the old wa.me click-to-share links).
+// Accepts a single `to` (back-compat) or a `recipients` list (groups + individuals in one call).
 export const sendDocumentHandler = async (req: Request, res: Response) => {
-  const { type, id, to, caption } = req.body as { type: string; id: string; to: string; caption?: string };
+  const { type, id, to, caption, recipients } = req.body as {
+    type: string;
+    id: string;
+    to?: string;
+    caption?: string;
+    recipients?: Array<{ to: string; label?: string }>;
+  };
   const meta = DOC_META[type];
   if (!meta) {
     throw new ValidationError(`Unsupported document type: ${type}`);
   }
+  const targets = recipients?.length ? recipients : to ? [{ to, label: undefined as string | undefined }] : [];
+  if (!targets.length) {
+    throw new ValidationError('No WhatsApp recipient provided.');
+  }
+
+  // Generate ONCE (a puppeteer render per recipient would be wasteful), then fan out
+  // sequentially. Sends are deliberately never retried — a stale-page error can fire
+  // AFTER delivery, and a retry would double-send (same rule as sendPdfForUser).
   const buffer = await meta.generate(id);
   const filename = `${meta.label.replace(/\s+/g, '_')}_${id.slice(0, 8)}.pdf`;
-  const result = await wa.sendPdfForUser(req.user!.userId, to, caption?.trim() || meta.label, buffer, filename);
-  res.json({ data: result, message: `${meta.label} sent on WhatsApp` });
+  const results: SendResult[] = [];
+  for (const target of targets) {
+    try {
+      const { to: sentTo } = await wa.sendPdfForUser(
+        req.user!.userId,
+        target.to,
+        caption?.trim() || meta.label,
+        buffer,
+        filename
+      );
+      results.push({ label: target.label, to: sentTo });
+    } catch (e) {
+      results.push({ label: target.label, to: target.to, error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  const okCount = results.filter((r) => !r.error).length;
+  if (okCount === 0) {
+    res.status(502).json({ data: { results }, message: `Failed to send ${meta.label} on WhatsApp` });
+    return;
+  }
+  // Back-compat: single-target callers (DocumentShareMenu) read data.to off the first success.
+  const first = results.find((r) => !r.error)!;
+  res.json({
+    data: { ...first, results },
+    message:
+      okCount === results.length
+        ? `${meta.label} sent on WhatsApp`
+        : `${meta.label} sent to ${okCount}/${results.length} recipient(s)`,
+  });
 };

@@ -15,9 +15,19 @@ import {
 import { generateAtomicDocNumber, generateAtomicPONumberInTx } from '../utils/atomicCodeGenerator';
 import { generateJobWorkNumber } from '../utils/jobWorkNumber';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
-import { roundToCent, toCurrency, multiplyCurrency, addCurrency, subtractCurrency, toNumber } from '../utils/currency';
+import {
+  roundToCent,
+  toCurrency,
+  multiplyCurrency,
+  addCurrency,
+  subtractCurrency,
+  toNumber,
+  applyShrinkageLoss,
+  divideByShrinkage,
+} from '../utils/currency';
 import { validateTransition } from '../utils/stateMachine';
 import { calculateGreigeQuantity } from '../utils/greige-quantity';
+import { systemSettingsService } from './system-settings.service';
 import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
 import {
@@ -1737,6 +1747,11 @@ export async function calculateRequirementsFromOrder(
           componentName: bomItem.componentName || null,
           // Fabric width tracking for split PO scenarios
           fabricWidth: bomItem.fabricWidthInches ? Number(bomItem.fabricWidthInches) : undefined,
+          // Billing basis: the % that inflated fabric→greige, so the job-work billable qty
+          // (greige × (1 − s)) is derivable from this row alone (DB write at MRP-48f below
+          // already persists these — they were simply never set for PROCESSING rows).
+          shrinkagePercentUsed,
+          shrinkageSourceUsed,
           linkedGreigeMaterialId: greigeMaterialId, // Link to parent GREIGE requirement
           // Price snapshot from approved BOM
           unitPrice: processingSnapshotPrice,
@@ -2383,6 +2398,7 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
     processingCount,
     processingNeedingAssignmentCount,
     processingPoGeneratedCount,
+    openProcessingRows,
     byMaterialType,
     bySupplier,
   ] = await Promise.all([
@@ -2459,6 +2475,28 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
         status: { in: [MaterialRequirementStatus.PO_GENERATED, MaterialRequirementStatus.PO_SENT] },
       },
     }),
+    // Open PROCESSING rows for the Est. Service Cost tile — the tile previously counted only
+    // work-order service requirements, showing ₹0.00 while dyeing/printing work sat pending.
+    // Billing basis: estimate on the fabric-out qty the processor will charge for.
+    prisma.material_requirements.findMany({
+      where: {
+        requirementType: 'PROCESSING',
+        status: {
+          in: [
+            MaterialRequirementStatus.PENDING,
+            MaterialRequirementStatus.PO_REQUIRED,
+            MaterialRequirementStatus.PARTIAL_STOCK,
+          ],
+        },
+      },
+      select: {
+        shortfall: true,
+        processingCost: true,
+        shrinkagePercentUsed: true,
+        linkedRequirement: { select: { shrinkagePercentUsed: true } },
+        orderBomItem: { select: { rateCard: { select: { shrinkagePercent: true } } } },
+      },
+    }),
     // By material type
     prisma.$queryRaw`
       SELECT m."materialType", COUNT(*)::int as count, SUM(mr.shortfall)::float as shortfall
@@ -2483,6 +2521,13 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
     ` as Promise<{ supplierId: string; supplierName: string; requirementCount: number; totalValue: number }[]>,
   ]);
 
+  // Billing basis: estimate = Σ (fabric-out qty × processing rate) over open PROCESSING rows
+  const processingEstimatedCost = openProcessingRows.reduce((sum: number, row: any) => {
+    if (row.processingCost == null) return sum;
+    const billable = processingBillableQty(Number(row.shortfall), resolveProcessingShrinkagePercent(row));
+    return toNumber(addCurrency(sum, multiplyCurrency(billable, row.processingCost)));
+  }, 0);
+
   return {
     totalPendingRequirements: pendingCount,
     totalShortfall: Number(shortfallSum._sum.shortfall || 0),
@@ -2493,6 +2538,7 @@ export async function getDashboardStats(): Promise<MRPDashboardStats> {
     processingRequirementsCount: processingCount,
     processingNeedingAssignment: processingNeedingAssignmentCount,
     processingPoGenerated: processingPoGeneratedCount,
+    processingEstimatedCost: toNumber(roundToCent(toCurrency(processingEstimatedCost))),
     byMaterialType: byMaterialType || [],
     bySupplier: bySupplier || [],
   };
@@ -2643,6 +2689,19 @@ export interface ProcessingJwoSeed {
   styleId: string | null;
   fabricId: string | null;
   qtyMeters: number;
+  /**
+   * Billing qty = expected finished output (qtyMeters × (1 − shrinkage)). The processor
+   * charges for the fabric he returns, not the greige he was issued. Null → billing
+   * falls back to qtySentMeters (no shrinkage step, e.g. piece-based work).
+   */
+  qtyBillable?: number | null;
+  /** Greige (loom-state) width of the material issued, e.g. 63". */
+  greigeWidthInches?: number | null;
+  /**
+   * ASKED FINISHED width (stenter target the processor must deliver) = CAD cutable
+   * width + selvedge deduction. Stored in job_work_orders.sentWidthInches.
+   */
+  askedFinishedWidthInches?: number | null;
   ratePerMeter: number;
   expectedShrinkage: number | null;
   expectedReturnDate: Date | null;
@@ -2654,6 +2713,39 @@ export interface ProcessingJwoSeed {
    * documented as metres. Optional to keep the historical backfill script working unchanged.
    */
   uom?: string;
+}
+
+/**
+ * Shrinkage % for a PROCESSING requirement, for converting between the greige meters
+ * issued to the processor and the finished meters he bills for.
+ * Priority: the requirement's own snapshot → the linked GREIGE requirement's snapshot
+ * (same MRP run; legacy PROCESSING rows never stored their own) → the rate card → 0.
+ */
+export function resolveProcessingShrinkagePercent(req: {
+  shrinkagePercentUsed?: unknown;
+  linkedRequirement?: { shrinkagePercentUsed?: unknown } | null;
+  orderBomItem?: { rateCard?: { shrinkagePercent?: unknown } | null } | null;
+}): number {
+  const candidates = [
+    req.shrinkagePercentUsed,
+    req.linkedRequirement?.shrinkagePercentUsed,
+    req.orderBomItem?.rateCard?.shrinkagePercent,
+  ];
+  for (const candidate of candidates) {
+    if (candidate == null) continue;
+    const pct = Number(candidate);
+    if (Number.isFinite(pct) && pct >= 0 && pct < 100) return pct;
+  }
+  return 0;
+}
+
+/**
+ * Billable (finished-fabric) quantity for a PROCESSING requirement. The requirement's
+ * shortfall/totalRequired are greige-basis (what to buy and issue); the processor bills
+ * for the fabric he returns = greige × (1 − shrinkage).
+ */
+export function processingBillableQty(greigeQty: number | Prisma.Decimal, shrinkagePercent: number): number {
+  return toNumber(roundToCent(applyShrinkageLoss(greigeQty, shrinkagePercent)));
 }
 
 /** MRP-15: Prisma `Unit` → the short codes job_work_orders.uom uses. */
@@ -2684,6 +2776,9 @@ export function buildJwoDataForProcessingPO(seed: ProcessingJwoSeed, jobWorkNumb
     fabricId: seed.fabricId,
     fabricType: 'GREIGE',
     qtySentMeters: seed.qtyMeters,
+    qtyBillable: seed.qtyBillable ?? null,
+    greigeWidthInches: seed.greigeWidthInches ?? null,
+    sentWidthInches: seed.askedFinishedWidthInches ?? null,
     uom: seed.uom ?? 'MTR', // MRP-15
 
     agreedRatePerMeter: seed.ratePerMeter,
@@ -2916,6 +3011,9 @@ export async function generatePOFromRequirements(
           rateCard: { select: { processingType: true, printingType: true, shrinkagePercent: true } },
         },
       },
+      // Billing basis: legacy PROCESSING rows have NULL shrinkagePercentUsed — the linked
+      // GREIGE requirement carries the % that inflated the qty, so it is the fallback.
+      linkedRequirement: { select: { shrinkagePercentUsed: true } },
     },
   });
 
@@ -3056,6 +3154,15 @@ export async function generatePOFromRequirements(
     fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
   });
 
+  // Billing basis: PROCESSING item quantities are FABRIC-out meters (what the processor
+  // bills for = shortfall × (1 − shrinkage)); the requirement's shortfall itself stays
+  // greige-basis (what to buy and physically issue). MATERIAL rows pass through unchanged.
+  // Wizard qty overrides for PROCESSING are therefore fabric-basis too.
+  const itemBaseQty = (req: (typeof requirements)[number]): number =>
+    req.requirementType === 'PROCESSING'
+      ? processingBillableQty(Number(req.shortfall), resolveProcessingShrinkagePercent(req as any))
+      : Number(req.shortfall);
+
   if (consolidate) {
     const materialGroups = new Map<string, POItemData>();
 
@@ -3076,12 +3183,12 @@ export async function generatePOFromRequirements(
 
       if (existing) {
         // Add shortfall to group (don't apply override yet — that's the second pass)
-        existing.quantity += Number(req.shortfall);
+        existing.quantity += itemBaseQty(req);
         existing.requirementIds.push(req.id);
       } else {
         materialGroups.set(key, {
           materialId: req.materialId,
-          quantity: Number(req.shortfall),
+          quantity: itemBaseQty(req),
           unit: req.unit,
           unitPrice: price,
           requirementIds: [req.id],
@@ -3116,7 +3223,7 @@ export async function generatePOFromRequirements(
         costSheetRateMap.get(req.materialId) ??
         autoPriceMap.get(req.materialId) ??
         0;
-      const baseQty = Number(req.shortfall);
+      const baseQty = itemBaseQty(req);
       const overrideQty = (itemQuantities as any)?.[groupKey] ?? (itemQuantities as any)?.[req.materialId];
       poItems.push({
         materialId: req.materialId,
@@ -3173,7 +3280,28 @@ export async function generatePOFromRequirements(
   // Greige gating is natural: material cannot be issued before the greige lot exists.
   // ============================================================================
   if (isProcessingRequirements && processingProcessType) {
-    const totalQtyMeters = poItems.reduce((sum, item) => sum + item.quantity, 0);
+    // Billing vs material basis (user rule 2026-08-17): poItems.quantity is the BILLABLE
+    // fabric-out qty (the processor charges for the finished fabric he returns); the greige
+    // to physically issue is derived per item by dividing back through that item's shrinkage.
+    // Each PROCESSING item carries exactly one requirement (buildGroupKey → req.id).
+    const reqById = new Map(requirements.map((r) => [r.id, r]));
+    const itemShrinkage = (item: (typeof poItems)[number]): number => {
+      const req = reqById.get(item.requirementIds[0]);
+      return req ? resolveProcessingShrinkagePercent(req as any) : 0;
+    };
+    const totalBillableMeters = poItems.reduce((sum, item) => sum + item.quantity, 0);
+    const totalGreigeMeters = poItems.reduce(
+      (sum, item) => sum + toNumber(roundToCent(divideByShrinkage(item.quantity, itemShrinkage(item)))),
+      0
+    );
+    // Single expectedShrinkage field on the JWO — the value implied by the two totals
+    // (equals the rate-card % for the usual single-requirement job work).
+    const impliedShrinkage =
+      totalGreigeMeters > 0
+        ? toNumber(
+            roundToCent(toCurrency(1).minus(toCurrency(totalBillableMeters).dividedBy(totalGreigeMeters)).times(100))
+          )
+        : 0;
 
     // MRP-15: the JWO stores a single qty + a single rate, but a job work order can bundle several
     // requirements. This used to take `poItems[0].unitPrice` — the FIRST item's rate — and apply it
@@ -3192,7 +3320,7 @@ export async function generatePOFromRequirements(
       (sum, item) => toNumber(addCurrency(sum, multiplyCurrency(item.quantity, item.unitPrice))),
       0
     );
-    const ratePerMeter = totalQtyMeters > 0 ? toNumber(roundToCent(totalJobValue / totalQtyMeters)) : 0;
+    const ratePerMeter = totalBillableMeters > 0 ? toNumber(roundToCent(totalJobValue / totalBillableMeters)) : 0;
     if (poItems.length > 1 && new Set(poItems.map((i) => i.unitPrice)).size > 1) {
       logWarn(
         `[MRP] Job work order bundles ${poItems.length} items at different rates — storing the value-weighted ` +
@@ -3201,6 +3329,41 @@ export async function generatePOFromRequirements(
     }
     const primary = requirements[0] as any;
     const styleCode = primary.order_items?.styles?.styleCode || 'STK';
+
+    // Widths (industry model 2026-08-18): the processor is asked for a FINISHED width
+    // (stenter target) = CAD cutable width + selvedge deduction; the greige width is what
+    // is physically issued. Cutable stays internal to marker planning.
+    const cutableWidth =
+      primary.orderBomItem?.fabricWidthInches != null
+        ? Number(primary.orderBomItem.fabricWidthInches)
+        : primary.fabricWidth != null
+          ? Number(primary.fabricWidth)
+          : null;
+    const widthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
+    const askedFinishedWidthInches = cutableWidth != null ? cutableWidth + widthDeduction : null;
+    let greigeWidthInches: number | null = null;
+    if (primary.orderBomItem?.greigeId) {
+      const greigeMaster = await prisma.greige_master.findUnique({
+        where: { id: primary.orderBomItem.greigeId },
+        select: { greigeCode: true, greigeWidth: true, expectedFinishedWidthMin: true, expectedFinishedWidthMax: true },
+      });
+      greigeWidthInches = greigeMaster?.greigeWidth != null ? Number(greigeMaster.greigeWidth) : null;
+      if (askedFinishedWidthInches != null && greigeMaster) {
+        const bandMin =
+          greigeMaster.expectedFinishedWidthMin != null ? Number(greigeMaster.expectedFinishedWidthMin) : null;
+        const bandMax =
+          greigeMaster.expectedFinishedWidthMax != null ? Number(greigeMaster.expectedFinishedWidthMax) : null;
+        if (
+          (bandMin != null && askedFinishedWidthInches < bandMin) ||
+          (bandMax != null && askedFinishedWidthInches > bandMax)
+        ) {
+          logWarn(
+            `[MRP] Asked finished width ${askedFinishedWidthInches}" is outside ${greigeMaster.greigeCode}'s ` +
+              `achievable band ${bandMin ?? '?'}–${bandMax ?? '?'}" — creating anyway; verify with the processor.`
+          );
+        }
+      }
+    }
 
     const jwoResult = await prisma.$transaction(async (tx) => {
       // Guarded status flip — same double-order race protection as the PO path
@@ -3231,13 +3394,13 @@ export async function generatePOFromRequirements(
               processType: processingProcessType!,
               styleId: primary.order_items?.styleId ?? null,
               fabricId: primary.orderBomItem?.fabricId ?? null,
-              qtyMeters: totalQtyMeters,
+              qtyMeters: toNumber(roundToCent(toCurrency(totalGreigeMeters))), // greige to issue
+              qtyBillable: toNumber(roundToCent(toCurrency(totalBillableMeters))), // fabric the processor bills for
+              greigeWidthInches,
+              askedFinishedWidthInches,
               ratePerMeter,
               uom: unitToJwoUom(jwoUom), // MRP-15: carry the requirement's real unit
-              expectedShrinkage:
-                primary.orderBomItem?.rateCard?.shrinkagePercent != null
-                  ? Number(primary.orderBomItem.rateCard.shrinkagePercent)
-                  : null,
+              expectedShrinkage: impliedShrinkage,
               expectedReturnDate: new Date(expectedDeliveryDate),
               requirementNumbers: requirements.map((r) => r.requirementNumber),
               userId,
@@ -3256,7 +3419,7 @@ export async function generatePOFromRequirements(
         if (error instanceof JobWorkOrderError && error.code === JWO_ERROR_CODES.GST_RATE_UNRESOLVED) {
           await tx.job_work_orders.update({
             where: { id: jwo.id },
-            data: { subtotal: roundToCent(totalQtyMeters * ratePerMeter).toNumber() },
+            data: { subtotal: roundToCent(totalBillableMeters * ratePerMeter).toNumber() },
           });
           logWarn(`[MRP] JWO ${jobWorkNumber} created without GST — ${processingProcessType} gstRate unresolved`);
         } else {
@@ -3288,7 +3451,11 @@ export async function generatePOFromRequirements(
           where: { requirementId: req.id },
           _sum: { allocatedQuantity: true },
         });
-        const covered = Number(allocated._sum.allocatedQuantity ?? 0);
+        // Links are billable/fabric-basis (what the processor is billed for); the
+        // requirement's shortfall is greige-basis — convert before comparing.
+        const reqShrinkage = resolveProcessingShrinkagePercent(req as any);
+        const coveredFabric = Number(allocated._sum.allocatedQuantity ?? 0);
+        const covered = toNumber(roundToCent(divideByShrinkage(coveredFabric, reqShrinkage)));
         const remainder = toNumber(subtractCurrency(Number(req.shortfall), covered));
         if (remainder <= 0.001) continue;
 
@@ -3995,13 +4162,21 @@ function getRequirementIncludes() {
         requirementType: true,
         status: true,
         totalRequired: true,
+        // Billing basis: legacy PROCESSING rows have NULL own-shrinkage; the linked
+        // GREIGE requirement carries the % used to inflate fabric → greige.
+        shrinkagePercentUsed: true,
         materials: { select: { id: true, code: true, name: true } },
       },
     },
+    // Billing basis fallback (rate card is the authority when no snapshot exists)
+    orderBomItem: { select: { rateCard: { select: { shrinkagePercent: true } } } },
   };
 }
 
 function mapToResponse(req: any): MaterialRequirementResponse {
+  // Billing basis (2026-08-17): PROCESSING quantities are stored greige-basis (what to
+  // issue), but the processor bills for the fabric he returns — expose both bases.
+  const processingShrinkage = req.requirementType === 'PROCESSING' ? resolveProcessingShrinkagePercent(req) : null;
   return {
     id: req.id,
     requirementNumber: req.requirementNumber,
@@ -4031,6 +4206,12 @@ function mapToResponse(req: any): MaterialRequirementResponse {
     // shrinkage or on a fallback average.
     shrinkagePercentUsed: req.shrinkagePercentUsed != null ? Number(req.shrinkagePercentUsed) : null,
     shrinkageSource: req.shrinkageSource || null,
+    // Billing basis — PROCESSING rows only: the fabric-out qty the processor bills for
+    // (primary display) vs the greige-basis totalRequired he is issued (secondary info).
+    effectiveShrinkagePercent: processingShrinkage,
+    billableQuantity:
+      processingShrinkage != null ? processingBillableQty(Number(req.totalRequired), processingShrinkage) : null,
+    greigeIssueQty: processingShrinkage != null ? Number(req.totalRequired) : null,
     colorName: req.colorName || null,
     componentName: req.componentName || null,
     fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
@@ -4265,12 +4446,16 @@ export async function generatePOsBySupplier(
 ): Promise<{
   purchaseOrders: Array<{ id: string; poNumber: string; supplierId: string; totalAmount: number }>;
   totalPOs: number;
+  /** PROCESSING groups create Job Work Orders — listed separately so the UI can say so. */
+  jobWorkOrders: Array<{ id: string; jobWorkNumber: string; supplierId: string; totalAmount: number }>;
+  totalJwos: number;
   totalRequirements: number;
   errors: Array<{ supplierId: string; error: string }>;
 }> {
   console.log('[MRP] Generating multiple POs from requirements', { groupCount: groups.length });
 
   const purchaseOrders: Array<{ id: string; poNumber: string; supplierId: string; totalAmount: number }> = [];
+  const jobWorkOrders: Array<{ id: string; jobWorkNumber: string; supplierId: string; totalAmount: number }> = [];
   const errors: Array<{ supplierId: string; error: string }> = [];
   let totalRequirements = 0;
 
@@ -4304,16 +4489,26 @@ export async function generatePOsBySupplier(
         userId
       );
 
-      // Phase 4c: PROCESSING groups return a Job Work Order instead of a PO —
-      // surface it in the same list with the JWO number as the document number
-      const doc = result.purchaseOrder ?? result.jobWorkOrder;
-      purchaseOrders.push({
-        id: doc?.id ?? '',
-        poNumber:
-          result.purchaseOrder?.poNumber ?? (result.jobWorkOrder ? `JWO ${result.jobWorkOrder.jobWorkNumber}` : ''),
-        supplierId: group.supplierId,
-        totalAmount: doc?.totalAmount ?? 0,
-      });
+      // Phase 4c: PROCESSING groups return a Job Work Order instead of a PO. JWOs get
+      // their own list + count (no more flattening into purchaseOrders as "JWO <n>"),
+      // so the UI reports "job work" rather than "purchase order". The dialog is updated
+      // in the same release to read totalJwos.
+      if (result.jobWorkOrder) {
+        jobWorkOrders.push({
+          id: result.jobWorkOrder.id,
+          jobWorkNumber: result.jobWorkOrder.jobWorkNumber,
+          supplierId: group.supplierId,
+          totalAmount: result.jobWorkOrder.totalAmount ?? 0,
+        });
+      }
+      if (result.purchaseOrder) {
+        purchaseOrders.push({
+          id: result.purchaseOrder.id,
+          poNumber: result.purchaseOrder.poNumber,
+          supplierId: group.supplierId,
+          totalAmount: result.purchaseOrder.totalAmount ?? 0,
+        });
+      }
 
       totalRequirements += result.linkedRequirements;
 
@@ -4333,6 +4528,7 @@ export async function generatePOsBySupplier(
 
   console.log('[MRP] Bulk PO generation complete', {
     totalPOs: purchaseOrders.length,
+    totalJwos: jobWorkOrders.length,
     totalRequirements,
     errors: errors.length,
   });
@@ -4340,6 +4536,8 @@ export async function generatePOsBySupplier(
   return {
     purchaseOrders,
     totalPOs: purchaseOrders.length,
+    jobWorkOrders,
+    totalJwos: jobWorkOrders.length,
     totalRequirements,
     errors,
   };
@@ -4677,6 +4875,9 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
             styles: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
           },
         },
+        // Billing basis for PROCESSING rows (same fallback chain as generation)
+        orderBomItem: { select: { rateCard: { select: { shrinkagePercent: true } } } },
+        linkedRequirement: { select: { shrinkagePercentUsed: true } },
       },
     });
 
@@ -4773,8 +4974,18 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         processingType: string | null;
         componentName: string | null;
         fabricWidth: number | null;
+        // PROCESSING only: greige to physically issue + the shrinkage linking it to quantity
+        greigeIssueQty: number | null;
+        shrinkagePercent: number | null;
       }
     >();
+
+    // Billing basis: PROCESSING preview quantities are FABRIC-out meters (what the
+    // processor bills for), mirroring itemBaseQty in generatePOFromRequirements.
+    const previewBaseQty = (req: (typeof requirements)[number]): number =>
+      req.requirementType === 'PROCESSING'
+        ? processingBillableQty(Number(req.shortfall), resolveProcessingShrinkagePercent(req as any))
+        : Number(req.shortfall);
 
     for (const req of requirements) {
       // P1.4 D5: Use shared buildGroupKey for consistency with generatePOFromRequirements
@@ -4782,15 +4993,19 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
 
       const existing = materialGroups.get(groupKey);
       if (existing) {
-        existing.quantity += Number(req.shortfall);
+        existing.quantity += previewBaseQty(req);
         existing.requirementIds.push(req.id);
       } else {
+        const isProcessing = req.requirementType === 'PROCESSING';
+        const reqShrinkage = isProcessing ? resolveProcessingShrinkagePercent(req as any) : 0;
         materialGroups.set(groupKey, {
           materialId: req.materialId,
-          quantity: Number(req.shortfall),
+          quantity: previewBaseQty(req),
           unit: req.unit,
           requirementIds: [req.id],
           material: req.materials,
+          greigeIssueQty: isProcessing ? Number(req.shortfall) : null,
+          shrinkagePercent: isProcessing ? reqShrinkage : null,
           // P1.3: price snapshot from first requirement in group
           snapshotPrice: req.unitPrice ? Number(req.unitPrice) : null,
           rateSource: req.rateSource || null,
@@ -4894,6 +5109,12 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         processingType: mg.processingType,
         componentName: mg.componentName,
         fabricWidth: mg.fabricWidth,
+        // PROCESSING rows: greige to issue tracks the (possibly edited) billable qty
+        greigeIssueQty:
+          mg.greigeIssueQty != null
+            ? toNumber(roundToCent(divideByShrinkage(effectiveQuantity, mg.shrinkagePercent ?? 0)))
+            : null,
+        shrinkagePercent: mg.shrinkagePercent,
       });
 
       // MRP-05: decimal accumulation of the already-rounded line amounts, matching how

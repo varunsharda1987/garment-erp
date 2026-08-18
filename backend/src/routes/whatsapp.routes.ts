@@ -10,6 +10,7 @@ import {
   staffDirectoryHandler,
   messageStaffHandler,
   sendDocumentHandler,
+  groupsHandler,
 } from '../controllers/whatsapp.controller';
 import { sendTextSchema, messageStaffSchema, sendDocumentSchema } from '../schemas/whatsapp.schema';
 
@@ -34,7 +35,11 @@ router.post('/send-text', validateBody(sendTextSchema), asyncHandler(sendTextHan
 router.get('/staff-directory', asyncHandler(staffDirectoryHandler));
 router.post('/message-staff', validateBody(messageStaffSchema), asyncHandler(messageStaffHandler));
 
-// Send a generated document PDF (invoice/quotation/order/PO) into a chat via the sender's number.
+// The current user's WhatsApp groups (id + name) — recipient picker for document sharing.
+router.get('/groups', asyncHandler(groupsHandler));
+
+// Send a generated document PDF (invoice/quotation/order/PO/JWO) into one or more chats
+// via the sender's number.
 router.post('/send-document', validateBody(sendDocumentSchema), asyncHandler(sendDocumentHandler));
 
 export default router;

@@ -425,6 +425,30 @@ export async function sendPdfForUser(
   return { to: chatId };
 }
 
+/**
+ * List the user's WhatsApp groups (id + name), for the recipient picker when sharing
+ * documents (e.g. job work orders). Ported from the Kasya B2B sales app. A read-only,
+ * idempotent lookup — safe to retry ONCE through a stale-page soft reset (unlike sends).
+ */
+export async function listGroupsForUser(userId: string): Promise<Array<{ id: string; name: string }>> {
+  const s = getOrCreateSession(userId);
+  s.lastUsedAt = Date.now();
+  const run = async () => {
+    const chats = await assertLinked(userId).getChats();
+    return chats
+      .filter((c) => c.isGroup)
+      .map((c) => ({ id: c.id._serialized, name: c.name || c.id.user }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  };
+  try {
+    return await run();
+  } catch (e) {
+    if (!isStalePageError(e)) throw e;
+    await softReset(userId);
+    return await run();
+  }
+}
+
 // ── Lifecycle ───────────────────────────────────────────────────────────────
 
 let sweepTimer: ReturnType<typeof setInterval> | null = null;

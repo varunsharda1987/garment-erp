@@ -336,7 +336,7 @@ export default function EmbroideryPieceSendOut() {
       {selectedWorkOrderId && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">2. Select Embroidery Service PO & Design</CardTitle>
+            <CardTitle className="text-base">2. Select Job Work Order & Design</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {pos.length === 0 ? (
@@ -346,10 +346,10 @@ export default function EmbroideryPieceSendOut() {
               </p>
             ) : (
               <div>
-                <Label>Service PO (Required)</Label>
+                <Label>Job Work Order (Required)</Label>
                 <Select value={selectedPOId} onValueChange={setSelectedPOId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select PO..." />
+                    <SelectValue placeholder="Select job work order..." />
                   </SelectTrigger>
                   <SelectContent>
                     {pos.map((po) => (

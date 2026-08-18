@@ -1,7 +1,12 @@
 /**
- * Bulk PO Generation Dialog — Two-Step Flow
- * Step 1: Group by supplier, set dates/remarks
+ * Bulk PO / Job Work Generation Dialog — Two-Step Flow
+ * Step 1: Group by supplier/processor, set dates/remarks
  * Step 2: Review/edit prices + GST preview → Generate
+ *
+ * mode='PO'      → MATERIAL requirements → purchase orders (Material tab)
+ * mode='JOBWORK' → PROCESSING requirements → job work orders (Outsourced tab).
+ *   Quantities are BILLABLE fabric-out meters (the processor charges for the fabric he
+ *   returns); the greige to physically issue is shown as secondary info per line.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -35,9 +40,11 @@ import { groupRequirementsBySupplier, bulkGeneratePOs, previewPOs } from '@/serv
 import type { MaterialRequirement, POPreviewGroup, POPreviewItem } from '@/types/mrp.types';
 import { COMPANY_CONFIG } from '@/config/company.config';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
+import { billableFromGreige, greigeFromBillable } from '@/utils/shrinkage';
 
 interface POGenerationResult {
   totalPOs: number;
+  totalJwos?: number;
   errors: Array<{ supplierId: string; error: string }>;
 }
 
@@ -46,6 +53,8 @@ interface BulkPOGenerationDialogProps {
   onOpenChange: (open: boolean) => void;
   requirementIds: string[];
   onComplete?: (result?: POGenerationResult) => void;
+  /** 'PO' (default) = material purchase orders; 'JOBWORK' = processing job work orders. */
+  mode?: 'PO' | 'JOBWORK';
 }
 
 interface SupplierGroup {
@@ -63,7 +72,10 @@ export default function BulkPOGenerationDialog({
   onOpenChange,
   requirementIds,
   onComplete,
+  mode = 'PO',
 }: BulkPOGenerationDialogProps) {
+  const isJobWork = mode === 'JOBWORK';
+  const partyNoun = isJobWork ? 'Processor' : 'Supplier';
   const [step, setStep] = useState<Step>('grouping');
   const [loading, setLoading] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -139,10 +151,15 @@ export default function BulkPOGenerationDialog({
     setSupplierGroups((prev) => prev.map((group) => (group.supplierId === supplierId ? { ...group, remarks } : group)));
   };
 
+  // Billing basis: PROCESSING quantities display as fabric-out meters (what the processor
+  // bills for); the stored shortfall/totalRequired stay greige-basis (what is issued).
+  const billableOf = (req: MaterialRequirement, greigeQty: number): number =>
+    req.requirementType === 'PROCESSING' ? billableFromGreige(greigeQty, req.effectiveShrinkagePercent) : greigeQty;
+
   const calculateTotal = (requirements: MaterialRequirement[]): number => {
     return requirements.reduce((total, req) => {
       const quantity = req.shortfall > 0 ? req.shortfall : req.totalRequired;
-      return total + quantity;
+      return total + billableOf(req, quantity);
     }, 0);
   };
 
@@ -320,12 +337,18 @@ export default function BulkPOGenerationDialog({
 
       const result = await bulkGeneratePOs(groups);
 
-      handleApiSuccess(
-        'PO Generation Complete',
-        `${result.totalPOs} purchase order(s) created with GST${
-          result.errors.length > 0 ? ` (${result.errors.length} failed)` : ''
-        }`
-      );
+      const failedSuffix = result.errors.length > 0 ? ` (${result.errors.length} failed)` : '';
+      if (isJobWork) {
+        handleApiSuccess(
+          'Job Work Generation Complete',
+          `${result.totalJwos ?? 0} job work order(s) created with GST${failedSuffix} — dispatch from Job Work Orders`
+        );
+      } else {
+        handleApiSuccess(
+          'PO Generation Complete',
+          `${result.totalPOs} purchase order(s) created with GST${failedSuffix}`
+        );
+      }
 
       if (result.errors.length > 0) {
         result.errors.forEach((error) => {
@@ -336,7 +359,7 @@ export default function BulkPOGenerationDialog({
       onOpenChange(false);
       onComplete?.(result);
     } catch (err) {
-      handleApiError(err, 'Failed to generate purchase orders');
+      handleApiError(err, isJobWork ? 'Failed to generate job work orders' : 'Failed to generate purchase orders');
     } finally {
       setIsGenerating(false);
     }
@@ -358,10 +381,16 @@ export default function BulkPOGenerationDialog({
               <ShoppingCart className="h-6 w-6 text-success" />
             </div>
             <div>
-              <DialogTitle>{step === 'grouping' ? 'Bulk PO Generation' : 'Review Prices & GST'}</DialogTitle>
+              <DialogTitle>
+                {step === 'grouping'
+                  ? isJobWork
+                    ? 'Bulk Job Work Generation'
+                    : 'Bulk PO Generation'
+                  : 'Review Prices & GST'}
+              </DialogTitle>
               <DialogDescription className="mt-1">
                 {step === 'grouping'
-                  ? `Step 1: Configure ${requirementIds.length} requirement(s) for PO generation`
+                  ? `Step 1: Configure ${requirementIds.length} requirement(s) for ${isJobWork ? 'job work' : 'PO'} generation`
                   : `Step 2: Review and edit prices, verify GST before generating`}
               </DialogDescription>
             </div>
@@ -394,7 +423,7 @@ export default function BulkPOGenerationDialog({
                         <Users className="h-4 w-4 text-success" />
                         <div className="text-2xl font-bold text-success">{groupedData.summary.totalSuppliers}</div>
                       </div>
-                      <div className="text-xs text-success">Suppliers</div>
+                      <div className="text-xs text-success">{partyNoun}s</div>
                     </div>
                     <div className="bg-primary/10 border border-orange-200 rounded-lg p-3 text-center">
                       <div className="flex items-center justify-center gap-2 mb-1">
@@ -410,8 +439,9 @@ export default function BulkPOGenerationDialog({
                   <Alert variant="destructive" className="mb-4">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>
-                      {groupedData.unassigned.length} requirement(s) have no assigned vendor. Please use "Assign
-                      Vendors" to assign suppliers before generating POs.
+                      {isJobWork
+                        ? `${groupedData.unassigned.length} requirement(s) have no assigned processor. Please use "Assign Processors" before generating job work.`
+                        : `${groupedData.unassigned.length} requirement(s) have no assigned vendor. Please use "Assign Vendors" to assign suppliers before generating POs.`}
                     </AlertDescription>
                   </Alert>
                 )}
@@ -440,8 +470,17 @@ export default function BulkPOGenerationDialog({
                               <div key={r.id} className="border-b last:border-b-0 pb-2 last:pb-0">
                                 <div className="flex items-center justify-between">
                                   <span className="font-medium">{r.material?.name || 'Unknown'}</span>
-                                  <span className="font-bold text-primary">
-                                    {Number(r.shortfall).toLocaleString()} {r.unit}
+                                  <span className="text-right">
+                                    <span className="font-bold text-primary">
+                                      {billableOf(r, Number(r.shortfall)).toLocaleString()} {r.unit}
+                                    </span>
+                                    {r.requirementType === 'PROCESSING' &&
+                                      billableOf(r, Number(r.shortfall)) !== Number(r.shortfall) && (
+                                        <span className="block text-[10px] text-muted-foreground font-normal">
+                                          Issue: {Number(r.shortfall).toLocaleString()} {r.unit} greige (+
+                                          {Number(r.effectiveShrinkagePercent)}% shrink)
+                                        </span>
+                                      )}
                                   </span>
                                 </div>
                                 <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
@@ -684,6 +723,18 @@ export default function BulkPOGenerationDialog({
                                       value={editedQuantities[group.supplierId]?.[itemKey] ?? item.quantity}
                                       onChange={(e) => handleQuantityChange(group.supplierId, itemKey, e.target.value)}
                                     />
+                                    {/* Job work bills on fabric-out; show the greige to physically issue */}
+                                    {item.greigeIssueQty != null && (
+                                      <div className="text-[10px] text-muted-foreground mt-0.5 whitespace-nowrap">
+                                        Issue:{' '}
+                                        {greigeFromBillable(
+                                          editedQuantities[group.supplierId]?.[itemKey] ?? item.quantity,
+                                          item.shrinkagePercent
+                                        ).toLocaleString()}{' '}
+                                        {item.unit} greige
+                                        {item.shrinkagePercent ? ` (+${item.shrinkagePercent}% shrink)` : ''}
+                                      </div>
+                                    )}
                                   </TableCell>
                                   <TableCell className="text-xs">{item.unit}</TableCell>
                                   <TableCell className="text-xs text-right">
@@ -751,7 +802,8 @@ export default function BulkPOGenerationDialog({
               <Alert variant="destructive" className="mt-2">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
-                  Some items have zero price. Please set prices for all items before generating POs.
+                  Some items have zero price. Please set prices for all items before generating{' '}
+                  {isJobWork ? 'job work orders' : 'POs'}.
                 </AlertDescription>
               </Alert>
             )}
@@ -765,12 +817,15 @@ export default function BulkPOGenerationDialog({
                 {isGenerating ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Generating POs...
+                    {isJobWork ? 'Generating Job Work...' : 'Generating POs...'}
                   </>
                 ) : (
                   <>
                     <ShoppingCart className="h-4 w-4 mr-2" />
-                    Generate {previewData.length} PO{previewData.length !== 1 ? 's' : ''}
+                    Generate {previewData.length}{' '}
+                    {isJobWork
+                      ? `Job Work Order${previewData.length !== 1 ? 's' : ''}`
+                      : `PO${previewData.length !== 1 ? 's' : ''}`}
                   </>
                 )}
               </Button>

@@ -8,7 +8,14 @@ import prisma from '../../config/database';
 import { Prisma } from '@prisma/client';
 import Decimal from 'decimal.js';
 import { NotFoundError } from '../../errors';
-import { addCurrency, divideCurrency, multiplyCurrency, roundToCent, toCurrency } from '../../utils/currency';
+import {
+  addCurrency,
+  applyShrinkageLoss,
+  divideCurrency,
+  multiplyCurrency,
+  roundToCent,
+  toCurrency,
+} from '../../utils/currency';
 import { buildCompanyBlock, CompanyBlock } from './company-block';
 import { EM_DASH, fmtDate, fmtMoney, fmtPct, fmtQty } from './format';
 
@@ -254,10 +261,13 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
   const toleranceStr = fmtPct(toleranceRaw != null ? Number(toleranceRaw) : null);
 
   const qtySent = toCurrency(jwo.qtySentMeters);
+  // Expected output = the billable qty when stored (billing basis: the processor charges
+  // for the finished goods returned); derived from shrinkage for legacy rows without it.
   let expectedQty = qtySent;
-  if (ptm?.processCategory === 'FABRIC') {
-    const shrinkFactor = toCurrency(1).minus(toCurrency(jwo.expectedShrinkage ?? 0).dividedBy(100));
-    expectedQty = multiplyCurrency(qtySent, shrinkFactor);
+  if (jwo.qtyBillable != null) {
+    expectedQty = toCurrency(jwo.qtyBillable);
+  } else if (ptm?.processCategory === 'FABRIC') {
+    expectedQty = applyShrinkageLoss(qtySent, jwo.expectedShrinkage ?? 0);
   }
   const expQtyStr = fmtQty(expectedQty.toNumber(), isMeters ? 'MTR' : 'PCS');
 
@@ -298,13 +308,20 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     const computed = running != null ? roundToCent(running).toNumber() : null;
     chargesValue = jwo.subtotal != null ? Number(jwo.subtotal) : computed;
   } else {
+    // Charges are billed on the finished goods returned (qtyBillable), not the greige
+    // issued — same basis as computeCommercialTotals, so document and DB always agree.
     const computed = jwo.isRateTbd
       ? null
-      : roundToCent(multiplyCurrency(jwo.qtySentMeters, jwo.agreedRatePerMeter)).toNumber();
+      : roundToCent(multiplyCurrency(jwo.qtyBillable ?? jwo.qtySentMeters, jwo.agreedRatePerMeter)).toNumber();
     chargesValue = jwo.subtotal != null ? Number(jwo.subtotal) : computed;
+    // Widths on the processor-facing row: the FINISHED (stenter) width he must deliver,
+    // with the greige loom width for reference (also covers pre-issue orders with no lot row).
+    const widthSpecParts: string[] = [];
+    if (jwo.sentWidthInches != null) widthSpecParts.push(`Finish width ${fmtQty(Number(jwo.sentWidthInches))}″`);
+    if (jwo.greigeWidthInches != null) widthSpecParts.push(`greige ${fmtQty(Number(jwo.greigeWidthInches))}″`);
     chargeRows.push({
       item: outputItem,
-      subline: null,
+      subline: widthSpecParts.length ? widthSpecParts.join(' · ') : null,
       spec: specStr,
       expQty: expQtyStr,
       tolerance: toleranceStr,

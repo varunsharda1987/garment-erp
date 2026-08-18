@@ -65,7 +65,7 @@ export const createFabricStock = async (req: Request, res: Response) => {
   logInfo('User ID:', userId);
 
   // BUG-GR8 fix: Use configurable cutable width deduction from system settings
-  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+  const cutableWidthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
 
   // Validate fabric exists
   const fabric = await prisma.fabric_master.findUnique({

@@ -27,6 +27,24 @@ export interface StaffContact {
   whatsappNumber: string;
 }
 
+/** One of the linked account's WhatsApp groups (recipient picker for document sharing). */
+export interface WaGroup {
+  id: string; // serialized chat id, e.g. 1203...@g.us
+  name: string;
+}
+
+/**
+ * Normalize a raw phone into a WhatsApp-sendable number: strip non-digits and leading
+ * zeros, add the 91 country code to bare 10-digit Indian numbers. Null = not usable.
+ * (Ported from the Kasya B2B sales app.)
+ */
+export function toWaNumber(raw?: string | null): string | null {
+  if (!raw) return null;
+  let digits = raw.replace(/\D/g, '').replace(/^0+/, '');
+  if (digits.length === 10) digits = `91${digits}`;
+  return digits.length >= 11 && digits.length <= 13 ? digits : null;
+}
+
 export const whatsappService = {
   // ── Linking (the logged-in user's own session) ──
   getStatus: async (): Promise<WhatsAppStatus> => {
@@ -49,12 +67,24 @@ export const whatsappService = {
   },
 
   sendDocument: async (payload: {
-    type: 'invoice' | 'quotation' | 'order' | 'purchaseOrder';
+    type: 'invoice' | 'quotation' | 'order' | 'purchaseOrder' | 'jobWorkOrder';
     id: string;
-    to: string;
+    /** Single recipient (legacy callers). Provide this OR `recipients`. */
+    to?: string;
     caption?: string;
-  }): Promise<{ to: string }> => {
-    const res = await api.post<{ data: { to: string }; message: string }>('/whatsapp/send-document', payload);
+    /** Multi-recipient fan-out — the PDF is generated once server-side. */
+    recipients?: Array<{ to: string; label?: string }>;
+  }): Promise<{ to?: string; results?: WaSendResult[] }> => {
+    const res = await api.post<{ data: { to?: string; results?: WaSendResult[] }; message: string }>(
+      '/whatsapp/send-document',
+      payload
+    );
+    return res.data.data;
+  },
+
+  /** The linked account's WhatsApp groups (requires a ready session). */
+  getGroups: async (): Promise<WaGroup[]> => {
+    const res = await api.get<{ data: WaGroup[] }>('/whatsapp/groups');
     return res.data.data;
   },
 

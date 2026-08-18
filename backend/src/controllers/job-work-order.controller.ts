@@ -18,6 +18,7 @@ import { createChallan } from '../services/challan.service';
 import greigeStockService from '../services/greige-stock.service';
 import { Unit, Prisma } from '@prisma/client';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
+import { multiplyCurrency, roundToCent } from '../utils/currency';
 import type { CreateJobWorkOrderInput, AddJwoComponentInput, CloseJwoInput } from '../schemas/jobWorkOrder.schema';
 
 // jwoStatus values from which material has NOT yet been issued (components may change)
@@ -28,7 +29,8 @@ const RECEIVED_LEGACY_STATUSES = ['RECEIVED', 'QUALITY_CHECKED', 'STOCK_UPDATED'
 // Standard includes for JWO queries
 const jwoInclude = {
   processor: {
-    select: { id: true, name: true, code: true },
+    // phone/contactPerson: prefill for the "Send via WhatsApp" recipient picker
+    select: { id: true, name: true, code: true, phone: true, contactPerson: true },
   },
   style: {
     select: { id: true, styleCode: true, buyerStyleRef: true },
@@ -586,6 +588,34 @@ class JobWorkOrderController {
         }
       }
 
+      // Settlement on actuals (2026-08-17): the processor's final bill is for the fabric
+      // meters actually delivered — re-anchor the billable qty to the received qty and
+      // recompute the commercial totals before freezing the order. MTR fabric jobs only;
+      // piece-based jobs settle at the agreed count.
+      if (jwo.uom === 'MTR' && jwo.qtyReceivedMeters != null && Number(jwo.qtyReceivedMeters) > 0) {
+        const receivedQty = Number(jwo.qtyReceivedMeters);
+        const priorBillable = jwo.qtyBillable != null ? Number(jwo.qtyBillable) : null;
+        if (priorBillable !== receivedQty) {
+          await prisma.job_work_orders.update({ where: { id }, data: { qtyBillable: receivedQty } });
+          try {
+            await jobWorkOrderService.computeCommercialTotals(id);
+          } catch (error) {
+            if (error instanceof JobWorkOrderError && error.code === JWO_ERROR_CODES.GST_RATE_UNRESOLVED) {
+              await prisma.job_work_orders.update({
+                where: { id },
+                data: { subtotal: roundToCent(multiplyCurrency(receivedQty, jwo.agreedRatePerMeter)).toNumber() },
+              });
+            } else {
+              throw error;
+            }
+          }
+          logger.info(
+            `[JWO] ${jwo.jobWorkNumber} settled on actual received ${receivedQty} MTR` +
+              (priorBillable != null ? ` (estimate was ${priorBillable})` : '')
+          );
+        }
+      }
+
       const updated = await prisma.job_work_orders.update({
         where: { id },
         data: {
@@ -836,6 +866,7 @@ class JobWorkOrderController {
       const fabricLotId: string | null = !lotId ? fabricStockLotId || jwo.fabricStockLotId || null : null;
 
       // Greige consumption — validate availability before touching anything
+      let issuedGreigeWidth: number | null = null;
       if (lotId) {
         const lot = await prisma.greige_stock.findUnique({ where: { id: lotId } });
         if (!lot) {
@@ -848,6 +879,8 @@ class JobWorkOrderController {
             message: `Insufficient greige stock: ${Number(lot.quantityAvailable)}m available, ${Number(jwo.qtySentMeters)}m needed.`,
           });
         }
+        // The lot's loom width — stamped onto the JWO below when creation didn't set it
+        issuedGreigeWidth = lot.greigeWidth != null ? Number(lot.greigeWidth) : null;
         await greigeStockService.consumeGreigeStock(lotId, Number(jwo.qtySentMeters), userId);
       } else if (fabricLotId) {
         // Phase 5b fabric-lot issue (mirrors the retired embroidery-stock send-out, but the
@@ -950,6 +983,10 @@ class JobWorkOrderController {
           greigeStockLotId: lotId,
           fabricStockLotId: fabricLotId ?? jwo.fabricStockLotId,
           outwardChallanId: challan.id,
+          // Actual lot width wins silence: fill only when creation didn't already set it
+          ...(jwo.greigeWidthInches == null && issuedGreigeWidth != null
+            ? { greigeWidthInches: issuedGreigeWidth }
+            : {}),
         },
         include: jwoInclude,
       });

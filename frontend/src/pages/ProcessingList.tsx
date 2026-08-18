@@ -226,7 +226,7 @@ export default function ProcessingList() {
       setTotalItems(dyeResponse.pagination.total + printResponse.pagination.total);
       setTotalPages(Math.max(dyeResponse.pagination.totalPages, printResponse.pagination.totalPages));
     } catch (err: unknown) {
-      const errorMessage = handleApiError(err, 'Failed to load process POs', false);
+      const errorMessage = handleApiError(err, 'Failed to load job work orders', false);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -1026,7 +1026,7 @@ export default function ProcessingList() {
             <CardContent className="p-4">
               <div className="flex flex-wrap gap-4">
                 <div className="w-64">
-                  <SearchInput placeholder="Search process POs..." value={searchQuery} onChange={setSearchQuery} />
+                  <SearchInput placeholder="Search job work orders..." value={searchQuery} onChange={setSearchQuery} />
                 </div>
                 <div className="w-40">
                   <Select
@@ -1102,8 +1102,8 @@ export default function ProcessingList() {
                     navigate(route);
                   }}
                   emptyState={{
-                    title: 'No process POs found',
-                    description: 'Get started by creating a new process PO',
+                    title: 'No job work orders found',
+                    description: 'Get started by creating a new job work order',
                   }}
                   pagination={{
                     currentPage,

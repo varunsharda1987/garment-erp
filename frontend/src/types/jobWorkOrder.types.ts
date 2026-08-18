@@ -73,6 +73,9 @@ export interface JobWorkOrder {
   fabricType?: string;
   reprocessReason?: string;
   qtySentMeters: number;
+  /** Greige (loom-state) width of the material issued, e.g. 63". */
+  greigeWidthInches?: number | null;
+  /** ASKED FINISHED width (stenter target the processor must deliver) = cutable + selvedge deduction. */
   sentWidthInches?: number;
   uom: string;
   sentDate?: string;
@@ -80,6 +83,8 @@ export interface JobWorkOrder {
   vehicleNumber?: string;
   expectedReturnDate?: string;
   expectedShrinkage?: number;
+  /** Billing qty = expected fabric-out (sent × (1 − shrinkage)). Null = bills on qtySentMeters. */
+  qtyBillable?: number | null;
   agreedRatePerMeter: number;
   isRateTbd: boolean;
   qtyReceivedMeters?: number;
@@ -130,7 +135,7 @@ export interface JobWorkOrder {
   qtyAbnormalLoss?: number;
 
   // Relations
-  processor?: { id: string; name: string; code: string };
+  processor?: { id: string; name: string; code: string; phone?: string | null; contactPerson?: string | null };
   style?: { id: string; styleCode: string; buyerStyleRef?: string };
   fabric?: { id: string; fabricCode: string; fabricName: string };
   processTypeMaster?: {

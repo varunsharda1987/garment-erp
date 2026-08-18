@@ -171,7 +171,7 @@ export default function DyeingList() {
       setTotalPages(response.pagination.totalPages);
       setTotalItems(response.pagination.total);
     } catch (err: unknown) {
-      const errorMessage = handleApiError(err, 'Failed to load process POs', false);
+      const errorMessage = handleApiError(err, 'Failed to load job work orders', false);
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -765,7 +765,7 @@ export default function DyeingList() {
           <Droplets className="h-8 w-8 text-info" />
           <div>
             <h1 className="text-2xl font-display font-medium text-foreground">Dyeing</h1>
-            <p className="text-muted-foreground">Manage lab dips and process POs</p>
+            <p className="text-muted-foreground">Manage lab dips and job work orders</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -956,7 +956,7 @@ export default function DyeingList() {
             <CardContent>
               <div className="flex flex-wrap gap-4">
                 <div className="w-64">
-                  <SearchInput placeholder="Search process POs..." value={searchQuery} onChange={setSearchQuery} />
+                  <SearchInput placeholder="Search job work orders..." value={searchQuery} onChange={setSearchQuery} />
                 </div>
                 <div className="w-48">
                   <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
@@ -1009,8 +1009,8 @@ export default function DyeingList() {
                   loading={isLoading}
                   onRowClick={(item) => navigate(`/manufacturing/dyeing/job-work/${item.id}`)}
                   emptyState={{
-                    title: 'No process POs found',
-                    description: 'Get started by creating a new process PO',
+                    title: 'No job work orders found',
+                    description: 'Get started by creating a new job work order',
                   }}
                   pagination={{
                     currentPage,

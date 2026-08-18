@@ -280,11 +280,13 @@ class GRNService {
 
           // Update fabric_master actual width if finished fabric exists
           if (processingJob.finishedFabricId && receivedWidthInches) {
+            const widthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
             await tx.fabric_master.update({
               where: { id: processingJob.finishedFabricId },
               data: {
                 actualWidth: receivedWidthInches,
-                cutableWidth: receivedWidthInches > 2 ? receivedWidthInches - 2 : receivedWidthInches,
+                cutableWidth:
+                  receivedWidthInches > widthDeduction ? receivedWidthInches - widthDeduction : receivedWidthInches,
               },
             });
           }
@@ -2603,7 +2605,10 @@ class GRNService {
 
     const grnItem = grn.grn_items?.[0];
     const qtyReceived = grnItem ? Number(grnItem.acceptedQuantity || grnItem.receivedQuantity || 0) : 0;
-    const receivedWidth = grnItem?.receivedWidthInches ? Number(grnItem.receivedWidthInches) : 44;
+    // Measured finished width from the GRN item; the 44 fallback is for stock creation
+    // only and is never stamped onto the JWO as a "measured" value.
+    const receivedWidthProvided = grnItem?.receivedWidthInches != null ? Number(grnItem.receivedWidthInches) : null;
+    const receivedWidth = receivedWidthProvided ?? 44;
     if (qtyReceived <= 0) {
       logWarn('PO-less JWO GRN approved with zero accepted quantity — no stock created', {
         grnId,
@@ -2655,7 +2660,8 @@ class GRNService {
         ? Number(jobWorkOrder.greigeStockLot.purchaseCost)
         : 0;
     const totalCostPerMeter = roundToCent(addCurrency(processingRate, sourceCost)).toNumber();
-    const cutableWidth = receivedWidth > 2 ? receivedWidth - 2 : receivedWidth;
+    const widthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
+    const cutableWidth = receivedWidth > widthDeduction ? receivedWidth - widthDeduction : receivedWidth;
     // Shared timestamp: GRN reversal matches fabric_stock by exact receivedDate equality
     const receivedAt = new Date();
 
@@ -2701,6 +2707,15 @@ class GRNService {
         receivedDate: jobWorkOrder.receivedDate ?? receivedAt,
         grnId,
         status: 'STOCK_UPDATED',
+        // Measured finished width + variance vs the asked finished width (sentWidthInches)
+        ...(receivedWidthProvided != null
+          ? {
+              receivedWidthInches: receivedWidthProvided,
+              ...(jobWorkOrder.sentWidthInches != null
+                ? { widthVariance: receivedWidthProvided - Number(jobWorkOrder.sentWidthInches) }
+                : {}),
+            }
+          : {}),
         ...(processingQC
           ? {
               qualityGrade: processingQC.qualityGrade,

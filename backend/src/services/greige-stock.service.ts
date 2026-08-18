@@ -136,7 +136,7 @@ class GreigeStockService {
 
       // BUG-GR8 fix: Cutable width deduction is configurable via system settings
       // Default: 2 (i.e., cutableWidth = greigeWidth - 2)
-      const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+      const cutableWidthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
       // BUG-GR9 fix: Quality grade default is configurable via system settings
       // Default: 'A' (i.e., Grade A quality)
       const defaultQualityGrade = await systemSettingsService.getString('GREIGE_DEFAULT_QUALITY_GRADE', 'A');

@@ -303,7 +303,9 @@ class JobWorkOrderService {
       throw new Error(`Job work order ${jwoId} not found`);
     }
 
-    const qtyMeters = toCurrency(jwo.qtySentMeters);
+    // Billing basis: the processor charges for the finished goods returned (qtyBillable),
+    // not the greige issued (qtySentMeters). NULL qtyBillable = legacy/piece-based jobs.
+    const qtyMeters = toCurrency(jwo.qtyBillable ?? jwo.qtySentMeters);
     const ratePerMeter = toCurrency(jwo.agreedRatePerMeter);
     const subtotal = multiplyCurrency(qtyMeters, ratePerMeter);
 

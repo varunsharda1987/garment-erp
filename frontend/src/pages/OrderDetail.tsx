@@ -792,7 +792,7 @@ export default function OrderDetail() {
                       </div>
                       <div className="bg-card rounded-lg p-3 text-center border border-accent/15">
                         <div className="text-2xl font-bold text-info">{serviceSummary.poGenerated}</div>
-                        <div className="text-xs text-info">PO Generated</div>
+                        <div className="text-xs text-info">JWO Created</div>
                       </div>
                       <div className="bg-card rounded-lg p-3 text-center border border-accent/15">
                         <div className="text-2xl font-bold text-success">{serviceSummary.completed}</div>

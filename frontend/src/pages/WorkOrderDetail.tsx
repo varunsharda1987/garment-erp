@@ -652,7 +652,7 @@ export default function WorkOrderDetail() {
                           {serviceRequirementsSummary.poGeneratedCount + serviceRequirementsSummary.completedCount}
                         </div>
                       </div>
-                      <div className="text-xs text-success">PO Generated</div>
+                      <div className="text-xs text-success">JWO Created</div>
                     </div>
 
                     <div className="bg-accent/10 border border-accent/20 rounded-lg p-4 text-center">
@@ -727,7 +727,7 @@ export default function WorkOrderDetail() {
                             className="text-success border-success hover:bg-success-muted"
                           >
                             <ShoppingCart className="h-4 w-4 mr-1" />
-                            Generate Service POs
+                            Generate Job Work
                           </Button>
                         )}
                     </div>

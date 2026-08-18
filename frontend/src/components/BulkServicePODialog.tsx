@@ -1,6 +1,6 @@
 /**
- * Bulk Service PO Generation Dialog
- * Dialog for generating multiple service purchase orders from grouped requirements
+ * Bulk Service Job Work Generation Dialog
+ * Dialog for generating job work orders from grouped service requirements (Phase 5a: JWO-only)
  */
 
 import { useState, useEffect } from 'react';
@@ -255,7 +255,7 @@ export default function BulkServicePODialog({
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
                   {groupedData.unassigned.length} service requirement(s) have no assigned processor. Please use "Assign
-                  Processors" to assign before generating POs.
+                  Processors" to assign before generating job work orders.
                 </AlertDescription>
               </Alert>
             )}

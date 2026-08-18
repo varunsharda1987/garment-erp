@@ -205,7 +205,8 @@ export default function UnifiedRequirementsPage() {
   const poGenerated =
     (mrpStats?.poInProgress || 0) + (mrpStats?.processingPoGenerated || 0) + (serviceStats?.poGeneratedCount || 0);
   const overdueCount = mrpStats?.overdueRequirements || 0;
-  const estimatedValue = serviceStats?.estimatedTotalCost || 0;
+  // Est. Service Cost = work-order services + open processing job work (billable fabric-out basis)
+  const estimatedValue = (serviceStats?.estimatedTotalCost || 0) + (mrpStats?.processingEstimatedCost || 0);
 
   // ─── Tab Switch ────────────────────────────────────────────
 
@@ -303,7 +304,7 @@ export default function UnifiedRequirementsPage() {
           <CardContent className="pt-4 pb-3">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground">PO Generated</p>
+                <p className="text-xs text-muted-foreground">PO / JWO Generated</p>
                 <p className="text-xl font-bold text-success">{poGenerated}</p>
               </div>
               <div className="h-9 w-9 rounded-full bg-success-muted flex items-center justify-center">
@@ -1241,7 +1242,9 @@ interface OutsourcedRow {
   referenceLink?: string; // navigation path
   processor: string;
   processorAssigned: boolean;
-  quantity: string; // "100 MTR"
+  quantity: string; // "100 MTR" — for PROCESSING this is the BILLABLE fabric-out qty
+  /** PROCESSING only: greige to physically issue, when it differs from the billable qty. */
+  greigeIssueInfo?: string | null;
   // MRP-28: one "Est. Cost" column used to show a PER-UNIT rate for processing rows and a TOTAL
   // for service rows, so in the merged view the column meant nothing. Both are now carried
   // explicitly: rate for reference, total as the comparable figure.
@@ -1750,7 +1753,7 @@ function OutsourcedWorkTab({
   // per-source, and in the merged "all" view only the statuses both sides understand are offered.
   const MATERIAL_STATUS_OPTIONS = [
     { value: 'PENDING', label: 'Pending' },
-    { value: 'PO_REQUIRED', label: 'PO Required' },
+    { value: 'PO_REQUIRED', label: 'Job Work Required' },
     { value: 'PARTIAL_STOCK', label: 'Partial Stock' },
     { value: 'PO_GENERATED', label: 'JWO Created' },
     { value: 'PO_SENT', label: 'Sent to Processor' },
@@ -1890,16 +1893,31 @@ function OutsourcedWorkTab({
           referenceLink: req.orderId ? `/orders/${req.orderId}` : undefined,
           processor: req.processor?.name || req.preferredSupplier?.name || 'Not Assigned',
           processorAssigned: !!(req.processorId || req.preferredSupplierId),
-          quantity: formatQuantity(req.totalRequired, req.unit),
+          // Billing basis: show the fabric-out qty the processor bills for; the greige to
+          // physically issue rides along as secondary info.
+          quantity: formatQuantity(req.billableQuantity ?? req.totalRequired, req.unit),
+          greigeIssueInfo:
+            req.billableQuantity != null && req.billableQuantity !== Number(req.totalRequired)
+              ? `Issue: ${formatQuantity(req.totalRequired, req.unit)} greige (+${req.effectiveShrinkagePercent}% shrink)`
+              : null,
           // processingCost is a per-unit rate (the convert-to-greige dialog labels it
-          // "Processing Cost (per unit)"), so the comparable total is rate × quantity.
+          // "Processing Cost (per unit)"), so the comparable total is rate × billable quantity.
           costRate: req.processingCost ?? null,
-          costTotal: req.processingCost != null ? Number(req.processingCost) * Number(req.totalRequired) : null,
+          costTotal:
+            req.processingCost != null
+              ? Number(req.processingCost) * Number(req.billableQuantity ?? req.totalRequired)
+              : null,
           status: req.status,
           statusColor: MaterialRequirementStatusColors[req.status] || 'bg-muted text-foreground',
-          // Phase 4c: PROCESSING uses JWOs, not POs — show "JWO Created" instead of "PO Generated"
+          // Phase 4c: PROCESSING uses JWOs, not POs — job-work vocabulary for every status
           statusLabel:
-            req.status === 'PO_GENERATED' ? 'JWO Created' : MaterialRequirementStatusLabels[req.status] || req.status,
+            req.status === 'PO_GENERATED'
+              ? 'JWO Created'
+              : req.status === 'PO_REQUIRED'
+                ? 'Job Work Required'
+                : req.status === 'PO_SENT'
+                  ? 'Sent to Processor'
+                  : MaterialRequirementStatusLabels[req.status] || req.status,
           isSelectable: req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK',
           createdAt: req.createdAt,
           componentName: req.componentName || null,
@@ -2094,7 +2112,7 @@ function OutsourcedWorkTab({
       setProcPORemarks('');
       refreshData();
     } catch (err) {
-      handleApiError(err, 'Failed to generate Processing PO');
+      handleApiError(err, 'Failed to generate processing job work');
     } finally {
       setIsGenerating(false);
     }
@@ -2163,10 +2181,10 @@ function OutsourcedWorkTab({
                 className="bg-success hover:bg-success text-white"
                 onClick={() => setShowBulkPOGeneration(true)}
               >
-                Bulk Generate POs ({selectedProcessingIds.length})
+                Bulk Generate Job Work ({selectedProcessingIds.length})
               </Button>
               <Button size="sm" variant="outline" onClick={() => setShowGenerateProcessingPO(true)}>
-                Manual PO
+                Manual Job Work
               </Button>
             </>
           ) : hasServiceSelected ? (
@@ -2433,7 +2451,12 @@ function OutsourcedWorkTab({
                     <TableCell>
                       <span className={`text-sm ${row.processorAssigned ? '' : 'text-primary'}`}>{row.processor}</span>
                     </TableCell>
-                    <TableCell className="text-right text-sm">{row.quantity}</TableCell>
+                    <TableCell className="text-right text-sm">
+                      {row.quantity}
+                      {row.greigeIssueInfo && (
+                        <div className="text-[10px] text-muted-foreground whitespace-nowrap">{row.greigeIssueInfo}</div>
+                      )}
+                    </TableCell>
                     {/* MRP-28: the headline figure is always the estimated TOTAL; the per-unit
                         rate sits underneath so the two sources stay comparable. */}
                     <TableCell className="text-right">
@@ -2507,15 +2530,16 @@ function OutsourcedWorkTab({
         onOpenChange={setShowBulkPOGeneration}
         requirementIds={selectedProcessingIds}
         onComplete={refreshData}
+        mode="JOBWORK"
       />
 
-      {/* Manual Processing PO Dialog */}
+      {/* Manual Processing Job Work Dialog */}
       <Dialog open={showGenerateProcessingPO} onOpenChange={setShowGenerateProcessingPO}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Generate Processing PO</DialogTitle>
+            <DialogTitle>Generate Job Work</DialogTitle>
             <DialogDescription>
-              Create a PO for {selectedProcessingIds.length} selected processing requirement(s)
+              Create a job work order for {selectedProcessingIds.length} selected processing requirement(s)
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -2564,7 +2588,7 @@ function OutsourcedWorkTab({
               onClick={handleGenerateProcessingPO}
               disabled={!procPOSupplierId || !procPODeliveryDate || isGenerating}
             >
-              {isGenerating ? 'Generating...' : 'Generate PO'}
+              {isGenerating ? 'Generating...' : 'Generate Job Work'}
             </Button>
           </DialogFooter>
         </DialogContent>

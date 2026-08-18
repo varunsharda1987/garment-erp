@@ -43,13 +43,32 @@ export const notifyBuyerSchema = z.object({
 /**
  * Send a generated document PDF through the sender's WhatsApp — Phase 4.
  * POST /api/whatsapp/send-document
+ *
+ * Recipients: either the single `to` (back-compat with DocumentShareMenu) or a
+ * `recipients` list (job work orders fan out to processor + groups + numbers in one
+ * call — the PDF is generated once server-side).
  */
-export const sendDocumentSchema = z.object({
-  type: z.enum(['invoice', 'quotation', 'order', 'purchaseOrder']),
-  id: z.string().uuid(),
-  to: z.string().min(1, 'Recipient is required').max(64),
-  caption: z.string().max(4096).optional(),
-});
+export const sendDocumentSchema = z
+  .object({
+    type: z.enum(['invoice', 'quotation', 'order', 'purchaseOrder', 'jobWorkOrder']),
+    id: z.string().uuid(),
+    to: z.string().min(1, 'Recipient is required').max(64).optional(),
+    caption: z.string().max(4096).optional(),
+    recipients: z
+      .array(
+        z.object({
+          to: z.string().min(1, 'Recipient is required').max(64),
+          label: z.string().max(120).optional(),
+        })
+      )
+      .min(1)
+      .max(10)
+      .optional(),
+  })
+  .refine((d) => !!d.to || (d.recipients && d.recipients.length > 0), {
+    message: 'Provide a recipient (to) or a recipients list',
+    path: ['to'],
+  });
 
 export type SendTextInput = z.infer<typeof sendTextSchema>;
 export type MessageStaffInput = z.infer<typeof messageStaffSchema>;

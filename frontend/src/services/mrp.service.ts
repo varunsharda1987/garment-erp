@@ -216,6 +216,9 @@ export async function bulkGeneratePOs(
 ): Promise<{
   purchaseOrders: Array<{ id: string; poNumber: string; supplierId: string; totalAmount: number }>;
   totalPOs: number;
+  /** PROCESSING groups create Job Work Orders — reported separately from POs. */
+  jobWorkOrders: Array<{ id: string; jobWorkNumber: string; supplierId: string; totalAmount: number }>;
+  totalJwos: number;
   totalRequirements: number;
   errors: Array<{ supplierId: string; error: string }>;
 }> {
@@ -224,6 +227,8 @@ export async function bulkGeneratePOs(
     data: {
       purchaseOrders: Array<{ id: string; poNumber: string; supplierId: string; totalAmount: number }>;
       totalPOs: number;
+      jobWorkOrders: Array<{ id: string; jobWorkNumber: string; supplierId: string; totalAmount: number }>;
+      totalJwos: number;
       totalRequirements: number;
       errors: Array<{ supplierId: string; error: string }>;
     };

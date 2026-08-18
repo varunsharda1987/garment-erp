@@ -15,5 +15,8 @@ export function useDefaultSettings() {
       data?.GREIGE_DEFAULT_WASTAGE_PERCENT != null ? Number(data.GREIGE_DEFAULT_WASTAGE_PERCENT) : 0,
     laceWastagePercent: data?.LACE_DEFAULT_WASTAGE_PERCENT != null ? Number(data.LACE_DEFAULT_WASTAGE_PERCENT) : 5,
     labelExtraPercent: data?.LABEL_DEFAULT_EXTRA_PERCENT != null ? Number(data.LABEL_DEFAULT_EXTRA_PERCENT) : 5,
+    /** Selvedge deduction in INCHES: finished − deduction = cutable; asked finished = cutable + deduction. */
+    cutableWidthDeduction:
+      data?.GREIGE_CUTABLE_WIDTH_DEDUCTION_CM != null ? Number(data.GREIGE_CUTABLE_WIDTH_DEDUCTION_CM) : 2,
   };
 }

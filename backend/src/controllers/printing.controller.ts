@@ -13,7 +13,15 @@ import logger from '../utils/logger';
 // BUG-INV3 fix: Import material sync helpers for processor receipt stock_levels sync
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 // BUG-PRT5 fix: Import decimal.js helpers for safe cost calculations
-import { toCurrency, addCurrency, multiplyCurrency, divideCurrency, toNumber } from '../utils/currency';
+import {
+  toCurrency,
+  addCurrency,
+  multiplyCurrency,
+  divideCurrency,
+  toNumber,
+  applyShrinkageLoss,
+  roundToCent,
+} from '../utils/currency';
 // BUG-DYE9 fix: Import system settings service for configurable cutable width deduction
 import { systemSettingsService } from '../services/system-settings.service';
 // Phase 6: Job work order service for loss split calculation
@@ -969,7 +977,7 @@ export const sendToMill = async (req: Request, res: Response, _next: NextFunctio
   }
 
   // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
-  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+  const cutableWidthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
 
   const existing = await prisma.job_work_orders.findUnique({
     where: { id },
@@ -1170,11 +1178,12 @@ export const receiveFromMill = async (req: Request, res: Response, _next: NextFu
 
   // Update fabric_master's actualWidth with received width
   if (existing.finishedFabricId && receivedWidthInches) {
+    const widthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
     await prisma.fabric_master.update({
       where: { id: existing.finishedFabricId },
       data: {
         actualWidth: receivedWidthInches,
-        cutableWidth: new Prisma.Decimal(receivedWidthInches - 2),
+        cutableWidth: new Prisma.Decimal(Math.max(receivedWidthInches - widthDeduction, 0)),
       },
     });
   }
@@ -1458,7 +1467,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
   }
 
   // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
-  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+  const cutableWidthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
 
   const {
     labDipId,
@@ -1645,21 +1654,29 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
   // Phase 4c-final (D1): no placeholder fabric_stock — fabricStockLotId is nullable
   // in schema; the stale "required by schema" fallback created phantom RESERVED lots.
 
-  // BUG-PRT5 fix: Use decimal.js for total amount calculation
-  const totalAmount = toNumber(multiplyCurrency(qtySentMeters, agreedRatePerMeter));
-
   // Phase 4c-final: JWO-only — no purchase order is created. The JWO IS the
   // commercial + operational document.
   // MRP-48i: fill expectedShrinkage from the processor's rate card when the caller did not
   // supply one. Left null, the challan prints an expected return of 100% of what was sent.
   const greigeForShrinkage = greigeStockLotId
-    ? await prisma.greige_stock.findUnique({ where: { id: greigeStockLotId }, select: { greigeId: true } })
+    ? await prisma.greige_stock.findUnique({
+        where: { id: greigeStockLotId },
+        select: { greigeId: true, greigeWidth: true },
+      })
     : null;
   const resolvedExpectedShrinkage = await resolveJwoExpectedShrinkage({
     supplied: expectedShrinkage,
     processorId: resolvedProcessorId,
     greigeId: greigeForShrinkage?.greigeId ?? null,
   });
+  // Greige (loom) width of the issued lot — distinct from sentWidthInches, which holds
+  // the ASKED FINISHED width the processor must deliver (industry model 2026-08-18).
+  const greigeWidthInches = greigeForShrinkage?.greigeWidth != null ? Number(greigeForShrinkage.greigeWidth) : null;
+
+  // Billing basis (+ BUG-PRT5 decimal.js): the processor bills for the finished fabric he
+  // returns, not the greige issued — deduct the expected shrinkage loss from the billed qty.
+  const qtyBillable = toNumber(roundToCent(applyShrinkageLoss(qtySentMeters, resolvedExpectedShrinkage ?? 0)));
+  const totalAmount = toNumber(roundToCent(multiplyCurrency(qtyBillable, agreedRatePerMeter)));
 
   const result = await prisma.$transaction(async (tx) => {
     // Generate job work number
@@ -1686,6 +1703,8 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         greigeStockLotId: greigeStockLotId || null,
         fabricType,
         qtySentMeters,
+        qtyBillable, // billing basis = expected fabric out (sent × (1 − shrinkage))
+        greigeWidthInches,
         sentWidthInches,
         expectedReturnDate: expectedReturnDate ? new Date(expectedReturnDate) : null,
         expectedShrinkage: resolvedExpectedShrinkage,
@@ -1728,7 +1747,12 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
           data: {
             requirementId: openReq.id,
             jobWorkOrderId: job.id,
-            allocatedQuantity: Math.min(openReq.shortfall, qtySentMeters),
+            // Fabric-basis: receivedQuantity accumulates fabric meters, so the allocation
+            // must be fabric too (requirement shortfall is greige-basis — deduct shrinkage).
+            allocatedQuantity: Math.min(
+              toNumber(roundToCent(applyShrinkageLoss(openReq.shortfall, resolvedExpectedShrinkage ?? 0))),
+              qtyBillable
+            ),
           },
         });
         linkedRequirementNumbers.push(openReq.requirementNumber);
@@ -1948,7 +1972,7 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
   }
 
   // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
-  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+  const cutableWidthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
 
   // Phase 4c-final: JWO-keyed (dual-lookup accepts legacy PO ids)
   const jwo = await resolveProcessJwo(id, 'PRINTING');
@@ -2193,11 +2217,12 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
 
   // Update fabric_master's actualWidth with received width
   if (job.finishedFabricId && receivedWidthInches) {
+    const widthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
     await prisma.fabric_master.update({
       where: { id: job.finishedFabricId },
       data: {
         actualWidth: receivedWidthInches,
-        cutableWidth: new Prisma.Decimal(receivedWidthInches - 2),
+        cutableWidth: new Prisma.Decimal(Math.max(receivedWidthInches - widthDeduction, 0)),
       },
     });
   }

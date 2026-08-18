@@ -67,7 +67,7 @@ export async function routeToSpecializedStock(
   const client = tx || prisma;
 
   // BUG-GR8 fix: Use configurable cutable width deduction from system settings
-  const cutableWidthDeduction = await systemSettingsService.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+  const cutableWidthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
 
   try {
     // Fetch material with all FK fields and related master data

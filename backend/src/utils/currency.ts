@@ -109,6 +109,22 @@ export function divideByShrinkage(quantity: DecimalInput, shrinkagePercent: Deci
 }
 
 /**
+ * Deflate a quantity by a shrinkage factor: quantity × (1 - shrinkagePercent/100).
+ *
+ * Inverse of divideByShrinkage — converts greige/input meters to expected finished
+ * output meters (the quantity a processor bills for). Same validation window: the
+ * dangerous end is s >= 100 (output would go to zero/negative), s = 0 is a no-op.
+ */
+export function applyShrinkageLoss(quantity: DecimalInput, shrinkagePercent: DecimalInput): Decimal {
+  const pct = toCurrency(shrinkagePercent);
+  if (pct.gte(100) || pct.lt(0)) {
+    throw new Error(`Invalid shrinkage percent ${pct.toString()}: must be >= 0 and < 100`);
+  }
+  const factor = new Decimal(1).minus(pct.dividedBy(100)); // 1 - s/100, always in (0, 1]
+  return toCurrency(quantity).times(factor);
+}
+
+/**
  * Calculate percentage (value * percentage / 100)
  */
 export function percentOf(value: DecimalInput, percentage: DecimalInput): Decimal {
@@ -232,6 +248,7 @@ export default {
   subtractCurrency,
   multiplyCurrency,
   divideCurrency,
+  applyShrinkageLoss,
   percentOf,
   roundToCent,
   compareCurrency,

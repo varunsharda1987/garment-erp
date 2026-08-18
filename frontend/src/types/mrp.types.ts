@@ -187,6 +187,14 @@ export interface MaterialRequirement {
   /** MRP-48f: shrinkage applied and where it came from (RATE_CARD | RATE_CARD_RESOLVED | GREIGE_MASTER_FALLBACK | NONE). */
   shrinkagePercentUsed?: number | null;
   shrinkageSource?: string | null;
+  /**
+   * Billing basis — PROCESSING rows only. The processor bills for the fabric he returns:
+   * billableQuantity = totalRequired × (1 − effectiveShrinkagePercent/100). totalRequired /
+   * greigeIssueQty stay greige-basis (what is bought and physically issued to him).
+   */
+  effectiveShrinkagePercent?: number | null;
+  billableQuantity?: number | null;
+  greigeIssueQty?: number | null;
   processingCost?: number | null;
   printingType?: string | null;
   colorName?: string | null;
@@ -285,6 +293,13 @@ export interface POPreviewItem {
   processingType?: string | null;
   componentName?: string | null;
   fabricWidth?: number | null;
+  /**
+   * PROCESSING rows only — `quantity` is the BILLABLE fabric-out qty (what the processor
+   * charges for); this is the greige to physically issue (billable ÷ (1 − shrinkage)).
+   */
+  greigeIssueQty?: number | null;
+  /** PROCESSING rows only — the shrinkage % linking greigeIssueQty and quantity. */
+  shrinkagePercent?: number | null;
 }
 
 export interface POPreviewGroup {
@@ -452,6 +467,8 @@ export interface MRPDashboardStats {
   processingNeedingAssignment: number;
   /** PROCESSING rows whose Job Work Order exists (PO_GENERATED, PO_SENT). */
   processingPoGenerated: number;
+  /** Σ billable fabric-out qty × rate over open PROCESSING rows (Est. Service Cost tile). */
+  processingEstimatedCost?: number;
   byMaterialType: {
     materialType: string;
     count: number;

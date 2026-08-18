@@ -23,6 +23,7 @@ import {
   Download,
   Trash2,
   Ban,
+  MessageCircle,
 } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -50,6 +51,9 @@ import { processPOService as printProcessPOService } from '@/services/printing.s
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { greigeStockService } from '@/services/greigeStock.service';
 import { openPDF } from '@/lib/document-utils';
+import { billableFromGreige } from '@/utils/shrinkage';
+import { JwoWhatsAppSendDialog } from '@/components/JwoWhatsAppSendDialog';
+import { useDefaultSettings } from '@/hooks/useDefaultSettings';
 
 function formatCurrency(value?: number | null): string {
   if (value === null || value === undefined) return '-';
@@ -96,6 +100,8 @@ export default function JobWorkOrderDetail() {
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [waDialogOpen, setWaDialogOpen] = useState(false);
+  const { cutableWidthDeduction } = useDefaultSettings();
   const [cancelReason, setCancelReason] = useState('');
   const [qtyReceived, setQtyReceived] = useState('');
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
@@ -333,6 +339,10 @@ export default function JobWorkOrderDetail() {
             <Printer className="mr-2 h-4 w-4" />
             Print
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setWaDialogOpen(true)}>
+            <MessageCircle className="mr-2 h-4 w-4" />
+            Send via WhatsApp
+          </Button>
           {canCancel && (
             <Button
               variant="outline"
@@ -459,23 +469,27 @@ export default function JobWorkOrderDetail() {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {/* DB-field vocabulary (user 2026-08-17): Greige = qtySentMeters, Fabric = qtyBillable.
+                  Non-greige jobs (embroidery pieces etc.) keep the neutral labels. */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <Label className="text-muted-foreground">Qty Sent</Label>
+                  <Label className="text-muted-foreground">{jwo.fabricType === 'GREIGE' ? 'Greige' : 'Qty Sent'}</Label>
                   <p className="text-xl font-bold">
                     {jwo.qtySentMeters.toFixed(2)} {jwo.uom}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">
+                    {jwo.fabricType === 'GREIGE' ? 'Fabric' : 'Expected Back'}
+                  </Label>
+                  <p className="text-xl font-bold">
+                    {jwo.qtyBillable != null ? `${jwo.qtyBillable.toFixed(2)} ${jwo.uom}` : '-'}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Qty Received</Label>
                   <p className="text-xl font-bold">
                     {jwo.qtyReceivedMeters ? `${jwo.qtyReceivedMeters.toFixed(2)} ${jwo.uom}` : '-'}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Normal Loss</Label>
-                  <p className="text-xl font-bold text-muted-foreground">
-                    {jwo.qtyNormalLoss ? `${jwo.qtyNormalLoss.toFixed(2)} ${jwo.uom}` : '-'}
                   </p>
                 </div>
                 <div>
@@ -488,10 +502,69 @@ export default function JobWorkOrderDetail() {
 
               <Separator className="my-4" />
 
+              {/* Widths (industry model 2026-08-18): greige loom width in; the processor is asked
+                  for a FINISHED (stenter) width = cutable + selvedge deduction; received is measured.
+                  received < asked ⟺ the cutable target is missed. */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Greige Width</Label>
+                  <p className="font-medium">
+                    {jwo.greigeWidthInches != null ? `${Number(jwo.greigeWidthInches)}"` : '-'}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Finished Width (Asked)</Label>
+                  <p className="font-medium">{jwo.sentWidthInches != null ? `${Number(jwo.sentWidthInches)}"` : '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Cutable Width (CAD)</Label>
+                  <p className="font-medium">
+                    {jwo.sentWidthInches != null
+                      ? `${(Number(jwo.sentWidthInches) - cutableWidthDeduction).toFixed(1)}"`
+                      : '-'}
+                  </p>
+                  {jwo.sentWidthInches != null && (
+                    <p className="text-xs text-muted-foreground">after {cutableWidthDeduction}" selvedge</p>
+                  )}
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Finished Width (Received)</Label>
+                  <p
+                    className={`font-medium ${
+                      jwo.receivedWidthInches != null &&
+                      jwo.sentWidthInches != null &&
+                      Number(jwo.receivedWidthInches) < Number(jwo.sentWidthInches)
+                        ? 'text-red-500'
+                        : ''
+                    }`}
+                  >
+                    {jwo.receivedWidthInches != null ? `${Number(jwo.receivedWidthInches)}"` : '-'}
+                  </p>
+                </div>
+              </div>
+
+              <Separator className="my-4" />
+
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <Label className="text-muted-foreground">Sent Date</Label>
                   <p className="font-medium">{jwo.sentDate ? format(new Date(jwo.sentDate), 'dd MMM yyyy') : '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Need By</Label>
+                  <p
+                    className={`font-medium ${
+                      jwo.expectedReturnDate &&
+                      !jwo.receivedDate &&
+                      jwo.jwoStatus !== 'CLOSED' &&
+                      jwo.jwoStatus !== 'CANCELLED' &&
+                      new Date(jwo.expectedReturnDate) < new Date()
+                        ? 'text-red-500'
+                        : ''
+                    }`}
+                  >
+                    {jwo.expectedReturnDate ? format(new Date(jwo.expectedReturnDate), 'dd MMM yyyy') : '-'}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Received Date</Label>
@@ -505,9 +578,22 @@ export default function JobWorkOrderDetail() {
                     {daysOutstanding !== null ? `${daysOutstanding} days` : '-'}
                   </p>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                <div>
+                  <Label className="text-muted-foreground">Shrinkage</Label>
+                  <p className="font-medium">{jwo.expectedShrinkage != null ? `${jwo.expectedShrinkage}%` : '-'}</p>
+                </div>
                 <div>
                   <Label className="text-muted-foreground">Actual Shrinkage</Label>
                   <p className="font-medium">{jwo.actualShrinkage ? `${jwo.actualShrinkage.toFixed(2)}%` : '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Normal Loss</Label>
+                  <p className="font-medium text-muted-foreground">
+                    {jwo.qtyNormalLoss ? `${jwo.qtyNormalLoss.toFixed(2)} ${jwo.uom}` : '-'}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -770,7 +856,7 @@ export default function JobWorkOrderDetail() {
                 step="0.01"
                 value={qtyReceived}
                 onChange={(e) => setQtyReceived(e.target.value)}
-                placeholder={`Expected: ~${(jwo.qtySentMeters * 0.97).toFixed(2)}`}
+                placeholder={`Expected: ~${(jwo.qtyBillable ?? billableFromGreige(jwo.qtySentMeters, jwo.expectedShrinkage)).toFixed(2)}`}
               />
             </div>
             <div>
@@ -944,6 +1030,8 @@ export default function JobWorkOrderDetail() {
         variant="destructive"
         onConfirm={() => deleteMutation.mutate()}
       />
+
+      <JwoWhatsAppSendDialog jwo={jwo} open={waDialogOpen} onOpenChange={setWaDialogOpen} />
     </div>
   );
 }

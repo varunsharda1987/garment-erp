@@ -24,7 +24,14 @@ import prisma from '../config/database'; // Use singleton to avoid connection po
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { generateAtomicGRNNumber } from '../utils/atomicCodeGenerator';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
-import { getOrCreateFinishedFabric, determineFinishType } from './helpers/processing-fabric.helper';
+import { determineFinishType } from './helpers/processing-fabric.helper';
+import {
+  getOrCreateFinishedFabricV2,
+  rebuildAutoFabricName,
+  resolveFinishedFabricIdentity,
+  resolveStockWidthInches,
+  stampStyleFabricLink,
+} from './helpers/fabric-identity.helper';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { addCurrency, multiplyCurrency, roundToCent, subtractCurrency, toNumber } from '../utils/currency';
 import {
@@ -873,6 +880,28 @@ class GRNService {
                       },
                     },
                     processor: { select: { id: true, supplierCategories: true } },
+                    // Fabric-naming: BOM → CAD → styleFabric/pattern-part chain
+                    orderBomItem: {
+                      select: {
+                        id: true,
+                        colorName: true,
+                        greigeId: true,
+                        fabricId: true,
+                        selectedCad: {
+                          select: {
+                            id: true,
+                            styleFabricId: true,
+                            isCombinedCutting: true,
+                            patternPart: { select: { id: true, name: true } },
+                            cadPatternParts: {
+                              select: {
+                                patternPart: { select: { id: true, name: true, sortOrder: true } },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
                   },
                 },
               },
@@ -886,7 +915,12 @@ class GRNService {
                 // Get GRN item quantities
                 const grnItem = grn.grn_items?.[0];
                 const qtyReceived = grnItem ? Number(grnItem.acceptedQuantity || grnItem.receivedQuantity || 0) : 0;
-                const receivedWidth = grnItem ? Number(grnItem.receivedWidthInches || 44) : 44;
+                const measuredWidth = grnItem?.receivedWidthInches != null ? Number(grnItem.receivedWidthInches) : null;
+                const receivedWidth = await resolveStockWidthInches(
+                  { sentWidthInches: null, fabric: { greigeId } },
+                  measuredWidth,
+                  tx
+                );
 
                 if (qtyReceived > 0) {
                   // Determine finish type from processor category or requirement printingType
@@ -896,20 +930,20 @@ class GRNService {
                     : null;
                   const finishType = determineFinishType(processorCategory, req.printingType);
 
-                  // Get or create the finished fabric_master
-                  const fabricResult = await getOrCreateFinishedFabric(
-                    {
-                      greigeId,
-                      colorName: req.colorName || 'Natural',
-                      finishType,
-                      widthInches: receivedWidth,
-                      styleCode: req.order_items?.styles?.styleCode,
-                      styleId: req.order_items?.styleId,
-                      buyerStyleRef: req.order_items?.styles?.buyerStyleRef,
-                      userId,
-                    },
-                    tx
-                  );
+                  // Fabric-naming: full identity from the requirement chain (colour, CAD
+                  // pattern part, styleFabric anchor) — never a 'Natural' placeholder
+                  const identity = await resolveFinishedFabricIdentity({
+                    requirement: req,
+                    jwo: { receivedWidthInches: measuredWidth, sentWidthInches: null },
+                    finishType,
+                    tx,
+                  });
+                  if (!identity) {
+                    // Unreachable: greigeId is verified above, so identity always resolves.
+                    // Throw (fails the approval tx) rather than silently approving with no stock.
+                    throw new Error(`PROCESSING PO GRN ${id}: finished fabric identity unresolvable for PO ${po.id}`);
+                  }
+                  const fabricResult = await getOrCreateFinishedFabricV2(identity, userId, 'AUTO_FROM_MRP_GRN', tx);
 
                   // Get processing cost from requirement
                   const processingRate = req.processingCost ? Number(req.processingCost) : 0;
@@ -917,7 +951,9 @@ class GRNService {
                   const sourceCost = 0; // For now, just use processing cost
                   const totalCostPerMeter = roundToCent(addCurrency(processingRate, sourceCost)).toNumber();
 
-                  const cutableWidth = receivedWidth > 2 ? receivedWidth - 2 : receivedWidth;
+                  const processingWidthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
+                  const cutableWidth =
+                    receivedWidth > processingWidthDeduction ? receivedWidth - processingWidthDeduction : receivedWidth;
                   const fabricFinishType = finishType === 'PRINTED' ? 'PRINTED' : 'DYED';
                   // One timestamp shared by fabric_stock and the JWO stamp — GRN reversal
                   // matches fabric_stock rows by exact receivedDate equality
@@ -935,6 +971,8 @@ class GRNService {
                       quantityConsumed: 0,
                       unit: 'meters',
                       originStyleId: req.order_items?.styleId || null,
+                      // Fabric-naming: pattern part from the BOM→CAD chain
+                      patternPartId: identity.patternPartId,
                       status: 'AVAILABLE',
                       stockType: 'PLANNED_STOCK',
                       fabricFinishType: fabricFinishType,
@@ -2597,6 +2635,47 @@ class GRNService {
         fabricStockLot: { select: { id: true, weightedAvgCost: true, fabricFinishType: true } },
         fabric: { select: { id: true, greigeId: true } },
         style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
+        // Fabric-naming: requirement chain carries the dye colour + CAD pattern part +
+        // styleFabric anchor for the finished fabric identity (never 'Natural' again)
+        labDip: {
+          select: {
+            designArtwork: true,
+            colorReference: true,
+            targetColor: { select: { id: true, colorName: true, colorCode: true } },
+          },
+        },
+        requirementLinks: {
+          take: 1,
+          select: {
+            material_requirements: {
+              select: {
+                id: true,
+                colorName: true,
+                printingType: true,
+                materials: { select: { greigeId: true } },
+                orderBomItem: {
+                  select: {
+                    id: true,
+                    colorName: true,
+                    greigeId: true,
+                    fabricId: true,
+                    selectedCad: {
+                      select: {
+                        id: true,
+                        styleFabricId: true,
+                        isCombinedCutting: true,
+                        patternPart: { select: { id: true, name: true } },
+                        cadPatternParts: {
+                          select: { patternPart: { select: { id: true, name: true, sortOrder: true } } },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
     if (!jobWorkOrder) {
@@ -2605,10 +2684,9 @@ class GRNService {
 
     const grnItem = grn.grn_items?.[0];
     const qtyReceived = grnItem ? Number(grnItem.acceptedQuantity || grnItem.receivedQuantity || 0) : 0;
-    // Measured finished width from the GRN item; the 44 fallback is for stock creation
-    // only and is never stamped onto the JWO as a "measured" value.
+    // Measured finished width from the GRN item. Stock falls back measured → asked →
+    // greige band; only the measured value is stamped onto the JWO / baked into the name.
     const receivedWidthProvided = grnItem?.receivedWidthInches != null ? Number(grnItem.receivedWidthInches) : null;
-    const receivedWidth = receivedWidthProvided ?? 44;
     if (qtyReceived <= 0) {
       logWarn('PO-less JWO GRN approved with zero accepted quantity — no stock created', {
         grnId,
@@ -2616,37 +2694,50 @@ class GRNService {
       });
       return;
     }
+    const receivedWidth = await resolveStockWidthInches(jobWorkOrder, receivedWidthProvided, tx);
 
     // Phase 5b: fabric-lot JWOs (embroidery on a finished roll) keep the SAME fabric master —
     // the result lot is differentiated by embroideryId, not a new fabric (legacy parity).
     const isFabricLotJwo = !!jobWorkOrder.fabricStockLotId && !jobWorkOrder.greigeStockLotId;
 
-    // Finished fabric: reuse the JWO's, else derive from greige lineage
+    // Fabric-naming: resolve the finished-fabric identity from the requirement chain
+    // (dye colour, CAD pattern part, styleFabric anchor) — used for creation, the
+    // style_fabrics stamp, and the lot's patternPartId.
+    const identity = isFabricLotJwo
+      ? null
+      : await resolveFinishedFabricIdentity({
+          requirement: jobWorkOrder.requirementLinks?.[0]?.material_requirements ?? null,
+          jwo: {
+            greigeStockLot: jobWorkOrder.greigeStockLot,
+            fabric: jobWorkOrder.fabric,
+            style: jobWorkOrder.style,
+            labDip: jobWorkOrder.labDip,
+            receivedWidthInches: receivedWidthProvided,
+            sentWidthInches: jobWorkOrder.sentWidthInches,
+          },
+          finishType: determineFinishType(null, jobWorkOrder.processType === 'PRINTING' ? 'PIGMENT' : null),
+          tx,
+        });
+
+    // Finished fabric: reuse the JWO's, else mint from the resolved identity
     let finishedFabricId: string | null = isFabricLotJwo ? jobWorkOrder.fabricId : jobWorkOrder.finishedFabricId;
     if (!finishedFabricId) {
-      const greigeId = jobWorkOrder.greigeStockLot?.greigeId || jobWorkOrder.fabric?.greigeId || null;
-      if (!greigeId) {
+      if (!identity) {
         logWarn('PO-less JWO GRN has no greige lineage — cannot create fabric_stock', {
           grnId,
           jobWorkOrderId: jobWorkOrder.id,
         });
         return;
       }
-      const finishType = determineFinishType(null, jobWorkOrder.processType === 'PRINTING' ? 'PIGMENT' : null);
-      const fabricResult = await getOrCreateFinishedFabric(
-        {
-          greigeId,
-          colorName: 'Natural',
-          finishType,
-          widthInches: receivedWidth,
-          styleCode: jobWorkOrder.style?.styleCode,
-          styleId: jobWorkOrder.style?.id,
-          buyerStyleRef: jobWorkOrder.style?.buyerStyleRef,
-          userId,
-        },
-        tx
-      );
+      const fabricResult = await getOrCreateFinishedFabricV2(identity, userId, 'AUTO_FROM_MRP_GRN', tx);
       finishedFabricId = fabricResult.fabricId;
+    } else if (!isFabricLotJwo) {
+      // Master minted at JWO creation: follow the measured width (columns + AUTO name)
+      // and make sure the style link exists even when the mint predates it
+      if (receivedWidthProvided != null) {
+        await rebuildAutoFabricName(finishedFabricId, receivedWidthProvided, tx);
+      }
+      await stampStyleFabricLink(identity?.styleFabricId, finishedFabricId, tx);
     }
 
     // Cost: processing rate + source cost per meter (greige purchase cost, or the
@@ -2676,6 +2767,8 @@ class GRNService {
         quantityConsumed: 0,
         unit: 'meters',
         originStyleId: jobWorkOrder.style?.id || null,
+        // Fabric-naming: pattern part from the BOM→CAD chain (feeds part display + needsEmbroidery)
+        patternPartId: identity?.patternPartId ?? null,
         status: 'AVAILABLE',
         stockType: 'PLANNED_STOCK',
         fabricFinishType: isFabricLotJwo

@@ -371,6 +371,17 @@ function checkManualMaterialCreate(tsFiles) {
   );
 }
 
+/** Check (E2): placeholder colour literal (Natural/Unknown/Printed) written to colorName — BLOCKING new + ratchet. */
+function checkColourSentinelLiteral(tsFiles) {
+  console.log(`\n${c.cyan}Checking for placeholder colour sentinels...${c.reset}`);
+  return runRatchetedCheck(
+    'placeholder colour literal(s) written to colorName (merges every real colour into one fabric)',
+    detectors.colourSentinelLiteral(tsFiles),
+    'colour-sentinel-baseline.json',
+    'Store NULL for unknown colour and resolve the real one via services/helpers/fabric-identity.helper.ts (or mark `// allow-colour-sentinel` for a genuine colour value). If intentional, add the key to scripts/hooks/colour-sentinel-baseline.json.'
+  );
+}
+
 /**
  * Check: Type synchronization between frontend and backend
  */
@@ -800,6 +811,7 @@ function runAllModeChecks() {
   if (!checkSilentCatchFrontend(tsFiles)) ok = false;
   if (!checkNumericOrFallback(tsFiles)) ok = false;
   if (!checkManualMaterialCreate(tsFiles)) ok = false;
+  if (!checkColourSentinelLiteral(tsFiles)) ok = false;
   if (!checkSchemaServiceUpdateParity(schemaFiles)) ok = false;
 
   // Frontend typecheck gate (CI mode only — too slow for per-commit). The frontend reached ZERO tsc
@@ -902,6 +914,7 @@ function main() {
     if (!checkSilentCatchFrontend(categories.typescript)) allPassed = false;
     if (!checkNumericOrFallback(categories.typescript)) allPassed = false;
     if (!checkManualMaterialCreate(categories.typescript)) allPassed = false;
+    if (!checkColourSentinelLiteral(categories.typescript)) allPassed = false;
   }
 
   // Type file changes → check type sync

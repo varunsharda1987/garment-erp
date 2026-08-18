@@ -17,7 +17,11 @@ import { systemSettingsService } from '../services/system-settings.service';
 import { createChallan } from '../services/challan.service';
 import greigeStockService from '../services/greige-stock.service';
 import { Unit, Prisma } from '@prisma/client';
-import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
+import {
+  ensureMaterialRecord,
+  syncMasterToMaterials,
+  syncStockLevelQuantity,
+} from '../services/helpers/material-sync.helper';
 import { multiplyCurrency, roundToCent } from '../utils/currency';
 import type { CreateJobWorkOrderInput, AddJwoComponentInput, CloseJwoInput } from '../schemas/jobWorkOrder.schema';
 
@@ -54,6 +58,23 @@ const jwoInclude = {
   },
   approvedBy: {
     select: { id: true, firstName: true, lastName: true, email: true },
+  },
+  // Greige identity for greige-processing jobs: the issued lot's master post-issue,
+  // and the requirement→BOM chain before a lot exists (MRP drafts have fabricId null).
+  greigeStockLot: {
+    select: { id: true, greige: { select: { id: true, greigeCode: true, greigeName: true } } },
+  },
+  requirementLinks: {
+    take: 1,
+    select: {
+      material_requirements: {
+        select: {
+          colorName: true,
+          materials: { select: { name: true, code: true } },
+          orderBomItem: { select: { greige: { select: { id: true, greigeCode: true, greigeName: true } } } },
+        },
+      },
+    },
   },
 };
 
@@ -1130,6 +1151,31 @@ class JobWorkOrderController {
           await txClient.requirement_jwo_links.deleteMany({
             where: { jobWorkOrderId: jwo.id, requirementId: { in: revertableMrp } },
           });
+        }
+
+        // Fabric-naming hygiene: a master minted for THIS job with no stock and no other
+        // JWO referencing it is an orphan catalog row — deactivate it (dedup self-heals:
+        // a future JWO for the same identity mints/reuses cleanly).
+        if (jwo.finishedFabricId) {
+          const orphan = await txClient.fabric_master.findFirst({
+            where: {
+              id: jwo.finishedFabricId,
+              source: { startsWith: 'AUTO' },
+              isActive: true,
+              fabricStock: { none: {} },
+              finishedFromJobWork: { none: { id: { not: jwo.id } } },
+            },
+            select: { id: true },
+          });
+          if (orphan) {
+            await txClient.fabric_master.update({ where: { id: orphan.id }, data: { isActive: false } });
+            await txClient.style_fabrics.updateMany({
+              where: { fabricId: orphan.id },
+              data: { fabricId: null },
+            });
+            await syncMasterToMaterials(orphan.id, 'FABRIC', { isActive: false }, txClient);
+            logger.info(`[JWO] Deactivated orphan auto-created fabric master ${orphan.id} on cancel`);
+          }
         }
 
         return txClient.job_work_orders.update({

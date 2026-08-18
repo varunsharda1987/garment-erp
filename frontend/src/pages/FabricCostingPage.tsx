@@ -2047,7 +2047,11 @@ export default function FabricCostingPage() {
                                             <div>
                                               {(() => {
                                                 const greigeName = row.greigeName || row.fabricName;
-                                                const parsed = parseGreigeName(greigeName);
+                                                // parseGreigeName's regex is greige-shaped; style-prefixed
+                                                // fabric names would mis-split — render them whole
+                                                const parsed = row.greigeName
+                                                  ? parseGreigeName(row.greigeName)
+                                                  : { line1: row.fabricName ?? '', line2: '' };
                                                 return (
                                                   <>
                                                     <div className="flex items-center gap-1">
@@ -2611,7 +2615,11 @@ export default function FabricCostingPage() {
                                     <div>
                                       {(() => {
                                         const greigeName = row.greigeName || row.fabricName;
-                                        const parsed = parseGreigeName(greigeName);
+                                        // parseGreigeName's regex is greige-shaped; style-prefixed
+                                        // fabric names would mis-split — render them whole
+                                        const parsed = row.greigeName
+                                          ? parseGreigeName(row.greigeName)
+                                          : { line1: row.fabricName ?? '', line2: '' };
                                         return (
                                           <>
                                             <div className="flex items-center gap-1">

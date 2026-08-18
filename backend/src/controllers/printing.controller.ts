@@ -7,7 +7,12 @@ import greigeStockService from '../services/greige-stock.service';
 import { generateUnifiedPONumber } from '../utils/po-number-generator';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
-import { generateStyleLinkedFabricCode } from '../utils/fabric-code-generator';
+import {
+  getOrCreateFinishedFabricV2,
+  rebuildAutoFabricName,
+  resolveFinishedFabricIdentity,
+  resolveManualJobStyleFabricAnchor,
+} from '../services/helpers/fabric-identity.helper';
 import { randomUUID } from 'crypto';
 import logger from '../utils/logger';
 // BUG-INV3 fix: Import material sync helpers for processor receipt stock_levels sync
@@ -976,9 +981,6 @@ export const sendToMill = async (req: Request, res: Response, _next: NextFunctio
     throw new UnauthorizedError();
   }
 
-  // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
-  const cutableWidthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
-
   const existing = await prisma.job_work_orders.findUnique({
     where: { id },
     include: {
@@ -1028,85 +1030,28 @@ export const sendToMill = async (req: Request, res: Response, _next: NextFunctio
     });
   }
 
-  // Auto-create fabric_master for the finished (printed) fabric
+  // Auto-create/reuse the finished (printed) fabric master via the shared identity
+  // builder (design in printDesign, colour stays the ground shade — never 'Unknown')
   let finishedFabricId: string | null = null;
-  const colorName = existing.labDip?.targetColor?.colorName || existing.labDip?.colorReference || 'Unknown';
-  const colorCode = existing.labDip?.targetColor?.colorCode || null;
-  const greigeId = existing.labDip?.fabric?.greigeId || null;
-  const finishType = 'PRINTED';
-
-  // Check if a matching fabric_master already exists
-  if (greigeId) {
-    const existingFabric = await prisma.fabric_master.findFirst({
-      where: {
-        greigeId,
-        colorName,
-        finishType,
-        isActive: true,
-      },
+  {
+    const greigeId = existing.labDip?.fabric?.greigeId || null;
+    const anchor =
+      existing.style?.id && greigeId
+        ? await resolveManualJobStyleFabricAnchor(existing.style.id, greigeId, 'PRINTED')
+        : null;
+    const identity = await resolveFinishedFabricIdentity({
+      jwo: existing,
+      style: existing.style,
+      knownStyleFabricId: anchor,
+      finishType: 'PRINTED',
     });
-    if (existingFabric) {
-      finishedFabricId = existingFabric.id;
+    if (identity) {
+      const minted = await getOrCreateFinishedFabricV2(identity, userId, 'AUTO_FROM_JOB_WORK');
+      finishedFabricId = minted.fabricId;
+    } else if (existing.fabricId) {
+      // No greige lineage — keep the source master (legacy parity)
+      finishedFabricId = existing.fabricId;
     }
-  }
-
-  if (!finishedFabricId) {
-    const existingBySource = await prisma.fabric_master.findFirst({
-      where: {
-        greigeId: greigeId || undefined,
-        colorName,
-        finishType,
-        isActive: true,
-      },
-    });
-    if (existingBySource) {
-      finishedFabricId = existingBySource.id;
-    }
-  }
-
-  if (!finishedFabricId) {
-    // Generate fabric code (atomic per-style sequence; FAB-STK pool when no style)
-    const styleCode = existing.style?.styleCode || 'STK';
-    const fabricCode = await generateStyleLinkedFabricCode(existing.style?.styleCode || null);
-
-    // Build fabric name
-    const greige = existing.labDip?.fabric?.greige;
-    const greigeGeneric = greige?.genericGreigeName || greige?.greigeName?.split('/')[0]?.trim() || 'Fabric';
-    const designLabel = existing.labDip?.designArtwork ? ` ${existing.labDip.designArtwork}` : '';
-    const widthStr = `${Number(existing.sentWidthInches)}"`;
-    const fabricName = [
-      formatStyleCodeWithRef(styleCode, existing.style?.buyerStyleRef),
-      greigeGeneric,
-      'Printed',
-      `${colorName}${designLabel}`,
-      widthStr,
-    ]
-      .filter(Boolean)
-      .join(' - ');
-
-    const newFabric = await prisma.fabric_master.create({
-      data: {
-        fabricCode,
-        fabricName,
-        greigeId,
-        greigeName: greige?.greigeName || null,
-        genericGreigeName: greige?.genericGreigeName || null,
-        colorName,
-        colorCode,
-        finishType,
-        printDesign: existing.labDip?.designArtwork || null,
-        actualWidth: existing.sentWidthInches,
-        cutableWidth: new Prisma.Decimal(Math.max(Number(existing.sentWidthInches) - cutableWidthDeduction, 0)), // BUG-DYE9 fix
-        composition: greige?.composition || null,
-        yarnCount: greige?.yarnCount || null,
-        styleReference: styleCode,
-        source: 'AUTO_FROM_JOB_WORK',
-        isGeneric: false,
-        isActive: true,
-        createdById: userId,
-      },
-    });
-    finishedFabricId = newFabric.id;
   }
 
   const job = await prisma.job_work_orders.update({
@@ -1176,16 +1121,10 @@ export const receiveFromMill = async (req: Request, res: Response, _next: NextFu
   // Calculate width variance
   const widthVariance = receivedWidthInches - Number(existing.sentWidthInches);
 
-  // Update fabric_master's actualWidth with received width
+  // Measured width lands: patch the master's width columns and, for AUTO-created
+  // masters, swap the width token inside the name (synced to materials)
   if (existing.finishedFabricId && receivedWidthInches) {
-    const widthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
-    await prisma.fabric_master.update({
-      where: { id: existing.finishedFabricId },
-      data: {
-        actualWidth: receivedWidthInches,
-        cutableWidth: new Prisma.Decimal(Math.max(receivedWidthInches - widthDeduction, 0)),
-      },
-    });
+    await rebuildAutoFabricName(existing.finishedFabricId, Number(receivedWidthInches));
   }
 
   // GUARDED receive (receivedDate still null): the check at the top races with the GRN receive path
@@ -1465,9 +1404,6 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
   if (!userId) {
     throw new ValidationError('User not authenticated');
   }
-
-  // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
-  const cutableWidthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
 
   const {
     labDipId,
@@ -1782,60 +1718,35 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       await greigeStockService.consumeGreigeStock(job.greigeStockLotId, Number(job.qtySentMeters), userId);
     }
 
-    // 2. Auto-create finished fabric_master (for printing: PRINTED finish type)
+    // 2. Auto-create/reuse the finished fabric_master via the shared identity builder.
+    // Fixes the old bug where the artwork name was written INTO colorName ('Printed'
+    // placeholder when absent) — design now lands in printDesign, colour stays colour.
     let finishedFabricId: string | null = null;
-    const colorName = result.labDip?.designArtwork || 'Printed';
-    const greigeId = result.labDip?.fabric?.greigeId || null;
-    const finishType = 'PRINTED';
-
-    // Check if a matching fabric_master already exists
-    if (greigeId) {
-      const existingFabric = await prisma.fabric_master.findFirst({
-        where: { greigeId, colorName, finishType, isActive: true },
+    {
+      const dip: any = result.labDip;
+      const greigeId = dip?.fabric?.greigeId || null;
+      const dipStyle = dip?.style
+        ? {
+            id: dip.styleId ?? dip.style.id ?? null,
+            styleCode: dip.style.styleCode ?? null,
+            buyerStyleRef: dip.style.buyerStyleRef ?? null,
+          }
+        : null;
+      const anchor =
+        dipStyle?.id && greigeId ? await resolveManualJobStyleFabricAnchor(dipStyle.id, greigeId, 'PRINTED') : null;
+      const identity = await resolveFinishedFabricIdentity({
+        jwo: { labDip: dip, sentWidthInches: job.sentWidthInches },
+        style: dipStyle,
+        knownStyleFabricId: anchor,
+        finishType: 'PRINTED',
       });
-      if (existingFabric) finishedFabricId = existingFabric.id;
-    }
-
-    if (!finishedFabricId) {
-      // Generate fabric code (atomic per-style sequence; FAB-STK pool when no style)
-      const styleCode = result.labDip?.style?.styleCode || 'STK';
-      const fabricCode = await generateStyleLinkedFabricCode(result.labDip?.style?.styleCode || null);
-
-      // Build fabric name
-      const greige = result.labDip?.fabric?.greige;
-      const greigeGeneric = greige?.genericGreigeName || greige?.greigeName?.split('/')[0]?.trim() || 'Fabric';
-      const widthStr = `${Number(job.sentWidthInches)}"`;
-      const fabricName = [
-        formatStyleCodeWithRef(styleCode, result.labDip?.style?.buyerStyleRef),
-        greigeGeneric,
-        'Printed',
-        colorName,
-        widthStr,
-      ]
-        .filter(Boolean)
-        .join(' - ');
-
-      const newFabric = await prisma.fabric_master.create({
-        data: {
-          fabricCode,
-          fabricName,
-          greigeId,
-          greigeName: greige?.greigeName || null,
-          genericGreigeName: greige?.genericGreigeName || null,
-          colorName,
-          finishType,
-          actualWidth: job.sentWidthInches,
-          cutableWidth: new Prisma.Decimal(Math.max(Number(job.sentWidthInches) - cutableWidthDeduction, 0)), // BUG-DYE9 fix
-          composition: greige?.composition || null,
-          yarnCount: greige?.yarnCount || null,
-          styleReference: styleCode,
-          source: 'AUTO_FROM_JOB_WORK',
-          isGeneric: false,
-          isActive: true,
-          createdById: userId,
-        },
-      });
-      finishedFabricId = newFabric.id;
+      if (identity) {
+        const minted = await getOrCreateFinishedFabricV2(identity, userId, 'AUTO_FROM_JOB_WORK');
+        finishedFabricId = minted.fabricId;
+      } else if (job.fabricId) {
+        // No greige lineage — keep the source master (legacy parity)
+        finishedFabricId = job.fabricId;
+      }
     }
 
     // 3. Auto-create OUTWARD challan
@@ -1971,9 +1882,6 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
     throw new UnauthorizedError();
   }
 
-  // BUG-DYE9 fix: Use configurable cutable width deduction from system settings
-  const cutableWidthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
-
   // Phase 4c-final: JWO-keyed (dual-lookup accepts legacy PO ids)
   const jwo = await resolveProcessJwo(id, 'PRINTING');
   if (!jwo) {
@@ -1991,85 +1899,25 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
     await greigeStockService.consumeGreigeStock(job.greigeStockLotId, Number(job.qtySentMeters), userId);
   }
 
-  // Auto-create finished fabric_master (reuse exact sendToMill pattern)
+  // Auto-create/reuse the finished fabric_master via the shared identity builder
   let finishedFabricId: string | null = null;
-  const colorName = job.labDip?.targetColor?.colorName || job.labDip?.colorReference || 'Unknown';
-  const colorCode = job.labDip?.targetColor?.colorCode || null;
-  const greigeId = job.labDip?.fabric?.greigeId || null;
-  const finishType = 'PRINTED';
-
-  // Check if a matching fabric_master already exists
-  if (greigeId) {
-    const existingFabric = await prisma.fabric_master.findFirst({
-      where: {
-        greigeId,
-        colorName,
-        finishType,
-        isActive: true,
-      },
+  {
+    const greigeId = job.labDip?.fabric?.greigeId || null;
+    const anchor =
+      job.style?.id && greigeId ? await resolveManualJobStyleFabricAnchor(job.style.id, greigeId, 'PRINTED') : null;
+    const identity = await resolveFinishedFabricIdentity({
+      jwo: job,
+      style: job.style,
+      knownStyleFabricId: anchor,
+      finishType: 'PRINTED',
     });
-    if (existingFabric) {
-      finishedFabricId = existingFabric.id;
+    if (identity) {
+      const minted = await getOrCreateFinishedFabricV2(identity, userId, 'AUTO_FROM_JOB_WORK');
+      finishedFabricId = minted.fabricId;
+    } else if (job.fabricId) {
+      // No greige lineage — keep the source master (legacy parity)
+      finishedFabricId = job.fabricId;
     }
-  }
-
-  if (!finishedFabricId) {
-    const existingBySource = await prisma.fabric_master.findFirst({
-      where: {
-        greigeId: greigeId || undefined,
-        colorName,
-        finishType,
-        isActive: true,
-      },
-    });
-    if (existingBySource) {
-      finishedFabricId = existingBySource.id;
-    }
-  }
-
-  if (!finishedFabricId) {
-    // Generate fabric code (atomic per-style sequence; FAB-STK pool when no style)
-    const styleCode = job.style?.styleCode || 'STK';
-    const fabricCode = await generateStyleLinkedFabricCode(job.style?.styleCode || null);
-
-    // Build fabric name
-    const greige = job.labDip?.fabric?.greige;
-    const greigeGeneric = greige?.genericGreigeName || greige?.greigeName?.split('/')[0]?.trim() || 'Fabric';
-    const designLabel = job.labDip?.designArtwork ? ` ${job.labDip.designArtwork}` : '';
-    const widthStr = `${Number(job.sentWidthInches)}"`;
-    const fabricName = [
-      formatStyleCodeWithRef(styleCode, job.style?.buyerStyleRef),
-      greigeGeneric,
-      'Printed',
-      `${colorName}${designLabel}`,
-      widthStr,
-    ]
-      .filter(Boolean)
-      .join(' - ');
-
-    const newFabric = await prisma.fabric_master.create({
-      data: {
-        fabricCode,
-        fabricName,
-        greigeId,
-        greigeName: greige?.greigeName || null,
-        genericGreigeName: greige?.genericGreigeName || null,
-        colorName,
-        colorCode,
-        finishType,
-        printDesign: job.labDip?.designArtwork || null,
-        actualWidth: job.sentWidthInches,
-        cutableWidth: new Prisma.Decimal(Math.max(Number(job.sentWidthInches) - cutableWidthDeduction, 0)), // BUG-DYE9 fix
-        composition: greige?.composition || null,
-        yarnCount: greige?.yarnCount || null,
-        styleReference: styleCode,
-        source: 'AUTO_FROM_JOB_WORK',
-        isGeneric: false,
-        isActive: true,
-        createdById: userId,
-      },
-    });
-    finishedFabricId = newFabric.id;
   }
 
   // Auto-create OUTWARD challan
@@ -2215,16 +2063,10 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
   // Calculate width variance
   const widthVariance = receivedWidthInches - Number(job.sentWidthInches);
 
-  // Update fabric_master's actualWidth with received width
+  // Measured width lands: patch the master's width columns and, for AUTO-created
+  // masters, swap the width token inside the name (synced to materials)
   if (job.finishedFabricId && receivedWidthInches) {
-    const widthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
-    await prisma.fabric_master.update({
-      where: { id: job.finishedFabricId },
-      data: {
-        actualWidth: receivedWidthInches,
-        cutableWidth: new Prisma.Decimal(Math.max(receivedWidthInches - widthDeduction, 0)),
-      },
-    });
+    await rebuildAutoFabricName(job.finishedFabricId, Number(receivedWidthInches));
   }
 
   // Auto-create INWARD challan

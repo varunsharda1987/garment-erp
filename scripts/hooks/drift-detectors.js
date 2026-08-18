@@ -1125,6 +1125,38 @@ function manualMaterialCreate(relFiles) {
   return out;
 }
 
+// Fabric-naming (2026-08-18) — placeholder colour literals written into identity fields.
+// 'Natural'/'Unknown'/'Printed' sentinels pinned colorName on auto-created fabric masters,
+// merging every real colour of a greige into one record (dedup key includes colorName).
+// Unknown colour must be stored as NULL (name segment omitted) — never placeholder text.
+// All writes now route through services/helpers/fabric-identity.helper.ts.
+function colourSentinelLiteral(relFiles) {
+  const out = [];
+  const re = /\bcolorName:\s*['"](Natural|Unknown|Printed)['"]/g;
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^backend\/src\/.*\.ts$/.test(norm)) continue;
+    if (/\.test\.ts$|__tests__/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(content))) {
+      const lineNo = lineOf(content, m.index);
+      const lines = content.split('\n');
+      const context = `${lines[lineNo - 2] || ''}\n${lines[lineNo - 1] || ''}`;
+      if (/allow-colour-sentinel/.test(context)) continue; // opt-out (e.g. a real colour seed)
+      out.push({
+        key: `${rel} :: ${m[0].replace(/\s+/g, ' ')} :: L${lineNo}`,
+        file: rel,
+        line: lineNo,
+        detail: `placeholder colour literal ${m[0]} — store NULL for unknown colour (fabric-identity.helper resolves the real one)`,
+      });
+    }
+  }
+  return out;
+}
+
 module.exports = {
   perRouteValidation,
   enumDrift,
@@ -1138,6 +1170,7 @@ module.exports = {
   swallowedWriteErrors,
   assignNotIncrement,
   manualMaterialCreate,
+  colourSentinelLiteral,
   schemaFrontendParity,
   schemaServiceUpdateParity,
   stockSyncNoWarehouse,

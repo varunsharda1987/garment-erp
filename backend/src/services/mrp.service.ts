@@ -54,6 +54,7 @@ import { resolveShrinkagePercent } from './helpers/shrinkage-resolver.helper';
 import logger, { logWarn } from '../utils/logger';
 import { MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
+import { getOrCreateFinishedFabricV2, resolveFinishedFabricIdentity } from './helpers/fabric-identity.helper';
 
 /**
  * All master FK fields derived from MASTER_CONFIG (single source of truth).
@@ -2713,6 +2714,12 @@ export interface ProcessingJwoSeed {
    * documented as metres. Optional to keep the historical backfill script working unchanged.
    */
   uom?: string;
+  /**
+   * Fabric-naming: the finished fabric_master minted at JWO creation (identity from the
+   * requirement chain — colour, CAD pattern part, style, greige). Null when the identity
+   * could not be resolved; the GRN receipt path then mints it as a fallback.
+   */
+  finishedFabricId?: string | null;
 }
 
 /**
@@ -2774,6 +2781,7 @@ export function buildJwoDataForProcessingPO(seed: ProcessingJwoSeed, jobWorkNumb
     purchaseOrderId: seed.poId ?? null,
     styleId: seed.styleId,
     fabricId: seed.fabricId,
+    finishedFabricId: seed.finishedFabricId ?? null,
     fabricType: 'GREIGE',
     qtySentMeters: seed.qtyMeters,
     qtyBillable: seed.qtyBillable ?? null,
@@ -3004,11 +3012,26 @@ export async function generatePOFromRequirements(
       // rate card, greige/fabric refs, shrinkage)
       orderBomItem: {
         select: {
+          id: true,
           rateCardId: true,
           greigeId: true,
           fabricId: true,
           sourcingStrategy: true,
+          colorName: true,
           rateCard: { select: { processingType: true, printingType: true, shrinkagePercent: true } },
+          // Fabric-naming: BOM → CAD → styleFabric/pattern-part chain for the finished
+          // fabric identity minted with the JWO
+          selectedCad: {
+            select: {
+              id: true,
+              styleFabricId: true,
+              isCombinedCutting: true,
+              patternPart: { select: { id: true, name: true } },
+              cadPatternParts: {
+                select: { patternPart: { select: { id: true, name: true, sortOrder: true } } },
+              },
+            },
+          },
         },
       },
       // Billing basis: legacy PROCESSING rows have NULL shrinkagePercentUsed — the linked
@@ -3385,6 +3408,30 @@ export async function generatePOFromRequirements(
         where: { code: processingProcessType!, isActive: true },
         select: { id: true },
       });
+
+      // Fabric-naming: mint the finished fabric master NOW — the requirement chain carries
+      // the full identity (colour, CAD pattern part, style, greige) — so the JWO PDF's
+      // "Expected Output" names the real fabric before receipt. Never blocks JWO creation.
+      let finishedFabricId: string | null = null;
+      try {
+        const identity = await resolveFinishedFabricIdentity({
+          requirement: primary,
+          jwo: { sentWidthInches: askedFinishedWidthInches },
+          finishType: processingProcessType === 'PRINTING' ? 'PRINTED' : 'DYED',
+          tx,
+        });
+        if (identity) {
+          const minted = await getOrCreateFinishedFabricV2(identity, userId, 'AUTO_FROM_MRP_JWO', tx);
+          finishedFabricId = minted.fabricId;
+        } else {
+          logWarn(`[MRP] JWO ${jobWorkNumber}: no greige lineage on requirement — finished fabric deferred to receipt`);
+        }
+      } catch (error) {
+        logWarn(
+          `[MRP] JWO ${jobWorkNumber}: finished fabric mint failed — deferred to receipt: ${error instanceof Error ? error.message : error}`
+        );
+      }
+
       const jwo = await tx.job_work_orders.create({
         data: {
           ...buildJwoDataForProcessingPO(
@@ -3394,6 +3441,7 @@ export async function generatePOFromRequirements(
               processType: processingProcessType!,
               styleId: primary.order_items?.styleId ?? null,
               fabricId: primary.orderBomItem?.fabricId ?? null,
+              finishedFabricId,
               qtyMeters: toNumber(roundToCent(toCurrency(totalGreigeMeters))), // greige to issue
               qtyBillable: toNumber(roundToCent(toCurrency(totalBillableMeters))), // fabric the processor bills for
               greigeWidthInches,

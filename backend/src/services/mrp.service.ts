@@ -1902,8 +1902,11 @@ export async function calculateRequirementsFromOrder(
           // Skip - already has an active PO, don't duplicate
           // Track for GREIGE linking if needed
           if (req.isGreigeRequirement) {
+            // Key includes orderBomItemId: two BOM lines on the same greige+colour are
+            // distinct requirements — without it the last write won and PROCESSING rows
+            // linked to the OTHER line's greige (wrong shrinkage fallback).
             greigeRequirementIds.set(
-              `${req.orderId}-${req.orderItemId}-${req.materialId}-${req.colorName || ''}`,
+              `${req.orderId}-${req.orderItemId}-${req.materialId}-${req.colorName || ''}-${req.orderBomItemId || ''}`,
               existingWithPO.id
             );
           }
@@ -1999,7 +2002,7 @@ export async function calculateRequirementsFromOrder(
         // Track GREIGE requirements for linking to PROCESSING requirements
         if (req.isGreigeRequirement && saved) {
           greigeRequirementIds.set(
-            `${req.orderId}-${req.orderItemId}-${req.materialId}-${req.colorName || ''}`,
+            `${req.orderId}-${req.orderItemId}-${req.materialId}-${req.colorName || ''}-${req.orderBomItemId || ''}`,
             saved.id
           );
         }
@@ -2010,7 +2013,7 @@ export async function calculateRequirementsFromOrder(
       // Second pass: Create/update PROCESSING requirements with linked GREIGE IDs
       for (const req of processingReqs) {
         const linkedGreigeId = greigeRequirementIds.get(
-          `${req.orderId}-${req.orderItemId}-${req.linkedGreigeMaterialId || req.materialId}-${req.colorName || ''}`
+          `${req.orderId}-${req.orderItemId}-${req.linkedGreigeMaterialId || req.materialId}-${req.colorName || ''}-${req.orderBomItemId || ''}`
         );
 
         // CRITICAL: First check if a requirement already exists with an active PO
@@ -3505,7 +3508,10 @@ export async function generatePOFromRequirements(
         const coveredFabric = Number(allocated._sum.allocatedQuantity ?? 0);
         const covered = toNumber(roundToCent(divideByShrinkage(coveredFabric, reqShrinkage)));
         const remainder = toNumber(subtractCurrency(Number(req.shortfall), covered));
-        if (remainder <= 0.001) continue;
+        // 0.01 not 0.001: shortfall is stored at 3dp but coverage is roundToCent (2dp), so
+        // structural dust up to ~0.005 m is possible — 0.001 minted phantom 2 mm
+        // requirements that could never close (live case MR2608-0071).
+        if (remainder <= 0.01) continue;
 
         const childNumber = await generateRequirementNumber(tx);
         await tx.material_requirements.create({
@@ -3532,6 +3538,10 @@ export async function generatePOFromRequirements(
             processingCost: req.processingCost,
             printingType: req.printingType,
             linkedRequirementId: req.linkedRequirementId,
+            // Shrinkage audit trail must survive the split — without it the child falls
+            // back down resolveProcessingShrinkagePercent and can land on silent 0%.
+            shrinkagePercentUsed: req.shrinkagePercentUsed,
+            shrinkageSource: req.shrinkageSource,
             colorName: req.colorName,
             componentName: req.componentName,
             requiredDate: req.requiredDate,
@@ -3759,8 +3769,9 @@ export async function generatePOFromRequirements(
       const remainder = toNumber(subtractCurrency(needed, covered));
 
       // Ignore rounding dust from proportional allocation — only a materially uncovered
-      // balance is worth carrying forward.
-      if (remainder <= 0.001) continue;
+      // balance is worth carrying forward. 0.01 matches the 2dp allocation precision
+      // (0.001 minted phantom sub-centimetre requirements).
+      if (remainder <= 0.01) continue;
 
       const childNumber = await generateRequirementNumber(tx);
       const child = await tx.material_requirements.create({
@@ -3790,6 +3801,12 @@ export async function generatePOFromRequirements(
           processorId: req.processorId,
           processingCost: req.processingCost,
           printingType: req.printingType,
+          // The JWO split path copies these; this PO path silently dropped them, so a
+          // PROCESSING child lost BOTH shrinkage fallbacks (own snapshot + linked greige)
+          // and resolveProcessingShrinkagePercent landed on 0%.
+          linkedRequirementId: req.linkedRequirementId,
+          shrinkagePercentUsed: req.shrinkagePercentUsed,
+          shrinkageSource: req.shrinkageSource,
           colorName: req.colorName,
           componentName: req.componentName,
           requiredDate: req.requiredDate,

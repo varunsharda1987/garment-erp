@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { Combobox } from '../components/ui/combobox';
 import { fabricService } from '../services/fabricGreigeService';
 import { warehouseService } from '../services/warehouse.service';
-import { CheckCircle, XCircle, Package2, ArrowLeft, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, XCircle, Package2, ArrowLeft, ChevronDown, ChevronUp, AlertTriangle, Link2 } from 'lucide-react';
 import type { FabricMaster } from '../types/fabric-greige.types';
 import api from '@/lib/api';
 import { formatCurrency } from '@/lib/currency';
@@ -43,6 +43,10 @@ export default function FabricStockEntry() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [styleAllocations, setStyleAllocations] = useState<
+    Array<{ styleCode: string; styleName: string; styleId: string; componentName: string }>
+  >([]);
+  const [isLoadingAllocations, setIsLoadingAllocations] = useState(false);
 
   useEffect(() => {
     loadFabricList();
@@ -83,7 +87,7 @@ export default function FabricStockEntry() {
     }
   };
 
-  const handleFabricChange = (fabricId: string) => {
+  const handleFabricChange = async (fabricId: string) => {
     const selectedFabric = fabricList.find((f) => f.id === fabricId);
 
     // If fabric is style-linked, redirect to style stock entry page
@@ -97,11 +101,32 @@ export default function FabricStockEntry() {
 
     // Generic fabric - stay on this page
     setSelectedFabricId(fabricId);
+    setStyleAllocations([]);
     if (selectedFabric) {
       setFormData((prev) => ({
         ...prev,
         width: selectedFabric.actualWidth.toString(),
       }));
+
+      // Fetch style allocations to show warning/info
+      setIsLoadingAllocations(true);
+      try {
+        const response = await api.get(`/fabric-management/fabric/${fabricId}/style-allocations`);
+        const allocations = response.data?.data?.allocations || [];
+        setStyleAllocations(
+          allocations.map((a: any) => ({
+            styleCode: a.styleCode || a.style?.styleCode || 'N/A',
+            styleName: a.styleName || a.style?.styleName || 'N/A',
+            styleId: a.styleId || a.style?.id || '',
+            componentName: a.componentName || 'N/A',
+          }))
+        );
+      } catch (err) {
+        console.error('Failed to fetch style allocations:', err);
+        setStyleAllocations([]);
+      } finally {
+        setIsLoadingAllocations(false);
+      }
     }
   };
 
@@ -337,6 +362,43 @@ export default function FabricStockEntry() {
                   )}
                 </CardContent>
               </Card>
+            )}
+
+            {/* Style Link Status Panel */}
+            {selectedFabric && !isLoadingAllocations && (
+              <>
+                {styleAllocations.length > 0 ? (
+                  <Alert className="bg-success-muted border-success/20">
+                    <Link2 className="h-4 w-4 text-success" />
+                    <AlertDescription className="text-success">
+                      <span className="font-medium">Linked to {styleAllocations.length} style(s):</span>{' '}
+                      {styleAllocations.slice(0, 3).map((a, i) => (
+                        <span key={a.styleId}>
+                          <Link to={`/styles/${a.styleId}`} className="underline hover:no-underline">
+                            {a.styleCode}
+                          </Link>
+                          {i < Math.min(styleAllocations.length, 3) - 1 ? ', ' : ''}
+                        </span>
+                      ))}
+                      {styleAllocations.length > 3 && ` +${styleAllocations.length - 3} more`}
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <Alert className="bg-warning-muted border-warning/20">
+                    <AlertTriangle className="h-4 w-4 text-warning" />
+                    <AlertDescription className="text-warning">
+                      <span className="font-medium">Not linked to any style.</span> Stock for unlinked fabric cannot be
+                      used for cutting.{' '}
+                      <Link to="/styles" className="underline hover:no-underline">
+                        Link to a style →
+                      </Link>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </>
+            )}
+            {selectedFabric && isLoadingAllocations && (
+              <p className="text-sm text-muted-foreground">Checking style links...</p>
             )}
 
             {/* Stock Entry Form */}

@@ -194,6 +194,7 @@ export const FGStockList = lazy(() => import('../pages/FGStockList'));
 export const WorkOrderList = lazy(() => import('../pages/WorkOrderList'));
 export const WorkOrderDetail = lazy(() => import('../pages/WorkOrderDetail'));
 export const WorkOrderForm = lazy(() => import('../pages/WorkOrderForm'));
+export const WorkOrderCreate = lazy(() => import('../pages/WorkOrderCreate'));
 export const StockProductionOrderList = lazy(() => import('../pages/StockProductionOrderList'));
 export const StockProductionOrderDetail = lazy(() => import('../pages/StockProductionOrderDetail'));
 export const SaleOrderList = lazy(() => import('../pages/SaleOrderList'));

@@ -101,6 +101,7 @@ import {
   WorkOrderList,
   WorkOrderDetail,
   WorkOrderForm,
+  WorkOrderCreate,
   StockProductionOrderList,
   StockProductionOrderDetail,
   SaleOrderList,
@@ -586,8 +587,8 @@ function App() {
               <Route path="/sale-orders/:id" element={<SaleOrderDetail />} />
               <Route path="/production/work-orders" element={<WorkOrderList />} />
               <Route path="/production/work-orders/:id" element={<WorkOrderDetail />} />
-              {/* Work orders are auto-created with orders - redirect to list */}
-              <Route path="/production/work-orders/new" element={<Navigate to="/production/work-orders" replace />} />
+              {/* Manual work order creation (make-to-stock or standalone production) */}
+              <Route path="/production/work-orders/new" element={<WorkOrderCreate />} />
               <Route path="/production/work-orders/:id/edit" element={<WorkOrderForm />} />
 
               {/* Production Status Dashboard */}

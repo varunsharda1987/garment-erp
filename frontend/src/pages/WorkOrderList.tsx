@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Edit, Eye, TrendingUp, X } from 'lucide-react';
+import { Edit, Eye, TrendingUp, X, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -255,10 +255,16 @@ export default function WorkOrderList() {
   return (
     <>
       <PageHeader title="Production Runs">
-        <Button onClick={() => navigate('/dashboard')} variant="outline">
-          <TrendingUp className="mr-2 h-4 w-4" />
-          Dashboard
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => navigate('/dashboard')} variant="outline">
+            <TrendingUp className="mr-2 h-4 w-4" />
+            Dashboard
+          </Button>
+          <Button onClick={() => navigate('/production/work-orders/new')}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create Work Order
+          </Button>
+        </div>
       </PageHeader>
 
       {/* Active drill-down filter indicators */}
@@ -360,7 +366,7 @@ export default function WorkOrderList() {
             description:
               searchQuery || statusFilter || priorityFilter || overdueOnly || orderIdFilter
                 ? 'Try adjusting your search or filter criteria'
-                : 'Production runs are auto-created when orders are saved',
+                : 'Create a work order manually or start production from a sale order',
           }}
           onRowClick={(wo) => navigate(`/production/work-orders/${wo.id}`)}
         />

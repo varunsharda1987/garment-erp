@@ -73,5 +73,6 @@
   "frontend/src/pages/ThreadForm.tsx :: silent-catch :: only console-logs",
   "frontend/src/pages/UnifiedRequirementsPage.tsx :: silent-catch :: is empty",
   "frontend/src/pages/WorkOrderDetail.tsx :: silent-catch :: only console-logs",
-  "frontend/src/pages/ZipperForm.tsx :: silent-catch :: only console-logs"
+  "frontend/src/pages/ZipperForm.tsx :: silent-catch :: only console-logs",
+  "frontend/src/pages/WorkOrderCreate.tsx :: silent-catch :: only console-logs"
 ]

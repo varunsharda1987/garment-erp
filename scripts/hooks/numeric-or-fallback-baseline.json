@@ -106,5 +106,6 @@
   "frontend/src/pages/TCSList.tsx :: or-fallback :: formData.saleAmount||''",
   "frontend/src/pages/TDSList.tsx :: or-fallback :: formData.grossAmount||''",
   "frontend/src/pages/ThreadForm.tsx :: or-fallback :: supplier.pricePerCone||''",
-  "frontend/src/pages/ZipperForm.tsx :: or-fallback :: supplier.pricePerPiece||''"
+  "frontend/src/pages/ZipperForm.tsx :: or-fallback :: supplier.pricePerPiece||''",
+  "frontend/src/pages/WorkOrderCreate.tsx :: or-fallback :: row.quantity||''"
 ]

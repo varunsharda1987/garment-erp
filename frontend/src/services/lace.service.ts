@@ -152,3 +152,37 @@ export const getLaceForCosting = async (params?: { search?: string }): Promise<L
   });
   return data;
 };
+
+// ============================================
+// LACE COSTING CALCULATION
+// ============================================
+
+import type {
+  LaceCostingRequest,
+  LaceCostCalculationResult,
+  BatchLaceCostingRequest,
+  BatchLaceCostingResult,
+} from '../types/laceCosting.types';
+
+/**
+ * Calculate lace cost with all sourcing options
+ * Returns comparison of Stock Reuse, Ready Lace, and Greige + Processing
+ */
+export const calculateLaceCost = async (request: LaceCostingRequest): Promise<LaceCostCalculationResult> => {
+  const { data } = await api.post<{ success: boolean; data: LaceCostCalculationResult }>(
+    '/lace-costing/calculate',
+    request
+  );
+  return data.data;
+};
+
+/**
+ * Calculate costs for multiple lace items (batch)
+ */
+export const calculateBatchLaceCost = async (request: BatchLaceCostingRequest): Promise<BatchLaceCostingResult> => {
+  const { data } = await api.post<{ success: boolean; data: BatchLaceCostingResult }>(
+    '/lace-costing/batch-calculate',
+    request
+  );
+  return data.data;
+};

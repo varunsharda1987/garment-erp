@@ -58,6 +58,7 @@ const BUTTON_CONFIG: MaterialTypeConfig = {
     { name: 'material', label: 'Material', type: 'text', required: false, placeholder: 'Plastic, Metal, Wood' },
     { name: 'shape', label: 'Shape', type: 'text', required: false, placeholder: 'Round, Square' },
     { name: 'color', label: 'Color', type: 'text', required: false },
+    { name: 'pricePerPiece', label: 'Price per Piece (₹)', type: 'number', required: false, placeholder: '0.50' },
   ],
   createService: async (data: MaterialFormData, styleCode?: string) => {
     // Don't force-set the name field; let backend auto-generate if not provided
@@ -94,6 +95,7 @@ const THREAD_CONFIG: MaterialTypeConfig = {
     { name: 'packagingType', label: 'Packaging Type', type: 'select', options: ['CONE', 'TUBE'], required: false },
     { name: 'metersPerUnit', label: 'Meters Per Unit', type: 'number', required: false, placeholder: '5000' },
     { name: 'color', label: 'Color', type: 'text', required: false },
+    { name: 'pricePerCone', label: 'Price per Cone (₹)', type: 'number', required: false, placeholder: '120' },
   ],
   createService: async (data: MaterialFormData, styleCode?: string) => {
     const payload: QuickAddPayload = { ...data };
@@ -123,6 +125,7 @@ const ZIPPER_CONFIG: MaterialTypeConfig = {
     { name: 'teethType', label: 'Teeth Type', type: 'text', required: false, placeholder: 'Metal, Plastic, Coil' },
     { name: 'sliderType', label: 'Slider Type', type: 'text', required: false, placeholder: 'Auto Lock, Pin Lock' },
     { name: 'color', label: 'Color', type: 'text', required: false },
+    { name: 'pricePerPiece', label: 'Price per Piece (₹)', type: 'number', required: false, placeholder: '15' },
   ],
   createService: async (data: MaterialFormData, styleCode?: string) => {
     const payload: QuickAddPayload = { ...data };
@@ -151,6 +154,7 @@ const ELASTIC_CONFIG: MaterialTypeConfig = {
     { name: 'composition', label: 'Composition', type: 'text', required: false, placeholder: 'Polyester, Rubber' },
     { name: 'elasticType', label: 'Elastic Type', type: 'text', required: false, placeholder: 'Braided, Knit, Woven' },
     { name: 'color', label: 'Color', type: 'text', required: false },
+    { name: 'pricePerMeter', label: 'Price per Meter (₹)', type: 'number', required: false, placeholder: '5' },
   ],
   createService: async (data: MaterialFormData, styleCode?: string) => {
     const payload: QuickAddPayload = { ...data };
@@ -215,6 +219,16 @@ const LACE_CONFIG: MaterialTypeConfig = {
       required: false,
       showWhen: { field: 'isGreige', value: true, inverse: true },
       helpText: 'Color is not applicable for greige lace - it will be applied during dyeing',
+    },
+    // Price per meter - shown for finished lace only
+    {
+      name: 'pricePerMeter',
+      label: 'Price per Meter (₹)',
+      type: 'number',
+      required: false,
+      placeholder: '25',
+      showWhen: { field: 'isGreige', value: true, inverse: true },
+      helpText: 'Ready lace price per meter',
     },
   ],
   createService: async (data: MaterialFormData, styleCode?: string) => {
@@ -330,6 +344,7 @@ const LABEL_CONFIG: MaterialTypeConfig = {
     { name: 'material', label: 'Material', type: 'text', required: false, placeholder: 'Polyester, Satin, Card' },
     { name: 'printMethod', label: 'Print Method', type: 'text', required: false, placeholder: 'Screen Print, Digital' },
     { name: 'color', label: 'Color', type: 'text', required: false },
+    { name: 'pricePerPiece', label: 'Price per Piece (₹)', type: 'number', required: false, placeholder: '2' },
   ],
   createService: async (data: MaterialFormData, styleCode?: string) => {
     // Determine labelCategory based on labelType
@@ -374,6 +389,7 @@ const PACKAGING_CONFIG: MaterialTypeConfig = {
     { name: 'size', label: 'Size', type: 'text', required: false, placeholder: 'e.g., 12x16 inches' },
     { name: 'material', label: 'Material', type: 'text', required: false, placeholder: 'LDPE, Cardboard' },
     { name: 'thickness', label: 'Thickness', type: 'text', required: false, placeholder: '40 microns, 3 ply' },
+    { name: 'pricePerPiece', label: 'Price per Piece (₹)', type: 'number', required: false, placeholder: '1.50' },
   ],
   createService: async (data: MaterialFormData, styleCode?: string) => {
     const payload: QuickAddPayload = { ...data };

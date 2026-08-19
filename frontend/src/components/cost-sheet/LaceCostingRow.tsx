@@ -5,6 +5,8 @@
 
 import { useState } from 'react';
 import { Trash2, Info, RefreshCw } from 'lucide-react';
+import LaceSourcingStrategySelector from './LaceSourcingStrategySelector';
+import type { LaceCostCalculationResult } from '../../types/laceCosting.types';
 
 interface LaceCostingRowProps {
   laceId: string;
@@ -49,6 +51,8 @@ export default function LaceCostingRow({
   quantityPerGarment,
   wastagePercent,
   width,
+  orderQuantity,
+  styleId,
   currentStrategy,
   currentCost,
   onStrategyChange,
@@ -61,6 +65,8 @@ export default function LaceCostingRow({
 }: LaceCostingRowProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [laceCostData, setLaceCostData] = useState<LaceCostCalculationResult | null>(null);
 
   // Calculate effective quantity with wastage
   const effectiveQuantity = quantityPerGarment * (1 + wastagePercent / 100);
@@ -70,19 +76,19 @@ export default function LaceCostingRow({
     setError(null);
 
     try {
-      // TODO: Implement lace costing calculation service
-      // For now, show a placeholder modal or use simplified calculation
+      const { calculateLaceCost } = await import('../../services/lace.service');
 
-      // Temporary: Use a simple cost calculation
-      const defaultCostPerMeter = 30; // Placeholder rate
-      const totalCost = effectiveQuantity * defaultCostPerMeter;
-
-      onStrategyChange({
-        sourcingStrategy: 'READY_LACE',
-        cost: totalCost,
-        costPerMeter: defaultCostPerMeter,
-        readyLaceCost: defaultCostPerMeter,
+      const result = await calculateLaceCost({
+        laceId,
+        laceName,
+        quantityPerGarment,
+        orderQuantity,
+        wastagePercent,
+        styleId,
       });
+
+      setLaceCostData(result);
+      setIsModalOpen(true);
     } catch (err: unknown) {
       console.error('Error calculating lace cost:', err);
       const error = err as { response?: { data?: { error?: string } } };
@@ -90,6 +96,11 @@ export default function LaceCostingRow({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSelectStrategy = (strategy: Parameters<LaceCostingRowProps['onStrategyChange']>[0]) => {
+    onStrategyChange(strategy);
+    setIsModalOpen(false);
   };
 
   const formatCurrency = (amount: number | null | undefined) => {
@@ -274,6 +285,16 @@ export default function LaceCostingRow({
             </div>
           </td>
         </tr>
+      )}
+
+      {/* Lace Sourcing Strategy Modal */}
+      {laceCostData && (
+        <LaceSourcingStrategySelector
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          laceCostData={laceCostData}
+          onSelectStrategy={handleSelectStrategy}
+        />
       )}
     </>
   );

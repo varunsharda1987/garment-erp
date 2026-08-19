@@ -16,9 +16,10 @@ import { AnthropicProvider } from './AnthropicProvider';
 import { GeminiProvider } from './GeminiProvider';
 import { OllamaProvider } from './OllamaProvider';
 import { KimiProvider } from './KimiProvider';
+import { DeepSeekProvider } from './DeepSeekProvider';
 import { logInfo, logError, logWarn, logDebug } from '../../../utils/logger';
 
-export type AIProviderType = 'openai' | 'anthropic' | 'google' | 'ollama' | 'kimi';
+export type AIProviderType = 'openai' | 'anthropic' | 'google' | 'ollama' | 'kimi' | 'deepseek';
 
 export interface AIProviderConfig {
   type: AIProviderType;
@@ -128,9 +129,15 @@ export class AIProviderFactory {
         }
         return new KimiProvider(config.apiKey, config.model);
 
+      case 'deepseek':
+        if (!config.apiKey) {
+          throw new Error('DeepSeek API key is required. Set AI_API_KEY environment variable.');
+        }
+        return new DeepSeekProvider(config.apiKey, config.model);
+
       default:
         throw new Error(
-          `Unknown AI provider type: ${config.type}. Supported types: openai, anthropic, google, ollama, kimi`
+          `Unknown AI provider type: ${config.type}. Supported types: openai, anthropic, google, ollama, kimi, deepseek`
         );
     }
   }

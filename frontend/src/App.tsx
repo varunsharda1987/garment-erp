@@ -157,6 +157,7 @@ import {
   ComponentGroupMaster,
   PatternPartMaster,
   AIAssistant,
+  AISettings,
   NotFound,
   PurchaseOrderList,
   PurchaseOrderForm,
@@ -782,6 +783,7 @@ function App() {
 
               {/* AI Assistant */}
               <Route path="/ai-assistant" element={<AIAssistant />} />
+              <Route path="/ai-settings" element={<AISettings />} />
 
               {/* Document Generation */}
               <Route path="/catalogue-generator" element={<CatalogueGenerator />} />

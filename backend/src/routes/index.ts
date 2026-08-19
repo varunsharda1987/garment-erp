@@ -80,6 +80,7 @@ import processingStageRoutes from './processingStage.routes';
 import processingMovementRoutes from './processingMovement.routes';
 import processingDeliveryRoutes from './processingDelivery.routes';
 import aiRoutes from './ai.routes';
+import aiSettingsRoutes from './ai-settings.routes';
 import auditRoutes from './audit.routes';
 import jobsRoutes from './jobs.routes';
 import purchaseOrderRoutes from './purchaseOrder.routes';
@@ -400,6 +401,7 @@ export function createApiRouter(): Router {
 
   // AI
   router.use('/ai', aiRoutes);
+  router.use('/ai-settings', aiSettingsRoutes);
 
   // AI Conversations (Persistent Memory)
   router.use('/conversations', conversationRoutes);

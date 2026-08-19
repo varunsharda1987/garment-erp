@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Search, Sparkles, Star, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Search, Settings, Sparkles, Star, X } from 'lucide-react';
 import { useState, useMemo, type ReactNode } from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useUIPreferences } from '@/stores/ui-preferences.store';
@@ -246,7 +246,7 @@ export default function Sidebar({ isOpen }: SidebarProps) {
 
         {/* AI Assistant Link - Bottom */}
         {can('aiAssistant') && !isSearching && (
-          <div className="mt-4 pt-4 border-t border-border">
+          <div className="mt-4 pt-4 border-t border-border space-y-1">
             <NavLink
               to="/ai-assistant"
               className={({ isActive }) =>
@@ -261,6 +261,21 @@ export default function Sidebar({ isOpen }: SidebarProps) {
               <span>AI Assistant</span>
               <span className="ml-auto text-xs bg-accent/15 text-accent px-2 py-0.5 rounded-full">NEW</span>
             </NavLink>
+            {can('aiSettings') && (
+              <NavLink
+                to="/ai-settings"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm ${
+                    isActive
+                      ? 'bg-accent/10 text-accent font-medium border border-accent/20'
+                      : 'text-muted-foreground hover:bg-accent/10 hover:text-foreground'
+                  }`
+                }
+              >
+                <Settings className="h-4 w-4" />
+                <span>AI Settings</span>
+              </NavLink>
+            )}
           </div>
         )}
 

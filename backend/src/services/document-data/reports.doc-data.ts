@@ -234,8 +234,10 @@ export interface VendorPerformanceReportRow {
   processType: string;
   ordersCompleted: number;
   issued: string; // "18,400.00 m"
+  expected: string; // contracted due-back (shrinkage-adjusted) — the accountability qty
   tolerance: string; // fmtPct
-  actualLoss: string; // fmtPct
+  shortfall: string; // fmtPct — deficit vs due-back; what tolerance is measured against
+  physicalLoss: string; // fmtPct — (issued − received)/issued incl. expected shrinkage, informational
   barWidthPct: number;
   tickLeftPct: number;
   barOver: boolean;
@@ -295,17 +297,20 @@ export async function buildVendorPerformanceReportData(period?: ReportPeriod): P
   const rows: VendorPerformanceReportRow[] = summary.items.map((item) => {
     const chip = VENDOR_CHIP[item.status];
     const uom = issuedUom(item.processType);
-    // Bar geometry: tolerance tick sits at 2/3 of scale when within range
-    const scale = Math.max(item.actualLossPercent, item.tolerancePercent * 1.5, 0.0001);
-    const barWidthPct = Math.min(100, Math.round((item.actualLossPercent / scale) * 1000) / 10);
+    // Bar geometry: SHORTFALL vs the tolerance tick — same basis, so the comparison is
+    // honest (the old bar plotted physical loss incl. shrinkage against the tolerance)
+    const scale = Math.max(item.shortfallPercent, item.tolerancePercent * 1.5, 0.0001);
+    const barWidthPct = Math.min(100, Math.round((item.shortfallPercent / scale) * 1000) / 10);
     const tickLeftPct = Math.min(100, Math.round((item.tolerancePercent / scale) * 1000) / 10);
     return {
       processorName: item.processorName,
       processType: titleCase(item.processType),
       ordersCompleted: item.ordersCompleted,
       issued: `${fmtQty(item.totalIssued, uom)} ${unitSuffix(uom)}`,
+      expected: `${fmtQty(item.totalExpected, uom)} ${unitSuffix(uom)}`,
       tolerance: fmtPct(item.tolerancePercent),
-      actualLoss: fmtPct(item.actualLossPercent),
+      shortfall: fmtPct(item.shortfallPercent),
+      physicalLoss: fmtPct(item.physicalLossPercent),
       barWidthPct,
       tickLeftPct,
       barOver: item.status === 'OVER',

@@ -10,6 +10,7 @@
 
 import prisma from '../config/database';
 import { Decimal } from '@prisma/client/runtime/library';
+import { applyShrinkageLoss, toNumber } from '../utils/currency';
 
 // ============================================
 // Section 143 Ageing Report
@@ -94,7 +95,15 @@ export interface VendorPerformanceItem {
   processType: string;
   ordersCompleted: number;
   totalIssued: number;
+  /** Contracted output due back: Σ sent × (1 − expected shrinkage) — the accountability basis. */
+  totalExpected: number;
   tolerancePercent: number;
+  /** Shortfall vs the contracted output (%) — what tolerance is measured against. */
+  shortfallPercent: number;
+  /** Physical (issued − received)/issued (%) — includes expected shrinkage; informational only. */
+  physicalLossPercent: number;
+  /** Back-compat alias of shortfallPercent (pre-2026-08-19 this was the physical loss —
+   *  grading every shrinkage-bearing processor "OVER" for meeting the contract). */
   actualLossPercent: number;
   isOverTolerance: boolean;
   debitedAmount: number;
@@ -438,6 +447,7 @@ class JobWorkStatutoryService {
         processType: string;
         orders: number;
         totalIssued: number;
+        totalExpected: number;
         totalReceived: number;
         tolerancePercent: number;
         debitedAmount: number;
@@ -452,14 +462,29 @@ class JobWorkStatutoryService {
         processType: order.processType,
         orders: 0,
         totalIssued: 0,
+        totalExpected: 0,
         totalReceived: 0,
         // ?? not ||: a configured 0% tolerance is STRICT, not "use 3%"; missing = strict too
         tolerancePercent: Number(order.processTypeMaster?.tolerancePercent ?? 0),
         debitedAmount: 0,
       };
 
+      const sent = Number(order.qtySentMeters);
+      // Contracted expected output — SAME basis as calculateLossSplit. Shrinkage-derived
+      // first: expectedShrinkage survives close's settle-on-actuals overwrite of
+      // qtyBillable, so the report stays stable after settlement. Never above sent.
+      const shrink = order.expectedShrinkage != null ? Number(order.expectedShrinkage) : 0;
+      const rawExpected =
+        shrink > 0 && shrink < 100
+          ? toNumber(applyShrinkageLoss(sent, shrink))
+          : order.qtyBillable != null
+            ? Number(order.qtyBillable)
+            : sent;
+      const expected = Math.min(rawExpected, sent);
+
       existing.orders++;
-      existing.totalIssued += Number(order.qtySentMeters);
+      existing.totalIssued += sent;
+      existing.totalExpected += expected;
       existing.totalReceived += Number(order.qtyReceivedMeters || 0);
 
       // BUG FIX: Use per-order qtyAbnormalLoss (Phase 6 field) instead of recalculating from cumulative
@@ -477,21 +502,27 @@ class JobWorkStatutoryService {
     let totalRecovered = 0;
 
     for (const stats of processorStats.values()) {
-      const actualLossPercent =
+      // Physical loss (incl. expected shrinkage) — informational only. Grading against it
+      // branded every shrinkage-bearing processor OVER for meeting the contract.
+      const physicalLossPercent =
         stats.totalIssued > 0 ? ((stats.totalIssued - stats.totalReceived) / stats.totalIssued) * 100 : 0;
-
-      const isOverTolerance = actualLossPercent > stats.tolerancePercent;
-      if (isOverTolerance) processorsOverTolerance++;
-      totalRecovered += stats.debitedAmount;
+      // Accountability figure: shortfall vs the contracted output — what tolerance means.
+      const shortfallPercent =
+        stats.totalExpected > 0
+          ? (Math.max(0, stats.totalExpected - stats.totalReceived) / stats.totalExpected) * 100
+          : 0;
 
       let status: VendorPerformanceItem['status'];
-      if (actualLossPercent > stats.tolerancePercent) {
+      if (shortfallPercent > stats.tolerancePercent) {
         status = 'OVER';
-      } else if (actualLossPercent >= stats.tolerancePercent * 0.9) {
+      } else if (stats.tolerancePercent > 0 && shortfallPercent >= stats.tolerancePercent * 0.9) {
         status = 'AT_LIMIT';
       } else {
         status = 'WITHIN';
       }
+      const isOverTolerance = status === 'OVER';
+      if (isOverTolerance) processorsOverTolerance++;
+      totalRecovered += stats.debitedAmount;
 
       items.push({
         processorId: stats.processorId,
@@ -499,16 +530,19 @@ class JobWorkStatutoryService {
         processType: stats.processType,
         ordersCompleted: stats.orders,
         totalIssued: stats.totalIssued,
+        totalExpected: Math.round(stats.totalExpected * 100) / 100,
         tolerancePercent: stats.tolerancePercent,
-        actualLossPercent: Math.round(actualLossPercent * 100) / 100,
+        shortfallPercent: Math.round(shortfallPercent * 100) / 100,
+        physicalLossPercent: Math.round(physicalLossPercent * 100) / 100,
+        actualLossPercent: Math.round(shortfallPercent * 100) / 100,
         isOverTolerance,
         debitedAmount: Math.round(stats.debitedAmount * 100) / 100,
         status,
       });
     }
 
-    // Sort by actual loss percent descending
-    items.sort((a, b) => b.actualLossPercent - a.actualLossPercent);
+    // Sort by shortfall (accountability) descending
+    items.sort((a, b) => b.shortfallPercent - a.shortfallPercent);
 
     return {
       periodStart,

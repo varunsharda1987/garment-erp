@@ -36,8 +36,8 @@
     <thead>
       <tr>
         <th>Processor</th><th style="width:82px">Process</th>
-        <th class="num" style="width:52px">Orders</th><th class="num" style="width:78px">Issued</th>
-        <th class="num" style="width:56px">Tol. %</th><th class="num" style="width:62px">Actual %</th>
+        <th class="num" style="width:52px">Orders</th><th class="num" style="width:78px">Due back</th>
+        <th class="num" style="width:56px">Tol. %</th><th class="num" style="width:62px">Short %</th>
         <th style="width:120px">Against tolerance</th>
         <th class="num" style="width:70px">Debited ₹</th><th style="width:82px">Status</th>
       </tr>
@@ -45,8 +45,10 @@
     <tbody>
       {{#each rows}}
       <tr{{#if this.rowClass}} class="{{this.rowClass}}"{{/if}}>
-        <td>{{this.processorName}}</td><td>{{this.processType}}</td><td class="num">{{this.ordersCompleted}}</td><td class="num">{{this.issued}}</td>
-        <td class="num">{{this.tolerance}}</td><td class="num">{{this.actualLoss}}</td>
+        <td>{{this.processorName}}</td><td>{{this.processType}}</td><td class="num">{{this.ordersCompleted}}</td>
+        <td class="num">{{this.expected}}<br><span class="muted">{{this.issued}} issued</span></td>
+        <td class="num">{{this.tolerance}}</td>
+        <td class="num">{{this.shortfall}}<br><span class="muted">{{this.physicalLoss}} incl. shrink</span></td>
         <td><div class="bar"><i{{#if this.barOver}} class="over"{{/if}} style="width:{{this.barWidthPct}}%"></i><u style="left:{{this.tickLeftPct}}%"></u></div></td>
         <td class="num">{{this.debited}}</td><td><span class="chip {{this.chipClass}}">{{this.chipLabel}}</span></td>
       </tr>
@@ -64,7 +66,7 @@
   </div>
 
   <div class="report-foot">
-    <span>Tick on each bar marks the agreed tolerance &middot; bars turn terracotta only when actual exceeds it</span>
+    <span>Short % = shortfall vs the shrinkage-adjusted due-back (expected process shrinkage is not loss) &middot; tick marks the agreed tolerance &middot; bars turn terracotta only when shortfall exceeds it</span>
     <span>{{companyName}} &middot; generated {{generatedOn}}</span>
   </div>
 </div>

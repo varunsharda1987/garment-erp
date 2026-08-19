@@ -7,6 +7,7 @@
 
 import {
   buildFinishedFabricName,
+  resolveIdentityColourName,
   resolvePartFromCadShape,
   FINISH_LABELS,
   FinishedFabricIdentity,
@@ -123,6 +124,74 @@ describe('FINISH_LABELS', () => {
     expect(FINISH_LABELS.PRINTED).toBe('Printed');
     expect(FINISH_LABELS.YARN_DYED).toBe('Yarn Dyed');
     expect(FINISH_LABELS.RAW).toBe('Raw/Unfinished');
+  });
+});
+
+/**
+ * The colour ladder decides the finished-fabric dedup tuple, so its ORDER is commercial, not
+ * cosmetic: whichever rung answers determines whether two runs become one fabric master or two.
+ * The stock rungs were added for style-less jobs (2026-08-19) and must never outrank the chain.
+ */
+describe('resolveIdentityColourName', () => {
+  const stockJwo = { colorMaster: { id: 'c1', colorName: 'Black', colorCode: 'BLK' }, colorName: 'Ignored Free Text' };
+
+  it('takes the requirement colour ahead of everything below it', () => {
+    expect(
+      resolveIdentityColourName({
+        requirement: { colorName: 'Beige' },
+        orderBomItem: { colorName: 'Navy' },
+        jwo: { ...stockJwo, labDip: { targetColor: { colorName: 'Rust' } } },
+        finishType: 'DYED',
+      })
+    ).toBe('Beige');
+  });
+
+  it('falls to the BOM item, then the lab dip, before any job-work rung', () => {
+    expect(
+      resolveIdentityColourName({
+        orderBomItem: { colorName: 'Navy' },
+        jwo: { ...stockJwo, labDip: { targetColor: { colorName: 'Rust' } } },
+        finishType: 'DYED',
+      })
+    ).toBe('Navy');
+    expect(
+      resolveIdentityColourName({
+        jwo: { ...stockJwo, labDip: { targetColor: { colorName: 'Rust' } } },
+        finishType: 'DYED',
+      })
+    ).toBe('Rust');
+  });
+
+  it("uses the dye house's shade reference on a DYED job but never on a PRINTED one", () => {
+    const jwo = { labDip: { colorReference: 'Pantone 19-4052' } };
+    expect(resolveIdentityColourName({ jwo, finishType: 'DYED' })).toBe('Pantone 19-4052');
+    expect(resolveIdentityColourName({ jwo, finishType: 'PRINTED' })).toBeNull();
+  });
+
+  it('reaches the stock colour master only when the whole order chain is empty', () => {
+    expect(resolveIdentityColourName({ jwo: stockJwo, finishType: 'DYED' })).toBe('Black');
+    // ...and a PRINTED stock job still gets one, since the colorReference rung is skipped, not fatal
+    expect(resolveIdentityColourName({ jwo: stockJwo, finishType: 'PRINTED' })).toBe('Black');
+  });
+
+  it('accepts free-text colour as the last resort (import/API callers with no master row)', () => {
+    expect(resolveIdentityColourName({ jwo: { colorName: 'Buyer Ecru' }, finishType: 'DYED' })).toBe('Buyer Ecru');
+  });
+
+  it('treats blank and whitespace-only values as absent rather than as a colour', () => {
+    expect(
+      resolveIdentityColourName({
+        requirement: { colorName: '   ' },
+        orderBomItem: { colorName: '' },
+        jwo: stockJwo,
+        finishType: 'DYED',
+      })
+    ).toBe('Black');
+  });
+
+  it('returns null for a job with no colour anywhere — the pre-2026-08-19 stock behaviour', () => {
+    expect(resolveIdentityColourName({ jwo: {}, finishType: 'DYED' })).toBeNull();
+    expect(resolveIdentityColourName({ finishType: 'DYED' })).toBeNull();
   });
 });
 

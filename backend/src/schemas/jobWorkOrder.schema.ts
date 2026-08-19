@@ -6,6 +6,14 @@ import { z } from 'zod';
 import { ProcessTypeEnum } from './generated/prisma-enums';
 
 /**
+ * The process types whose output is CLOTH — process_type_master.processCategory = 'FABRIC'.
+ * These are the jobs that mint a finished fabric master on receipt, so they are the only ones
+ * a shade, a finished width or a shrinkage percentage means anything on.
+ */
+export const FABRIC_PROCESS_TYPES = ['DYEING', 'PRINTING', 'FINISHING'] as const;
+export type FabricProcessType = (typeof FABRIC_PROCESS_TYPES)[number];
+
+/**
  * POST /api/job-work-orders — create a DRAFT job work order.
  *
  * Quantity is in the process type's unit of measure (MTR for fabric processes,
@@ -33,6 +41,15 @@ export const createJobWorkOrderSchema = z
     // may carry the embroidery design (embroidery_master uses cuid ids — no uuid constraint)
     fabricStockLotId: z.string().min(1).optional().nullable(),
     embroideryId: z.string().min(1).optional().nullable(),
+    // Stock (style-less) fabric jobs: the operator supplies here what an order-linked job
+    // reads off its requirement chain — the shade to dye, the finished width to hold on the
+    // stenter, and the shrinkage the rate card contracts.
+    colorMasterId: z.string().min(1).optional().nullable(),
+    colorName: z.string().max(100).trim().optional().nullable(),
+    /// ASKED FINISHED width (CAD cutable width + selvedge), not the greige width issued.
+    sentWidthInches: z.number().positive().max(200).optional().nullable(),
+    /// Must stay under 100: applyShrinkageLoss() throws at 100, where expected output is zero.
+    expectedShrinkage: z.number().min(0).max(99.99).optional().nullable(),
     // KAAJ_BUTTON-specific
     buttonholeCount: z.number().int().nonnegative().optional(),
     buttonCount: z.number().int().nonnegative().optional(),
@@ -48,7 +65,15 @@ export const createJobWorkOrderSchema = z
   })
   .refine((data) => !data.embroideryId || data.processType === 'EMBROIDERY', {
     message: 'embroideryId is only valid for EMBROIDERY job work orders',
-  });
+  })
+  // Colour names the shade of a CLOTH. The three FABRIC-category processes are the only ones
+  // that return cloth; on a garment process (stitching, kaaj) a shade field would be stamped
+  // onto an order that never mints a fabric master, so it could only mislead.
+  .refine(
+    (data) =>
+      (!data.colorMasterId && !data.colorName) || FABRIC_PROCESS_TYPES.includes(data.processType as FabricProcessType),
+    { message: `Colour is only valid for fabric processes (${FABRIC_PROCESS_TYPES.join(', ')})` }
+  );
 
 export type CreateJobWorkOrderInput = z.infer<typeof createJobWorkOrderSchema>;
 

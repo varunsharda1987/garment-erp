@@ -68,6 +68,9 @@ const jwoDocInclude = {
     },
   },
   labDip: { select: { labDipNumber: true, targetColor: { select: { colorName: true } } } },
+  // Stock (style-less) job: without this the challan would hand the dyer a document with an
+  // em-dash where the shade belongs — i.e. paperwork that does not say what colour to dye.
+  colorMaster: { select: { colorName: true } },
   embroidery: { select: { embroideryCode: true, designName: true } },
   outwardChallan: { select: { challanNumber: true, challanDate: true } },
   headerChallans: {
@@ -226,8 +229,15 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
 
   // Primary MRP requirement link — colour + greige lineage when there's no lab dip / lot yet
   const reqLink = jwo.requirementLinks[0]?.material_requirements ?? null;
+  // Same ladder as the fabric-identity helper, order-linked rungs first: the two job-work
+  // rungs at the bottom only ever fire on a stock job, which has no chain above them.
   const colourName =
-    jwo.labDip?.targetColor?.colorName ?? reqLink?.colorName ?? reqLink?.orderBomItem?.colorName ?? null;
+    jwo.labDip?.targetColor?.colorName ??
+    reqLink?.colorName ??
+    reqLink?.orderBomItem?.colorName ??
+    jwo.colorMaster?.colorName ??
+    jwo.colorName ??
+    null;
 
   // ── 02 — material issued ─────────────────────────────────────────────────
   const materialRows: JwoMaterialRow[] = [];

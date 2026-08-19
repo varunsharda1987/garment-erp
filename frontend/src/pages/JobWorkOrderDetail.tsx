@@ -381,6 +381,10 @@ export default function JobWorkOrderDetail() {
   }
 
   const daysOutstanding = getDaysOutstanding(jwo.sentDate);
+  // Colour ladder, order-linked rungs first — mirrors the server's fabric-identity helper and
+  // the challan. The last two only ever fire on a stock job, which has no requirement chain.
+  const colourName =
+    jwo.requirementLinks?.[0]?.materialRequirements?.colorName ?? jwo.colorMaster?.colorName ?? jwo.colorName ?? null;
   const isOverdue = daysOutstanding !== null && daysOutstanding > 300 && !jwo.receivedDate;
   const hasAbnormalLoss = (jwo.qtyAbnormalLoss || 0) > 0;
   const currentStatus = jwo.jwoStatus || jwo.status;
@@ -610,6 +614,23 @@ export default function JobWorkOrderDetail() {
                     )}
                   </p>
                 </div>
+                {colourName && (
+                  <div>
+                    {/* Same ladder as the server: requirement chain first, then the shade stamped
+                        on a stock order, which is the only place a style-less job can carry one. */}
+                    <Label className="text-muted-foreground">Colour</Label>
+                    <p className="font-medium flex items-center gap-2">
+                      {jwo.colorMaster?.hexCode && (
+                        <span
+                          className="h-4 w-4 rounded border border-border flex-shrink-0"
+                          style={{ backgroundColor: jwo.colorMaster.hexCode }}
+                          title={jwo.colorMaster.hexCode}
+                        />
+                      )}
+                      {colourName}
+                    </p>
+                  </div>
+                )}
                 {jwo.fabricType === 'GREIGE' ? (
                   <div>
                     {/* We ISSUE greige — the finished fabric gets its identity on receipt */}

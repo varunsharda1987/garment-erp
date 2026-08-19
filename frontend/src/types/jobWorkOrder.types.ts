@@ -147,6 +147,10 @@ export interface JobWorkOrder {
     } | null;
   }>;
   style?: { id: string; styleCode: string; buyerStyleRef?: string };
+  /** Shade asked on a stock (style-less) job. Order-linked jobs read colour off the chain above. */
+  colorMaster?: { id: string; colorCode: string; colorName: string; hexCode?: string | null } | null;
+  colorName?: string | null;
+  colorMasterId?: string | null;
   fabric?: { id: string; fabricCode: string; fabricName: string };
   processTypeMaster?: {
     id: string;
@@ -196,6 +200,14 @@ export interface CreateJobWorkOrderRequest {
   // Phase 5b: fabric-roll embroidery source lot + design
   fabricStockLotId?: string | null;
   embroideryId?: string | null;
+  // Stock (style-less) fabric jobs — what an order-linked job reads off its requirement chain.
+  // Server rejects these on a non-fabric process type.
+  colorMasterId?: string | null;
+  colorName?: string | null;
+  /** ASKED FINISHED width the processor must hold on the stenter. */
+  sentWidthInches?: number | null;
+  /** Rate-card shrinkage; the server derives qtyBillable (expected fabric back) from it. */
+  expectedShrinkage?: number | null;
 }
 
 export interface JobWorkOrderDashboard {

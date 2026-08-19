@@ -2676,6 +2676,10 @@ class GRNService {
         fabricStockLot: { select: { id: true, weightedAvgCost: true, fabricFinishType: true } },
         fabric: { select: { id: true, greigeId: true } },
         style: { select: { id: true, styleCode: true, buyerStyleRef: true } },
+        // Stock (style-less) job: the shade lives on the order itself, because there is no
+        // requirement, BOM or lab dip below to carry it. This is the ONLY receipt path such an
+        // order takes — every other caller of resolveFinishedFabricIdentity is style-anchored.
+        colorMaster: { select: { id: true, colorName: true, colorCode: true } },
         // Fabric-naming: requirement chain carries the dye colour + CAD pattern part +
         // styleFabric anchor for the finished fabric identity (never 'Natural' again)
         labDip: {
@@ -2753,6 +2757,8 @@ class GRNService {
             fabric: jobWorkOrder.fabric,
             style: jobWorkOrder.style,
             labDip: jobWorkOrder.labDip,
+            colorMaster: jobWorkOrder.colorMaster,
+            colorName: jobWorkOrder.colorName,
             receivedWidthInches: receivedWidthProvided,
             sentWidthInches: jobWorkOrder.sentWidthInches,
           },

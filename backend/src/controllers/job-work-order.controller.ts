@@ -21,7 +21,7 @@ import {
   syncMasterToMaterials,
   syncStockLevelQuantity,
 } from '../services/helpers/material-sync.helper';
-import { multiplyCurrency, roundToCent } from '../utils/currency';
+import { applyShrinkageLoss, multiplyCurrency, roundToCent } from '../utils/currency';
 import type { CreateJobWorkOrderInput, AddJwoComponentInput, CloseJwoInput } from '../schemas/jobWorkOrder.schema';
 
 // jwoStatus values from which material has NOT yet been issued (components may change)
@@ -37,6 +37,11 @@ const jwoInclude = {
   },
   style: {
     select: { id: true, styleCode: true, buyerStyleRef: true },
+  },
+  // Shade asked on a stock (style-less) job — an order-linked job reads its colour off the
+  // requirement chain below instead, so this is normally null.
+  colorMaster: {
+    select: { id: true, colorCode: true, colorName: true, hexCode: true },
   },
   fabric: {
     select: { id: true, fabricCode: true, fabricName: true },
@@ -96,13 +101,19 @@ class JobWorkOrderController {
 
       const body = req.body as CreateJobWorkOrderInput;
 
-      // Validate processor + optional style, and resolve the process type master
-      const [processor, style, processTypeMaster] = await Promise.all([
+      // Validate processor + optional style/colour, and resolve the process type master
+      const [processor, style, processTypeMaster, colorMaster] = await Promise.all([
         prisma.suppliers.findUnique({ where: { id: body.processorId }, select: { id: true, name: true } }),
         body.styleId
           ? prisma.styles.findUnique({ where: { id: body.styleId }, select: { id: true, styleCode: true } })
           : Promise.resolve(null),
         prisma.process_type_master.findUnique({ where: { code: body.processType } }),
+        body.colorMasterId
+          ? prisma.color_master.findUnique({
+              where: { id: body.colorMasterId },
+              select: { id: true, colorName: true },
+            })
+          : Promise.resolve(null),
       ]);
 
       if (!processor) {
@@ -110,6 +121,9 @@ class JobWorkOrderController {
       }
       if (body.styleId && !style) {
         return res.status(404).json({ success: false, message: 'Style not found' });
+      }
+      if (body.colorMasterId && !colorMaster) {
+        return res.status(404).json({ success: false, message: 'Colour not found in colour master' });
       }
       if (!processTypeMaster || !processTypeMaster.isActive) {
         return res.status(422).json({
@@ -157,6 +171,19 @@ class JobWorkOrderController {
         ? (body.buttonholeCount ?? 0) * (buttonholeRate ?? 0) + (body.buttonCount ?? 0) * (buttonRate ?? 0)
         : null;
 
+      // Expected fabric back. On an order-linked job this comes off the requirement chain; a
+      // stock job has no chain, so the operator supplies the rate-card shrinkage and the
+      // contracted output is derived from it here — ONCE, at creation, so the loss split at
+      // receipt measures against a number that was agreed before the goods left.
+      // Piece and service jobs have no shrinkage: qtyBillable stays null and billing falls
+      // back to qtySentMeters, exactly as before.
+      const isFabricProcess = processTypeMaster.processCategory === 'FABRIC';
+      const expectedShrinkage = isFabricProcess ? (body.expectedShrinkage ?? null) : null;
+      const qtyBillable =
+        expectedShrinkage === null
+          ? null
+          : roundToCent(applyShrinkageLoss(body.quantity, expectedShrinkage)).toNumber();
+
       const jobWorkNumber = await generateJobWorkNumber(body.processType, style?.styleCode || 'STK');
 
       const jwo = await prisma.job_work_orders.create({
@@ -174,7 +201,14 @@ class JobWorkOrderController {
               : null,
           fabricStockLotId: body.fabricStockLotId ?? null,
           embroideryId: body.embroideryId ?? null,
-          sentWidthInches: fabricLot ? Number(fabricLot.finishedWidth) : null,
+          colorMasterId: colorMaster?.id ?? null,
+          colorName: body.colorName?.trim() || colorMaster?.colorName || null,
+          // A fabric lot's own finished width wins: it is a measurement of the very roll going
+          // out, and a process like embroidery does not change it. The typed value only fills
+          // the case where no lot exists (a greige job, where the width is a target, not a fact).
+          sentWidthInches: fabricLot ? Number(fabricLot.finishedWidth) : (body.sentWidthInches ?? null),
+          expectedShrinkage,
+          qtyBillable,
           qtySentMeters: body.quantity,
           // Fabric-lot JWOs are meters (consume a roll, receive via the MTR-only GRN path)
           // even when the process master's default unit is PCS (e.g. EMBROIDERY pieces)

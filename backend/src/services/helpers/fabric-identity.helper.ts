@@ -88,6 +88,14 @@ export interface JwoChainLike {
     targetColor?: { id?: string; colorName?: string | null; colorCode?: string | null } | null;
     fabric?: { greigeId?: string | null } | null;
   } | null;
+  /**
+   * Shade stamped on a STOCK job at creation. A style-less order has no requirement, no BOM
+   * and no lab dip, so these are the only place the shade can come from — and they matter:
+   * colorName is part of the dedup tuple, so without them every stock dye run of one greige
+   * would fold into a single master with Black and Navy sharing its stock and its cost.
+   */
+  colorMaster?: { id?: string; colorName?: string | null; colorCode?: string | null } | null;
+  colorName?: string | null;
   receivedWidthInches?: unknown;
   sentWidthInches?: unknown;
 }
@@ -176,6 +184,33 @@ async function partFromStylePatternParts(
   });
   // Master row missing → still name the segment (existing names carry 'All Parts'), no id to stamp
   return allParts ? { id: allParts.id, name: allParts.name } : { id: null, name: 'All Parts' };
+}
+
+/**
+ * The colour ladder, as one pure function so its ORDER is pinned by a test rather than by
+ * reading it. Order matters commercially: colorName is part of the finished-fabric dedup
+ * tuple, so whichever rung answers decides whether two runs are one fabric or two.
+ *
+ * The first four rungs are the order-linked chain and are unchanged. The last two are the
+ * shade stamped on a STOCK job, and can only ever fire when the four above are empty — which
+ * is exactly the style-less case, where there is no requirement, BOM or lab dip to ask.
+ */
+export function resolveIdentityColourName(input: {
+  requirement?: { colorName?: string | null } | null;
+  orderBomItem?: { colorName?: string | null } | null;
+  jwo?: JwoChainLike | null;
+  finishType: 'DYED' | 'PRINTED';
+}): string | null {
+  const { requirement, orderBomItem, jwo, finishType } = input;
+  return (
+    trimOrNull(requirement?.colorName) ??
+    trimOrNull(orderBomItem?.colorName) ??
+    trimOrNull(jwo?.labDip?.targetColor?.colorName) ??
+    // colorReference is a dye-house shade reference; on a print job it would name the wrong thing
+    (finishType === 'DYED' ? trimOrNull(jwo?.labDip?.colorReference) : null) ??
+    trimOrNull(jwo?.colorMaster?.colorName) ??
+    trimOrNull(jwo?.colorName)
+  );
 }
 
 export interface ResolveIdentityParams {
@@ -287,11 +322,7 @@ export async function resolveFinishedFabricIdentity(
   }
   if (!part && sf) part = await partFromStylePatternParts(sf.stylePatternParts, tx);
 
-  const colorName =
-    trimOrNull(req?.colorName) ??
-    trimOrNull(obi?.colorName) ??
-    trimOrNull(jwo?.labDip?.targetColor?.colorName) ??
-    (finishType === 'DYED' ? trimOrNull(jwo?.labDip?.colorReference) : null);
+  const colorName = resolveIdentityColourName({ requirement: req, orderBomItem: obi, jwo, finishType });
   const printDesign =
     finishType === 'PRINTED' ? (trimOrNull(sf?.printDesign) ?? trimOrNull(jwo?.labDip?.designArtwork)) : null;
 
@@ -303,8 +334,8 @@ export async function resolveFinishedFabricIdentity(
     buyerStyleRef: trimOrNull(style.buyerStyleRef),
     finishType,
     colorName,
-    colorCode: trimOrNull(jwo?.labDip?.targetColor?.colorCode),
-    colorMasterId: sf?.colorMasterId ?? jwo?.labDip?.targetColor?.id ?? null,
+    colorCode: trimOrNull(jwo?.labDip?.targetColor?.colorCode) ?? trimOrNull(jwo?.colorMaster?.colorCode),
+    colorMasterId: sf?.colorMasterId ?? jwo?.labDip?.targetColor?.id ?? jwo?.colorMaster?.id ?? null,
     printDesign,
     styleFabricId,
     patternPartId: part?.id ?? null,

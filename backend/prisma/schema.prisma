@@ -308,6 +308,8 @@ model color_master {
   order_thread_requirements order_thread_requirements[]
   // Style fabric color relation
   style_fabrics             style_fabrics[]
+  // Shade asked of a processor on a stock (style-less) job work order
+  job_work_orders           job_work_orders[]
 
   @@index([colorFamily])
   @@index([colorName])
@@ -6730,6 +6732,13 @@ model job_work_orders {
   processorId            String
   fabricStockLotId       String? // Optional - use components for multi-material
   fabricType             String? // Optional for garment JWOs
+  /// Shade asked of the processor on a STOCK job (no style, so no requirement/BOM/lab dip to
+  /// carry the colour). Read as the last rungs of the fabric-identity colour ladder, so an
+  /// order-linked job is unaffected. Without it every stock dye run of one greige would dedup
+  /// into a single finished-fabric master — Black and Navy sharing one record and one cost.
+  colorMasterId          String?
+  /// Free-text shade for a colour not in the master (e.g. a buyer's own name for it).
+  colorName              String?
   reprocessReason        String?
   qtySentMeters          Decimal       @db.Decimal(10, 2)
   /// Greige (loom-state) width of the material issued, e.g. 63". Distinct from
@@ -6830,6 +6839,7 @@ model job_work_orders {
   labDip                  lab_dips?                         @relation(fields: [labDipId], references: [id])
   processor               suppliers                         @relation("JobWorkProcessor", fields: [processorId], references: [id])
   style                   styles?                           @relation(fields: [styleId], references: [id])
+  colorMaster             color_master?                     @relation(fields: [colorMasterId], references: [id])
   workOrder               work_orders?                      @relation("JobWorkForWorkOrder", fields: [workOrderId], references: [id])
   outwardChallan          challans?                         @relation("JobWorkOutwardChallan", fields: [outwardChallanId], references: [id])
   inwardChallan           challans?                         @relation("JobWorkInwardChallan", fields: [inwardChallanId], references: [id])
@@ -6858,6 +6868,7 @@ model job_work_orders {
   @@index([labDipId])
   @@index([processTypeId])
   @@index([styleId])
+  @@index([colorMasterId])
   @@index([processorId])
   @@index([status])
   @@index([processType])

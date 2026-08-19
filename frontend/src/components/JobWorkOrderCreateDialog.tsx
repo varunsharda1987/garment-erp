@@ -2,8 +2,13 @@
  * Job Work Order Create Dialog (Consolidation Phase 3)
  *
  * Generic create surface for job work. Service process types (embroidery, washing,
- * kaaj-button, ...) are created directly as DRAFT JWOs. Dyeing/Printing route to the
- * existing Processing pages, whose greige-stock-backed flow creates the PO + JWO pair.
+ * kaaj-button, ...) are created directly as DRAFT JWOs.
+ *
+ * Dyeing/Printing FOR A STYLE route to the Processing pages, whose greige-stock-backed flow
+ * creates the PO + JWO pair. Dyeing/Printing with NO style is a stock job — dye now, allocate
+ * the cloth to a style later — and is created right here. That distinction is why Process Type
+ * and Style sit ABOVE the branch: previously the Style field lived inside the service-process
+ * branch, so on Dyeing it never rendered and the field could not be left blank on purpose.
  */
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -29,6 +34,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import { styleService } from '@/services/style.service';
+import ColorPicker from '@/components/ColorPicker';
+import { billableFromGreige } from '@/utils/shrinkage';
 import api from '@/lib/api';
 import type { CreateJobWorkOrderRequest } from '@/types/jobWorkOrder.types';
 
@@ -45,6 +52,17 @@ const PROCESS_OPTIONS = [
   { value: 'KAAJ_BUTTON', label: 'Kaaj-Button (Buttonhole & Attachment)', existingFlow: false, uom: 'PCS' },
   { value: 'TRANSPORTATION', label: 'Transportation', existingFlow: false, uom: 'TRIP' },
 ] as const;
+
+/** process_type_master.processCategory = 'FABRIC' — the jobs whose output is cloth. */
+const FABRIC_PROCESS_TYPES: string[] = ['DYEING', 'PRINTING', 'FINISHING'];
+
+/**
+ * Processes where the shade IS the instruction, so a stock job cannot be raised without one:
+ * the processor would get a document that doesn't say what colour to dye, and every stock run
+ * of the same greige would dedup into a single fabric master sharing stock and cost.
+ * Finishing is deliberately absent — two finishing runs of one greige ARE the same cloth.
+ */
+const SHADE_REQUIRED_PROCESS_TYPES: string[] = ['DYEING', 'PRINTING'];
 
 interface Props {
   open: boolean;
@@ -70,11 +88,27 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
   // EMBROIDERY (Phase 5b: fabric-roll embroidery is a JWO)
   const [fabricStockLotId, setFabricStockLotId] = useState<string>('');
   const [embroideryId, setEmbroideryId] = useState<string>('');
+  // Stock (style-less) fabric job — the three things an order-linked job reads off its chain
+  const [colorMasterId, setColorMasterId] = useState<string>('');
+  const [sentWidthInches, setSentWidthInches] = useState<string>('');
+  const [expectedShrinkage, setExpectedShrinkage] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
 
   const selected = PROCESS_OPTIONS.find((p) => p.value === processType);
   const isKaaj = processType === 'KAAJ_BUTTON';
   const isEmbroidery = processType === 'EMBROIDERY';
+  /** Dyeing/Printing FOR A STYLE belongs to the Processing page's PO+JWO flow, not here. */
+  const isProcessRedirect = !!selected?.existingFlow && !!styleId;
+  /** Cloth process with no style: dye/print to stock now, allocate to a style later. */
+  const isStockFabricJob = FABRIC_PROCESS_TYPES.includes(processType) && !styleId;
+  const shadeRequired = isStockFabricJob && SHADE_REQUIRED_PROCESS_TYPES.includes(processType);
+
+  const expectedBack = useMemo(() => {
+    const qty = parseFloat(quantity);
+    const shrink = parseFloat(expectedShrinkage);
+    if (!Number.isFinite(qty) || qty <= 0 || !Number.isFinite(shrink) || shrink <= 0) return null;
+    return billableFromGreige(qty, shrink);
+  }, [quantity, expectedShrinkage]);
 
   interface EmbroideryLotOption {
     id: string;
@@ -139,13 +173,17 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
     setButtonRate('0.30');
     setFabricStockLotId('');
     setEmbroideryId('');
+    setColorMasterId('');
+    setSentWidthInches('');
+    setExpectedShrinkage('');
   };
 
   const canSubmit =
     !!processType &&
-    !selected?.existingFlow &&
+    !isProcessRedirect &&
     !!processorId &&
     (parseFloat(quantity) || 0) > 0 &&
+    (!shadeRequired || !!colorMasterId) &&
     (isKaaj
       ? (parseInt(buttonholeCount) || 0) > 0 || (parseInt(buttonCount) || 0) > 0
       : (parseFloat(agreedRate) || 0) > 0);
@@ -176,9 +214,20 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
               embroideryId: embroideryId || null,
             }
           : {}),
+        ...(isStockFabricJob
+          ? {
+              colorMasterId: colorMasterId || null,
+              sentWidthInches: parseFloat(sentWidthInches) || null,
+              expectedShrinkage: parseFloat(expectedShrinkage) || null,
+            }
+          : {}),
       };
       const result = await jobWorkOrderService.create(payload);
-      toast.success(`Job Work Order ${result.data.jobWorkNumber} created`);
+      toast.success(
+        isStockFabricJob
+          ? `Stock job ${result.data.jobWorkNumber} created as Draft — approve it, then issue the greige.`
+          : `Job Work Order ${result.data.jobWorkNumber} created`
+      );
       if (result.warning) toast.warning(result.warning);
       reset();
       onOpenChange(false);
@@ -222,12 +271,48 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
             </Select>
           </div>
 
-          {selected?.existingFlow ? (
+          {processType && (
+            <div className="space-y-2">
+              <Label>Style (optional)</Label>
+              <Input
+                placeholder="Search style code..."
+                value={styleSearch}
+                onChange={(e) => {
+                  setStyleSearch(e.target.value);
+                  setStyleId('');
+                }}
+              />
+              {styleSearch && !styleId && styles.length > 0 && (
+                <div className="border rounded-md max-h-36 overflow-y-auto">
+                  {styles.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted"
+                      onClick={() => {
+                        setStyleId(s.id);
+                        setStyleSearch(`${s.styleCode}${s.styleName ? ` — ${s.styleName}` : ''}`);
+                      }}
+                    >
+                      {s.styleCode}
+                      {s.styleName ? ` — ${s.styleName}` : ''}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {isProcessRedirect ? (
             <Alert>
-              <AlertDescription className="flex items-center justify-between gap-2">
-                <span>
-                  {selected.label} orders are created from the Processing page, where greige stock is selected and the
-                  linked PO is raised automatically.
+              <AlertDescription className="space-y-2">
+                <span className="block">
+                  {selected?.label} for a style is created from the Processing page, where greige stock is selected and
+                  the linked PO is raised automatically.
+                </span>
+                <span className="block text-muted-foreground">
+                  Clear the Style field to create a stock {selected?.label.toLowerCase()} order here — process now, map
+                  the cloth to a style later.
                 </span>
                 <Button
                   size="sm"
@@ -237,12 +322,22 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
                     navigate('/processing');
                   }}
                 >
-                  Go <ArrowRight className="h-3 w-3 ml-1" />
+                  Go to Processing <ArrowRight className="h-3 w-3 ml-1" />
                 </Button>
               </AlertDescription>
             </Alert>
           ) : processType ? (
             <>
+              {isStockFabricJob && (
+                <Alert>
+                  <AlertDescription className="text-sm">
+                    <span className="font-medium">Stock job — no style.</span> The cloth that comes back is registered
+                    as a generic fabric you can allocate to a style later. Because there is no style, the shade, the
+                    finished width and the shrinkage have to be stated here instead of being read from the order.
+                  </AlertDescription>
+                </Alert>
+              )}
+
               <div className="space-y-2">
                 <Label>Processor *</Label>
                 <Select value={processorId} onValueChange={setProcessorId}>
@@ -259,35 +354,56 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label>Style (optional)</Label>
-                <Input
-                  placeholder="Search style code..."
-                  value={styleSearch}
-                  onChange={(e) => {
-                    setStyleSearch(e.target.value);
-                    setStyleId('');
-                  }}
-                />
-                {styleSearch && !styleId && styles.length > 0 && (
-                  <div className="border rounded-md max-h-36 overflow-y-auto">
-                    {styles.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted"
-                        onClick={() => {
-                          setStyleId(s.id);
-                          setStyleSearch(`${s.styleCode}${s.styleName ? ` — ${s.styleName}` : ''}`);
-                        }}
-                      >
-                        {s.styleCode}
-                        {s.styleName ? ` — ${s.styleName}` : ''}
-                      </button>
-                    ))}
+              {isStockFabricJob && (
+                <div className="border rounded-md p-3 space-y-3">
+                  <div className="space-y-2">
+                    <Label>Colour {shadeRequired ? '*' : '(optional)'}</Label>
+                    <ColorPicker
+                      value={colorMasterId || null}
+                      onChange={(colorId) => setColorMasterId(colorId || '')}
+                      placeholder="Select the shade to process"
+                      showFamilyFilter
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {shadeRequired
+                        ? 'Printed on the challan as the instruction to the processor, and what keeps each shade a separate fabric in stock.'
+                        : 'Finishing does not change the shade, so this can be left blank.'}
+                    </p>
                   </div>
-                )}
-              </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label>Finished Width (inches)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.5}
+                        value={sentWidthInches}
+                        onChange={(e) => setSentWidthInches(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Expected Shrinkage (%)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={99.99}
+                        step={0.1}
+                        value={expectedShrinkage}
+                        onChange={(e) => setExpectedShrinkage(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  {expectedBack !== null && (
+                    <p className="text-sm text-muted-foreground">
+                      Expected fabric back:{' '}
+                      <span className="font-semibold text-foreground">
+                        {expectedBack.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m
+                      </span>{' '}
+                      — this is what the processor is held to, and what the loss split is measured against.
+                    </p>
+                  )}
+                </div>
+              )}
 
               {isEmbroidery && (
                 <>
@@ -424,7 +540,7 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          {!selected?.existingFlow && (
+          {!isProcessRedirect && (
             <Button onClick={handleSubmit} disabled={!canSubmit || submitting}>
               {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Create Draft JWO

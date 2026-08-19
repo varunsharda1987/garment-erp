@@ -25,6 +25,8 @@ import { randomUUID } from 'crypto';
 import { SeasonService } from './season.service';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { generateCode } from '../utils/code-generator';
+import { ensureMaterialRecord } from './helpers/material-sync.helper';
 
 // Size ordering for standard garment sizes
 const SIZE_ORDER: Record<string, number> = {
@@ -851,14 +853,12 @@ export class StyleImportService {
       return existing.id;
     }
 
-    // Create new greige
-    const greigeCode = `GRG-${Date.now()}-${Math.floor(Math.random() * 1000)
-      .toString()
-      .padStart(3, '0')}`;
+    // Create new greige — proper GRG-NNNN sequence (the old epoch-ms code/id here left
+    // masters without a materials mirror, which crashes the manual GREIGE PO picker)
+    const greigeCode = await generateCode('GRG', 'greige_master', 'greigeCode');
 
     const greige = await prisma.greige_master.create({
       data: {
-        id: `${greigeCode}-${Date.now()}`,
         greigeCode,
         greigeName: greigeName,
         composition: 'To be specified', // Will be updated later
@@ -868,6 +868,8 @@ export class StyleImportService {
         createdAt: new Date(),
       },
     });
+    // Material Identity Unification: materials.id === greige_master.id
+    await ensureMaterialRecord(greige.id, 'GREIGE');
 
     return greige.id;
   }

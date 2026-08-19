@@ -205,12 +205,12 @@ model order_bom_items {
   fabricId           String?
   quantityPerGarment Decimal  @db.Decimal(10, 4)
   orderQuantity      Int
-  totalQuantity      Decimal  @db.Decimal(15, 4)
+  totalQuantity      Decimal  @db.Decimal(15, 4) // FABRIC/finished basis for greige-processed lines (greige gross-up is display-only "Greige Req")
   wastagePercent     Decimal? @db.Decimal(5, 2)
   totalWithWastage   Decimal? @db.Decimal(15, 4)
   unit               String
-  unitPrice          Decimal  @db.Decimal(10, 2)
-  totalCost          Decimal  @db.Decimal(15, 2)
+  unitPrice          Decimal  @db.Decimal(10, 2) // ALL-IN ₹/unit from the approved cost sheet (GREIGE_PROCESSED: greige + shrinkage uplift + processing + transport); procurement prices from greigeCost/processingCost below, never this
+  totalCost          Decimal  @db.Decimal(15, 2) // totalWithWastage × unitPrice — must reconcile with the cost sheet
   componentName      String?
   usageCategory      String?
   notes              String?
@@ -240,8 +240,8 @@ model order_bom_items {
   // NEW: Sourcing Strategy fields for GREIGE_PROCESSED workflow
   greigeId       String? // FK to greige_master (for greige variant)
   processorId    String? // FK to suppliers (for processor)
-  greigeCost     Decimal? @db.Decimal(12, 2)
-  processingCost Decimal? @db.Decimal(12, 2)
+  greigeCost     Decimal? @db.Decimal(12, 2) // Breakdown: greige ₹/m as the weaver bills it — what MRP prices greige POs at
+  processingCost Decimal? @db.Decimal(12, 2) // Breakdown: processing ₹/m — what MRP prices the PROCESSING requirement at
   rateCardId     String? // FK to processor_rate_card
   colorName      String? // Dye/processing color (from fabric costing, differentiates same greige)
 

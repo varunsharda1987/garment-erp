@@ -671,7 +671,16 @@ const OrderBOMDetail = () => {
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm text-center">{item.unit}</td>
-                      <td className="px-4 py-3 text-sm text-right">{formatCurrency(item.unitPrice)}</td>
+                      <td className="px-4 py-3 text-sm text-right">
+                        {formatCurrency(item.unitPrice)}
+                        {item.sourcingStrategy === 'GREIGE_PROCESSED' && (
+                          <div className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            all-in · greige {item.greigeCost != null ? formatCurrency(item.greigeCost) : '—'} +
+                            processing {item.processingCost != null ? formatCurrency(item.processingCost) : '—'} +
+                            shrinkage &amp; transport
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-sm text-right font-semibold">{formatCurrency(item.totalCost)}</td>
                       {!isLocked && (
                         <td className="px-4 py-3 text-center">

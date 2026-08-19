@@ -1055,11 +1055,14 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         const totalQuantity = quantityPerGarment * orderQuantity;
         const wastagePercent = fabricItem.cadWastagePercent != null ? Number(fabricItem.cadWastagePercent) : 0;
         const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
-        // For GREIGE_PROCESSED: use greige rate only (processing is a separate service)
-        const unitPrice =
-          fabricItem.sourcingStrategy === 'GREIGE_PROCESSED' && fabricItem.greigeCost
-            ? Number(fabricItem.greigeCost)
-            : Number(fabricItem.costPerMeter) || 0;
+        // unitPrice = the APPROVED cost sheet's ALL-IN ₹/m on fabric-basis qty. For
+        // GREIGE_PROCESSED that is greige + shrinkage uplift + processing + transport —
+        // pricing at the bare greige rate (pre-2026-08-19) made the BOM total match
+        // NOTHING (not greige spend, not all-in) and understate the order ~30%.
+        // greigeCost/processingCost stay on the row as the procurement breakdown:
+        // MRP reads THOSE (never unitPrice) for greige-processed lines, so PO/JWO
+        // pricing is unaffected. Matches lace, READY_FABRIC and the width-change path.
+        const unitPrice = Number(fabricItem.costPerMeter) || 0;
         const totalCost = totalWithWastage * unitPrice;
 
         bomItems.push({
@@ -1191,8 +1194,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           greigeId = fm?.greigeId || null;
         }
 
-        // For GREIGE_PROCESSED: use greige rate only (processing is a separate service)
-        const unitPrice = sourcingStrategy === 'GREIGE_PROCESSED' && greigeCost ? greigeCost : fabric.fabricRate || 0;
+        // unitPrice = the all-in rate (legacy JSON sheets: fabricRate); bare greige rate
+        // only as a last resort — see the relational path above for the full rationale
+        const unitPrice = fabric.fabricRate || greigeCost || 0;
         const totalCost = totalWithWastage * unitPrice;
 
         bomItems.push({

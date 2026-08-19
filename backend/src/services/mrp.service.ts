@@ -30,6 +30,7 @@ import { calculateGreigeQuantity } from '../utils/greige-quantity';
 import { systemSettingsService } from './system-settings.service';
 import prisma from '../config/database';
 import { getDerivedOnHand } from './helpers/derived-stock.helper';
+import { splitReceiptAcrossLinks, RECEIPT_COMPLETE_TOLERANCE } from './helpers/receipt-split.helper';
 import {
   CalculateRequirementsInput,
   CalculatedRequirement,
@@ -4010,11 +4011,19 @@ export async function updateReceivedQuantity(
   // with the receipt — otherwise MRP can miss a committed receipt and raise a duplicate PO (bug-hunt F4 #12).
   const client = tx || prisma;
 
-  // Find all links to this PO item
+  // Find all links to this PO item.
+  // orderBy is load-bearing: the pro-rata remainder lands on the LAST link, and it must be the same
+  // link for a receipt and for its reversal — Postgres guarantees no ordering without it.
   const links = await client.requirement_po_links.findMany({
     where: { purchaseOrderItemId },
-    select: { id: true, requirementId: true },
+    select: { id: true, requirementId: true, allocatedQuantity: true },
+    orderBy: { id: 'asc' },
   });
+
+  // The receipt is one number against the PO item; each link gets its allocated share, never the full
+  // amount (crediting the full receipt to every link declared small requirements RECEIVED early).
+  const shares = splitReceiptAcrossLinks(links, receivedQuantity);
+  const shareByLinkId = new Map(shares.map((s) => [s.id, s.qty]));
 
   // Track which requirements we've updated (avoid updating the same requirement multiple times
   // if it has multiple links to the same PO item — shouldn't happen but belt-and-suspenders)
@@ -4026,7 +4035,7 @@ export async function updateReceivedQuantity(
       where: { id: link.id },
       data: {
         receivedQuantity: {
-          increment: receivedQuantity,
+          increment: shareByLinkId.get(link.id) ?? 0,
         },
       },
     });
@@ -4057,7 +4066,9 @@ export async function updateReceivedQuantity(
 
     // P1.5: Determine correct status based on aggregated quantities
     let newStatus: MaterialRequirementStatus;
-    if (totalReceived >= totalAllocated) {
+    // Tolerance, not a bare >=: independent per-receipt rounding can leave a link a millimetre
+    // short across successive partials, which would strand a fully-received requirement.
+    if (totalReceived >= totalAllocated - RECEIPT_COMPLETE_TOLERANCE) {
       newStatus = MaterialRequirementStatus.RECEIVED;
     } else if (totalReceived > 0) {
       newStatus = MaterialRequirementStatus.PARTIALLY_RECEIVED;
@@ -4087,17 +4098,26 @@ export async function updateJwoReceivedQuantity(
 ): Promise<void> {
   const client = tx || prisma;
 
+  // orderBy is load-bearing: the pro-rata remainder lands on the LAST link, and it must be the same
+  // link for a receipt and for its reversal — Postgres guarantees no ordering without it.
   const links = await client.requirement_jwo_links.findMany({
     where: { jobWorkOrderId },
-    select: { id: true, requirementId: true },
+    select: { id: true, requirementId: true, allocatedQuantity: true },
+    orderBy: { id: 'asc' },
   });
+
+  // The receipt is one number against the JWO; each link gets its allocated share, never the full
+  // amount (DJ-EBEW-003-001: 4,000 m credited to both links flipped the 1,099.92 requirement to
+  // RECEIVED and dropped it out of the shortfall).
+  const shares = splitReceiptAcrossLinks(links, receivedQuantity);
+  const shareByLinkId = new Map(shares.map((s) => [s.id, s.qty]));
 
   const updatedRequirementIds = new Set<string>();
 
   for (const link of links) {
     await client.requirement_jwo_links.update({
       where: { id: link.id },
-      data: { receivedQuantity: { increment: receivedQuantity } },
+      data: { receivedQuantity: { increment: shareByLinkId.get(link.id) ?? 0 } },
     });
 
     if (updatedRequirementIds.has(link.requirementId)) continue;
@@ -4118,7 +4138,9 @@ export async function updateJwoReceivedQuantity(
     );
 
     let newStatus: MaterialRequirementStatus;
-    if (totalReceived >= totalAllocated) {
+    // Tolerance, not a bare >=: independent per-receipt rounding can leave a link a millimetre
+    // short across successive partials, which would strand a fully-received requirement.
+    if (totalReceived >= totalAllocated - RECEIPT_COMPLETE_TOLERANCE) {
       newStatus = MaterialRequirementStatus.RECEIVED;
     } else if (totalReceived > 0) {
       newStatus = MaterialRequirementStatus.PARTIALLY_RECEIVED;

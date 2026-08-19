@@ -3,7 +3,7 @@
  * View and manage a single job work order
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -24,6 +24,9 @@ import {
   Trash2,
   Ban,
   MessageCircle,
+  Plus,
+  X,
+  Wand2,
 } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,12 +47,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
 
-import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
+import { jobWorkOrderService, type IssueJwoPayload, type JwoIssuePreviewLot } from '@/services/jobWorkOrder.service';
 import { dyeProcessPOService } from '@/services/dyeing.service';
 import { processPOService as printProcessPOService } from '@/services/printing.service';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import { greigeStockService } from '@/services/greigeStock.service';
 import { openPDF } from '@/lib/document-utils';
 import { billableFromGreige, effectiveTolerancePercent } from '@/utils/shrinkage';
 import { JwoWhatsAppSendDialog } from '@/components/JwoWhatsAppSendDialog';
@@ -92,6 +95,45 @@ function getDaysOutstanding(sentDate?: string): number | null {
   return Math.floor(diffTime / (1000 * 60 * 60 * 24));
 }
 
+/** One editable line of the issue dialog: which lot, and how much of it leaves the building. */
+interface IssueLotRow {
+  lotId: string;
+  /** Kept as the raw input string so the field can be cleared mid-edit without snapping to 0 */
+  qty: string;
+}
+
+/** Metres are quoted to 2dp everywhere; sums of typed values must be pinned there before comparing. */
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/** The server's own slack when matching lot totals to the order quantity. */
+const ISSUE_QTY_TOLERANCE = 0.01;
+
+/** Nominal greige width varies loom to loom — mirrors WIDTH_TOLERANCE_INCHES on the server. */
+const ISSUE_WIDTH_TOLERANCE_INCHES = 1.0;
+
+/**
+ * Blockers that no lot selection can clear, so only these may disable the action. Everything
+ * else the preview reports is about the order's stamped lot, which the rows below replace.
+ */
+const ISSUE_FATAL_BLOCKER_CODES = new Set(['ALREADY_ISSUED', 'ORDER_CANCELLED', 'NOT_FOUND']);
+
+/**
+ * Issue failures that name a specific lot, quantity or width. The operator has to read the whole
+ * sentence to know which row to fix, so these get a long-lived toast rather than the default flash.
+ */
+const DETAILED_ISSUE_ERROR_CODES = [
+  'INSUFFICIENT_GREIGE',
+  'LOT_GREIGE_MISMATCH',
+  'LOT_GREIGE_MIXED',
+  'LOT_DUPLICATE',
+  'LOT_WIDTH_MISMATCH',
+  'LOT_QTY_MISMATCH',
+  'PURCHASED_ITEM_AS_COMPONENT',
+  'LOT_AT_PROCESSOR',
+];
+
 export default function JobWorkOrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -106,9 +148,10 @@ export default function JobWorkOrderDetail() {
   const [qtyReceived, setQtyReceived] = useState('');
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [closeInvoiceNumber, setCloseInvoiceNumber] = useState('');
-  // Phase 4c: operational issue dialog (greige lot + transport)
+  // Phase 4c: operational issue dialog (greige lots + transport)
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
-  const [issueLotId, setIssueLotId] = useState('');
+  const [issueRows, setIssueRows] = useState<IssueLotRow[]>([{ lotId: '', qty: '' }]);
+  const [issueWidthAcknowledged, setIssueWidthAcknowledged] = useState(false);
   const [issueChallanRef, setIssueChallanRef] = useState('');
   const [issueVehicle, setIssueVehicle] = useState('');
 
@@ -172,36 +215,80 @@ export default function JobWorkOrderDetail() {
     },
   });
 
-  // Phase 4c: available greige lots for the issue dialog
-  const { data: availableLots } = useQuery({
-    queryKey: ['greige-stock-available-for-issue'],
-    queryFn: () => greigeStockService.listAvailableStock({ excludeTransferred: true }),
-    enabled: issueDialogOpen,
+  // Phase 4c: the server's read-only dry run — blockers, the anchored greige, and the lots that
+  // could serve this order. staleTime 0 because stock moves under us: every open re-reads.
+  const {
+    data: issuePreview,
+    isLoading: issuePreviewLoading,
+    isError: issuePreviewFailed,
+  } = useQuery({
+    queryKey: ['jwo-issue-preview', id],
+    queryFn: () => jobWorkOrderService.getIssuePreview(id!),
+    enabled: issueDialogOpen && !!id,
+    staleTime: 0,
   });
 
+  // Seed one row on open — preselecting a lot only when a single lot covers the whole order, so
+  // the common case stays one click. Guarded to the pristine state: a background refetch of the
+  // preview must never overwrite a split the operator has already typed.
+  useEffect(() => {
+    if (!issueDialogOpen) {
+      setIssueRows([{ lotId: '', qty: '' }]);
+      setIssueWidthAcknowledged(false);
+      return;
+    }
+    if (!issuePreview) return;
+    setIssueRows((rows) => {
+      if (rows.length !== 1 || rows[0].lotId || rows[0].qty) return rows;
+      // A non-greige (service) order consumes nothing by default — preselecting a lot for it would
+      // quietly send material that nobody asked to send.
+      if (issuePreview.fabricType !== 'GREIGE') return rows;
+      const required = issuePreview.requiredQty;
+      const singleCoveringLot = issuePreview.availableLots.find((lot) => lot.quantityAvailable >= required);
+      return [{ lotId: singleCoveringLot?.id ?? '', qty: required > 0 ? String(round2(required)) : '' }];
+    });
+  }, [issueDialogOpen, issuePreview]);
+
   const issueMutation = useMutation({
-    mutationFn: () =>
-      jobWorkOrderService.issue(id!, {
-        greigeStockLotId: issueLotId || undefined,
+    mutationFn: () => {
+      const filledRows = issueRows.filter((row) => row.lotId && parseFloat(row.qty) > 0);
+      const payload: IssueJwoPayload = {
         challanNumber: issueChallanRef || undefined,
         vehicleNumber: issueVehicle || undefined,
-      }),
+        acknowledgeWidthMismatch: issueWidthAcknowledged || undefined,
+      };
+      // One lot goes on the wire exactly as it always has. The server then consumes the order's
+      // own qtySentMeters, so the issued quantity cannot drift from a re-typed number; lots[] is
+      // reserved for a genuine split, where only the operator knows how it divides.
+      if (filledRows.length === 1) {
+        payload.greigeStockLotId = filledRows[0].lotId;
+      } else if (filledRows.length > 1) {
+        payload.lots = filledRows.map((row) => ({
+          greigeStockLotId: row.lotId,
+          qty: round2(parseFloat(row.qty)),
+        }));
+      }
+      return jobWorkOrderService.issue(id!, payload);
+    },
     onSuccess: (result) => {
       setIssueDialogOpen(false);
-      setIssueLotId('');
+      setIssueRows([{ lotId: '', qty: '' }]);
+      setIssueWidthAcknowledged(false);
       setIssueChallanRef('');
       setIssueVehicle('');
       toast.success('Job work order issued — outward challan created');
       if (result.warning) toast.warning(result.warning);
       queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
       queryClient.invalidateQueries({ queryKey: ['job-work-order-reconciliation', id] });
+      queryClient.invalidateQueries({ queryKey: ['jwo-issue-preview', id] });
     },
     onError: (err: any) => {
       const code = err.response?.data?.code;
-      if (code === 'INSUFFICIENT_GREIGE') {
-        toast.error(err.response?.data?.message, { duration: 8000 });
+      const message = err.response?.data?.message;
+      if (message && DETAILED_ISSUE_ERROR_CODES.includes(code)) {
+        toast.error(message, { duration: 8000 });
       } else {
-        toast.error(err.response?.data?.message || 'Failed to issue');
+        toast.error(message || 'Failed to issue');
       }
     },
   });
@@ -314,6 +401,94 @@ export default function JobWorkOrderDetail() {
     // so records the backend was happy to delete had no button anywhere in the UI.
     (!jwo.jwoStatus || ['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(jwo.jwoStatus)) &&
     (jwo.processType === 'DYEING' || jwo.processType === 'PRINTING');
+
+  // ── Issue dialog: multi-lot state derived from the server's preview ──────────────────────────
+  // A greige order stitched from two deliveries needs two rows. The old dialog offered only lots
+  // that could cover the whole order alone, which left such an order with an empty dropdown and
+  // no way to issue it at all — so nothing here filters the options by quantity.
+  const issuesFromFabricRoll = !!jwo.fabricStockLotId;
+  const issuesGreige = jwo.fabricType === 'GREIGE';
+  const issueRequiredQty = issuePreview?.requiredQty ?? jwo.qtySentMeters;
+  const issueUom = issuePreview?.uom ?? jwo.uom;
+  const issueAvailableLots = issuePreview?.availableLots ?? [];
+  const issueLotById = new Map<string, JwoIssuePreviewLot>(issueAvailableLots.map((lot) => [lot.id, lot]));
+
+  // The preview is computed with NO lots supplied, so it validates whatever lot the order was
+  // STAMPED with at creation — a lot the operator is about to replace in the rows below. Only
+  // order-level blockers survive that replacement and may veto the action; every lot-level one
+  // (no lot yet, stale//exhausted/at-processor/wrong-cloth/wrong-width stored lot) is answered by
+  // the selection itself, and the server re-validates the chosen lots on submit.
+  const issueBlockers = (issuePreview?.blockers ?? []).filter((b) => ISSUE_FATAL_BLOCKER_CODES.has(b.code));
+
+  const issueChosenLotIds = issueRows.map((row) => row.lotId).filter(Boolean);
+  const issueTotalQty = round2(issueRows.reduce((sum, row) => sum + (parseFloat(row.qty) || 0), 0));
+  const issueQtyDelta = round2(issueTotalQty - issueRequiredQty);
+  const issueTotalMatches = Math.abs(issueQtyDelta) <= ISSUE_QTY_TOLERANCE;
+  const issueHasDuplicateLot = new Set(issueChosenLotIds).size !== issueChosenLotIds.length;
+  const issueChosenGreigeIds = new Set(
+    issueChosenLotIds.map((lotId) => issueLotById.get(lotId)?.greigeId).filter(Boolean)
+  );
+  // One job work order sends one cloth — the server refuses a mixed-greige issue outright
+  const issueHasMixedGreige = issueChosenGreigeIds.size > 1;
+  const issueRowsComplete = issueRows.length > 0 && issueRows.every((row) => row.lotId && parseFloat(row.qty) > 0);
+  const issueNoLotChosen = issueChosenLotIds.length === 0;
+  const issueUnusedLotCount = issueAvailableLots.filter((lot) => !issueChosenLotIds.includes(lot.id)).length;
+
+  const issueOrderWidth = jwo.greigeWidthInches != null ? Number(jwo.greigeWidthInches) : null;
+  const issueWidthMismatchLots: JwoIssuePreviewLot[] =
+    issueOrderWidth == null
+      ? []
+      : issueChosenLotIds
+          .map((lotId) => issueLotById.get(lotId))
+          .filter(
+            (lot): lot is JwoIssuePreviewLot =>
+              !!lot &&
+              lot.greigeWidth != null &&
+              Math.abs(lot.greigeWidth - issueOrderWidth) > ISSUE_WIDTH_TOLERANCE_INCHES
+          );
+  const issueNeedsWidthAck = issueWidthMismatchLots.length > 0;
+
+  // Non-greige service work legitimately consumes nothing, so leaving every row blank is a valid
+  // answer there — but a greige order that issues no material is the bug this dialog was built for.
+  const issueAllowsNoLot = !issuesGreige && !issuesFromFabricRoll;
+  const issueSelectionValid = issuesFromFabricRoll
+    ? true
+    : issueAllowsNoLot && issueNoLotChosen
+      ? true
+      : issueRowsComplete &&
+        issueTotalMatches &&
+        !issueHasDuplicateLot &&
+        !issueHasMixedGreige &&
+        (!issueNeedsWidthAck || issueWidthAcknowledged);
+
+  const updateIssueRow = (index: number, patch: Partial<IssueLotRow>) => {
+    setIssueRows((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  };
+
+  const addIssueRow = () => setIssueRows((rows) => [...rows, { lotId: '', qty: '' }]);
+
+  const removeIssueRow = (index: number) => setIssueRows((rows) => rows.filter((_, i) => i !== index));
+
+  // Lots arrive sorted quantity-desc, so taking greedily from the top covers the order in the
+  // fewest lots — the least paperwork at the gate. Anchored to whatever greige is already chosen
+  // (else the largest lot's), because rows may not mix cloths.
+  const autoFillIssueRows = () => {
+    if (!issuePreview || issueAvailableLots.length === 0) return;
+    const anchorGreigeId =
+      issueChosenLotIds.map((lotId) => issueLotById.get(lotId)?.greigeId).find(Boolean) ??
+      issueAvailableLots[0].greigeId;
+    let remaining = issueRequiredQty;
+    const filled: IssueLotRow[] = [];
+    for (const lot of issueAvailableLots) {
+      if (remaining <= ISSUE_QTY_TOLERANCE) break;
+      if (lot.greigeId !== anchorGreigeId) continue;
+      const take = round2(Math.min(lot.quantityAvailable, remaining));
+      if (take <= 0) continue;
+      filled.push({ lotId: lot.id, qty: take.toFixed(2) });
+      remaining = round2(remaining - take);
+    }
+    if (filled.length > 0) setIssueRows(filled);
+  };
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -899,46 +1074,230 @@ export default function JobWorkOrderDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Issue Dialog (Phase 4c: operational issue) */}
+      {/* Issue Dialog (Phase 4c: operational issue, multi-lot) */}
       <Dialog open={issueDialogOpen} onOpenChange={setIssueDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Issue to Processor</DialogTitle>
             <DialogDescription>
-              Consumes the selected greige lot ({jwo.qtySentMeters.toFixed(2)} {jwo.uom}), creates the outward challan,
+              Consumes {issueRequiredQty.toFixed(2)} {issueUom} — from one lot or several — creates the outward challan,
               and locks the Section 143 due date.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {jwo.fabricStockLotId ? (
+            {issueBlockers.length > 0 && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>This order cannot be issued</AlertTitle>
+                <AlertDescription>
+                  <ul className="list-disc pl-4 space-y-1">
+                    {issueBlockers.map((blocker, index) => (
+                      <li key={`${blocker.code}-${index}`}>{blocker.message}</li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {issuesFromFabricRoll ? (
               <Alert>
                 <AlertDescription>
                   This order issues from its selected fabric lot ({jwo.qtySentMeters.toFixed(2)} {jwo.uom} will be
                   consumed{jwo.processType === 'EMBROIDERY' ? ' for embroidery' : ''}).
                 </AlertDescription>
               </Alert>
+            ) : issuePreviewLoading ? (
+              <Skeleton className="h-24 w-full" />
+            ) : issuePreviewFailed ? (
+              // Without this the empty lot list below would read as a confident "there is no
+              // stock" — a factual claim we cannot make when the request never answered.
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Could not load the available lots</AlertTitle>
+                <AlertDescription>
+                  The stock check did not answer, so this dialog cannot say what is issuable. Close and reopen it to
+                  retry; if it keeps failing the API may be restarting.
+                </AlertDescription>
+              </Alert>
+            ) : issueAvailableLots.length === 0 ? (
+              issueAllowsNoLot ? (
+                <Alert>
+                  <AlertDescription>
+                    No greige lot applies to this order — it will be issued as service work, with no material consumed
+                    from stock.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Alert className="border-amber-300 bg-amber-50 text-amber-900">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>No greige available to issue</AlertTitle>
+                  <AlertDescription>
+                    {issuePreview?.expectedGreige
+                      ? `No available greige lots for ${issuePreview.expectedGreige.greigeCode} — ${issuePreview.expectedGreige.greigeName}. `
+                      : 'No available greige lots for this order. '}
+                    Receive the greige purchase order into stock first. Lots already sitting at a processor, and lots
+                    created by a transfer, are deliberately excluded from this list.
+                  </AlertDescription>
+                </Alert>
+              )
             ) : (
-              <div className="space-y-1.5">
-                <Label>Greige Stock Lot {jwo.fabricType === 'GREIGE' ? '*' : '(optional)'}</Label>
-                <Select value={issueLotId || 'none'} onValueChange={(v) => setIssueLotId(v === 'none' ? '' : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select greige lot" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">-- No lot (service work) --</SelectItem>
-                    {(availableLots || [])
-                      .filter((lot) => Number(lot.quantityAvailable) >= Number(jwo.qtySentMeters))
-                      .map((lot) => (
-                        <SelectItem key={lot.id} value={lot.id}>
-                          {lot.greige?.greigeCode} — {lot.greige?.greigeName} (
-                          {Number(lot.quantityAvailable).toFixed(1)}m avail, {Number(lot.greigeWidth)}″)
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+              <div className="space-y-3">
+                {issuePreview && !issuePreview.greigeAnchored && (
+                  <Alert>
+                    <AlertDescription>
+                      This order has no requirement chain naming its cloth, so any greige may be issued — but every row
+                      must be the SAME greige, because one job work order sends one cloth.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <Label>Greige Lots {issuesGreige ? '*' : '(optional)'}</Label>
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="ghost" size="sm" onClick={autoFillIssueRows}>
+                      <Wand2 className="mr-1 h-3.5 w-3.5" />
+                      Auto-fill
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addIssueRow}
+                      disabled={issueUnusedLotCount === 0}
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" />
+                      Add lot
+                    </Button>
+                  </div>
+                </div>
+
+                {issueRows.map((row, index) => {
+                  const lot = row.lotId ? issueLotById.get(row.lotId) : undefined;
+                  const rowQty = parseFloat(row.qty);
+                  const overAvailable = !!lot && rowQty > lot.quantityAvailable + ISSUE_QTY_TOLERANCE;
+                  // Disabling lots taken by another row is what keeps LOT_DUPLICATE from ever
+                  // reaching the server — the operator simply cannot pick the same lot twice.
+                  const takenElsewhere = new Set(
+                    issueRows
+                      .filter((_, i) => i !== index)
+                      .map((other) => other.lotId)
+                      .filter(Boolean)
+                  );
+                  return (
+                    <div key={index} className="space-y-1">
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1">
+                          <Select
+                            value={row.lotId || 'none'}
+                            onValueChange={(v) => updateIssueRow(index, { lotId: v === 'none' ? '' : v })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select greige lot" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">-- Select a lot --</SelectItem>
+                              {issueAvailableLots.map((option) => (
+                                <SelectItem key={option.id} value={option.id} disabled={takenElsewhere.has(option.id)}>
+                                  {option.greigeCode ?? 'Lot'} — {option.greigeName ?? 'unnamed greige'} (
+                                  {option.quantityAvailable.toFixed(1)}m avail
+                                  {option.greigeWidth != null ? `, ${option.greigeWidth}″` : ''})
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="w-32"
+                          value={row.qty}
+                          onChange={(e) => updateIssueRow(index, { qty: e.target.value })}
+                          placeholder={`Qty ${issueUom}`}
+                          aria-label={`Quantity for lot ${index + 1}`}
+                        />
+                        {issueRows.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeIssueRow(index)}
+                            aria-label="Remove this lot"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      {overAvailable && lot && (
+                        <p className="text-xs text-red-600">
+                          Only {lot.quantityAvailable.toFixed(2)} {issueUom} available in {lot.greigeCode ?? 'this lot'}{' '}
+                          — reduce this row or add another lot.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Nothing picked on an optional-lot order is a valid answer, not a shortfall */}
+                {!(issueAllowsNoLot && issueNoLotChosen) && (
+                  <div
+                    className={`flex items-center justify-between text-sm font-medium ${
+                      issueTotalMatches ? 'text-green-600' : issueQtyDelta < 0 ? 'text-amber-600' : 'text-red-600'
+                    }`}
+                  >
+                    <span>
+                      Total {issueTotalQty.toFixed(2)} / {issueRequiredQty.toFixed(2)} {issueUom}
+                    </span>
+                    <span>
+                      {issueTotalMatches
+                        ? '✓ matches the order'
+                        : issueQtyDelta < 0
+                          ? `${Math.abs(issueQtyDelta).toFixed(2)} ${issueUom} short`
+                          : `${issueQtyDelta.toFixed(2)} ${issueUom} over`}
+                    </span>
+                  </div>
+                )}
+
+                {issueHasMixedGreige && (
+                  <p className="text-xs text-red-600">
+                    All rows must be the same greige — one job work order sends one cloth.
+                  </p>
+                )}
+                {issueAllowsNoLot && (
+                  <p className="text-xs text-muted-foreground">
+                    Leave the lot unselected to issue this as service work, with no material consumed.
+                  </p>
+                )}
               </div>
             )}
+
+            {issueNeedsWidthAck && (
+              <Alert className="border-amber-300 bg-amber-50 text-amber-900">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Width differs from the order</AlertTitle>
+                <AlertDescription className="space-y-2">
+                  <p>
+                    This order was planned on {issueOrderWidth}″ greige, but{' '}
+                    {issueWidthMismatchLots
+                      .map((lot) => `${lot.greigeCode ?? 'a chosen lot'} is ${lot.greigeWidth}″`)
+                      .join(', ')}
+                    . The cutting marker's yield was calculated on the planned width.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="issue-width-ack"
+                      checked={issueWidthAcknowledged}
+                      onCheckedChange={(checked) => setIssueWidthAcknowledged(checked === true)}
+                    />
+                    <Label htmlFor="issue-width-ack" className="text-sm font-medium cursor-pointer">
+                      Issue anyway — I confirm the width difference
+                    </Label>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Challan Ref (optional)</Label>
@@ -957,9 +1316,7 @@ export default function JobWorkOrderDetail() {
             </Button>
             <Button
               onClick={() => issueMutation.mutate()}
-              disabled={
-                issueMutation.isPending || (jwo.fabricType === 'GREIGE' && !jwo.fabricStockLotId && !issueLotId)
-              }
+              disabled={issueMutation.isPending || issueBlockers.length > 0 || !issueSelectionValid}
             >
               <Send className="mr-2 h-4 w-4" />
               {issueMutation.isPending ? 'Issuing...' : 'Issue & Create Challan'}

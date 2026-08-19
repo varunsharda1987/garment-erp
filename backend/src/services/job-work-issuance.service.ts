@@ -65,6 +65,8 @@ export const ISSUE_ERROR_CODES = {
   NO_GREIGE_LOT: 'NO_GREIGE_LOT',
   LOT_NOT_FOUND: 'LOT_NOT_FOUND',
   LOT_GREIGE_MISMATCH: 'LOT_GREIGE_MISMATCH',
+  LOT_GREIGE_MIXED: 'LOT_GREIGE_MIXED',
+  LOT_DUPLICATE: 'LOT_DUPLICATE',
   LOT_WIDTH_MISMATCH: 'LOT_WIDTH_MISMATCH',
   LOT_QTY_MISMATCH: 'LOT_QTY_MISMATCH',
   PURCHASED_ITEM_AS_COMPONENT: 'PURCHASED_ITEM_AS_COMPONENT',
@@ -243,6 +245,26 @@ export async function validateIssue(
         });
       }
       lots.push({ row, qty: input.qty });
+    }
+
+    // Two rows on one lot double-consume it and mint two components for one physical lot.
+    const lotIds = lotInputs.map((l) => l.greigeStockLotId);
+    if (new Set(lotIds).size !== lotIds.length) {
+      blockers.push({
+        code: ISSUE_ERROR_CODES.LOT_DUPLICATE,
+        message: 'The same greige lot is listed twice — combine the quantities into one row.',
+      });
+    }
+    // One job work order mints exactly ONE finished fabric master at receipt (from the first
+    // lot's greige), so two greiges in one issue would silently claim to be one cloth.
+    // Redundant wherever expectedGreigeId resolved — LOT_GREIGE_MISMATCH already forces every
+    // lot equal to it — this is the ONLY guard on style-less stock orders, where identity is
+    // unresolvable and nothing else compares the lots to each other.
+    if (lotInputs.length > 1 && new Set(lots.map((l) => l.row.greigeId)).size > 1) {
+      blockers.push({
+        code: ISSUE_ERROR_CODES.LOT_GREIGE_MIXED,
+        message: 'All lots in one issue must be the same greige — issue them as separate job work orders.',
+      });
     }
     lots.sort((a, b) => b.qty - a.qty);
   }

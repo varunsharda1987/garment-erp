@@ -15,6 +15,54 @@ import type {
 
 const BASE_URL = '/job-work-orders';
 
+/** One line of a multi-lot greige issue. */
+export interface IssueLotInput {
+  greigeStockLotId: string;
+  qty: number;
+}
+
+/**
+ * Issue payload.
+ *
+ * A SINGLE lot must travel as `greigeStockLotId`, never as a one-element `lots` array: the
+ * server then consumes the order's own `qtySentMeters` verbatim, so the issued quantity cannot
+ * drift by a paisa from a number that went through an input box and back. `lots` exists for
+ * genuine multi-lot issues, where only the operator knows the split — there the server checks
+ * the quantities sum to the order quantity (within 0.01) before touching stock.
+ */
+export interface IssueJwoPayload {
+  sentDate?: string;
+  greigeStockLotId?: string;
+  lots?: IssueLotInput[];
+  fabricStockLotId?: string;
+  challanNumber?: string;
+  vehicleNumber?: string;
+  acknowledgeWidthMismatch?: boolean;
+}
+
+/** A greige lot the server considers issuable for this order — pre-filtered, sorted qty desc. */
+export interface JwoIssuePreviewLot {
+  id: string;
+  greigeId: string;
+  greigeCode: string | null;
+  greigeName: string | null;
+  greigeWidth: number | null;
+  quantityAvailable: number;
+}
+
+export interface JwoIssuePreview {
+  canIssue: boolean;
+  blockers: Array<{ code: string; message: string }>;
+  /** The cloth this order's requirement chain calls for; null when the chain cannot name one. */
+  expectedGreige: { id: string; greigeCode: string; greigeName: string } | null;
+  /** false ⇒ availableLots spans several greiges, so the UI must hold the same-greige rule itself */
+  greigeAnchored: boolean;
+  requiredQty: number;
+  uom: string;
+  fabricType: string | null;
+  availableLots: JwoIssuePreviewLot[];
+}
+
 export const jobWorkOrderService = {
   /**
    * Create a DRAFT job work order (Consolidation Phase 3).
@@ -94,12 +142,20 @@ export const jobWorkOrderService = {
    * Issue material to processor (Phase 4c: operational — consumes the greige lot,
    * creates the OUTWARD challan, locks the statutory due date)
    */
-  async issue(
-    id: string,
-    payload?: { sentDate?: string; greigeStockLotId?: string; challanNumber?: string; vehicleNumber?: string }
-  ): Promise<{ data: JobWorkOrder; warning?: string }> {
+  async issue(id: string, payload?: IssueJwoPayload): Promise<{ data: JobWorkOrder; warning?: string }> {
     const response = await api.post(`${BASE_URL}/${id}/issue`, payload ?? {});
     return { data: response.data.data, warning: response.data.warning };
+  },
+
+  /**
+   * Read-only dry run of the issue validation: every blocker at once (not just the first),
+   * the greige the order is anchored to, and the lots that could serve it. Lots come back
+   * already filtered (right cloth, AVAILABLE, not at a processor, not a transfer) and sorted
+   * quantity-desc, which is what makes the dialog's greedy auto-fill correct.
+   */
+  async getIssuePreview(id: string): Promise<JwoIssuePreview> {
+    const response = await api.get(`${BASE_URL}/${id}/issue-preview`);
+    return response.data.data;
   },
 
   /**

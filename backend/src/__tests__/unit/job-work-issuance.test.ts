@@ -3,7 +3,8 @@
  *
  * The service is the single implementation of "issue material to processor"; these
  * tests pin the validation rules that the four old paths never had: greige identity,
- * width tolerance, R6, processor-held lots, quantity totals, and the no-lot trap.
+ * width tolerance, R6, processor-held lots, quantity totals, the no-lot trap, and
+ * multi-lot hygiene (one greige per issue, no lot listed twice).
  */
 
 jest.mock('../../config/database', () => ({
@@ -184,6 +185,54 @@ describe('validateIssue — blocker matrix', () => {
     arm(baseJwo(), { 'lot-1': baseLot({ quantityAvailable: 100 }) });
     const v = await validateIssue('jwo-1', { lots: [{ greigeStockLotId: 'lot-1', qty: 8792.09 }] });
     expect(codes(v)).toContain(ISSUE_ERROR_CODES.INSUFFICIENT_GREIGE);
+  });
+
+  it('LOT_GREIGE_MIXED: two greiges in one issue — the only guard on a style-less stock order', async () => {
+    // requirementLinks [] (with fabric/labDip null) leaves expectedGreigeId unresolvable, so
+    // LOT_GREIGE_MISMATCH cannot fire and the cross-lot check is all that stands.
+    arm(baseJwo({ requirementLinks: [] }), {
+      'lot-1': baseLot({ quantityAvailable: 5000 }),
+      'lot-2': baseLot({
+        id: 'lot-2',
+        greigeId: OTHER_GREIGE_ID,
+        quantityAvailable: 4000,
+        greige: { greigeCode: 'GRG-0006', greigeName: 'Poplin' },
+      }),
+    });
+    const v = await validateIssue('jwo-1', {
+      lots: [
+        { greigeStockLotId: 'lot-1', qty: 5000 },
+        { greigeStockLotId: 'lot-2', qty: 3792.09 },
+      ],
+    });
+    expect(v.expectedGreigeId).toBeNull();
+    expect(codes(v)).toContain(ISSUE_ERROR_CODES.LOT_GREIGE_MIXED);
+    expect(codes(v)).not.toContain(ISSUE_ERROR_CODES.LOT_GREIGE_MISMATCH);
+  });
+
+  it('LOT_DUPLICATE: the same lot listed twice would be consumed twice', async () => {
+    arm(baseJwo(), { 'lot-1': baseLot({ quantityAvailable: 9000 }) });
+    const v = await validateIssue('jwo-1', {
+      lots: [
+        { greigeStockLotId: 'lot-1', qty: 4392.09 },
+        { greigeStockLotId: 'lot-1', qty: 4400 },
+      ],
+    });
+    expect(codes(v)).toContain(ISSUE_ERROR_CODES.LOT_DUPLICATE);
+  });
+
+  it('two lots of the SAME greige stay clean — no mixed/duplicate false positive', async () => {
+    arm(baseJwo(), {
+      'lot-1': baseLot({ quantityAvailable: 5000 }),
+      'lot-2': baseLot({ id: 'lot-2', quantityAvailable: 4000 }),
+    });
+    const v = await validateIssue('jwo-1', {
+      lots: [
+        { greigeStockLotId: 'lot-1', qty: 5000 },
+        { greigeStockLotId: 'lot-2', qty: 3792.09 },
+      ],
+    });
+    expect(v.blockers).toEqual([]);
   });
 
   it('falls back to the JWO-stamped lot when no explicit lots are passed', async () => {

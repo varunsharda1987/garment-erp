@@ -922,10 +922,18 @@ class JobWorkOrderController {
     try {
       const { id } = req.params;
       const v = await validateIssue(id, {});
-      const availableLots = v.expectedGreigeId
+      // A style-less stock order has no resolvable greige identity — anchoring the list to
+      // expectedGreigeId there hands the UI an empty dropdown, so offer every issuable lot and
+      // let the operator anchor the order by what they pick (LOT_GREIGE_MIXED holds the line).
+      const greigeFilter: Prisma.greige_stockWhereInput | null = v.expectedGreigeId
+        ? { greigeId: v.expectedGreigeId }
+        : v.jwo.fabricType === 'GREIGE'
+          ? {}
+          : null;
+      const availableLots = greigeFilter
         ? await prisma.greige_stock.findMany({
             where: {
-              greigeId: v.expectedGreigeId,
+              ...greigeFilter,
               status: 'AVAILABLE',
               processorId: null,
               quantityAvailable: { gt: 0 },
@@ -934,6 +942,7 @@ class JobWorkOrderController {
             },
             select: {
               id: true,
+              greigeId: true,
               greigeWidth: true,
               quantityAvailable: true,
               greige: { select: { greigeCode: true, greigeName: true } },
@@ -947,11 +956,14 @@ class JobWorkOrderController {
           canIssue: v.blockers.length === 0,
           blockers: v.blockers,
           expectedGreige: v.expectedGreige,
+          // false ⇒ the list below spans many greiges; the UI must hold the same-greige rule itself
+          greigeAnchored: v.expectedGreigeId != null,
           requiredQty: Number(v.jwo.qtySentMeters),
           uom: v.jwo.uom,
           fabricType: v.jwo.fabricType,
           availableLots: availableLots.map((l) => ({
             id: l.id,
+            greigeId: l.greigeId,
             greigeCode: l.greige?.greigeCode ?? null,
             greigeName: l.greige?.greigeName ?? null,
             greigeWidth: l.greigeWidth != null ? Number(l.greigeWidth) : null,

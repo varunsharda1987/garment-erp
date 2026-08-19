@@ -21,6 +21,7 @@ import { multiplyCurrency, divideCurrency, toNumber, roundToCent } from '../util
 // Phase 5a: service requirements are fulfilled by Job Work Orders, not purchase orders
 import { generateJobWorkNumber } from '../utils/jobWorkNumber';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
+import { splitReceiptAcrossLinks, RECEIPT_COMPLETE_TOLERANCE } from './helpers/receipt-split.helper';
 
 // ============================================
 // TYPES
@@ -1306,17 +1307,25 @@ export async function updateWosrReceivedQuantity(
 ): Promise<void> {
   const client = tx || prisma;
 
+  // orderBy is load-bearing: the pro-rata remainder lands on the LAST link, and it must be the same
+  // link for a receipt and for its reversal — Postgres guarantees no ordering without it.
   const links = await client.service_requirement_jwo_links.findMany({
     where: { jobWorkOrderId },
-    select: { id: true, serviceRequirementId: true },
+    select: { id: true, serviceRequirementId: true, allocatedQuantity: true },
+    orderBy: { id: 'asc' },
   });
+
+  // The receipt is one number against the JWO; each link gets its allocated share, never the full
+  // amount (crediting the full receipt to every link completed small requirements early).
+  const shares = splitReceiptAcrossLinks(links, receivedQuantity);
+  const shareByLinkId = new Map(shares.map((s) => [s.id, s.qty]));
 
   const updatedRequirementIds = new Set<string>();
 
   for (const link of links) {
     await client.service_requirement_jwo_links.update({
       where: { id: link.id },
-      data: { receivedQuantity: { increment: receivedQuantity } },
+      data: { receivedQuantity: { increment: shareByLinkId.get(link.id) ?? 0 } },
     });
 
     if (updatedRequirementIds.has(link.serviceRequirementId)) continue;
@@ -1337,7 +1346,9 @@ export async function updateWosrReceivedQuantity(
     );
 
     let newStatus: ServiceRequirementStatus;
-    if (totalReceived >= totalAllocated && totalAllocated > 0) {
+    // Tolerance, not a bare >=: independent per-receipt rounding can leave a link a millimetre
+    // short across successive partials, which would strand a fully-received requirement.
+    if (totalReceived >= totalAllocated - RECEIPT_COMPLETE_TOLERANCE && totalAllocated > 0) {
       newStatus = ServiceRequirementStatus.COMPLETED;
     } else if (totalReceived > 0) {
       newStatus = ServiceRequirementStatus.IN_PROGRESS;

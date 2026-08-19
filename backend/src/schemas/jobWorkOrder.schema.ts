@@ -99,10 +99,15 @@ export type CloseJwoInput = z.infer<typeof closeJwoSchema>;
 export const issueJwoSchema = z.object({
   sentDate: z.coerce.date().optional(),
   greigeStockLotId: z.string().optional().nullable(),
+  // Multi-lot issue (consolidated issuance service): quantities must total qtySentMeters.
+  // Single-lot callers may keep sending greigeStockLotId instead.
+  lots: z.array(z.object({ greigeStockLotId: z.string(), qty: z.number().positive() })).optional(),
   // Phase 5b: fabric-roll issue source (EMBROIDERY) — consumes a fabric_stock lot instead of greige
   fabricStockLotId: z.string().optional().nullable(),
   challanNumber: z.string().max(100).trim().optional(),
   vehicleNumber: z.string().max(50).trim().optional(),
+  // Width guard override: issue although the lot's greige width differs beyond tolerance
+  acknowledgeWidthMismatch: z.boolean().optional(),
 });
 
 /**

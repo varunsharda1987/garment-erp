@@ -3,7 +3,7 @@ import { BusinessError, NotFoundError, ValidationError, UnauthorizedError } from
 import prisma from '../config/database';
 import { Prisma, Unit } from '@prisma/client';
 import { createChallan } from '../services/challan.service';
-import greigeStockService from '../services/greige-stock.service';
+import { issueJobWorkOrder } from '../services/job-work-issuance.service';
 import { generateUnifiedPONumber } from '../utils/po-number-generator';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
@@ -972,101 +972,15 @@ export const deletePrintJob = async (req: Request, res: Response, _next: NextFun
   res.json({ message: 'Print job deleted successfully' });
 };
 
-// Send fabric to mill
-export const sendToMill = async (req: Request, res: Response, _next: NextFunction) => {
-  const { id } = req.params;
-  const { sentDate, challanNumber, vehicleNumber } = req.body;
-  const userId = req.user?.userId || req.user?.id;
-  if (!userId) {
-    throw new UnauthorizedError();
-  }
-
-  const existing = await prisma.job_work_orders.findUnique({
-    where: { id },
-    include: {
-      labDip: {
-        include: {
-          targetColor: { select: { colorName: true, colorCode: true } },
-          fabric: {
-            select: {
-              id: true,
-              fabricName: true,
-              greigeId: true,
-              greige: {
-                select: {
-                  id: true,
-                  greigeCode: true,
-                  greigeName: true,
-                  genericGreigeName: true,
-                  composition: true,
-                  yarnCount: true,
-                },
-              },
-            },
-          },
-        },
-      },
-      style: { select: { id: true, styleCode: true, buyerStyleRef: true, styleName: true } },
-    },
+// RETIRED (issuance consolidation 2026-08-19): this pre-challan-era send consumed no
+// greige, made no movement document, and set no statutory date. Zero frontend callers.
+// The route stays registered so any stale client gets a clear 410, not a 404.
+export const sendToMill = async (_req: Request, res: Response, _next: NextFunction) => {
+  res.status(410).json({
+    success: false,
+    code: 'ENDPOINT_RETIRED',
+    message: 'Retired — use POST /api/printing/process-pos/:id/send (atomic issue with challan + stock).',
   });
-
-  if (!existing) {
-    throw new NotFoundError('Print job', id);
-  }
-
-  if (existing.sentDate) {
-    throw new ValidationError('Fabric has already been sent to mill');
-  }
-
-  // Update fabric stock - reduce available quantity
-  if (existing.fabricStockLotId) {
-    await prisma.fabric_stock.update({
-      where: { id: existing.fabricStockLotId },
-      data: {
-        quantityAvailable: {
-          decrement: Number(existing.qtySentMeters),
-        },
-      },
-    });
-  }
-
-  // Auto-create/reuse the finished (printed) fabric master via the shared identity
-  // builder (design in printDesign, colour stays the ground shade — never 'Unknown')
-  let finishedFabricId: string | null = null;
-  {
-    const greigeId = existing.labDip?.fabric?.greigeId || null;
-    const anchor =
-      existing.style?.id && greigeId
-        ? await resolveManualJobStyleFabricAnchor(existing.style.id, greigeId, 'PRINTED')
-        : null;
-    const identity = await resolveFinishedFabricIdentity({
-      jwo: existing,
-      style: existing.style,
-      knownStyleFabricId: anchor,
-      finishType: 'PRINTED',
-    });
-    if (identity) {
-      const minted = await getOrCreateFinishedFabricV2(identity, userId, 'AUTO_FROM_JOB_WORK');
-      finishedFabricId = minted.fabricId;
-    } else if (existing.fabricId) {
-      // No greige lineage — keep the source master (legacy parity)
-      finishedFabricId = existing.fabricId;
-    }
-  }
-
-  const job = await prisma.job_work_orders.update({
-    where: { id },
-    data: {
-      sentDate: new Date(sentDate),
-      challanNumber,
-      vehicleNumber,
-      finishedFabricId,
-      status: 'AT_MILL',
-    },
-    include: jobWorkOrderInclude,
-  });
-
-  res.json({ data: transformJobWorkOrder(job as any) });
 };
 
 // Receive fabric from mill
@@ -1710,15 +1624,14 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
   });
 
   // If autoSend is true, immediately execute the send logic
+  // If autoSend is true, immediately execute the send logic via the consolidated
+  // issuance service. Create and issue stay separate transactions BY DESIGN: creation
+  // must survive a send failure (the order stays READY_TO_SEND with a clear warning,
+  // instead of the old half-sent states).
   if (autoSend) {
     const job = result.job;
 
-    // 1. Consume greige stock
-    if (job.greigeStockLotId) {
-      await greigeStockService.consumeGreigeStock(job.greigeStockLotId, Number(job.qtySentMeters), userId);
-    }
-
-    // 2. Auto-create/reuse the finished fabric_master via the shared identity builder.
+    // Finished fabric identity (pre-tx; harmless catalog row if the issue fails).
     // Fixes the old bug where the artwork name was written INTO colorName ('Printed'
     // placeholder when absent) — design now lands in printDesign, colour stays colour.
     let finishedFabricId: string | null = null;
@@ -1749,59 +1662,27 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
       }
     }
 
-    // 3. Auto-create OUTWARD challan
-    let outwardChallanId: string | null = null;
     try {
-      const challan = await createChallan({
-        challanType: 'OUTWARD',
-        challanDate: sentDate ? new Date(sentDate) : new Date(),
-        fromType: 'WAREHOUSE',
-        fromName: 'Main Warehouse',
-        toType: 'VENDOR',
-        toId: resolvedProcessorId,
-        toName: (labDip as any).processor?.name || 'Mill',
-        jobWorkOrderId: job.id,
-        vehicleNumber,
-        issuedById: userId,
-        unit: Unit.METER,
-        remarks: challanNumber ? `Manual challan ref: ${challanNumber}` : undefined,
-        items: [
-          {
-            itemType: 'GREIGE',
-            fabricId: job.fabricId || undefined,
-            greigeStockId: job.greigeStockLotId || undefined,
-            description: `Greige fabric for Printing - ${formatStyleCodeWithRef(result.labDip?.style?.styleCode || '', result.labDip?.style?.buyerStyleRef)}`,
-            quantity: Number(job.qtySentMeters),
-            unit: Unit.METER,
-            rate: Number(job.agreedRatePerMeter),
-            jobWorkOrderId: job.id,
-          },
-        ],
-      });
-      outwardChallanId = challan.id;
-    } catch (challanError) {
-      logger.error('Failed to create outward challan for printing auto-send', {
-        error: challanError,
-        jobId: job.id,
-        greigeStockLotId: job.greigeStockLotId,
-      });
-    }
-
-    // 4. Update job work order to AT_MILL (D2: §143 parity — universal status + due date)
-    const issueDate = sentDate ? new Date(sentDate) : new Date();
-    await prisma.job_work_orders.update({
-      where: { id: job.id },
-      data: {
-        sentDate: issueDate,
+      await issueJobWorkOrder(job.id, {
+        userId,
+        sentDate: sentDate ? new Date(sentDate) : undefined,
         challanNumber,
         vehicleNumber,
         finishedFabricId,
-        outwardChallanId,
-        status: 'AT_MILL',
-        jwoStatus: 'ISSUED',
-        statutoryDueDate: jobWorkOrderService.calculateStatutoryDueDate(issueDate),
-      },
-    });
+      });
+    } catch (sendError) {
+      const reason = sendError instanceof Error ? sendError.message : 'unknown error';
+      logger.error('Auto-send failed after printing JWO creation — order left READY_TO_SEND', {
+        jobId: job.id,
+        error: sendError,
+      });
+      const createdOnly = await resolveProcessJwo(job.id, 'PRINTING');
+      return res.status(201).json({
+        data: createdOnly ? toProcessPOEnvelope(createdOnly) : null,
+        message: `Printing job work order ${job.jobWorkNumber} created`,
+        warning: `Created but not sent: ${reason}`,
+      });
+    }
 
     // Re-fetch after send (envelope shape)
     const finalJwo = await resolveProcessJwo(job.id, 'PRINTING');
@@ -1876,7 +1757,7 @@ export const deleteProcessPO = async (req: Request, res: Response, _next: NextFu
 // 5. Send Process PO to Mill (dispatch greige + auto OUTWARD challan)
 export const sendProcessPO = async (req: Request, res: Response, _next: NextFunction) => {
   const { id } = req.params;
-  const { sentDate, challanNumber, vehicleNumber } = req.body;
+  const { sentDate, challanNumber, vehicleNumber, greigeStockLotId } = req.body;
   const userId = req.user?.userId || req.user?.id;
   if (!userId) {
     throw new UnauthorizedError();
@@ -1894,12 +1775,8 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
     throw new BusinessError(`Cannot send. Job status is ${job.status}, expected READY_TO_SEND`);
   }
 
-  // Consume greige stock
-  if (job.greigeStockLotId) {
-    await greigeStockService.consumeGreigeStock(job.greigeStockLotId, Number(job.qtySentMeters), userId);
-  }
-
-  // Auto-create/reuse the finished fabric_master via the shared identity builder
+  // Finished fabric identity (pre-tx: a minted master with a failed issue is a harmless
+  // catalog row — cancel's orphan cleanup handles it)
   let finishedFabricId: string | null = null;
   {
     const greigeId = job.labDip?.fabric?.greigeId || null;
@@ -1920,60 +1797,24 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
     }
   }
 
-  // Auto-create OUTWARD challan
-  let outwardChallanId: string | null = null;
+  // Consolidated issuance: ONE atomic tx (mutex, challan born ISSUED, guarded consume,
+  // statutory date, stamp). A greige JWO without a lot gets a clear 422 instead of the
+  // old silent zero-consumption despatch.
   try {
-    const challan = await createChallan({
-      challanType: 'OUTWARD',
-      challanDate: sentDate ? new Date(sentDate) : new Date(),
-      fromType: 'WAREHOUSE',
-      fromName: 'Main Warehouse',
-      toType: 'VENDOR',
-      toId: job.processorId,
-      toName: job.processor?.name || 'Mill',
-      purchaseOrderId: job.purchaseOrderId ?? undefined,
-      jobWorkOrderId: job.id,
-      vehicleNumber,
-      issuedById: userId,
-      unit: Unit.METER,
-      remarks: challanNumber ? `Manual challan ref: ${challanNumber}` : undefined,
-      items: [
-        {
-          itemType: 'GREIGE',
-          fabricId: job.fabricId,
-          greigeStockId: job.greigeStockLotId || undefined,
-          description: `Greige fabric for Printing - ${formatStyleCodeWithRef(job.style?.styleCode || '', job.style?.buyerStyleRef)}`,
-          quantity: Number(job.qtySentMeters),
-          unit: Unit.METER,
-          rate: Number(job.agreedRatePerMeter),
-          jobWorkOrderId: job.id,
-        },
-      ],
-    });
-    outwardChallanId = challan.id;
-  } catch (challanError) {
-    logger.error('Failed to create outward challan for printing send-out', {
-      error: challanError,
-      jobId: job.id,
-      greigeStockLotId: job.greigeStockLotId,
-    });
-  }
-
-  // Update job work order (D2: §143 parity — universal status + due date)
-  const issueDate = sentDate ? new Date(sentDate) : new Date();
-  await prisma.job_work_orders.update({
-    where: { id: job.id },
-    data: {
-      sentDate: issueDate,
+    await issueJobWorkOrder(job.id, {
+      userId,
+      sentDate: sentDate ? new Date(sentDate) : undefined,
+      greigeStockLotId: greigeStockLotId ?? undefined,
       challanNumber,
       vehicleNumber,
       finishedFabricId,
-      outwardChallanId,
-      status: 'AT_MILL',
-      jwoStatus: 'ISSUED',
-      statutoryDueDate: job.statutoryDueDate ?? jobWorkOrderService.calculateStatutoryDueDate(issueDate),
-    },
-  });
+    });
+  } catch (e) {
+    if (e instanceof JobWorkOrderError) {
+      throw new BusinessError(e.message);
+    }
+    throw e;
+  }
 
   // Legacy shadow PO → SENT (pre-4c pairs only)
   if (job.purchaseOrderId) {

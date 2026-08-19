@@ -158,6 +158,8 @@ export interface JobWorkOrder {
 
   // Fabric Sent
   fabricStockLotId: string;
+  // Greige source lot (null on MRP-created orders until issue assigns one)
+  greigeStockLotId?: string | null;
   fabricType: 'GREIGE' | 'RFD' | 'DYED' | 'FINISHED';
   reprocessReason?: string;
 

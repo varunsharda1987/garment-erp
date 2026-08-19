@@ -15,6 +15,7 @@ import {
   createProcessPoSchema,
   processPoQuerySchema,
   processPoActionSchema,
+  sendProcessPoSchema,
 } from '../schemas/dyeing.schema';
 import { idParamSchema, styleIdParamSchema, processorIdParamSchema } from '../schemas/common.schema';
 import {
@@ -83,7 +84,7 @@ router.delete('/process-pos/:id', validateParams(idParamSchema), asyncHandler(de
 router.post(
   '/process-pos/:id/send',
   validateParams(idParamSchema),
-  validateBody(processPoActionSchema),
+  validateBody(sendProcessPoSchema),
   asyncHandler(sendProcessPO)
 );
 router.post(

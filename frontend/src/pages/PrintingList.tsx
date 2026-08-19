@@ -37,6 +37,7 @@ import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { QualityCheckDialog, ReturnUnprocessedDialog } from '@/components/processing';
+import SendToMillDialog from '@/components/processing/SendToMillDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
   Printer,
@@ -122,6 +123,7 @@ export default function PrintingList() {
 
   // Return Unprocessed dialog state
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
+  const [sendDialogPO, setSendDialogPO] = useState<ProcessPO | null>(null);
   const [selectedPOForReturn, setSelectedPOForReturn] = useState<ProcessPO | null>(null);
 
   // Job Work Order status filter
@@ -641,24 +643,15 @@ export default function PrintingList() {
           >
             <Eye className="h-4 w-4" />
           </Button>
-          {/* Send to Mill — available when DRAFT */}
+          {/* Send to Mill — available when DRAFT (dialog: picks the greige lot when
+              the order doesn't already carry one) */}
           {item.processPOStatus === 'DRAFT' && (
             <Button
               variant="ghost"
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                // Send to mill with today's date
-                printingService.processPOs
-                  .sendToMill(item.id, {
-                    sentDate: new Date().toISOString().split('T')[0],
-                  })
-                  .then(() => {
-                    handleApiSuccess('Sent to Mill', `${item.poNumber} has been sent to mill.`);
-                    fetchProcessPOs();
-                    fetchSummary();
-                  })
-                  .catch((err: unknown) => handleApiError(err, 'Failed to send to mill'));
+                setSendDialogPO(item);
               }}
               className="text-info hover:text-info hover:bg-info-muted"
               title="Send to Mill"
@@ -1292,6 +1285,20 @@ export default function PrintingList() {
         processPO={selectedPOForReturn}
         processType="PRINTING"
         onSuccess={() => {
+          fetchProcessPOs();
+          fetchSummary();
+        }}
+      />
+
+      {/* Send to Mill Dialog (consolidated issuance) */}
+      <SendToMillDialog
+        open={!!sendDialogPO}
+        onOpenChange={(o) => {
+          if (!o) setSendDialogPO(null);
+        }}
+        po={sendDialogPO}
+        processType="PRINTING"
+        onSent={() => {
           fetchProcessPOs();
           fetchSummary();
         }}

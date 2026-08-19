@@ -12,7 +12,6 @@ import type {
   DyeJobListResponse,
   DyeJobResponse,
   CreateDyeJobRequest,
-  SendToMillRequest,
   ReceiveFromMillRequest,
   QualityCheckRequest,
   DyeJobQueryParams,
@@ -189,11 +188,7 @@ export const dyeJobService = {
     await api.delete(`/dyeing/jobs/${id}`);
   },
 
-  // Send fabric to mill
-  async sendToMill(id: string, data: SendToMillRequest): Promise<DyeJob> {
-    const response = await api.post<DyeJobResponse>(`/dyeing/jobs/${id}/send`, data);
-    return response.data.data;
-  },
+  // (legacy jobs/:id/send retired 2026-08-19 — issuance goes through processPOs.sendToMill)
 
   // Receive fabric from mill
   async receiveFromMill(id: string, data: ReceiveFromMillRequest): Promise<DyeJob> {
@@ -278,7 +273,7 @@ export const dyeProcessPOService = {
   },
   async sendToMill(
     id: string,
-    data: { sentDate: string; challanNumber?: string; vehicleNumber?: string }
+    data: { sentDate: string; challanNumber?: string; vehicleNumber?: string; greigeStockLotId?: string }
   ): Promise<ProcessPO> {
     const response = await api.post<{ data: ProcessPO }>(`/dyeing/process-pos/${id}/send`, data);
     return response.data.data;

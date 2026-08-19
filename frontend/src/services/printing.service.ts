@@ -12,7 +12,6 @@ import type {
   JobWorkOrderListResponse,
   JobWorkOrderResponse,
   CreateJobWorkOrderRequest,
-  SendToMillRequest,
   ReceiveFromMillRequest,
   QualityCheckRequest,
   JobWorkOrderQueryParams,
@@ -161,10 +160,7 @@ export const printJobService = {
   },
 
   // Send fabric to mill
-  async sendToMill(id: string, data: SendToMillRequest): Promise<JobWorkOrder> {
-    const response = await api.post<JobWorkOrderResponse>(`/printing/jobs/${id}/send`, data);
-    return response.data.data;
-  },
+  // (legacy jobs/:id/send retired 2026-08-19 — issuance goes through processPOService.sendToMill)
 
   // Receive fabric from mill
   async receiveFromMill(id: string, data: ReceiveFromMillRequest): Promise<JobWorkOrder> {
@@ -249,7 +245,7 @@ export const processPOService = {
   },
   async sendToMill(
     id: string,
-    data: { sentDate: string; challanNumber?: string; vehicleNumber?: string }
+    data: { sentDate: string; challanNumber?: string; vehicleNumber?: string; greigeStockLotId?: string }
   ): Promise<ProcessPO> {
     const response = await api.post<{ data: ProcessPO }>(`/printing/process-pos/${id}/send`, data);
     return response.data.data;

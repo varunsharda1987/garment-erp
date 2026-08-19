@@ -134,6 +134,10 @@ class JobWorkStatutoryService {
       where: {
         sentDate: { not: null },
         isActive: true,
+        // Cancelled orders had their stock credited back and their challan cancelled —
+        // they must not age toward the 365-day breach. Explicit OR because Prisma `not`
+        // on a nullable enum silently excludes NULL (legacy) rows.
+        AND: [{ OR: [{ jwoStatus: null }, { jwoStatus: { not: 'CANCELLED' } }] }],
         // Not fully received: either no receivedDate or qty mismatch
         OR: [
           { receivedDate: null },
@@ -199,8 +203,14 @@ class JobWorkStatutoryService {
         ordersOK++;
       }
 
-      const rate = Number(order.agreedRatePerMeter || 0);
-      const balanceValue = balanceQty * rate;
+      // Material value at risk with the processor — declaredValue (stamped at issue from
+      // the lot purchase costs) per metre; job-work rate only as a legacy fallback so old
+      // rows don't zero out. The old rate-only basis reported ₹87,920 for ~₹4.48L of greige.
+      const unitValue =
+        order.declaredValue != null && sentQty > 0
+          ? Number(order.declaredValue) / sentQty
+          : Number(order.agreedRatePerMeter || 0);
+      const balanceValue = balanceQty * unitValue;
       totalValue += balanceValue;
 
       items.push({

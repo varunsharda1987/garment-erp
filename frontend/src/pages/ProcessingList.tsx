@@ -40,6 +40,7 @@ import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { QualityCheckDialog, ReturnUnprocessedDialog } from '@/components/processing';
+import SendToMillDialog from '@/components/processing/SendToMillDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
   Droplets,
@@ -410,21 +411,11 @@ export default function ProcessingList() {
     setReturnDialogOpen(true);
   };
 
-  // Send to mill
-  const handleSendToMill = async (item: UnifiedProcessPO) => {
-    try {
-      const service = item._processType === 'DYEING' ? dyeingService : printingService;
-      await service.processPOs.sendToMill(item.id, {
-        sentDate: new Date().toISOString().split('T')[0],
-        challanNumber: `CH-${Date.now()}`,
-      });
-      handleApiSuccess('Sent to Mill', `${item.poNumber} has been sent to mill.`);
-      fetchProcessPOs();
-      fetchSummary();
-    } catch (err: unknown) {
-      handleApiError(err, 'Failed to send to mill');
-    }
-  };
+  // Send to mill (consolidated issuance: dialog picks the greige lot when the order
+  // doesn't already carry one; the real challan number comes from the atomic challan —
+  // the old junk `CH-${Date.now()}` stamp is gone)
+  const [sendDialogPO, setSendDialogPO] = useState<UnifiedProcessPO | null>(null);
+  const handleSendToMill = (item: UnifiedProcessPO) => setSendDialogPO(item);
 
   // Lab Dip columns
   const labDipColumns: Column<UnifiedLabDip>[] = [
@@ -1313,6 +1304,22 @@ export default function ProcessingList() {
           processPO={selectedPOForReturn}
           processType={selectedPOForReturn._processType}
           onSuccess={() => {
+            fetchProcessPOs();
+            fetchSummary();
+          }}
+        />
+      )}
+
+      {/* Send to Mill Dialog (consolidated issuance) */}
+      {sendDialogPO && (
+        <SendToMillDialog
+          open={!!sendDialogPO}
+          onOpenChange={(o) => {
+            if (!o) setSendDialogPO(null);
+          }}
+          po={sendDialogPO}
+          processType={sendDialogPO._processType}
+          onSent={() => {
             fetchProcessPOs();
             fetchSummary();
           }}

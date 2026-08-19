@@ -333,7 +333,9 @@ class ExternalProcessService {
       if (!jwo.sentDate) {
         await tx.job_work_orders.update({
           where: { id: jwo.id },
-          data: { sentDate: data.sendDate, status: 'SENT_TO_MILL', jwoStatus: 'ISSUED' },
+          // D2 (issuance consolidation): all writers use AT_MILL — every reader accepts
+          // both legacy values, and four dashboards are AT_MILL-only
+          data: { sentDate: data.sendDate, status: 'AT_MILL', jwoStatus: 'ISSUED' },
         });
         if (!jwo.statutoryDueDate) {
           await jobWorkOrderService.setStatutoryDueDate(jwo.id, data.sendDate, tx);

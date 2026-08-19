@@ -47,6 +47,8 @@ router.post('/:id/close', validateBody(closeJwoSchema), jobWorkOrderController.c
 // Actions
 // no-body — recompute is triggered by the POST alone; all inputs live on the order
 router.post('/:id/compute-totals', jobWorkOrderController.computeTotals.bind(jobWorkOrderController));
+// Read-only dry run of the issuance validation (blockers, expected greige, candidate lots)
+router.get('/:id/issue-preview', jobWorkOrderController.issuePreview.bind(jobWorkOrderController));
 router.post('/:id/issue', validateBody(issueJwoSchema), jobWorkOrderController.issue.bind(jobWorkOrderController));
 router.post(
   '/:id/receive',

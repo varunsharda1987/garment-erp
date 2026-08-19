@@ -293,6 +293,10 @@ export const sendProcessPoSchema = z
     sentDate: z.string().optional(), // Date string, controller parses with new Date()
     challanNumber: z.string().max(100).optional(),
     vehicleNumber: z.string().max(50).optional(),
+    // Consolidated issuance: the greige lot to consume — REQUIRED at the service layer
+    // for greige JWOs that don't already carry one (MRP-created orders); clear 422
+    // instead of the old silent zero-consumption despatch.
+    greigeStockLotId: z.string().uuid().optional(),
   })
   .passthrough();
 

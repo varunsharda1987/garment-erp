@@ -201,6 +201,22 @@ export async function issueChallan(id: string, userId?: string) {
     if (!existing) throw new Error('Challan not found');
     if (existing.status !== 'DRAFT') throw new Error('Only DRAFT challans can be issued');
 
+    // Job-work challans are created ISSUED atomically with the JWO issue (stock already
+    // deducted in that tx). A stray legacy DRAFT job-work challan must never be issued
+    // from here — it would consume the same stock a second time.
+    if (existing.jobWorkOrderId) {
+      const jwo = await tx.job_work_orders.findUnique({
+        where: { id: existing.jobWorkOrderId },
+        select: { sentDate: true, jobWorkNumber: true },
+      });
+      if (jwo?.sentDate) {
+        throw new Error(
+          `This job-work challan belongs to ${jwo.jobWorkNumber}, which was issued atomically — ` +
+            `stock is already deducted. Do not issue it again from the challan page.`
+        );
+      }
+    }
+
     // Auto-deduct stock for OUTWARD and INTERNAL challans based on stock type
     if (existing.challanType === 'OUTWARD' || existing.challanType === 'INTERNAL') {
       const effectiveUserId = userId || existing.issuedById;

@@ -37,9 +37,11 @@ import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import {
   addCurrency,
   applyShrinkageLoss,
+  divideCurrency,
   multiplyCurrency,
   roundToCent,
   subtractCurrency,
+  toCurrency,
   toNumber,
 } from '../utils/currency';
 import {
@@ -2784,11 +2786,30 @@ class GRNService {
     const processingRate = Number(
       processingQC?.actualRate ?? jobWorkOrder.actualRate ?? jobWorkOrder.agreedRatePerMeter ?? 0
     );
+    // Multi-lot issues record their split on components — source cost is then the
+    // qty-weighted average of the component lots' purchase costs
+    const greigeComponents = await tx.job_work_order_components.findMany({
+      where: { jobWorkOrderId: jobWorkOrder.id, materialType: 'GREIGE', greigeStockId: { not: null } },
+      select: { qtySent: true, rateAtIssue: true, rate: true },
+    });
+    let weightedGreigeCost: number | null = null;
+    if (greigeComponents.length > 0) {
+      let valueSum = toCurrency(0);
+      let qtySum = toCurrency(0);
+      for (const c of greigeComponents) {
+        const rate = c.rateAtIssue ?? c.rate;
+        if (rate == null) continue;
+        valueSum = addCurrency(valueSum, multiplyCurrency(Number(c.qtySent), Number(rate)));
+        qtySum = addCurrency(qtySum, Number(c.qtySent));
+      }
+      if (toNumber(qtySum) > 0) {
+        weightedGreigeCost = toNumber(roundToCent(divideCurrency(valueSum, qtySum)));
+      }
+    }
     const sourceCost = isFabricLotJwo
       ? Number(jobWorkOrder.fabricStockLot?.weightedAvgCost ?? 0)
-      : jobWorkOrder.greigeStockLot?.purchaseCost
-        ? Number(jobWorkOrder.greigeStockLot.purchaseCost)
-        : 0;
+      : (weightedGreigeCost ??
+        (jobWorkOrder.greigeStockLot?.purchaseCost ? Number(jobWorkOrder.greigeStockLot.purchaseCost) : 0));
     const totalCostPerMeter = roundToCent(addCurrency(processingRate, sourceCost)).toNumber();
     const widthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
     const cutableWidth = receivedWidth > widthDeduction ? receivedWidth - widthDeduction : receivedWidth;

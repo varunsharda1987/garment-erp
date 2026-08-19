@@ -15,6 +15,8 @@ import {
   printProcessPoQuerySchema,
   printProcessPoActionSchema,
 } from '../schemas/printing.schema';
+// Shared with dyeing: the consolidated-issuance send payload (optional greigeStockLotId)
+import { sendProcessPoSchema } from '../schemas/dyeing.schema';
 import { idParamSchema, styleIdParamSchema, processorIdParamSchema } from '../schemas/common.schema';
 import {
   // Lab Dip endpoints
@@ -81,7 +83,7 @@ router.delete('/process-pos/:id', validateParams(idParamSchema), asyncHandler(de
 router.post(
   '/process-pos/:id/send',
   validateParams(idParamSchema),
-  validateBody(printProcessPoActionSchema),
+  validateBody(sendProcessPoSchema),
   asyncHandler(sendProcessPO)
 );
 router.post(

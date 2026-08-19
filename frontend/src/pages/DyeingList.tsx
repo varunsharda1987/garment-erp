@@ -36,6 +36,7 @@ import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { QualityCheckDialog, ReturnUnprocessedDialog } from '@/components/processing';
+import SendToMillDialog from '@/components/processing/SendToMillDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
   Droplets,
@@ -482,19 +483,11 @@ export default function DyeingList() {
     },
   ];
 
-  // ---- Send to Mill ----
-  const handleSendToMill = async (po: ProcessPO) => {
-    try {
-      await dyeingService.processPOs.sendToMill(po.id, {
-        sentDate: new Date().toISOString().split('T')[0],
-      });
-      handleApiSuccess('Sent to Mill', `${po.poNumber} has been sent to mill.`);
-      fetchProcessPOs();
-      fetchSummary();
-    } catch (err: unknown) {
-      handleApiError(err, 'Failed to send to mill');
-    }
-  };
+  // ---- Send to Mill (consolidated issuance: dialog picks the greige lot when the
+  // order doesn't already carry one — the old one-click send could despatch an MRP
+  // order with zero stock consumed) ----
+  const [sendDialogPO, setSendDialogPO] = useState<ProcessPO | null>(null);
+  const handleSendToMill = (po: ProcessPO) => setSendDialogPO(po);
 
   // Job Work Order columns
   const processPOColumns: Column<ProcessPO>[] = [
@@ -1296,6 +1289,20 @@ export default function DyeingList() {
         processPO={selectedPOForReturn}
         processType="DYEING"
         onSuccess={() => {
+          fetchProcessPOs();
+          fetchSummary();
+        }}
+      />
+
+      {/* Send to Mill Dialog (consolidated issuance) */}
+      <SendToMillDialog
+        open={!!sendDialogPO}
+        onOpenChange={(o) => {
+          if (!o) setSendDialogPO(null);
+        }}
+        po={sendDialogPO}
+        processType="DYEING"
+        onSent={() => {
           fetchProcessPOs();
           fetchSummary();
         }}

@@ -486,71 +486,79 @@ class GreigeStockService {
   }
 
   /**
-   * Consume greige stock (after processing)
+   * Consume greige stock (issue to processor / challan issuance).
+   *
+   * SEMANTICS (2026-08-19): consumes AVAILABLE only — quantityReserved is NEVER touched.
+   * MRP's reservation overlay only increments quantityReserved (advisory, goods stay in
+   * available), and hard reserves (reserveGreigeStock) REMOVE qty from available — so an
+   * available-only consume is correct under both and can never steal another order's
+   * reservation. The availability check and the decrement are ONE guarded statement,
+   * so concurrent consumers cannot both pass a stale check (no read-then-write).
    */
-  async consumeGreigeStock(stockId: string, quantity: number, userId: string, tx?: TransactionClient) {
+  async consumeGreigeStock(
+    stockId: string,
+    quantity: number,
+    userId: string,
+    tx?: TransactionClient,
+    options?: { referenceType?: 'CHALLAN' | 'JOB_WORK_ORDER'; referenceId?: string; notes?: string }
+  ) {
     try {
       // When a caller's transaction is supplied, run every write on it so the consumption commits/rolls
       // back atomically with the caller (e.g. challan issuance); otherwise use the global client.
       const client = tx || prisma;
-      const stock = await client.greige_stock.findUnique({
-        where: { id: stockId },
-      });
 
-      if (!stock) {
-        throw new Error(`Greige stock with ID ${stockId} not found`);
-      }
-
-      const reserved = Number(stock.quantityReserved);
-      const available = Number(stock.quantityAvailable);
-
-      // Prefer consuming from reserved, fallback to available
-      let newReserved = reserved;
-      let newAvailable = available;
-
-      if (quantity <= reserved) {
-        newReserved = reserved - quantity;
-      } else {
-        // Consume all reserved and some available
-        const fromAvailable = quantity - reserved;
-        if (fromAvailable > available) {
-          throw new Error(`Insufficient stock. Total available: ${reserved + available}, Requested: ${quantity}`);
-        }
-        newReserved = 0;
-        newAvailable = available - fromAvailable;
-      }
-
-      const updatedStock = await client.greige_stock.update({
-        where: { id: stockId },
+      // Guarded atomic consume — the check IS the write (same pattern as reserveGreigeStock)
+      const consumeResult = await client.greige_stock.updateMany({
+        where: { id: stockId, quantityAvailable: { gte: quantity } },
         data: {
-          quantityReserved: new Prisma.Decimal(newReserved),
-          quantityAvailable: new Prisma.Decimal(newAvailable),
-          quantityConsumed: new Prisma.Decimal(Number(stock.quantityConsumed) + quantity),
+          quantityAvailable: { decrement: quantity },
+          quantityConsumed: { increment: quantity },
           lastConsumedDate: new Date(),
-          status: newReserved + newAvailable <= 0 ? 'EXHAUSTED' : 'AVAILABLE',
         },
       });
+      if (consumeResult.count === 0) {
+        const row = await client.greige_stock.findUnique({ where: { id: stockId } });
+        if (!row) throw new Error(`Greige stock with ID ${stockId} not found`);
+        const available = Number(row.quantityAvailable);
+        const reserved = Number(row.quantityReserved);
+        throw new Error(
+          `Insufficient stock. Available: ${available}, Requested: ${quantity}` +
+            (reserved > 0 ? ` (${reserved} is hard-reserved and cannot be consumed here)` : '')
+        );
+      }
+
+      // Exhausted only when nothing remains in either bucket
+      await client.greige_stock.updateMany({
+        where: { id: stockId, quantityAvailable: { lte: 0 }, quantityReserved: { lte: 0 } },
+        data: { status: 'EXHAUSTED' },
+      });
+
+      const updatedStock = await client.greige_stock.findUnique({ where: { id: stockId } });
+      if (!updatedStock) {
+        throw new Error(`Greige stock with ID ${stockId} not found after consumption`);
+      }
 
       // Create audit trail for consumption
-      const costPerUnit = stock.purchaseCost
-        ? Number(stock.purchaseCost)
-        : stock.weightedAvgCost
-          ? Number(stock.weightedAvgCost)
+      const costPerUnit = updatedStock.purchaseCost
+        ? Number(updatedStock.purchaseCost)
+        : updatedStock.weightedAvgCost
+          ? Number(updatedStock.weightedAvgCost)
           : null;
       await client.greige_stock_transaction.create({
         data: {
           stockId,
           transactionType: 'CONSUMPTION',
           quantity: new Prisma.Decimal(-quantity),
-          balanceAfter: new Prisma.Decimal(newAvailable),
+          balanceAfter: updatedStock.quantityAvailable,
           costPerUnit: costPerUnit !== null ? new Prisma.Decimal(costPerUnit) : null,
           // BUG-GRE5 fix: Use decimal.js for precise totalValue calculation
           totalValue:
             costPerUnit !== null
               ? new Prisma.Decimal(toNumber(toCurrency(quantity).times(toCurrency(costPerUnit))))
               : null,
-          referenceType: 'CHALLAN',
-          notes: `Consumed via challan issuance`,
+          referenceType: options?.referenceType ?? 'CHALLAN',
+          referenceId: options?.referenceId ?? null,
+          notes: options?.notes ?? `Consumed via challan issuance`,
           performedById: userId,
         },
       });
@@ -558,11 +566,18 @@ class GreigeStockService {
       // BUG-INV3 fix: find materials.id instead of using greigeId directly
       // (greigeId is a FK to greige_master, but syncStockLevelQuantity expects materials.id)
       const material = await client.materials.findFirst({
-        where: { greigeId: stock.greigeId },
+        where: { greigeId: updatedStock.greigeId },
         select: { id: true },
       });
       if (material) {
-        await syncStockLevelQuantity(material.id, -quantity, stock.warehouseId || undefined, undefined, tx);
+        // Pass `client` (not the possibly-undefined outer tx var) so the sync always joins the tx
+        await syncStockLevelQuantity(material.id, -quantity, updatedStock.warehouseId || undefined, 'METER', client);
+      } else {
+        logError(
+          `[GreigeStock] No materials shim row for greige ${updatedStock.greigeId} — stock_levels NOT synced for ` +
+            `${quantity}m consumption (stock ${stockId}). Run backfill-greige-materials-mirror.ts.`,
+          new Error('missing materials mirror')
+        );
       }
 
       logInfo(`Consumed ${quantity} meters of greige stock ${stockId}`);

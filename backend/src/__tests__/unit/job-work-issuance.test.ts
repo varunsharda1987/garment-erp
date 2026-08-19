@@ -18,7 +18,7 @@ jest.mock('../../config/database', () => ({
 }));
 
 import prisma from '../../config/database';
-import { validateIssue, ISSUE_ERROR_CODES } from '../../services/job-work-issuance.service';
+import { validateIssue, validateDispatch, ISSUE_ERROR_CODES } from '../../services/job-work-issuance.service';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = prisma as any;
@@ -241,5 +241,142 @@ describe('validateIssue — blocker matrix', () => {
     expect(v.blockers).toEqual([]);
     expect(v.lots).toHaveLength(1);
     expect(v.lots[0].qty).toBe(8792.09);
+  });
+});
+
+/**
+ * Consolidated dispatch — one truck to one processor carrying several orders.
+ *
+ * Each order still runs the full single-issue validation above; these are the rules that only
+ * exist BECAUSE the orders travel together, and which no per-order check can see.
+ */
+describe('validateDispatch — rules that only exist across orders', () => {
+  const OTHER_PROCESSOR_ID = 'proc-other';
+
+  function armMulti(jwos: Record<string, unknown>, lotsById: Record<string, unknown> = {}) {
+    db.job_work_orders.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+      Promise.resolve(jwos[where.id] ?? null)
+    );
+    db.greige_master.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+      Promise.resolve(
+        where.id === GREIGE_ID
+          ? { id: GREIGE_ID, greigeCode: 'GRG-0038', greigeName: 'Viscose Slub 30×30 / 68×64 / 63"' }
+          : { id: OTHER_GREIGE_ID, greigeCode: 'GRG-0006', greigeName: 'Poplin 40×40 / 88×66 / 63"' }
+      )
+    );
+    db.greige_stock.findUnique.mockImplementation(({ where }: { where: { id: string } }) =>
+      Promise.resolve(lotsById[where.id] ?? null)
+    );
+    db.fabric_stock.findUnique.mockResolvedValue(null);
+  }
+
+  /** Two orders for the same processor, each covered by its own lot — the real bulk-dye case. */
+  function twoGoodOrders() {
+    armMulti(
+      {
+        'jwo-1': baseJwo({ id: 'jwo-1', jobWorkNumber: 'DJ-EBEW-003-001', qtySentMeters: 5000 }),
+        'jwo-2': baseJwo({ id: 'jwo-2', jobWorkNumber: 'DJ-LNG226-001', qtySentMeters: 3000 }),
+      },
+      {
+        'lot-1': baseLot({ id: 'lot-1', quantityAvailable: 6000 }),
+        'lot-2': baseLot({ id: 'lot-2', quantityAvailable: 4000 }),
+      }
+    );
+    return {
+      userId: 'u1',
+      processorId: PROCESSOR_ID,
+      orders: [
+        { jwoId: 'jwo-1', lots: [{ greigeStockLotId: 'lot-1', qty: 5000 }] },
+        { jwoId: 'jwo-2', lots: [{ greigeStockLotId: 'lot-2', qty: 3000 }] },
+      ],
+    };
+  }
+
+  it('two orders, one processor, distinct lots → dispatchable', async () => {
+    const v = await validateDispatch(twoGoodOrders());
+    expect(v.dispatchBlockers).toEqual([]);
+    expect(v.orderBlockers).toEqual([]);
+    expect(v.canDispatch).toBe(true);
+    expect(v.validations).toHaveLength(2);
+  });
+
+  it('PROCESSOR_MISMATCH: a truck goes to ONE destination', async () => {
+    const input = twoGoodOrders();
+    armMulti(
+      {
+        'jwo-1': baseJwo({ id: 'jwo-1', qtySentMeters: 5000 }),
+        'jwo-2': baseJwo({
+          id: 'jwo-2',
+          jobWorkNumber: 'DJ-LNG226-001',
+          qtySentMeters: 3000,
+          processorId: OTHER_PROCESSOR_ID,
+        }),
+      },
+      { 'lot-1': baseLot({ quantityAvailable: 6000 }), 'lot-2': baseLot({ id: 'lot-2', quantityAvailable: 4000 }) }
+    );
+    const v = await validateDispatch(input);
+    expect(v.dispatchBlockers.map((b) => b.code)).toContain(ISSUE_ERROR_CODES.PROCESSOR_MISMATCH);
+    expect(v.canDispatch).toBe(false);
+  });
+
+  it('LOT_REUSED_ACROSS_ORDERS: one physical lot cannot leave twice', async () => {
+    const input = twoGoodOrders();
+    input.orders[1].lots = [{ greigeStockLotId: 'lot-1', qty: 3000 }];
+    const v = await validateDispatch(input);
+    expect(v.dispatchBlockers.map((b) => b.code)).toContain(ISSUE_ERROR_CODES.LOT_REUSED_ACROSS_ORDERS);
+    expect(v.dispatchBlockers[0].message).toContain('DJ-EBEW-003-001');
+    expect(v.dispatchBlockers[0].message).toContain('DJ-LNG226-001');
+  });
+
+  it('the same lot listed twice within ONE order stays LOT_DUPLICATE, not a cross-order reuse', async () => {
+    armMulti(
+      { 'jwo-1': baseJwo({ id: 'jwo-1', qtySentMeters: 5000 }) },
+      { 'lot-1': baseLot({ quantityAvailable: 6000 }) }
+    );
+    const v = await validateDispatch({
+      userId: 'u1',
+      processorId: PROCESSOR_ID,
+      orders: [
+        {
+          jwoId: 'jwo-1',
+          lots: [
+            { greigeStockLotId: 'lot-1', qty: 2500 },
+            { greigeStockLotId: 'lot-1', qty: 2500 },
+          ],
+        },
+      ],
+    });
+    expect(v.dispatchBlockers.map((b) => b.code)).not.toContain(ISSUE_ERROR_CODES.LOT_REUSED_ACROSS_ORDERS);
+    expect(v.orderBlockers[0].blockers.map((b) => b.code)).toContain(ISSUE_ERROR_CODES.LOT_DUPLICATE);
+    expect(v.canDispatch).toBe(false);
+  });
+
+  it("a single order's own blockers are reported against that order, named", async () => {
+    const input = twoGoodOrders();
+    // jwo-2 is already on its way — it must not ride a second truck
+    armMulti(
+      {
+        'jwo-1': baseJwo({ id: 'jwo-1', qtySentMeters: 5000 }),
+        'jwo-2': baseJwo({
+          id: 'jwo-2',
+          jobWorkNumber: 'DJ-LNG226-001',
+          qtySentMeters: 3000,
+          sentDate: new Date('2026-08-18'),
+        }),
+      },
+      { 'lot-1': baseLot({ quantityAvailable: 6000 }), 'lot-2': baseLot({ id: 'lot-2', quantityAvailable: 4000 }) }
+    );
+    const v = await validateDispatch(input);
+    expect(v.orderBlockers).toHaveLength(1);
+    expect(v.orderBlockers[0].jwoId).toBe('jwo-2');
+    expect(v.orderBlockers[0].jobWorkNumber).toBe('DJ-LNG226-001');
+    expect(v.orderBlockers[0].blockers.map((b) => b.code)).toContain(ISSUE_ERROR_CODES.ALREADY_ISSUED);
+    expect(v.canDispatch).toBe(false);
+  });
+
+  it('NO_ORDERS for an empty truck', async () => {
+    const v = await validateDispatch({ userId: 'u1', processorId: PROCESSOR_ID, orders: [] });
+    expect(v.dispatchBlockers.map((b) => b.code)).toEqual([ISSUE_ERROR_CODES.NO_ORDERS]);
+    expect(v.canDispatch).toBe(false);
   });
 });

@@ -17,6 +17,7 @@ import {
   issueJwoSchema,
   receiveJwoSchema,
   cancelJwoSchema,
+  dispatchJwoSchema,
 } from '../schemas/jobWorkOrder.schema';
 
 const router = Router();
@@ -28,6 +29,10 @@ router.use(authenticateToken);
 router.get('/dashboard', jobWorkOrderController.getDashboard.bind(jobWorkOrderController));
 router.get('/over-tolerance', jobWorkOrderController.getOverTolerance.bind(jobWorkOrderController));
 router.get('/receivable', jobWorkOrderController.getReceivable.bind(jobWorkOrderController));
+// Consolidated dispatch — one challan, many orders, one processor. BOTH must stay above
+// '/:id', or Express reads "dispatch"/"dispatchable" as an order id.
+router.get('/dispatchable', jobWorkOrderController.dispatchable.bind(jobWorkOrderController));
+router.post('/dispatch', validateBody(dispatchJwoSchema), jobWorkOrderController.dispatch.bind(jobWorkOrderController));
 
 // List, get, create (Consolidation Phase 3: generic create surface)
 router.get('/', jobWorkOrderController.getAll.bind(jobWorkOrderController));

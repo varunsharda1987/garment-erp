@@ -136,6 +136,35 @@ export const issueJwoSchema = z.object({
 });
 
 /**
+ * POST /api/job-work-orders/dispatch — ONE outward challan carrying SEVERAL job work orders
+ * to one processor. Models the real event: one truck to the dyer with several cloths for
+ * several styles. Each order keeps its own rate, shrinkage, receipt and loss reconciliation;
+ * only the movement document is shared.
+ *
+ * Per-order lots follow the same rule as a single issue: omit `lots` to consume the order's
+ * stamped lot verbatim, or supply the split when the quantity spans several lots.
+ */
+export const dispatchJwoSchema = z.object({
+  processorId: z.string().uuid('Invalid processor ID'),
+  sentDate: z.coerce.date().optional(),
+  vehicleNumber: z.string().max(50).trim().optional(),
+  challanNumber: z.string().max(100).trim().optional(),
+  acknowledgeWidthMismatch: z.boolean().optional(),
+  orders: z
+    .array(
+      z.object({
+        jwoId: z.string().min(1),
+        lots: z.array(z.object({ greigeStockLotId: z.string(), qty: z.number().positive() })).optional(),
+        greigeStockLotId: z.string().optional().nullable(),
+        fabricStockLotId: z.string().optional().nullable(),
+      })
+    )
+    .min(1, 'Pick at least one job work order to dispatch'),
+});
+
+export type DispatchJwoInput = z.infer<typeof dispatchJwoSchema>;
+
+/**
  * POST /api/job-work-orders/:id/cancel — pre-receive cancellation.
  * Reverses the issue (credits the source lot back, restores needsEmbroidery) and
  * sets jwoStatus CANCELLED (exits dedup guards).

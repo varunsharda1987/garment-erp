@@ -14,7 +14,12 @@ import { updateWosrReceivedQuantity } from '../services/work-order-service-requi
 import logger from '../utils/logger';
 import { generateJobWorkNumber } from '../utils/jobWorkNumber';
 import { systemSettingsService } from '../services/system-settings.service';
-import { issueJobWorkOrder, validateIssue, unissueForCancel } from '../services/job-work-issuance.service';
+import {
+  issueJobWorkOrder,
+  validateIssue,
+  unissueForCancel,
+  dispatchJobWorkOrders,
+} from '../services/job-work-issuance.service';
 import { Prisma } from '@prisma/client';
 import {
   ensureMaterialRecord,
@@ -22,7 +27,12 @@ import {
   syncStockLevelQuantity,
 } from '../services/helpers/material-sync.helper';
 import { applyShrinkageLoss, multiplyCurrency, roundToCent } from '../utils/currency';
-import type { CreateJobWorkOrderInput, AddJwoComponentInput, CloseJwoInput } from '../schemas/jobWorkOrder.schema';
+import type {
+  CreateJobWorkOrderInput,
+  AddJwoComponentInput,
+  CloseJwoInput,
+  DispatchJwoInput,
+} from '../schemas/jobWorkOrder.schema';
 
 // jwoStatus values from which material has NOT yet been issued (components may change)
 const PRE_ISSUE_JWO_STATUSES = [null, 'DRAFT', 'PENDING_APPROVAL', 'APPROVED'] as const;
@@ -1013,6 +1023,148 @@ class JobWorkOrderController {
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to build issue preview',
+      });
+    }
+  }
+
+  /**
+   * GET /api/job-work-orders/dispatchable?processorId=
+   * The orders that could go on one truck to this processor: approved, not yet sent, not
+   * cancelled — each with the cloth it needs and the lots that could serve it, so the
+   * dispatch screen can be filled in without a round trip per order.
+   *
+   * Filters on jwoStatus, NOT the legacy status: a cancelled order keeps status
+   * READY_TO_SEND, so filtering on that would offer cancelled orders for dispatch.
+   */
+  async dispatchable(req: Request, res: Response) {
+    try {
+      const processorId = typeof req.query.processorId === 'string' ? req.query.processorId : null;
+      if (!processorId) {
+        return res.status(400).json({ success: false, message: 'processorId is required' });
+      }
+
+      const orders = await prisma.job_work_orders.findMany({
+        where: {
+          processorId,
+          sentDate: null,
+          isActive: true,
+          OR: [{ jwoStatus: 'APPROVED' }, { AND: [{ jwoStatus: null }, { status: 'READY_TO_SEND' }] }],
+        },
+        select: { id: true },
+        orderBy: { createdAt: 'asc' },
+      });
+
+      // validateIssue per order gives the cloth, the blockers and the same rules the issue
+      // itself will apply — no second, drifting definition of "ready to send".
+      const validations = await Promise.all(orders.map((o) => validateIssue(o.id, {})));
+
+      // One lot query for the whole screen rather than one per order.
+      const anchoredGreigeIds = [
+        ...new Set(validations.map((v) => v.expectedGreigeId).filter((g): g is string => !!g)),
+      ];
+      const hasUnanchoredGreigeOrder = validations.some((v) => !v.expectedGreigeId && v.jwo.fabricType === 'GREIGE');
+      const needLots = hasUnanchoredGreigeOrder || anchoredGreigeIds.length > 0;
+      const lotRows = needLots
+        ? await prisma.greige_stock.findMany({
+            where: {
+              ...(hasUnanchoredGreigeOrder ? {} : { greigeId: { in: anchoredGreigeIds } }),
+              status: 'AVAILABLE',
+              processorId: null,
+              quantityAvailable: { gt: 0 },
+              // Explicit OR: `not` on a nullable column would silently exclude NULL rows
+              OR: [{ sourceType: null }, { sourceType: { not: 'TRANSFER' } }],
+            },
+            select: {
+              id: true,
+              greigeId: true,
+              greigeWidth: true,
+              quantityAvailable: true,
+              greige: { select: { greigeCode: true, greigeName: true } },
+            },
+            orderBy: { quantityAvailable: 'desc' },
+          })
+        : [];
+
+      const toLot = (l: (typeof lotRows)[number]) => ({
+        id: l.id,
+        greigeId: l.greigeId,
+        greigeCode: l.greige?.greigeCode ?? null,
+        greigeName: l.greige?.greigeName ?? null,
+        greigeWidth: l.greigeWidth != null ? Number(l.greigeWidth) : null,
+        quantityAvailable: Number(l.quantityAvailable),
+      });
+
+      return res.json({
+        success: true,
+        data: validations.map((v) => ({
+          id: v.jwo.id,
+          jobWorkNumber: v.jwo.jobWorkNumber,
+          processType: v.jwo.processType,
+          styleCode: v.jwo.style?.styleCode ?? null,
+          requiredQty: Number(v.jwo.qtySentMeters),
+          uom: v.jwo.uom,
+          fabricType: v.jwo.fabricType,
+          expectedGreige: v.expectedGreige,
+          greigeAnchored: v.expectedGreigeId != null,
+          // NO_GREIGE_LOT is precisely what picking lots on this screen resolves, so it is not
+          // a reason to hide or veto the order — showing it would be noise.
+          blockers: v.blockers.filter((b) => b.code !== 'NO_GREIGE_LOT'),
+          availableLots:
+            v.jwo.fabricType === 'GREIGE'
+              ? lotRows.filter((l) => !v.expectedGreigeId || l.greigeId === v.expectedGreigeId).map(toLot)
+              : [],
+        })),
+      });
+    } catch (error) {
+      logger.error('Error listing dispatchable job work orders:', error);
+      return res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to list dispatchable job work orders',
+      });
+    }
+  }
+
+  /**
+   * POST /api/job-work-orders/dispatch
+   * ONE outward challan carrying SEVERAL job work orders to one processor — the truck, rather
+   * than the order, as the unit of dispatch. Each order keeps its own rate, shrinkage, receipt
+   * and loss reconciliation; only the movement document is shared. All-or-nothing.
+   */
+  async dispatch(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'User not authenticated' });
+      }
+      const body = req.body as DispatchJwoInput;
+
+      const result = await dispatchJobWorkOrders({
+        userId,
+        processorId: body.processorId,
+        sentDate: body.sentDate,
+        vehicleNumber: body.vehicleNumber,
+        challanNumber: body.challanNumber,
+        acknowledgeWidthMismatch: body.acknowledgeWidthMismatch,
+        orders: body.orders,
+      });
+
+      return res.json({
+        success: true,
+        data: result,
+        warning: result.warnings.join(' ') || undefined,
+        message: `Dispatched ${result.orders.length} job work order(s) on challan ${result.challanNumber}`,
+      });
+    } catch (error) {
+      if (error instanceof JobWorkOrderError) {
+        if (error.code === 'NOT_FOUND') {
+          return res.status(404).json({ success: false, message: error.message });
+        }
+        return res.status(422).json({ success: false, code: error.code, message: error.message });
+      }
+      logger.error('Error dispatching job work orders:', error);
+      return res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to dispatch job work orders',
       });
     }
   }

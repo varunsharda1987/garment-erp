@@ -13,7 +13,9 @@ import { EM_DASH, fmtDate, fmtMoney, fmtQty, gstinState } from './format';
 const challanDocInclude = {
   items: {
     include: {
-      jobWorkOrder: { select: { jobWorkNumber: true } },
+      // statutoryDueDate on the LINE's order matters for a consolidated dispatch, where the
+      // header names no order and would otherwise fall back to arithmetic (see returnBy below).
+      jobWorkOrder: { select: { jobWorkNumber: true, statutoryDueDate: true } },
       jobWorkOrderComponent: { select: { hsnCode: true } },
       greigeStock: { select: { id: true, greige: { select: { greigeCode: true, greigeName: true } } } },
       fabricStock: { select: { id: true, fabricMaster: { select: { fabricCode: true, fabricName: true } } } },
@@ -154,6 +156,8 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
   if (lineOrderNumbers.length === 0 && challan.jobWorkOrder?.jobWorkNumber) {
     lineOrderNumbers.push(challan.jobWorkOrder.jobWorkNumber);
   }
+  /** A consolidated dispatch: one vehicle, one processor, several job work orders. */
+  const spansManyOrders = lineOrderNumbers.length > 1;
 
   // Items — value = declaredValue ?? qty × rate; free issue renders an em-dash.
   let runningTotal = toCurrency(0);
@@ -167,7 +171,7 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
       runningTotal = addCurrency(runningTotal, lineValue);
       valueStr = fmtMoney(lineValue);
     }
-    const orderTail = item.jobWorkOrder?.jobWorkNumber ?? challan.jobWorkOrder?.jobWorkNumber ?? null;
+    const orderNumber = item.jobWorkOrder?.jobWorkNumber ?? challan.jobWorkOrder?.jobWorkNumber ?? null;
     return {
       sn: idx + 1,
       description: item.description,
@@ -176,16 +180,24 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
       uom: item.unit,
       qty: fmtQty(Number(item.quantity), item.unit),
       value: valueStr,
-      orderRef: orderTail ? (orderTail.split('-').pop() ?? orderTail) : EM_DASH,
+      // The trailing sequence alone is enough when the whole challan is one order. On a
+      // consolidated dispatch it is not: DJ-EBEW-003-001 and DJ-LNG226-001 would BOTH print
+      // "001", so the per-line attribution the shared header depends on would be unreadable.
+      orderRef: orderNumber ? (spansManyOrders ? orderNumber : (orderNumber.split('-').pop() ?? orderNumber)) : EM_DASH,
     };
   });
 
   const totalDeclared =
     challan.totalDeclaredValue != null ? Number(challan.totalDeclaredValue) : roundToCent(runningTotal).toNumber();
 
-  // Sec 143 return-by: header JWO statutory due date, else challanDate + 1 year
+  // Sec 143 return-by: the date the SYSTEM actually tracks, not a re-derivation of it.
+  // A consolidated dispatch leaves the header order null, so without the line fallback this
+  // printed challanDate + 1 year − 1 day while every order on it recorded issueDate + 1 year —
+  // paperwork disagreeing with the record it is evidence for. Orders dispatched together share
+  // one issue date, so any line's date is the whole challan's date.
   const returnBy =
     challan.jobWorkOrder?.statutoryDueDate ??
+    challan.items.find((i) => i.jobWorkOrder?.statutoryDueDate)?.jobWorkOrder?.statutoryDueDate ??
     (() => {
       const d = new Date(challan.challanDate);
       d.setFullYear(d.getFullYear() + 1);

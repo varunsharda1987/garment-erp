@@ -204,14 +204,23 @@ export async function issueChallan(id: string, userId?: string) {
     // Job-work challans are created ISSUED atomically with the JWO issue (stock already
     // deducted in that tx). A stray legacy DRAFT job-work challan must never be issued
     // from here — it would consume the same stock a second time.
-    if (existing.jobWorkOrderId) {
-      const jwo = await tx.job_work_orders.findUnique({
-        where: { id: existing.jobWorkOrderId },
-        select: { sentDate: true, jobWorkNumber: true },
+    //
+    // The header alone is not enough to detect one: a CONSOLIDATED dispatch carries several
+    // orders, so it cannot name one in the header and leaves jobWorkOrderId null while every
+    // LINE names its own order. Checking both is what keeps that challan out of this path.
+    const linkedJwoIds = [
+      ...new Set(
+        [existing.jobWorkOrderId, ...existing.items.map((it) => it.jobWorkOrderId)].filter((v): v is string => !!v)
+      ),
+    ];
+    if (linkedJwoIds.length > 0) {
+      const issued = await tx.job_work_orders.findFirst({
+        where: { id: { in: linkedJwoIds }, sentDate: { not: null } },
+        select: { jobWorkNumber: true },
       });
-      if (jwo?.sentDate) {
+      if (issued) {
         throw new Error(
-          `This job-work challan belongs to ${jwo.jobWorkNumber}, which was issued atomically — ` +
+          `This job-work challan belongs to ${issued.jobWorkNumber}, which was issued atomically — ` +
             `stock is already deducted. Do not issue it again from the challan page.`
         );
       }

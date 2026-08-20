@@ -47,7 +47,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 import { jobWorkOrderService, type IssueJwoPayload } from '@/services/jobWorkOrder.service';
 import { GreigeLotRows } from '@/components/job-work/GreigeLotRows';
-import { evaluateLotRows, type IssueLotRow } from '@/components/job-work/lot-rows';
+import { evaluateLotRows, round2, type IssueLotRow } from '@/components/job-work/lot-rows';
 import { dyeProcessPOService } from '@/services/dyeing.service';
 import { processPOService as printProcessPOService } from '@/services/printing.service';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -405,11 +405,12 @@ export default function JobWorkOrderDetail() {
 
   // Shared with the consolidated dispatch screen: the rules a valid issue must satisfy are the
   // client-side half of the server's guards, so there is deliberately only ONE implementation.
+  const issueOrderWidth = jwo.greigeWidthInches != null ? Number(jwo.greigeWidthInches) : null;
   const issueEval = evaluateLotRows({
     rows: issueRows,
     lots: issueAvailableLots,
     requiredQty: issueRequiredQty,
-    orderWidthInches: jwo.greigeWidthInches != null ? Number(jwo.greigeWidthInches) : null,
+    orderWidthInches: issueOrderWidth,
   });
   const {
     totalMatches: issueTotalMatches,

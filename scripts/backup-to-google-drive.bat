@@ -67,10 +67,19 @@ if %errorlevel% neq 0 (
     set "PGDUMP=pg_dump"
 )
 
-REM Skip if today's dump already exists
+REM Skip only if today's dump exists AND has content. pg_dump creates the archive file BEFORE
+REM it connects, so a dump that fails (server down, bad password, wrong port) leaves a 0-byte
+REM file behind. A bare `if exist` would then treat that corpse as "today's backup": the retry
+REM later the same day is skipped, and the empty file is uploaded to Drive as if it were real.
+set "DB_DUMP_OK="
 if exist "%DB_BACKUP_FILE%" (
+    for %%S in ("%DB_BACKUP_FILE%") do if %%~zS gtr 0 set "DB_DUMP_OK=1"
+)
+if defined DB_DUMP_OK (
     echo       Today's dump already exists - skipping
 ) else (
+    REM Clear a previous failed attempt so pg_dump starts clean
+    if exist "%DB_BACKUP_FILE%" del /q "%DB_BACKUP_FILE%"
     "%PGDUMP%" -h %DB_HOST% -p %DB_PORT% -U %DB_USER% -d %DB_NAME% -F c -f "%DB_BACKUP_FILE%" 2>nul
     REM !errorlevel!, NOT %errorlevel%: this sits inside a parenthesised block, so %errorlevel%
     REM is substituted when the block is PARSED - before pg_dump has run - and the message would
@@ -79,6 +88,8 @@ if exist "%DB_BACKUP_FILE%" (
         echo       Done: %DB_NAME%_%BACKUP_DATE%.dump
     ) else (
         echo       [WARNING] Database backup failed!
+        REM Do not leave the 0-byte artefact: it would block today's retry and be uploaded
+        if exist "%DB_BACKUP_FILE%" del /q "%DB_BACKUP_FILE%"
     )
 )
 
@@ -150,12 +161,15 @@ rclone sync "%LOCAL_BACKUP_DIR%" "%GDRIVE_REMOTE%:%GDRIVE_FOLDER%" ^
     --stats-one-line ^
     --stats 30s
 
+set "SYNC_FAILED="
 if %errorlevel% equ 0 (
     echo.
     echo       [OK] Sync complete!
 ) else (
     echo.
-    echo       [WARNING] Sync had issues - will retry next run
+    echo       [ERROR] Upload to Google Drive FAILED - the offsite copy is NOT up to date.
+    echo               Local backup is intact; fix the cause and re-run.
+    set "SYNC_FAILED=1"
 )
 echo.
 
@@ -172,9 +186,15 @@ for /f "tokens=*" %%f in ('dir /b /a-d /o-d "%LOCAL_BACKUP_DIR%\database\*.dump"
 echo       Done
 echo.
 
-REM Summary
+REM Summary. The exit code is what a scheduled task reports, so a failed upload must not be
+REM dressed up as a completed backup — otherwise Task Scheduler shows a green run for a night
+REM on which nothing reached Google Drive.
 echo ============================================
-echo   BACKUP COMPLETE!
+if defined SYNC_FAILED (
+    echo   BACKUP INCOMPLETE - CLOUD UPLOAD FAILED
+) else (
+    echo   BACKUP COMPLETE!
+)
 echo ============================================
 echo.
 echo   Local:  %LOCAL_BACKUP_DIR%
@@ -183,3 +203,5 @@ echo.
 echo   Next run will only upload changed files.
 echo ============================================
 echo.
+if defined SYNC_FAILED exit /b 1
+exit /b 0

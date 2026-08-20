@@ -407,7 +407,11 @@ class AISettingsService {
       const envModel = process.env.AI_MODEL;
       const envBaseUrl = process.env.AI_BASE_URL;
 
-      if (envProvider) {
+      // AI_ENABLED is the documented kill switch (see .env.example) and app.ts:37 has always
+      // honoured it. This fallback runs AFTER app.ts has correctly declined to initialize, so
+      // without the same guard it silently switches AI back on: the ERP would keep making
+      // billable calls to the vendor, and the public GET /api/ai/status would report enabled.
+      if (envProvider && process.env.AI_ENABLED === 'true') {
         AIProviderFactory.initialize({
           type: envProvider,
           apiKey: envApiKey || undefined,
@@ -415,6 +419,8 @@ class AISettingsService {
           baseUrl: envBaseUrl || undefined,
         });
         logInfo(`[AISettingsService] AI provider initialized from .env: ${envProvider}`);
+      } else if (envProvider) {
+        logInfo('[AISettingsService] AI provider present in .env but AI_ENABLED is not "true" — leaving AI off');
       }
     } catch (error) {
       logError('[AISettingsService] Failed to initialize AI from database:', error);

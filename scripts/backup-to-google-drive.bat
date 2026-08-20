@@ -1,7 +1,7 @@
 @echo off
 REM ============================================
 REM Garment ERP Backup to Google Drive
-REM Backs up database + project files to Google Drive
+REM INCREMENTAL: only uploads changed files
 REM ============================================
 
 setlocal enabledelayedexpansion
@@ -16,16 +16,15 @@ set "DB_USER=postgres"
 set "DB_PASSWORD=postgres"
 set "DB_HOST=localhost"
 set "DB_PORT=5432"
-set "KEEP_BACKUPS=7"
+set "KEEP_DB_BACKUPS=7"
 
-REM Get current date and time for backup folder name
+REM Get current date for DB backup filename
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set datetime=%%I
-set "BACKUP_DATE=%datetime:~0,4%-%datetime:~4,2%-%datetime:~6,2%_%datetime:~8,2%-%datetime:~10,2%"
-set "BACKUP_DIR=%LOCAL_BACKUP_DIR%\%BACKUP_DATE%"
+set "BACKUP_DATE=%datetime:~0,4%-%datetime:~4,2%-%datetime:~6,2%"
 
 echo.
 echo ============================================
-echo   GARMENT ERP - GOOGLE DRIVE BACKUP
+echo   GARMENT ERP - INCREMENTAL BACKUP
 echo   %date% %time%
 echo ============================================
 echo.
@@ -34,33 +33,22 @@ REM Check if rclone is installed
 where rclone >nul 2>nul
 if %errorlevel% neq 0 (
     echo [ERROR] rclone not found!
-    echo Please run setup-google-drive-backup.bat first.
     pause
     exit /b 1
 )
 
-REM Check if Google Drive remote is configured
-rclone listremotes | findstr /i "%GDRIVE_REMOTE%:" >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [ERROR] Google Drive remote "%GDRIVE_REMOTE%" not configured!
-    echo Please run setup-google-drive-backup.bat first.
-    pause
-    exit /b 1
-)
-
-REM Create local backup directory
-echo [1/5] Creating local backup directory...
+REM Create local backup directories
+echo [1/5] Preparing directories...
 if not exist "%LOCAL_BACKUP_DIR%" mkdir "%LOCAL_BACKUP_DIR%"
-if not exist "%BACKUP_DIR%" mkdir "%BACKUP_DIR%"
-if not exist "%BACKUP_DIR%\database" mkdir "%BACKUP_DIR%\database"
-if not exist "%BACKUP_DIR%\project" mkdir "%BACKUP_DIR%\project"
-echo       Done: %BACKUP_DIR%
+if not exist "%LOCAL_BACKUP_DIR%\database" mkdir "%LOCAL_BACKUP_DIR%\database"
+if not exist "%LOCAL_BACKUP_DIR%\project" mkdir "%LOCAL_BACKUP_DIR%\project"
+echo       Done
 echo.
 
-REM Backup database
+REM Backup database (dated dumps - small, keep history)
 echo [2/5] Backing up PostgreSQL database...
 set "PGPASSWORD=%DB_PASSWORD%"
-set "DB_BACKUP_FILE=%BACKUP_DIR%\database\%DB_NAME%_%BACKUP_DATE%"
+set "DB_BACKUP_FILE=%LOCAL_BACKUP_DIR%\database\%DB_NAME%_%BACKUP_DATE%.dump"
 
 REM Find pg_dump
 where pg_dump >nul 2>nul
@@ -72,109 +60,126 @@ if %errorlevel% neq 0 (
     ) else if exist "C:\Program Files\PostgreSQL\14\bin\pg_dump.exe" (
         set "PGDUMP=C:\Program Files\PostgreSQL\14\bin\pg_dump.exe"
     ) else (
-        echo       [ERROR] PostgreSQL pg_dump not found!
+        echo       [WARNING] pg_dump not found - skipping DB backup
         goto :skip_db_backup
     )
 ) else (
     set "PGDUMP=pg_dump"
 )
 
-REM Create compressed database backup
-"%PGDUMP%" -h %DB_HOST% -p %DB_PORT% -U %DB_USER% -d %DB_NAME% -F c -f "%DB_BACKUP_FILE%.dump" 2>nul
-if %errorlevel% equ 0 (
-    echo       Done: %DB_NAME%_%BACKUP_DATE%.dump
+REM Skip if today's dump already exists
+if exist "%DB_BACKUP_FILE%" (
+    echo       Today's dump already exists - skipping
 ) else (
-    echo       [WARNING] Database backup failed! Is PostgreSQL running?
+    "%PGDUMP%" -h %DB_HOST% -p %DB_PORT% -U %DB_USER% -d %DB_NAME% -F c -f "%DB_BACKUP_FILE%" 2>nul
+    REM !errorlevel!, NOT %errorlevel%: this sits inside a parenthesised block, so %errorlevel%
+    REM is substituted when the block is PARSED - before pg_dump has run - and the message would
+    REM report success or failure independently of what pg_dump actually did.
+    if !errorlevel! equ 0 (
+        echo       Done: %DB_NAME%_%BACKUP_DATE%.dump
+    ) else (
+        echo       [WARNING] Database backup failed!
+    )
 )
 
 :skip_db_backup
 echo.
 
-REM Backup project files
-echo [3/5] Backing up project files...
+REM Sync project files to local backup (robocopy = incremental)
+echo [3/5] Syncing project files locally...
 echo       (Excluding: node_modules, .git, dist, uploads/styles)
 
-robocopy "%SOURCE_DIR%" "%BACKUP_DIR%\project" /E /COPY:DT /DCOPY:T /R:0 /W:0 /XJ /XD node_modules .git dist "uploads\styles" __pycache__ .vscode garment-erp-backups /XF *.log *.tmp .env.local /NFL /NDL /NJH /NJS /NC /NS /NP >nul 2>&1
-
-if %errorlevel% leq 7 (
-    echo       Done: Project files copied
-) else (
-    echo       [WARNING] Some files may not have been copied
-)
-echo.
-
-REM Create backup info file
-echo [4/5] Creating backup info...
-echo Backup Date: %date% %time% > "%BACKUP_DIR%\BACKUP_INFO.txt"
-echo Source: %SOURCE_DIR% >> "%BACKUP_DIR%\BACKUP_INFO.txt"
-echo Database: %DB_NAME% >> "%BACKUP_DIR%\BACKUP_INFO.txt"
-echo Destination: Google Drive / %GDRIVE_FOLDER% >> "%BACKUP_DIR%\BACKUP_INFO.txt"
-echo. >> "%BACKUP_DIR%\BACKUP_INFO.txt"
-echo Contents: >> "%BACKUP_DIR%\BACKUP_INFO.txt"
-echo - /project  : Source code (frontend, backend, docs) >> "%BACKUP_DIR%\BACKUP_INFO.txt"
-echo - /database : PostgreSQL database dump >> "%BACKUP_DIR%\BACKUP_INFO.txt"
+robocopy "%SOURCE_DIR%" "%LOCAL_BACKUP_DIR%\project" /MIR /COPY:DT /DCOPY:T /R:0 /W:0 /XJ /XD node_modules .git dist "uploads\styles" __pycache__ .vscode garment-erp-backups /XF *.log *.tmp .env.local /NFL /NDL /NJH /NJS /NC /NS /NP >nul 2>&1
 echo       Done
 echo.
 
-REM Upload to Google Drive
-echo [5/5] Uploading to Google Drive...
-echo       This may take several minutes...
+REM Upload to Google Drive - INCREMENTAL (single fixed folder)
+echo [4/5] Uploading to Google Drive (incremental)...
+echo       Only changed files will upload...
 echo.
 
-rclone copy "%BACKUP_DIR%" "%GDRIVE_REMOTE%:%GDRIVE_FOLDER%/%BACKUP_DATE%" --progress --transfers 4
+REM Key flags for incremental:
+REM   --update       : skip files newer on destination
+REM   --fast-list    : fewer API calls for large folders
+REM   --transfers 4  : parallel uploads
+REM   --checkers 8   : parallel file checks
+REM   --drive-chunk-size 64M : larger chunks = fewer requests
+
+REM ---------------------------------------------------------------------------
+REM SAFETY GATE - do not remove.
+REM
+REM `sync` makes Drive a MIRROR of %LOCAL_BACKUP_DIR%, so whatever is missing locally is
+REM DELETED from the cloud. That is the intended incremental behaviour, but it means the
+REM offsite copy is only ever as good as a secondary drive (F:) whose letter and contents
+REM are outside this script's control.
+REM
+REM Verified with rclone v1.74.3 using this script's own flags:
+REM   - source directory MISSING  -> rclone refuses ("directory not found", exit 3). Safe.
+REM   - source directory EMPTY    -> destination emptied completely, and rclone exits 0,
+REM                                  so the script prints "[OK] Sync complete!" and
+REM                                  "BACKUP COMPLETE!" over a wiped backup.
+REM   - --update does NOT protect destination-only folders; they are deleted.
+REM The `mkdir` further up is what turns the safe case into the fatal one: it recreates an
+REM EMPTY %LOCAL_BACKUP_DIR% when F: is absent or has been cleared. Hence this gate.
+REM
+REM Recovery after a wipe is limited to Google Drive trash (30 days), and the loss would
+REM normally only be discovered during an actual restore.
+REM ---------------------------------------------------------------------------
+if not exist "%LOCAL_BACKUP_DIR%\project\package.json" (
+    echo       [ERROR] Local backup root is not populated ^(no project\package.json^).
+    echo               Refusing to sync - this would DELETE the Google Drive backup.
+    echo               Check that %LOCAL_BACKUP_DIR% exists and the robocopy step above ran.
+    exit /b 1
+)
+if not exist "%LOCAL_BACKUP_DIR%\database" (
+    echo       [ERROR] No database folder in the local backup root - refusing to sync.
+    exit /b 1
+)
+
+REM --max-delete is the second belt: a legitimate incremental run removes only rotated-out
+REM dumps and deleted source files, so a run that wants to delete more than 50 items is a
+REM symptom, not an intention. rclone aborts the whole sync instead of committing it.
+rclone sync "%LOCAL_BACKUP_DIR%" "%GDRIVE_REMOTE%:%GDRIVE_FOLDER%" ^
+    --update ^
+    --fast-list ^
+    --transfers 4 ^
+    --checkers 8 ^
+    --drive-chunk-size 64M ^
+    --max-delete 50 ^
+    --progress ^
+    --stats-one-line ^
+    --stats 30s
 
 if %errorlevel% equ 0 (
     echo.
-    echo       [OK] Upload complete!
+    echo       [OK] Sync complete!
 ) else (
     echo.
-    echo       [ERROR] Upload failed! Check your internet connection.
-    pause
-    exit /b 1
+    echo       [WARNING] Sync had issues - will retry next run
 )
 echo.
 
-REM Cleanup old local backups (keep last N)
-echo [Cleanup] Cleaning local backups (keeping last %KEEP_BACKUPS%)...
+REM Cleanup old local DB dumps (keep last N)
+echo [5/5] Cleaning old DB dumps (keeping last %KEEP_DB_BACKUPS%)...
 set count=0
-for /f "tokens=*" %%d in ('dir /b /ad /o-d "%LOCAL_BACKUP_DIR%" 2^>nul') do (
+for /f "tokens=*" %%f in ('dir /b /a-d /o-d "%LOCAL_BACKUP_DIR%\database\*.dump" 2^>nul') do (
     set /a count+=1
-    if !count! gtr %KEEP_BACKUPS% (
-        echo       Deleting: %%d
-        rmdir /s /q "%LOCAL_BACKUP_DIR%\%%d"
+    if !count! gtr %KEEP_DB_BACKUPS% (
+        echo       Deleting: %%f
+        del "%LOCAL_BACKUP_DIR%\database\%%f"
     )
 )
 echo       Done
 echo.
-
-REM Cleanup old Google Drive backups
-echo [Cleanup] Cleaning Google Drive backups (keeping last %KEEP_BACKUPS%)...
-set count=0
-for /f "tokens=*" %%d in ('rclone lsf "%GDRIVE_REMOTE%:%GDRIVE_FOLDER%" --dirs-only 2^>nul ^| sort /r') do (
-    set /a count+=1
-    if !count! gtr %KEEP_BACKUPS% (
-        echo       Deleting from Drive: %%d
-        rclone purge "%GDRIVE_REMOTE%:%GDRIVE_FOLDER%/%%d" 2>nul
-    )
-)
-echo       Done
-echo.
-
-REM Get backup size
-for /f "tokens=*" %%s in ('rclone size "%GDRIVE_REMOTE%:%GDRIVE_FOLDER%/%BACKUP_DATE%" --json 2^>nul ^| findstr bytes') do set "SIZE_INFO=%%s"
 
 REM Summary
 echo ============================================
 echo   BACKUP COMPLETE!
 echo ============================================
 echo.
-echo   Local:  %BACKUP_DIR%
-echo   Cloud:  Google Drive / %GDRIVE_FOLDER% / %BACKUP_DATE%
+echo   Local:  %LOCAL_BACKUP_DIR%
+echo   Cloud:  Google Drive / %GDRIVE_FOLDER%
 echo.
-echo   Contents uploaded:
-rclone lsf "%GDRIVE_REMOTE%:%GDRIVE_FOLDER%/%BACKUP_DATE%" 2>nul
-echo.
+echo   Next run will only upload changed files.
 echo ============================================
 echo.
-
-pause

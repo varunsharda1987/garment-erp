@@ -148,6 +148,15 @@ export const NAV_GROUPS: NavGroup[] = [
         permission: 'jobWork',
         keywords: ['batches', 'processing', 'jwo', 'job work orders'],
       },
+      // Named "to Processor" on purpose: the Dispatch entry further down is finished-goods
+      // despatch to a BUYER. This one sends greige OUT to a mill on a single shared challan.
+      {
+        title: 'Dispatch to Processor',
+        path: '/job-work-orders/dispatch',
+        iconName: 'Truck',
+        permission: 'jobWork',
+        keywords: ['dispatch', 'issue greige', 'challan', 'one truck', 'multiple orders', 'send to mill'],
+      },
       // Kept in the sidebar: FACTORY_SUPERVISOR has processingBatches but NOT
       // jobWork, so the Job Work Dashboard hub can't be its click-path.
       {

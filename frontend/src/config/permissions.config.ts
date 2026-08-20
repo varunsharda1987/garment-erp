@@ -155,6 +155,8 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   '/processing/job-work': 'jobWork',
   '/processing/batches': 'processingBatches',
   '/job-work-orders': 'jobWork',
+  // Sending greige out to a mill is job work, not the finished-goods '/manufacturing/dispatch'
+  '/job-work-orders/dispatch': 'jobWork',
 
   // Tally integration (admin tools; prefix match covers all /settings/tally/* sub-pages)
   '/settings/tally': 'admin',

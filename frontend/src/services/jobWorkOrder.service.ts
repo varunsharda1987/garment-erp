@@ -63,6 +63,47 @@ export interface JwoIssuePreview {
   availableLots: JwoIssuePreviewLot[];
 }
 
+/** One order waiting to go on a truck to a given processor, with the lots that could serve it. */
+export interface DispatchableOrder {
+  id: string;
+  jobWorkNumber: string;
+  processType: string;
+  styleCode: string | null;
+  requiredQty: number;
+  uom: string;
+  fabricType: string | null;
+  expectedGreige: { id: string; greigeCode: string; greigeName: string } | null;
+  /** false ⇒ availableLots spans several greiges, so the UI must hold the same-greige rule itself */
+  greigeAnchored: boolean;
+  /** NO_GREIGE_LOT is already filtered out server-side — picking lots here is what resolves it. */
+  blockers: Array<{ code: string; message: string }>;
+  availableLots: JwoIssuePreviewLot[];
+}
+
+/** One order's place on the truck. Same lot rule as a single issue: omit `lots` to use the stamp. */
+export interface DispatchOrderInput {
+  jwoId: string;
+  lots?: IssueLotInput[];
+  greigeStockLotId?: string | null;
+  fabricStockLotId?: string | null;
+}
+
+export interface DispatchPayload {
+  processorId: string;
+  sentDate?: string;
+  vehicleNumber?: string;
+  challanNumber?: string;
+  acknowledgeWidthMismatch?: boolean;
+  orders: DispatchOrderInput[];
+}
+
+export interface DispatchResult {
+  challanId: string;
+  challanNumber: string;
+  orders: Array<{ jwoId: string; jobWorkNumber: string }>;
+  warnings: string[];
+}
+
 export const jobWorkOrderService = {
   /**
    * Create a DRAFT job work order (Consolidation Phase 3).
@@ -156,6 +197,25 @@ export const jobWorkOrderService = {
   async getIssuePreview(id: string): Promise<JwoIssuePreview> {
     const response = await api.get(`${BASE_URL}/${id}/issue-preview`);
     return response.data.data;
+  },
+
+  /**
+   * Orders that could share one truck to this processor: approved, not yet sent, not cancelled —
+   * each already carrying its expected cloth and the lots that could serve it, so the dispatch
+   * screen fills in without a round trip per order.
+   */
+  async getDispatchable(processorId: string): Promise<DispatchableOrder[]> {
+    const response = await api.get(`${BASE_URL}/dispatchable`, { params: { processorId } });
+    return response.data.data;
+  },
+
+  /**
+   * Send SEVERAL orders on ONE outward challan. All-or-nothing: the server runs the whole truck
+   * in a single transaction, so a dispatch can never be half-recorded.
+   */
+  async dispatch(payload: DispatchPayload): Promise<{ data: DispatchResult; warning?: string }> {
+    const response = await api.post(`${BASE_URL}/dispatch`, payload);
+    return { data: response.data.data, warning: response.data.warning };
   },
 
   /**

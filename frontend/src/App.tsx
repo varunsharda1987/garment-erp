@@ -172,6 +172,7 @@ import {
   ProcessingBatchCreateForm,
   JobWorkOrderList,
   JobWorkOrderDetail,
+  DispatchToProcessor,
   EmbroideryList,
   EmbroideryForm,
   EmbroideryDetail,
@@ -630,6 +631,9 @@ function App() {
 
               {/* Job Work Orders (Unified) */}
               <Route path="/job-work-orders" element={<JobWorkOrderList />} />
+              {/* Static segment outranks /:id in React Router's route ranking, so "dispatch"
+                  is never read as an order id — but it is declared first regardless. */}
+              <Route path="/job-work-orders/dispatch" element={<DispatchToProcessor />} />
               <Route path="/job-work-orders/:id" element={<JobWorkOrderDetail />} />
 
               {/* Sample Tracking (Manufacturing) */}

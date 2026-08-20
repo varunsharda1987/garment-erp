@@ -29,11 +29,21 @@ echo   %date% %time%
 echo ============================================
 echo.
 
-REM Check if rclone is installed
+REM Check if rclone is installed. No `pause` here: this runs as an unattended scheduled task,
+REM where a pause would hang the run forever rather than failing it.
 where rclone >nul 2>nul
 if %errorlevel% neq 0 (
     echo [ERROR] rclone not found!
-    pause
+    exit /b 1
+)
+
+REM Check the Google Drive remote is still configured. Restored after the incremental rewrite
+REM dropped it: an expired/revoked OAuth token or a deconfigured remote otherwise surfaces only
+REM as a failed sync at the very end, after a full local backup has already been taken.
+rclone listremotes 2>nul | findstr /i /c:"%GDRIVE_REMOTE%:" >nul
+if %errorlevel% neq 0 (
+    echo [ERROR] Google Drive remote "%GDRIVE_REMOTE%" is not configured in rclone.
+    echo         Run: rclone config    ^(or setup-google-drive-backup.bat^)
     exit /b 1
 )
 
@@ -98,7 +108,16 @@ echo.
 
 REM Sync project files to local backup (robocopy = incremental)
 echo [3/5] Syncing project files locally...
-echo       (Excluding: node_modules, .git, dist, uploads/styles)
+echo       (Excluding: node_modules, .git, dist)
+REM NOTE: `/XD "uploads\styles"` in the line below does NOT actually exclude anything —
+REM robocopy /XD matches a bare directory NAME or a FULL path, not a partial one like
+REM "uploads\styles", so backend\uploads\styles is copied (1,040 style images, ~2.2 GB of the
+REM 2.3 GB mirror). The message above used to claim it was excluded; it never was.
+REM
+REM DO NOT "fix" the /XD to make the exclusion work. Those images are business data with no
+REM other offsite copy, and because the upload is now a `sync`, dropping them from the local
+REM mirror would DELETE all 1,040 of them from Google Drive on the very next run. They are
+REM large but static, so sync re-uploads them only when they actually change.
 
 robocopy "%SOURCE_DIR%" "%LOCAL_BACKUP_DIR%\project" /MIR /COPY:DT /DCOPY:T /R:0 /W:0 /XJ /XD node_modules .git dist "uploads\styles" __pycache__ .vscode garment-erp-backups /XF *.log *.tmp .env.local /NFL /NDL /NJH /NJS /NC /NS /NP >nul 2>&1
 echo       Done

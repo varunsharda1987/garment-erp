@@ -11,6 +11,17 @@ Counterpart docs in the B2B repo: `docs/HOK-B2B-ERP-INTEGRATION-PLAN.md` (§12 =
 B2B-side client code: `backend/src/services/garmentErp.service.ts` (thin client),
 `purchaseOrderErp.service.ts` (push/preview/read-back), `erpStatusSync.service.ts` (background sync).
 
+> **A SECOND CONSUMER EXISTS (since 2026-08-20).** UCIP (`C:\Users\NEW\ucip`, PM2 `ucip-backend`,
+> port 3300) now also reads this ERP, under its own service account `ucip-integration@kasya.in` and
+> its own contract at `ucip/docs/INTEGRATION-UCIP-KASHAYA-FABS.md`. It is **read-only** — styles and
+> health only, no writes of any kind — and it has no cron, so its traffic is operator-initiated.
+> Two consequences for this document:
+> (a) the §5 frozen points now protect two integrations, not one;
+> (b) **the 5-logins-per-15-minutes auth rate limit is now a SHARED budget** — both apps run on this
+> host, so they hit it from the same IP. UCIP caches its JWT and single-flights its login (verified:
+> five consecutive pings, one login), but if the B2B integration ever starts failing auth, check
+> whether something has begun logging in per request rather than assuming a credential problem.
+
 ## 1. Identity
 
 | What | Value |

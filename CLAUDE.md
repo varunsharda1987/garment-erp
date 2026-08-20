@@ -85,6 +85,56 @@ import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material
 
 ### Helper location: `backend/src/services/helpers/material-sync.helper.ts`
 
+## Material Identity Architecture (Dual-FK Pattern)
+
+The system uses a **same-ID convention** where `materials.id === master.id`. This is documented in `backend/src/services/helpers/master-config.ts`.
+
+### The Invariant
+When a master record (e.g., `button_master`) is created with ID `abc-123`, a corresponding `materials` record is created with the **same ID** `abc-123`. The `materials.buttonId` field then points back to `button_master.id`.
+
+### Why BOM Has Dual-FK
+The `style_material_bom` table intentionally stores BOTH:
+- `materialId: "abc-123"` — for unified inventory queries via `materials` table
+- `buttonId: "abc-123"` — for Prisma relations to `button_master` (type-specific data)
+
+Both FKs have the **same value** and are valid references. This is NOT a bug.
+
+### Why Cost Sheet Has Single-FK
+The `style_costing_trim_items` table has a CHECK constraint enforcing at most ONE FK per item. This is intentional because:
+- Cost sheet items store material details in JSON columns (no need for Prisma relations)
+- Single-FK prevents "which FK wins" ambiguity for MRP lookups
+
+### Boundary Transformation
+When extracting BOM data → cost sheet items, the frontend (`CostSheetForm.tsx`) picks only ONE FK:
+```typescript
+// Specific FK takes priority over materialId
+const specificFk = bomAny.threadId || bomAny.buttonId || bomAny.zipperId || ...;
+materialId: !specificFk ? bomAny.materialId : undefined,
+```
+
+### Key Files
+- `backend/src/services/helpers/master-config.ts` — defines the `materials.id === master.id` invariant
+- `backend/src/services/style.service.ts` lines 608-620 — sets dual-FK in BOM (intentional)
+- `backend/src/controllers/style-costing.utils.ts` — validates single-FK in cost sheet items
+- `frontend/src/pages/CostSheetForm.tsx` lines 1187-1248 — transforms dual-FK → single-FK
+
+## Fabric Costing IS the CAD row (hybrid table)
+
+There is **no separate fabric-costing table**. `fabric_width_cad` is one row serving two modules:
+
+- **CAD Planning owns** the geometry and lifecycle: `cutableWidth`, `cadMeters`, `cadAverage`, `markerEfficiency`, `purpose`/`purposeEnum`, `approvalStatus`/`approvedBy`/`isLocked`, and the cascade children `cad_size_breakdown` + `cad_pattern_parts`. This list is enforced as `CAD_OWNED_FIELDS` in `fabric-costing.controller.ts`.
+- **Fabric Costing owns** only the cost decoration: `costingStyleId`, `totalCostPerMeter`, `transportCostPerMeter`, `processingPricePerMeter`, `shrinkagePercent`/`shrinkageCostPerMeter`, `screenCostPerMeter`/`screenType`/`numberOfColors`, `processorId`, `rateCardId`, `orderQuantityPcs`, `processingBatchGroupColorId`, `costingRunId`.
+- **Co-owned:** `greigeCostPerMeter` / `greigeRateSource*` — CAD Planning's auto-costing seeds them (including manual overrides typed on the CAD page). `costInputMode` is costing-owned; its ONLY legal values are `BUILD_UP` | `LANDED_PRICE`.
+
+A row "is a costing option" when `costingStyleId` and `totalCostPerMeter` are both non-null.
+
+**Rules:**
+1. **Removing a costing must clear the costing columns, never delete the row** — deleting it destroys the approved CAD entry and cascades its size breakdowns. See `deleteCostingOption`, and `deleteRun` ("unlinks CADs, doesn't delete them").
+2. **Never delete `style_fabrics`/`style_components` without unlinking first** — `styleFabricId` is `ON DELETE CASCADE` into `fabric_width_cad`. Pattern: `style.service.ts` lines ~1212-1219.
+3. **Fabric Costing must not create CAD rows or edit CAD-owned fields**; CAD Planning must not overwrite a row that already has `totalCostPerMeter`.
+
+Both rules 1 and 2 are enforced by the *Unguarded CAD delete* smart-check below.
+
 ## CRITICAL: Enforced Guardrails (schema-drift + money-math)
 
 The two biggest bug classes from the audit are now **blocked at commit** by `scripts/hooks/smart-check.js` — the live hook run by `.husky/pre-commit` and `.husky/pre-push`, and again in CI via `node scripts/hooks/smart-check.js --all` (so `git commit --no-verify` is caught at the PR).
@@ -100,10 +150,33 @@ Each check is a **baseline ratchet**: existing violations are grandfathered in `
 | Datetime schema | `z.string().datetime()` in a schema (rejects `YYYY-MM-DD` from `<input type="date">`) | Use `z.coerce.date()` (or mark `// allow-datetime`) |
 | Divide-by-shrinkage | Raw `/ (1 - x/100)` (→ Infinity at 100%) | Use `divideByShrinkage()` from `backend/src/utils/currency.ts` |
 | Currency format | `toLocaleString('en-IN', {minimumFractionDigits:2})` with no `maximumFractionDigits` (prints `₹563.796`) | Add `maximumFractionDigits: 2` |
+| Unguarded CAD delete | A `fabric_width_cad` delete with no `validateCADModification`, or a `style_fabrics`/`style_components` delete with no unlink first (cascade destroys APPROVED CAD planning + costing) | Guard with `validateCADModification(id, 'delete')`, or unlink `fabric_width_cad.updateMany({ styleFabricId: null })` first (see `style.service.ts`) |
 
 **Escape hatch:** if a flagged line is genuinely intentional, copy the exact key the check prints into the matching `scripts/hooks/<check>-baseline.json`. Regenerate all baselines after a large intentional change by running the detectors whole-repo (see `scripts/hooks/drift-detectors.js` + `ratchet.js` `writeBaseline`).
 
 **Money math** should route through the existing (previously-unused) helpers: `backend/src/utils/currency.ts` (decimal.js: guarded divide, `roundToCent`, weighted average) and `backend/src/services/gst.service.ts` (the GST-rate authority) — do not re-derive rates/rounding on raw floats.
+
+## CRITICAL: Keep the AI Assistant's Guides in Sync (MANDATORY)
+
+The in-app AI assistant answers "how do I…" questions from guides in `docs/ai-guides/*.md`,
+written from the REAL page components and ingested into `ai_knowledge_guides`. A stale guide
+makes the assistant confidently teach the team steps for screens that no longer exist.
+
+**After changing any frontend page, route file, or Zod schema:**
+
+```bash
+node scripts/hooks/check-ai-guides.js     # lists stale guides (never blocks)
+```
+
+If it reports stale guides, regenerate them with the **`/update-ai-guides`** skill before
+finishing the task. The pre-commit/pre-push smart-check runs the same check as a backstop.
+
+Guide rules: steps only (never rates/margins/prices — every role can read any guide);
+exact UI labels from the code; keywords must include English + Hinglish + **Devanagari**
+(the chat mic emits Devanagari); `sources:` must list every file the guide was written from,
+including `navigation.ts`/`Sidebar.tsx` when a menu path is stated.
+
+Full architecture and the add-an-action recipe: [docs/AI_ASSISTANT_GUIDE.md](docs/AI_ASSISTANT_GUIDE.md)
 
 ## Critical: API Response Serialization
 

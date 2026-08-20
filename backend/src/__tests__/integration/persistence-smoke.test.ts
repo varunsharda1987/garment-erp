@@ -95,6 +95,17 @@ const MODULES: ModuleSpec[] = [
     },
     update: { colorName: `${RUN} Color v2`, hexCode: '#654321' },
   },
+  {
+    name: 'issue-reports',
+    base: '/api/issue-reports',
+    // Screenshot is optional and multer skips non-multipart requests, so a JSON round-trip is valid.
+    create: {
+      title: `${RUN} Issue Report`,
+      description: 'Persistence smoke test issue',
+      pageUrl: '/smoke-test',
+    },
+    update: { status: 'FIXED', adminNotes: `${RUN} resolved in smoke test` },
+  },
 ];
 
 /** Loose field equality: numbers may come back as Decimal strings; trims already applied. */
@@ -129,6 +140,8 @@ afterAll(async () => {
   await prisma.warehouses.deleteMany({ where: { warehouseCode: { startsWith: RUN } } });
   await prisma.season_master.deleteMany({ where: { name: { startsWith: RUN } } });
   await prisma.color_master.deleteMany({ where: { colorName: { startsWith: RUN } } });
+  // issue_reports reference the test user — delete them first or the user delete hits its FK
+  await prisma.issue_reports.deleteMany({ where: { title: { startsWith: RUN } } });
   await prisma.users.deleteMany({ where: { id: testUserId } });
   await prisma.$disconnect();
 });

@@ -10,10 +10,12 @@ import {
   getGreigeLace,
   getFinishedLace,
   getLaceForCosting,
+  deleteLaceImage,
 } from '../controllers/lace.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
+import { uploadLaceImage } from '../middleware/upload.middleware';
 import {
   createLaceSchema,
   updateLaceSchema,
@@ -32,8 +34,9 @@ router.use(authenticateToken);
  * @desc    Create a single lace item (supports both greige and finished lace)
  * @access  Private
  * @body    isGreige, expectedShrinkagePercent, costPerMeterGreige for greige lace
+ * @file    image (optional) - JPG/PNG/WEBP, max 5MB
  */
-router.post('/', validateBody(createLaceSchema), asyncHandler(createLace));
+router.post('/', uploadLaceImage, validateBody(createLaceSchema), asyncHandler(createLace));
 
 /**
  * @route   GET /api/materials/lace
@@ -85,8 +88,15 @@ router.get('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(getLace
  * @route   PUT /api/materials/lace/:id
  * @desc    Update lace item
  * @access  Private
+ * @file    image (optional) - JPG/PNG/WEBP, max 5MB
  */
-router.put('/:id', validateParams(trimMasterIdParamSchema), validateBody(updateLaceSchema), asyncHandler(updateLace));
+router.put(
+  '/:id',
+  uploadLaceImage,
+  validateParams(trimMasterIdParamSchema),
+  validateBody(updateLaceSchema),
+  asyncHandler(updateLace)
+);
 
 /**
  * @route   DELETE /api/materials/lace/:id
@@ -94,6 +104,13 @@ router.put('/:id', validateParams(trimMasterIdParamSchema), validateBody(updateL
  * @access  Private
  */
 router.delete('/:id', validateParams(trimMasterIdParamSchema), asyncHandler(deleteLace));
+
+/**
+ * @route   DELETE /api/materials/lace/:id/image
+ * @desc    Remove image from lace item (without deleting the lace)
+ * @access  Private
+ */
+router.delete('/:id/image', validateParams(trimMasterIdParamSchema), asyncHandler(deleteLaceImage));
 
 /**
  * @route   POST /api/materials/lace/bulk-import

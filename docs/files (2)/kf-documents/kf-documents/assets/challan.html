@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delivery Challan — KF/DC/2026-27/0311</title>
+<link rel="stylesheet" href="./base.css">
+<style>
+  /* Copy-mark band — challan-specific, not part of base */
+  .copymark{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:2px;
+            text-transform:uppercase;text-align:center;padding:4px;margin-bottom:9px;
+            border:1px solid var(--rule-hard);background:var(--wash);font-weight:600;}
+</style>
+</head>
+<body>
+
+<!-- Rule 55 requires TRIPLICATE. Loop this sheet three times with copyMark =
+     ORIGINAL FOR CONSIGNEE / DUPLICATE FOR TRANSPORTER / TRIPLICATE FOR CONSIGNOR.
+     One sheet shown here; the rest are identical but for the band. -->
+<div class="sheet">
+  <div class="copymark">Original for Consignee</div>
+
+  <div class="mast">
+    <div>
+      <div class="firm">KASHAYA FABS<span>Proprietorship &middot; Contract &amp; Private Label Manufacturing</span></div>
+      <div class="addr">H1-51, Riico Industrial Area, Mansarovar, Jaipur &ndash; 302020<br>GSTIN 08DCDPS0146D1ZU &middot; State Code 08</div>
+    </div>
+    <div class="doctype">
+      <h1>Delivery Challan</h1>
+      <div class="docno">KF/DC/2026-27/0311</div>
+      <div class="pill">Rule 55 &middot; Not a tax invoice</div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><span>01 &mdash; Movement</span><b>Outward &middot; Job Work</b></div>
+    <div class="kv">
+      <div>
+        <div class="row"><span class="k">Consignor</span><span class="v">Kashaya Fabs, Jaipur &middot; <span class="muted">08DCDPS0146D1ZU</span></span></div>
+        <div class="row"><span class="k">Consignee</span><span class="v">Nakoda Tailoring Unit</span></div>
+        <div class="row"><span class="k">Address</span><span class="v">B-44, Jhotwara Industrial Area, Jaipur &ndash; 302012</span></div>
+        <div class="row"><span class="k">Consignee GST</span><span class="v">08AKLPJ2288R1Z4 &middot; <span class="muted">Registered</span></span></div>
+        <div class="row"><span class="k">Place of Supply</span><span class="v">Rajasthan (08) &mdash; <span class="muted">intra-state</span></span></div>
+      </div>
+      <div>
+        <div class="row"><span class="k">Challan Date</span><span class="v">07 Aug 2026</span></div>
+        <div class="row"><span class="k">Reason</span><span class="v">Job work &mdash; not a supply</span></div>
+        <div class="row"><span class="k">Against Order</span><span class="v">KF/JW/2026-27/0147</span></div>
+        <div class="row"><span class="k">E-Way Bill</span><span class="v">3812 4477 9021 &middot; 07 Aug 2026</span></div>
+        <div class="row"><span class="k">Vehicle / LR</span><span class="v">RJ14-GB-2291 &middot; LR 88214</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><span>02 &mdash; Goods Despatched</span><b>Title retained by consignor</b></div>
+    <table>
+      <thead>
+        <tr><th style="width:30px">#</th><th>Description of Goods</th><th style="width:56px">HSN</th>
+            <th style="width:48px">UOM</th><th class="num" style="width:64px">Qty</th>
+            <th class="num" style="width:88px">Value ₹</th><th style="width:64px">Order Ref</th></tr>
+      </thead>
+      <tbody>
+        <!-- {{#challan_items}} — one line per challan_items row.
+             Order Ref comes from challan_items.jobWorkOrderId — a single challan
+             may carry lines for MORE THAN ONE job work order. -->
+        <tr><td class="num">1</td><td>Cut panels &mdash; Farshi Salwar<br><span class="muted">Bundle CT-1180 &middot; shade TC-04</span></td><td>6204</td><td>Pcs</td><td class="num">600</td><td class="num">1,49,100.00</td><td class="muted">0147</td></tr>
+        <tr><td class="num">2</td><td>Lining &amp; interlining<br><span class="muted">Roll LN-0442</span></td><td>5903</td><td>Mtr</td><td class="num">180.00</td><td class="num">7,560.00</td><td class="muted">0147</td></tr>
+        <tr><td class="num">3</td><td>Sewing thread &mdash; matched<br><span class="muted">Free issue &middot; cones returnable</span></td><td>5401</td><td>Cone</td><td class="num">24</td><td class="num">&mdash;</td><td class="muted">0147</td></tr>
+        <tr class="tot"><td colspan="5">Total value of goods despatched</td><td class="num">1,56,660.00</td><td></td></tr>
+      </tbody>
+    </table>
+    <div class="callout">
+      <b>No tax charged on this movement</b>
+      Goods are despatched for job work under Section 143 of the CGST Act. This is not a supply and no GST is payable
+      on the value shown. The value is declared for e-way bill and transit insurance only. Tax applies solely to the
+      job worker&rsquo;s conversion charges, on his invoice.
+    </div>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><span>03 &mdash; Return Undertaking</span><b>Sec. 143 &middot; 1 year</b></div>
+    <ol class="terms">
+      <li>Title to these goods remains with Kashaya Fabs. The consignee holds them as bailee and shall create no lien or encumbrance.</li>
+      <li>Goods must be returned by <strong>06 Aug 2027</strong>. After that date this despatch is deemed a supply from 07 Aug 2026, with interest, recoverable from the consignee.</li>
+      <li>Return under the consignee&rsquo;s own challan quoting KF/DC/2026-27/0311 and order KF/JW/2026-27/0147.</li>
+      <li>This challan will be reported in ITC-04 for the relevant period.</li>
+    </ol>
+  </div>
+
+  <div class="sign">
+    <div>Issued by / Gate</div>
+    <div>Authorised Signatory &mdash; Kashaya Fabs</div>
+    <div>Consignee &mdash; Received in good order</div>
+  </div>
+
+  <div class="foot">
+    <span>KF/DC/2026-27/0311 &middot; Original for Consignee</span>
+    <span>Triplicate under Rule 55, CGST Rules 2017</span>
+  </div>
+</div>
+
+</body>
+</html>

@@ -4,7 +4,8 @@
  * Displays list of AI conversations with search and management options.
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { MessageSquare, Plus, Search, Trash2, Archive, MoreVertical, Clock } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -15,6 +16,7 @@ import {
   deleteConversation,
   updateConversation,
 } from '../services/conversation.service';
+import { useDebounce } from '../hooks/useDebounce';
 import { logError } from '../lib/logger';
 import { cn } from '../lib/utils';
 
@@ -29,64 +31,52 @@ export function ConversationSidebar({
   onSelectConversation,
   onNewConversation,
 }: ConversationSidebarProps) {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
-  // Fetch conversations
-  useEffect(() => {
-    fetchConversations();
-  }, []);
-
-  const fetchConversations = async (search?: string) => {
-    try {
-      setLoading(true);
-      const result = await getConversations({
+  // Fetch conversations via React Query — invalidated by AIAssistant after each send
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['ai-conversations', debouncedSearch],
+    queryFn: () =>
+      getConversations({
         status: 'ACTIVE',
         limit: 50,
-        search,
-      });
-      setConversations(result.conversations);
-    } catch (error) {
-      logError('Failed to fetch conversations:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        search: debouncedSearch || undefined,
+      }),
+  });
+  const conversations = data?.conversations ?? [];
 
-  // Debounced search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchConversations(searchQuery || undefined);
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  const handleDelete = async (e: React.MouseEvent, conversation: Conversation) => {
-    e.stopPropagation();
-    try {
-      await deleteConversation(conversation.id);
-      setConversations((prev) => prev.filter((c) => c.id !== conversation.id));
+  const deleteMutation = useMutation({
+    mutationFn: (conversation: Conversation) => deleteConversation(conversation.id),
+    onSuccess: (_data, conversation) => {
+      queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
       if (activeConversationId === conversation.id) {
         onSelectConversation(null);
       }
-    } catch (error) {
-      logError('Failed to delete conversation:', error);
-    }
-  };
+    },
+    onError: (error) => logError('Failed to delete conversation:', error),
+  });
 
-  const handleArchive = async (e: React.MouseEvent, conversation: Conversation) => {
-    e.stopPropagation();
-    try {
-      await updateConversation(conversation.id, { status: 'ARCHIVED' });
-      setConversations((prev) => prev.filter((c) => c.id !== conversation.id));
+  const archiveMutation = useMutation({
+    mutationFn: (conversation: Conversation) => updateConversation(conversation.id, { status: 'ARCHIVED' }),
+    onSuccess: (_data, conversation) => {
+      queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
       if (activeConversationId === conversation.id) {
         onSelectConversation(null);
       }
-    } catch (error) {
-      logError('Failed to archive conversation:', error);
-    }
+    },
+    onError: (error) => logError('Failed to archive conversation:', error),
+  });
+
+  const handleDelete = (e: React.MouseEvent, conversation: Conversation) => {
+    e.stopPropagation();
+    deleteMutation.mutate(conversation);
+  };
+
+  const handleArchive = (e: React.MouseEvent, conversation: Conversation) => {
+    e.stopPropagation();
+    archiveMutation.mutate(conversation);
   };
 
   const formatDate = (dateString: string) => {

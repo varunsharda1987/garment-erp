@@ -1157,6 +1157,49 @@ function colourSentinelLiteral(relFiles) {
   return out;
 }
 
+// CAD preservation (2026-08-20) — a delete that destroys approved CAD planning work.
+// fabric_width_cad is a hybrid row: CAD Planning owns the geometry/approval/children,
+// Fabric Costing only decorates it with cost columns. Deleting the row from a costing
+// screen wiped an approved CAD entry (plus cad_size_breakdown / cad_pattern_parts via
+// cascade). style_fabrics / style_components cascade into it the same way.
+// Sanctioned shapes: guard fabric_width_cad deletes with validateCADModification();
+// unlink (fabric_width_cad.updateMany → styleFabricId: null) before deleting a
+// style_fabrics / style_components row.
+function unguardedCadDelete(relFiles) {
+  const out = [];
+  const re = /\b(?:prisma|tx)\.(fabric_width_cad|style_fabrics|style_components)\.(delete|deleteMany)\b/g;
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^backend\/src\/.*\.ts$/.test(norm)) continue;
+    if (/\.test\.ts$|__tests__/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const hasCadGuard = /validateCADModification\s*\(/.test(content);
+    // An unlink writes styleFabricId: null onto fabric_width_cad before the cascade fires
+    const hasUnlink = /fabric_width_cad\.updateMany[\s\S]{0,400}?styleFabricId:\s*null/.test(content);
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(content))) {
+      const [table] = [m[1]];
+      if (table === 'fabric_width_cad' ? hasCadGuard : hasUnlink) continue;
+      const lineNo = lineOf(content, m.index);
+      const lines = content.split('\n');
+      const context = `${lines[lineNo - 2] || ''}\n${lines[lineNo - 1] || ''}`;
+      if (/allow-cad-delete/.test(context)) continue; // opt-out (e.g. a deliberate hard purge)
+      out.push({
+        key: `${rel} :: ${m[0]} :: L${lineNo}`,
+        file: rel,
+        line: lineNo,
+        detail:
+          table === 'fabric_width_cad'
+            ? `${m[0]} without validateCADModification() — an APPROVED CAD entry can be destroyed`
+            : `${m[0]} without unlinking fabric_width_cad first — styleFabricId is ON DELETE CASCADE, so approved CAD/costing rows are destroyed`,
+      });
+    }
+  }
+  return out;
+}
+
 module.exports = {
   perRouteValidation,
   enumDrift,
@@ -1171,6 +1214,7 @@ module.exports = {
   assignNotIncrement,
   manualMaterialCreate,
   colourSentinelLiteral,
+  unguardedCadDelete,
   schemaFrontendParity,
   schemaServiceUpdateParity,
   stockSyncNoWarehouse,

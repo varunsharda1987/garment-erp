@@ -277,6 +277,21 @@ class ConversationService {
   }
 
   /**
+   * Get a single message, but only when it belongs to a conversation owned by userId.
+   * Used by the action confirm/reject endpoints for ownership checks.
+   */
+  async getMessageOwned(messageId: string, userId: string) {
+    try {
+      return await prisma.ai_messages.findFirst({
+        where: { id: messageId, conversation: { userId } },
+      });
+    } catch (error) {
+      logError('[ConversationService] Failed to get message:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Add feedback to a message
    */
   async addFeedback(input: CreateFeedbackInput) {

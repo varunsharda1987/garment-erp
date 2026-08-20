@@ -113,6 +113,8 @@ const CostSheetForm = () => {
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   // BUG-CS7 fix: Track if cost sheet is approved to disable fields
   const [isApprovedCostSheet, setIsApprovedCostSheet] = useState(false);
+  // Track if user has manually edited the form - prevents auto-population from overwriting changes
+  const [hasUserEdited, setHasUserEdited] = useState(false);
 
   // Closed Cost - Final agreed price with customer (exclusive of tax)
   const [closedCost, setClosedCost] = useState<number | null>(null);
@@ -716,10 +718,16 @@ const CostSheetForm = () => {
   }, [costingMode]);
 
   // Fetch style details when style is selected and auto-populate data
+  // Skip if user has manually edited (unless style itself changed, which resets hasUserEdited)
   useEffect(() => {
     let cancelled = false;
 
     const fetchStyleDetails = async () => {
+      // Skip auto-population if user has manually edited the form
+      // This prevents error retry or mode change from wiping user's work
+      if (hasUserEdited) {
+        return;
+      }
       if (selectedStyleId && !isEditMode) {
         try {
           const styleDetails = await styleService.getStyleById(selectedStyleId);
@@ -1185,6 +1193,15 @@ const CostSheetForm = () => {
 
               // Route to appropriate category based on usageCategory
               if (bom.usageCategory === 'GARMENT_TRIM') {
+                // Pick only ONE master FK - specific FK takes priority over generic materialId
+                // (backend enforces at most one FK per trim item)
+                const specificFk =
+                  bomAny.threadId ||
+                  bomAny.buttonId ||
+                  bomAny.zipperId ||
+                  bomAny.elasticId ||
+                  bomAny.labelId ||
+                  bomAny.packagingId;
                 extractedTrims.push({
                   trimName: String(materialName),
                   trimQuantity: quantity,
@@ -1193,14 +1210,24 @@ const CostSheetForm = () => {
                   unit,
                   bomId,
                   materialType,
-                  // Preserve master IDs from style_material_bom
+                  // Preserve master IDs from style_material_bom - only one FK allowed
                   threadId: bomAny.threadId as string | undefined,
-                  buttonId: bomAny.buttonId as string | undefined,
-                  zipperId: bomAny.zipperId as string | undefined,
-                  elasticId: bomAny.elasticId as string | undefined,
-                  labelId: bomAny.labelId as string | undefined,
-                  packagingId: bomAny.packagingId as string | undefined,
-                  materialId: bomAny.materialId as string | undefined,
+                  buttonId: !bomAny.threadId ? (bomAny.buttonId as string | undefined) : undefined,
+                  zipperId: !bomAny.threadId && !bomAny.buttonId ? (bomAny.zipperId as string | undefined) : undefined,
+                  elasticId:
+                    !bomAny.threadId && !bomAny.buttonId && !bomAny.zipperId
+                      ? (bomAny.elasticId as string | undefined)
+                      : undefined,
+                  labelId:
+                    !bomAny.threadId && !bomAny.buttonId && !bomAny.zipperId && !bomAny.elasticId
+                      ? (bomAny.labelId as string | undefined)
+                      : undefined,
+                  packagingId:
+                    !bomAny.threadId && !bomAny.buttonId && !bomAny.zipperId && !bomAny.elasticId && !bomAny.labelId
+                      ? (bomAny.packagingId as string | undefined)
+                      : undefined,
+                  // Only use materialId as fallback if no specific FK is set
+                  materialId: !specificFk ? (bomAny.materialId as string | undefined) : undefined,
                 });
               } else if (bom.usageCategory === 'PACKAGING') {
                 extractedAccessories.push({
@@ -1222,6 +1249,14 @@ const CostSheetForm = () => {
                 });
               } else {
                 // Uncategorized defaults to trims
+                // Pick only ONE master FK - specific FK takes priority over generic materialId
+                const specificFk =
+                  bomAny.threadId ||
+                  bomAny.buttonId ||
+                  bomAny.zipperId ||
+                  bomAny.elasticId ||
+                  bomAny.labelId ||
+                  bomAny.packagingId;
                 extractedTrims.push({
                   trimName: String(materialName),
                   trimQuantity: quantity,
@@ -1231,12 +1266,21 @@ const CostSheetForm = () => {
                   bomId,
                   materialType,
                   threadId: bomAny.threadId as string | undefined,
-                  buttonId: bomAny.buttonId as string | undefined,
-                  zipperId: bomAny.zipperId as string | undefined,
-                  elasticId: bomAny.elasticId as string | undefined,
-                  labelId: bomAny.labelId as string | undefined,
-                  packagingId: bomAny.packagingId as string | undefined,
-                  materialId: bomAny.materialId as string | undefined,
+                  buttonId: !bomAny.threadId ? (bomAny.buttonId as string | undefined) : undefined,
+                  zipperId: !bomAny.threadId && !bomAny.buttonId ? (bomAny.zipperId as string | undefined) : undefined,
+                  elasticId:
+                    !bomAny.threadId && !bomAny.buttonId && !bomAny.zipperId
+                      ? (bomAny.elasticId as string | undefined)
+                      : undefined,
+                  labelId:
+                    !bomAny.threadId && !bomAny.buttonId && !bomAny.zipperId && !bomAny.elasticId
+                      ? (bomAny.labelId as string | undefined)
+                      : undefined,
+                  packagingId:
+                    !bomAny.threadId && !bomAny.buttonId && !bomAny.zipperId && !bomAny.elasticId && !bomAny.labelId
+                      ? (bomAny.packagingId as string | undefined)
+                      : undefined,
+                  materialId: !specificFk ? (bomAny.materialId as string | undefined) : undefined,
                 });
               }
             }
@@ -1324,7 +1368,12 @@ const CostSheetForm = () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStyleId, isEditMode, costingMode]); // Re-fetch when costingMode changes
+  }, [selectedStyleId, isEditMode, costingMode, hasUserEdited]); // Re-fetch when costingMode changes, skip if user edited
+
+  // Reset hasUserEdited when style changes (new style = expect fresh data)
+  useEffect(() => {
+    setHasUserEdited(false);
+  }, [selectedStyleId]);
 
   // Fetch budget suggestions from style data
   const fetchBudgetSuggestions = async () => {
@@ -1456,6 +1505,7 @@ const CostSheetForm = () => {
     }
 
     setFabricDetails(updated);
+    setHasUserEdited(true); // Preserve user edits on error/mode change
   };
 
   // Update fabric sourcing strategy
@@ -1531,6 +1581,7 @@ const CostSheetForm = () => {
     }
 
     setTrimsDetails(updated);
+    setHasUserEdited(true); // Preserve user edits on error/mode change
   };
 
   // Handle master selection from TrimMasterCombobox (data-driven via registry)
@@ -1605,6 +1656,7 @@ const CostSheetForm = () => {
     }
 
     setEmbroideryDetails(updated);
+    setHasUserEdited(true); // Preserve user edits on error/mode change
   };
 
   // Add new accessory row
@@ -1644,6 +1696,7 @@ const CostSheetForm = () => {
     }
 
     setAccessoriesDetails(updated);
+    setHasUserEdited(true); // Preserve user edits on error/mode change
   };
 
   // Handle master selection for accessories

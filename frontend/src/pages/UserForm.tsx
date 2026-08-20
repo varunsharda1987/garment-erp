@@ -9,10 +9,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Eye, EyeOff } from 'lucide-react';
+
+const passwordSchema = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Must contain at least one number');
 
 const userFormSchema = z.object({
   email: z.string().email(),
-  password: z.string().min(6).optional().or(z.literal('')),
+  password: passwordSchema.optional().or(z.literal('')),
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   phone: z.string().optional(),
@@ -33,10 +41,16 @@ export default function UserForm({ mode }: UserFormProps) {
   const isNewUser = mode === 'create';
   const [loading, setLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   // Track the role loaded on edit so we only call the role endpoint when it changes.
   const [originalRole, setOriginalRole] = useState<string | null>(null);
 
-  const { register, handleSubmit, setValue } = useForm<UserFormData>({
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm<UserFormData>({
     resolver: zodResolver(userFormSchema),
   });
 
@@ -126,7 +140,27 @@ export default function UserForm({ mode }: UserFormProps) {
               </div>
               <div>
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" {...register('password')} />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    {...register('password')}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+                {errors.password && <p className="mt-1 text-xs text-destructive">{errors.password.message}</p>}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {isNewUser ? 'Required. ' : 'Leave blank to keep current. '}
+                  Min 8 chars, 1 uppercase, 1 lowercase, 1 number.
+                </p>
               </div>
               <div>
                 <Label htmlFor="firstName">First Name</Label>

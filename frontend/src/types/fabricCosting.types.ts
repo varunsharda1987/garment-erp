@@ -240,9 +240,14 @@ export interface FabricForCosting {
   processorCode?: string | null;
   processingPricePerMeter?: number | null;
   screenType?: string | null;
+  screenCostPerMeter?: number | null;
+  shrinkageCostPerMeter?: number | null;
   totalCostPerMeter?: number | null;
   transportCostPerMeter?: number | null;
   greigeCostPerMeterSaved?: number | null;
+  // MRP-48d: the processor rate card the saved costs came from, and its printing type
+  rateCardId?: string | null;
+  printingType?: 'PIGMENT' | 'PROCIAN' | 'DISCHARGE' | 'PIGMENT_DISCHARGE' | null;
   // Ready fabric cost - prioritizes stock cost if available
   readyFabricCost: number | null;
   // Source of the ready fabric cost
@@ -406,6 +411,15 @@ export interface SaveFabricCostingRequest {
   fabricCostings: FabricCostingSaveItem[];
 }
 
+// Save response — `records` reports the CAD rows the save actually wrote. Clone mode
+// creates NEW rows, so the caller cannot derive these ids from its pre-save state.
+export interface SaveFabricCostingResponse {
+  message: string;
+  updatedCount: number;
+  isRepeatOrder?: boolean;
+  records?: Array<{ id: string; clonedFromCadId: string | null }>;
+}
+
 // Save item - full costing breakdown for fabric_width_cad
 export interface FabricCostingSaveItem {
   fabricWidthCadId: string | null; // If updating existing record
@@ -421,6 +435,8 @@ export interface FabricCostingSaveItem {
   // Processing
   processorId: string | null;
   processingCostPerMeter: number | null;
+  // MRP-48d: the processor rate card these numbers came from
+  rateCardId?: string | null;
   // Shrinkage
   shrinkagePercent: number | null;
   shrinkageCostPerMeter: number | null;

@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { authService } from '@/services/auth.service';
-import { CheckCircle, HelpCircle } from 'lucide-react';
+import { CheckCircle, HelpCircle, Eye, EyeOff } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Available roles for self-registration (excluding ADMIN)
@@ -24,6 +24,14 @@ const AVAILABLE_ROLES = [
   { value: 'MERCHANDISER', label: 'Merchandiser' },
 ];
 
+// Password complexity to match backend requirements
+const passwordSchema = z
+  .string()
+  .min(8, 'Password must be at least 8 characters')
+  .regex(/[A-Z]/, 'Must contain at least one uppercase letter')
+  .regex(/[a-z]/, 'Must contain at least one lowercase letter')
+  .regex(/[0-9]/, 'Must contain at least one number');
+
 // Validation schema
 const registerSchema = z
   .object({
@@ -32,8 +40,8 @@ const registerSchema = z
     email: z.string().email('Invalid email address'),
     phone: z.string().optional(),
     role: z.string().optional(), // BUG-ADM3 fix: optional since admin assigns actual role
-    password: z.string().min(6, 'Password must be at least 6 characters'),
-    confirmPassword: z.string().min(6, 'Password must be at least 6 characters'),
+    password: passwordSchema,
+    confirmPassword: z.string().min(8, 'Password must be at least 8 characters'),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",
@@ -48,6 +56,8 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const {
     register,
@@ -214,26 +224,48 @@ export default function Register() {
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                {...register('password')}
-                disabled={isLoading}
-              />
-              <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  {...register('password')}
+                  disabled={isLoading}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">Min 8 chars, 1 uppercase, 1 lowercase, 1 number</p>
               {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="••••••••"
-                {...register('confirmPassword')}
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  {...register('confirmPassword')}
+                  disabled={isLoading}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
             </div>
 

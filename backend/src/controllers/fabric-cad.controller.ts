@@ -4,6 +4,7 @@ import { logInfo, logDebug } from '../utils/logger';
 import { ValidationError, NotFoundError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
 import { multiplyCurrency, toNumber } from '../utils/currency'; // BUG-CAD8 fix
+import { validateCADModification } from './cad-planning.utils';
 
 /**
  * Fabric Width CAD Controller
@@ -277,6 +278,10 @@ export const deleteCAD = async (req: Request, res: Response) => {
   if (!existingCAD) {
     throw new NotFoundError('CAD entry', id);
   }
+
+  // Same guard the CAD Planning delete endpoints use: an approved (or locked
+  // PRODUCTION) CAD entry must not be destroyed through this legacy route.
+  await validateCADModification(id, 'delete');
 
   await prisma.fabric_width_cad.delete({
     where: { id },

@@ -3029,6 +3029,7 @@ model users {
   hook_eye_master                                                 hook_eye_master[]
   interlining_master                                              interlining_master[]
   invoices                                                        invoices[]
+  issue_reports                                                   issue_reports[]
   job_work_orders                                                 job_work_orders[]
   job_work_orders_approved                                        job_work_orders[]                 @relation("JobWorkApprover")
   lab_dips_approved                                               lab_dips[]                        @relation("LabDipApprover")
@@ -10385,4 +10386,43 @@ model einvoice_settings {
   updatedAt DateTime @updatedAt
 
   @@map("einvoice_settings")
+}
+
+/// Issue Reports - Team members report app problems (with optional screenshot) for admin review
+model issue_reports {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  title         String
+  description   String?  @db.Text
+  screenshotUrl String?  @map("screenshot_url")
+  pageUrl       String?  @map("page_url")
+  status        String   @default("OPEN") // OPEN, IN_PROGRESS, FIXED, CLOSED
+  adminNotes    String?  @map("admin_notes") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user users @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("issue_reports")
+}
+
+/// AI Knowledge Guides - step-by-step how-to guides authored from the real UI code.
+/// Retrieved by keyword at chat time and injected into the AI system prompt so the
+/// assistant answers with real menu/button names instead of generic guesses.
+/// Written ONLY by backend/scripts/ingest-ai-guides.js (no HTTP CRUD surface).
+model ai_knowledge_guides {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  keywords    String[] // English + Hinglish + Devanagari + common misspellings
+  content     String   @db.Text // markdown guide body
+  sourcesJson Json     @map("sources_json") // [{path, hash}] the guide was generated from
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive])
+  @@map("ai_knowledge_guides")
 }

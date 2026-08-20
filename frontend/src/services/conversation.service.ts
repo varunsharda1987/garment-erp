@@ -31,6 +31,7 @@ export interface Message {
   latencyMs?: number;
   actionType?: string;
   actionEntity?: string;
+  actionLabel?: string;
   actionPayload?: Record<string, unknown>;
   actionStatus?: 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'EXECUTED' | 'EXPIRED';
   metadata?: Record<string, unknown>;
@@ -62,6 +63,22 @@ export interface ChatResponse {
   model: string;
   latencyMs?: number;
   restricted?: boolean;
+  // Present when the AI proposed an action (e.g. create a greige/lace) that needs user confirmation
+  action?: {
+    messageId: string;
+    actionType: string;
+    actionEntity: string;
+    label?: string;
+    payload: Record<string, unknown>;
+    status: 'PENDING';
+  };
+}
+
+export interface ActionResult {
+  success: boolean;
+  message: string;
+  createdData?: Record<string, unknown>;
+  resultMessageId?: string;
 }
 
 export interface ConversationListResponse {
@@ -161,6 +178,22 @@ export async function getSuggestions(): Promise<SuggestionsResponse> {
   } catch {
     return { suggestions: [], role: 'GUEST' };
   }
+}
+
+/**
+ * Confirm a pending AI action (executes it server-side)
+ */
+export async function confirmAiAction(messageId: string): Promise<ActionResult> {
+  const response = await api.post<ActionResult>(`/ai/actions/${messageId}/confirm`);
+  return response.data;
+}
+
+/**
+ * Reject / cancel a pending AI action
+ */
+export async function rejectAiAction(messageId: string): Promise<ActionResult> {
+  const response = await api.post<ActionResult>(`/ai/actions/${messageId}/reject`);
+  return response.data;
 }
 
 /**

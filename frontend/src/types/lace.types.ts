@@ -140,6 +140,9 @@ export interface LaceFormData {
   expectedShrinkagePercent?: number | string;
   costPerMeterGreige?: number | string;
   sourceGreigeLaceId?: string;
+
+  // Image upload
+  imageFile?: File; // For new uploads
 }
 
 // ============================================

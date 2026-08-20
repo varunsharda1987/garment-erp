@@ -382,6 +382,17 @@ function checkColourSentinelLiteral(tsFiles) {
   );
 }
 
+/** Check (E3): a delete that destroys approved CAD planning work — BLOCKING new + ratchet. */
+function checkUnguardedCadDelete(tsFiles) {
+  console.log(`\n${c.cyan}Checking for unguarded CAD deletes...${c.reset}`);
+  return runRatchetedCheck(
+    'unguarded CAD delete(s) (destroys approved CAD planning + costing data)',
+    detectors.unguardedCadDelete(tsFiles),
+    'cad-delete-baseline.json',
+    'Guard fabric_width_cad deletes with validateCADModification(id, "delete"); unlink fabric_width_cad (styleFabricId: null) before deleting style_fabrics/style_components (see style.service.ts). Or mark `// allow-cad-delete`. If intentional, add the key to scripts/hooks/cad-delete-baseline.json.'
+  );
+}
+
 /**
  * Check: Type synchronization between frontend and backend
  */
@@ -395,6 +406,28 @@ function checkTypeSync() {
   } catch (error) {
     console.log(`${c.yellow}  ⚠ Type sync issues detected${c.reset}`);
     console.log(`${c.dim}    Run: node scripts/skills/sync-types.js --report${c.reset}`);
+    return true; // Warning only, don't block
+  }
+}
+
+/**
+ * Check: AI how-to guides still match the pages/routes/schemas they were written from.
+ * Stale guides make the assistant hand the team outdated steps — worse than no guide.
+ * Warn-only: prints the stale slugs and the command that regenerates them.
+ */
+function checkAiGuides() {
+  console.log(`\n${c.cyan}Checking AI guide freshness...${c.reset}`);
+
+  try {
+    const output = execSync('node scripts/hooks/check-ai-guides.js', { encoding: 'utf-8', stdio: 'pipe' });
+    if (output.includes('STALE')) {
+      console.log(output.trim());
+    } else {
+      console.log(`${c.green}  ✓ AI guides current${c.reset}`);
+    }
+    return true;
+  } catch (error) {
+    console.log(`${c.yellow}  ⚠ Could not check AI guides${c.reset}`);
     return true; // Warning only, don't block
   }
 }
@@ -812,7 +845,9 @@ function runAllModeChecks() {
   if (!checkNumericOrFallback(tsFiles)) ok = false;
   if (!checkManualMaterialCreate(tsFiles)) ok = false;
   if (!checkColourSentinelLiteral(tsFiles)) ok = false;
+  if (!checkUnguardedCadDelete(tsFiles)) ok = false;
   if (!checkSchemaServiceUpdateParity(schemaFiles)) ok = false;
+  checkAiGuides(); // warn-only
 
   // Frontend typecheck gate (CI mode only — too slow for per-commit). The frontend reached ZERO tsc
   // errors on 2026-07-23 after clearing 184 pre-existing ones (several were real display bugs: pages
@@ -915,12 +950,20 @@ function main() {
     if (!checkNumericOrFallback(categories.typescript)) allPassed = false;
     if (!checkManualMaterialCreate(categories.typescript)) allPassed = false;
     if (!checkColourSentinelLiteral(categories.typescript)) allPassed = false;
+    if (!checkUnguardedCadDelete(categories.typescript)) allPassed = false;
   }
 
   // Type file changes → check type sync
   if (categories.types.length) {
     checksRun++;
     checkTypeSync(); // Warning only
+  }
+
+  // Frontend page / route / schema changes → the AI how-to guides written from those
+  // files may now describe screens that no longer exist (warning only)
+  if (categories.frontend.length || categories.routes.length || categories.schemas.length) {
+    checksRun++;
+    checkAiGuides(); // Warning only
   }
 
   // Backend .ts changes → enforce stock-sync (blocks NEW stock-table writes that don't sync)

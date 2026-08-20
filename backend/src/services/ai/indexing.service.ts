@@ -433,7 +433,7 @@ class IndexingService {
     const parts = [`Style Code: ${style.styleCode}`];
 
     if (style.buyerStyleRef) {
-      parts.push(`Buyer Ref: ${style.buyerStyleRef}`);
+      parts.push(`Buyer Style Code: ${style.buyerStyleRef}`);
     }
 
     parts.push(

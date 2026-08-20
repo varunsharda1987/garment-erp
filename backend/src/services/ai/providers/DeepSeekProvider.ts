@@ -192,6 +192,69 @@ export class DeepSeekProvider implements IAIProvider {
     }
   }
 
+  /**
+   * Generate text with OpenAI-style function calling.
+   * Returns either plain text, or a toolCall the caller must treat as a PROPOSAL
+   * (validate + user confirmation) — never as an executed action.
+   */
+  async generateWithTools(
+    request: AITextRequest,
+    tools: Array<{
+      type: 'function';
+      function: { name: string; description: string; parameters: Record<string, unknown> };
+    }>
+  ): Promise<{
+    text: string;
+    toolCall?: { name: string; arguments: Record<string, unknown> };
+    provider: string;
+    model: string;
+    tokensUsed?: number;
+  }> {
+    try {
+      const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+      if (request.systemPrompt) {
+        messages.push({ role: 'system', content: request.systemPrompt });
+      }
+      messages.push({ role: 'user', content: request.prompt });
+
+      const completion = await this.client.chat.completions.create({
+        model: this.defaultModel,
+        messages,
+        max_tokens: request.maxTokens || 2000,
+        temperature: request.temperature || 0.7,
+        tools: tools as OpenAI.Chat.ChatCompletionTool[],
+        tool_choice: 'auto',
+      });
+
+      const choice = completion.choices[0];
+      const rawToolCall = choice.message.tool_calls?.[0];
+
+      let toolCall: { name: string; arguments: Record<string, unknown> } | undefined;
+      if (rawToolCall && rawToolCall.type === 'function') {
+        try {
+          toolCall = {
+            name: rawToolCall.function.name,
+            arguments: JSON.parse(rawToolCall.function.arguments || '{}') as Record<string, unknown>,
+          };
+        } catch {
+          logWarn(`[DeepSeekProvider] Tool call arguments were not valid JSON: ${rawToolCall.function.arguments}`);
+        }
+      }
+
+      return {
+        text: choice.message.content || '',
+        toolCall,
+        provider: 'deepseek',
+        model: this.defaultModel,
+        tokensUsed: completion.usage?.total_tokens,
+      };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logError(`[DeepSeekProvider] generateWithTools failed: ${errorMessage}`);
+      throw new Error(`DeepSeek generateWithTools failed: ${errorMessage}`);
+    }
+  }
+
   async *generateTextStream(request: AITextRequest): AsyncGenerator<string> {
     try {
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];

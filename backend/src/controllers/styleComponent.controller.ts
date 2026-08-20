@@ -95,9 +95,24 @@ export const updateComponent = async (req: Request, res: Response): Promise<void
 export const deleteComponent = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
 
-  await prisma.style_components.delete({
-    where: { id },
+  // CRITICAL: unlink fabric_width_cad rows BEFORE deleting the component.
+  // style_fabrics cascades from the component, and fabric_width_cad.styleFabricId
+  // cascades from style_fabrics — so an unguarded delete destroys approved CAD
+  // planning + costing data (same pattern as style.service.ts).
+  const componentFabrics = await prisma.style_fabrics.findMany({
+    where: { componentId: id },
+    select: { id: true },
   });
+
+  await prisma.$transaction([
+    prisma.fabric_width_cad.updateMany({
+      where: { styleFabricId: { in: componentFabrics.map((f) => f.id) } },
+      data: { styleFabricId: null },
+    }),
+    prisma.style_components.delete({
+      where: { id },
+    }),
+  ]);
 
   res.status(200).json({
     message: 'Component deleted successfully',
@@ -292,9 +307,17 @@ export const updateFabric = async (req: Request, res: Response): Promise<void> =
 export const deleteFabric = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
 
-  await prisma.style_fabrics.delete({
-    where: { id },
-  });
+  // CRITICAL: unlink fabric_width_cad rows BEFORE deleting style_fabrics — the FK
+  // is ON DELETE CASCADE and would destroy approved CAD planning + costing data.
+  await prisma.$transaction([
+    prisma.fabric_width_cad.updateMany({
+      where: { styleFabricId: id },
+      data: { styleFabricId: null },
+    }),
+    prisma.style_fabrics.delete({
+      where: { id },
+    }),
+  ]);
 
   res.status(200).json({
     message: 'Fabric deleted successfully',

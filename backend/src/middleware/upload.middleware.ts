@@ -10,6 +10,7 @@ import { ValidationError } from '../errors';
 const uploadDir = path.join(__dirname, '../../uploads/styles');
 const tempImportDir = path.join(__dirname, '../../uploads/temp');
 const cadUploadDir = path.join(__dirname, '../../uploads/cad-files');
+const issueScreenshotDir = path.join(__dirname, '../../uploads/issue-screenshots');
 
 // Create upload directories if they don't exist
 if (!fs.existsSync(uploadDir)) {
@@ -20,6 +21,9 @@ if (!fs.existsSync(tempImportDir)) {
 }
 if (!fs.existsSync(cadUploadDir)) {
   fs.mkdirSync(cadUploadDir, { recursive: true });
+}
+if (!fs.existsSync(issueScreenshotDir)) {
+  fs.mkdirSync(issueScreenshotDir, { recursive: true });
 }
 
 // Storage configuration
@@ -188,6 +192,63 @@ export const uploadCadFile = (req: Request, res: Response, next: NextFunction): 
   });
 };
 
+// ============================================
+// ISSUE REPORT SCREENSHOTS (PNG/JPG/WEBP)
+// ============================================
+
+const issueScreenshotStorage = multer.diskStorage({
+  destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
+    cb(null, issueScreenshotDir);
+  },
+  filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    // Pasted clipboard images arrive as "image.png" — extname still resolves correctly
+    cb(null, `issue-${uniqueSuffix}${path.extname(file.originalname) || '.png'}`);
+  },
+});
+
+const issueScreenshotFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowedExtensions = /jpeg|jpg|png|webp/;
+  const extname =
+    allowedExtensions.test(path.extname(file.originalname).toLowerCase()) || !path.extname(file.originalname);
+  const allowedMimetypes = ['image/jpeg', 'image/png', 'image/webp'];
+  const mimetype = allowedMimetypes.includes(file.mimetype);
+
+  if (mimetype && extname) {
+    return cb(null, true);
+  } else {
+    cb(new Error('Only PNG, JPG, and WEBP images are allowed'));
+  }
+};
+
+const issueScreenshotUpload = multer({
+  storage: issueScreenshotStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: issueScreenshotFilter,
+}).single('screenshot');
+
+/**
+ * Multer upload for issue-report screenshots.
+ * Wrapped like uploadCadFile so rejections surface as 400 with the real reason.
+ */
+export const uploadIssueScreenshot = (req: Request, res: Response, next: NextFunction): void => {
+  issueScreenshotUpload(req, res, (err: unknown) => {
+    if (!err) {
+      next();
+      return;
+    }
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        next(new ValidationError('Screenshot is too large. Maximum size is 5MB.'));
+        return;
+      }
+      next(new ValidationError(err.message));
+      return;
+    }
+    next(new ValidationError(err instanceof Error ? err.message : 'Screenshot upload failed'));
+  });
+};
+
 /**
  * Delete a CAD file from disk
  */
@@ -201,6 +262,83 @@ export const deleteCadFile = (fileUrl: string): void => {
       fs.unlinkSync(filePath);
     } catch (error) {
       logger.error('Failed to delete CAD file:', filePath, error);
+    }
+  }
+};
+
+// ============================================
+// LACE IMAGE UPLOAD (JPG/PNG/WEBP)
+// ============================================
+
+const laceImageDir = path.join(__dirname, '../../uploads/lace-images');
+
+if (!fs.existsSync(laceImageDir)) {
+  fs.mkdirSync(laceImageDir, { recursive: true });
+}
+
+const laceImageStorage = multer.diskStorage({
+  destination: (req: Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
+    cb(null, laceImageDir);
+  },
+  filename: (req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `lace-${uniqueSuffix}${path.extname(file.originalname)}`);
+  },
+});
+
+const laceImageFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowedExtensions = /jpeg|jpg|png|webp/;
+  const extname = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
+  const allowedMimetypes = ['image/jpeg', 'image/png', 'image/webp'];
+  const mimetype = allowedMimetypes.includes(file.mimetype);
+
+  if (mimetype && extname) {
+    return cb(null, true);
+  } else {
+    cb(new Error('Only JPG, PNG, and WEBP images are allowed'));
+  }
+};
+
+const laceImageUpload = multer({
+  storage: laceImageStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: laceImageFilter,
+}).single('image');
+
+/**
+ * Multer upload for lace images.
+ * Wrapped so rejections surface as 400 with the real reason.
+ */
+export const uploadLaceImage = (req: Request, res: Response, next: NextFunction): void => {
+  laceImageUpload(req, res, (err: unknown) => {
+    if (!err) {
+      next();
+      return;
+    }
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        next(new ValidationError('Image is too large. Maximum size is 5MB.'));
+        return;
+      }
+      next(new ValidationError(err.message));
+      return;
+    }
+    next(new ValidationError(err instanceof Error ? err.message : 'Image upload failed'));
+  });
+};
+
+/**
+ * Delete a lace image file from disk
+ */
+export const deleteLaceImageFile = (fileUrl: string): void => {
+  const fileName = path.basename(fileUrl);
+  const filePath = path.join(laceImageDir, fileName);
+
+  if (fs.existsSync(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch (error) {
+      logger.error('Failed to delete lace image:', filePath, error);
     }
   }
 };

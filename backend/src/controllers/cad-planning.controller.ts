@@ -21,6 +21,7 @@ import {
   CADCostResult,
 } from './cad-planning.utils';
 import { syncBomFabricId } from '../services/order-bom.service';
+import { ensureMaterialRecord } from '../services/helpers/material-sync.helper';
 
 /**
  * Get all styles pending CAD approval
@@ -191,6 +192,8 @@ export async function generateCADOptions(req: Request, res: Response) {
         createdById: req.user?.userId || 'system',
       },
     });
+    // Material Identity: materials.id === fabric_master.id
+    await ensureMaterialRecord(fabric.id, 'FABRIC');
   }
 
   // Generate CAD options
@@ -1080,6 +1083,8 @@ export async function selectGreigeForGroup(req: Request, res: Response) {
         createdById: req.user?.userId || 'system',
       },
     });
+    // Material Identity: materials.id === fabric_master.id
+    await ensureMaterialRecord(fabric.id, 'FABRIC');
   }
 
   // Get greige width and suggest default cutable width
@@ -1204,6 +1209,8 @@ export async function addCADWidth(req: Request, res: Response) {
           createdById: req.user?.userId || 'system',
         },
       });
+      // Material Identity: materials.id === fabric_master.id
+      await ensureMaterialRecord(fabric.id, 'FABRIC');
     }
 
     targetFabricId = fabric.id;
@@ -3504,8 +3511,16 @@ export async function updateCADTableRow(req: Request, res: Response) {
   // When CAD data is complete (cadAverage, greigeId, cutableWidth),
   // automatically calculate and save fabric costing
   // =====================================================
+  // Never re-seed a row that Fabric Costing has already costed: overwriting its greige
+  // rate with today's market rate silently changed saved costings (and the row then
+  // reopened on the costing page showing defaults). An explicit manual override typed
+  // on this page is still honoured below.
+  const hasManualGreigeOverride = greigeCostOverride !== undefined && greigeCostOverride !== null;
   const shouldAutoTriggerCosting =
-    cadAverage !== null && updatedCad.greigeId !== null && updatedCad.cutableWidth !== null;
+    cadAverage !== null &&
+    updatedCad.greigeId !== null &&
+    updatedCad.cutableWidth !== null &&
+    (updatedCad.totalCostPerMeter === null || hasManualGreigeOverride);
 
   let autoCalculatedCost: { totalCostPerMeter: number | null; costInputMode: string | null } | null = null;
   // Failures of the auto-costing / variance side-effects are surfaced as a response
@@ -3516,7 +3531,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
   if (shouldAutoTriggerCosting) {
     try {
       // Check if manual override is provided
-      if (greigeCostOverride !== undefined && greigeCostOverride !== null) {
+      if (hasManualGreigeOverride) {
         // Use manual override
         const manualCost = Number(greigeCostOverride);
         await prisma.fabric_width_cad.update({
@@ -3527,7 +3542,10 @@ export async function updateCADTableRow(req: Request, res: Response) {
             greigeRateManualOverride: manualCost,
             greigeRateOverrideReason: greigeCostOverrideReason || 'Manual override',
             greigeRateSourceDate: new Date(),
-            costInputMode: 'MANUAL',
+            // costInputMode is NOT set here: it is a Fabric Costing field whose only legal
+            // values are BUILD_UP | LANDED_PRICE. Writing 'MANUAL'/'AUTO_CALCULATED' broke
+            // the costing form's render and made its next save fail Zod validation.
+            // The rate source is already recorded in greigeRateSource above.
           } as any,
         });
         autoCalculatedCost = {
@@ -3582,7 +3600,8 @@ export async function updateCADTableRow(req: Request, res: Response) {
                 greigeRateSourceDate: rateSourceDate,
                 greigeRateManualOverride: null, // Clear any previous override
                 greigeRateOverrideReason: null,
-                costInputMode: 'AUTO_CALCULATED',
+                // costInputMode intentionally not written here — see the manual-override
+                // branch above; 'AUTO_CALCULATED' is not a legal CostInputMode.
               } as any,
             });
             autoCalculatedCost = {

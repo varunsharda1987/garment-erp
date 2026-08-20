@@ -1066,6 +1066,8 @@ class StockMovementService {
     for (const mov of stockMovements) {
       const direction = this.mapToDirection(mov.movementType);
       if (filters.direction && direction !== filters.direction) continue;
+      // Skip GRN-related stock_movements - those show via grn_items (section 4)
+      if (mov.referenceNumber?.match(/^GRN\d{4}-\d+$/)) continue;
 
       results.push({
         id: mov.id,
@@ -1088,9 +1090,10 @@ class StockMovementService {
 
     // 2. Greige Stock with transactions
     // Exclude sourceType='MANUAL' - those are already shown via stock_movements (Stock IN form routing)
+    // Exclude sourceType='GRN' - those are already shown via grn_items (section 4)
     const greigeStocks = await prisma.greige_stock.findMany({
       where: {
-        sourceType: { not: 'MANUAL' }, // Skip entries created via Stock IN routing - they're in stock_movements
+        sourceType: { notIn: ['MANUAL', 'GRN'] }, // Skip entries shown elsewhere
         ...(filters.supplierId && { supplierId: filters.supplierId }),
         ...(filters.invoiceNumber && {
           invoiceNumber: { contains: filters.invoiceNumber, mode: 'insensitive' as const },

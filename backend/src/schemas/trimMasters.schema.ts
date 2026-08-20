@@ -420,6 +420,28 @@ export const bulkImportLabelSchema = z.object({
 // LACE SCHEMAS
 // ============================================================================
 
+// Helper to coerce string "true"/"false" to boolean (for FormData multipart uploads)
+const coerceBooleanFromFormData = z.preprocess((val) => {
+  if (typeof val === 'string') {
+    if (val === 'true') return true;
+    if (val === 'false') return false;
+  }
+  return val;
+}, z.boolean().optional().default(false));
+
+// Helper to parse JSON string arrays (for FormData multipart uploads)
+const coerceArrayFromFormData = <T extends z.ZodTypeAny>(itemSchema: T) =>
+  z.preprocess((val) => {
+    if (typeof val === 'string') {
+      try {
+        return JSON.parse(val);
+      } catch {
+        return val;
+      }
+    }
+    return val;
+  }, z.array(itemSchema).optional());
+
 /**
  * Create Lace
  * POST /api/materials/lace
@@ -436,6 +458,7 @@ export const bulkImportLabelSchema = z.object({
  * - sourceGreigeLaceId: links finished lace to its source greige for traceability
  *
  * NOTE: laceCode is auto-generated, widthUnit/pricePerRoll/metersPerRoll/supplierId not used by controller
+ * NOTE: Supports multipart/form-data for image uploads - boolean and array fields use coercion helpers
  */
 export const createLaceSchema = z
   .object({
@@ -452,10 +475,11 @@ export const createLaceSchema = z
     // Controller does parseFloat(pricePerMeter) - coerce to handle string inputs
     pricePerMeter: z.coerce.number().nonnegative().optional().nullable(),
     description: z.string().max(1000).optional(),
-    styleCodes: z.array(z.string()).optional(),
-    suppliers: z.array(supplierAssociationSchema).optional(),
-    // Greige lace support
-    isGreige: z.boolean().optional().default(false),
+    // Arrays may come as JSON strings when using FormData (multipart image upload)
+    styleCodes: coerceArrayFromFormData(z.string()),
+    suppliers: coerceArrayFromFormData(supplierAssociationSchema),
+    // Greige lace support - boolean may come as string "true"/"false" from FormData
+    isGreige: coerceBooleanFromFormData,
     // Controller does parseFloat() on these - coerce to handle string inputs
     expectedShrinkagePercent: z.coerce.number().min(0).lt(100).optional().nullable(), // MRP-48h: lt(100) not max(100) — this feeds `1 - x/100` as a divisor; 100 is a divide-by-zero
     costPerMeterGreige: z.coerce.number().nonnegative().optional().nullable(),
@@ -469,7 +493,14 @@ export const createLaceSchema = z
  */
 export const updateLaceSchema = createLaceSchema
   .extend({
-    isActive: z.boolean().optional(),
+    // isActive may come as string "true"/"false" from FormData (multipart image upload)
+    isActive: z.preprocess((val) => {
+      if (typeof val === 'string') {
+        if (val === 'true') return true;
+        if (val === 'false') return false;
+      }
+      return val;
+    }, z.boolean().optional()),
   })
   .partial()
   .passthrough();

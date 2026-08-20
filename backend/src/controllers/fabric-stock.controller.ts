@@ -679,17 +679,25 @@ export const getStockDashboard = async (req: Request, res: Response) => {
     },
   });
 
-  // Stock by warehouse
+  // Stock by warehouse - BUG-INV2 fix: Group by warehouseId (FK) instead of warehouseLocation (text)
   const stockByWarehouse = await prisma.fabric_stock.groupBy({
-    by: ['warehouseLocation'],
+    by: ['warehouseId'],
     where: {
       status: { in: ['AVAILABLE', 'RESERVED'] },
-      warehouseLocation: { not: null },
+      warehouseId: { not: null },
     },
     _sum: {
       quantityAvailable: true,
     },
   });
+
+  // Look up warehouse names from FK relation
+  const warehouseIds = stockByWarehouse.map((w) => w.warehouseId).filter((id): id is string => id !== null);
+  const warehouses = await prisma.warehouses.findMany({
+    where: { id: { in: warehouseIds } },
+    select: { id: true, warehouseName: true },
+  });
+  const warehouseNameMap = new Map(warehouses.map((w) => [w.id, w.warehouseName]));
 
   // Top 10 fabrics by value
   const fabricStocks = await prisma.fabric_stock.findMany({
@@ -758,7 +766,7 @@ export const getStockDashboard = async (req: Request, res: Response) => {
         quantity: Number(g._sum.quantityAvailable) || 0,
       })),
       stockByWarehouse: stockByWarehouse.map((w) => ({
-        warehouse: w.warehouseLocation,
+        warehouse: w.warehouseId ? warehouseNameMap.get(w.warehouseId) || 'Unknown' : 'No Warehouse',
         quantity: Number(w._sum.quantityAvailable) || 0,
       })),
       topFabrics,
@@ -840,6 +848,7 @@ export const getFabricStockSummary = async (req: Request, res: Response) => {
   });
 
   // Get all active stock for value calculation
+  // BUG-INV2 fix: Use warehouseId (FK) instead of warehouseLocation (text)
   const activeStocks = await prisma.fabric_stock.findMany({
     where: {
       status: { in: ['AVAILABLE', 'RESERVED'] },
@@ -848,7 +857,7 @@ export const getFabricStockSummary = async (req: Request, res: Response) => {
       quantityAvailable: true,
       weightedAvgCost: true,
       qualityGrade: true,
-      warehouseLocation: true,
+      warehouseId: true,
       agingDays: true,
     },
   });
@@ -873,17 +882,25 @@ export const getFabricStockSummary = async (req: Request, res: Response) => {
     }
   });
 
-  // Stock by warehouse
-  const warehouseMap = new Map<string, number>();
+  // Stock by warehouse - aggregate by warehouseId (FK)
+  const whIdQuantityMap = new Map<string, number>();
   activeStocks.forEach((s) => {
-    if (s.warehouseLocation) {
-      const current = warehouseMap.get(s.warehouseLocation) || 0;
-      warehouseMap.set(s.warehouseLocation, current + Number(s.quantityAvailable));
+    if (s.warehouseId) {
+      const current = whIdQuantityMap.get(s.warehouseId) || 0;
+      whIdQuantityMap.set(s.warehouseId, current + Number(s.quantityAvailable));
     }
   });
 
-  const byWarehouse = Array.from(warehouseMap.entries()).map(([name, meters]) => ({
-    warehouseName: name,
+  // Look up warehouse names
+  const warehouseIds = Array.from(whIdQuantityMap.keys());
+  const warehouses = await prisma.warehouses.findMany({
+    where: { id: { in: warehouseIds } },
+    select: { id: true, warehouseName: true },
+  });
+  const whNameMap = new Map(warehouses.map((w) => [w.id, w.warehouseName]));
+
+  const byWarehouse = Array.from(whIdQuantityMap.entries()).map(([id, meters]) => ({
+    warehouseName: whNameMap.get(id) || 'Unknown',
     meters: Math.round(meters * 100) / 100,
   }));
 

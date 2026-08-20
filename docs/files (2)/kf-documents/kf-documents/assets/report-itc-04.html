@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ITC-04 Extract — Kashaya Fabs</title>
+<link rel="stylesheet" href="./reports.css">
+</head>
+<body>
+<div class="report">
+
+  <div class="report-head">
+    <h1>ITC-04 Extract<span>Goods sent to and received from job workers</span></h1>
+    <div class="report-meta">
+      <strong>KASHAYA FABS</strong>
+      GSTIN 08DCDPS0146D1ZU<br>
+      Period 01 Apr &ndash; 30 Jun 2026
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">Challans &mdash; Sent</div><div class="value">38</div><div class="sub">Table A</div></div>
+    <div class="kpi"><div class="label">Challans &mdash; Received</div><div class="value">34</div><div class="sub">Table B</div></div>
+    <div class="kpi"><div class="label">Job Workers</div><div class="value">6</div><div class="sub">2 unregistered &mdash; still reported</div></div>
+    <div class="kpi"><div class="label">Reconciliation</div><div class="value">✓</div><div class="sub">movements tie to balances</div></div>
+  </div>
+
+  <div class="filters">
+    <label for="f-period">Period</label>
+    <select id="f-period"><option>Apr&ndash;Jun 2026</option><option>Jan&ndash;Mar 2026</option></select>
+    <label for="f-table">Section</label>
+    <select id="f-table"><option>Both</option><option>Table A &mdash; Sent</option><option>Table B &mdash; Received</option></select>
+    <span class="spacer"></span>
+    <button class="btn">Export JSON</button>
+    <button class="btn btn-primary">Export for filing</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:118px">Job Worker GSTIN</th><th>Job Worker</th>
+        <th style="width:110px">Challan</th><th style="width:72px">Date</th>
+        <th>Description</th><th style="width:48px">UQC</th>
+        <th class="num" style="width:74px">Qty</th><th class="num" style="width:84px">Taxable ₹</th>
+        <th style="width:72px">Type</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="grp"><td colspan="9">Table A &mdash; Goods sent to job worker</td></tr>
+      <tr><td>08AXXPS4412K1Z9</td><td>Shree Ganesh Dyeing</td><td>KF/DC/2026-27/0102</td><td>08 Apr 2026</td><td>Greige cotton cambric 60&times;60</td><td>MTR</td><td class="num">1,000.00</td><td class="num">85,000.00</td><td>Inputs</td></tr>
+      <tr><td>08AKLPJ2288R1Z4</td><td>Nakoda Tailoring Unit</td><td>KF/DC/2026-27/0118</td><td>22 Apr 2026</td><td>Cut panels &mdash; Anarkali AK-19</td><td>PCS</td><td class="num">480</td><td class="num">1,19,040.00</td><td>Inputs</td></tr>
+      <tr><td class="muted">Unregistered</td><td>Meena Handwork (URD)</td><td>KF/DC/2026-27/0141</td><td>06 May 2026</td><td>Panels for handwork &mdash; FS-TC04</td><td>PCS</td><td class="num">220</td><td class="num">54,670.00</td><td>Inputs</td></tr>
+      <tr><td>08AQRPE7781M1Z2</td><td>Anjali Embroidery Works</td><td>KF/DC/2026-27/0166</td><td>29 May 2026</td><td>Fabric for placement embroidery</td><td>MTR</td><td class="num">340.00</td><td class="num">37,740.00</td><td>Inputs</td></tr>
+      <tr class="grp"><td colspan="6">Table A subtotal &mdash; 38 challans</td><td class="num">&mdash;</td><td class="num">9,84,220.00</td><td></td></tr>
+
+      <tr class="grp"><td colspan="9">Table B &mdash; Goods received back from job worker</td></tr>
+      <tr><td>08AXXPS4412K1Z9</td><td>Shree Ganesh Dyeing</td><td>SGD/RC/0455</td><td>19 Apr 2026</td><td>Dyed cambric &mdash; TC-04 &middot; vs 0102</td><td>MTR</td><td class="num">970.00</td><td class="num">82,450.00</td><td>Inputs</td></tr>
+      <tr><td>08AKLPJ2288R1Z4</td><td>Nakoda Tailoring Unit</td><td>NTU/RC/0198</td><td>09 May 2026</td><td>Stitched Anarkali sets &middot; vs 0118</td><td>PCS</td><td class="num">474</td><td class="num">1,17,552.00</td><td>Inputs</td></tr>
+      <tr><td class="muted">Unregistered</td><td>Meena Handwork (URD)</td><td>MH/02</td><td>27 May 2026</td><td>Handwork completed &middot; vs 0141</td><td>PCS</td><td class="num">220</td><td class="num">54,670.00</td><td>Inputs</td></tr>
+      <tr class="grp"><td colspan="6">Table B subtotal &mdash; 34 challans</td><td class="num">&mdash;</td><td class="num">8,71,905.00</td><td></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <b>Reconciliation assertion &mdash; run before filing</b>
+    Table A quantity less Table B quantity must equal closing balance with job workers less opening balance.
+    If it does not tie, something has moved without a challan. Find it before filing, not after.
+  </div>
+
+  <div class="blocked">
+    <b>Two things to confirm before this is filed</b>
+    <strong>Filing frequency</strong> depends on your turnover slab and has been amended more than once &mdash; confirm with the CA.
+    <strong>Unregistered job workers appear in this extract by design.</strong> Meena Handwork charges no GST, but the reporting
+    obligation attaches to the movement and is the principal&rsquo;s, not the job worker&rsquo;s. Do not filter these rows out.
+  </div>
+
+  <div class="report-foot">
+    <span>Excludes: in-house work, internal transfers, draft and cancelled challans</span>
+    <span>Kashaya Fabs &middot; generated 07 Aug 2026</span>
+  </div>
+</div>
+</body>
+</html>

@@ -401,6 +401,14 @@ IMPORTANT RESTRICTIONS:
   isRestrictedQuery(question: string, role: UserRole): { restricted: boolean; reason?: string } {
     const lowerQuestion = question.toLowerCase();
 
+    // A procedural question ("how do I make a cost sheet?") asks for STEPS, not figures.
+    // It must never be blocked: the how-to guides deliberately contain no rates or margins,
+    // and blocking on the bare word "cost" made the cost-sheet workflow unreachable in chat
+    // for Merchandisers and Production Managers — the very roles who run it.
+    if (this.isHowToQuestion(lowerQuestion)) {
+      return { restricted: false };
+    }
+
     // Check for cost/pricing queries
     const costKeywords = ['cost', 'margin', 'profit', 'expense', 'pricing breakdown'];
     if (costKeywords.some((kw) => lowerQuestion.includes(kw))) {
@@ -435,6 +443,47 @@ IMPORTANT RESTRICTIONS:
     }
 
     return { restricted: false };
+  }
+
+  /**
+   * Does this read as "how do I do X?" rather than "show me X's numbers?"
+   * Covers English, Hinglish and Devanagari phrasings, since the team asks in all three.
+   */
+  private isHowToQuestion(lowerQuestion: string): boolean {
+    const howToPatterns = [
+      'how do i',
+      'how to',
+      'how can i',
+      'steps to',
+      'step by step',
+      'guide',
+      'process for',
+      'procedure',
+      'where do i',
+      'where can i',
+      // Hinglish
+      'kaise',
+      'kese',
+      'kaisa',
+      'kya karna',
+      'karna hai',
+      'karne hai',
+      'banana hai',
+      'banao',
+      'banaye',
+      'banani hai',
+      'tarika',
+      // Devanagari
+      'कैसे',
+      'कैसा',
+      'तरीका',
+      'बनाना',
+      'बनाएं',
+    ];
+
+    // "show me the cost of style X" must still be blocked even though it contains "how"
+    // nowhere — these patterns only ever ADD permission, they never remove it.
+    return howToPatterns.some((pattern) => lowerQuestion.includes(pattern));
   }
 }
 

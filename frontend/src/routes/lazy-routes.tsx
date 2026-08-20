@@ -459,6 +459,7 @@ export const MoodBoardDetail = lazy(() => import('../pages/MoodBoardDetail'));
 // ============================================================================
 export const AIAssistant = lazy(() => import('../pages/AIAssistant'));
 export const AISettings = lazy(() => import('../pages/AISettings'));
+export const IssueReports = lazy(() => import('../pages/IssueReports'));
 
 // ============================================================================
 // Debug/Test Pages

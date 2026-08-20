@@ -50,7 +50,6 @@ import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import type {
   FabricCostingRow,
   FabricForCosting,
-  FabricWidthOption,
   ProcessorInfo,
   CostInputMode,
   TransportCostMode,
@@ -241,8 +240,8 @@ export default function FabricCostingPage() {
 
   // Validate and determine initial purpose from URL param
   const validPurposes: CostingPurpose[] = ['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION'];
-  const initialPurpose =
-    preselectedPurpose && validPurposes.includes(preselectedPurpose) ? preselectedPurpose : 'COSTING';
+  const hasExplicitPurpose = !!preselectedPurpose && validPurposes.includes(preselectedPurpose);
+  const initialPurpose = hasExplicitPurpose ? (preselectedPurpose as CostingPurpose) : 'COSTING';
 
   // Selection state
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -305,6 +304,15 @@ export default function FabricCostingPage() {
     description: 'You have unsaved changes to your fabric costing. Do you want to save them before leaving?',
   });
 
+  // Pick the tab a style actually has costing on. Most entry points into this page don't
+  // pass ?purpose=, so without this a style costed under RAW_MATERIAL_CALCULATION or
+  // PRODUCTION opened on the empty COSTING tab and looked like it had default values.
+  // Most advanced stage first.
+  const pickCostedPurpose = useCallback((costedPurposes?: string[]): CostingPurpose | null => {
+    const priority: CostingPurpose[] = ['PRODUCTION', 'RAW_MATERIAL_CALCULATION', 'COSTING'];
+    return priority.find((p) => costedPurposes?.includes(p)) ?? null;
+  }, []);
+
   // Fetch customers on mount
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -350,6 +358,18 @@ export default function FabricCostingPage() {
         try {
           const response = await styleService.getStyleById(preselectedStyleId);
           if (response) {
+            // Open on the stage that actually holds costing (unless the URL named one).
+            // Resolved before selecting the style so the load effect runs once, on the right tab.
+            if (!hasExplicitPurpose) {
+              try {
+                const statusMap = await fabricCostingService.getStylesCostingStatus([preselectedStyleId]);
+                const costedPurpose = pickCostedPurpose(statusMap[preselectedStyleId]?.costedPurposes);
+                if (costedPurpose) setPurpose(costedPurpose);
+              } catch {
+                // allow-silent-catch — picking the initial tab is a convenience; if the
+                // status lookup fails we simply open on the default tab. Nothing to report.
+              }
+            }
             setSelectedStyleId(preselectedStyleId);
             setStyleSearchQuery(
               formatStyleCodeWithRef(response.styleCode, response.buyerStyleRef) +
@@ -369,7 +389,7 @@ export default function FabricCostingPage() {
       };
       loadPreselectedStyle();
     }
-  }, [preselectedStyleId, customers]);
+  }, [preselectedStyleId, customers, hasExplicitPurpose, pickCostedPurpose]);
 
   // Style search with debounce
   const handleStyleSearch = useCallback(
@@ -418,6 +438,11 @@ export default function FabricCostingPage() {
 
   // Handle style selection from search
   const handleSearchResultSelect = (style: Style) => {
+    // Open on the stage that actually holds costing. The search already fetched each
+    // result's costing status, so no extra request is needed here.
+    const costedPurpose = pickCostedPurpose(styleCostingStatus[style.id]?.costedPurposes);
+    if (costedPurpose) setPurpose(costedPurpose);
+
     setSelectedStyleId(style.id);
     setStyleSearchQuery(
       formatStyleCodeWithRef(style.styleCode, style.buyerStyleRef) + (style.styleName ? ` - ${style.styleName}` : '')
@@ -564,24 +589,15 @@ export default function FabricCostingPage() {
           // Check if ready fabric cost is available from fabric_master
           const hasReadyFabricCost = fabric.readyFabricCost != null && fabric.readyFabricCost > 0;
 
-          // Check for existing costing data in widthOptions (from fabric_width_cad)
-          // Try to find a matching width option with costing data for this style
-          const existingCosting =
-            fabric.widthOptions?.find(
-              (opt) => opt.costingStyleId === selectedStyleId && opt.cutableWidth === fabric.width
-            ) || fabric.widthOptions?.find((opt) => opt.totalCostPerMeter != null && opt.cutableWidth === fabric.width);
-
-          // If we have existing costing data (from widthOptions OR directly on fabric), use it
-          // The redesigned backend returns costing data directly on fabric object
-          if ((existingCosting && existingCosting.totalCostPerMeter != null) || fabric.totalCostPerMeter != null) {
-            // Use existingCosting from widthOptions if available, otherwise use fabric directly
-            // The redesigned backend returns costing data directly on fabric object
-            const cs = existingCosting || ({} as Partial<FabricWidthOption>); // Costing source from widthOptions
+          // Each returned fabric IS one CAD row, and the backend puts its saved costing
+          // directly on the fabric object (widthOptions is always []). Reading the saved
+          // values off `fabric` is what makes a reopened page show the last saved costing.
+          if (fabric.totalCostPerMeter != null) {
             return {
               id: fabric.id,
               styleFabricId: fabric.styleFabricId || fabric.id, // For unique key grouping
               fabricId: fabric.fabricId,
-              fabricWidthCadId: cs.id || fabric.id,
+              fabricWidthCadId: fabric.id,
               savedOrderQuantityPcs: fabric.orderQuantityPcs || null, // Track saved quantity for clone detection
               rowQuantity: fabric.orderQuantityPcs || undefined, // Pre-populate Qty column with saved quantity
               createdAt: fabric.createdAt || null, // Timestamp for date-based grouping
@@ -593,9 +609,9 @@ export default function FabricCostingPage() {
               finishType: fabric.finishType,
 
               // Greige reference - from saved data
-              greigeId: cs.greigeId || fabric.greigeId,
-              greigeName: cs.greigeName || fabric.greigeName,
-              greigeCode: cs.greigeCode || fabric.greigeCode,
+              greigeId: fabric.greigeId,
+              greigeName: fabric.greigeName,
+              greigeCode: fabric.greigeCode,
               greigeDefaultCost: fabric.greigeDefaultCost,
 
               // Ready fabric cost from fabric_master
@@ -605,55 +621,52 @@ export default function FabricCostingPage() {
               stockAtWidth: fabric.stockAtWidth ?? null,
               stockWacAtWidth: fabric.stockWacAtWidth ?? null,
 
-              // Cost input mode from saved data
-              costInputMode: ((cs.costInputMode || fabric.costInputMode) as CostInputMode) || 'BUILD_UP',
+              // Cost input mode from saved data. Older rows may carry a non-costing value
+              // (CAD Planning used to stamp 'AUTO_CALCULATED'/'MANUAL' here), so anything
+              // that isn't LANDED_PRICE is treated as the BUILD_UP default.
+              costInputMode: (fabric.costInputMode === 'LANDED_PRICE' ? 'LANDED_PRICE' : 'BUILD_UP') as CostInputMode,
 
               // Landed price mode
-              landedPricePerMeter:
-                (cs.costInputMode || fabric.costInputMode) === 'LANDED_PRICE'
-                  ? cs.totalCostPerMeter || fabric.totalCostPerMeter || null
-                  : null,
+              landedPricePerMeter: fabric.costInputMode === 'LANDED_PRICE' ? (fabric.totalCostPerMeter ?? null) : null,
 
               // Build-up mode - Greige & Transport (from saved data)
               greigeCostPerMeter:
-                cs.greigeCostPerMeter ||
-                fabric.greigeCostPerMeterSaved ||
-                fabric.greigeCostPerMeter ||
-                fabric.greigeDefaultCost,
-              greigeCostSource:
-                cs.greigeCostPerMeter || fabric.greigeCostPerMeterSaved
-                  ? 'MANUAL'
-                  : fabric.greigeCostSource || (fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL'),
+                fabric.greigeCostPerMeterSaved || fabric.greigeCostPerMeter || fabric.greigeDefaultCost,
+              greigeCostSource: fabric.greigeCostPerMeterSaved
+                ? 'MANUAL'
+                : fabric.greigeCostSource || (fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL'),
               transportCostMode: 'PER_METER' as TransportCostMode,
-              transportCostPerMeter: cs.transportCostPerMeter ?? fabric.transportCostPerMeter ?? 2, // Default ₹2/m
+              transportCostPerMeter: fabric.transportCostPerMeter ?? 2, // Default ₹2/m
               transportFixedAmount: null,
 
               // Shrinkage (from saved data, fallback to API which includes greige master default)
-              shrinkagePercent: cs.shrinkagePercent ?? fabric.shrinkagePercent,
-              shrinkageValue: cs.shrinkageCostPerMeter ?? null,
+              shrinkagePercent: fabric.shrinkagePercent,
+              shrinkageValue: fabric.shrinkageCostPerMeter ?? null,
 
               // Processor selection (from saved data or fabric directly)
-              processorId: cs.processorId || fabric.processorId || null,
-              processorName: cs.processorName || fabric.processorName || null,
+              processorId: fabric.processorId || null,
+              processorName: fabric.processorName || null,
               processingType:
                 fabric.finishType === 'PRINTED'
                   ? 'PRINTING'
                   : fabric.finishType === 'DYED' || fabric.finishType === 'YARN_DYED'
                     ? 'DYEING'
                     : null,
-              printingType: null,
-              processingCostPerMeter: cs.processingPricePerMeter || fabric.processingPricePerMeter || null,
+              printingType: fabric.printingType ?? null,
+              processingCostPerMeter: fabric.processingPricePerMeter || null,
               slabLabel: null,
-              rateCardId: null,
+              // MRP-48d: restore which rate card the saved numbers came from, so re-saving
+              // doesn't silently drop the processor's committed shrinkage/print type
+              rateCardId: fabric.rateCardId ?? null,
 
               // Screen cost (from saved data or fabric directly)
-              numberOfColors: cs.numberOfColors || fabric.numberOfColors,
-              screenType: (cs.screenType || fabric.screenType) as ScreenType | null,
+              numberOfColors: fabric.numberOfColors,
+              screenType: fabric.screenType as ScreenType | null,
               // BUG-FC4 fix: derive screenCostPerScreen from saved values when possible
               // Formula: screenCostPerScreen = screenCostPerMeter * totalMeters / numberOfColors
               screenCostPerScreen: (() => {
-                const savedScreenCostPerMeter = cs.screenCostPerMeter ?? null;
-                const savedNumColors = cs.numberOfColors || fabric.numberOfColors;
+                const savedScreenCostPerMeter = fabric.screenCostPerMeter ?? null;
+                const savedNumColors = fabric.numberOfColors;
                 const savedCadMeters = fabric.cadMeters || 0;
                 const savedQty = fabric.orderQuantityPcs || 0;
                 if (savedScreenCostPerMeter && savedNumColors && savedCadMeters > 0 && savedQty > 0) {
@@ -663,10 +676,10 @@ export default function FabricCostingPage() {
                 return null;
               })(),
               screenCostTotal: null,
-              screenCostPerMeter: cs.screenCostPerMeter ?? null,
+              screenCostPerMeter: fabric.screenCostPerMeter ?? null,
 
               // Calculated totals (from saved data or fabric directly)
-              totalCostPerMeter: cs.totalCostPerMeter || fabric.totalCostPerMeter || null,
+              totalCostPerMeter: fabric.totalCostPerMeter || null,
               totalCostForQuantity: null,
 
               // Design/Color identification (from style)
@@ -1260,8 +1273,8 @@ export default function FabricCostingPage() {
         }),
       });
 
-      // Update repeat order status from backend response (cast to check for optional property)
-      if ((response as { isRepeatOrder?: boolean }).isRepeatOrder) {
+      // Update repeat order status from backend response
+      if (response.isRepeatOrder) {
         setIsRepeatOrder(true);
         notify.info('Repeat Order: Costings saved directly to PRODUCTION mode');
       }
@@ -1275,9 +1288,14 @@ export default function FabricCostingPage() {
       // This enables the Approve button which requires fabricWidthCadId
       await fetchStyleFabrics(true);
 
-      // Collect saved CAD IDs for potential run creation
-      // After refetch, get the IDs from fabricRows
-      const cadIds = fabricRows.filter((row) => row.fabricWidthCadId).map((row) => row.fabricWidthCadId as string);
+      // Collect saved CAD IDs for potential run creation.
+      // Prefer the ids the backend reports it wrote: clone mode creates NEW rows, so the
+      // local fabricRows state can't know them and the run would be linked to the
+      // superseded rows (which then show as a run with 0 fabrics).
+      const cadIds =
+        response.records && response.records.length > 0
+          ? response.records.map((r) => r.id)
+          : fabricRows.filter((row) => row.fabricWidthCadId).map((row) => row.fabricWidthCadId as string);
       if (cadIds.length > 0) {
         setSavedCadIds(cadIds);
         // Show create run dialog

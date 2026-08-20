@@ -382,6 +382,18 @@ export default function StyleFormRedesigned() {
   const [openComponentPopovers, setOpenComponentPopovers] = useState<Record<number, boolean>>({});
   const [categoryComponentIds, setCategoryComponentIds] = useState<Set<string>>(new Set()); // Components allowed for selected category
 
+  // House Of Kasya: use buyer reference as style code
+  const HOUSE_OF_KASYA_ID = 'c4a5436d-0ae3-40ca-be18-2cfd553f89ea';
+  const isHouseOfKasya =
+    selectedCustomerId === HOUSE_OF_KASYA_ID || customerName?.toLowerCase().includes('house of kasya');
+
+  // Auto-copy buyerStyleRef to styleCode for House Of Kasya
+  useEffect(() => {
+    if (isHouseOfKasya && buyerStyleRef.trim() && !isEditMode) {
+      setStyleCode(buyerStyleRef.trim());
+    }
+  }, [buyerStyleRef, isHouseOfKasya, isEditMode]);
+
   // Ensure selectedComponents array has enough elements when numberOfComponents changes
   useEffect(() => {
     if (selectedComponents.length < numberOfComponents) {
@@ -2575,20 +2587,17 @@ export default function StyleFormRedesigned() {
                     })()}
                   </div>
 
-                  {/* Row 3: Style Code (Auto-generated), Style Name */}
+                  {/* Row 3: Buyer Style Code, Style Name */}
                   <div>
-                    <Label>Style Code {isEditMode ? '' : '(Auto-generated)'}</Label>
+                    <Label>Buyer Style Code *</Label>
                     <Input
-                      value={styleCode}
-                      placeholder="Select brand + category above"
-                      readOnly
-                      className="bg-muted"
+                      value={buyerStyleRef}
+                      onChange={(e) => setBuyerStyleRef(e.target.value)}
+                      placeholder="Buyer's style code"
                     />
-                    {!isEditMode && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Generated from brand prefix + category prefix
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {isHouseOfKasya ? 'Will be used as Style Code' : "Buyer's own code (shows on documents)"}
+                    </p>
                   </div>
                   <div>
                     <Label>Style Name</Label>
@@ -2599,18 +2608,22 @@ export default function StyleFormRedesigned() {
                     />
                   </div>
 
-                  {/* Row 4: Buyer Reference (full row for clarity) */}
+                  {/* Row 4: Style Code (Auto-generated or from Buyer Ref for House Of Kasya) */}
                   <div className="col-span-2">
-                    <Label>Buyer Reference *</Label>
+                    <Label>
+                      Style Code {isEditMode ? '' : isHouseOfKasya ? '(From Buyer Reference)' : '(Auto-generated)'}
+                    </Label>
                     <Input
-                      value={buyerStyleRef}
-                      onChange={(e) => setBuyerStyleRef(e.target.value)}
-                      placeholder="Buyer's style number"
-                      className="max-w-md"
+                      value={styleCode}
+                      placeholder={isHouseOfKasya ? 'Enter Buyer Reference above' : 'Select brand + category above'}
+                      readOnly
+                      className="bg-muted max-w-md"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Buyer's own reference number (shows on all documents)
-                    </p>
+                    {!isEditMode && !isHouseOfKasya && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Generated from brand prefix + category prefix
+                      </p>
+                    )}
                   </div>
 
                   {/* Row 5: Season, Number of Components */}

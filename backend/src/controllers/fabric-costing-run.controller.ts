@@ -14,13 +14,16 @@ import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
  * totalFabricCost/isComplete/fabricCount columns are only refreshed by the optional
  * recalculate endpoint, so edits made via fabric-costing save would otherwise show stale totals.
  */
-function computeRunTotals(fabricCads: Array<{ cadAverage: unknown; totalCostPerMeter: unknown }>) {
+export function computeRunTotals(fabricCads: Array<{ cadAverage: unknown; totalCostPerMeter: unknown }>) {
   const totalFabricCost = fabricCads.reduce((sum, cad) => {
     const avg = cad.cadAverage ? Number(cad.cadAverage) : 0;
     const rate = cad.totalCostPerMeter ? Number(cad.totalCostPerMeter) : 0;
     return sum + avg * rate;
   }, 0);
-  const isComplete = fabricCads.every((c) => c.totalCostPerMeter !== null && c.cadAverage !== null);
+  // A run with no linked CAD rows is NOT complete — every() on an empty array is true,
+  // which made emptied runs display as "Complete" with 0 fabrics.
+  const isComplete =
+    fabricCads.length > 0 && fabricCads.every((c) => c.totalCostPerMeter !== null && c.cadAverage !== null);
   return { totalFabricCost, isComplete, fabricCount: fabricCads.length };
 }
 
@@ -218,13 +221,7 @@ export async function createRun(req: Request, res: Response) {
       where: { costingRunId: newRun.id },
     });
 
-    const totalFabricCost = cads.reduce((sum, cad) => {
-      const avg = cad.cadAverage ? Number(cad.cadAverage) : 0;
-      const rate = cad.totalCostPerMeter ? Number(cad.totalCostPerMeter) : 0;
-      return sum + avg * rate;
-    }, 0);
-
-    const isComplete = cads.every((c) => c.totalCostPerMeter !== null && c.cadAverage !== null);
+    const { totalFabricCost, isComplete } = computeRunTotals(cads);
 
     // Update run with calculated totals
     const updatedRun = await tx.fabric_costing_run.update({

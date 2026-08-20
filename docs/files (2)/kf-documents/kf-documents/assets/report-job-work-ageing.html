@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Work Ageing — Kashaya Fabs</title>
+<link rel="stylesheet" href="./reports.css">
+</head>
+<body>
+<div class="report">
+
+  <div class="report-head">
+    <h1>Job Work Ageing<span>Section 143 &middot; material outstanding with processors</span></h1>
+    <div class="report-meta">
+      <strong>KASHAYA FABS</strong>
+      GSTIN 08DCDPS0146D1ZU<br>
+      As at 07 Aug 2026, 09:14
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi">
+      <div class="label">Orders Outstanding</div>
+      <div class="value">14</div>
+      <div class="sub">across 6 processors</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Value at Processors</div>
+      <div class="value">18.4L</div>
+      <div class="sub">₹18,42,310 &mdash; on our books</div>
+    </div>
+    <div class="kpi is-critical">
+      <div class="label">Critical &mdash; 300d+</div>
+      <div class="value">2</div>
+      <div class="sub">under 65 days runway</div>
+    </div>
+    <div class="kpi is-breached">
+      <div class="label">Breached</div>
+      <div class="value">1</div>
+      <div class="sub">deemed supply has occurred</div>
+    </div>
+  </div>
+
+  <div class="filters">
+    <label for="f-proc">Processor</label>
+    <select id="f-proc"><option>All</option><option>Shree Ganesh Dyeing</option><option>Nakoda Tailoring Unit</option></select>
+    <label for="f-sev">Severity</label>
+    <select id="f-sev"><option>All</option><option>Breached</option><option>Critical</option><option>Warning</option></select>
+    <label for="f-proctype">Process</label>
+    <select id="f-proctype"><option>All</option><option>Dyeing</option><option>Stitching</option><option>Embroidery</option></select>
+    <span class="spacer"></span>
+    <button class="btn">Export CSV</button>
+    <button class="btn btn-primary">Print</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:104px">Order</th><th>Processor</th><th style="width:82px">Process</th>
+        <th style="width:74px">Sent</th><th class="num" style="width:76px">Balance</th>
+        <th class="num" style="width:82px">Value ₹</th><th class="num" style="width:58px">Days</th>
+        <th class="num" style="width:70px">Remaining</th><th style="width:86px">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="row-breached">
+        <td>KF/JW/2025-26/0788</td><td>Ratan Textile Processors</td><td>Dyeing</td>
+        <td>02 Jul 2025</td><td class="num">210.00 m</td><td class="num">17,850</td>
+        <td class="num">401</td><td class="num">&minus;36</td>
+        <td><span class="chip chip-breached">Breached</span></td>
+      </tr>
+      <tr class="row-critical">
+        <td>KF/JW/2025-26/0902</td><td>Shree Ganesh Dyeing</td><td>Dyeing</td>
+        <td>19 Sep 2025</td><td class="num">640.00 m</td><td class="num">54,400</td>
+        <td class="num">322</td><td class="num">43</td>
+        <td><span class="chip chip-critical">Critical</span></td>
+      </tr>
+      <tr class="row-critical">
+        <td>KF/JW/2025-26/0914</td><td>Ratan Textile Processors</td><td>Printing</td>
+        <td>28 Sep 2025</td><td class="num">180.00 m</td><td class="num">15,300</td>
+        <td class="num">313</td><td class="num">52</td>
+        <td><span class="chip chip-critical">Critical</span></td>
+      </tr>
+      <tr>
+        <td>KF/JW/2025-26/1104</td><td>Anjali Embroidery Works</td><td>Embroidery</td>
+        <td>11 Dec 2025</td><td class="num">420 pcs</td><td class="num">1,04,160</td>
+        <td class="num">239</td><td class="num">126</td>
+        <td><span class="chip chip-warning">Warning</span></td>
+      </tr>
+      <tr>
+        <td>KF/JW/2026-27/0147</td><td>Nakoda Tailoring Unit</td><td>Stitching</td>
+        <td>07 Aug 2026</td><td class="num">600 pcs</td><td class="num">1,56,660</td>
+        <td class="num">0</td><td class="num">365</td>
+        <td><span class="chip chip-ok">OK</span></td>
+      </tr>
+      <tr class="grp"><td colspan="4">14 orders outstanding</td><td class="num">&mdash;</td><td class="num">18,42,310</td><td colspan="3"></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <b>Why 300 days is the escalation point</b>
+    Inputs must return within one year of despatch. Past that, the original despatch is deemed a supply
+    <strong>from the despatch date</strong> &mdash; interest runs from then, not from the breach. Sixty-five days
+    is roughly the minimum to chase a processor, escalate, and raise the paperwork before the liability crystallises.
+    Capital goods run to three years; moulds, dies, jigs, fixtures and tools have no limit.
+  </div>
+
+  <div class="report-foot">
+    <span>Balance computed from challan lines out minus challan lines back &middot; draft and cancelled challans excluded</span>
+    <span>Kashaya Fabs &middot; generated 07 Aug 2026</span>
+  </div>
+</div>
+</body>
+</html>

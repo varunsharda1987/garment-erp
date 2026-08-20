@@ -250,7 +250,9 @@ class StyleStockController {
           existing.totalValue += itemValue;
           existing.maxAgingDays = Math.max(existing.maxAgingDays, item.agingDays);
           existing.qualityGrades.add(item.qualityGrade);
-          if (item.warehouseLocation) existing.warehouses.add(item.warehouseLocation);
+          // Use warehouse name from FK relation, fallback to warehouseLocation text field
+          const whName = item.warehouse?.warehouseName || item.warehouseLocation;
+          if (whName) existing.warehouses.add(whName);
           if (item.supplier) existing.suppliers.set(item.supplier.id, item.supplier);
           if (item.processor) existing.processors.set(item.processor.id, item.processor);
           existing.statuses.add(item.status);
@@ -262,6 +264,8 @@ class StyleStockController {
           const processorMap = new Map<string, { id: string; name: string; code: string }>();
           if (item.processor) processorMap.set(item.processor.id, item.processor);
 
+          // Use warehouse name from FK relation, fallback to warehouseLocation text field
+          const whName = item.warehouse?.warehouseName || item.warehouseLocation;
           stockMap.set(item.greigeId, {
             totalStock: item.quantityAvailable,
             totalValue: itemValue,
@@ -269,7 +273,7 @@ class StyleStockController {
             greigeWidth: item.greigeWidth,
             cutableWidth: item.cutableWidth ?? null,
             qualityGrades: new Set([item.qualityGrade]),
-            warehouses: item.warehouseLocation ? new Set([item.warehouseLocation]) : new Set(),
+            warehouses: whName ? new Set([whName]) : new Set(),
             suppliers: supplierMap,
             processors: processorMap,
             statuses: new Set([item.status]),

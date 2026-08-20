@@ -60,6 +60,8 @@ export interface GreigeStockItem {
   cutableWidth?: number | null;
   purchaseCost?: number | null;
   weightedAvgCost?: number | null;
+  warehouseId?: string | null;
+  warehouse?: { id: string; warehouseCode: string; warehouseName: string } | null;
   warehouseLocation?: string | null;
   rollNumbers?: string | null;
   qualityGrade: string;
@@ -304,6 +306,13 @@ class GreigeStockService {
               weaveType: true,
             },
           },
+          warehouse: {
+            select: {
+              id: true,
+              warehouseCode: true,
+              warehouseName: true,
+            },
+          },
           supplier: {
             select: {
               id: true,
@@ -345,6 +354,8 @@ class GreigeStockService {
           cutableWidth: stock.cutableWidth ? Number(stock.cutableWidth) : null,
           purchaseCost: stock.purchaseCost ? Number(stock.purchaseCost) : null,
           weightedAvgCost: stock.weightedAvgCost ? Number(stock.weightedAvgCost) : null,
+          warehouseId: stock.warehouseId,
+          warehouse: stock.warehouse,
           warehouseLocation: stock.warehouseLocation,
           rollNumbers: stock.rollNumbers,
           qualityGrade: stock.qualityGrade,
@@ -848,8 +859,9 @@ class GreigeStockService {
   > {
     try {
       // Find all greige stock at processor warehouses (sourceType = TRANSFER)
+      // BUG-INV2 fix: Group by warehouseId (FK) instead of warehouseLocation (text field)
       const processorStock = await prisma.greige_stock.groupBy({
-        by: ['processorId', 'warehouseLocation'],
+        by: ['processorId', 'warehouseId'],
         where: {
           processorId: { not: null },
           sourceType: 'TRANSFER',
@@ -862,13 +874,21 @@ class GreigeStockService {
 
       // Get processor details (processors are suppliers with processor categories)
       const processorIds = processorStock.map((s) => s.processorId).filter((id): id is string => id !== null);
+      const warehouseIds = processorStock.map((s) => s.warehouseId).filter((id): id is string => id !== null);
 
-      const processors = await prisma.suppliers.findMany({
-        where: { id: { in: processorIds } },
-        select: { id: true, name: true, code: true },
-      });
+      const [processors, warehouses] = await Promise.all([
+        prisma.suppliers.findMany({
+          where: { id: { in: processorIds } },
+          select: { id: true, name: true, code: true },
+        }),
+        prisma.warehouses.findMany({
+          where: { id: { in: warehouseIds } },
+          select: { id: true, warehouseName: true },
+        }),
+      ]);
 
       const processorMap = new Map(processors.map((p) => [p.id, p]));
+      const warehouseMap = new Map(warehouses.map((w) => [w.id, w.warehouseName]));
 
       return processorStock
         .filter((s) => s.processorId && processorMap.has(s.processorId))
@@ -878,7 +898,7 @@ class GreigeStockService {
             processorId: s.processorId!,
             processorName: processor.name,
             processorCode: processor.code,
-            warehouseName: s.warehouseLocation,
+            warehouseName: s.warehouseId ? warehouseMap.get(s.warehouseId) || null : null,
             totalQuantity: Number(s._sum.quantityAvailable) || 0,
             stockEntries: s._count.id,
           };

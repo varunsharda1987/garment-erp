@@ -36,13 +36,22 @@ export const getLaceById = async (id: string): Promise<Lace> => {
 };
 
 /**
- * Create new lace
+ * Build FormData or JSON payload for lace create/update
  */
-export const createLace = async (laceData: LaceFormData): Promise<Lace> => {
-  // Convert string numbers to numbers and format suppliers
-  const payload = {
-    ...laceData,
+const buildLacePayload = (laceData: LaceFormData): FormData | Record<string, unknown> => {
+  const hasImage = laceData.imageFile instanceof File;
+
+  // Build the base payload
+  const payload: Record<string, unknown> = {
+    laceName: laceData.laceName,
+    supplierCode: laceData.supplierCode,
+    buyerCode: laceData.buyerCode,
     width: laceData.width ? Number(laceData.width) : undefined,
+    design: laceData.design,
+    color: laceData.color,
+    composition: laceData.composition,
+    laceType: laceData.laceType,
+    description: laceData.description,
     styleCodes: laceData.styleCodes || [],
     suppliers:
       laceData.suppliers?.map((s) => ({
@@ -52,14 +61,43 @@ export const createLace = async (laceData: LaceFormData): Promise<Lace> => {
         notes: s.notes,
         pricePerMeter: s.pricePerMeter ? Number(s.pricePerMeter) : undefined,
       })) || [],
-    // Greige-specific fields
     isGreige: laceData.isGreige || false,
     expectedShrinkagePercent: laceData.expectedShrinkagePercent ? Number(laceData.expectedShrinkagePercent) : undefined,
     costPerMeterGreige: laceData.costPerMeterGreige ? Number(laceData.costPerMeterGreige) : undefined,
     sourceGreigeLaceId: laceData.sourceGreigeLaceId || undefined,
   };
 
-  const { data } = await api.post<LaceResponse>('/materials/lace', payload);
+  if (!hasImage) {
+    return payload;
+  }
+
+  // Build FormData for multipart upload
+  const formData = new FormData();
+  formData.append('image', laceData.imageFile as File);
+
+  // Append other fields - arrays/objects as JSON strings
+  Object.entries(payload).forEach(([key, value]) => {
+    if (value === undefined || value === null) return;
+    if (Array.isArray(value) || typeof value === 'object') {
+      formData.append(key, JSON.stringify(value));
+    } else {
+      formData.append(key, String(value));
+    }
+  });
+
+  return formData;
+};
+
+/**
+ * Create new lace
+ */
+export const createLace = async (laceData: LaceFormData): Promise<Lace> => {
+  const payload = buildLacePayload(laceData);
+  const isFormData = payload instanceof FormData;
+
+  const { data } = await api.post<LaceResponse>('/materials/lace', payload, {
+    headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+  });
   return data.lace;
 };
 
@@ -67,28 +105,20 @@ export const createLace = async (laceData: LaceFormData): Promise<Lace> => {
  * Update lace
  */
 export const updateLace = async (id: string, laceData: LaceFormData): Promise<Lace> => {
-  // Convert string numbers to numbers and format suppliers
-  const payload = {
-    ...laceData,
-    width: laceData.width ? Number(laceData.width) : undefined,
-    styleCodes: laceData.styleCodes || [],
-    suppliers:
-      laceData.suppliers?.map((s) => ({
-        supplierId: s.supplierId,
-        isPreferred: s.isPreferred,
-        isActive: s.isActive,
-        notes: s.notes,
-        pricePerMeter: s.pricePerMeter ? Number(s.pricePerMeter) : undefined,
-      })) || [],
-    // Greige-specific fields
-    isGreige: laceData.isGreige || false,
-    expectedShrinkagePercent: laceData.expectedShrinkagePercent ? Number(laceData.expectedShrinkagePercent) : undefined,
-    costPerMeterGreige: laceData.costPerMeterGreige ? Number(laceData.costPerMeterGreige) : undefined,
-    sourceGreigeLaceId: laceData.sourceGreigeLaceId || undefined,
-  };
+  const payload = buildLacePayload(laceData);
+  const isFormData = payload instanceof FormData;
 
-  const { data } = await api.put<LaceResponse>(`/materials/lace/${id}`, payload);
+  const { data } = await api.put<LaceResponse>(`/materials/lace/${id}`, payload, {
+    headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : undefined,
+  });
   return data.lace;
+};
+
+/**
+ * Delete image from lace (without deleting the lace itself)
+ */
+export const deleteLaceImage = async (id: string): Promise<void> => {
+  await api.delete(`/materials/lace/${id}/image`);
 };
 
 /**

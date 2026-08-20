@@ -13,6 +13,7 @@ import type {
   StyleFabricsResponse,
   ProcessorRateLookup,
   SaveFabricCostingRequest,
+  SaveFabricCostingResponse,
   CostingOptionsResponse,
   StyleCostingOptionsResponse,
   CostingOptionsFilters,
@@ -80,11 +81,8 @@ export const fabricCostingService = {
   /**
    * Save fabric costing data for a style
    */
-  async saveFabricCosting(request: SaveFabricCostingRequest): Promise<{ message: string; updatedCount: number }> {
-    const response = await api.post<ApiResponse<{ message: string; updatedCount: number }>>(
-      `${BASE_URL}/save`,
-      request
-    );
+  async saveFabricCosting(request: SaveFabricCostingRequest): Promise<SaveFabricCostingResponse> {
+    const response = await api.post<ApiResponse<SaveFabricCostingResponse>>(`${BASE_URL}/save`, request);
     return response.data.data;
   },
 
@@ -274,6 +272,8 @@ export interface StyleCostingStatus {
   hasApproved: boolean;
   hasProduction: boolean;
   costingCount: number;
+  /** Purpose modes that actually hold saved costing (used to pick the initial tab) */
+  costedPurposes?: string[];
 }
 
 // Types for CAD to Costing push

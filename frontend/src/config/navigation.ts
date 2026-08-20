@@ -333,6 +333,13 @@ export const NAV_GROUPS: NavGroup[] = [
       },
       { title: 'Permissions', path: '/admin/permissions', iconName: 'Lock', permission: 'permissions' },
       {
+        title: 'Issue Reports',
+        path: '/issue-reports',
+        iconName: 'Bug',
+        permission: 'issueReports',
+        keywords: ['bug', 'problem', 'complaint', 'screenshot', 'report issue'],
+      },
+      {
         title: 'Override History',
         path: '/admin/override-history',
         iconName: 'ShieldAlert',

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Processor Performance — Kashaya Fabs</title>
+<link rel="stylesheet" href="./reports.css">
+</head>
+<body>
+<div class="report">
+
+  <div class="report-head">
+    <h1>Processor Performance<span>Loss against tolerance &middot; rolling 6 months</span></h1>
+    <div class="report-meta">
+      <strong>KASHAYA FABS</strong>
+      GSTIN 08DCDPS0146D1ZU<br>
+      Feb &ndash; Jul 2026
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">Processors</div><div class="value">6</div><div class="sub">across 5 process types</div></div>
+    <div class="kpi"><div class="label">Orders Closed</div><div class="value">87</div><div class="sub">in the window</div></div>
+    <div class="kpi is-critical"><div class="label">Over Tolerance</div><div class="value">2</div><div class="sub">processors, consistently</div></div>
+    <div class="kpi"><div class="label">Recovered</div><div class="value">₹41,280</div><div class="sub">via debit notes</div></div>
+  </div>
+
+  <div class="filters">
+    <label for="f-window">Window</label>
+    <select id="f-window"><option>Rolling 6 months</option><option>Rolling 12 months</option><option>Current FY</option></select>
+    <label for="f-p">Process</label>
+    <select id="f-p"><option>All</option><option>Dyeing</option><option>Stitching</option><option>Embroidery</option></select>
+    <span class="spacer"></span>
+    <button class="btn">Export CSV</button>
+    <button class="btn btn-primary">Print</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Processor</th><th style="width:82px">Process</th>
+        <th class="num" style="width:52px">Orders</th><th class="num" style="width:78px">Issued</th>
+        <th class="num" style="width:56px">Tol. %</th><th class="num" style="width:62px">Actual %</th>
+        <th style="width:120px">Against tolerance</th>
+        <th class="num" style="width:70px">Debited ₹</th><th style="width:82px">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Shree Ganesh Dyeing</td><td>Dyeing</td><td class="num">24</td><td class="num">18,400 m</td>
+        <td class="num">3.0</td><td class="num">2.6</td>
+        <td><div class="bar"><i style="width:58%"></i><u style="left:67%"></u></div></td>
+        <td class="num">&mdash;</td><td><span class="chip chip-ok">Within</span></td>
+      </tr>
+      <tr>
+        <td>Nakoda Tailoring Unit</td><td>Stitching</td><td class="num">19</td><td class="num">9,840 pcs</td>
+        <td class="num">1.0</td><td class="num">0.8</td>
+        <td><div class="bar"><i style="width:53%"></i><u style="left:67%"></u></div></td>
+        <td class="num">&mdash;</td><td><span class="chip chip-ok">Within</span></td>
+      </tr>
+      <tr>
+        <td>Anjali Embroidery Works</td><td>Embroidery</td><td class="num">15</td><td class="num">4,220 pcs</td>
+        <td class="num">1.5</td><td class="num">1.4</td>
+        <td><div class="bar"><i style="width:62%"></i><u style="left:67%"></u></div></td>
+        <td class="num">2,140</td><td><span class="chip chip-warning">At limit</span></td>
+      </tr>
+      <tr class="row-critical">
+        <td>Ratan Textile Processors</td><td>Dyeing</td><td class="num">21</td><td class="num">14,900 m</td>
+        <td class="num">3.0</td><td class="num">5.7</td>
+        <td><div class="bar"><i class="over" style="width:100%"></i><u style="left:53%"></u></div></td>
+        <td class="num">31,620</td><td><span class="chip chip-critical">Over</span></td>
+      </tr>
+      <tr class="row-critical">
+        <td>Meena Handwork (URD)</td><td>Handwork</td><td class="num">8</td><td class="num">1,640 pcs</td>
+        <td class="num">1.0</td><td class="num">2.9</td>
+        <td><div class="bar"><i class="over" style="width:100%"></i><u style="left:34%"></u></div></td>
+        <td class="num">7,520</td><td><span class="chip chip-critical">Over</span></td>
+      </tr>
+      <tr class="grp"><td colspan="7">6 processors &middot; 87 orders closed</td><td class="num">41,280</td><td></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout">
+    <b>What this report is actually for</b>
+    Per-processor tolerance is only meaningful if you have evidence to set it with. Without this report you end up
+    giving a reliable dyer and a cheap one the same 3%, which quietly subsidises the cheap one.
+    Ratan at 5.7% against a 3.0% tolerance has cost ₹31,620 in debit notes over six months &mdash; and that is only the
+    portion that was caught. Loss inside tolerance never appears anywhere: it is absorbed into finished goods cost by design.
+  </div>
+
+  <div class="report-foot">
+    <span>Tick on each bar marks the agreed tolerance &middot; bars turn terracotta only when actual exceeds it</span>
+    <span>Kashaya Fabs &middot; generated 07 Aug 2026</span>
+  </div>
+</div>
+</body>
+</html>

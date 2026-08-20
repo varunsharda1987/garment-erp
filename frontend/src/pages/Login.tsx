@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { authService } from '@/services/auth.service';
 import { useAuthStore } from '@/stores/auth.store';
+import { Eye, EyeOff } from 'lucide-react';
 
 // Validation schema
 const loginSchema = z.object({
@@ -23,6 +24,7 @@ export default function Login() {
   const setAuth = useAuthStore((state) => state.setAuth);
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const {
     register,
@@ -81,13 +83,24 @@ export default function Login() {
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                {...register('password')}
-                disabled={isLoading}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  {...register('password')}
+                  disabled={isLoading}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
           </CardContent>

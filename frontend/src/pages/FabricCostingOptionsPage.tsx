@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Check, Trash2, Loader2, Filter, X, Eye, Lock, FileText } from 'lucide-react';
+import { ArrowLeft, Check, Trash2, Loader2, Filter, X, Eye, Lock, FileText, MoreHorizontal } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -13,6 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Combobox } from '../components/ui/combobox';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { fabricCostingService } from '../services/fabricCosting.service';
 import { customerService } from '../services/customer.service';
@@ -28,6 +35,7 @@ import type {
 import type { Customer } from '../types/customer.types';
 import type { Style } from '../types/style.types';
 import { notify } from '../lib/notify';
+import { handleApiError } from '../lib/api-error-handler';
 import { divideByShrinkage } from '../utils/math';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
@@ -255,10 +263,12 @@ export default function FabricCostingOptionsPage() {
     setDeletingId(optionToDelete.id);
     try {
       await fabricCostingService.deleteCostingOption(optionToDelete.id);
-      notify.success('Option deleted successfully');
+      notify.success('Costing removed. CAD data preserved');
       fetchCostingOptions(); // Refresh data
-    } catch {
-      notify.error('Failed to delete option');
+    } catch (error) {
+      // Surface the server's reason — approved and locked options are refused with
+      // instructions ("unapprove it first"), which a generic message would hide
+      handleApiError(error, 'Failed to remove costing');
     } finally {
       setDeletingId(null);
       setOptionToDelete(null);
@@ -794,50 +804,7 @@ export default function FabricCostingOptionsPage() {
                                           </TableCell>
                                           <TableCell>
                                             <div className="flex items-center gap-1">
-                                              {/* Approve button (only for pending options) */}
-                                              {option.approvalStatus !== 'APPROVED' && (
-                                                <Button
-                                                  variant="outline"
-                                                  size="sm"
-                                                  onClick={() => handleApprove(option.id)}
-                                                  disabled={approvingId === option.id}
-                                                  title="Approve"
-                                                >
-                                                  {approvingId === option.id ? (
-                                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                                  ) : (
-                                                    <Check className="h-3 w-3" />
-                                                  )}
-                                                </Button>
-                                              )}
-
-                                              {/* Unapprove button (only for approved, non-locked options) */}
-                                              {option.approvalStatus === 'APPROVED' && !option.isLocked && (
-                                                <Button
-                                                  variant="outline"
-                                                  size="sm"
-                                                  onClick={() => handleUnapprove(option.id)}
-                                                  disabled={unapprovingId === option.id}
-                                                  title="Unapprove - revert to Pending"
-                                                  className="text-warning hover:text-warning"
-                                                >
-                                                  {unapprovingId === option.id ? (
-                                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                                  ) : (
-                                                    <X className="h-3 w-3" />
-                                                  )}
-                                                </Button>
-                                              )}
-
-                                              {/*
-                                        NOTE: Copy workflow buttons removed from Fabric Costing Options page.
-                                        As of the new data ownership model:
-                                        - CAD Planning module owns CAD structure and workflow transitions
-                                        - Fabric Costing module only manages cost data
-                                        - To copy CAD between purposes, use the CAD Planning page
-                                      */}
-
-                                              {/* Lock indicator for Production */}
+                                              {/* Lock indicator for Production (always visible inline) */}
                                               {option.purpose === 'PRODUCTION' && (
                                                 <span
                                                   className="text-muted-foreground text-xs"
@@ -847,22 +814,63 @@ export default function FabricCostingOptionsPage() {
                                                 </span>
                                               )}
 
-                                              {/* Delete button (not for locked Production records) */}
-                                              {!(option.purpose === 'PRODUCTION' && option.isLocked) && (
-                                                <Button
-                                                  variant="outline"
-                                                  size="sm"
-                                                  className="text-destructive hover:text-destructive"
-                                                  disabled={deletingId === option.id}
-                                                  onClick={() => handleDeleteClick(option.id, componentName)}
-                                                >
-                                                  {deletingId === option.id ? (
-                                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                                  ) : (
-                                                    <Trash2 className="h-3 w-3" />
+                                              {/* Actions dropdown */}
+                                              <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8"
+                                                    disabled={
+                                                      approvingId === option.id ||
+                                                      unapprovingId === option.id ||
+                                                      deletingId === option.id
+                                                    }
+                                                  >
+                                                    {approvingId === option.id ||
+                                                    unapprovingId === option.id ||
+                                                    deletingId === option.id ? (
+                                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                      <MoreHorizontal className="h-4 w-4" />
+                                                    )}
+                                                  </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                  {/* Approve (only for pending options) */}
+                                                  {option.approvalStatus !== 'APPROVED' && (
+                                                    <DropdownMenuItem onClick={() => handleApprove(option.id)}>
+                                                      <Check className="mr-2 h-4 w-4" />
+                                                      Approve
+                                                    </DropdownMenuItem>
                                                   )}
-                                                </Button>
-                                              )}
+
+                                                  {/* Unapprove (only for approved, non-locked options) */}
+                                                  {option.approvalStatus === 'APPROVED' && !option.isLocked && (
+                                                    <DropdownMenuItem
+                                                      onClick={() => handleUnapprove(option.id)}
+                                                      className="text-warning"
+                                                    >
+                                                      <X className="mr-2 h-4 w-4" />
+                                                      Unapprove
+                                                    </DropdownMenuItem>
+                                                  )}
+
+                                                  {/* Remove costing (not for locked Production records) */}
+                                                  {!(option.purpose === 'PRODUCTION' && option.isLocked) && (
+                                                    <>
+                                                      <DropdownMenuSeparator />
+                                                      <DropdownMenuItem
+                                                        onClick={() => handleDeleteClick(option.id, componentName)}
+                                                        className="text-destructive"
+                                                      >
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        Remove Costing
+                                                      </DropdownMenuItem>
+                                                    </>
+                                                  )}
+                                                </DropdownMenuContent>
+                                              </DropdownMenu>
                                             </div>
                                           </TableCell>
                                         </TableRow>
@@ -913,9 +921,9 @@ export default function FabricCostingOptionsPage() {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Costing Option?"
-        description={`This will permanently delete this costing option for ${optionToDelete?.componentName || 'this component'}. This action cannot be undone.`}
-        confirmText="Delete"
+        title="Remove Costing Option?"
+        description={`This removes the costing (rates, processor, costs) for ${optionToDelete?.componentName || 'this component'}. The CAD entry and its size breakdowns are preserved and stay available in CAD Planning.`}
+        confirmText="Remove"
         cancelText="Cancel"
         onConfirm={confirmDelete}
         variant="destructive"

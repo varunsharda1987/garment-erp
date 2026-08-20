@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,12 +11,12 @@ import { Badge } from '@/components/ui/badge';
 import { StyleCodeMultiSelect } from '@/components/StyleCodeMultiSelect';
 import { LookupSelect } from '@/components/LookupSelect';
 import ColorPicker from '@/components/ColorPicker';
-import { createLace, getLaceById, updateLace, getGreigeLace } from '@/services/lace.service';
+import { createLace, getLaceById, updateLace, getGreigeLace, deleteLaceImage } from '@/services/lace.service';
 import { getAllSuppliers } from '@/services/supplier.service';
 import type { LaceFormData, LaceSupplierInput, Lace } from '@/types/lace.types';
 import type { Supplier } from '@/types/supplier.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Upload, X, Image as ImageIcon } from 'lucide-react';
 
 interface LaceFormProps {
   mode?: 'create' | 'edit';
@@ -44,6 +44,12 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
   const [isGreige, setIsGreige] = useState<boolean>(false);
   const [greigeLaces, setGreigeLaces] = useState<Lace[]>([]);
   const [sourceGreigeLaceId, setSourceGreigeLaceId] = useState<string>('');
+
+  // Image upload state
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [existingImage, setExistingImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { register, handleSubmit, setValue } = useForm<LaceFormData>();
 
@@ -109,6 +115,11 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
           }
           if (lace.sourceGreigeLaceId) {
             setSourceGreigeLaceId(lace.sourceGreigeLaceId);
+          }
+
+          // Set existing image
+          if (lace.image) {
+            setExistingImage(lace.image);
           }
 
           // Set suppliers from junction table. The serializer renames laceSuppliers→`suppliers`,
@@ -197,6 +208,8 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
         sourceGreigeLaceId: !isGreige && sourceGreigeLaceId ? sourceGreigeLaceId : undefined,
         // Clear color for greige lace (greige has no color)
         color: isGreige ? undefined : data.color,
+        // Image file
+        imageFile: imageFile || undefined,
       };
 
       if (isNewLace) {
@@ -605,6 +618,91 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                   rows={4}
                   placeholder="Additional notes or details about this lace..."
                 />
+              </div>
+            </div>
+
+            {/* IMAGE UPLOAD */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-semibold mb-4 text-foreground">Lace Image</h3>
+              <div className="space-y-4">
+                {/* Hidden file input */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 5 * 1024 * 1024) {
+                        handleApiError(new Error('Image must be less than 5MB'), 'Image too large');
+                        return;
+                      }
+                      setImageFile(file);
+                      setImagePreview(URL.createObjectURL(file));
+                    }
+                  }}
+                />
+
+                {/* Image preview or upload button */}
+                {imagePreview || existingImage ? (
+                  <div className="relative inline-block">
+                    <img
+                      src={
+                        imagePreview ||
+                        (existingImage ? `${import.meta.env.VITE_API_URL?.replace('/api', '')}${existingImage}` : '')
+                      }
+                      alt="Lace preview"
+                      className="max-w-xs max-h-48 rounded-lg border border-border object-cover"
+                    />
+                    <div className="absolute top-2 right-2 flex gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="icon"
+                        className="h-8 w-8 bg-background/80 hover:bg-background"
+                        onClick={() => fileInputRef.current?.click()}
+                        title="Replace image"
+                      >
+                        <Upload className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={async () => {
+                          // If there's an existing image on server and no new file, delete from server
+                          if (existingImage && !imageFile && id) {
+                            try {
+                              await deleteLaceImage(id);
+                              handleApiSuccess('Image removed', 'Image has been removed.');
+                            } catch (err) {
+                              handleApiError(err, 'Failed to remove image');
+                              return;
+                            }
+                          }
+                          setImageFile(null);
+                          setImagePreview(null);
+                          setExistingImage(null);
+                          if (fileInputRef.current) fileInputRef.current.value = '';
+                        }}
+                        title="Remove image"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-muted/50 transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-sm text-muted-foreground mb-2">Click to upload lace image</p>
+                    <p className="text-xs text-muted-foreground">JPG, PNG, or WEBP (max 5MB)</p>
+                  </div>
+                )}
               </div>
             </div>
 

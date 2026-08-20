@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, X, User, LogOut, Settings, Search } from 'lucide-react';
+import { Menu, X, User, LogOut, Settings, Search, Bug } from 'lucide-react';
 import { useAuthStore } from '@/stores/auth.store';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import Breadcrumb from './Breadcrumb';
+import { ReportIssueDialog } from './ReportIssueDialog';
 import { useUIPreferences } from '@/stores/ui-preferences.store';
 
 interface HeaderProps {
@@ -22,6 +25,7 @@ export default function Header({ sidebarOpen, toggleSidebar }: HeaderProps) {
   const navigate = useNavigate();
   const { user, clearAuth } = useAuthStore();
   const { setCommandPaletteOpen } = useUIPreferences();
+  const [reportIssueOpen, setReportIssueOpen] = useState(false);
 
   const handleLogout = () => {
     clearAuth();
@@ -68,6 +72,23 @@ export default function Header({ sidebarOpen, toggleSidebar }: HeaderProps) {
             </kbd>
           </Button>
 
+          {/* Report Issue Button */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setReportIssueOpen(true)}
+                  className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                >
+                  <Bug className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Report an Issue</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           {/* User Info */}
           <div className="hidden sm:block text-right">
             <div className="text-sm font-medium text-foreground">{user?.name}</div>
@@ -107,6 +128,9 @@ export default function Header({ sidebarOpen, toggleSidebar }: HeaderProps) {
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Global Report Issue dialog */}
+      <ReportIssueDialog open={reportIssueOpen} onOpenChange={setReportIssueOpen} />
     </header>
   );
 }

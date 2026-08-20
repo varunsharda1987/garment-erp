@@ -1625,10 +1625,19 @@ export const removeStyleAllocation = async (req: Request, res: Response) => {
     throw new ValidationError('This allocation does not belong to the specified fabric');
   }
 
-  // Delete the style_fabrics record (cascades to style_pattern_parts)
-  await prisma.style_fabrics.delete({
-    where: { id: styleFabricId },
-  });
+  // CRITICAL: unlink fabric_width_cad rows BEFORE deleting style_fabrics.
+  // styleFabricId is ON DELETE CASCADE, so deleting the allocation would otherwise
+  // destroy approved CAD planning + costing data (same pattern as style.service.ts).
+  await prisma.$transaction([
+    prisma.fabric_width_cad.updateMany({
+      where: { styleFabricId },
+      data: { styleFabricId: null },
+    }),
+    // Delete the style_fabrics record (cascades to style_pattern_parts)
+    prisma.style_fabrics.delete({
+      where: { id: styleFabricId },
+    }),
+  ]);
 
   logInfo(
     `Fabric allocation removed: styleFabricId=${styleFabricId}, style=${styleFabric.style_components?.styles?.styleCode}`

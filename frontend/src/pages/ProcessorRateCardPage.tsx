@@ -11,6 +11,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { Button } from '../components/ui/button';
+import { Checkbox } from '../components/ui/checkbox';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { processorRateCardV2Service } from '../services/processorRateCardV2.service';
@@ -89,6 +90,7 @@ export default function ProcessorRateCardPage() {
     rates: Record<string, number | null>;
     sourceGreigeName: string;
   } | null>(null);
+  const [isPasteToNewModalOpen, setIsPasteToNewModalOpen] = useState(false);
 
   // Delete confirmation state (BUG-PRC8 fix: use generic type instead of faking GreigeRow for lace)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -542,6 +544,45 @@ export default function ProcessorRateCardPage() {
     setGreigeSearchTerm('');
   };
 
+  // Add greiges AND paste copied rates in one action
+  const addAndPasteGreiges = () => {
+    if (!copiedRowData) return;
+
+    const newGreiges: GreigeRow[] = [];
+    const existingIds = new Set(greiges.map((g) => g.id));
+
+    for (const greigeId of selectedGreigeIds) {
+      if (existingIds.has(greigeId)) continue;
+
+      const greige = availableGreiges.find((g) => g.id === greigeId);
+      if (greige) {
+        // Create rates from copied data, mapped to current slabs
+        const rates: Record<string, number | null> = {};
+        slabs.forEach((slab) => {
+          const slabId = getSlabId(slab);
+          rates[slabId] = copiedRowData.rates[slabId] ?? null;
+        });
+
+        newGreiges.push({
+          id: greige.id,
+          greigeCode: greige.greigeCode,
+          greigeName: greige.greigeName,
+          genericGreigeName: greige.genericGreigeName,
+          rates, // Copied rates!
+          shrinkagePercent: copiedRowData.shrinkagePercent, // Copied shrinkage!
+          averageShrinkagePercent: greige.averageShrinkagePercent ?? null,
+          isNew: true,
+        });
+      }
+    }
+
+    setGreiges([...greiges, ...newGreiges]);
+    setSelectedGreigeIds(new Set());
+    setIsPasteToNewModalOpen(false);
+    setGreigeSearchTerm('');
+    notify.success(`Added ${newGreiges.length} greige(s) with pasted rates from "${copiedRowData.sourceGreigeName}"`);
+  };
+
   const handleCopy = async () => {
     if (!selectedProcessorId || !copyTargetProcessorId) return;
 
@@ -842,6 +883,18 @@ export default function ProcessorRateCardPage() {
               <Plus className="h-4 w-4 mr-2" />
               {materialType === 'FABRIC' ? 'Add Greige Row' : 'Add Lace Row'}
             </Button>
+            {/* Paste to New Greige button - only when clipboard has data and in Fabric mode */}
+            {copiedRowData && materialType === 'FABRIC' && (
+              <Button
+                variant="outline"
+                onClick={() => setIsPasteToNewModalOpen(true)}
+                disabled={slabs.length === 0}
+                className="text-success border-success hover:bg-success/10"
+              >
+                <ClipboardPaste className="h-4 w-4 mr-2" />
+                Paste to New Greige
+              </Button>
+            )}
             {/* Hide Copy button in Default Rates mode and Lace mode */}
             {!isDefaultRatesMode && materialType === 'FABRIC' && (
               <Button variant="outline" onClick={() => setIsCopyModalOpen(true)} disabled={slabs.length === 0}>
@@ -979,14 +1032,21 @@ export default function ProcessorRateCardPage() {
                       {copiedRowData && (
                         <div className="flex items-center gap-1">
                           <span
-                            className="text-xs text-success font-normal normal-case truncate max-w-24"
+                            className="text-xs text-success font-normal normal-case truncate max-w-20"
                             title={`Copied: ${copiedRowData.sourceGreigeName}`}
                           >
-                            📋 Copied
+                            Copied
                           </span>
                           <button
+                            onClick={() => setIsPasteToNewModalOpen(true)}
+                            className="text-success hover:text-success/80 p-0.5 rounded hover:bg-success/10"
+                            title="Paste to new greige"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                          <button
                             onClick={clearCopiedRowData}
-                            className="text-muted-foreground hover:text-destructive"
+                            className="text-muted-foreground hover:text-destructive p-0.5"
                             title="Clear clipboard"
                           >
                             <X className="h-3 w-3" />
@@ -1364,6 +1424,96 @@ export default function ProcessorRateCardPage() {
               </Button>
               <Button onClick={handleCopy} disabled={!copyTargetProcessorId || saving}>
                 {saving ? 'Copying...' : 'Copy Structure'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Paste to New Greige Modal */}
+      {isPasteToNewModalOpen && copiedRowData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-card rounded-lg shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+            <div className="p-4 border-b flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-display font-semibold">Paste to New Greige</h2>
+                <p className="text-sm text-muted-foreground">
+                  Select greige(s) to add with rates from &quot;{copiedRowData.sourceGreigeName}&quot;
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsPasteToNewModalOpen(false);
+                  setSelectedGreigeIds(new Set());
+                  setGreigeSearchTerm('');
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Search input */}
+            <div className="p-4 border-b">
+              <Input
+                placeholder="Search greige by name or code..."
+                value={greigeSearchTerm}
+                onChange={(e) => setGreigeSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {/* Greige list */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {filteredAvailableGreiges.map((greige) => {
+                const isExisting = greiges.some((g) => g.id === greige.id);
+                const isSelected = selectedGreigeIds.has(greige.id);
+                return (
+                  <label
+                    key={greige.id}
+                    className={`flex items-center p-2 rounded hover:bg-muted cursor-pointer ${isExisting ? 'opacity-50' : ''}`}
+                  >
+                    <Checkbox
+                      checked={isSelected}
+                      disabled={isExisting}
+                      onCheckedChange={(checked) => {
+                        const newSelected = new Set(selectedGreigeIds);
+                        if (checked) newSelected.add(greige.id);
+                        else newSelected.delete(greige.id);
+                        setSelectedGreigeIds(newSelected);
+                      }}
+                      className="mr-3"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium">{greige.greigeName}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {greige.genericGreigeName} | {greige.greigeCode}
+                      </div>
+                    </div>
+                    {isExisting && <span className="text-xs text-muted-foreground">Already added</span>}
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="p-4 border-t flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsPasteToNewModalOpen(false);
+                  setSelectedGreigeIds(new Set());
+                  setGreigeSearchTerm('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={addAndPasteGreiges}
+                disabled={selectedGreigeIds.size === 0}
+                className="bg-success hover:bg-success/90 text-success-foreground"
+              >
+                <ClipboardPaste className="h-4 w-4 mr-2" />
+                Add & Paste to {selectedGreigeIds.size} Greige(s)
               </Button>
             </div>
           </div>

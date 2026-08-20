@@ -1011,7 +1011,8 @@ class GRNService {
                     },
                   });
 
-                  // Sync to stock_levels
+                  // Sync to stock_levels (ensure materials record exists for matched fabrics)
+                  await ensureMaterialRecord(fabricResult.fabricId, 'FABRIC', tx);
                   await syncStockLevelQuantity(fabricResult.fabricId, qtyReceived, targetWarehouseId, 'METER', tx);
 
                   // Update PO status to RECEIVED
@@ -2856,6 +2857,8 @@ class GRNService {
         warehouseId: targetWarehouseId,
       },
     });
+    // Ensure materials record exists for pre-existing fabrics before syncing stock_levels
+    await ensureMaterialRecord(finishedFabricId, 'FABRIC', tx);
     await syncStockLevelQuantity(finishedFabricId, qtyReceived, targetWarehouseId ?? undefined, 'METER', tx);
 
     await tx.job_work_orders.update({

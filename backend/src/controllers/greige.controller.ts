@@ -12,7 +12,7 @@ import {
 import { ValidationError, NotFoundError } from '../errors';
 import { generateCode } from '../utils/code-generator';
 import { materialService } from '../services/material.service';
-import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
+import { ensureMaterialRecord, syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 
 /**
  * Greige Master Controller
@@ -319,6 +319,9 @@ export const createGreigeMaster = async (req: Request, res: Response) => {
       },
     },
   });
+
+  // Material Identity: materials.id === greige_master.id
+  await ensureMaterialRecord(greigeMaster.id, 'GREIGE');
 
   res.status(201).json({ data: greigeMaster, message: 'Greige master created successfully' });
 };

@@ -27,6 +27,7 @@ export const PERMISSIONS = {
   processGuide: ALL_ROLES,
   aiAssistant: ALL_ROLES,
   aiSettings: [UserRole.ADMIN], // Admin only - configure AI provider
+  issueReports: [UserRole.ADMIN], // Admin only - review team issue reports
 
   // Production Status
   productionStatus: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER, UserRole.FACTORY_SUPERVISOR],
@@ -34,7 +35,7 @@ export const PERMISSIONS = {
   // Styles & CAD Planning
   styles: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER, UserRole.SALES],
   cadPlanning: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER],
-  costSheets: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.ACCOUNTS],
+  costSheets: ALL_ROLES, // Testing phase: everyone can set fabric prices
 
   // Testing/Quality
   testing: [UserRole.ADMIN, UserRole.QUALITY, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER],
@@ -80,7 +81,7 @@ export const PERMISSIONS = {
   // Masters
   masterData: ALL_ROLES,
   customers: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.SALES, UserRole.ACCOUNTS],
-  suppliers: [UserRole.ADMIN, UserRole.PURCHASE, UserRole.ACCOUNTS],
+  suppliers: ALL_ROLES, // Testing phase: everyone can set processor rates
   fabricMasters: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.INVENTORY, UserRole.PURCHASE],
   trimMasters: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.INVENTORY, UserRole.PURCHASE],
   componentMasters: [UserRole.ADMIN, UserRole.MERCHANDISER],
@@ -124,6 +125,7 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   '/process-guide': 'processGuide',
   '/ai-assistant': 'aiAssistant',
   '/ai-settings': 'aiSettings',
+  '/issue-reports': 'issueReports',
   '/production/status': 'productionStatus',
 
   // Styles
@@ -278,7 +280,7 @@ export const MODULES = {
  * Group permissions by module for UI display
  */
 export const PERMISSION_GROUPS: Record<keyof typeof MODULES, PermissionKey[]> = {
-  DASHBOARD: ['dashboard', 'processGuide', 'productionStatus', 'aiAssistant', 'aiSettings'],
+  DASHBOARD: ['dashboard', 'processGuide', 'productionStatus', 'aiAssistant', 'aiSettings', 'issueReports'],
   STYLES: ['styles', 'cadPlanning', 'costSheets'],
   ORDERS: ['orders', 'workOrders', 'bom', 'mrp'],
   MANUFACTURING: [

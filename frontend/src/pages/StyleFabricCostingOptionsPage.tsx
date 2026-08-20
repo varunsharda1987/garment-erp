@@ -5,17 +5,25 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Check, Trash2, Loader2, X, ArrowRight, Lock, FileText } from 'lucide-react';
+import { ArrowLeft, Check, Trash2, Loader2, X, ArrowRight, Lock, FileText, MoreHorizontal } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { fabricCostingService } from '../services/fabricCosting.service';
 import { styleService } from '../services/style.service';
 import type { CostingOption } from '../types/fabricCosting.types';
 import type { Style } from '../types/style.types';
 import { notify } from '../lib/notify';
+import { handleApiError } from '../lib/api-error-handler';
 import { divideByShrinkage } from '../utils/math';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 
@@ -116,10 +124,12 @@ export default function StyleFabricCostingOptionsPage() {
     setDeletingId(optionToDelete.id);
     try {
       await fabricCostingService.deleteCostingOption(optionToDelete.id);
-      notify.success('Option deleted');
+      notify.success('Costing removed. CAD data preserved');
       fetchCostingOptions();
-    } catch {
-      notify.error('Failed to delete option');
+    } catch (error) {
+      // Surface the server's reason — approved and locked options are refused with
+      // instructions ("unapprove it first"), which a generic message would hide
+      handleApiError(error, 'Failed to remove costing');
     } finally {
       setDeletingId(null);
       setOptionToDelete(null);
@@ -430,64 +440,7 @@ export default function StyleFabricCostingOptionsPage() {
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex items-center gap-1">
-                                    {/* Approve button */}
-                                    {option.approvalStatus !== 'APPROVED' && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleApprove(option.id)}
-                                        disabled={approvingId === option.id}
-                                        title="Approve"
-                                      >
-                                        {approvingId === option.id ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                          <Check className="h-3 w-3" />
-                                        )}
-                                      </Button>
-                                    )}
-
-                                    {/* Unapprove button */}
-                                    {option.approvalStatus === 'APPROVED' && !option.isLocked && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => handleUnapprove(option.id)}
-                                        disabled={unapprovingId === option.id}
-                                        title="Unapprove"
-                                        className="text-warning hover:text-warning"
-                                      >
-                                        {unapprovingId === option.id ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                          <X className="h-3 w-3" />
-                                        )}
-                                      </Button>
-                                    )}
-
-                                    {/* Promote to Production */}
-                                    {(option.purpose === 'COSTING' || option.purpose === 'RAW_MATERIAL_CALCULATION') &&
-                                      option.approvalStatus === 'APPROVED' && (
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => handlePromote(option.id, 'PRODUCTION')}
-                                          disabled={promotingId === option.id}
-                                          className="text-success hover:text-success"
-                                          title="Promote to Production"
-                                        >
-                                          {promotingId === option.id ? (
-                                            <Loader2 className="h-3 w-3 animate-spin" />
-                                          ) : (
-                                            <>
-                                              <ArrowRight className="h-3 w-3 mr-1" />
-                                              Prod
-                                            </>
-                                          )}
-                                        </Button>
-                                      )}
-
-                                    {/* Lock indicator */}
+                                    {/* Lock indicator for Production (always visible inline) */}
                                     {option.purpose === 'PRODUCTION' && (
                                       <span
                                         className="text-muted-foreground text-xs"
@@ -497,22 +450,78 @@ export default function StyleFabricCostingOptionsPage() {
                                       </span>
                                     )}
 
-                                    {/* Delete button */}
-                                    {!(option.purpose === 'PRODUCTION' && option.isLocked) && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="text-destructive hover:text-destructive"
-                                        disabled={deletingId === option.id}
-                                        onClick={() => handleDeleteClick(option.id, componentName)}
-                                      >
-                                        {deletingId === option.id ? (
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                        ) : (
-                                          <Trash2 className="h-3 w-3" />
+                                    {/* Actions dropdown */}
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8"
+                                          disabled={
+                                            approvingId === option.id ||
+                                            unapprovingId === option.id ||
+                                            deletingId === option.id ||
+                                            promotingId === option.id
+                                          }
+                                        >
+                                          {approvingId === option.id ||
+                                          unapprovingId === option.id ||
+                                          deletingId === option.id ||
+                                          promotingId === option.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <MoreHorizontal className="h-4 w-4" />
+                                          )}
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end">
+                                        {/* Approve (only for pending options) */}
+                                        {option.approvalStatus !== 'APPROVED' && (
+                                          <DropdownMenuItem onClick={() => handleApprove(option.id)}>
+                                            <Check className="mr-2 h-4 w-4" />
+                                            Approve
+                                          </DropdownMenuItem>
                                         )}
-                                      </Button>
-                                    )}
+
+                                        {/* Unapprove (only for approved, non-locked options) */}
+                                        {option.approvalStatus === 'APPROVED' && !option.isLocked && (
+                                          <DropdownMenuItem
+                                            onClick={() => handleUnapprove(option.id)}
+                                            className="text-warning"
+                                          >
+                                            <X className="mr-2 h-4 w-4" />
+                                            Unapprove
+                                          </DropdownMenuItem>
+                                        )}
+
+                                        {/* Promote to Production */}
+                                        {(option.purpose === 'COSTING' ||
+                                          option.purpose === 'RAW_MATERIAL_CALCULATION') &&
+                                          option.approvalStatus === 'APPROVED' && (
+                                            <DropdownMenuItem
+                                              onClick={() => handlePromote(option.id, 'PRODUCTION')}
+                                              className="text-success"
+                                            >
+                                              <ArrowRight className="mr-2 h-4 w-4" />
+                                              Promote to Production
+                                            </DropdownMenuItem>
+                                          )}
+
+                                        {/* Remove costing (not for locked Production records) */}
+                                        {!(option.purpose === 'PRODUCTION' && option.isLocked) && (
+                                          <>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                              onClick={() => handleDeleteClick(option.id, componentName)}
+                                              className="text-destructive"
+                                            >
+                                              <Trash2 className="mr-2 h-4 w-4" />
+                                              Remove Costing
+                                            </DropdownMenuItem>
+                                          </>
+                                        )}
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   </div>
                                 </TableCell>
                               </TableRow>
@@ -533,9 +542,9 @@ export default function StyleFabricCostingOptionsPage() {
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Costing Option?"
-        description={`This will permanently delete this costing option for ${optionToDelete?.componentName || 'this component'}. This action cannot be undone.`}
-        confirmText="Delete"
+        title="Remove Costing Option?"
+        description={`This removes the costing (rates, processor, costs) for ${optionToDelete?.componentName || 'this component'}. The CAD entry and its size breakdowns are preserved and stay available in CAD Planning.`}
+        confirmText="Remove"
         cancelText="Cancel"
         onConfirm={confirmDelete}
         variant="destructive"

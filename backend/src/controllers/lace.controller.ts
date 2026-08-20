@@ -6,6 +6,7 @@ import { createLaceStock } from '../services/laceStock.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
 import { materialService } from '../services/material.service';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { deleteLaceImageFile } from '../middleware/upload.middleware';
 
 // Type for supplier input
 interface LaceSupplierInput {
@@ -157,6 +158,9 @@ export const createLace = async (req: Request, res: Response) => {
     }
   }
 
+  // Handle image upload if present
+  const imageUrl = req.file ? `/uploads/lace-images/${req.file.filename}` : null;
+
   // Create lace_master + associations + its materials record ATOMICALLY.
   // Material-identity invariant: materials.id === master.id (createFromMaster), and a
   // failure can never leave a master without its registry row.
@@ -173,6 +177,7 @@ export const createLace = async (req: Request, res: Response) => {
         composition: composition || null,
         laceType: laceType || null,
         description: description || null,
+        image: imageUrl,
         isActive: true,
         // Greige lace fields
         isGreige: Boolean(isGreige),
@@ -686,11 +691,22 @@ export const updateLace = async (req: Request, res: Response) => {
   // For greige lace, color should not be updated
   const finalColorToUpdate = existing.isGreige ? undefined : color !== undefined ? color || null : undefined;
 
+  // Handle image upload - if new image uploaded, delete old one
+  let imageUrl: string | null | undefined = undefined;
+  if (req.file) {
+    imageUrl = `/uploads/lace-images/${req.file.filename}`;
+    // Delete old image file if it exists
+    if (existing.image) {
+      deleteLaceImageFile(existing.image);
+    }
+  }
+
   // Update lace
   const updated = await prisma.lace_master.update({
     where: { id },
     data: {
       laceName: finalLaceName,
+      ...(imageUrl !== undefined && { image: imageUrl }),
       ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
       ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
       ...(width !== undefined && { width: width ? parseFloat(width) : null }),
@@ -1205,4 +1221,37 @@ export const downloadTemplate = async (req: Request, res: Response) => {
   };
 
   res.json(template);
+};
+
+/**
+ * Delete image from a lace item (without deleting the lace itself)
+ */
+export const deleteLaceImage = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  // Check if lace exists
+  const existing = await prisma.lace_master.findUnique({
+    where: { id },
+    select: { id: true, image: true },
+  });
+
+  if (!existing) {
+    throw new NotFoundError('Lace', id);
+  }
+
+  if (!existing.image) {
+    res.json({ message: 'Lace has no image to delete' });
+    return;
+  }
+
+  // Delete the image file from disk
+  deleteLaceImageFile(existing.image);
+
+  // Clear the image field in database
+  await prisma.lace_master.update({
+    where: { id },
+    data: { image: null },
+  });
+
+  res.json({ message: 'Image deleted successfully' });
 };

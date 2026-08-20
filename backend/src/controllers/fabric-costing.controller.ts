@@ -433,6 +433,14 @@ export async function getStyleFabrics(req: Request, res: Response) {
                       code: true,
                     },
                   },
+                  // MRP-48d: the saved rate card carries the printing type; the costing
+                  // form needs both back so a reload restores what was actually saved.
+                  rateCard: {
+                    select: {
+                      id: true,
+                      printingType: true,
+                    },
+                  },
                 },
                 orderBy: { cutableWidth: 'asc' },
               },
@@ -664,6 +672,10 @@ export async function getStyleFabrics(req: Request, res: Response) {
             costInputMode: cadRow.costInputMode || null,
             isPreferred: cadRow.isPreferred || false,
             processingBatchGroupColorId: cadRow.processingBatchGroupColorId || null,
+            // MRP-48d: rate card (and its printing type) the saved numbers came from,
+            // so reopening the page restores the same rate selection instead of blanking it
+            rateCardId: cadRow.rateCardId || null,
+            printingType: cadRow.rateCard?.printingType || null,
             // Order quantity for rate slab lookup (persisted from save)
             orderQuantityPcs: cadRow.orderQuantityPcs ?? null,
             // Creation timestamp for sorting by most recent
@@ -986,6 +998,9 @@ export async function saveFabricCosting(req: Request, res: Response) {
             screenType: costing.screenType || null,
             totalCostPerMeter: costing.totalCostPerMeter ? parseFloat(costing.totalCostPerMeter) : null,
             processorId: costing.processorId || sourceRecord.processorId,
+            // MRP-48d: clones must keep the rate card too, or the quantity-change copy
+            // loses which processor rate produced its numbers
+            rateCardId: costing.rateCardId || sourceRecord.rateCardId,
             numberOfColors: costing.numberOfColors ? parseInt(costing.numberOfColors) : null,
             costInputMode: costing.costInputMode || null,
             orderQuantityPcs: costing.orderQuantityPcs != null ? parseInt(costing.orderQuantityPcs) : null,
@@ -1061,6 +1076,13 @@ export async function saveFabricCosting(req: Request, res: Response) {
         message: 'Fabric costing updated successfully',
         updatedCount: updates.length,
         isRepeatOrder: isRepeatOrder, // Include repeat order status for frontend
+        // The CAD rows this save actually wrote. Clone mode creates NEW rows, so the
+        // frontend cannot derive these ids from its pre-save state — without them a
+        // costing run gets linked to superseded rows and shows "0 fabrics".
+        records: updates.map((u) => ({
+          id: u.id,
+          clonedFromCadId: u.clonedFromCadId ?? null,
+        })),
       },
     })
   );
@@ -1115,6 +1137,12 @@ export async function getCostingOptions(req: Request, res: Response) {
     include: {
       processor: { select: { id: true, name: true, code: true } },
       greige: { select: { id: true, greigeName: true, greigeCode: true } },
+      // Include styleFabric → style_components to derive componentName when null on CAD record
+      styleFabric: {
+        select: {
+          style_components: { select: { componentName: true } },
+        },
+      },
       costingStyle: {
         select: {
           id: true,
@@ -1152,7 +1180,8 @@ export async function getCostingOptions(req: Request, res: Response) {
 
   for (const option of options) {
     const styleIdKey = option.costingStyleId!;
-    const componentKey = option.componentName || 'Unknown';
+    // Derive componentName: prefer CAD record's value, fallback to styleFabric's component
+    const componentKey = option.componentName || option.styleFabric?.style_components?.componentName || 'Unknown';
 
     if (!groupedByStyle[styleIdKey]) {
       // Get customer info from brand_categories or use customerName field
@@ -1184,6 +1213,7 @@ export async function getCostingOptions(req: Request, res: Response) {
       id: option.id,
       styleFabricId: option.styleFabricId, // For grouping same-fabric different-properties
       fabricId: option.fabricId,
+      componentName: componentKey, // Use the derived componentKey (fallback from styleFabric if null)
       greigeName: option.greige?.greigeName || null,
       greigeCode: option.greige?.greigeCode || null,
       cutableWidth: option.cutableWidth,
@@ -1414,7 +1444,17 @@ export async function unapproveCostingOption(req: Request, res: Response) {
 
 /**
  * DELETE /api/fabric-costing/option/:optionId
- * Delete a costing option
+ * Remove the costing from a CAD row ("un-cost, don't delete").
+ *
+ * fabric_width_cad is a hybrid row: CAD Planning owns the geometry, approval and
+ * children (cad_size_breakdown, cad_pattern_parts); Fabric Costing only decorates
+ * it with cost columns. Deleting the row destroyed the approved CAD entry behind
+ * the costing option. We instead clear exactly the columns this module writes
+ * (see saveFabricCosting / pushFromCAD), mirroring deleteRun's unlink-don't-delete
+ * contract in fabric-costing-run.controller.ts.
+ *
+ * validateCADModification is deliberately not called: no CAD-owned data is touched.
+ * The locked/approved guards below are the costing-side equivalents.
  */
 export async function deleteCostingOption(req: Request, res: Response) {
   const { optionId } = req.params;
@@ -1428,19 +1468,49 @@ export async function deleteCostingOption(req: Request, res: Response) {
     throw new NotFoundError('Costing option', optionId);
   }
 
-  // Prevent deleting locked PRODUCTION records
+  // Prevent modifying locked PRODUCTION records
   if (option.isLocked) {
-    throw new ValidationError('Cannot delete locked PRODUCTION costing option');
+    throw new ValidationError('Cannot modify locked PRODUCTION costing option');
   }
 
-  await prisma.fabric_width_cad.delete({
+  // An approved option is the primary selection downstream (cost sheet, BOM).
+  // Unapprove first — both Options pages already expose that action.
+  if (option.approvalStatus === 'APPROVED') {
+    throw new ValidationError(
+      'Cannot remove costing from an approved option. Unapprove it first, then remove the costing.'
+    );
+  }
+
+  await prisma.fabric_width_cad.update({
     where: { id: optionId },
+    data: {
+      // Clearing these two drops the row out of every costing-options query
+      costingStyleId: null,
+      totalCostPerMeter: null,
+      // Remaining cost breakdown written by saveFabricCosting / pushFromCAD
+      transportCostPerMeter: null,
+      processingPricePerMeter: null,
+      shrinkagePercent: null,
+      shrinkageCostPerMeter: null,
+      screenCostPerMeter: null,
+      screenType: null,
+      numberOfColors: null,
+      processorId: null,
+      rateCardId: null,
+      orderQuantityPcs: null,
+      processingBatchGroupColorId: null,
+      // Unlink from its run; run totals are derived at read time (computeRunTotals)
+      costingRunId: null,
+      // NOT cleared: greigeCostPerMeter / costInputMode / greigeRateSource* are also
+      // written by CAD Planning's auto-costing (including manual overrides typed on
+      // the CAD page), and are overwritten on the next costing save anyway.
+    },
   });
 
   res.json(
     serialize({
       success: true,
-      message: 'Costing option deleted successfully',
+      message: 'Costing removed. CAD data has been preserved.',
     })
   );
 }
@@ -1732,6 +1802,10 @@ export async function getStylesCostingStatus(req: Request, res: Response) {
         hasApproved,
         hasProduction,
         costingCount: costings.length,
+        // Which purpose modes actually hold costing, so the Fabric Costing page can open
+        // on the tab that has the data instead of always defaulting to COSTING.
+        // Legacy rows with a null purpose are shown under COSTING (matches getStyleFabrics).
+        costedPurposes: [...new Set(costings.map((c) => c.purpose || 'COSTING'))],
       },
     };
   });

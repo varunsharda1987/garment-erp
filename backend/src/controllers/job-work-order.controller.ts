@@ -172,10 +172,11 @@ class JobWorkOrderController {
       // KAAJ_BUTTON: resolve rates (explicit > system settings defaults)
       const isKaaj = body.processType === 'KAAJ_BUTTON';
       const buttonholeRate = isKaaj
-        ? (body.buttonholeRatePerUnit ?? (await systemSettingsService.getNumber('KAAJ_BUTTONHOLE_RATE_PER_UNIT', 0.3)))
+        ? (body.buttonholeRatePerUnit ??
+          (await systemSettingsService.getNumberDefault('KAAJ_BUTTONHOLE_RATE_PER_UNIT')))
         : null;
       const buttonRate = isKaaj
-        ? (body.buttonRatePerUnit ?? (await systemSettingsService.getNumber('KAAJ_BUTTON_RATE_PER_UNIT', 0.3)))
+        ? (body.buttonRatePerUnit ?? (await systemSettingsService.getNumberDefault('KAAJ_BUTTON_RATE_PER_UNIT')))
         : null;
       const kaajSubtotal = isKaaj
         ? (body.buttonholeCount ?? 0) * (buttonholeRate ?? 0) + (body.buttonCount ?? 0) * (buttonRate ?? 0)
@@ -934,8 +935,9 @@ class JobWorkOrderController {
       res.json({
         success: true,
         data: updated,
+        challanNumber: result.challanNumber,
         warning: result.warnings.join(' ') || undefined,
-        message: 'Job work order issued — outward challan created',
+        message: `Job work order issued — challan ${result.challanNumber} created`,
       });
     } catch (error) {
       if (error instanceof JobWorkOrderError) {

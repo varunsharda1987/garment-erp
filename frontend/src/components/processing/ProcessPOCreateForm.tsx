@@ -237,8 +237,10 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
         });
       }
       // Asked finished width = CAD cutable width + selvedge deduction (NOT bare cutable —
-      // finishing at the cutable width would leave too little after selvedge trim)
-      if (selectedStyleFabric.cutableWidth) {
+      // finishing at the cutable width would leave too little after selvedge trim).
+      // Wait for the deduction to load rather than prefilling with a guessed number —
+      // this width is sent to the processor and persisted.
+      if (selectedStyleFabric.cutableWidth && cutableWidthDeduction != null) {
         setExpectedFinishedWidth(Number(selectedStyleFabric.cutableWidth) + cutableWidthDeduction);
       }
     }
@@ -247,6 +249,9 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
 
   // When lab dip or style+fabric is selected, try to get expected width from CAD
   useEffect(() => {
+    // The selvedge deduction is a persisted input, so hold off until it has loaded.
+    if (cutableWidthDeduction == null) return;
+
     // For style-based mode, prefer styleFabric (already has cutableWidth) over searched fabric
     if (createMode === 'style-based' && selectedStyleFabric?.cutableWidth) {
       setExpectedFinishedWidth(Number(selectedStyleFabric.cutableWidth) + cutableWidthDeduction);
@@ -1038,9 +1043,11 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                   placeholder="e.g., 44"
                 />
                 <p className="text-xs text-muted-foreground">
-                  {expectedFinishedWidth > 0
-                    ? `Gives ${(expectedFinishedWidth - cutableWidthDeduction).toFixed(1)}" cutable after ${cutableWidthDeduction}" selvedge`
-                    : `Pre-filled as CAD cutable width + ${cutableWidthDeduction}" selvedge`}
+                  {cutableWidthDeduction == null
+                    ? 'Loading selvedge deduction…'
+                    : expectedFinishedWidth > 0
+                      ? `Gives ${(expectedFinishedWidth - cutableWidthDeduction).toFixed(1)}" cutable after ${cutableWidthDeduction}" selvedge`
+                      : `Pre-filled as CAD cutable width + ${cutableWidthDeduction}" selvedge`}
                 </p>
               </div>
             </div>

@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { ValidationError, NotFoundError } from '../errors';
 // BUG-STY8 fix: Use decimal.js for precise BOM quantity calculations
 import { toCurrency, multiplyCurrency, addCurrency, toNumber } from '../utils/currency';
+import { systemSettingsService } from '../services/system-settings.service';
 
 /**
  * Search materials by type and query string
@@ -692,7 +693,7 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
  */
 export const addMaterialToBOM = async (req: Request, res: Response): Promise<void> => {
   const { styleId } = req.params;
-  const { materialCode, usageCategory, componentName, quantityPerGarment, unit, notes } = req.body;
+  const { materialCode, usageCategory, componentName, quantityPerGarment, unit, notes, extraPercentage } = req.body;
 
   logDebug(`Adding material to BOM: style=${styleId}, material=${materialCode}`);
 
@@ -844,6 +845,9 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
     unitPrice,
     totalCost,
     notes,
+    // Resolve the wastage default HERE rather than letting the DB column default fire.
+    // `?? ` not `|| ` — an explicit 0 is a real choice and must not fall through.
+    extraPercentage: extraPercentage ?? (await systemSettingsService.getNumberDefault('TRIM_DEFAULT_WASTAGE_PERCENT')),
   };
 
   // Set the appropriate master ID based on material type
@@ -884,7 +888,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
  */
 export const updateBOMItem = async (req: Request, res: Response): Promise<void> => {
   const { styleId, bomId } = req.params;
-  const { componentName, quantityPerGarment, unit, notes, isActive } = req.body;
+  const { componentName, quantityPerGarment, unit, notes, isActive, extraPercentage } = req.body;
 
   logDebug(`Updating BOM item: ${bomId} for style ${styleId}`);
 
@@ -920,6 +924,8 @@ export const updateBOMItem = async (req: Request, res: Response): Promise<void> 
       totalCost,
       notes: notes !== undefined ? notes : existing.notes,
       isActive: isActive !== undefined ? isActive : existing.isActive,
+      // `!== undefined` so an explicit 0 is written; `||` would discard it.
+      extraPercentage: extraPercentage !== undefined ? extraPercentage : existing.extraPercentage,
     },
   });
 

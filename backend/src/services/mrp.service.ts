@@ -3020,6 +3020,7 @@ export async function generatePOFromRequirements(
           rateCardId: true,
           greigeId: true,
           fabricId: true,
+          fabricWidthInches: true,
           sourcingStrategy: true,
           colorName: true,
           rateCard: { select: { processingType: true, printingType: true, shrinkagePercent: true } },

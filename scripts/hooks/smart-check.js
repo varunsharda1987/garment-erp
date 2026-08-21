@@ -393,6 +393,17 @@ function checkUnguardedCadDelete(tsFiles) {
   );
 }
 
+/** Check (E4): a business default declared outside defaults.registry.ts — BLOCKING new + ratchet. */
+function checkHardcodedDefault(tsFiles) {
+  console.log(`\n${c.cyan}Checking for hardcoded default values...${c.reset}`);
+  return runRatchetedCheck(
+    'hardcoded default value(s) competing with backend/src/config/defaults.registry.ts',
+    detectors.hardcodedDefault(tsFiles),
+    'hardcoded-default-baseline.json',
+    'Declare the value once in backend/src/config/defaults.registry.ts and read it with systemSettingsService.getNumberDefault("KEY") (backend) or useDefaultSettings() (frontend). Or mark `// allow-hardcoded-default`. If intentional, add the key to scripts/hooks/hardcoded-default-baseline.json.'
+  );
+}
+
 /**
  * Check: Type synchronization between frontend and backend
  */
@@ -846,6 +857,7 @@ function runAllModeChecks() {
   if (!checkManualMaterialCreate(tsFiles)) ok = false;
   if (!checkColourSentinelLiteral(tsFiles)) ok = false;
   if (!checkUnguardedCadDelete(tsFiles)) ok = false;
+  if (!checkHardcodedDefault(tsFiles)) ok = false;
   if (!checkSchemaServiceUpdateParity(schemaFiles)) ok = false;
   checkAiGuides(); // warn-only
 
@@ -951,6 +963,7 @@ function main() {
     if (!checkManualMaterialCreate(categories.typescript)) allPassed = false;
     if (!checkColourSentinelLiteral(categories.typescript)) allPassed = false;
     if (!checkUnguardedCadDelete(categories.typescript)) allPassed = false;
+    if (!checkHardcodedDefault(categories.typescript)) allPassed = false;
   }
 
   // Type file changes → check type sync

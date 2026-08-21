@@ -135,7 +135,7 @@ export const getOrderLabelRequirements = async (req: Request, res: Response): Pr
       });
     }
     overridesMap.set(override.styleMaterialBomId, {
-      extraPercentage: override.extraPercentage ? Number(override.extraPercentage) : null,
+      extraPercentage: override.extraPercentage != null ? Number(override.extraPercentage) : null,
       sizeOverrides: sizeOverridesMap,
     });
   }
@@ -510,7 +510,7 @@ export const getOrderTotalLabelRequirements = async (req: Request, res: Response
     const overridesMap = new Map<string, { extraPercentage?: number | null }>();
     for (const override of orderItem.labelOverrides) {
       overridesMap.set(override.styleMaterialBomId, {
-        extraPercentage: override.extraPercentage ? Number(override.extraPercentage) : null,
+        extraPercentage: override.extraPercentage != null ? Number(override.extraPercentage) : null,
       });
     }
 

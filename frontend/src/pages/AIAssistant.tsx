@@ -304,7 +304,7 @@ export default function AIAssistant() {
   }
 
   return (
-    <div className="h-screen flex overflow-hidden bg-muted">
+    <div className="h-[calc(100vh-4rem)] -m-6 flex overflow-hidden bg-background">
       {/* Conversation Sidebar */}
       {sidebarOpen && (
         <div className="w-72 flex-shrink-0">
@@ -319,14 +319,14 @@ export default function AIAssistant() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="bg-card border-b px-4 py-3 flex items-center justify-between">
+        <div className="bg-card border-b shadow-sm px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(!sidebarOpen)} className="h-8 w-8 p-0">
               {sidebarOpen ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeft className="h-5 w-5" />}
             </Button>
             <div>
-              <h1 className="font-display font-semibold text-foreground flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-info" />
+              <h1 className="text-xl font-display font-medium text-foreground flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary" />
                 AI Assistant
               </h1>
               <p className="text-xs text-muted-foreground">
@@ -344,7 +344,7 @@ export default function AIAssistant() {
         <div className="flex-1 overflow-y-auto p-6">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center">
-              <Bot className="h-16 w-16 text-gray-300 mb-4" />
+              <Bot className="h-16 w-16 text-muted-foreground/50 mb-4" />
               <h3 className="text-xl font-semibold text-foreground mb-2">How can I help you today?</h3>
               <p className="text-muted-foreground mb-8 max-w-md">
                 Ask me anything about the ERP system - styles, orders, materials, production, and more.
@@ -358,7 +358,7 @@ export default function AIAssistant() {
                       <button
                         key={index}
                         onClick={() => setInput(suggestion)}
-                        className="text-left px-4 py-3 bg-card hover:bg-muted rounded-lg border text-sm text-foreground transition-colors shadow-sm"
+                        className="text-left px-4 py-3 bg-card hover:bg-secondary hover:border-primary/20 rounded-xl border border-border text-sm text-foreground transition-all shadow-sm hover:shadow-md"
                       >
                         {suggestion}
                       </button>
@@ -377,14 +377,14 @@ export default function AIAssistant() {
                   {/* Avatar */}
                   <div
                     className={cn(
-                      'flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
-                      message.role === 'USER' ? 'bg-info' : 'bg-gray-200'
+                      'flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center',
+                      message.role === 'USER' ? 'bg-primary' : 'bg-secondary border border-border'
                     )}
                   >
                     {message.role === 'USER' ? (
-                      <User className="h-4 w-4 text-white" />
+                      <User className="h-5 w-5 text-white" />
                     ) : (
-                      <Bot className="h-4 w-4 text-muted-foreground" />
+                      <Bot className="h-5 w-5 text-foreground" />
                     )}
                   </div>
 
@@ -393,7 +393,7 @@ export default function AIAssistant() {
                     <div
                       className={cn(
                         'rounded-2xl px-4 py-3',
-                        message.role === 'USER' ? 'bg-info text-white' : 'bg-card border shadow-sm'
+                        message.role === 'USER' ? 'bg-primary text-white' : 'bg-card border border-border/50 shadow-sm'
                       )}
                     >
                       {message.role === 'ASSISTANT' ? (
@@ -441,21 +441,21 @@ export default function AIAssistant() {
               {/* Loading Indicator */}
               {loading && (
                 <div className="flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-                    <Bot className="h-4 w-4 text-muted-foreground" />
+                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center">
+                    <Bot className="h-5 w-5 text-foreground" />
                   </div>
-                  <div className="bg-card border rounded-2xl px-4 py-3 shadow-sm">
+                  <div className="bg-card border border-border/50 rounded-2xl px-4 py-3 shadow-sm">
                     <div className="flex gap-1">
                       <div
-                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
                         style={{ animationDelay: '0ms' }}
                       />
                       <div
-                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
                         style={{ animationDelay: '150ms' }}
                       />
                       <div
-                        className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                        className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"
                         style={{ animationDelay: '300ms' }}
                       />
                     </div>
@@ -478,7 +478,7 @@ export default function AIAssistant() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask me anything about the ERP system..."
-                className="flex-1 resize-none border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 resize-none border border-input bg-background rounded-xl px-4 py-3 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:border-transparent transition-shadow"
                 rows={2}
                 disabled={loading}
               />

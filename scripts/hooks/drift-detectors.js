@@ -1200,6 +1200,92 @@ function unguardedCadDelete(relFiles) {
   return out;
 }
 
+// Single source of defaults (2026-08-21) — a business default value declared anywhere other
+// than backend/src/config/defaults.registry.ts.
+//
+// The bug this prevents: the SAME wastage default was declared in seven places that disagreed
+// (a Prisma column @default, the seed array, per-call-site fallback literals, two frontend
+// copies, and a hand-kept key list). The DB column default silently won, so every trim on
+// every BOM carried 5% wastage nobody had chosen and that Settings could not change.
+//
+// Sanctioned shape: declare the value once in defaults.registry.ts and read it via
+// systemSettingsService.getNumberDefault('KEY') / getStringDefault / getBooleanDefault, or in
+// the frontend via useDefaultSettings(). Opt out on a genuinely unrelated line with
+//   // allow-hardcoded-default
+function hardcodedDefault(relFiles) {
+  const out = [];
+
+  // Concepts owned by the registry. A literal assigned to one of these duplicates it.
+  const GOVERNED = [
+    'wastagePercent',
+    'cadWastagePercent',
+    'extraPercentage',
+    'valueLossPercent',
+    'markupPercent',
+    'fabricBufferPercent',
+    'trimsBufferPercent',
+    'cmtBufferPercent',
+    'embroideryBufferPercent',
+    'accessoriesBufferPercent',
+    'cutableWidthDeduction',
+    'agingThresholdDays',
+  ].join('|');
+
+  const RULES = [
+    {
+      // getNumber('KEY', 5) — the fallback argument that generated the whole bug class.
+      re: /systemSettingsService\.(?:getNumber|getString)\(\s*['"][A-Z_]+['"]\s*,/g,
+      detail: () =>
+        "passes a fallback literal to systemSettingsService — use getNumberDefault('KEY') / " +
+        "getStringDefault('KEY'); the value belongs in defaults.registry.ts",
+    },
+    {
+      // A governed field assigned a bare non-zero literal (object seed, useState, etc).
+      re: new RegExp('\\b(?:' + GOVERNED + ')\\s*[:=]\\s*(?!0\\b)\\d+(?:\\.\\d+)?', 'g'),
+      detail: (m) => 'hardcoded default `' + m.trim() + '` — read it from defaults.registry.ts',
+    },
+    {
+      // A governed field defaulted with ?? or || to a non-zero literal.
+      re: new RegExp(
+        '\\b(?:' + GOVERNED + ')\\b[^;\\n]{0,80}?(?:\\?\\?|\\|\\|)\\s*(?!0\\b)\\d+(?:\\.\\d+)?',
+        'g'
+      ),
+      detail: (m) => 'fallback literal in `' + m.trim() + '` — read the default from defaults.registry.ts',
+    },
+  ];
+
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^(backend|frontend)\/src\/.*\.(ts|tsx)$/.test(norm)) continue;
+    if (/\.test\.tsx?$|__tests__|\/tests?\//.test(norm)) continue;
+    // The registry itself and the service that reads it are the sanctioned homes.
+    if (/defaults\.registry\.ts$|system-settings\.service\.ts$/.test(norm)) continue;
+
+    const content = readCode(rel);
+    if (!content) continue;
+    const lines = content.split('\n');
+
+    for (const rule of RULES) {
+      rule.re.lastIndex = 0;
+      let m;
+      while ((m = rule.re.exec(content))) {
+        const lineNo = lineOf(content, m.index);
+        const context = (lines[lineNo - 2] || '') + '\n' + (lines[lineNo - 1] || '');
+        if (/allow-hardcoded-default/.test(context)) continue;
+        out.push({
+          // Key on the normalised path so a baseline written on Windows still matches the
+          // forward-slash paths git hands smart-check.
+          key: norm + ' :: ' + m[0].replace(/\s+/g, ' '),
+          file: rel,
+          line: lineNo,
+          detail: rule.detail(m[0]),
+        });
+      }
+    }
+  }
+  return out;
+}
+
 module.exports = {
   perRouteValidation,
   enumDrift,
@@ -1220,5 +1306,6 @@ module.exports = {
   stockSyncNoWarehouse,
   silentCatchFrontend,
   numericOrFallback,
+  hardcodedDefault,
   REPO_ROOT,
 };

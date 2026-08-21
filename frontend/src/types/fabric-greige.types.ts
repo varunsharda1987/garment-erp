@@ -274,6 +274,9 @@ export interface GreigeMasterFormData {
   /** MRP-48: fallback only — the processor rate card is the source of truth for shrinkage. */
   averageShrinkagePercent?: number;
   gsmRange?: string;
+  /** Planning fallback rate — Fabric Costing prefers the latest GRN, then a priced stock lot.
+   *  Nullable so clearing the field actually clears the stored rate. */
+  costPerMeter?: number | null;
   description?: string;
   notes?: string;
   isActive: boolean;

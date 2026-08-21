@@ -94,7 +94,7 @@ export const createCAD = async (req: Request, res: Response) => {
   const resolvedCadWastagePercent =
     cadWastagePercent != null
       ? Number(cadWastagePercent)
-      : await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
+      : await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT');
 
   // Validate required fields
   if (!fabricId || !cutableWidth) {

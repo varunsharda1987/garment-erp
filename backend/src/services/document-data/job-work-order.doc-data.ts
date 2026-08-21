@@ -451,7 +451,7 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     colourLine: colourName,
     orderDate: fmtDate(jwo.approvedAt ?? jwo.createdAt),
     approvedByName: jwo.approvedBy ? `${jwo.approvedBy.firstName} ${jwo.approvedBy.lastName}`.trim() : null,
-    challanRef: challan ? `${challan.challanNumber} · ${fmtDate(challan.challanDate)}` : '— issued on despatch',
+    challanRef: challan ? `${challan.challanNumber} · ${fmtDate(challan.challanDate)}` : '— issued on dispatch',
     dueBack: fmtDate(jwo.expectedReturnDate),
     statutoryDue: jwo.statutoryDueDate ? fmtDate(jwo.statutoryDueDate) : '— set on issue',
     materialRows,
@@ -477,6 +477,6 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     toleranceStr,
     uomHead: isMeters ? 'Mtr' : 'Pcs',
     issuedQty: fmtQty(Number(jwo.qtySentMeters), jwo.uom),
-    issuedRemark: challan ? `Per challan ${challan.challanNumber}` : 'Per despatch challan — to follow',
+    issuedRemark: challan ? `Per challan ${challan.challanNumber}` : 'Per dispatch challan — to follow',
   };
 }

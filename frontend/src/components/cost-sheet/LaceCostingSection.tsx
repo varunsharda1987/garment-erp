@@ -11,6 +11,7 @@ import LaceCostingRow from './LaceCostingRow';
 import type { LaceDetail } from '../../types/costSheet.types';
 import type { Lace } from '../../types/lace.types';
 import { getFinishedLace } from '../../services/lace.service';
+import { useDefaultSettings } from '../../hooks/useDefaultSettings';
 
 interface LaceCostingSectionProps {
   laceDetails: LaceDetail[];
@@ -27,6 +28,7 @@ export default function LaceCostingSection({
   orderQuantity,
   disabled = false,
 }: LaceCostingSectionProps) {
+  const { laceWastagePercent } = useDefaultSettings();
   const [availableLaces, setAvailableLaces] = useState<Lace[]>([]);
   const [selectedLaceId, setSelectedLaceId] = useState<string>('');
   const [isLoadingLaces, setIsLoadingLaces] = useState(false);
@@ -65,7 +67,7 @@ export default function LaceCostingSection({
       colorName: lace.color || undefined,
       width: lace.width || undefined,
       quantityPerGarment: 0,
-      wastagePercent: 5, // Default wastage
+      wastagePercent: laceWastagePercent ?? 0,
       effectiveQuantity: 0,
       sourcingStrategy: 'READY_LACE',
       costPerMeter: 0,

@@ -35,7 +35,6 @@ export interface IssueJwoPayload {
   greigeStockLotId?: string;
   lots?: IssueLotInput[];
   fabricStockLotId?: string;
-  challanNumber?: string;
   vehicleNumber?: string;
   acknowledgeWidthMismatch?: boolean;
 }
@@ -183,9 +182,12 @@ export const jobWorkOrderService = {
    * Issue material to processor (Phase 4c: operational — consumes the greige lot,
    * creates the OUTWARD challan, locks the statutory due date)
    */
-  async issue(id: string, payload?: IssueJwoPayload): Promise<{ data: JobWorkOrder; warning?: string }> {
+  async issue(
+    id: string,
+    payload?: IssueJwoPayload
+  ): Promise<{ data: JobWorkOrder; challanNumber: string; warning?: string }> {
     const response = await api.post(`${BASE_URL}/${id}/issue`, payload ?? {});
-    return { data: response.data.data, warning: response.data.warning };
+    return { data: response.data.data, challanNumber: response.data.challanNumber, warning: response.data.warning };
   },
 
   /**

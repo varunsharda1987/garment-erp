@@ -1,5 +1,13 @@
 import prisma from '../config/database';
 import { logInfo, logError } from '../utils/logger';
+import {
+  SYSTEM_DEFAULTS,
+  SYSTEM_DEFAULT_ENTRIES,
+  type SystemDefaultKey,
+  type NumberDefaultKey,
+  type StringDefaultKey,
+  type BooleanDefaultKey,
+} from '../config/defaults.registry';
 
 interface CachedSetting {
   value: string;
@@ -22,127 +30,19 @@ interface QueryParams {
   limit?: number;
 }
 
-// Default settings seeded on startup
-const DEFAULT_SETTINGS: Array<{
-  key: string;
-  value: string;
-  dataType: string;
-  category: string;
-  description: string;
-  isSystem: boolean;
-}> = [
-  {
-    key: 'FABRIC_DEFAULT_WASTAGE_PERCENT',
-    value: '0',
-    dataType: 'NUMBER',
-    category: 'DEFAULTS',
-    description: 'Default wastage % for fabric materials in CAD and BOM',
-    isSystem: true,
-  },
-  {
-    key: 'GREIGE_DEFAULT_WASTAGE_PERCENT',
-    value: '0',
-    dataType: 'NUMBER',
-    category: 'DEFAULTS',
-    description: 'Default wastage % for greige materials in CAD and BOM',
-    isSystem: true,
-  },
-  {
-    key: 'LACE_DEFAULT_WASTAGE_PERCENT',
-    value: '5',
-    dataType: 'NUMBER',
-    category: 'DEFAULTS',
-    description: 'Default wastage % for lace materials',
-    isSystem: true,
-  },
-  // P3.5+ wastage unification: add system settings for trims and thread
-  {
-    key: 'TRIM_DEFAULT_WASTAGE_PERCENT',
-    value: '2',
-    dataType: 'NUMBER',
-    category: 'DEFAULTS',
-    description: 'Default wastage % for trim materials (buttons, zippers, elastics, etc.)',
-    isSystem: true,
-  },
-  {
-    key: 'THREAD_DEFAULT_COST_PER_GARMENT',
-    value: '4',
-    dataType: 'NUMBER',
-    category: 'DEFAULTS',
-    description: 'Default thread cost per garment (INR) when not specified in cost sheet',
-    isSystem: true,
-  },
-  {
-    key: 'LABEL_DEFAULT_EXTRA_PERCENT',
-    value: '5',
-    dataType: 'NUMBER',
-    category: 'DEFAULTS',
-    description: 'Default extra % for label materials',
-    isSystem: true,
-  },
-  {
-    // BUG-GR8 fix: This setting is now used in fabric-stock, stock-routing, and fabric controllers.
-    // NOTE: the key says _CM but the value IS AND ALWAYS WAS INCHES (historical misnomer). Read it
-    // ONLY via systemSettingsService.getCutableWidthDeductionInches() so the key lives in one place.
-    key: 'GREIGE_CUTABLE_WIDTH_DEDUCTION_CM',
-    value: '2',
-    dataType: 'NUMBER',
-    category: 'DEFAULTS',
-    description:
-      'Selvedge/pin-mark deduction in INCHES: finished width − deduction = cutable width; cutable + deduction = finished width to ask the processor for. (Key name says CM for historical reasons — the value is inches.)',
-    isSystem: true,
-  },
-  {
-    key: 'GREIGE_DEFAULT_QUALITY_GRADE',
-    value: 'A',
-    dataType: 'STRING',
-    category: 'DEFAULTS',
-    description: 'Default quality grade for greige stock (A, B, C)',
-    isSystem: true,
-  },
-  // BUG-GR9 fix: Centralized quality grade default for all stock types
-  {
-    key: 'DEFAULT_QUALITY_GRADE',
-    value: 'A',
-    dataType: 'STRING',
-    category: 'DEFAULTS',
-    description:
-      'Default quality grade for all stock types (A, B, DEFECT). Used when quality grade is not specified during stock creation.',
-    isSystem: true,
-  },
-  {
-    key: 'STOCK_AGING_THRESHOLD_DAYS',
-    value: '180',
-    dataType: 'NUMBER',
-    category: 'DEFAULTS',
-    description: 'Number of days after which stock is considered aged/old',
-    isSystem: true,
-  },
-  // KAAJ_BUTTON processing rates (outsourced buttonhole + button attachment)
-  {
-    key: 'KAAJ_BUTTONHOLE_RATE_PER_UNIT',
-    value: '0.30',
-    dataType: 'NUMBER',
-    category: 'PROCESSING_RATES',
-    description: 'Default rate per buttonhole (₹) for outsourced kaaj work',
-    isSystem: true,
-  },
-  {
-    key: 'KAAJ_BUTTON_RATE_PER_UNIT',
-    value: '0.30',
-    dataType: 'NUMBER',
-    category: 'PROCESSING_RATES',
-    description: 'Default rate per button attachment (₹) for outsourced kaaj work',
-    isSystem: true,
-  },
-];
+// The seed list IS the registry — see src/config/defaults.registry.ts.
+// There is no second copy of these values anywhere.
 
 class SystemSettingsService {
   private cache: Map<string, CachedSetting> = new Map();
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
   /**
-   * Get a setting by key. Checks cache first, then DB.
+   * Get a raw setting row by key. Checks cache first, then DB.
+   *
+   * Prefer getNumberDefault / getStringDefault / getBooleanDefault — they are typed to the
+   * registry and cannot be called with a stray fallback literal. This stays public only for
+   * the settings CRUD surface itself.
    */
   async getByKey(key: string): Promise<{ key: string; value: string; dataType: string } | null> {
     // Check cache
@@ -166,45 +66,62 @@ class SystemSettingsService {
   }
 
   /**
-   * Get a numeric setting with fallback.
+   * Resolve a registered setting: the user's system_settings row if one exists,
+   * otherwise the authored value from defaults.registry.ts.
+   *
+   * NOTE the deliberately missing `fallback` parameter. Callers must never supply a
+   * literal — that is exactly how this codebase ended up with the same default
+   * declared seven different ways. The value lives in the registry, once.
    */
-  async getNumber(key: string, fallback: number): Promise<number> {
+  private async resolve(key: SystemDefaultKey): Promise<string> {
     const setting = await this.getByKey(key);
-    if (!setting) return fallback;
-    const num = Number(setting.value);
-    return isNaN(num) ? fallback : num;
+    return setting?.value ?? SYSTEM_DEFAULTS[key].value;
+  }
+
+  /** Numeric setting. Only accepts keys registered with dataType NUMBER. */
+  async getNumberDefault(key: NumberDefaultKey): Promise<number> {
+    const raw = await this.resolve(key);
+    const num = Number(raw);
+    if (isNaN(num)) {
+      // A user typed something non-numeric into Settings. Fall back to the authored
+      // value rather than poisoning a calculation with NaN.
+      logError(`system_settings['${key}'] = '${raw}' is not a number; using registry default`);
+      return Number(SYSTEM_DEFAULTS[key].value);
+    }
+    return num;
+  }
+
+  /** String setting. Only accepts keys registered with dataType STRING. */
+  async getStringDefault(key: StringDefaultKey): Promise<string> {
+    return this.resolve(key);
+  }
+
+  /** Boolean setting. Only accepts keys registered with dataType BOOLEAN. */
+  async getBooleanDefault(key: BooleanDefaultKey): Promise<boolean> {
+    const raw = (await this.resolve(key)).trim().toLowerCase();
+    return raw === 'true' || raw === '1' || raw === 'yes';
   }
 
   /**
    * Selvedge/pin-mark deduction (INCHES) converting finished width → cutable width,
    * and cutable → the finished width to ASK a processor for (cutable + deduction).
-   * Single source of truth — the stored key is a historical misnomer (says _CM, value
-   * has always been inches); keep the key string HERE only so a future rename is one line.
+   * The stored key is a historical misnomer (says _CM, value has always been inches);
+   * keep the key string HERE only so a future rename is one line.
    */
   async getCutableWidthDeductionInches(): Promise<number> {
-    return this.getNumber('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM', 2);
+    return this.getNumberDefault('GREIGE_CUTABLE_WIDTH_DEDUCTION_CM');
   }
 
   /**
-   * Get a string setting with fallback.
-   */
-  async getString(key: string, fallback: string): Promise<string> {
-    const setting = await this.getByKey(key);
-    return setting?.value ?? fallback;
-  }
-
-  /**
-   * BUG-GR9 fix: Get the default quality grade for stock entries.
-   * Returns the configured DEFAULT_QUALITY_GRADE or 'A' as fallback.
-   * Valid values: 'A', 'B', 'DEFECT'
+   * Default quality grade for stock entries. Valid values: 'A', 'B', 'DEFECT'.
    */
   async getDefaultQualityGrade(): Promise<'A' | 'B' | 'DEFECT'> {
-    const value = await this.getString('DEFAULT_QUALITY_GRADE', 'A');
-    // Validate the value is one of the allowed grades
+    const value = await this.getStringDefault('DEFAULT_QUALITY_GRADE');
     if (value === 'A' || value === 'B' || value === 'DEFECT') {
       return value;
     }
-    return 'A'; // Fallback to 'A' if invalid value configured
+    logError(`system_settings['DEFAULT_QUALITY_GRADE'] = '${value}' is not a valid grade; using 'A'`);
+    return 'A';
   }
 
   /**
@@ -245,20 +162,44 @@ class SystemSettingsService {
   }
 
   /**
-   * Get all settings in DEFAULTS category (convenience).
+   * Every registered default, as an ARRAY OF ROWS — never a keyed map.
+   *
+   * This shape is load-bearing. The global response serializer camelizes object KEYS
+   * (app.ts → transform middleware → humps.camelizeKeys), which destroys a
+   * SCREAMING_SNAKE map key:
+   *     { FABRIC_DEFAULT_WASTAGE_PERCENT: '0' }  →  { fABRICDEFAULTWASTAGEPERCENT: '0' }
+   * That silently broke every frontend read of a system setting. In a row the key is a
+   * VALUE, not an object key, so it survives untouched. Do not "simplify" this back
+   * into a map.
+   *
+   * Rows are driven by the registry, so a key with no DB row still appears (carrying its
+   * authored value) and is therefore editable in Settings — which is why
+   * TRIM_DEFAULT_WASTAGE_PERCENT used to be invisible in the UI.
    */
   async getDefaults() {
-    const settings = await prisma.system_settings.findMany({
-      where: { category: 'DEFAULTS' },
-      orderBy: { key: 'asc' },
+    const rows = await prisma.system_settings.findMany({
+      where: { key: { in: SYSTEM_DEFAULT_ENTRIES.map((e) => e.key) } },
     });
+    const overrides = new Map(rows.map((r) => [r.key, r]));
 
-    // Return as key-value map for easy frontend consumption
-    const map: Record<string, string> = {};
-    for (const s of settings) {
-      map[s.key] = s.value;
-    }
-    return map;
+    return SYSTEM_DEFAULT_ENTRIES.map((entry) => {
+      const override = overrides.get(entry.key);
+      return {
+        key: entry.key,
+        value: override?.value ?? entry.value,
+        dataType: entry.dataType,
+        category: entry.category,
+        group: entry.group,
+        label: entry.label,
+        description: entry.description,
+        min: entry.min ?? null,
+        max: entry.max ?? null,
+        unit: entry.unit ?? null,
+        /** true when a user has overridden the authored default. */
+        isOverridden: override != null && override.value !== entry.value,
+        registryValue: entry.value,
+      };
+    });
   }
 
   /**
@@ -306,21 +247,36 @@ class SystemSettingsService {
   }
 
   /**
-   * Seed default settings if they don't exist. Called at app startup.
+   * Seed any registry key that has no row yet. Called at app startup.
+   *
+   * INSERT-ONLY BY DESIGN: an existing row is a value the user chose in Settings, and a
+   * deploy must never overwrite their choice. Changing a value in defaults.registry.ts
+   * therefore only affects installations that have never set that key — to change a live
+   * value, edit it in Settings (or run a one-off correction migration).
    */
   async preloadDefaults(): Promise<void> {
     let seeded = 0;
-    for (const def of DEFAULT_SETTINGS) {
-      const existing = await prisma.system_settings.findUnique({ where: { key: def.key } });
+    for (const entry of SYSTEM_DEFAULT_ENTRIES) {
+      const existing = await prisma.system_settings.findUnique({ where: { key: entry.key } });
       if (!existing) {
-        await prisma.system_settings.create({ data: def });
+        await prisma.system_settings.create({
+          data: {
+            key: entry.key,
+            value: entry.value,
+            dataType: entry.dataType,
+            category: entry.category,
+            description: entry.description,
+            isSystem: true,
+          },
+        });
         seeded++;
       }
-      // Pre-warm cache
-      const setting = existing || def;
-      this.cache.set(def.key, {
-        value: setting.value,
-        dataType: setting.dataType,
+      // Pre-warm the cache from the row we will actually serve. Previously this cached
+      // `existing || def`, which meant a stale row kept being served for the process
+      // lifetime even after the registry changed.
+      this.cache.set(entry.key, {
+        value: existing?.value ?? entry.value,
+        dataType: entry.dataType,
         expiresAt: Date.now() + this.CACHE_TTL_MS,
       });
     }

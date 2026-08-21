@@ -15,6 +15,11 @@ keywords:
   - कपड़ा
   - मास्टर
   - चौड़ाई
+  - greige rate
+  - fallback rate
+  - greige ka rate
+  - रेट
+  - दर
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/App.tsx
@@ -38,10 +43,12 @@ sources:
 10. **Default Cutable Width (inches)** is optional. Leave blank and the system uses Greige Width minus 4 in CAD Planning.
 11. Leave **Fallback Shrinkage (%)** blank in normal cases. The processor rate card is the real source of shrinkage. If you do enter a value it must be below 100.
 12. **Expected Finished Width Min / Max (inches)** are optional.
-13. Under **Suppliers**, click **+ Add Supplier**, pick a supplier, and tick **Preferred Supplier** or **Active** as needed. This section can be left empty.
-14. Add **Description** or **Notes** if useful, keep **Active** ticked, then click **Create Greige**.
+13. Under **Costing**, **Fallback Greige Rate (₹ per metre)** is optional. Leave it blank unless you need a planning estimate for a greige that has never been purchased. Fabric Costing always uses the latest greige GRN first, then a priced greige stock lot, and only falls back to this value when neither exists.
+14. Under **Suppliers**, click **+ Add Supplier**, pick a supplier, and tick **Preferred Supplier** or **Active** as needed. This section can be left empty.
+15. Add **Description** or **Notes** if useful, keep **Active** ticked, then click **Create Greige**.
 
 ## Traps
 
 - If a field is missing you get one message listing every missing field. Fill them all before saving again.
 - The same **Greige Name** plus the same **Greige Quality** cannot exist twice. If that pair already exists, the save is rejected and the existing code is shown. Use a different quality or edit the existing entry instead.
+- **Fallback Greige Rate** must be greater than zero. Entering 0 is rejected — leave the field blank instead when there is no estimate. Clearing an existing rate and saving does remove it.

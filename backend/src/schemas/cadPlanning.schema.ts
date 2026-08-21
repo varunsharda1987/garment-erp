@@ -142,9 +142,6 @@ export const updateCADTableRowSchema = z.object({
     )
     .optional()
     .nullable(),
-  // Greige rate override
-  greigeCostOverride: z.number().nonnegative().optional().nullable(),
-  greigeCostOverrideReason: z.string().max(500).optional().nullable(),
   // Notes
   notes: z.string().max(500).optional().nullable(),
 });

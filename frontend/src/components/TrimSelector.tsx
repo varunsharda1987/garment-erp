@@ -88,6 +88,7 @@ interface TrimItem {
   name: string;
   color?: string | null;
   description?: string | null;
+  image?: string | null;
 }
 
 interface TrimSelectorProps {
@@ -400,6 +401,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false, styleC
           name: l.laceName,
           color: l.color,
           description: l.description,
+          image: l.image,
         }))
       );
     } catch (error) {
@@ -992,7 +994,7 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false, styleC
                             <label
                               key={item.id}
                               className={cn(
-                                'flex items-center gap-3 p-3 cursor-pointer hover:bg-muted transition-colors',
+                                'flex items-center gap-3 p-4 cursor-pointer hover:bg-muted transition-colors',
                                 isSelected(activeTab, item.id) && 'bg-info-muted hover:bg-info-muted'
                               )}
                             >
@@ -1000,6 +1002,22 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false, styleC
                                 checked={isSelected(activeTab, item.id)}
                                 onCheckedChange={() => toggleItem(item)}
                               />
+                              {/* Image thumbnail for lace items */}
+                              {activeTab === 'LACE' &&
+                                (item.image ? (
+                                  <img
+                                    src={`${import.meta.env.VITE_API_URL?.replace('/api', '')}${item.image}`}
+                                    alt={item.name}
+                                    className="h-16 w-16 rounded-lg border object-cover shrink-0"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="h-16 w-16 rounded-lg border bg-muted flex items-center justify-center shrink-0">
+                                    <span className="text-2xl">🎀</span>
+                                  </div>
+                                ))}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <Badge variant="outline" className="font-mono text-xs shrink-0">

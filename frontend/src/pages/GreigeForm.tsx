@@ -39,6 +39,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
     // where most of the 8% values in the data came from.
     averageShrinkagePercent: undefined,
     gsmRange: '',
+    costPerMeter: undefined,
     description: '',
     notes: '',
     isActive: true,
@@ -118,6 +119,7 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
         expectedFinishedWidthMax: greige.expectedFinishedWidthMax,
         averageShrinkagePercent: greige.averageShrinkagePercent,
         gsmRange: greige.gsmRange || '',
+        costPerMeter: greige.costPerMeter ?? undefined,
         description: greige.description || '',
         notes: greige.notes || '',
         isActive: greige.isActive,
@@ -210,7 +212,10 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
     try {
       setSaving(true);
       // Include genericGreigeName in the data sent to API
-      const dataToSave = { ...formData, genericGreigeName };
+      // Coerce the cleared rate to null: an emptied number input becomes `undefined`, which
+      // JSON.stringify drops, and an omitted key means "leave unchanged" to the controller —
+      // so without this the rate could be set but never removed.
+      const dataToSave = { ...formData, genericGreigeName, costPerMeter: formData.costPerMeter ?? null };
       if (mode === 'edit' && id) {
         await greigeService.update(id, dataToSave);
         notify.success('Greige master updated successfully');
@@ -479,6 +484,32 @@ export default function GreigeForm({ mode = 'create' }: GreigeFormProps) {
                 placeholder="e.g., 58"
                 step="0.1"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Costing */}
+        <div>
+          <h3 className="text-lg font-medium text-foreground mb-4">Costing</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Fallback Greige Rate (₹ per metre)
+              </label>
+              <Input
+                type="number"
+                name="costPerMeter"
+                value={formData.costPerMeter ?? ''}
+                onChange={handleChange}
+                placeholder="e.g., 52.50"
+                step="0.01"
+                min="0.01"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                A planning estimate — it never overrides a real purchase price. Fabric Costing uses the latest greige
+                GRN first, then a priced greige stock lot, and falls back to this only when neither exists. Leave blank
+                if you have no estimate.
+              </p>
             </div>
           </div>
         </div>

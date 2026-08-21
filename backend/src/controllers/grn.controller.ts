@@ -85,7 +85,7 @@ export const getPendingItemsForPO = async (req: Request, res: Response) => {
 
   const [pendingItems, tolerancePercent] = await Promise.all([
     grnService.getPendingItemsForPO(poId),
-    systemSettingsService.getNumber('GRN_OVER_RECEIPT_TOLERANCE_PERCENT', 10),
+    systemSettingsService.getNumberDefault('GRN_OVER_RECEIPT_TOLERANCE_PERCENT'),
   ]);
 
   res.json({

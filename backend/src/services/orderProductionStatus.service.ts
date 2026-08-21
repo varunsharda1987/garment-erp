@@ -522,7 +522,7 @@ class OrderProductionStatusService {
 
     if (!style?.style_components) return cadWidths;
 
-    const defaultWastage = await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
+    const defaultWastage = await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT');
 
     style.style_components.forEach((comp: any) => {
       if (!comp.style_fabrics) return;

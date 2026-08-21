@@ -334,7 +334,7 @@ class ManufacturingAlertsService {
    * Returns items that exceed the configured threshold (default 5%)
    */
   private async getVarianceAlerts(): Promise<VarianceAlert[]> {
-    const varianceThreshold = await systemSettingsService.getNumber('VARIANCE_ALERT_THRESHOLD_PERCENT', 5);
+    const varianceThreshold = await systemSettingsService.getNumberDefault('VARIANCE_ALERT_THRESHOLD_PERCENT');
     const alerts: VarianceAlert[] = [];
 
     // 1. Cutting variance - batches with significant variance from planned

@@ -174,6 +174,9 @@ export async function getStyleFabrics(req: Request, res: Response) {
                           ratePerUnit: true,
                           quantityPurchased: true,
                           purchaseDate: true,
+                          // Named on the costing page's live-rate line so the user can see
+                          // WHOSE purchase set the price before adopting it
+                          supplier: { select: { name: true } },
                         },
                       },
                       // Include latest greige stock for direct stock entries
@@ -262,6 +265,9 @@ export async function getStyleFabrics(req: Request, res: Response) {
                           ratePerUnit: true,
                           quantityPurchased: true,
                           purchaseDate: true,
+                          // Named on the costing page's live-rate line so the user can see
+                          // WHOSE purchase set the price before adopting it
+                          supplier: { select: { name: true } },
                         },
                       },
                       greigeStock: {
@@ -299,6 +305,7 @@ export async function getStyleFabrics(req: Request, res: Response) {
                       ratePerUnit: true,
                       quantityPurchased: true,
                       purchaseDate: true,
+                      supplier: { select: { name: true } },
                     },
                   },
                   greigeStock: {
@@ -386,6 +393,9 @@ export async function getStyleFabrics(req: Request, res: Response) {
                           ratePerUnit: true,
                           quantityPurchased: true,
                           purchaseDate: true,
+                          // Named on the costing page's live-rate line so the user can see
+                          // WHOSE purchase set the price before adopting it
+                          supplier: { select: { name: true } },
                         },
                       },
                       greigeStock: {
@@ -599,7 +609,9 @@ export async function getStyleFabrics(req: Request, res: Response) {
 
           // Determine greige cost: use most recent price from either source
           let greigeCostPerMeter: number | null = null;
-          let greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_STOCK' | 'GREIGE_MASTER' = 'GREIGE_MASTER';
+          // null (not 'GREIGE_MASTER') when nothing resolves: a row with no rate anywhere used to
+          // claim a Greige Master default it does not have, rendering "default" over an empty box.
+          let greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_STOCK' | 'GREIGE_MASTER' | null = null;
 
           if (procurementDate && stockDate) {
             // Both exist - use more recent
@@ -659,7 +671,16 @@ export async function getStyleFabrics(req: Request, res: Response) {
             processorId: cadRow.processorId || null,
             processorName: cadRow.processor?.name || null,
             processorCode: cadRow.processor?.code || null,
-            greigeCostPerMeterSaved: cadRow.greigeCostPerMeter ? Number(cadRow.greigeCostPerMeter) : null,
+            // The rate this row was COMMITTED at (what a completed costing was priced with).
+            // Not a price "source" — the costing page labels the live rate and shows this as the
+            // row's committed number, so a new GRN never silently re-prices an approved costing.
+            greigeCostPerMeterSaved: cadRow.greigeCostPerMeter != null ? Number(cadRow.greigeCostPerMeter) : null,
+            // Provenance of the LIVE rate, so the page can show "from GRN · Bhuval · 20 Aug"
+            // instead of an unattributed number the user has no way to judge.
+            greigeCostSourceDate:
+              (greigeCostSource === 'GREIGE_PROCUREMENT' ? procurementDate : stockDate)?.toISOString() ?? null,
+            greigeCostSourceSupplier:
+              greigeCostSource === 'GREIGE_PROCUREMENT' ? ((latestProcurement as any)?.supplier?.name ?? null) : null,
             transportCostPerMeter: cadRow.transportCostPerMeter ? Number(cadRow.transportCostPerMeter) : null,
             processingPricePerMeter: cadRow.processingPricePerMeter ? Number(cadRow.processingPricePerMeter) : null,
             // Shrinkage: ONLY from processor rate card (no fallback to greige master)
@@ -705,7 +726,8 @@ export async function getStyleFabrics(req: Request, res: Response) {
 
         // Determine greige cost: use most recent price from either source
         let greigeCostPerMeter: number | null = null;
-        let greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_STOCK' | 'GREIGE_MASTER' = 'GREIGE_MASTER';
+        // null when nothing resolves — see the CAD branch above
+        let greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_STOCK' | 'GREIGE_MASTER' | null = null;
 
         if (procurementDate && stockDate) {
           // Both exist - use more recent
@@ -758,6 +780,14 @@ export async function getStyleFabrics(req: Request, res: Response) {
           greigeCostPerMeter,
           greigeCostSource,
           greigeStockAvailable: latestProcurement ? Number(latestProcurement.quantityPurchased) : null,
+          // Live-rate provenance, same contract as the CAD branch. NOTE: deliberately no
+          // totalCostPerMeter here — legacy rows carry id = style_fabrics.id, and a total would
+          // push them into the frontend's restore branch, which saves against a CAD id that
+          // does not exist for them.
+          greigeCostSourceDate:
+            (greigeCostSource === 'GREIGE_PROCUREMENT' ? procurementDate : stockDate)?.toISOString() ?? null,
+          greigeCostSourceSupplier:
+            greigeCostSource === 'GREIGE_PROCUREMENT' ? ((latestProcurement as any)?.supplier?.name ?? null) : null,
           widthOptions: [],
         });
       }
@@ -1027,6 +1057,15 @@ export async function saveFabricCosting(req: Request, res: Response) {
       if (!existingCad) {
         throw new Error(
           `CAD record ${costing.fabricWidthCadId} not found. Please create CAD data in CAD Planning module first.`
+        );
+      }
+
+      // An APPROVED costing is the priced number the cost sheet and BOM were built from.
+      // Only isLocked PRODUCTION rows were guarded before, so an approved option could be
+      // silently re-priced by any unrelated edit on the page with no re-approval.
+      if (existingCad.approvalStatus === 'APPROVED') {
+        throw new ValidationError(
+          `Cannot change the costing for an approved option (${existingCad.componentName ?? 'component'} ${existingCad.cutableWidth}"). Unapprove it first.`
         );
       }
 
@@ -1966,7 +2005,9 @@ export async function pushFromCAD(req: Request, res: Response) {
         shrinkagePercent: null,
         shrinkageCostPerMeter: null,
         screenCostPerMeter: 0,
-        costInputMode: 'BUILD_UP',
+        // Ready fabric (no greigeId) defaults to Landed Price; greige workflow defaults to Build Up
+        // Note: uses raw CAD-row greigeId; frontend uses fallback-resolved value — first save reconciles
+        costInputMode: row.greigeId ? 'BUILD_UP' : 'LANDED_PRICE',
       },
     });
 

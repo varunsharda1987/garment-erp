@@ -103,8 +103,8 @@ class KnowledgeService {
    */
   async getContext(question: string): Promise<string> {
     try {
-      const enabled = await systemSettingsService.getString('AI_KNOWLEDGE_ENABLED', 'true');
-      if (enabled !== 'true') return '';
+      const enabled = await systemSettingsService.getBooleanDefault('AI_KNOWLEDGE_ENABLED');
+      if (!enabled) return '';
 
       await this.ensureFresh();
       if (this.cache.length === 0) return '';

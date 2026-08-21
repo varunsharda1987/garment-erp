@@ -132,7 +132,6 @@ export default function JobWorkOrderDetail() {
   const [issueDialogOpen, setIssueDialogOpen] = useState(false);
   const [issueRows, setIssueRows] = useState<IssueLotRow[]>([{ lotId: '', qty: '' }]);
   const [issueWidthAcknowledged, setIssueWidthAcknowledged] = useState(false);
-  const [issueChallanRef, setIssueChallanRef] = useState('');
   const [issueVehicle, setIssueVehicle] = useState('');
 
   const {
@@ -233,7 +232,6 @@ export default function JobWorkOrderDetail() {
     mutationFn: () => {
       const filledRows = issueRows.filter((row) => row.lotId && parseFloat(row.qty) > 0);
       const payload: IssueJwoPayload = {
-        challanNumber: issueChallanRef || undefined,
         vehicleNumber: issueVehicle || undefined,
         acknowledgeWidthMismatch: issueWidthAcknowledged || undefined,
       };
@@ -254,9 +252,8 @@ export default function JobWorkOrderDetail() {
       setIssueDialogOpen(false);
       setIssueRows([{ lotId: '', qty: '' }]);
       setIssueWidthAcknowledged(false);
-      setIssueChallanRef('');
       setIssueVehicle('');
-      toast.success('Job work order issued — outward challan created');
+      toast.success(`Job work order issued — Challan ${result.challanNumber} created`);
       if (result.warning) toast.warning(result.warning);
       queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
       queryClient.invalidateQueries({ queryKey: ['job-work-order-reconciliation', id] });
@@ -674,11 +671,11 @@ export default function JobWorkOrderDetail() {
                 <div>
                   <Label className="text-muted-foreground">Cutable Width (CAD)</Label>
                   <p className="font-medium">
-                    {jwo.sentWidthInches != null
+                    {jwo.sentWidthInches != null && cutableWidthDeduction != null
                       ? `${(Number(jwo.sentWidthInches) - cutableWidthDeduction).toFixed(1)}"`
                       : '-'}
                   </p>
-                  {jwo.sentWidthInches != null && (
+                  {jwo.sentWidthInches != null && cutableWidthDeduction != null && (
                     <p className="text-xs text-muted-foreground">after {cutableWidthDeduction}" selvedge</p>
                   )}
                 </div>
@@ -1160,15 +1157,9 @@ export default function JobWorkOrderDetail() {
               </Alert>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>Challan Ref (optional)</Label>
-                <Input value={issueChallanRef} onChange={(e) => setIssueChallanRef(e.target.value)} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Vehicle Number</Label>
-                <Input value={issueVehicle} onChange={(e) => setIssueVehicle(e.target.value)} />
-              </div>
+            <div className="space-y-1.5">
+              <Label>Vehicle Number</Label>
+              <Input value={issueVehicle} onChange={(e) => setIssueVehicle(e.target.value)} />
             </div>
           </div>
 

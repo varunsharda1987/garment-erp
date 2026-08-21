@@ -191,7 +191,7 @@ export async function createOrUpdateEmbroideryCad(req: Request, res: Response) {
     cadWastagePercent:
       cadWastagePercent !== undefined
         ? cadWastagePercent
-        : await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0),
+        : await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT'),
     layerMarginMeters:
       layerMarginMeters !== undefined ? layerMarginMeters : cadMeters ? getDefaultLayerMargin(cadMeters) : null,
     piecesPerMarker: calculatedPiecesPerMarker || null,
@@ -373,12 +373,13 @@ export async function getTotalFabricCad(req: Request, res: Response) {
 
   // Calculate totals
   const mainCadMeters = mainCad?.cadMeters ? Number(mainCad.cadMeters) : 0;
-  const defaultWastage = await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
-  const mainWastage = mainCad?.cadWastagePercent ? Number(mainCad.cadWastagePercent) : defaultWastage;
+  const defaultWastage = await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT');
+  const mainWastage = mainCad?.cadWastagePercent != null ? Number(mainCad.cadWastagePercent) : defaultWastage;
   const mainEffective = mainCadMeters * (1 + mainWastage / 100);
 
   const embroideryCadMeters = embroideryCad?.cadMeters ? Number(embroideryCad.cadMeters) : 0;
-  const embroideryWastage = embroideryCad?.cadWastagePercent ? Number(embroideryCad.cadWastagePercent) : defaultWastage;
+  const embroideryWastage =
+    embroideryCad?.cadWastagePercent != null ? Number(embroideryCad.cadWastagePercent) : defaultWastage;
   const embroideryEffective = embroideryCadMeters * (1 + embroideryWastage / 100);
 
   const totalCadMeters = mainCadMeters + embroideryCadMeters;
@@ -582,7 +583,8 @@ export async function createProductionCADFromStock(req: Request, res: Response) 
       cadMeters: sourceCAD?.cadMeters ?? null,
       cadYards: sourceCAD?.cadYards || null,
       cadWastagePercent:
-        sourceCAD?.cadWastagePercent ?? (await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0)),
+        sourceCAD?.cadWastagePercent ??
+        (await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT')),
       layerMarginMeters: sourceCAD?.layerMarginMeters ?? null,
       markerEfficiency: sourceCAD?.markerEfficiency || null,
       printDirection: sourceCAD?.printDirection || 'TWO_WAY',

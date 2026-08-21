@@ -24,6 +24,7 @@ import prisma from '../config/database'; // Use singleton to avoid connection po
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { generateAtomicGRNNumber } from '../utils/atomicCodeGenerator';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { updateGreigeLastPurchaseRate } from './helpers/greige-rate.helper';
 import { determineFinishType } from './helpers/processing-fabric.helper';
 import { jobWorkOrderService } from './job-work-order.service';
 import {
@@ -92,7 +93,7 @@ class GRNService {
     }
 
     // Fetch over-receipt tolerance from system settings
-    const tolerancePercent = await systemSettingsService.getNumber('GRN_OVER_RECEIPT_TOLERANCE_PERCENT', 10);
+    const tolerancePercent = await systemSettingsService.getNumberDefault('GRN_OVER_RECEIPT_TOLERANCE_PERCENT');
 
     // Validate items
     for (const item of data.items) {
@@ -1541,6 +1542,15 @@ class GRNService {
           await ensureMaterialRecord(greige.id, 'GREIGE', tx);
           await syncStockLevelQuantity(greige.id, actualQty, warehouseId, undefined, tx);
 
+          // Record what this greige was last actually bought for. On `tx`, so it rolls back with
+          // the receipt. Guarded inside the helper: a GRN item with no PO line gives unitPrice 0.
+          await updateGreigeLastPurchaseRate(tx, {
+            greigeId: greige.id,
+            rate: unitPrice,
+            purchasedAt: grn.receivingDate || new Date(),
+            sourceRef: grn.grnNumber,
+          });
+
           logInfo(`Auto-created greige_stock from GRN ${grn.grnNumber}: ${acceptedQty}m of ${greige.greigeCode}`, {
             grnId: grn.id,
             greigeId: greige.id,
@@ -2587,7 +2597,7 @@ class GRNService {
         : toNumber(roundToCent(applyShrinkageLoss(jwo.qtySentMeters, jwo.expectedShrinkage ?? 0)));
 
     // Over-receipt cap (this path previously had NONE — the PO path caps at :86)
-    const overReceiptTolerance = await systemSettingsService.getNumber('GRN_OVER_RECEIPT_TOLERANCE_PERCENT', 10);
+    const overReceiptTolerance = await systemSettingsService.getNumberDefault('GRN_OVER_RECEIPT_TOLERANCE_PERCENT');
     const maxReceivable = toNumber(roundToCent(multiplyCurrency(expectedFabricMeters, 1 + overReceiptTolerance / 100)));
     if (qtyReceived > maxReceivable) {
       throw new Error(

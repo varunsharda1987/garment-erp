@@ -349,7 +349,7 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
     const wastage =
       cad.cadWastagePercent != null
         ? Number(cad.cadWastagePercent)
-        : await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
+        : await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT');
     const effectiveCad = cadAvg * (1 + wastage / 100);
 
     fabricItemsToCreate.push({
@@ -1003,7 +1003,7 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     const wastage =
       cad.cadWastagePercent != null
         ? Number(cad.cadWastagePercent)
-        : await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
+        : await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT');
     const effectiveCad = cadAvg * (1 + wastage / 100);
 
     fabricItemsToCreate.push({

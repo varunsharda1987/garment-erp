@@ -41,8 +41,12 @@ import LaceCostingSection from '../components/cost-sheet/LaceCostingSection';
 import CostComparisonTable from '../components/cost-sheet/CostComparisonTable';
 import type { FabricCostCalculationResult } from '../types/fabricCosting.types';
 import { TrimMasterCombobox, type TrimMasterSelection } from '../components/TrimMasterCombobox';
+import { useDefaultSettings } from '../hooks/useDefaultSettings';
 
 const CostSheetForm = () => {
+  // Lace wastage comes from the system defaults registry, never a literal.
+  const { laceWastagePercent } = useDefaultSettings();
+  const laceWastagePercentDefault = laceWastagePercent ?? 0;
   const navigate = useNavigate();
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -372,7 +376,7 @@ const CostSheetForm = () => {
                   }
 
                   const quantityPerGarment = bom.quantityPerGarment || 0;
-                  const wastagePercent = 5; // Default wastage for lace
+                  const wastagePercent = laceWastagePercentDefault;
                   const effectiveQuantity = quantityPerGarment * (1 + wastagePercent / 100);
                   const costPerMeter = Number(laceMaster.pricePerMeter) || 0;
                   const totalCost = effectiveQuantity * costPerMeter;
@@ -1170,7 +1174,7 @@ const CostSheetForm = () => {
                 }
 
                 const quantityPerGarment = bom.quantityPerGarment || 0;
-                const wastagePercent = 5; // Default wastage for lace
+                const wastagePercent = laceWastagePercentDefault;
                 const effectiveQuantity = quantityPerGarment * (1 + wastagePercent / 100);
                 const costPerMeter = Number(laceMaster.pricePerMeter) || 0;
                 const totalCost = effectiveQuantity * costPerMeter;

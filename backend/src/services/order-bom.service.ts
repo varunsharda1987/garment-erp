@@ -413,6 +413,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               notes: 'Auto-populated from cost sheet',
               sortOrder: sortOrder++,
               isActive: true,
+              // Set explicitly. Omitting it let the DB column default (5) fire silently —
+              // that is what put 5% on every trim of every BOM in the system.
+              extraPercentage: await systemSettingsService.getNumberDefault('TRIM_DEFAULT_WASTAGE_PERCENT'),
               // Pass through master IDs from cost sheet
               threadId: trim.threadId || undefined,
               buttonId: trim.buttonId || undefined,
@@ -462,6 +465,8 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               notes: 'Auto-populated from cost sheet',
               sortOrder: sortOrder++,
               isActive: true,
+              // Set explicitly — see the trim branch above.
+              extraPercentage: await systemSettingsService.getNumberDefault('LABEL_DEFAULT_EXTRA_PERCENT'),
               // Pass through master IDs from cost sheet
               labelId: acc.labelId || undefined,
               packagingId: acc.packagingId || undefined,
@@ -641,7 +646,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     const consumedTrims = new Set<CostSheetTrimDetail>();
     const consumedAccessories = new Set<CostSheetAccessoryDetail>();
     // P3.5+ wastage unification: use system setting instead of hardcoded 2%
-    const trimDefaultWastagePercent = await systemSettingsService.getNumber('TRIM_DEFAULT_WASTAGE_PERCENT', 2);
+    const trimDefaultWastagePercent = await systemSettingsService.getNumberDefault('TRIM_DEFAULT_WASTAGE_PERCENT');
 
     // Add trim items from style_material_bom
     for (const material of styleMaterialBOM) {
@@ -671,7 +676,11 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         );
       }
       const totalQuantity = quantityPerGarment * orderQuantity;
-      const wastagePercent = Number(material.extraPercentage) || trimDefaultWastagePercent;
+      // `??` not `||`: a deliberate 0% on the style BOM row is a real value. With `||` it was
+      // falsy and fell through to the default, so 0 could never be saved — invisible while the
+      // default was 5, fatal now that the default IS 0.
+      const wastagePercent =
+        material.extraPercentage != null ? Number(material.extraPercentage) : trimDefaultWastagePercent;
       const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
       // Price resolution: try cost sheet trim price, then accessory price, then material's own unitPrice
       let unitPrice = 0;
@@ -893,9 +902,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       let fallbackSortOrder = 100; // Start after fabric items
 
       // P3.5+ wastage unification: fetch system defaults before loops
-      const trimDefaultWastage = await systemSettingsService.getNumber('TRIM_DEFAULT_WASTAGE_PERCENT', 2);
-      const fabricDefaultWastage = await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
-      const threadDefaultCost = await systemSettingsService.getNumber('THREAD_DEFAULT_COST_PER_GARMENT', 4);
+      const trimDefaultWastage = await systemSettingsService.getNumberDefault('TRIM_DEFAULT_WASTAGE_PERCENT');
+      const fabricDefaultWastage = await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT');
+      const threadDefaultCost = await systemSettingsService.getNumberDefault('THREAD_DEFAULT_COST_PER_GARMENT');
 
       // Create BOM items from trimsDetails JSON
       // BUG-ORD4 fix: Skip trims marked "Not Applicable" on cost sheet
@@ -993,7 +1002,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
 
     // Add fabric items - prefer relational fabricItems (has fabricId), fallback to JSON for legacy
     // P3.5+ wastage unification: fetch fabric default wastage for fabric section
-    const fabricDefaultWastageForFabrics = await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0);
+    const fabricDefaultWastageForFabrics = await systemSettingsService.getNumberDefault(
+      'FABRIC_DEFAULT_WASTAGE_PERCENT'
+    );
     const hasFabricItemsRelation = costSheet.fabricItems && costSheet.fabricItems.length > 0;
 
     if (hasFabricItemsRelation) {
@@ -1253,7 +1264,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       const wastagePercent =
         laceItem.wastagePercent != null
           ? Number(laceItem.wastagePercent)
-          : await systemSettingsService.getNumber('LACE_DEFAULT_WASTAGE_PERCENT', 5);
+          : await systemSettingsService.getNumberDefault('LACE_DEFAULT_WASTAGE_PERCENT');
       const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
       const unitPrice = Number(laceItem.costPerMeter) || 0;
       const totalCost = totalWithWastage * unitPrice;
@@ -1311,8 +1322,10 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       } else {
         // No thread at all — add from relational table
         // P3.5+ wastage unification: fetch thread defaults
-        const threadDefaultCostSetting = await systemSettingsService.getNumber('THREAD_DEFAULT_COST_PER_GARMENT', 4);
-        const threadWastageSetting = await systemSettingsService.getNumber('TRIM_DEFAULT_WASTAGE_PERCENT', 2);
+        const threadDefaultCostSetting = await systemSettingsService.getNumberDefault(
+          'THREAD_DEFAULT_COST_PER_GARMENT'
+        );
+        const threadWastageSetting = await systemSettingsService.getNumberDefault('TRIM_DEFAULT_WASTAGE_PERCENT');
 
         for (let i = 0; i < threadItems.length; i++) {
           const threadItem = threadItems[i];
@@ -2803,8 +2816,11 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         ...item,
         quantityPerGarment: Number(item.quantityPerGarment),
         totalQuantity: Number(item.totalQuantity),
-        wastagePercent: item.wastagePercent ? Number(item.wastagePercent) : null,
-        totalWithWastage: item.totalWithWastage ? Number(item.totalWithWastage) : null,
+        // `!= null`, not truthiness: a stored 0% is a real, deliberate value. The old
+        // `item.wastagePercent ? ... : null` turned every legitimate 0 into null on the way
+        // out, so a 0 the user saved came back as "not set" and the input re-rendered blank.
+        wastagePercent: item.wastagePercent != null ? Number(item.wastagePercent) : null,
+        totalWithWastage: item.totalWithWastage != null ? Number(item.totalWithWastage) : null,
         unitPrice: Number(item.unitPrice),
         totalCost: Number(item.totalCost),
       })),

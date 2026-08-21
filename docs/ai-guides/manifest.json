@@ -132,13 +132,13 @@
     "sources": {
       "frontend/src/config/navigation.ts": "9ece28576ed9",
       "frontend/src/App.tsx": "a3d70012c317",
-      "frontend/src/pages/GreigeForm.tsx": "b89f66e594cc",
+      "frontend/src/pages/GreigeForm.tsx": "75f088a4b151",
       "frontend/src/pages/GreigeList.tsx": "9d79dbe628d0",
-      "backend/src/schemas/fabricGreige.schema.ts": "957c6c4c08e4",
+      "backend/src/schemas/fabricGreige.schema.ts": "860fa582de4b",
       "backend/src/services/greige.service.ts": "d1bda0a10462"
     },
-    "contentHash": "8546fe3b71f9",
-    "generatedAt": "2026-08-20T13:30:07.850Z"
+    "contentHash": "6d2e844f5773",
+    "generatedAt": "2026-08-21T08:43:54.903Z"
   },
   "greige-receive-without-po": {
     "sources": {

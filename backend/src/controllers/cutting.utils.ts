@@ -16,7 +16,7 @@ export const transformCuttingBatch = (batch: any) => ({
   varianceFromCad: batch.varianceFromCad ? Number(batch.varianceFromCad) : null,
   variancePercent: batch.variancePercent ? Number(batch.variancePercent) : null,
   wastageMeters: batch.wastageMeters ? Number(batch.wastageMeters) : null,
-  wastagePercent: batch.wastagePercent ? Number(batch.wastagePercent) : null,
+  wastagePercent: batch.wastagePercent != null ? Number(batch.wastagePercent) : null,
   fabricIssued: batch.fabricIssued ? Number(batch.fabricIssued) : null,
   fabricReturned: batch.fabricReturned ? Number(batch.fabricReturned) : null,
   actualConsumption: batch.actualConsumption ? Number(batch.actualConsumption) : null,

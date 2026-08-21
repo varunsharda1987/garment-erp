@@ -1,6 +1,7 @@
 // Fabric Width CAD Create/Edit Dialog
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useDefaultSettings } from '@/hooks/useDefaultSettings';
 import { Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -38,13 +39,17 @@ export default function FabricWidthCADDialog({
 }: FabricWidthCADDialogProps) {
   const queryClient = useQueryClient();
   const isEditing = !!existingCAD;
+  const { fabricWastagePercent } = useDefaultSettings();
 
   // Form state
   const [cutableWidth, setCutableWidth] = useState<number>(0);
   const [widthUnit, setWidthUnit] = useState('inches');
   const [cadMeters, setCadMeters] = useState<number | undefined>();
   const [cadYards, setCadYards] = useState<number | undefined>();
-  const [cadWastagePercent, setCadWastagePercent] = useState<number>(5);
+  // Starts undefined and is filled from the system default once it loads — see the effect
+  // below. Never seed a literal here: it would be saved onto the CAD row as if the user
+  // had chosen it.
+  const [cadWastagePercent, setCadWastagePercent] = useState<number | undefined>();
   const [markerEfficiency, setMarkerEfficiency] = useState<number | undefined>();
   const [isPreferred, setIsPreferred] = useState(false);
   const [supplierAvailability, setSupplierAvailability] = useState<'always' | 'limited' | 'rare'>('always');
@@ -58,7 +63,8 @@ export default function FabricWidthCADDialog({
       setWidthUnit(existingCAD.widthUnit || 'inches');
       setCadMeters(existingCAD.cadMeters ?? undefined);
       setCadYards(existingCAD.cadYards ?? undefined);
-      setCadWastagePercent(existingCAD.cadWastagePercent || 5);
+      // `??` not `||` — a CAD legitimately saved at 0% wastage must stay 0, not jump to the default.
+      setCadWastagePercent(existingCAD.cadWastagePercent ?? fabricWastagePercent);
       setMarkerEfficiency(existingCAD.markerEfficiency ?? undefined);
       setIsPreferred(existingCAD.isPreferred || false);
       setSupplierAvailability(existingCAD.supplierAvailability || 'always');
@@ -70,14 +76,14 @@ export default function FabricWidthCADDialog({
       setWidthUnit('inches');
       setCadMeters(undefined);
       setCadYards(undefined);
-      setCadWastagePercent(5);
+      setCadWastagePercent(fabricWastagePercent);
       setMarkerEfficiency(undefined);
       setIsPreferred(false);
       setSupplierAvailability('always');
       setPriceDifferential(undefined);
       setNotes('');
     }
-  }, [existingCAD, open]);
+  }, [existingCAD, open, fabricWastagePercent]);
 
   // Create mutation
   const createMutation = useMutation({
@@ -110,6 +116,10 @@ export default function FabricWidthCADDialog({
   const handleSubmit = () => {
     if (cutableWidth <= 0) {
       handleApiError(new Error('Invalid width'), 'Please enter a valid cutable width');
+      return;
+    }
+    if (cadWastagePercent == null) {
+      handleApiError(new Error('Defaults not loaded'), 'Still loading default settings — please try again');
       return;
     }
 

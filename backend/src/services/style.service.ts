@@ -25,6 +25,7 @@ import {
 } from '../types/style.types';
 import { generateSKU, checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } from '../utils/sku-generator';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
+import { systemSettingsService } from './system-settings.service';
 
 // ============================================
 // Deduplicate Style Fabrics Helper
@@ -1663,6 +1664,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         }
 
         if (validMaterialBOM.length > 0) {
+          // Resolved once outside the loop — every row that does not carry its own wastage
+          // gets the configured default rather than the DB column default.
+          const trimDefaultWastage = await systemSettingsService.getNumberDefault('TRIM_DEFAULT_WASTAGE_PERCENT');
           for (let idx = 0; idx < validMaterialBOM.length; idx++) {
             const bom = validMaterialBOM[idx];
 
@@ -1702,6 +1706,12 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
                 notes: bom.notes || null,
                 sortOrder: idx,
+                // Explicit, so the DB column default cannot inject a wastage nobody chose.
+                // `!= null` keeps a deliberate 0 from falling through to the default.
+                extraPercentage:
+                  (bom as { extraPercentage?: number | null }).extraPercentage != null
+                    ? Number((bom as { extraPercentage?: number | null }).extraPercentage)
+                    : trimDefaultWastage,
               },
             });
           }

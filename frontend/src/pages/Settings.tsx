@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/stores/auth.store';
 import { userService } from '@/services/user.service';
 import { getSystemSettingsDefaults, updateSystemSetting } from '@/services/system-settings.service';
+import type { SystemDefaultRow } from '@/types/system-settings.types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -235,68 +237,56 @@ export default function Settings() {
         </Card>
 
         {/* Default Wastage Settings Card */}
-        <WastageDefaultsCard />
+        <SystemDefaultsCard />
       </div>
     </div>
   );
 }
 
-const WASTAGE_SETTINGS = [
-  {
-    key: 'FABRIC_DEFAULT_WASTAGE_PERCENT',
-    label: 'Fabric Wastage %',
-    description: 'Default wastage for fabric materials in CAD and BOM',
-  },
-  {
-    key: 'GREIGE_DEFAULT_WASTAGE_PERCENT',
-    label: 'Greige Wastage %',
-    description: 'Default wastage for greige materials in CAD and BOM',
-  },
-  { key: 'LACE_DEFAULT_WASTAGE_PERCENT', label: 'Lace Wastage %', description: 'Default wastage for lace materials' },
-  {
-    key: 'LABEL_DEFAULT_EXTRA_PERCENT',
-    label: 'Label Extra %',
-    description: 'Default extra percentage for label materials',
-  },
-];
-
-function WastageDefaultsCard() {
+/**
+ * Renders EVERY registered default, grouped by area.
+ *
+ * There is deliberately no hand-maintained list of keys here. The previous version kept a
+ * local WASTAGE_SETTINGS array, which drifted: TRIM_DEFAULT_WASTAGE_PERCENT was missing from
+ * it, so the setting that governs every trim on the BOM had no UI at all and could not be
+ * changed. Rows come from the backend registry, so a new default is editable the moment it
+ * is declared there.
+ */
+function SystemDefaultsCard() {
   const queryClient = useQueryClient();
   const [editValues, setEditValues] = useState<Record<string, string>>({});
   const [hasChanges, setHasChanges] = useState(false);
 
-  const { data: defaults, isLoading } = useQuery({
+  const { data: rows, isLoading } = useQuery({
     queryKey: ['system-settings', 'defaults'],
     queryFn: getSystemSettingsDefaults,
   });
 
-  // Sync loaded defaults into edit state
+  const syncFromServer = useCallback((source: SystemDefaultRow[] | undefined) => {
+    if (!source) return;
+    const values: Record<string, string> = {};
+    source.forEach((row) => {
+      values[row.key] = row.value;
+    });
+    setEditValues(values);
+    setHasChanges(false);
+  }, []);
+
   useEffect(() => {
-    if (defaults) {
-      const values: Record<string, string> = {};
-      WASTAGE_SETTINGS.forEach(({ key }) => {
-        values[key] = defaults[key] ?? '';
-      });
-      setEditValues(values);
-      setHasChanges(false);
-    }
-  }, [defaults]);
+    syncFromServer(rows);
+  }, [rows, syncFromServer]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const promises = WASTAGE_SETTINGS.map(({ key }) => {
-        const newValue = editValues[key];
-        const oldValue = defaults?.[key];
-        if (newValue !== oldValue) {
-          return updateSystemSetting(key, newValue, 'NUMBER');
-        }
-        return Promise.resolve(null);
-      });
-      await Promise.all(promises);
+      const changed = (rows ?? []).filter((row) => editValues[row.key] !== row.value);
+      // dataType comes from the row itself — inventing it here would rewrite a NUMBER
+      // setting as a STRING.
+      await Promise.all(changed.map((row) => updateSystemSetting(row.key, editValues[row.key], row.dataType)));
+      return changed.length;
     },
-    onSuccess: () => {
+    onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: ['system-settings'] });
-      handleApiSuccess('Settings saved', 'Default wastage settings have been updated.');
+      handleApiSuccess('Settings saved', `${count} default${count === 1 ? '' : 's'} updated.`);
       setHasChanges(false);
     },
     onError: (error) => {
@@ -319,37 +309,69 @@ function WastageDefaultsCard() {
     );
   }
 
+  // Preserve the registry's declaration order within each group.
+  const groups: Array<{ name: string; rows: SystemDefaultRow[] }> = [];
+  (rows ?? []).forEach((row) => {
+    const existing = groups.find((g) => g.name === row.group);
+    if (existing) existing.rows.push(row);
+    else groups.push({ name: row.group, rows: [row] });
+  });
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Settings2 className="h-5 w-5" />
-          Default Wastage Settings
+          Default Values
         </CardTitle>
         <CardDescription>
-          Configure default wastage percentages for different material types. These defaults are used when creating new
-          CAD entries and BOM items.
+          These defaults apply when a value is not set on the item itself. Changing one here takes effect immediately —
+          no deployment needed — and is never overwritten by an update.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {WASTAGE_SETTINGS.map(({ key, label, description }) => (
-            <div key={key}>
-              <Label htmlFor={key}>{label}</Label>
-              <div className="flex items-center gap-2 mt-1">
-                <Input
-                  id={key}
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.1"
-                  value={editValues[key] ?? ''}
-                  onChange={(e) => handleValueChange(key, e.target.value)}
-                  className="w-24"
-                />
-                <span className="text-sm text-muted-foreground">%</span>
+        <div className="space-y-6">
+          {groups.map((group) => (
+            <div key={group.name}>
+              <h4 className="text-sm font-semibold mb-3">{group.name}</h4>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {group.rows.map((row) => (
+                  <div key={row.key}>
+                    <Label htmlFor={row.key} className="flex items-center gap-2">
+                      {row.label}
+                      {editValues[row.key] !== row.registryValue && (
+                        <Badge variant="secondary" className="text-[10px]">
+                          changed
+                        </Badge>
+                      )}
+                    </Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Input
+                        id={row.key}
+                        type={row.dataType === 'NUMBER' ? 'number' : 'text'}
+                        min={row.min ?? undefined}
+                        max={row.max ?? undefined}
+                        step={row.dataType === 'NUMBER' ? 0.1 : undefined}
+                        value={editValues[row.key] ?? ''}
+                        onChange={(e) => handleValueChange(row.key, e.target.value)}
+                        className="w-28"
+                      />
+                      {row.unit && <span className="text-sm text-muted-foreground">{row.unit}</span>}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{row.description}</p>
+                    {editValues[row.key] !== row.registryValue && (
+                      <button
+                        type="button"
+                        className="text-xs text-primary hover:underline mt-1"
+                        onClick={() => handleValueChange(row.key, row.registryValue)}
+                      >
+                        Reset to default ({row.registryValue}
+                        {row.unit ?? ''})
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">{description}</p>
             </div>
           ))}
         </div>
@@ -359,18 +381,9 @@ function WastageDefaultsCard() {
             type="button"
             variant="outline"
             disabled={!hasChanges || saveMutation.isPending}
-            onClick={() => {
-              if (defaults) {
-                const values: Record<string, string> = {};
-                WASTAGE_SETTINGS.forEach(({ key }) => {
-                  values[key] = defaults[key] ?? '';
-                });
-                setEditValues(values);
-                setHasChanges(false);
-              }
-            }}
+            onClick={() => syncFromServer(rows)}
           >
-            Reset
+            Discard changes
           </Button>
           <Button onClick={() => saveMutation.mutate()} disabled={!hasChanges || saveMutation.isPending}>
             {saveMutation.isPending ? (

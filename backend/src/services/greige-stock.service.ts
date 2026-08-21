@@ -141,7 +141,7 @@ class GreigeStockService {
       const cutableWidthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
       // BUG-GR9 fix: Quality grade default is configurable via system settings
       // Default: 'A' (i.e., Grade A quality)
-      const defaultQualityGrade = await systemSettingsService.getString('GREIGE_DEFAULT_QUALITY_GRADE', 'A');
+      const defaultQualityGrade = await systemSettingsService.getDefaultQualityGrade();
 
       // A lot MUST carry a warehouse: NULL-warehouse lots are invisible to derived_stock_view
       // (every stock page reads it), and the ledger sync then lands at a warehouse the lot
@@ -386,8 +386,8 @@ class GreigeStockService {
       // BUG-GR10 fix: Aging threshold is configurable via system settings.
       // Setting key: STOCK_AGING_THRESHOLD_DAYS (default: 180 days)
       // Stock older than this threshold is flagged as "aging" in dashboard summaries.
-      const agingThresholdDays = await systemSettingsService.getNumber('STOCK_AGING_THRESHOLD_DAYS', 180);
-      const defaultQualityGrade = await systemSettingsService.getString('GREIGE_DEFAULT_QUALITY_GRADE', 'A');
+      const agingThresholdDays = await systemSettingsService.getNumberDefault('STOCK_AGING_THRESHOLD_DAYS');
+      const defaultQualityGrade = await systemSettingsService.getDefaultQualityGrade();
 
       const stocks = await prisma.greige_stock.findMany({
         where: {

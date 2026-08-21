@@ -47,6 +47,7 @@ import { customerService } from '../services/customer.service';
 import { isAxiosError } from 'axios';
 import { divideByShrinkage } from '../utils/math';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { resolveGreigeCost, isGreigeRateStale, greigeSourceLabel, describeLiveRate } from '../utils/greigeRate';
 import type {
   FabricCostingRow,
   FabricForCosting,
@@ -229,6 +230,104 @@ function StockBadge({ row, effectiveQty }: { row: FabricCostingRow; effectiveQty
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
+  );
+}
+
+/**
+ * The greige ₹/m cell: the rate, an honest source label, and — when the row's number differs
+ * from today's price — the live rate with one click to adopt it.
+ *
+ * Shared by BOTH table layouts (flat and nested). They previously had separate inputs which had
+ * already drifted: the nested one showed no source at all and recomputed the total with its own
+ * shrinkage formula that bypassed the divide-by-shrinkage guard.
+ */
+function GreigeCostCell({
+  row,
+  onChange,
+}: {
+  row: FabricCostingRow;
+  onChange: (updates: Partial<FabricCostingRow>) => void;
+}) {
+  const live = row.liveGreigeCostPerMeter;
+  const stale = isGreigeRateStale(row);
+  const label = greigeSourceLabel(row.greigeCostSource);
+  const liveDescription = describeLiveRate(row);
+  const missing = row.greigeCostPerMeter == null || row.greigeCostPerMeter <= 0;
+
+  const applyLive = () => onChange({ greigeCostPerMeter: live, greigeCostSource: row.liveGreigeCostSource });
+
+  const title = missing
+    ? 'No greige rate available — enter one, or set a rate on the Greige Master'
+    : [
+        row.greigeCostSource === 'COMMITTED' ? 'The rate this costing was saved at' : null,
+        row.greigeCostSource === 'MANUAL' ? 'Manually entered' : null,
+        liveDescription ? `Live: ₹${live}/m ${liveDescription}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ');
+
+  return (
+    <div className="flex flex-col items-center">
+      <div className="flex items-center gap-0.5">
+        <Input
+          type="number"
+          step="0.01"
+          placeholder="Greige"
+          className={`w-14 text-center text-xs h-6 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+            missing
+              ? 'border-destructive/60 bg-destructive/5'
+              : row.greigeCostSource === 'MANUAL'
+                ? 'border-warning/50 bg-warning-muted'
+                : ''
+          }`}
+          value={row.greigeCostPerMeter ?? ''}
+          onChange={(e) => {
+            const parsed = parseFloat(e.target.value);
+            onChange({
+              greigeCostPerMeter: Number.isFinite(parsed) ? parsed : null,
+              greigeCostSource: 'MANUAL',
+            });
+          }}
+          title={title}
+        />
+        {stale && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 w-5 p-0 text-info hover:text-info"
+            onClick={applyLive}
+            title={`Use the live rate ₹${live}/m (${liveDescription})`}
+          >
+            <RefreshCw className="w-2.5 h-2.5" />
+          </Button>
+        )}
+      </div>
+      {/* No label at all when nothing resolved — this used to read "default" over an empty box */}
+      {label && !missing && (
+        <span
+          className={`text-[8px] mt-0.5 ${
+            row.greigeCostSource === 'MANUAL'
+              ? 'text-warning'
+              : row.greigeCostSource === 'COMMITTED'
+                ? 'text-muted-foreground'
+                : row.greigeCostSource === 'GREIGE_PROCUREMENT'
+                  ? 'text-info'
+                  : row.greigeCostSource === 'GREIGE_STOCK'
+                    ? 'text-success'
+                    : 'text-muted-foreground'
+          }`}
+          title={liveDescription ?? undefined}
+        >
+          {label}
+        </span>
+      )}
+      {missing && <span className="text-[8px] mt-0.5 text-destructive">rate required</span>}
+      {stale && !missing && (
+        <span className="text-[8px] text-info mt-0.5" title={liveDescription ?? undefined}>
+          live ₹{live}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -586,6 +685,9 @@ export default function FabricCostingPage() {
 
         // Convert FabricForCosting to FabricCostingRow
         const rows: FabricCostingRow[] = response.fabrics.map((fabric: FabricForCosting) => {
+          // Ready fabric workflow: no greige AND no generic greige name means true ready-to-use fabric
+          // (genericGreigeName signals a greige workflow awaiting master creation)
+          const isReadyFabricWorkflow = !fabric.greigeId && !fabric.genericGreigeName;
           // Check if ready fabric cost is available from fabric_master
           const hasReadyFabricCost = fabric.readyFabricCost != null && fabric.readyFabricCost > 0;
 
@@ -629,12 +731,10 @@ export default function FabricCostingPage() {
               // Landed price mode
               landedPricePerMeter: fabric.costInputMode === 'LANDED_PRICE' ? (fabric.totalCostPerMeter ?? null) : null,
 
-              // Build-up mode - Greige & Transport (from saved data)
-              greigeCostPerMeter:
-                fabric.greigeCostPerMeterSaved || fabric.greigeCostPerMeter || fabric.greigeDefaultCost,
-              greigeCostSource: fabric.greigeCostPerMeterSaved
-                ? 'MANUAL'
-                : fabric.greigeCostSource || (fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL'),
+              // Build-up mode - Greige & Transport.
+              // resolveGreigeCost owns the precedence for BOTH branches — this logic was
+              // duplicated here and below, which is how the costed/uncosted paths drifted apart.
+              ...resolveGreigeCost(fabric, true),
               transportCostMode: 'PER_METER' as TransportCostMode,
               transportCostPerMeter: fabric.transportCostPerMeter ?? 2, // Default ₹2/m
               transportFixedAmount: null,
@@ -732,18 +832,18 @@ export default function FabricCostingPage() {
             stockAtWidth: fabric.stockAtWidth ?? null,
             stockWacAtWidth: fabric.stockWacAtWidth ?? null,
 
-            // Default to Landed Price mode if ready fabric cost is available, otherwise Build-up
-            costInputMode: hasReadyFabricCost ? ('LANDED_PRICE' as CostInputMode) : ('BUILD_UP' as CostInputMode),
+            // Default to Landed Price mode for ready fabric workflow OR if ready fabric cost is available
+            costInputMode:
+              isReadyFabricWorkflow || hasReadyFabricCost
+                ? ('LANDED_PRICE' as CostInputMode)
+                : ('BUILD_UP' as CostInputMode),
 
             // Landed price mode - default to ready fabric cost if available
-            landedPricePerMeter: hasReadyFabricCost ? fabric.readyFabricCost : null,
+            landedPricePerMeter: isReadyFabricWorkflow || hasReadyFabricCost ? (fabric.readyFabricCost ?? null) : null,
 
-            // Build-up mode - Greige & Transport
-            // Use saved greigeCostPerMeter, then stock cost, then default cost
-            greigeCostPerMeter: fabric.greigeCostPerMeterSaved || fabric.greigeCostPerMeter || fabric.greigeDefaultCost,
-            greigeCostSource: fabric.greigeCostPerMeterSaved
-              ? 'MANUAL'
-              : fabric.greigeCostSource || (fabric.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL'),
+            // Build-up mode - Greige & Transport. Never costed, so this shows TODAY's rate:
+            // a new GRN takes effect immediately instead of a months-old CAD snapshot winning.
+            ...resolveGreigeCost(fabric, false),
             transportCostMode: 'PER_METER' as TransportCostMode,
             transportCostPerMeter: fabric.transportCostPerMeter ?? 2, // Use saved or default ₹2/m
             transportFixedAmount: null,
@@ -1213,11 +1313,47 @@ export default function FabricCostingPage() {
     }
 
     // Save rows that have a calculated cost (fabricId is optional - supports generic fabrics)
-    const rowsToSave = fabricRows.filter((row) => row.totalCostPerMeter != null);
+    const costedRows = fabricRows.filter((row) => row.totalCostPerMeter != null);
+
+    // Helper to describe a row for warning messages
+    const describeRow = (row: FabricCostingRow) =>
+      `${row.componentName || row.fabricName || 'fabric'}${row.width ? ` ${row.width}"` : ''}`;
+
+    // LANDED_PRICE rows without a price have totalCostPerMeter = null and are silently excluded
+    // from costedRows. Warn the user so they know why rows aren't being saved.
+    const missingLandedPrice = fabricRows.filter(
+      (row) => row.costInputMode === 'LANDED_PRICE' && !row.landedPricePerMeter
+    );
+    if (missingLandedPrice.length > 0) {
+      notify.warning(
+        `${missingLandedPrice.length} row(s) in Landed Price mode without a price: ${missingLandedPrice.map(describeRow).join(', ')}. Enter a landed price or switch to Build Up mode.`
+      );
+    }
+
+    // A build-up row with no greige price is not a costing — calculateRowTotals treats a missing
+    // greige rate as ₹0, so the row still totals the ₹2 transport default and used to save
+    // silently, feeding ₹2/m fabric into the cost sheet and MRP. Landed-price rows never use greige.
+    const missingGreige = costedRows.filter(
+      (row) => row.costInputMode === 'BUILD_UP' && !(row.greigeCostPerMeter != null && row.greigeCostPerMeter > 0)
+    );
+    const rowsToSave = costedRows.filter((row) => !missingGreige.includes(row));
 
     if (rowsToSave.length === 0) {
-      notify.warning('No fabrics with calculated costs to save');
+      const hasMissingPrices = missingGreige.length > 0 || missingLandedPrice.length > 0;
+      notify.error(
+        hasMissingPrices
+          ? missingGreige.length > 0
+            ? `Cannot save: no greige price for ${missingGreige.map(describeRow).join(', ')}. Enter a rate, or set one on the Greige Master.`
+            : `Cannot save: no landed price for ${missingLandedPrice.map(describeRow).join(', ')}. Enter a landed price or switch to Build Up mode.`
+          : 'No fabrics with calculated costs to save'
+      );
       return;
+    }
+
+    if (missingGreige.length > 0) {
+      notify.warning(
+        `Skipped ${missingGreige.length} fabric(s) with no greige price: ${missingGreige.map(describeRow).join(', ')}`
+      );
     }
 
     setIsSaving(true);
@@ -2221,33 +2357,12 @@ export default function FabricCostingPage() {
                                           <TableCell className="px-1 text-center">
                                             {row.costInputMode === 'BUILD_UP' ? (
                                               <div className="flex items-center gap-0.5 justify-center">
-                                                <Input
-                                                  type="number"
-                                                  step="0.01"
-                                                  className="h-7 w-12 text-xs text-center px-0.5"
-                                                  value={row.greigeCostPerMeter || ''}
-                                                  onChange={(e) => {
-                                                    const greigeCost = parseFloat(e.target.value) || 0;
-                                                    const shrinkage = row.shrinkagePercent || 0;
-                                                    const shrinkageValue = greigeCost * (shrinkage / 100);
-                                                    const transportCost = row.transportCostPerMeter || 2;
-                                                    const processingCost = row.processingCostPerMeter || 0;
-                                                    const screenCost = row.screenCostPerMeter || 0;
-                                                    const total =
-                                                      greigeCost +
-                                                      transportCost +
-                                                      shrinkageValue +
-                                                      processingCost +
-                                                      screenCost;
-                                                    updateRow(index, {
-                                                      greigeCostPerMeter: greigeCost,
-                                                      greigeCostSource: 'MANUAL',
-                                                      shrinkageValue,
-                                                      totalCostPerMeter: total,
-                                                    });
-                                                  }}
-                                                  placeholder="Greige"
-                                                  title={`Greige cost (source: ${row.greigeCostSource || 'MANUAL'})`}
+                                                {/* Shared cell — the inline total math that used to
+                                                    live here was overwritten by calculateRowTotals
+                                                    anyway, and used its own shrinkage formula. */}
+                                                <GreigeCostCell
+                                                  row={row}
+                                                  onChange={(updates) => updateRow(index, updates)}
                                                 />
                                                 <span className="text-[10px] text-muted-foreground">+</span>
                                                 <Input
@@ -2811,69 +2926,7 @@ export default function FabricCostingPage() {
                                     ) : (
                                       <div className="flex flex-col items-center gap-0.5">
                                         {/* Greige Cost */}
-                                        <div className="flex flex-col items-center">
-                                          <Input
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="Greige"
-                                            className={`w-14 text-center text-xs h-6 px-0.5 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${row.greigeCostSource === 'MANUAL' ? 'border-warning/50 bg-warning-muted' : ''}`}
-                                            value={row.greigeCostPerMeter || ''}
-                                            onChange={(e) =>
-                                              updateRow(index, {
-                                                greigeCostPerMeter: parseFloat(e.target.value) || null,
-                                                greigeCostSource: 'MANUAL',
-                                              })
-                                            }
-                                            title={
-                                              row.greigeCostSource === 'MANUAL'
-                                                ? 'Manual price - click label to reset'
-                                                : row.greigeCostSource === 'GREIGE_PROCUREMENT'
-                                                  ? `GRN price (default ₹${row.greigeDefaultCost}/m)`
-                                                  : row.greigeCostSource === 'GREIGE_STOCK'
-                                                    ? `Stock price (default ₹${row.greigeDefaultCost}/m)`
-                                                    : `Default price ₹${row.greigeDefaultCost}/m`
-                                            }
-                                          />
-                                          {/* Source label below input */}
-                                          {row.greigeCostSource === 'GREIGE_PROCUREMENT' && (
-                                            <span
-                                              className="text-[8px] text-info mt-0.5"
-                                              title="Price from GRN/Procurement"
-                                            >
-                                              from GRN
-                                            </span>
-                                          )}
-                                          {row.greigeCostSource === 'GREIGE_STOCK' && (
-                                            <span
-                                              className="text-[8px] text-success mt-0.5"
-                                              title="Price from Stock Entry"
-                                            >
-                                              from Stock
-                                            </span>
-                                          )}
-                                          {row.greigeCostSource === 'GREIGE_MASTER' && (
-                                            <span
-                                              className="text-[8px] text-muted-foreground mt-0.5"
-                                              title="Default price from Greige Master"
-                                            >
-                                              default
-                                            </span>
-                                          )}
-                                          {row.greigeCostSource === 'MANUAL' && (
-                                            <span
-                                              className="text-[8px] text-warning mt-0.5 cursor-pointer hover:underline"
-                                              title={`Click to reset to ${row.greigeDefaultCost ? `₹${row.greigeDefaultCost}/m` : 'default'}`}
-                                              onClick={() =>
-                                                updateRow(index, {
-                                                  greigeCostPerMeter: row.greigeDefaultCost,
-                                                  greigeCostSource: row.greigeDefaultCost ? 'GREIGE_MASTER' : 'MANUAL',
-                                                })
-                                              }
-                                            >
-                                              manual ↻
-                                            </span>
-                                          )}
-                                        </div>
+                                        <GreigeCostCell row={row} onChange={(updates) => updateRow(index, updates)} />
                                         {/* Transport Cost */}
                                         <div className="flex flex-col items-center">
                                           <Input

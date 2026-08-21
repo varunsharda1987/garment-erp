@@ -4,6 +4,7 @@
  */
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
+import { systemSettingsService } from './system-settings.service';
 import {
   CustomerType,
   CustomerCategory,
@@ -505,6 +506,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
    * Create accessory preset for a customer
    */
   async createAccessoryPreset(customerId: string, data: CreateAccessoryPresetDTO) {
+    const labelExtraDefault = await systemSettingsService.getNumberDefault('LABEL_DEFAULT_EXTRA_PERCENT');
     // Validate required fields
     if (!data.presetName) {
       throw new ValidationError('presetName is required');
@@ -544,7 +546,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
               // For LABEL type
               labelId: item.materialType === 'LABEL' ? item.labelId || null : null,
               componentName: item.materialType === 'LABEL' ? item.componentName || null : null,
-              extraPercentage: item.materialType === 'LABEL' ? (item.extraPercentage ?? 5) : null,
+              extraPercentage: item.materialType === 'LABEL' ? (item.extraPercentage ?? labelExtraDefault) : null,
               sortOrder: item.sortOrder ?? index,
             })),
           },
@@ -575,6 +577,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
    * Update accessory preset
    */
   async updateAccessoryPreset(customerId: string, presetId: string, data: UpdateAccessoryPresetDTO) {
+    const labelExtraDefault = await systemSettingsService.getNumberDefault('LABEL_DEFAULT_EXTRA_PERCENT');
     // Transaction: the deleteMany + update must succeed or fail together — previously the
     // deleteMany ran outside the update, so a failed update left the preset with ZERO items.
     return this.prisma.$transaction(async (tx) => {
@@ -618,7 +621,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
             // For LABEL type
             labelId: item.materialType === 'LABEL' ? item.labelId || null : null,
             componentName: item.materialType === 'LABEL' ? item.componentName || null : null,
-            extraPercentage: item.materialType === 'LABEL' ? (item.extraPercentage ?? 5) : null,
+            extraPercentage: item.materialType === 'LABEL' ? (item.extraPercentage ?? labelExtraDefault) : null,
             sortOrder: item.sortOrder ?? index,
           })),
         };

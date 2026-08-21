@@ -250,9 +250,19 @@ const OrderBOMDetail = () => {
       }));
       try {
         await updateOrderBOM(bom.orderId, { items }, bom.style?.id);
-        await fetchBOM();
+        // Optimistic update: update local state instead of refetching
+        setBom((prev) =>
+          prev
+            ? {
+                ...prev,
+                items: prev.items?.map((item) => (item.id === itemId ? { ...item, wastagePercent: clamped } : item)),
+              }
+            : prev
+        );
       } catch (err: unknown) {
         handleApiError(err, 'Failed to update wastage');
+        // On error, refetch to restore correct state
+        fetchBOM();
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -662,7 +672,7 @@ const OrderBOMDetail = () => {
                             step={0.1}
                             defaultValue={Number(item.wastagePercent ?? 0)}
                             onBlur={(e) => handleWastageChange(item.id, Number(e.target.value))}
-                            key={`${item.id}-${item.wastagePercent}`}
+                            key={item.id}
                           />
                         ) : item.wastagePercent != null ? (
                           `${Number(item.wastagePercent).toFixed(1)}%`

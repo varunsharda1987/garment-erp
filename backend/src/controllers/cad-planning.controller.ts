@@ -222,7 +222,7 @@ export async function generateCADOptions(req: Request, res: Response) {
             costingStyleId: styleId, // Link to style for cost sheet discovery
             cutableWidth: cutableWidth,
             widthUnit: 'inches',
-            cadWastagePercent: await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0),
+            cadWastagePercent: await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT'),
             layerMarginMeters: 0.05, // Default 5cm layer margin
             greigeId: greigeId || null,
             componentName: componentName || null,
@@ -829,7 +829,7 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
               fabricId: fabricMaster.id,
               cutableWidth: defaultWidth,
               widthUnit: 'inches',
-              cadWastagePercent: await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0),
+              cadWastagePercent: await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT'),
               layerMarginMeters: 0.05,
               isPreferred: true,
               createdById: req.user?.userId || 'system',
@@ -1237,7 +1237,7 @@ export async function addCADWidth(req: Request, res: Response) {
       costingStyleId: styleId, // Link to style for cost sheet discovery
       cutableWidth,
       widthUnit: 'inches',
-      cadWastagePercent: await systemSettingsService.getNumber('FABRIC_DEFAULT_WASTAGE_PERCENT', 0),
+      cadWastagePercent: await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT'),
       layerMarginMeters: 0.05,
       greigeId: greigeId || null,
       componentName: componentName || null,
@@ -3262,8 +3262,6 @@ export async function updateCADTableRow(req: Request, res: Response) {
     piecesPerMarker,
     layerLengthMeters,
     // Greige rate override fields
-    greigeCostOverride, // Manual override for greige cost per meter
-    greigeCostOverrideReason, // Reason for manual override
   } = req.body;
 
   // Find existing CAD
@@ -3512,15 +3510,12 @@ export async function updateCADTableRow(req: Request, res: Response) {
   // automatically calculate and save fabric costing
   // =====================================================
   // Never re-seed a row that Fabric Costing has already costed: overwriting its greige
-  // rate with today's market rate silently changed saved costings (and the row then
-  // reopened on the costing page showing defaults). An explicit manual override typed
-  // on this page is still honoured below.
-  const hasManualGreigeOverride = greigeCostOverride !== undefined && greigeCostOverride !== null;
+  // rate with today's market rate silently changed saved costings.
   const shouldAutoTriggerCosting =
     cadAverage !== null &&
     updatedCad.greigeId !== null &&
     updatedCad.cutableWidth !== null &&
-    (updatedCad.totalCostPerMeter === null || hasManualGreigeOverride);
+    updatedCad.totalCostPerMeter === null;
 
   let autoCalculatedCost: { totalCostPerMeter: number | null; costInputMode: string | null } | null = null;
   // Failures of the auto-costing / variance side-effects are surfaced as a response
@@ -3530,31 +3525,7 @@ export async function updateCADTableRow(req: Request, res: Response) {
 
   if (shouldAutoTriggerCosting) {
     try {
-      // Check if manual override is provided
-      if (hasManualGreigeOverride) {
-        // Use manual override
-        const manualCost = Number(greigeCostOverride);
-        await prisma.fabric_width_cad.update({
-          where: { id: rowId },
-          data: {
-            greigeCostPerMeter: manualCost,
-            greigeRateSource: 'MANUAL_OVERRIDE',
-            greigeRateManualOverride: manualCost,
-            greigeRateOverrideReason: greigeCostOverrideReason || 'Manual override',
-            greigeRateSourceDate: new Date(),
-            // costInputMode is NOT set here: it is a Fabric Costing field whose only legal
-            // values are BUILD_UP | LANDED_PRICE. Writing 'MANUAL'/'AUTO_CALCULATED' broke
-            // the costing form's render and made its next save fail Zod validation.
-            // The rate source is already recorded in greigeRateSource above.
-          } as any,
-        });
-        autoCalculatedCost = {
-          totalCostPerMeter: manualCost,
-          costInputMode: 'MANUAL',
-          rateSource: 'MANUAL_OVERRIDE',
-        } as any;
-        logInfo(`Manual greige cost override for CAD ${rowId}: ${manualCost}/meter`);
-      } else {
+      {
         // Get greige cost from procurement or greige master
         const greigeForCosting = await prisma.greige_master.findUnique({
           where: { id: updatedCad.greigeId! },

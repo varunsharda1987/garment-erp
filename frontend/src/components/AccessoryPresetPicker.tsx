@@ -21,6 +21,7 @@ import { getAllPackaging } from '../services/packaging.service';
 // Types
 import type { Label as LabelType } from '../types/label.types';
 import type { Packaging } from '../types/packaging.types';
+import { useDefaultSettings } from '../hooks/useDefaultSettings';
 
 // Selection types
 export interface PresetItemSelection {
@@ -76,6 +77,8 @@ export default function AccessoryPresetPicker({
   customerId,
   existingItems,
 }: AccessoryPresetPickerProps) {
+  const { labelExtraPercent } = useDefaultSettings();
+  const labelExtraDefault = labelExtraPercent ?? 0;
   const [activeTab, setActiveTab] = useState<TabType>('LABEL');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -252,7 +255,7 @@ export default function AccessoryPresetPicker({
           type: activeTab,
           quantity: 1,
           componentName: 'Back Neck', // Default component
-          extraPercentage: 5, // Default buffer %
+          extraPercentage: labelExtraDefault,
         });
       } else {
         newMap.set(item.id, { item, type: activeTab, quantity: 1 });
@@ -468,6 +471,9 @@ function ItemRow({
   onComponentNameChange,
   onExtraPercentageChange,
 }: ItemRowProps) {
+  const { labelExtraPercent } = useDefaultSettings();
+  const labelExtraDefault = labelExtraPercent ?? 0;
+
   // Determine the brand/customer display text
   const brandDisplay = item.brandName || item.customerName || null;
 
@@ -566,8 +572,8 @@ function ItemRow({
                   min="0"
                   max="50"
                   step="0.5"
-                  value={extraPercentage ?? 5}
-                  onChange={(e) => onExtraPercentageChange?.(parseFloat(e.target.value) || 5)}
+                  value={extraPercentage ?? labelExtraDefault}
+                  onChange={(e) => onExtraPercentageChange?.(parseFloat(e.target.value) || 0)}
                   className="h-8 text-sm mt-1"
                 />
               </div>

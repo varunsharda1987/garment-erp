@@ -44,6 +44,7 @@ export function ConversationSidebar({
         limit: 50,
         search: debouncedSearch || undefined,
       }),
+    staleTime: 0, // Always refetch when invalidated to show new conversations immediately
   });
   const conversations = data?.conversations ?? [];
 
@@ -96,24 +97,24 @@ export function ConversationSidebar({
   };
 
   return (
-    <div className="h-full flex flex-col bg-muted border-r">
+    <div className="h-full flex flex-col bg-sidebar border-r border-sidebar-border">
       {/* Header */}
-      <div className="p-4 border-b bg-card">
-        <Button onClick={onNewConversation} className="w-full" variant="default">
+      <div className="p-4 border-b border-sidebar-border">
+        <Button onClick={onNewConversation} className="w-full bg-primary hover:bg-primary/90" variant="default">
           <Plus className="h-4 w-4 mr-2" />
           New Chat
         </Button>
       </div>
 
       {/* Search */}
-      <div className="p-3 border-b">
+      <div className="p-3 border-b border-sidebar-border">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-sidebar-foreground/50" />
           <Input
             placeholder="Search conversations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-card"
+            className="pl-9 bg-sidebar-accent border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/50"
           />
         </div>
       </div>
@@ -121,11 +122,11 @@ export function ConversationSidebar({
       {/* Conversation List */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="p-4 text-center text-muted-foreground">
+          <div className="p-4 text-center text-sidebar-foreground/60">
             <div className="animate-pulse">Loading...</div>
           </div>
         ) : conversations.length === 0 ? (
-          <div className="p-4 text-center text-muted-foreground">
+          <div className="p-4 text-center text-sidebar-foreground/60">
             <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No conversations yet</p>
             <p className="text-xs mt-1">Start a new chat to begin</p>
@@ -137,14 +138,16 @@ export function ConversationSidebar({
                 key={conversation.id}
                 onClick={() => onSelectConversation(conversation)}
                 className={cn(
-                  'group flex items-center gap-3 px-3 py-3 mx-2 rounded-lg cursor-pointer transition-colors',
-                  activeConversationId === conversation.id ? 'bg-info-muted border border-info/20' : 'hover:bg-muted'
+                  'group flex items-center gap-3 px-3 py-3 mx-2 rounded-lg cursor-pointer transition-all',
+                  activeConversationId === conversation.id
+                    ? 'bg-sidebar-accent border border-primary/30 shadow-sm'
+                    : 'hover:bg-sidebar-accent/50'
                 )}
               >
                 <MessageSquare
                   className={cn(
                     'h-4 w-4 flex-shrink-0',
-                    activeConversationId === conversation.id ? 'text-info' : 'text-muted-foreground'
+                    activeConversationId === conversation.id ? 'text-primary' : 'text-sidebar-foreground/60'
                   )}
                 />
 
@@ -152,12 +155,14 @@ export function ConversationSidebar({
                   <p
                     className={cn(
                       'text-sm font-medium truncate',
-                      activeConversationId === conversation.id ? 'text-info' : 'text-foreground'
+                      activeConversationId === conversation.id
+                        ? 'text-sidebar-foreground'
+                        : 'text-sidebar-foreground/90'
                     )}
                   >
                     {conversation.title || 'New Chat'}
                   </p>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1 text-xs text-sidebar-foreground/50">
                     <Clock className="h-3 w-3" />
                     <span>{formatDate(conversation.lastMessageAt)}</span>
                     {conversation._count && <span className="ml-2">{conversation._count.messages} msgs</span>}
@@ -197,7 +202,7 @@ export function ConversationSidebar({
       </div>
 
       {/* Footer Stats */}
-      <div className="p-3 border-t bg-card text-xs text-muted-foreground text-center">
+      <div className="p-3 border-t border-sidebar-border text-xs text-sidebar-foreground/60 text-center">
         {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
       </div>
     </div>

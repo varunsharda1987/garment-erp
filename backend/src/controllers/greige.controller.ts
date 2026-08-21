@@ -714,6 +714,9 @@ export const bulkImportGreigeMasters = async (req: Request, res: Response) => {
               : null,
             averageShrinkagePercent: greige.averageShrinkagePercent ? parseFloat(greige.averageShrinkagePercent) : null,
             gsmRange: greige.gsmRange || null,
+            // The bulk-import Zod schema accepts costPerMeter, but this block omitted it —
+            // the value was validated and then silently discarded on every import.
+            costPerMeter: greige.costPerMeter ? parseFloat(greige.costPerMeter) : null,
             description: greige.description || null,
             notes: greige.notes || null,
             isActive: greige.isActive !== false,

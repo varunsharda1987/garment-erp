@@ -131,6 +131,17 @@ export type SourcingStrategy = 'STOCK_REUSE' | 'READY_FABRIC' | 'GREIGE_PROCESSE
 // Cost input mode
 export type CostInputMode = 'LANDED_PRICE' | 'BUILD_UP';
 
+/**
+ * Where a greige rate came from.
+ *
+ * The first three are resolved LIVE by the API (latest greige purchase → latest priced stock
+ * lot → Greige Master fallback). COMMITTED is the rate a finished costing was priced at — it is
+ * NOT a price source, it is this row's agreed number, kept so a later GRN cannot silently
+ * re-price an approved costing. MANUAL is a rate the user typed here.
+ */
+export type LiveGreigeCostSource = 'GREIGE_PROCUREMENT' | 'GREIGE_STOCK' | 'GREIGE_MASTER';
+export type GreigeCostSource = LiveGreigeCostSource | 'MANUAL' | 'COMMITTED';
+
 // Transport cost mode
 export type TransportCostMode = 'PER_METER' | 'FIXED';
 
@@ -228,8 +239,13 @@ export interface FabricForCosting {
   greigeCode: string | null;
   greigeDefaultCost: number | null; // Default cost from greige_master
   greigeStockCost: number | null; // Cost from latest greige procurement
-  greigeCostPerMeter: number | null; // Actual cost to use (stock → default)
-  greigeCostSource: 'GREIGE_PROCUREMENT' | 'GREIGE_STOCK' | 'GREIGE_MASTER'; // Source indicator
+  greigeCostPerMeter: number | null; // LIVE rate resolved now (latest purchase → stock lot → master)
+  /** Source of the live rate. null = no rate could be resolved from any source. */
+  greigeCostSource: LiveGreigeCostSource | null;
+  /** When the live rate was set (purchase date / stock receipt date). */
+  greigeCostSourceDate?: string | null;
+  /** Supplier behind the live rate, when it came from a purchase. */
+  greigeCostSourceSupplier?: string | null;
   greigeStockAvailable: number | null; // Greige stock quantity available
   numberOfColors: number | null;
   // Shrinkage from saved data or greige master fallback
@@ -340,7 +356,13 @@ export interface FabricCostingRow {
 
   // Build-up mode - Greige & Transport
   greigeCostPerMeter: number | null;
-  greigeCostSource: 'GREIGE_MASTER' | 'GREIGE_PROCUREMENT' | 'GREIGE_STOCK' | 'MANUAL';
+  greigeCostSource: GreigeCostSource | null;
+  /** The live rate resolved at load, kept so the row can show what the price is TODAY
+   *  next to the number this costing is actually committed at. */
+  liveGreigeCostPerMeter: number | null;
+  liveGreigeCostSource: LiveGreigeCostSource | null;
+  liveGreigeCostSourceDate: string | null;
+  liveGreigeCostSourceSupplier: string | null;
   transportCostMode: TransportCostMode;
   transportCostPerMeter: number | null;
   transportFixedAmount: number | null;

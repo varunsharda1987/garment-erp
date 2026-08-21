@@ -699,7 +699,9 @@ model customer_accessories_preset_items {
   createdAt       DateTime                     @default(now())
   updatedAt       DateTime                     @updatedAt
   componentName   String?
-  extraPercentage Decimal?                     @default(5) @db.Decimal(5, 2)
+  /// No column default: a business default is a competing authority. NULL means
+  /// "inherit LABEL_DEFAULT_EXTRA_PERCENT" — see src/config/defaults.registry.ts.
+  extraPercentage Decimal?                     @db.Decimal(5, 2)
   labelId         String?
   label           label_master?                @relation(fields: [labelId], references: [id], onDelete: Restrict)
   material        materials?                   @relation("PresetMaterials", fields: [materialId], references: [id], onDelete: Restrict)
@@ -2502,7 +2504,10 @@ model style_material_bom {
   otherTapeId             String?
   otherDecorativeId       String?
   otherFunctionalId       String?
-  extraPercentage         Decimal?                  @default(5) @db.Decimal(5, 2)
+  /// No column default: the old @default(5) fired on every create that omitted this
+  /// field and put 5% wastage on every trim in the system. NULL means "inherit the
+  /// configured default" — see src/config/defaults.registry.ts.
+  extraPercentage         Decimal?                  @db.Decimal(5, 2)
   orderLabelOverrides     order_label_override[]
   labelSizeConfigs        style_label_size_config[]
   button_master           button_master?            @relation(fields: [buttonId], references: [id])
@@ -4268,7 +4273,14 @@ model greige_master {
   expectedFinishedWidthMax Decimal?                     @db.Decimal(10, 2)
   averageShrinkagePercent  Decimal?                     @db.Decimal(5, 2)
   gsmRange                 String?
+  /// Hand-set planning rate. Fabric Costing uses it only when there is no purchase and no
+  /// priced stock lot, and the PO form pre-fills from it. Deliberately NOT auto-updated:
+  /// letting receipts write it would make master -> PO price -> GRN -> master self-reinforcing.
   costPerMeter             Decimal?                     @db.Decimal(10, 2)
+  /// Latest greige GRN price, maintained automatically on receipt (see grn.service.ts).
+  /// Informational: the costing page already reads the live procurement row directly.
+  lastPurchaseRate         Decimal?                     @map("last_purchase_rate") @db.Decimal(10, 2)
+  lastPurchaseAt           DateTime?                    @map("last_purchase_at")
   moq                      Int?
   leadTimeDays             Int?
   supplierId               String?

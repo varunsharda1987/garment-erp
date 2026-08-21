@@ -41,7 +41,7 @@ router.get(
       throw new UnauthorizedError();
     }
 
-    const { status, limit, offset, search } = req.query as unknown as ConversationQueryInput;
+    const { status, limit, offset, search } = req.validatedQuery as ConversationQueryInput;
 
     const result = await conversationService.getConversations({
       userId,
@@ -164,7 +164,7 @@ router.get(
     }
 
     const { id } = req.params;
-    const { limit, offset } = req.query as unknown as MessageQueryInput;
+    const { limit, offset } = req.validatedQuery as MessageQueryInput;
 
     const messages = await conversationService.getMessages(id, userId, limit ?? 100, offset ?? 0);
 

@@ -626,6 +626,10 @@ export const addStyleMaterialBOMSchema = z.object({
   quantityPerGarment: z.coerce.number().positive('Quantity per garment must be positive'),
   unit: z.string().trim().min(1, 'Unit is required').max(50),
   notes: z.string().max(1000, 'Notes must not exceed 1000 characters').trim().optional().nullable(),
+  // Wastage/extra %. Omitted (undefined) means "use the system default"; an explicit 0 is a
+  // real value and must survive. No .default() here on purpose — a Zod default fills in a
+  // number the client never sent and cannot be overridden by Settings.
+  extraPercentage: z.coerce.number().min(0).max(100).optional().nullable(),
 });
 
 /**
@@ -640,6 +644,9 @@ export const updateStyleMaterialBOMSchema = z.object({
   unit: z.string().trim().min(1, 'Unit must not be empty').max(50).optional(),
   notes: z.string().max(1000, 'Notes must not exceed 1000 characters').trim().optional().nullable(),
   isActive: z.boolean().optional(),
+  // See addStyleMaterialBOMSchema — without this field the API silently stripped every
+  // wastage the user typed, so trim wastage could not be changed at all.
+  extraPercentage: z.coerce.number().min(0).max(100).optional().nullable(),
 });
 
 // ============================================================================

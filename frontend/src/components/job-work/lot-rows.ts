@@ -7,13 +7,26 @@
  * are the client-side half of guards the server enforces, and two copies would drift into two
  * different ideas of what a valid issue looks like.
  */
-import type { JwoIssuePreviewLot } from '@/services/jobWorkOrder.service';
+import type { GreigeStockDetail, JwoIssuePreviewLot } from '@/services/jobWorkOrder.service';
+
+/** One selected than/bale for detail-level issuance. */
+export interface SelectedDetail {
+  detailId: string;
+  /** Kept as the raw input string so the field can be cleared mid-edit without snapping to 0 */
+  metersToIssue: string;
+}
 
 /** One editable line: which lot, and how much of it leaves the building. */
 export interface IssueLotRow {
   lotId: string;
   /** Kept as the raw input string so the field can be cleared mid-edit without snapping to 0 */
   qty: string;
+  /** For detail-level issuance: available details loaded from the API */
+  availableDetails?: GreigeStockDetail[];
+  /** For detail-level issuance: selected details with meters to issue */
+  selectedDetails?: SelectedDetail[];
+  /** Whether the detail picker is expanded */
+  detailsExpanded?: boolean;
 }
 
 /** Metres are quoted to 2dp everywhere; sums of typed values must be pinned there before comparing. */
@@ -125,4 +138,56 @@ export function autoFillLotRows(
     remaining = round2(remaining - take);
   }
   return filled.length > 0 ? filled : null;
+}
+
+/**
+ * Calculate the total meters from selected details.
+ */
+export function totalDetailMeters(selectedDetails?: SelectedDetail[]): number {
+  if (!selectedDetails) return 0;
+  return round2(selectedDetails.reduce((sum, d) => sum + (parseFloat(d.metersToIssue) || 0), 0));
+}
+
+/**
+ * Check if any detail selection exceeds available meters.
+ */
+export function hasDetailOverSelection(
+  selectedDetails: SelectedDetail[] | undefined,
+  availableDetails: GreigeStockDetail[] | undefined
+): { detailId: string; over: number }[] {
+  if (!selectedDetails || !availableDetails) return [];
+  const detailById = new Map(availableDetails.map((d) => [d.id, d]));
+  return selectedDetails
+    .map((sel) => {
+      const detail = detailById.get(sel.detailId);
+      if (!detail) return null;
+      const requested = parseFloat(sel.metersToIssue) || 0;
+      if (requested > detail.metersRemaining + ISSUE_QTY_TOLERANCE) {
+        return { detailId: sel.detailId, over: round2(requested - detail.metersRemaining) };
+      }
+      return null;
+    })
+    .filter((x): x is { detailId: string; over: number } => x !== null);
+}
+
+/**
+ * Group details by bale number for display.
+ */
+export function groupDetailsByBale(
+  details: GreigeStockDetail[]
+): Array<{ baleNumber: number | null; thans: GreigeStockDetail[] }> {
+  const groups = new Map<number | null, GreigeStockDetail[]>();
+  for (const detail of details) {
+    const bale = detail.baleNumber;
+    if (!groups.has(bale)) groups.set(bale, []);
+    groups.get(bale)!.push(detail);
+  }
+  // Sort by bale number (unbaled thans first as null, then numbered)
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => {
+      if (a === null) return -1;
+      if (b === null) return 1;
+      return a - b;
+    })
+    .map(([baleNumber, thans]) => ({ baleNumber, thans }));
 }

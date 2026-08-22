@@ -21,6 +21,37 @@ export interface IssueLotInput {
   qty: number;
 }
 
+/** A single than/bale detail within a greige lot (for bale/than-level issuance). */
+export interface GreigeStockDetail {
+  id: string;
+  baleNumber: number | null;
+  sequenceNo: number;
+  meters: number;
+  metersRemaining: number;
+  status: 'AVAILABLE' | 'PARTIAL' | 'CONSUMED';
+  remarks: string | null;
+}
+
+/** Detail-level selection for bale/than issuance. */
+export interface IssueDetailInput {
+  greigeStockDetailId: string;
+  metersToIssue: number;
+}
+
+/** One lot with detail-level selections for issue-with-details. */
+export interface IssueLotWithDetailsInput {
+  greigeStockLotId: string;
+  details: IssueDetailInput[];
+}
+
+/** Payload for bale/than-level issuance. */
+export interface IssueWithDetailsPayload {
+  sentDate?: string;
+  vehicleNumber?: string;
+  challanNumber?: string;
+  lots: IssueLotWithDetailsInput[];
+}
+
 /**
  * Issue payload.
  *
@@ -268,6 +299,27 @@ export const jobWorkOrderService = {
   async close(id: string, invoiceNumber?: string, remarks?: string): Promise<{ data: JobWorkOrder; warning?: string }> {
     const response = await api.post(`${BASE_URL}/${id}/close`, { invoiceNumber, remarks });
     return { data: response.data.data, warning: response.data.warning };
+  },
+
+  /**
+   * Get available bale/than details for a greige stock lot (for bale/than-level issuance).
+   * Returns the individual thans grouped by bale, with remaining meters.
+   */
+  async getAvailableDetails(greigeStockId: string): Promise<GreigeStockDetail[]> {
+    const response = await api.get(`/greige/stock/${greigeStockId}/available-details`);
+    return response.data.data;
+  },
+
+  /**
+   * Issue with bale/than-level detail selection (for processor dispatch).
+   * Allows selecting specific thans and optionally splitting them.
+   */
+  async issueWithDetails(
+    id: string,
+    payload: IssueWithDetailsPayload
+  ): Promise<{ data: JobWorkOrder; challanNumber: string; warning?: string }> {
+    const response = await api.post(`${BASE_URL}/${id}/issue-with-details`, payload);
+    return { data: response.data.data, challanNumber: response.data.challanNumber, warning: response.data.warning };
   },
 };
 

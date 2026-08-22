@@ -509,7 +509,9 @@ export const updateFabricMaster = async (req: Request, res: Response) => {
     fabricName,
     greigeId: greigeId !== undefined ? greigeId || null : undefined,
     greigeName: greigeName !== undefined ? greigeName || greige?.greigeName || null : undefined,
-    genericGreigeName: genericGreigeName || greige?.genericGreigeName || null,
+    // Only update if explicitly provided; undefined means "don't change"
+    genericGreigeName:
+      genericGreigeName !== undefined ? genericGreigeName || greige?.genericGreigeName || null : undefined,
     yarnCount: yarnCount !== undefined ? yarnCount || null : undefined,
     composition: composition !== undefined ? composition || null : undefined,
     colorName,

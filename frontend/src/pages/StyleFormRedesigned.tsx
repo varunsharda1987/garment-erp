@@ -1229,10 +1229,11 @@ export default function StyleFormRedesigned() {
                 componentIndex = foundIndex;
               }
             }
-            // Determine sourcing mode from fabricId presence - validate UUIDs
+            // Determine sourcing mode from genericGreigeName - NOT fabricId
+            // (fabricId can exist in BOTH modes after job-work receipt creates finished fabric)
             const rawFabricId = sf.fabricId || sf.fabric?.id;
             const fabricId = isValidUUID(rawFabricId) ? rawFabricId : null;
-            const sourcingMode: 'GREIGE' | 'READY_FABRIC' = fabricId ? 'READY_FABRIC' : 'GREIGE';
+            const sourcingMode: 'GREIGE' | 'READY_FABRIC' = sf.genericGreigeName ? 'GREIGE' : 'READY_FABRIC';
 
             // Validate ID fields to prevent corrupt data from entering state
             const rawColorMasterId = sf.colorMasterId || sf.fabric?.colorMasterId;
@@ -2067,7 +2068,9 @@ export default function StyleFormRedesigned() {
           const componentFabrics = componentFabricsForIndex.map((f) => ({
             fabricName: f.sourcingMode === 'READY_FABRIC' ? f.fabricName || '' : f.genericGreigeName,
             fabricId: f.sourcingMode === 'READY_FABRIC' && isValidUUID(f.fabricId) ? f.fabricId : null,
-            genericGreigeName: f.sourcingMode === 'READY_FABRIC' ? null : f.genericGreigeName || null,
+            // Preserve genericGreigeName - it's the category identity for greige workflows
+            // Don't clear based on sourcingMode (fabricId can exist in greige mode after processing)
+            genericGreigeName: f.genericGreigeName || null,
             fabricType: f.sourcingMode === 'READY_FABRIC' ? 'FABRIC' : 'GENERIC',
             fabricFinishType: f.fabricFinishType || null,
             // Design/Color identification

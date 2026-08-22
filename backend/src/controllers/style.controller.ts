@@ -195,7 +195,8 @@ export const getStyleById = async (req: Request, res: Response): Promise<void> =
         componentName: comp.componentName,
         fabricId: fab.fabricId || null,
         fabric: fab.fabric || null,
-        genericGreigeName: fab.genericGreigeName || (fab.fabricId ? null : fab.fabricName),
+        // Preserve database value - don't infer null from fabricId presence
+        genericGreigeName: fab.genericGreigeName || null,
         fabricFinishType: fab.fabricFinishType,
         estimatedConsumption: fab.quantityNeeded,
         unit: 'METER', // Default unit

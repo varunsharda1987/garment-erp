@@ -284,6 +284,8 @@ export interface FabricForCosting {
   orderQuantityPcs?: number | null;
   // Creation timestamp for sorting by most recent
   createdAt?: string | null;
+  // Approval status from fabric_width_cad
+  approvalStatus?: string | null;
 }
 
 // Style fabrics response
@@ -405,6 +407,8 @@ export interface FabricCostingRow {
   isExpanded: boolean;
   isLoading: boolean;
   error: string | null;
+  // Approval status (for filtering out approved rows on save)
+  approvalStatus?: string | null;
 }
 
 // Page state

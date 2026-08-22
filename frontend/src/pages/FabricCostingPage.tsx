@@ -798,6 +798,7 @@ export default function FabricCostingPage() {
               isExpanded: false,
               isLoading: false,
               error: null,
+              approvalStatus: fabric.approvalStatus || null,
             };
           }
 
@@ -893,6 +894,7 @@ export default function FabricCostingPage() {
             isExpanded: false,
             isLoading: false,
             error: null,
+            approvalStatus: null,
           };
         });
 
@@ -1336,16 +1338,24 @@ export default function FabricCostingPage() {
     const missingGreige = costedRows.filter(
       (row) => row.costInputMode === 'BUILD_UP' && !(row.greigeCostPerMeter != null && row.greigeCostPerMeter > 0)
     );
-    const rowsToSave = costedRows.filter((row) => !missingGreige.includes(row));
+    // Don't send already-approved rows — backend rejects changes to approved costings.
+    // They can only be modified after unapproving first.
+    const approvedRows = costedRows.filter(
+      (row) => row.approvalStatus === 'APPROVED' || row.approvalStatus === 'ALTERNATE_APPROVED'
+    );
+    const rowsToSave = costedRows.filter((row) => !missingGreige.includes(row) && !approvedRows.includes(row));
 
     if (rowsToSave.length === 0) {
       const hasMissingPrices = missingGreige.length > 0 || missingLandedPrice.length > 0;
+      const allApproved = approvedRows.length > 0 && !hasMissingPrices && costedRows.length === approvedRows.length;
       notify.error(
-        hasMissingPrices
-          ? missingGreige.length > 0
-            ? `Cannot save: no greige price for ${missingGreige.map(describeRow).join(', ')}. Enter a rate, or set one on the Greige Master.`
-            : `Cannot save: no landed price for ${missingLandedPrice.map(describeRow).join(', ')}. Enter a landed price or switch to Build Up mode.`
-          : 'No fabrics with calculated costs to save'
+        allApproved
+          ? 'All rows are already approved. Unapprove first to modify.'
+          : hasMissingPrices
+            ? missingGreige.length > 0
+              ? `Cannot save: no greige price for ${missingGreige.map(describeRow).join(', ')}. Enter a rate, or set one on the Greige Master.`
+              : `Cannot save: no landed price for ${missingLandedPrice.map(describeRow).join(', ')}. Enter a landed price or switch to Build Up mode.`
+            : 'No fabrics with calculated costs to save'
       );
       return;
     }
@@ -1354,6 +1364,11 @@ export default function FabricCostingPage() {
       notify.warning(
         `Skipped ${missingGreige.length} fabric(s) with no greige price: ${missingGreige.map(describeRow).join(', ')}`
       );
+    }
+
+    // Notify user if some rows were skipped because they're already approved
+    if (approvedRows.length > 0) {
+      notify.info(`${approvedRows.length} approved row(s) unchanged. Unapprove first to modify.`);
     }
 
     setIsSaving(true);

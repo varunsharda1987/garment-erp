@@ -692,6 +692,7 @@ export async function getStyleFabrics(req: Request, res: Response) {
             totalCostPerMeter: cadRow.totalCostPerMeter ? Number(cadRow.totalCostPerMeter) : null,
             costInputMode: cadRow.costInputMode || null,
             isPreferred: cadRow.isPreferred || false,
+            approvalStatus: cadRow.approvalStatus || null,
             processingBatchGroupColorId: cadRow.processingBatchGroupColorId || null,
             // MRP-48d: rate card (and its printing type) the saved numbers came from,
             // so reopening the page restores the same rate selection instead of blanking it

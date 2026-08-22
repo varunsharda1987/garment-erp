@@ -212,7 +212,7 @@ export default function StockDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="bg-success-muted rounded-lg p-4">
                 <p className="text-sm text-muted-foreground mb-1">Total Meters</p>
                 <p className="text-2xl font-bold text-success">{greigeSummary.totalMeters.toLocaleString()} m</p>
@@ -221,8 +221,16 @@ export default function StockDashboard() {
                 <p className="text-sm text-muted-foreground mb-1">Total Value</p>
                 <p className="text-2xl font-bold text-success">{formatCurrencyWhole(greigeSummary.totalValue)}</p>
               </div>
-              <div className="bg-success-muted rounded-lg p-4">
-                <p className="text-sm text-muted-foreground mb-1">Aging Stock ({'>'}180 days)</p>
+              <div className="bg-info-muted rounded-lg p-4">
+                <p className="text-sm text-muted-foreground mb-1">Bales</p>
+                <p className="text-2xl font-bold text-info">{greigeSummary.totalBales || 0}</p>
+              </div>
+              <div className="bg-accent/10 rounded-lg p-4">
+                <p className="text-sm text-muted-foreground mb-1">Thans</p>
+                <p className="text-2xl font-bold text-accent">{greigeSummary.totalThans || 0}</p>
+              </div>
+              <div className="bg-orange-100 rounded-lg p-4">
+                <p className="text-sm text-muted-foreground mb-1">Aging ({'>'}180d)</p>
                 <p className="text-2xl font-bold text-yellow-700">{greigeSummary.agingStockCount} items</p>
               </div>
             </div>

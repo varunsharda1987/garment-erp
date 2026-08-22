@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { JWO_ACTIVE_FILTER } from './helpers/jwo-status.helper';
 import { systemSettingsService } from './system-settings.service';
 
 interface AlertCount {
@@ -94,6 +95,8 @@ class ManufacturingAlertsService {
       prisma.job_work_orders.findMany({
         where: {
           status: { in: ['SENT_TO_MILL', 'AT_MILL'] },
+          // Landmine No.1: legacy status never records cancellation — exclude via jwoStatus
+          AND: [JWO_ACTIVE_FILTER],
           expectedReturnDate: { lt: today },
           receivedDate: null,
         },
@@ -227,6 +230,8 @@ class ManufacturingAlertsService {
       by: ['processorId', 'processType'],
       where: {
         status: { in: ['SENT_TO_MILL', 'AT_MILL'] },
+        // Landmine No.1: legacy status never records cancellation — exclude via jwoStatus
+        AND: [JWO_ACTIVE_FILTER],
       },
       _count: { id: true },
       _sum: { qtySentMeters: true },

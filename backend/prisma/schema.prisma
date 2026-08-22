@@ -9894,6 +9894,10 @@ enum BuyerApprovalStatus {
   RESUBMIT_REQUIRED
 }
 
+/// Legacy JWO status — a derived MIRROR of jwoStatus since the 2026-08-22 two-status fix.
+/// All writes go through services/helpers/jwo-status.helper.ts (setJwoStatus), which maps
+/// jwoStatus onto this column. CANCELLED added so cancellation is total in both columns
+/// (previously a cancel left this column claiming READY_TO_SEND — landmine №1).
 enum JobWorkStatus {
   LAB_DIP_PENDING
   LAB_DIP_SUBMITTED
@@ -9904,6 +9908,7 @@ enum JobWorkStatus {
   RECEIVED
   QUALITY_CHECKED
   STOCK_UPDATED
+  CANCELLED
 }
 
 /// Universal Job Work Order status (Phase 7)

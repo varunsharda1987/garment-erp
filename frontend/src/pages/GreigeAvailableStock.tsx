@@ -279,6 +279,8 @@ export default function GreigeAvailableStock() {
       'Width',
       'Cutable Width',
       'Total Stock',
+      'Bales',
+      'Thans',
       'Warehouses',
       'Avg Cost/m',
       'Total Value',
@@ -294,6 +296,8 @@ export default function GreigeAvailableStock() {
       s.greigeWidth ?? '',
       s.cutableWidth ?? '',
       s.totalStock.toFixed(2),
+      s.totalBales || 0,
+      s.totalThans || 0,
       (s.warehouses || []).join('; '),
       s.totalStock > 0 ? (s.totalValue / s.totalStock).toFixed(2) : '',
       (s.totalValue || 0).toFixed(2),
@@ -481,6 +485,12 @@ export default function GreigeAvailableStock() {
                       <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase">
                         Total Stock
                       </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                        Bales
+                      </th>
+                      <th className="px-3 py-3 text-center text-xs font-medium text-muted-foreground uppercase">
+                        Thans
+                      </th>
                       <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">
                         Warehouse
                       </th>
@@ -556,6 +566,24 @@ export default function GreigeAvailableStock() {
                           <td className="px-4 py-3 text-sm text-right">
                             <span className="font-semibold text-success">{stock.totalStock.toFixed(2)}</span>
                           </td>
+                          <td className="px-3 py-3 text-sm text-center">
+                            {stock.totalBales > 0 ? (
+                              <Badge variant="outline" className="bg-info-muted text-info border-info/20">
+                                {stock.totalBales}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-center">
+                            {stock.totalThans > 0 ? (
+                              <Badge variant="outline" className="bg-accent/10 text-accent border-accent/20">
+                                {stock.totalThans}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
                           <td className="px-4 py-3 text-sm text-muted-foreground">
                             {(stock.warehouses || []).length > 0 ? (
                               <div className="flex items-center gap-1">
@@ -585,7 +613,7 @@ export default function GreigeAvailableStock() {
                         {/* Expanded sub-table */}
                         {expandedRows.has(stock.greigeId) && (
                           <tr key={`${stock.greigeId}-expanded`}>
-                            <td colSpan={13} className="px-0 py-0">
+                            <td colSpan={15} className="px-0 py-0">
                               <div className="bg-muted border-t border-b border-border px-8 py-4">
                                 {loadingExpanded.has(stock.greigeId) ? (
                                   <div className="text-center py-4 text-muted-foreground">Loading entries...</div>

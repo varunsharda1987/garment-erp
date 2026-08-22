@@ -238,6 +238,8 @@ class StyleStockController {
           processors: Map<string, { id: string; name: string; code: string }>;
           statuses: Set<string>;
           entryCount: number;
+          totalBales: number;
+          totalThans: number;
         }
       >();
 
@@ -257,6 +259,8 @@ class StyleStockController {
           if (item.processor) existing.processors.set(item.processor.id, item.processor);
           existing.statuses.add(item.status);
           existing.entryCount++;
+          existing.totalBales += item.baleCount ?? 0;
+          existing.totalThans += item.thanCount ?? 0;
         } else {
           const supplierMap = new Map<string, { id: string; name: string; code: string }>();
           if (item.supplier) supplierMap.set(item.supplier.id, item.supplier);
@@ -278,6 +282,8 @@ class StyleStockController {
             processors: processorMap,
             statuses: new Set([item.status]),
             entryCount: 1,
+            totalBales: item.baleCount ?? 0,
+            totalThans: item.thanCount ?? 0,
           });
         }
       }
@@ -304,6 +310,8 @@ class StyleStockController {
           processors: stock ? Array.from(stock.processors.values()) : [],
           statuses: stock ? Array.from(stock.statuses) : [],
           entryCount: stock?.entryCount ?? 0,
+          totalBales: stock?.totalBales ?? 0,
+          totalThans: stock?.totalThans ?? 0,
         };
       });
 

@@ -28,6 +28,7 @@ import {
   syncMasterToMaterials,
   syncStockLevelQuantity,
 } from '../services/helpers/material-sync.helper';
+import { setJwoStatus, JWO_ACTIVE_FILTER } from '../services/helpers/jwo-status.helper';
 import { applyShrinkageLoss, multiplyCurrency, roundToCent } from '../utils/currency';
 import type {
   CreateJobWorkOrderInput,
@@ -683,6 +684,8 @@ class JobWorkOrderController {
         }
       }
 
+      // allow-direct-jwo-status: CLOSED deliberately leaves the legacy mirror untouched
+      // (the legacy chain is already terminal by close time — see jwo-status.helper mapping)
       const updated = await prisma.job_work_orders.update({
         where: { id },
         data: {
@@ -717,6 +720,9 @@ class JobWorkOrderController {
           purchaseOrderId: null,
           receivedDate: null,
           status: { in: ['AT_MILL', 'SENT_TO_MILL'] },
+          // Landmine №1 fix: a cancelled/closed order must never reach the GRN dropdown —
+          // receiving its returned rolls would double-count stock already credited back
+          AND: [JWO_ACTIVE_FILTER],
           // Phase 5a (D6): GRN receiving is fabric/meters-only; PCS job work is
           // received on the JWO itself (POST /:id/receive)
           uom: 'MTR',
@@ -1271,14 +1277,13 @@ class JobWorkOrderController {
           }
         }
 
-        return txClient.job_work_orders.update({
-          where: { id },
-          data: {
-            jwoStatus: 'CANCELLED',
-            remarks: `${jwo.remarks || ''}\n[CANCELLED] ${reason || 'No reason given'}`.trim(),
-          },
-          include: jwoInclude,
+        // Both status columns via the helper — the old jwoStatus-only write left the legacy
+        // column claiming READY_TO_SEND, keeping cancelled orders on the receivable lists
+        // (landmine №1: returned rolls then double-counted stock via GRN).
+        await setJwoStatus(txClient, id, 'CANCELLED', {
+          remarks: `${jwo.remarks || ''}\n[CANCELLED] ${reason || 'No reason given'}`.trim(),
         });
+        return txClient.job_work_orders.findUnique({ where: { id }, include: jwoInclude });
       });
 
       logger.info(`[JWO] Cancelled ${jwo.jobWorkNumber}${jwo.sentDate ? ' (issued material credited back)' : ''}`);
@@ -1333,12 +1338,8 @@ class JobWorkOrderController {
       const updated = await prisma.$transaction(async (txClient) => {
         const lossSplit = await jobWorkOrderService.applyLossSplit(id, qtyReceived, txClient);
 
-        await txClient.job_work_orders.update({
-          where: { id },
-          data: {
-            receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
-            jwoStatus: 'RECEIVED',
-          },
+        await setJwoStatus(txClient, id, 'RECEIVED', {
+          receivedDate: receivedDate ? new Date(receivedDate) : new Date(),
         });
 
         await updateWosrReceivedQuantity(id, Number(qtyReceived), txClient);
@@ -1397,11 +1398,8 @@ class JobWorkOrderController {
 
       const updated = await jobWorkOrderService.approve(id, userId);
 
-      // Update status
-      await prisma.job_work_orders.update({
-        where: { id },
-        data: { jwoStatus: 'APPROVED' },
-      });
+      // Update status (both columns via the helper)
+      await setJwoStatus(prisma, id, 'APPROVED');
 
       const jwo = await prisma.job_work_orders.findUnique({
         where: { id },

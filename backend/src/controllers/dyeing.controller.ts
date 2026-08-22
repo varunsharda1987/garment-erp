@@ -18,6 +18,7 @@ import { randomUUID } from 'crypto';
 import logger from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 import greigeStockService from '../services/greige-stock.service';
+import { isJwoDead } from '../services/helpers/jwo-status.helper';
 import { systemSettingsService } from '../services/system-settings.service';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from '../services/job-work-order.service';
 import { findProcessingRequirementMatches, updateJwoReceivedQuantity } from '../services/mrp.service';
@@ -1110,6 +1111,7 @@ export const receiveFromMill = async (req: Request, res: Response, _next: NextFu
       foldLengthCm: foldLengthCm ? new Prisma.Decimal(foldLengthCm) : null,
       calculatedActualMeters: calculatedActualMeters ? new Prisma.Decimal(calculatedActualMeters) : null,
       status: 'RECEIVED',
+      jwoStatus: 'RECEIVED', // two-status sync (landmine No.1): legacy column mirrors jwoStatus
     },
     include: jobWorkOrderInclude,
   });
@@ -1154,6 +1156,7 @@ export const qualityCheck = async (req: Request, res: Response, _next: NextFunct
       actualRate,
       remarks: remarks ? `${existing.remarks || ''}\n[QC Note] ${remarks}` : existing.remarks,
       status: 'QUALITY_CHECKED',
+      jwoStatus: 'QUALITY_CHECKED', // two-status sync (landmine No.1): legacy column mirrors jwoStatus
     },
     include: jobWorkOrderInclude,
   });
@@ -1272,6 +1275,7 @@ export const updateStock = async (req: Request, res: Response, _next: NextFuncti
     where: { id },
     data: {
       status: 'STOCK_UPDATED',
+      jwoStatus: 'STOCK_UPDATED', // two-status sync (landmine No.1): legacy column mirrors jwoStatus
     },
     include: jobWorkOrderInclude,
   });
@@ -1900,6 +1904,13 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
     );
   }
 
+  // Landmine No.1 fix: a cancelled/closed job's material was already credited back —
+  // receiving (or re-returning) against it would double-count stock
+  if (isJwoDead(job.jwoStatus)) {
+    throw new BusinessError(
+      `${job.jobWorkNumber} is ${job.jwoStatus?.toLowerCase()} — its stock was already credited back. Contact the office to re-open the job if material physically arrived.`
+    );
+  }
   if (job.status !== 'AT_MILL' && job.status !== 'SENT_TO_MILL') {
     throw new BusinessError(`Cannot receive. Job status is ${job.status}, expected AT_MILL`);
   }
@@ -1984,6 +1995,7 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
       calculatedActualMeters: calculatedActualMeters ? new Prisma.Decimal(calculatedActualMeters) : null,
       inwardChallanId,
       status: 'RECEIVED',
+      jwoStatus: 'RECEIVED', // two-status sync (landmine No.1): legacy column mirrors jwoStatus
     },
   });
 
@@ -2036,6 +2048,7 @@ export const qualityCheckProcessPO = async (req: Request, res: Response, _next: 
       actualRate,
       remarks: remarks ? `${job.remarks || ''}\n[QC Note] ${remarks}` : job.remarks,
       status: 'QUALITY_CHECKED',
+      jwoStatus: 'QUALITY_CHECKED', // two-status sync (landmine No.1): legacy column mirrors jwoStatus
     },
   });
 
@@ -2144,6 +2157,7 @@ export const updateStockProcessPO = async (req: Request, res: Response, _next: N
     where: { id: job.id },
     data: {
       status: 'STOCK_UPDATED',
+      jwoStatus: 'STOCK_UPDATED', // two-status sync (landmine No.1): legacy column mirrors jwoStatus
     },
   });
 
@@ -2221,6 +2235,13 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const job = jwo as any;
 
+  // Landmine No.1 fix: a cancelled/closed job's material was already credited back —
+  // receiving (or re-returning) against it would double-count stock
+  if (isJwoDead(job.jwoStatus)) {
+    throw new BusinessError(
+      `${job.jobWorkNumber} is ${job.jwoStatus?.toLowerCase()} — its stock was already credited back. Contact the office to re-open the job if material physically arrived.`
+    );
+  }
   if (job.status !== 'AT_MILL' && job.status !== 'SENT_TO_MILL') {
     throw new BusinessError(`Cannot return unprocessed. Job status is ${job.status}, expected AT_MILL`);
   }
@@ -2279,7 +2300,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
     where: { id: job.id },
     data: {
       inwardChallanId,
-      status: 'RECEIVED', // closest valid legacy enum; mark via remarks
+      status: 'CANCELLED', // legacy mirror of jwoStatus (CANCELLED added to the legacy enum 2026-08-22)
       jwoStatus: 'CANCELLED',
       remarks:
         `${job.remarks || ''}\n[RETURNED UNPROCESSED] ${returnedQtyMeters} meters returned on ${(returnDate ? new Date(returnDate) : new Date()).toISOString().split('T')[0]}. ${remarks || ''}`.trim(),

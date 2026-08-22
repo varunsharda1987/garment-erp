@@ -1,5 +1,6 @@
 // Stock Movement Service - Handle all stock movements and integrate with stock levels
 import { MovementType, StockTransactionType, Unit, Prisma } from '@prisma/client';
+import { JWO_ACTIVE_FILTER } from './helpers/jwo-status.helper';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
@@ -1457,6 +1458,7 @@ class StockMovementService {
       const dyeingPOs = await prisma.job_work_orders.findMany({
         where: {
           status: 'AT_MILL',
+          AND: [JWO_ACTIVE_FILTER], // landmine No.1: cancelled jobs must drop off these lists
           processType: 'DYEING',
           ...(processorId && { processorId }),
         },
@@ -1516,6 +1518,7 @@ class StockMovementService {
       const printingPOs = await prisma.job_work_orders.findMany({
         where: {
           status: 'AT_MILL',
+          AND: [JWO_ACTIVE_FILTER], // landmine No.1: cancelled jobs must drop off these lists
           processType: 'PRINTING',
           ...(processorId && { processorId }),
         },
@@ -1625,6 +1628,8 @@ class StockMovementService {
           isActive: true,
           fabricStockLotId: { not: null },
           status: { in: ['SENT_TO_MILL', 'AT_MILL'] },
+          // Landmine No.1: legacy status never records cancellation — exclude via jwoStatus
+          AND: [JWO_ACTIVE_FILTER],
           receivedDate: null,
           ...(processorId && { processorId }),
         },
@@ -1770,6 +1775,7 @@ class StockMovementService {
       const dyeingDrafts = await prisma.job_work_orders.findMany({
         where: {
           status: 'READY_TO_SEND',
+          AND: [JWO_ACTIVE_FILTER], // landmine No.1: cancelled jobs must drop off these lists
           processType: 'DYEING',
           ...(processorId && { processorId }),
         },
@@ -1811,6 +1817,7 @@ class StockMovementService {
       const printingDrafts = await prisma.job_work_orders.findMany({
         where: {
           status: 'READY_TO_SEND',
+          AND: [JWO_ACTIVE_FILTER], // landmine No.1: cancelled jobs must drop off these lists
           processType: 'PRINTING',
           ...(processorId && { processorId }),
         },

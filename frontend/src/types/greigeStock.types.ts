@@ -5,6 +5,8 @@ export interface GreigeStockSummary {
   totalValue: number;
   agingStockCount: number;
   totalItems: number;
+  totalBales: number;
+  totalThans: number;
 }
 
 // BUG-GR11 fix: Added proper type for adjustStock return value

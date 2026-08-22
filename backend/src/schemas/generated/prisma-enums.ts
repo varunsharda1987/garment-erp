@@ -617,6 +617,7 @@ export const JobWorkStatusEnum = z.enum([
   'RECEIVED',
   'QUALITY_CHECKED',
   'STOCK_UPDATED',
+  'CANCELLED',
 ]);
 export type JobWorkStatus = z.infer<typeof JobWorkStatusEnum>;
 

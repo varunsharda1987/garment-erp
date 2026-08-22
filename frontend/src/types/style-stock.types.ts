@@ -154,6 +154,8 @@ export interface GenericGreigeStock {
   processors: Array<{ id: string; name: string; code: string }>;
   statuses: string[];
   entryCount: number;
+  totalBales: number;
+  totalThans: number;
 }
 
 export interface GreigeStockDetail {

@@ -24,6 +24,7 @@ import prisma from '../config/database'; // Use singleton to avoid connection po
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { generateAtomicGRNNumber } from '../utils/atomicCodeGenerator';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { setJwoStatus, setJwoStatusMany, isJwoDead, JWO_ACTIVE_FILTER } from './helpers/jwo-status.helper';
 import { updateGreigeLastPurchaseRate } from './helpers/greige-rate.helper';
 import { determineFinishType } from './helpers/processing-fabric.helper';
 import { jobWorkOrderService } from './job-work-order.service';
@@ -149,6 +150,15 @@ class GRNService {
         where: { purchaseOrderId: po.id },
         include: { style: { select: { id: true, styleCode: true, buyerStyleRef: true } } },
       });
+      // Landmine №1 fix: a cancelled job's material was already credited back to stock —
+      // receiving its physical return through a GRN would double-count it. Checked OUTSIDE
+      // the processingData gate: a cancelled JWO must not get a GRN stamped with its id at all.
+      if (processingJob && isJwoDead(processingJob.jwoStatus)) {
+        throw new Error(
+          `${processingJob.jobWorkNumber} is ${processingJob.jwoStatus?.toLowerCase()} — its stock was already ` +
+            `credited back. If the mill physically returned material, contact the office to re-open the job first.`
+        );
+      }
       if (data.processingData) {
         if (!processingJob) {
           logError('No job work order linked to PROCESSING PO', { poId: po.id });
@@ -340,11 +350,20 @@ class GRNService {
 
           // Guarded receive (receivedDate still null) — a concurrent receive that won the race makes
           // count 0 and aborts this one instead of double-receiving.
-          const jobUpdate = await tx.job_work_orders.updateMany({
-            // re-check status too (not just receivedDate): a job cancelled between the pre-tx validation
-            // and this write must not be force-received
-            where: { id: processingJob.id, receivedDate: null, status: { in: ['AT_MILL', 'SENT_TO_MILL'] } },
-            data: {
+          const jobUpdate = await setJwoStatusMany(
+            tx,
+            // Re-check state too (not just receivedDate): a job cancelled between the pre-tx
+            // validation and this write must not be force-received. JWO_ACTIVE_FILTER makes
+            // this guard real — the legacy status never recorded cancellation, so the old
+            // status-only check was inert (landmine №1).
+            {
+              id: processingJob.id,
+              receivedDate: null,
+              status: { in: ['AT_MILL', 'SENT_TO_MILL'] },
+              AND: [JWO_ACTIVE_FILTER],
+            },
+            'RECEIVED',
+            {
               qtyReceivedMeters: actualMeters,
               receivedWidthInches: receivedWidthInches,
               receivedDate: data.receivingDate ? new Date(data.receivingDate as string) : new Date(),
@@ -357,9 +376,8 @@ class GRNService {
               calculatedActualMeters: calculatedActualMeters,
               inwardChallanId: challan.id,
               grnId: newGRN.id,
-              status: 'RECEIVED',
-            },
-          });
+            }
+          );
           if (jobUpdate.count === 0) {
             throw new Error('This processing PO has already been received via the Printing/Dyeing module');
           }
@@ -670,19 +688,15 @@ class GRNService {
           if (jobWorkOrder && jobWorkOrder.finishedFabricId) {
             // Apply QC data if provided
             if (processingQC) {
-              await tx.job_work_orders.update({
-                where: { id: jobWorkOrder.id },
-                data: {
-                  qualityGrade: processingQC.qualityGrade,
-                  colorMatchStatus: processingQC.colorMatchStatus || null,
-                  defectMeters: processingQC.defectMeters || null,
-                  defectType: processingQC.defectType || null,
-                  actualRate: processingQC.actualRate || null,
-                  remarks: processingQC.remarks
-                    ? `${jobWorkOrder.remarks || ''}\n[QC via GRN] ${processingQC.remarks}`.trim()
-                    : jobWorkOrder.remarks,
-                  status: 'QUALITY_CHECKED',
-                },
+              await setJwoStatus(tx, jobWorkOrder.id, 'QUALITY_CHECKED', {
+                qualityGrade: processingQC.qualityGrade,
+                colorMatchStatus: processingQC.colorMatchStatus || null,
+                defectMeters: processingQC.defectMeters || null,
+                defectType: processingQC.defectType || null,
+                actualRate: processingQC.actualRate || null,
+                remarks: processingQC.remarks
+                  ? `${jobWorkOrder.remarks || ''}\n[QC via GRN] ${processingQC.remarks}`.trim()
+                  : jobWorkOrder.remarks,
               });
             }
 
@@ -831,10 +845,7 @@ class GRNService {
 
             // Update job status to STOCK_UPDATED and stamp the GRN link (BUG-JWC3: grnId was
             // never written anywhere, so reverseProcessingGRNInTx could never find the JWO)
-            await tx.job_work_orders.update({
-              where: { id: jobWorkOrder.id },
-              data: { status: 'STOCK_UPDATED', grnId: id },
-            });
+            await setJwoStatus(tx, jobWorkOrder.id, 'STOCK_UPDATED', { grnId: id });
 
             // Flip the PO to RECEIVED via a guarded updateMany (bug-hunt procurement-20).
             // RECEIVED-with-shrinkage is intentional for PROCESSING POs (received meters < ordered
@@ -1035,15 +1046,11 @@ class GRNService {
                   // BUG-JWC4: if a (bridged) JWO exists, stamp it so the job-work views and
                   // GRN reversal see the receipt — previously this case created no stock at all
                   if (jobWorkOrder) {
-                    await tx.job_work_orders.update({
-                      where: { id: jobWorkOrder.id },
-                      data: {
-                        finishedFabricId: fabricResult.fabricId,
-                        qtyReceivedMeters: qtyReceived,
-                        receivedDate: receivedAt,
-                        grnId: id,
-                        status: 'STOCK_UPDATED',
-                      },
+                    await setJwoStatus(tx, jobWorkOrder.id, 'STOCK_UPDATED', {
+                      finishedFabricId: fabricResult.fabricId,
+                      qtyReceivedMeters: qtyReceived,
+                      receivedDate: receivedAt,
+                      grnId: id,
                     });
                   }
 
@@ -2606,6 +2613,15 @@ class GRNService {
     if (jwo.purchaseOrderId) {
       throw new Error(`${jwo.jobWorkNumber} is linked to a purchase order — receive it through the normal PO GRN flow`);
     }
+    // Landmine №1 fix: a cancelled job's material was already credited back to stock —
+    // receiving its physical return would double-count it (policy: block, office re-opens
+    // the job if the return is genuine).
+    if (isJwoDead(jwo.jwoStatus)) {
+      throw new Error(
+        `${jwo.jobWorkNumber} is ${jwo.jwoStatus?.toLowerCase()} — its stock was already credited back. ` +
+          `If the mill physically returned material, contact the office to re-open the job first.`
+      );
+    }
     if (jwo.receivedDate) {
       throw new Error(`${jwo.jobWorkNumber} has already been received`);
     }
@@ -2802,6 +2818,15 @@ class GRNService {
     if (!jobWorkOrder) {
       throw new Error(`Job work order ${grn.jobWorkOrderId} not found for PO-less GRN approval`);
     }
+    // Landmine №1 fix: re-check on the freshly-read row — a JWO cancelled between GRN
+    // creation and approval must not sail through and mint stock that was already
+    // credited back at cancel time.
+    if (isJwoDead(jobWorkOrder.jwoStatus)) {
+      throw new Error(
+        `${jobWorkOrder.jobWorkNumber} was ${jobWorkOrder.jwoStatus?.toLowerCase()} after this GRN was created — ` +
+          `its stock was already credited back. Reject this GRN, or re-open the job first.`
+      );
+    }
 
     const grnItem = grn.grn_items?.[0];
     const qtyReceived = grnItem ? Number(grnItem.acceptedQuantity || grnItem.receivedQuantity || 0) : 0;
@@ -2936,33 +2961,29 @@ class GRNService {
     await ensureMaterialRecord(finishedFabricId, 'FABRIC', tx);
     await syncStockLevelQuantity(finishedFabricId, qtyReceived, targetWarehouseId ?? undefined, 'METER', tx);
 
-    await tx.job_work_orders.update({
-      where: { id: jobWorkOrder.id },
-      data: {
-        finishedFabricId,
-        qtyReceivedMeters: qtyReceived,
-        receivedDate: jobWorkOrder.receivedDate ?? receivedAt,
-        grnId,
-        status: 'STOCK_UPDATED',
-        // Measured finished width + variance vs the asked finished width (sentWidthInches)
-        ...(receivedWidthProvided != null
-          ? {
-              receivedWidthInches: receivedWidthProvided,
-              ...(jobWorkOrder.sentWidthInches != null
-                ? { widthVariance: receivedWidthProvided - Number(jobWorkOrder.sentWidthInches) }
-                : {}),
-            }
-          : {}),
-        ...(processingQC
-          ? {
-              qualityGrade: processingQC.qualityGrade,
-              colorMatchStatus: processingQC.colorMatchStatus || null,
-              defectMeters: processingQC.defectMeters ?? null,
-              defectType: processingQC.defectType || null,
-              actualRate: processingQC.actualRate ?? null,
-            }
-          : {}),
-      },
+    await setJwoStatus(tx, jobWorkOrder.id, 'STOCK_UPDATED', {
+      finishedFabricId,
+      qtyReceivedMeters: qtyReceived,
+      receivedDate: jobWorkOrder.receivedDate ?? receivedAt,
+      grnId,
+      // Measured finished width + variance vs the asked finished width (sentWidthInches)
+      ...(receivedWidthProvided != null
+        ? {
+            receivedWidthInches: receivedWidthProvided,
+            ...(jobWorkOrder.sentWidthInches != null
+              ? { widthVariance: receivedWidthProvided - Number(jobWorkOrder.sentWidthInches) }
+              : {}),
+          }
+        : {}),
+      ...(processingQC
+        ? {
+            qualityGrade: processingQC.qualityGrade,
+            colorMatchStatus: processingQC.colorMatchStatus || null,
+            defectMeters: processingQC.defectMeters ?? null,
+            defectType: processingQC.defectType || null,
+            actualRate: processingQC.actualRate ?? null,
+          }
+        : {}),
     });
 
     // Loss split (expected-output basis). This PO-less path previously skipped it, so
@@ -3561,34 +3582,30 @@ class GRNService {
       });
     }
 
-    // 4. Reset job work order to pre-receive state
-    await tx.job_work_orders.update({
-      where: { id: jobWorkOrder.id },
-      data: {
-        qtyReceivedMeters: null,
-        receivedWidthInches: null,
-        receivedDate: null,
-        receivedChallan: null,
-        actualShrinkage: null,
-        // Loss split is a receive-time computation — clear it with the receive
-        qtyNormalLoss: null,
-        qtyAbnormalLoss: null,
-        widthVariance: null,
-        thanCount: null,
-        foldLengthCm: null,
-        calculatedActualMeters: null,
-        inwardChallanId: null,
-        grnId: null,
-        qualityGrade: null,
-        colorMatchStatus: null,
-        defectMeters: null,
-        defectType: null,
-        actualRate: null,
-        status: 'AT_MILL', // Reset to at-mill status
-        remarks: jobWorkOrder.remarks
-          ? `${jobWorkOrder.remarks}\n[GRN REVERSED ${new Date().toISOString()}] ${reason}`
-          : `[GRN REVERSED ${new Date().toISOString()}] ${reason}`,
-      },
+    // 4. Reset job work order to pre-receive state (ISSUED maps legacy back to AT_MILL)
+    await setJwoStatus(tx, jobWorkOrder.id, 'ISSUED', {
+      qtyReceivedMeters: null,
+      receivedWidthInches: null,
+      receivedDate: null,
+      receivedChallan: null,
+      actualShrinkage: null,
+      // Loss split is a receive-time computation — clear it with the receive
+      qtyNormalLoss: null,
+      qtyAbnormalLoss: null,
+      widthVariance: null,
+      thanCount: null,
+      foldLengthCm: null,
+      calculatedActualMeters: null,
+      inwardChallanId: null,
+      grnId: null,
+      qualityGrade: null,
+      colorMatchStatus: null,
+      defectMeters: null,
+      defectType: null,
+      actualRate: null,
+      remarks: jobWorkOrder.remarks
+        ? `${jobWorkOrder.remarks}\n[GRN REVERSED ${new Date().toISOString()}] ${reason}`
+        : `[GRN REVERSED ${new Date().toISOString()}] ${reason}`,
     });
 
     // 5. Reset PO status to allow re-receiving (Phase 4b: PO-less GRNs have no PO)

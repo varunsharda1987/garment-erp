@@ -22,6 +22,7 @@ import { randomUUID } from 'crypto';
 import { jobWorkOrderService } from './job-work-order.service';
 import { updateWosrReceivedQuantity } from './work-order-service-requirement.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { setJwoStatus } from './helpers/jwo-status.helper';
 
 // Phase 5b: send-out processType → JWO processType (service JWOs are keyed on ServiceType codes)
 const SENDOUT_TO_JWO_PROCESS: Record<ExternalProcessType, string> = {
@@ -331,12 +332,9 @@ class ExternalProcessService {
       // 9b. Phase 5b first-send stamping (§143 parity with /:id/issue): the first dispatch
       // against a JWO marks it issued and locks the statutory due date
       if (!jwo.sentDate) {
-        await tx.job_work_orders.update({
-          where: { id: jwo.id },
-          // D2 (issuance consolidation): all writers use AT_MILL — every reader accepts
-          // both legacy values, and four dashboards are AT_MILL-only
-          data: { sentDate: data.sendDate, status: 'AT_MILL', jwoStatus: 'ISSUED' },
-        });
+        // ISSUED maps legacy to AT_MILL via the helper (D2: every reader accepts both
+        // legacy values, and four dashboards are AT_MILL-only)
+        await setJwoStatus(tx, jwo.id, 'ISSUED', { sentDate: data.sendDate });
         if (!jwo.statutoryDueDate) {
           await jobWorkOrderService.setStatutoryDueDate(jwo.id, data.sendDate, tx);
         }
@@ -520,15 +518,11 @@ class ExternalProcessService {
         });
         const ordered = Number(jwoRow?.qtySentMeters ?? totalSent);
         const fullyReceived = totalReceived >= ordered;
-        await tx.job_work_orders.update({
-          where: { id: sendOut.jobWorkOrderId },
-          data: {
-            qtyReceivedMeters: totalReceived,
-            jwoStatus: fullyReceived ? 'RECEIVED' : 'PARTIALLY_RECEIVED',
-            ...(fullyReceived
-              ? { status: 'RECEIVED', receivedDate: jwoRow?.receivedDate ?? data.actualReturnDate }
-              : {}),
-          },
+        // Helper maps the legacy mirror (RECEIVED→RECEIVED; PARTIALLY_RECEIVED leaves
+        // legacy at AT_MILL by design until fully received)
+        await setJwoStatus(tx, sendOut.jobWorkOrderId, fullyReceived ? 'RECEIVED' : 'PARTIALLY_RECEIVED', {
+          qtyReceivedMeters: totalReceived,
+          ...(fullyReceived ? { receivedDate: jwoRow?.receivedDate ?? data.actualReturnDate } : {}),
         });
         // Advance service requirements by this receipt's delta
         const previouslyReceived = Number(sendOut.quantityReceived ?? 0);

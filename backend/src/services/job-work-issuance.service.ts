@@ -25,6 +25,7 @@ import { createChallan, type CreateChallanItemInput } from './challan.service';
 import greigeStockService from './greige-stock.service';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
+import { setJwoStatus } from './helpers/jwo-status.helper';
 import { toCurrency, addCurrency, multiplyCurrency, roundToCent, toNumber } from '../utils/currency';
 import { logInfo, logWarn, logError } from '../utils/logger';
 
@@ -559,23 +560,18 @@ async function issueOneWithinTx(
     return cost != null ? addCurrency(acc, multiplyCurrency(qty, cost)) : acc;
   }, toCurrency(0));
   const declaredValue = toNumber(roundToCent(sumLotValue));
-  await tx.job_work_orders.update({
-    where: { id: jwoId },
-    data: {
-      status: 'AT_MILL',
-      jwoStatus: 'ISSUED',
-      challanNumber: opts.challanNumber || challan.challanNumber,
-      vehicleNumber: opts.vehicleNumber || null,
-      greigeStockLotId: lots[0]?.row.id ?? null,
-      fabricStockLotId: fabricLotRow?.id ?? jwo.fabricStockLotId,
-      outwardChallanId: challan.id,
-      finishedFabricId: opts.finishedFabricId ?? jwo.finishedFabricId,
-      ...(declaredValue > 0 ? { declaredValue } : {}),
-      // Actual lot width wins silence: fill only when creation didn't already set it
-      ...(jwo.greigeWidthInches == null && lots[0]?.row.greigeWidth != null
-        ? { greigeWidthInches: Number(lots[0].row.greigeWidth) }
-        : {}),
-    },
+  await setJwoStatus(tx, jwoId, 'ISSUED', {
+    challanNumber: opts.challanNumber || challan.challanNumber,
+    vehicleNumber: opts.vehicleNumber || null,
+    greigeStockLotId: lots[0]?.row.id ?? null,
+    fabricStockLotId: fabricLotRow?.id ?? jwo.fabricStockLotId,
+    outwardChallanId: challan.id,
+    finishedFabricId: opts.finishedFabricId ?? jwo.finishedFabricId,
+    ...(declaredValue > 0 ? { declaredValue } : {}),
+    // Actual lot width wins silence: fill only when creation didn't already set it
+    ...(jwo.greigeWidthInches == null && lots[0]?.row.greigeWidth != null
+      ? { greigeWidthInches: Number(lots[0].row.greigeWidth) }
+      : {}),
   });
 
   return warnings;

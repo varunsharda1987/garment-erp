@@ -601,6 +601,105 @@ class GreigeStockService {
   }
 
   /**
+   * Consume greige stock with explicit bale/than detail selection.
+   * Used when user selects specific thans to issue to a processor.
+   *
+   * @param stockId - The greige_stock lot ID
+   * @param details - Array of {greigeStockDetailId, metersToIssue} selections
+   * @param userId - Who is performing the consumption
+   * @param tx - Optional transaction client
+   * @param options - Reference type, reference ID, notes, jobWorkOrderId, challanId
+   */
+  async consumeWithDetails(
+    stockId: string,
+    details: Array<{ greigeStockDetailId: string; metersToIssue: number }>,
+    userId: string,
+    tx?: TransactionClient,
+    options?: {
+      referenceType?: 'CHALLAN' | 'JOB_WORK_ORDER';
+      referenceId?: string;
+      notes?: string;
+      jobWorkOrderId?: string;
+      challanId?: string;
+    }
+  ): Promise<{ stockId: string; totalConsumed: number; issueDetails: string[] }> {
+    const client = tx || prisma;
+
+    try {
+      let totalConsumed = 0;
+      const issueDetailIds: string[] = [];
+
+      // Validate all details belong to this stock and have sufficient meters
+      for (const { greigeStockDetailId, metersToIssue } of details) {
+        const detail = await client.greige_stock_details.findUnique({
+          where: { id: greigeStockDetailId },
+        });
+
+        if (!detail) {
+          throw new Error(`Greige stock detail ${greigeStockDetailId} not found`);
+        }
+        if (detail.greigeStockId !== stockId) {
+          throw new Error(`Detail ${greigeStockDetailId} does not belong to stock ${stockId}`);
+        }
+        if (Number(detail.metersRemaining) < metersToIssue) {
+          throw new Error(
+            `Detail ${greigeStockDetailId} has only ${detail.metersRemaining}m remaining, ` +
+              `but ${metersToIssue}m requested`
+          );
+        }
+
+        // Update the detail's remaining meters
+        const newRemaining = Number(detail.metersRemaining) - metersToIssue;
+        const newStatus =
+          newRemaining <= 0 ? 'CONSUMED' : newRemaining < Number(detail.meters) ? 'PARTIAL' : 'AVAILABLE';
+
+        await client.greige_stock_details.update({
+          where: { id: greigeStockDetailId },
+          data: {
+            metersRemaining: new Prisma.Decimal(newRemaining),
+            status: newStatus,
+          },
+        });
+
+        // Create issue detail record for audit
+        const issueDetail = await client.greige_issue_details.create({
+          data: {
+            greigeStockDetailId,
+            jobWorkOrderId: options?.jobWorkOrderId || null,
+            challanId: options?.challanId || null,
+            metersIssued: new Prisma.Decimal(metersToIssue),
+            issuedById: userId,
+          },
+        });
+        issueDetailIds.push(issueDetail.id);
+
+        totalConsumed += metersToIssue;
+      }
+
+      // Now consume from the lot-level stock using the existing method
+      // This handles the stock-level sync, transaction, and exhaustion status
+      await this.consumeGreigeStock(stockId, totalConsumed, userId, client, {
+        referenceType: options?.referenceType ?? 'CHALLAN',
+        referenceId: options?.referenceId,
+        notes: options?.notes ?? 'Consumed via detail selection',
+      });
+
+      logInfo(`Consumed ${totalConsumed}m from stock ${stockId} via ${details.length} detail selections`);
+
+      return {
+        stockId,
+        totalConsumed,
+        issueDetails: issueDetailIds,
+      };
+    } catch (error: unknown) {
+      logError('Error consuming greige stock with details:', error);
+      throw new Error(
+        `Failed to consume greige stock with details: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  /**
    * Get greige stock by ID
    */
   async getGreigeStockById(stockId: string): Promise<GreigeStockItem | null> {
@@ -652,6 +751,68 @@ class GreigeStockService {
     } catch (error: unknown) {
       logError('Error getting greige stock by ID:', error);
       throw new Error(`Failed to get greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Get available bale/than details for a greige stock lot
+   * Returns individual than records with their remaining meters for selection during issuance
+   */
+  async getAvailableDetails(stockId: string): Promise<{
+    stockId: string;
+    baleCount: number | null;
+    thanCount: number | null;
+    totalAvailable: number;
+    details: Array<{
+      id: string;
+      baleNumber: number | null;
+      sequenceNo: number;
+      meters: number;
+      metersRemaining: number;
+      status: string;
+    }>;
+  }> {
+    try {
+      const stock = await prisma.greige_stock.findUnique({
+        where: { id: stockId },
+        select: {
+          id: true,
+          baleCount: true,
+          thanCount: true,
+          quantityAvailable: true,
+          stockDetails: {
+            where: {
+              status: { in: ['AVAILABLE', 'PARTIAL'] },
+              metersRemaining: { gt: 0 },
+            },
+            orderBy: [{ baleNumber: 'asc' }, { sequenceNo: 'asc' }],
+          },
+        },
+      });
+
+      if (!stock) {
+        throw new Error(`Greige stock with ID ${stockId} not found`);
+      }
+
+      return {
+        stockId: stock.id,
+        baleCount: stock.baleCount,
+        thanCount: stock.thanCount,
+        totalAvailable: Number(stock.quantityAvailable),
+        details: stock.stockDetails.map((d) => ({
+          id: d.id,
+          baleNumber: d.baleNumber,
+          sequenceNo: d.sequenceNo,
+          meters: Number(d.meters),
+          metersRemaining: Number(d.metersRemaining),
+          status: d.status,
+        })),
+      };
+    } catch (error: unknown) {
+      logError('Error getting greige stock details:', error);
+      throw new Error(
+        `Failed to get greige stock details: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 

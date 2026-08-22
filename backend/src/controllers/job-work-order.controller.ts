@@ -16,10 +16,12 @@ import { generateJobWorkNumber } from '../utils/jobWorkNumber';
 import { systemSettingsService } from '../services/system-settings.service';
 import {
   issueJobWorkOrder,
+  issueJobWorkOrderWithDetails,
   validateIssue,
   unissueForCancel,
   dispatchJobWorkOrders,
 } from '../services/job-work-issuance.service';
+import greigeStockService from '../services/greige-stock.service';
 import { Prisma } from '@prisma/client';
 import {
   ensureMaterialRecord,
@@ -1507,6 +1509,83 @@ class JobWorkOrderController {
       res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to fetch dashboard',
+      });
+    }
+  }
+
+  /**
+   * GET /api/greige-stock/:stockId/available-details
+   * Get available bale/than details for a greige stock lot.
+   * Used by the UI to show which individual thans can be selected for issuance.
+   */
+  async getLotAvailableDetails(req: Request, res: Response) {
+    try {
+      const { stockId } = req.params;
+      const details = await greigeStockService.getAvailableDetails(stockId);
+      res.json({ success: true, data: details });
+    } catch (error) {
+      logger.error('Error fetching lot details:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to fetch lot details',
+      });
+    }
+  }
+
+  /**
+   * POST /api/job-work-orders/:id/issue-with-details
+   * Issue a JWO with explicit bale/than detail selection.
+   * User selects which specific thans to send to the processor.
+   */
+  async issueWithDetails(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { lotsWithDetails, sentDate, challanNumber, vehicleNumber, acknowledgeWidthMismatch } = req.body;
+      const userId = (req as any).user?.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'User not authenticated' });
+      }
+
+      if (!lotsWithDetails || !Array.isArray(lotsWithDetails) || lotsWithDetails.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'lotsWithDetails is required and must be a non-empty array',
+        });
+      }
+
+      const result = await issueJobWorkOrderWithDetails(id, {
+        userId,
+        sentDate: sentDate ? new Date(sentDate) : undefined,
+        lotsWithDetails,
+        challanNumber,
+        vehicleNumber,
+        acknowledgeWidthMismatch,
+      });
+
+      const updated = await prisma.job_work_orders.findUnique({ where: { id }, include: jwoInclude });
+      res.json({
+        success: true,
+        data: updated,
+        challanNumber: result.challanNumber,
+        warning: result.warnings.join(' ') || undefined,
+        message: `Job work order issued with detail tracking — challan ${result.challanNumber} created`,
+      });
+    } catch (error) {
+      if (error instanceof JobWorkOrderError) {
+        if (error.code === 'NOT_FOUND') {
+          return res.status(404).json({ success: false, message: error.message });
+        }
+        return res.status(422).json({
+          success: false,
+          code: error.code,
+          message: error.message,
+        });
+      }
+
+      logger.error('Error issuing JWO with details:', error);
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to issue job work order',
       });
     }
   }

@@ -1556,6 +1556,38 @@ class GRNService {
             greigeId: greige.id,
             quantity: acceptedQty,
           });
+
+          // Propagate GRN item details (individual thans/bales) to greige_stock_details
+          // This preserves granular bale/than tracking for issuance selection
+          const grnDetails = (item as any).grn_item_details;
+          if (grnDetails && grnDetails.length > 0) {
+            // Count unique bale numbers for baleCount
+            const uniqueBales = new Set(grnDetails.map((d: any) => d.baleNumber).filter(Boolean));
+            if (uniqueBales.size > 0) {
+              await tx.greige_stock.update({
+                where: { id: createdGreige.id },
+                data: { baleCount: uniqueBales.size },
+              });
+            }
+
+            // Create greige_stock_details records for each than/roll
+            await tx.greige_stock_details.createMany({
+              data: grnDetails.map((detail: any) => ({
+                greigeStockId: createdGreige.id,
+                baleNumber: detail.baleNumber,
+                sequenceNo: detail.sequenceNo,
+                meters: detail.meters,
+                metersRemaining: detail.meters, // Initially full
+                status: 'AVAILABLE',
+                remarks: detail.remarks,
+              })),
+            });
+
+            logInfo(`Propagated ${grnDetails.length} than/roll records to greige_stock_details`, {
+              greigeStockId: createdGreige.id,
+              baleCount: uniqueBales.size,
+            });
+          }
         }
       }
     }

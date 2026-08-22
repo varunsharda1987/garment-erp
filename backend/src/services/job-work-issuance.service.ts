@@ -35,6 +35,21 @@ export interface IssueLotInput {
   qty: number;
 }
 
+/** Individual than/bale detail selection for bale-wise issuance */
+export interface IssueDetailInput {
+  greigeStockDetailId: string;
+  metersToIssue: number;
+}
+
+/** Lot input with optional detail-level selections */
+export interface IssueLotWithDetailsInput {
+  greigeStockLotId: string;
+  /** When provided, issue these specific thans/bales instead of just quantity */
+  details?: IssueDetailInput[];
+  /** Fallback qty when details not provided (lot-level issuance) */
+  qty?: number;
+}
+
 export interface IssueJwoOptions {
   userId: string;
   sentDate?: Date;
@@ -369,6 +384,8 @@ interface IssueOneOptions {
   challanNumber?: string;
   vehicleNumber?: string;
   finishedFabricId?: string | null;
+  /** Skip greige stock consumption (used when consumption was done with detail tracking) */
+  skipGreigeConsumption?: boolean;
 }
 
 /** The challan shape both callers hand down — whatever createChallan returned. */
@@ -397,12 +414,15 @@ async function issueOneWithinTx(
   const jwoId = jwo.id;
   const warnings: string[] = [];
   // 3. CONSUME — guarded, per lot, ledgered against the challan
-  for (const { row, qty } of lots) {
-    await greigeStockService.consumeGreigeStock(row.id, qty, opts.userId, tx, {
-      referenceType: 'CHALLAN',
-      referenceId: challan.id,
-      notes: `Issued to ${jwo.processor?.name ?? 'processor'} — ${jwo.jobWorkNumber} / ${challan.challanNumber}`,
-    });
+  // Skip if caller already did detail-level consumption (bale/than tracking)
+  if (!opts.skipGreigeConsumption) {
+    for (const { row, qty } of lots) {
+      await greigeStockService.consumeGreigeStock(row.id, qty, opts.userId, tx, {
+        referenceType: 'CHALLAN',
+        referenceId: challan.id,
+        notes: `Issued to ${jwo.processor?.name ?? 'processor'} — ${jwo.jobWorkNumber} / ${challan.challanNumber}`,
+      });
+    }
   }
   if (lots.length === 0 && fabricLotRow) {
     // Phase 5b fabric-roll source (EMBROIDERY) — guarded decrement + ledger + sync
@@ -971,4 +991,117 @@ export async function unissueForCancel(
       });
     }
   }
+}
+
+/**
+ * Options for issuing with explicit bale/than detail selection.
+ * User selects specific thans to send to the processor.
+ */
+export interface IssueJwoWithDetailsOptions {
+  userId: string;
+  sentDate?: Date;
+  /** Lots with explicit bale/than detail selections */
+  lotsWithDetails: IssueLotWithDetailsInput[];
+  challanNumber?: string;
+  vehicleNumber?: string;
+  finishedFabricId?: string | null;
+  acknowledgeWidthMismatch?: boolean;
+}
+
+/**
+ * Issue a job work order with explicit bale/than detail selection.
+ * Similar to issueJobWorkOrder but tracks which specific thans were issued.
+ *
+ * This function:
+ * 1. Validates the JWO can be issued (same as issueJobWorkOrder)
+ * 2. Creates an outward challan
+ * 3. Consumes greige stock at the detail level (tracking individual thans)
+ * 4. Creates greige_issue_details records for audit
+ */
+export async function issueJobWorkOrderWithDetails(
+  jwoId: string,
+  opts: IssueJwoWithDetailsOptions
+): Promise<IssueJwoResult> {
+  // Convert lotsWithDetails to standard lots format for validation
+  const standardLots: IssueLotInput[] = opts.lotsWithDetails.map((l) => ({
+    greigeStockLotId: l.greigeStockLotId,
+    qty: l.details ? l.details.reduce((sum, d) => sum + d.metersToIssue, 0) : (l.qty ?? 0),
+  }));
+
+  // Use existing validation
+  const v = await validateIssue(jwoId, { ...opts, lots: standardLots });
+  if (v.blockers.length > 0) {
+    throw new JobWorkOrderError(v.blockers[0].code, v.blockers[0].message);
+  }
+  const { jwo } = v;
+  const issueDate = opts.sentDate ?? new Date();
+
+  const result = await prisma.$transaction(
+    async (tx) => {
+      // 1. MUTEX — claim the order before anything is created or consumed
+      await acquireIssueMutex(tx, jwo, issueDate);
+
+      // 2. CHALLAN — Rule 55 movement document
+      const challan = await createChallan(
+        {
+          challanType: 'OUTWARD',
+          challanDate: issueDate,
+          fromType: 'WAREHOUSE',
+          fromName: 'Main Warehouse',
+          toType: 'VENDOR',
+          toId: jwo.processorId,
+          toName: jwo.processor?.name || 'Processor',
+          purchaseOrderId: jwo.purchaseOrderId || undefined,
+          jobWorkOrderId: jwo.id,
+          vehicleNumber: opts.vehicleNumber || undefined,
+          issuedById: opts.userId,
+          unit: jwo.uom === 'MTR' ? Unit.METER : Unit.PIECE,
+          remarks: opts.challanNumber ? `Manual challan ref: ${opts.challanNumber}` : undefined,
+          items: buildOutwardChallanItems(v),
+        },
+        tx
+      );
+
+      // 3. CONSUME — with detail tracking
+      for (const lotInput of opts.lotsWithDetails) {
+        if (lotInput.details && lotInput.details.length > 0) {
+          // Detail-level consumption (bale/than tracking)
+          await greigeStockService.consumeWithDetails(lotInput.greigeStockLotId, lotInput.details, opts.userId, tx, {
+            referenceType: 'CHALLAN',
+            referenceId: challan.id,
+            notes: `Issued to ${jwo.processor?.name ?? 'processor'} — ${jwo.jobWorkNumber} / ${challan.challanNumber}`,
+            jobWorkOrderId: jwo.id,
+            challanId: challan.id,
+          });
+        } else if (lotInput.qty && lotInput.qty > 0) {
+          // Fallback: lot-level consumption (no detail tracking)
+          await greigeStockService.consumeGreigeStock(lotInput.greigeStockLotId, lotInput.qty, opts.userId, tx, {
+            referenceType: 'CHALLAN',
+            referenceId: challan.id,
+            notes: `Issued to ${jwo.processor?.name ?? 'processor'} — ${jwo.jobWorkNumber} / ${challan.challanNumber}`,
+          });
+        }
+      }
+
+      // 4-9: Same as issueOneWithinTx — components, reservations, status, etc.
+      // Use the existing helper for the remaining steps (skip greige consumption since we did it above)
+      const warnings = await issueOneWithinTx(tx, v, challan, { ...opts, skipGreigeConsumption: true }, issueDate);
+
+      // Challan → ISSUED
+      await tx.challans.update({ where: { id: challan.id }, data: { status: 'ISSUED', issuedDate: issueDate } });
+
+      return { jwoId, challanId: challan.id, challanNumber: challan.challanNumber, warnings };
+    },
+    { timeout: 15000, maxWait: 5000 }
+  );
+
+  const totalMeters = opts.lotsWithDetails.reduce((sum, l) => {
+    if (l.details) return sum + l.details.reduce((s, d) => s + d.metersToIssue, 0);
+    return sum + (l.qty ?? 0);
+  }, 0);
+  logInfo(
+    `[Issuance] Issued ${jwo.jobWorkNumber} with detail tracking — challan ${result.challanNumber}, ` +
+      `${totalMeters}m from ${opts.lotsWithDetails.length} lot(s)`
+  );
+  return result;
 }

@@ -15,6 +15,7 @@ import {
   addJwoComponentSchema,
   closeJwoSchema,
   issueJwoSchema,
+  issueWithDetailsSchema,
   receiveJwoSchema,
   cancelJwoSchema,
   dispatchJwoSchema,
@@ -55,6 +56,12 @@ router.post('/:id/compute-totals', jobWorkOrderController.computeTotals.bind(job
 // Read-only dry run of the issuance validation (blockers, expected greige, candidate lots)
 router.get('/:id/issue-preview', jobWorkOrderController.issuePreview.bind(jobWorkOrderController));
 router.post('/:id/issue', validateBody(issueJwoSchema), jobWorkOrderController.issue.bind(jobWorkOrderController));
+// Issue with bale/than detail selection (for processor dispatch)
+router.post(
+  '/:id/issue-with-details',
+  validateBody(issueWithDetailsSchema),
+  jobWorkOrderController.issueWithDetails.bind(jobWorkOrderController)
+);
 router.post(
   '/:id/receive',
   validateBody(receiveJwoSchema),

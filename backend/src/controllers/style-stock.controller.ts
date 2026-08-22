@@ -549,6 +549,27 @@ class StyleStockController {
       });
     }
   }
+
+  /**
+   * Get available bale/than details for a greige stock lot
+   * GET /api/greige/stock/:stockId/available-details
+   */
+  async getGreigeStockAvailableDetails(req: Request, res: Response) {
+    try {
+      const { stockId } = req.params;
+      const details = await GreigeStockService.getAvailableDetails(stockId);
+      return res.status(200).json({
+        success: true,
+        data: details,
+      });
+    } catch (error: unknown) {
+      logger.error('Get greige stock available details error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to get greige stock available details',
+      });
+    }
+  }
 }
 
 export default new StyleStockController();

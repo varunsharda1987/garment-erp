@@ -67,6 +67,18 @@ router.get(
 );
 
 /**
+ * @route   GET /api/greige/stock/:stockId/available-details
+ * @desc    Get available bale/than details for a greige stock lot (for issuance selection)
+ * @access  Protected - All authenticated users
+ */
+router.get(
+  '/stock/:stockId/available-details',
+  authenticateToken,
+  validateParams(stockIdParamSchema),
+  asyncHandler((req: Request, res: Response) => StyleStockController.getGreigeStockAvailableDetails(req, res))
+);
+
+/**
  * @route   GET /api/greige/summary
  * @desc    Get greige stock summary for unified dashboard
  * @access  Protected - All authenticated users

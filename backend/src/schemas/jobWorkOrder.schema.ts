@@ -178,6 +178,34 @@ export type CancelJwoInput = z.infer<typeof cancelJwoSchema>;
 export type IssueJwoInput = z.infer<typeof issueJwoSchema>;
 
 /**
+ * POST /api/job-work-orders/:id/issue-with-details — bale/than-level issuance.
+ * Instead of just a lot ID and quantity, the operator selects specific thans/bales
+ * and optionally specifies partial meters for splitting a than.
+ */
+export const issueWithDetailsSchema = z.object({
+  sentDate: z.coerce.date().optional(),
+  vehicleNumber: z.string().max(50).trim().optional(),
+  challanNumber: z.string().max(100).trim().optional(),
+  lots: z
+    .array(
+      z.object({
+        greigeStockLotId: z.string().min(1),
+        details: z
+          .array(
+            z.object({
+              greigeStockDetailId: z.string().uuid(),
+              metersToIssue: z.number().positive('metersToIssue must be positive'),
+            })
+          )
+          .min(1, 'At least one than/bale detail required per lot'),
+      })
+    )
+    .min(1, 'At least one lot with detail selections required'),
+});
+
+export type IssueWithDetailsInput = z.infer<typeof issueWithDetailsSchema>;
+
+/**
  * POST /api/job-work-orders/:id/receive — record received qty; loss split is computed server-side.
  */
 export const receiveJwoSchema = z.object({

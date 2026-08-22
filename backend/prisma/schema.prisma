@@ -3158,6 +3158,8 @@ model users {
   rejectDispositionsResolved                                      reject_dispositions[]             @relation("reject_disposition_resolver")
   // CAD mini marker files uploaded
   cadFilesUploaded                                                cad_purpose_files[]               @relation("cad_file_uploader")
+  // Greige issue details (bale/than tracking)
+  greigeIssueDetailsIssued                                        greige_issue_details[]            @relation("greige_issue_details_issuedBy")
 
   @@index([email])
 }
@@ -4355,9 +4357,10 @@ model greige_stock {
   invoiceNumber String?   @db.VarChar(50)
   invoiceDate   DateTime?
 
-  // Fold/Than tracking (lot-level property)
+  // Fold/Than/Bale tracking (lot-level property)
   foldLengthCm           Decimal? @db.Decimal(5, 2) // "L" - fold length in cm
   thanCount              Int? // Number of thans in this lot
+  baleCount              Int? // Number of bales in this lot
   nominalQuantity        Decimal? @db.Decimal(10, 2) // Supplier-measured quantity (before fold adjustment)
   calculatedActualMeters Decimal? @db.Decimal(10, 2) // nominalQuantity × foldLengthCm / 100
 
@@ -4383,6 +4386,7 @@ model greige_stock {
   jobWorkOrders      job_work_orders[]
   jwoComponentsStock job_work_order_components[] @relation("JWOComponentGreigeStock")
   transactions       greige_stock_transaction[]
+  stockDetails       greige_stock_details[]
 
   @@unique([greigeId, procurementId, greigeWidth, qualityGrade, supplierId, processorId, sourceChallanId])
   @@index([greigeId])
@@ -4414,6 +4418,53 @@ model greige_stock_transaction {
   @@index([stockId])
   @@index([transactionType])
   @@index([transactionDate])
+}
+
+/// Greige Stock Details - Individual than/bale records within a greige stock lot
+/// Preserves granular GRN detail data for bale/than-level issuance tracking
+model greige_stock_details {
+  id              String  @id @default(uuid()) @db.VarChar(50)
+  greigeStockId   String  @db.VarChar(50)
+  baleNumber      Int? // Which bale (1, 2, 3...) — null for unbaled thans or roll-wise
+  sequenceNo      Int // Order within bale or overall (1, 2, 3...)
+  meters          Decimal @db.Decimal(10, 3) // Original meters of this than/roll
+  metersRemaining Decimal @db.Decimal(10, 3) // Remaining after partial consumption
+  status          String  @default("AVAILABLE") @db.VarChar(20) // AVAILABLE | PARTIAL | CONSUMED
+  remarks         String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  greigeStock  greige_stock           @relation(fields: [greigeStockId], references: [id], onDelete: Cascade)
+  issueDetails greige_issue_details[]
+
+  @@index([greigeStockId])
+  @@index([status])
+}
+
+/// Greige Issue Details - Tracks which specific thans were issued in each JWO dispatch
+/// Links issuance to individual than/bale records for full audit trail
+model greige_issue_details {
+  id                  String   @id @default(uuid()) @db.VarChar(50)
+  greigeStockDetailId String   @db.VarChar(50)
+  jobWorkOrderId      String?  @db.VarChar(50) // Which JWO this was issued to
+  challanId           String?  @db.VarChar(50) // Which challan for the dispatch
+  metersIssued        Decimal  @db.Decimal(10, 3)
+  issuedAt            DateTime @default(now())
+  issuedById          String?  @db.VarChar(50)
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  greigeStockDetail greige_stock_details @relation(fields: [greigeStockDetailId], references: [id], onDelete: Cascade)
+  jobWorkOrder      job_work_orders?     @relation("GreigeIssueDetailsJWO", fields: [jobWorkOrderId], references: [id])
+  challan           challans?            @relation("GreigeIssueDetailsChallan", fields: [challanId], references: [id])
+  issuedBy          users?               @relation("greige_issue_details_issuedBy", fields: [issuedById], references: [id])
+
+  @@index([greigeStockDetailId])
+  @@index([jobWorkOrderId])
+  @@index([challanId])
 }
 
 /// Fabric Master - Finished, ready-to-use fabrics
@@ -6886,6 +6937,7 @@ model job_work_orders {
   embroidery              embroidery_master?                @relation("JwoEmbroidery", fields: [embroideryId], references: [id])
   externalProcessSendOuts external_process_send_outs[]      @relation("ExternalProcessJWO")
   processingStage         processing_stage?                 @relation("ProcessingStageJWO")
+  greigeIssueDetails      greige_issue_details[]            @relation("GreigeIssueDetailsJWO")
 
   @@index([embroideryId])
   @@index([labDipId])
@@ -8897,21 +8949,22 @@ model challans {
   updatedAt    DateTime @updatedAt
 
   // Relations
-  order                orders?               @relation(fields: [orderId], references: [id])
-  productionRun        work_orders?          @relation(fields: [productionRunId], references: [id])
-  purchaseOrder        purchase_orders?      @relation(fields: [purchaseOrderId], references: [id])
-  jobWorkOrder         job_work_orders?      @relation("ChallanHeaderJobWorkOrder", fields: [jobWorkOrderId], references: [id])
-  fabricProcessing     fabric_processing?    @relation("ChallanProcessing", fields: [fabricProcessingId], references: [id])
-  issuedBy             users                 @relation("ChallanIssuedBy", fields: [issuedById], references: [id])
-  receivedBy           users?                @relation("ChallanReceivedBy", fields: [receivedById], references: [id])
+  order                orders?                @relation(fields: [orderId], references: [id])
+  productionRun        work_orders?           @relation(fields: [productionRunId], references: [id])
+  purchaseOrder        purchase_orders?       @relation(fields: [purchaseOrderId], references: [id])
+  jobWorkOrder         job_work_orders?       @relation("ChallanHeaderJobWorkOrder", fields: [jobWorkOrderId], references: [id])
+  fabricProcessing     fabric_processing?     @relation("ChallanProcessing", fields: [fabricProcessingId], references: [id])
+  issuedBy             users                  @relation("ChallanIssuedBy", fields: [issuedById], references: [id])
+  receivedBy           users?                 @relation("ChallanReceivedBy", fields: [receivedById], references: [id])
   items                challan_items[]
   // Back-references from existing models
-  jobWorkOutward       job_work_orders[]     @relation("JobWorkOutwardChallan")
-  jobWorkInward        job_work_orders[]     @relation("JobWorkInwardChallan")
+  jobWorkOutward       job_work_orders[]      @relation("JobWorkOutwardChallan")
+  jobWorkInward        job_work_orders[]      @relation("JobWorkInwardChallan")
   processingMovements  processing_movement[]
   processingDeliveries processing_delivery[]
-  cuttingBatchReturn   cutting_batches?      @relation("CuttingReturnChallan")
-  greigeStockTransfers greige_stock[]        @relation("GreigeStockSourceChallan")
+  cuttingBatchReturn   cutting_batches?       @relation("CuttingReturnChallan")
+  greigeStockTransfers greige_stock[]         @relation("GreigeStockSourceChallan")
+  greigeIssueDetails   greige_issue_details[] @relation("GreigeIssueDetailsChallan")
 
   @@index([orderId])
   @@index([productionRunId])

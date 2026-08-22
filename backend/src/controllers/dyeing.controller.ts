@@ -17,6 +17,7 @@ import {
 import { randomUUID } from 'crypto';
 import logger from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
+import greigeStockService from '../services/greige-stock.service';
 import { systemSettingsService } from '../services/system-settings.service';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from '../services/job-work-order.service';
 import { findProcessingRequirementMatches, updateJwoReceivedQuantity } from '../services/mrp.service';
@@ -2224,15 +2225,14 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
     throw new BusinessError(`Cannot return unprocessed. Job status is ${job.status}, expected AT_MILL`);
   }
 
-  // Credit back to greige_stock
+  // Credit back to greige_stock via the shared return path: guarded against over-crediting,
+  // writes the greige_stock_transaction ledger row, and keeps central stock_levels in step
+  // (the old bare update here silently drifted the Stock Levels page — landmine №4).
   if (job.greigeStockLotId) {
-    await prisma.greige_stock.update({
-      where: { id: job.greigeStockLotId },
-      data: {
-        quantityAvailable: { increment: returnedQtyMeters },
-        quantityConsumed: { decrement: returnedQtyMeters },
-        status: 'AVAILABLE', // Mark available again since stock was returned
-      },
+    await greigeStockService.returnGreigeStock(job.greigeStockLotId, returnedQtyMeters, userId, undefined, {
+      referenceType: 'JOB_WORK_ORDER',
+      referenceId: job.id,
+      notes: `Unprocessed greige returned — ${job.jobWorkNumber}${remarks ? ` (${remarks})` : ''}`,
     });
   }
 

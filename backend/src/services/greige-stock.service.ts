@@ -72,6 +72,8 @@ export interface GreigeStockItem {
   status: string;
   stockType: string;
   sourceType?: string | null;
+  baleCount?: number | null;
+  thanCount?: number | null;
   supplierId?: string | null;
   supplier?: { id: string; name: string; code: string } | null;
   processorId?: string | null;
@@ -91,6 +93,8 @@ export interface GreigeStockSummary {
   totalValue: number;
   agingStockCount: number;
   totalItems: number;
+  totalBales: number;
+  totalThans: number;
   byQualityGrade: Record<string, number>;
 }
 
@@ -370,6 +374,8 @@ class GreigeStockService {
           processor: stock.processor,
           sourceChallanId: stock.sourceChallanId,
           sourceChallan: stock.sourceChallan,
+          baleCount: stock.baleCount,
+          thanCount: stock.thanCount,
         };
       });
     } catch (error: unknown) {
@@ -400,6 +406,8 @@ class GreigeStockService {
           weightedAvgCost: true,
           receivedDate: true,
           qualityGrade: true,
+          baleCount: true,
+          thanCount: true,
         },
       });
 
@@ -407,6 +415,8 @@ class GreigeStockService {
       let totalMetersDec = toCurrency(0);
       let totalValueDec = toCurrency(0);
       let agingStockCount = 0;
+      let totalBales = 0;
+      let totalThans = 0;
       const byQualityGrade: Record<string, number> = {};
 
       stocks.forEach((stock) => {
@@ -420,6 +430,10 @@ class GreigeStockService {
         // Track by quality grade
         const grade = stock.qualityGrade || defaultQualityGrade;
         byQualityGrade[grade] = (byQualityGrade[grade] || 0) + toNumber(quantity);
+
+        // Sum bale and than counts
+        totalBales += stock.baleCount ?? 0;
+        totalThans += stock.thanCount ?? 0;
 
         // Check aging using configurable threshold
         const agingDays = stock.receivedDate
@@ -436,6 +450,8 @@ class GreigeStockService {
         totalValue: toNumber(roundToCent(totalValueDec)),
         agingStockCount,
         totalItems: stocks.length,
+        totalBales,
+        totalThans,
         byQualityGrade,
       };
     } catch (error: unknown) {
@@ -597,6 +613,95 @@ class GreigeStockService {
     } catch (error: unknown) {
       logError('Error consuming greige stock:', error);
       throw new Error(`Failed to consume greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Return (credit back) previously-consumed greige stock — the exact inverse of
+   * consumeGreigeStock. Used when material comes back unprocessed from a dyer/printer
+   * or an issuance is cancelled.
+   *
+   * The guarded predicate (quantityConsumed >= quantity) refuses to over-credit: you can
+   * never return more than was consumed, so a double-click or replayed request cannot
+   * mint stock. Every return writes the greige_stock_transaction ledger row AND syncs the
+   * central stock_levels — the drift this closes was exactly "credit the lot, forget the
+   * ledger" (data-ownership landmine №4, 2026-08-22).
+   */
+  async returnGreigeStock(
+    stockId: string,
+    quantity: number,
+    userId: string,
+    tx?: TransactionClient,
+    options?: { referenceType?: 'CHALLAN' | 'JOB_WORK_ORDER'; referenceId?: string; notes?: string }
+  ) {
+    try {
+      const client = tx || prisma;
+
+      // Guarded atomic return — the check IS the write (mirror of consumeGreigeStock)
+      const returnResult = await client.greige_stock.updateMany({
+        where: { id: stockId, quantityConsumed: { gte: quantity } },
+        data: {
+          quantityAvailable: { increment: quantity },
+          quantityConsumed: { decrement: quantity },
+          status: 'AVAILABLE',
+        },
+      });
+      if (returnResult.count === 0) {
+        const row = await client.greige_stock.findUnique({ where: { id: stockId } });
+        if (!row) throw new Error(`Greige stock with ID ${stockId} not found`);
+        throw new Error(
+          `Cannot return ${quantity}m: only ${Number(row.quantityConsumed)}m of this lot is recorded as consumed`
+        );
+      }
+
+      const updatedStock = await client.greige_stock.findUnique({ where: { id: stockId } });
+      if (!updatedStock) {
+        throw new Error(`Greige stock with ID ${stockId} not found after return`);
+      }
+
+      const costPerUnit = updatedStock.purchaseCost
+        ? Number(updatedStock.purchaseCost)
+        : updatedStock.weightedAvgCost
+          ? Number(updatedStock.weightedAvgCost)
+          : null;
+      await client.greige_stock_transaction.create({
+        data: {
+          stockId,
+          transactionType: 'RETURN',
+          quantity: new Prisma.Decimal(quantity),
+          balanceAfter: updatedStock.quantityAvailable,
+          costPerUnit: costPerUnit !== null ? new Prisma.Decimal(costPerUnit) : null,
+          totalValue:
+            costPerUnit !== null
+              ? new Prisma.Decimal(toNumber(toCurrency(quantity).times(toCurrency(costPerUnit))))
+              : null,
+          referenceType: options?.referenceType ?? 'JOB_WORK_ORDER',
+          referenceId: options?.referenceId ?? null,
+          notes: options?.notes ?? 'Returned unprocessed',
+          performedById: userId,
+        },
+      });
+
+      const material = await client.materials.findFirst({
+        where: { greigeId: updatedStock.greigeId },
+        select: { id: true },
+      });
+      if (material) {
+        await syncStockLevelQuantity(material.id, quantity, updatedStock.warehouseId || undefined, 'METER', client);
+      } else {
+        logError(
+          `[GreigeStock] No materials shim row for greige ${updatedStock.greigeId} — stock_levels NOT synced for ` +
+            `${quantity}m return (stock ${stockId}). Run backfill-greige-materials-mirror.ts.`,
+          new Error('missing materials mirror')
+        );
+      }
+
+      logInfo(`Returned ${quantity} meters to greige stock ${stockId}`);
+
+      return updatedStock;
+    } catch (error: unknown) {
+      logError('Error returning greige stock:', error);
+      throw new Error(`Failed to return greige stock: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

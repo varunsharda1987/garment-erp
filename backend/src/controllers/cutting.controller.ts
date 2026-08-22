@@ -13,14 +13,73 @@ import {
 import { syncBomFabricId } from '../services/order-bom.service';
 import { calculateCadAverage } from './cad-planning.utils';
 import { createChallan, issueChallan, createFabricReturnChallan } from '../services/challan.service';
-import { logInfo } from '../utils/logger';
+import { logInfo, logError } from '../utils/logger';
 import { productionBlockingValidationService } from '../services/productionBlockingValidation.service';
 // BUG-CUT5 fix: Import decimal.js utilities for precision calculations
 import { toCurrency, subtractCurrency, divideCurrency, toNumber } from '../utils/currency';
+import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 
 // Re-export sub-controllers so existing imports from routes continue to work
 export { addCuttingLay, getCuttingLays, deleteCuttingLay } from './cutting-lay.controller';
 export { issueToStitching, getStitchingIssues } from './cutting-issue.controller';
+
+/**
+ * Restore consumed fabric back onto a fabric_stock lot AND keep the central ledger honest.
+ * The old bare increments here credited only fabric_stock — no fabric_stock_transaction row,
+ * no stock_levels sync — so every batch delete/cancel silently drifted the Stock Levels page
+ * below reality (data-ownership landmine №4, 2026-08-22). Must run on the caller's tx.
+ */
+async function restoreFabricStockInTx(
+  tx: Prisma.TransactionClient,
+  fabricStockId: string,
+  quantity: number,
+  batchNumber: string,
+  userId: string | null
+): Promise<void> {
+  await tx.fabric_stock.update({
+    where: { id: fabricStockId },
+    data: {
+      quantityAvailable: { increment: quantity },
+      quantityConsumed: { decrement: quantity },
+      status: 'AVAILABLE',
+    },
+  });
+
+  const stockRow = await tx.fabric_stock.findUnique({
+    where: { id: fabricStockId },
+    select: { fabricId: true, warehouseId: true, weightedAvgCost: true, purchaseCost: true, quantityAvailable: true },
+  });
+  if (!stockRow) return;
+
+  const costPerUnit = Number(stockRow.weightedAvgCost ?? stockRow.purchaseCost ?? 0);
+  const balanceAfter = Number(stockRow.quantityAvailable);
+  await tx.fabric_stock_transaction.create({
+    data: {
+      stockId: fabricStockId,
+      transactionType: 'RETURN',
+      quantity: new Prisma.Decimal(quantity),
+      referenceType: 'MANUAL_ADJUSTMENT',
+      referenceId: null,
+      costPerUnit: new Prisma.Decimal(costPerUnit),
+      weightedAvgCost: new Prisma.Decimal(costPerUnit),
+      totalValue: new Prisma.Decimal(toNumber(toCurrency(quantity).times(toCurrency(costPerUnit)))),
+      balanceAfter: new Prisma.Decimal(balanceAfter),
+      valueAfter: new Prisma.Decimal(toNumber(toCurrency(balanceAfter).times(toCurrency(costPerUnit)))),
+      notes: `Cutting batch ${batchNumber} deleted/cancelled — fabric restored`,
+      createdById: userId,
+    },
+  });
+
+  if (stockRow.fabricId) {
+    const materialId = await ensureMaterialRecord(stockRow.fabricId, 'FABRIC', tx);
+    await syncStockLevelQuantity(materialId, quantity, stockRow.warehouseId ?? undefined, 'METER', tx);
+  } else {
+    logError(
+      `[Cutting] fabric_stock ${fabricStockId} has no fabricId — stock_levels NOT synced for ${quantity}m restore`,
+      new Error('missing fabricId on fabric_stock')
+    );
+  }
+}
 
 // ============================================
 // List Cutting Batches
@@ -479,18 +538,12 @@ export const deleteCuttingBatch = async (req: Request, res: Response) => {
   // Use transaction to ensure atomicity
   const fabricsRestored: Array<{ fabricStockId: string; quantityRestored: number }> = [];
 
+  const deleteUserId = req.user?.userId ?? null;
   await prisma.$transaction(async (tx) => {
-    // Restore primary fabric stock (from fabricStockId on batch)
+    // Restore primary fabric stock (from fabricStockId on batch) — ledger + central sync included
     const primaryQuantity = Number(existing.fabricIssued || existing.fabricConsumed || 0);
-    if (primaryQuantity > 0) {
-      await tx.fabric_stock.update({
-        where: { id: existing.fabricStockId },
-        data: {
-          quantityAvailable: { increment: primaryQuantity },
-          quantityConsumed: { decrement: primaryQuantity },
-          status: 'AVAILABLE',
-        },
-      });
+    if (primaryQuantity > 0 && existing.fabricStockId) {
+      await restoreFabricStockInTx(tx, existing.fabricStockId, primaryQuantity, existing.batchNumber, deleteUserId);
       fabricsRestored.push({ fabricStockId: existing.fabricStockId, quantityRestored: primaryQuantity });
       logInfo(`Restored ${primaryQuantity}m to primary fabric stock ${existing.fabricStockId}`);
     }
@@ -500,14 +553,7 @@ export const deleteCuttingBatch = async (req: Request, res: Response) => {
       const quantityToRestore = Number(fabric.fabricIssued || fabric.fabricConsumed || 0);
 
       if (quantityToRestore > 0) {
-        await tx.fabric_stock.update({
-          where: { id: fabric.fabricStockId },
-          data: {
-            quantityAvailable: { increment: quantityToRestore },
-            quantityConsumed: { decrement: quantityToRestore },
-            status: 'AVAILABLE',
-          },
-        });
+        await restoreFabricStockInTx(tx, fabric.fabricStockId, quantityToRestore, existing.batchNumber, deleteUserId);
         fabricsRestored.push({ fabricStockId: fabric.fabricStockId, quantityRestored: quantityToRestore });
         logInfo(`Restored ${quantityToRestore}m to additional fabric stock ${fabric.fabricStockId}`);
       }
@@ -1110,18 +1156,12 @@ export const cancelCuttingBatch = async (req: Request, res: Response) => {
   // BUG-MFG3 fix: Restore fabric stock when cancelling (same logic as delete)
   const fabricsRestored: Array<{ fabricStockId: string; quantityRestored: number }> = [];
 
+  const cancelUserId = req.user?.userId ?? null;
   const batch = await prisma.$transaction(async (tx) => {
-    // Restore primary fabric stock (from fabricStockId on batch)
+    // Restore primary fabric stock (from fabricStockId on batch) — ledger + central sync included
     const primaryQuantity = Number(existing.fabricIssued || existing.fabricConsumed || 0);
     if (primaryQuantity > 0 && existing.fabricStockId) {
-      await tx.fabric_stock.update({
-        where: { id: existing.fabricStockId },
-        data: {
-          quantityAvailable: { increment: primaryQuantity },
-          quantityConsumed: { decrement: primaryQuantity },
-          status: 'AVAILABLE',
-        },
-      });
+      await restoreFabricStockInTx(tx, existing.fabricStockId, primaryQuantity, existing.batchNumber, cancelUserId);
       fabricsRestored.push({ fabricStockId: existing.fabricStockId, quantityRestored: primaryQuantity });
       logInfo(`Restored ${primaryQuantity}m to primary fabric stock ${existing.fabricStockId} (cancelled)`);
     }
@@ -1130,14 +1170,7 @@ export const cancelCuttingBatch = async (req: Request, res: Response) => {
     for (const fabric of existing.additionalFabrics) {
       const quantityToRestore = Number(fabric.fabricIssued || fabric.fabricConsumed || 0);
       if (quantityToRestore > 0) {
-        await tx.fabric_stock.update({
-          where: { id: fabric.fabricStockId },
-          data: {
-            quantityAvailable: { increment: quantityToRestore },
-            quantityConsumed: { decrement: quantityToRestore },
-            status: 'AVAILABLE',
-          },
-        });
+        await restoreFabricStockInTx(tx, fabric.fabricStockId, quantityToRestore, existing.batchNumber, cancelUserId);
         fabricsRestored.push({ fabricStockId: fabric.fabricStockId, quantityRestored: quantityToRestore });
         logInfo(`Restored ${quantityToRestore}m to additional fabric stock ${fabric.fabricStockId} (cancelled)`);
       }

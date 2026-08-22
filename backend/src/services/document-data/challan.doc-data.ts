@@ -24,6 +24,14 @@ const challanDocInclude = {
   jobWorkOrder: {
     select: { jobWorkNumber: true, statutoryDueDate: true },
   },
+  // Bale/than-level issue details when issued with detail selection
+  greigeIssueDetails: {
+    include: {
+      greigeStockDetail: {
+        select: { baleNumber: true, sequenceNo: true, meters: true },
+      },
+    },
+  },
 } satisfies Prisma.challansInclude;
 
 type ChallanWithDetails = Prisma.challansGetPayload<{ include: typeof challanDocInclude }>;
@@ -37,6 +45,14 @@ export interface ChallanDocItem {
   qty: string;
   value: string; // — for free issue
   orderRef: string;
+}
+
+/** Bale/than detail issued as part of this challan (for bale/than-level issuance) */
+export interface ChallanIssueDetail {
+  baleNumber: number | null;
+  sequenceNo: number;
+  meters: string;
+  metersIssued: string;
 }
 
 export interface ChallanDocData {
@@ -61,6 +77,8 @@ export interface ChallanDocData {
   items: ChallanDocItem[];
   totalValue: string;
   returnByDate: string;
+  /** Bale/than-level issue details when issued with detail selection */
+  issueDetails: ChallanIssueDetail[] | null;
 }
 
 interface PartyDetails {
@@ -234,6 +252,16 @@ export async function buildChallanDocData(challanId: string): Promise<ChallanDoc
     items,
     totalValue: fmtMoney(totalDeclared),
     returnByDate: fmtDate(returnBy),
+    // Bale/than-level issue details when issued with detail selection
+    issueDetails:
+      challan.greigeIssueDetails && challan.greigeIssueDetails.length > 0
+        ? challan.greigeIssueDetails.map((d) => ({
+            baleNumber: d.greigeStockDetail?.baleNumber ?? null,
+            sequenceNo: d.greigeStockDetail?.sequenceNo ?? 0,
+            meters: fmtQty(Number(d.greigeStockDetail?.meters ?? 0), 'MTR'),
+            metersIssued: fmtQty(Number(d.metersIssued), 'MTR'),
+          }))
+        : null,
   };
 }
 

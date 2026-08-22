@@ -56,7 +56,10 @@ const grnDocInclude = {
   },
   purchase_orders: { select: { poNumber: true } },
   grn_items: {
-    include: { materials: { select: { name: true, code: true } } },
+    include: {
+      materials: { select: { name: true, code: true } },
+      grn_item_details: { select: { detailType: true, baleNumber: true, sequenceNo: true, meters: true } },
+    },
   },
   users_goods_receiving_notes_receivedByIdTousers: { select: { firstName: true, lastName: true } },
   users_goods_receiving_notes_approvedByIdTousers: { select: { firstName: true, lastName: true } },
@@ -73,6 +76,9 @@ export interface GrnDocLine {
   received: string;
   accepted: string;
   rejected: string;
+  /** Bale/than details when entry mode is BALE_WISE or THAN_WISE */
+  details: Array<{ baleNumber: number | null; sequenceNo: number; meters: string }> | null;
+  entryMode: string | null;
 }
 
 export interface GrnReconBlock {
@@ -200,6 +206,18 @@ export function transformGrn(company: CompanyBlock, grn: GrnWithDetails): GrnDoc
     if (item.materials.code) bits.push(item.materials.code);
     if (item.componentName) bits.push(item.componentName);
     if (item.colorName) bits.push(item.colorName);
+
+    // Include bale/than details when entry mode is BALE_WISE or THAN_WISE
+    const hasDetails = item.entryMode && ['BALE_WISE', 'THAN_WISE'].includes(item.entryMode);
+    const details =
+      hasDetails && item.grn_item_details && item.grn_item_details.length > 0
+        ? item.grn_item_details.map((d) => ({
+            baleNumber: d.baleNumber,
+            sequenceNo: d.sequenceNo,
+            meters: fmtQty(d.meters.toString(), 'MTR'),
+          }))
+        : null;
+
     return {
       sn: idx + 1,
       material: item.materials.name,
@@ -209,6 +227,8 @@ export function transformGrn(company: CompanyBlock, grn: GrnWithDetails): GrnDoc
       received: fmtQty(item.receivedQuantity.toString(), item.unit),
       accepted: fmtQty(item.acceptedQuantity.toString(), item.unit),
       rejected: fmtQty(item.rejectedQuantity.toString(), item.unit),
+      details,
+      entryMode: item.entryMode,
     };
   });
 

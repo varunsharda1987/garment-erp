@@ -1132,7 +1132,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       where: {
         costingStyleId: styleId,
         purpose: 'COSTING',
-        approvalStatus: 'APPROVED',
+        // PRICE approval (two-owner split) — these rates feed the cost sheet
+        costingApprovalStatus: 'APPROVED',
         totalCostPerMeter: { not: null },
       },
       select: {
@@ -2339,17 +2340,24 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
     const styleFabricIds = styleFabrics.map((sf) => sf.id);
 
-    // Reset all CAD rows linked to these style_fabrics to PENDING
+    // Reset all CAD rows linked to these style_fabrics to PENDING.
+    // Policy (two-owner split, user decision 2026-08-22): rejecting the CAD plan ALSO
+    // un-approves prices — a price approved against rejected geometry must be re-reviewed
+    // after the CAD rework. Cost numbers are kept; only the approvals reset.
     if (styleFabricIds.length > 0) {
       await this.prisma.fabric_width_cad.updateMany({
         where: { styleFabricId: { in: styleFabricIds } },
         data: {
-          approvalStatus: 'PENDING',
+          approvalStatus: 'PENDING', // allow-cad-approval: CAD-side reset is this method's job
           approvedBy: null,
           approvedAt: null,
           approvalNotes: rejectionReason,
           rejectedBy: rejectedById,
           rejectedAt: new Date(),
+          costingApprovalStatus: null,
+          costingApprovedBy: null,
+          costingApprovedAt: null,
+          isPreferred: false,
         },
       });
 

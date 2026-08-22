@@ -2309,8 +2309,9 @@ export async function getCADTableData(req: Request, res: Response) {
     // Order usage tracking
     orderCount: number;
     stockLotNumber: string | null;
-    // Approval status
+    // Approval status: CAD geometry + costing PRICE (two-owner split)
     approvalStatus: string | null;
+    costingApprovalStatus: string | null;
     isLocked: boolean;
     fabricStockId: string | null;
   }> = [];
@@ -2462,8 +2463,10 @@ export async function getCADTableData(req: Request, res: Response) {
           // Order usage tracking
           orderCount: cad.stockAllocations?.length || 0,
           stockLotNumber: cad.fabricStock?.id ? cad.fabricStock.id.substring(0, 8) : null,
-          // Approval status
+          // Approval status: CAD geometry + costing PRICE (two-owner split) — the PO form
+          // and the spreadsheet's price-lock both need the costing side
           approvalStatus: cad.approvalStatus,
+          costingApprovalStatus: cad.costingApprovalStatus || null,
           isLocked: cad.isLocked || false,
           fabricStockId: cad.fabricStockId || null,
         });
@@ -2628,6 +2631,7 @@ export async function getCADTableData(req: Request, res: Response) {
         orderCount: 0,
         stockLotNumber: cad.fabricStock?.id ? cad.fabricStock.id.substring(0, 8) : null,
         approvalStatus: cad.approvalStatus,
+        costingApprovalStatus: cad.costingApprovalStatus || null,
         isLocked: cad.isLocked || false,
         fabricStockId: cad.fabricStockId || null,
       });

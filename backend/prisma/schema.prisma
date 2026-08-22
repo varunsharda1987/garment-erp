@@ -4540,6 +4540,15 @@ model fabric_width_cad {
   approvalStatus              CadApprovalStatus?           @default(PENDING) @map("approval_status")
   approvedAt                  DateTime?                    @map("approved_at")
   approvedBy                  String?                      @map("approved_by")
+  // Two-owner split (2026-08-22): approvalStatus/approvedBy/approvedAt above are CAD-GEOMETRY
+  // approval ONLY (how much fabric is needed). The three columns below are the Fabric Costing
+  // PRICE approval, writable only via the approve/unapprove endpoints. A row is an approved
+  // costing option iff costingApprovalStatus is APPROVED/ALTERNATE_APPROVED (which implies
+  // totalCostPerMeter is set). {approvalStatus: APPROVED, cost: null} = CAD-approved, not yet
+  // costed — a legitimate state. costingApprovedBy is a bare user id (no relation on purpose).
+  costingApprovalStatus       CadApprovalStatus?           @map("costing_approval_status")
+  costingApprovedAt           DateTime?                    @map("costing_approved_at")
+  costingApprovedBy           String?                      @map("costing_approved_by")
   rejectedAt                  DateTime?                    @map("rejected_at")
   rejectedBy                  String?                      @map("rejected_by")
   autoApprovedFrom            String?                      @map("auto_approved_from")
@@ -4623,6 +4632,7 @@ model fabric_width_cad {
   @@index([patternPartId])
   @@index([purpose])
   @@index([approvalStatus])
+  @@index([costingApprovalStatus])
   @@index([isLocked])
   @@index([version])
   @@index([supersededById])

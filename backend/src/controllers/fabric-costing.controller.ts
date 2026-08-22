@@ -692,7 +692,10 @@ export async function getStyleFabrics(req: Request, res: Response) {
             totalCostPerMeter: cadRow.totalCostPerMeter ? Number(cadRow.totalCostPerMeter) : null,
             costInputMode: cadRow.costInputMode || null,
             isPreferred: cadRow.isPreferred || false,
-            approvalStatus: cadRow.approvalStatus || null,
+            // Two-owner split: this endpoint is the ONE that returns both approvals —
+            // approvalStatus = CAD geometry, costingApprovalStatus = price
+            approvalStatus: cadRow.approvalStatus || null, // allow-cad-approval
+            costingApprovalStatus: cadRow.costingApprovalStatus || null,
             processingBatchGroupColorId: cadRow.processingBatchGroupColorId || null,
             // MRP-48d: rate card (and its printing type) the saved numbers came from,
             // so reopening the page restores the same rate selection instead of blanking it
@@ -905,6 +908,7 @@ export async function saveFabricCosting(req: Request, res: Response) {
   // Define CAD-owned fields that CANNOT be modified by Fabric Costing
   // These fields are managed by CAD Planning module only
   // NOTE: purpose/purposeEnum are NOT in this list - users need to set workflow mode when saving
+  // approvalStatus/approvedBy/approvedAt are CAD-GEOMETRY approval (two-owner split 2026-08-22)
   const CAD_OWNED_FIELDS = [
     'cutableWidth',
     'cadMeters',
@@ -912,7 +916,7 @@ export async function saveFabricCosting(req: Request, res: Response) {
     'cadAverage',
     'cadWastagePercent',
     'markerEfficiency',
-    'approvalStatus',
+    'approvalStatus', // allow-cad-approval: CAD-owned field name in a protection list
     'approvedBy',
     'approvedAt',
     'approvalNotes',
@@ -929,6 +933,11 @@ export async function saveFabricCosting(req: Request, res: Response) {
     'markerPlanFile',
   ];
 
+  // Costing PRICE approval is writable ONLY via the approve/unapprove endpoints — never via
+  // save. The save schema is .passthrough(), so without this rejection a client-sent value
+  // would reach the update() below.
+  const COSTING_APPROVAL_FIELDS = ['costingApprovalStatus', 'costingApprovedBy', 'costingApprovedAt'];
+
   // Validate that cost values are non-negative
   for (const costing of fabricCostings) {
     const costFields = [
@@ -942,6 +951,14 @@ export async function saveFabricCosting(req: Request, res: Response) {
     for (const cost of costFields) {
       if (cost !== null && cost !== undefined && cost < 0) {
         throw new ValidationError('Cost values cannot be negative');
+      }
+    }
+
+    for (const field of COSTING_APPROVAL_FIELDS) {
+      if (costing.hasOwnProperty(field) && costing[field] !== undefined) {
+        throw new ForbiddenError(
+          `Field '${field}' can only be changed via the approve/unapprove endpoints, not via save.`
+        );
       }
     }
 
@@ -1020,14 +1037,18 @@ export async function saveFabricCosting(req: Request, res: Response) {
             purpose: costing.purpose || sourceRecord.purpose || 'COSTING',
             purposeEnum: (costing.purpose || sourceRecord.purpose || 'COSTING') as any,
             greigeId: costing.greigeId || sourceRecord.greigeId,
-            greigeCostPerMeter: costing.greigeCostPerMeter ? parseFloat(costing.greigeCostPerMeter) : null,
-            transportCostPerMeter: costing.transportCostPerMeter ? parseFloat(costing.transportCostPerMeter) : null,
-            processingPricePerMeter: costing.processingCostPerMeter ? parseFloat(costing.processingCostPerMeter) : null,
-            shrinkagePercent: costing.shrinkagePercent ? parseFloat(costing.shrinkagePercent) : null,
-            shrinkageCostPerMeter: costing.shrinkageCostPerMeter ? parseFloat(costing.shrinkageCostPerMeter) : null,
-            screenCostPerMeter: costing.screenCostPerMeter ? parseFloat(costing.screenCostPerMeter) : null,
+            // != null (not truthy): a legitimate 0 cost must stay 0, not collapse to null
+            greigeCostPerMeter: costing.greigeCostPerMeter != null ? parseFloat(costing.greigeCostPerMeter) : null,
+            transportCostPerMeter:
+              costing.transportCostPerMeter != null ? parseFloat(costing.transportCostPerMeter) : null,
+            processingPricePerMeter:
+              costing.processingCostPerMeter != null ? parseFloat(costing.processingCostPerMeter) : null,
+            shrinkagePercent: costing.shrinkagePercent != null ? parseFloat(costing.shrinkagePercent) : null,
+            shrinkageCostPerMeter:
+              costing.shrinkageCostPerMeter != null ? parseFloat(costing.shrinkageCostPerMeter) : null,
+            screenCostPerMeter: costing.screenCostPerMeter != null ? parseFloat(costing.screenCostPerMeter) : null,
             screenType: costing.screenType || null,
-            totalCostPerMeter: costing.totalCostPerMeter ? parseFloat(costing.totalCostPerMeter) : null,
+            totalCostPerMeter: costing.totalCostPerMeter != null ? parseFloat(costing.totalCostPerMeter) : null,
             processorId: costing.processorId || sourceRecord.processorId,
             // MRP-48d: clones must keep the rate card too, or the quantity-change copy
             // loses which processor rate produced its numbers
@@ -1036,8 +1057,11 @@ export async function saveFabricCosting(req: Request, res: Response) {
             costInputMode: costing.costInputMode || null,
             orderQuantityPcs: costing.orderQuantityPcs != null ? parseInt(costing.orderQuantityPcs) : null,
             processingBatchGroupColorId: costing.processingBatchGroupColorId || null,
-            // New record starts as unapproved
-            approvalStatus: null,
+            // New record starts as unapproved on BOTH sides of the two-owner split
+            approvalStatus: null, // allow-cad-approval: clone reset of the CAD-side field
+            costingApprovalStatus: null,
+            costingApprovedBy: null,
+            costingApprovedAt: null,
             isPreferred: false,
           },
         });
@@ -1062,9 +1086,12 @@ export async function saveFabricCosting(req: Request, res: Response) {
       }
 
       // An APPROVED costing is the priced number the cost sheet and BOM were built from.
-      // Only isLocked PRODUCTION rows were guarded before, so an approved option could be
-      // silently re-priced by any unrelated edit on the page with no re-approval.
-      if (existingCad.approvalStatus === 'APPROVED') {
+      // Guard on the PRICE approval (two-owner split): CAD-geometry approval alone must NOT
+      // block a row from receiving its first costing — that dead-ended 30 styles.
+      if (
+        existingCad.costingApprovalStatus === 'APPROVED' ||
+        existingCad.costingApprovalStatus === 'ALTERNATE_APPROVED'
+      ) {
         throw new ValidationError(
           `Cannot change the costing for an approved option (${existingCad.componentName ?? 'component'} ${existingCad.cutableWidth}"). Unapprove it first.`
         );
@@ -1082,14 +1109,16 @@ export async function saveFabricCosting(req: Request, res: Response) {
         // Fabric Costing ONLY updates these cost-related fields
         styleFabricId: costing.styleFabricId || existingCad.styleFabricId,
         greigeId: costing.greigeId || existingCad.greigeId,
-        greigeCostPerMeter: costing.greigeCostPerMeter ? parseFloat(costing.greigeCostPerMeter) : null,
-        transportCostPerMeter: costing.transportCostPerMeter ? parseFloat(costing.transportCostPerMeter) : null,
-        processingPricePerMeter: costing.processingCostPerMeter ? parseFloat(costing.processingCostPerMeter) : null,
-        shrinkagePercent: costing.shrinkagePercent ? parseFloat(costing.shrinkagePercent) : null,
-        shrinkageCostPerMeter: costing.shrinkageCostPerMeter ? parseFloat(costing.shrinkageCostPerMeter) : null,
-        screenCostPerMeter: costing.screenCostPerMeter ? parseFloat(costing.screenCostPerMeter) : null,
+        // != null (not truthy): a legitimate 0 cost must stay 0, not collapse to null
+        greigeCostPerMeter: costing.greigeCostPerMeter != null ? parseFloat(costing.greigeCostPerMeter) : null,
+        transportCostPerMeter: costing.transportCostPerMeter != null ? parseFloat(costing.transportCostPerMeter) : null,
+        processingPricePerMeter:
+          costing.processingCostPerMeter != null ? parseFloat(costing.processingCostPerMeter) : null,
+        shrinkagePercent: costing.shrinkagePercent != null ? parseFloat(costing.shrinkagePercent) : null,
+        shrinkageCostPerMeter: costing.shrinkageCostPerMeter != null ? parseFloat(costing.shrinkageCostPerMeter) : null,
+        screenCostPerMeter: costing.screenCostPerMeter != null ? parseFloat(costing.screenCostPerMeter) : null,
         screenType: costing.screenType || null, // ROTARY, FLATBELT, or TABLE
-        totalCostPerMeter: costing.totalCostPerMeter ? parseFloat(costing.totalCostPerMeter) : null,
+        totalCostPerMeter: costing.totalCostPerMeter != null ? parseFloat(costing.totalCostPerMeter) : null,
         processorId: costing.processorId || null,
         // MRP-48d: persist which rate card produced these numbers, so the chain
         // costing -> CAD -> cost sheet -> BOM -> MRP -> JWO carries the processor's committed
@@ -1143,9 +1172,10 @@ export async function getCostingOptions(req: Request, res: Response) {
 
   if (styleId) where.costingStyleId = styleId as string;
   if (processorId) where.processorId = processorId as string;
-  if (status === 'APPROVED') where.approvalStatus = 'APPROVED';
+  // Status filter keys on the PRICE approval (two-owner split)
+  if (status === 'APPROVED') where.costingApprovalStatus = 'APPROVED';
   if (status === 'PENDING') {
-    where.OR = [{ approvalStatus: null }, { approvalStatus: { not: 'APPROVED' } }];
+    where.OR = [{ costingApprovalStatus: null }, { costingApprovalStatus: { not: 'APPROVED' } }];
   }
 
   // Filter by workflow purpose
@@ -1271,9 +1301,11 @@ export async function getCostingOptions(req: Request, res: Response) {
       totalCostPerMeter: option.totalCostPerMeter,
       costInputMode: option.costInputMode,
       isPreferred: option.isPreferred,
-      approvalStatus: option.approvalStatus,
-      approvedBy: option.approvedBy,
-      approvedAt: option.approvedAt,
+      // Response keys keep their historical names but carry the PRICE approval (two-owner
+      // split) — every consumer of this endpoint always meant costing approval by them.
+      approvalStatus: option.costingApprovalStatus,
+      approvedBy: option.costingApprovedBy,
+      approvedAt: option.costingApprovedAt,
       isLowestCost,
       orderQuantityPcs: option.orderQuantityPcs,
       cadMeters: option.cadMeters,
@@ -1307,10 +1339,10 @@ export async function getCostingOptions(req: Request, res: Response) {
   if (styleId) purposeCountsWhere.costingStyleId = styleId as string;
   // Apply processorId filter if provided
   if (processorId) purposeCountsWhere.processorId = processorId as string;
-  // Apply status filter if provided
-  if (status === 'APPROVED') purposeCountsWhere.approvalStatus = 'APPROVED';
+  // Apply status filter if provided (PRICE approval — two-owner split)
+  if (status === 'APPROVED') purposeCountsWhere.costingApprovalStatus = 'APPROVED';
   if (status === 'PENDING') {
-    purposeCountsWhere.OR = [{ approvalStatus: null }, { approvalStatus: { not: 'APPROVED' } }];
+    purposeCountsWhere.OR = [{ costingApprovalStatus: null }, { costingApprovalStatus: { not: 'APPROVED' } }];
   }
   // Note: customerId filter requires relation join which groupBy doesn't support directly
   // For accurate counts with customerId, we'd need to filter the options array instead
@@ -1372,72 +1404,102 @@ export async function approveCostingOption(req: Request, res: Response) {
     throw new ValidationError('Option missing style reference');
   }
 
-  // Use transaction to ensure atomicity
-  const result = await prisma.$transaction(async (tx) => {
-    // Mark other options of SAME STYLE FABRIC as ALTERNATE_APPROVED (instead of unapproving)
-    // This allows multiple widths to be approved - one as primary per style fabric assignment, others as alternates
-    // Key change: Group by styleFabricId so each fabric assignment (e.g., plain vs embroidered) can have its own approval
-    await tx.fabric_width_cad.updateMany({
-      where: {
-        costingStyleId: option.costingStyleId,
-        componentName: option.componentName,
-        fabricId: option.fabricId, // Same base fabric
-        greigeId: option.greigeId, // Same greige
-        styleFabricId: option.styleFabricId, // Same style fabric assignment (key for embroidery differentiation)
-        patternPartId: option.patternPartId, // Same pattern part
-        purpose: option.purpose, // Same workflow mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
-        id: { not: optionId },
-        // Only mark as alternate if they have costing data
-        totalCostPerMeter: { not: null },
-      },
-      data: {
-        isPreferred: false,
-        approvalStatus: 'ALTERNATE_APPROVED',
-        // Keep existing approvedBy/approvedAt or set new ones
-      },
-    });
+  // Two-owner split: you cannot approve a PRICE that does not exist. A CAD-geometry-approved
+  // row with no costing must first get a costing saved, then be approved here.
+  if (option.totalCostPerMeter == null) {
+    throw new ValidationError(
+      'This option has no costing yet (CAD-approved only). Save a fabric costing first, then approve.'
+    );
+  }
 
-    // Also clear approval for options without costing data (same style fabric grouping)
-    await tx.fabric_width_cad.updateMany({
-      where: {
-        costingStyleId: option.costingStyleId,
-        componentName: option.componentName,
-        fabricId: option.fabricId, // Same base fabric
-        greigeId: option.greigeId, // Same greige
-        styleFabricId: option.styleFabricId, // Same style fabric assignment (key for embroidery differentiation)
-        patternPartId: option.patternPartId, // Same pattern part
-        purpose: option.purpose, // Same workflow mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
-        id: { not: optionId },
-        totalCostPerMeter: null,
-      },
-      data: {
-        isPreferred: false,
-        approvalStatus: null,
-      },
-    });
+  // Use transaction to ensure atomicity. All writes below target the COSTING approval columns
+  // only — approving a price must never touch siblings' CAD-geometry approval (the old shared
+  // column silently revoked it).
+  let result;
+  try {
+    result = await prisma.$transaction(async (tx) => {
+      // Mark other options of SAME STYLE FABRIC as ALTERNATE_APPROVED (instead of unapproving)
+      // This allows multiple widths to be approved - one as primary per style fabric assignment, others as alternates
+      // Key change: Group by styleFabricId so each fabric assignment (e.g., plain vs embroidered) can have its own approval
+      await tx.fabric_width_cad.updateMany({
+        where: {
+          costingStyleId: option.costingStyleId,
+          componentName: option.componentName,
+          fabricId: option.fabricId, // Same base fabric
+          greigeId: option.greigeId, // Same greige
+          styleFabricId: option.styleFabricId, // Same style fabric assignment (key for embroidery differentiation)
+          patternPartId: option.patternPartId, // Same pattern part
+          purpose: option.purpose, // Same workflow mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
+          id: { not: optionId },
+          // Only mark as alternate if they have costing data
+          totalCostPerMeter: { not: null },
+        },
+        data: {
+          isPreferred: false,
+          costingApprovalStatus: 'ALTERNATE_APPROVED',
+          // Keep existing costingApprovedBy/At
+        },
+      });
 
-    // Set this option as the PRIMARY approved option
-    const updated = await tx.fabric_width_cad.update({
-      where: { id: optionId },
-      data: {
-        isPreferred: true,
-        approvalStatus: 'APPROVED',
-        approvedBy: userId,
-        approvedAt: new Date(),
-      },
-      include: {
-        processor: { select: { id: true, name: true, code: true } },
-        greige: { select: { id: true, greigeName: true, greigeCode: true } },
-      },
-    });
+      // Safety net: options without costing data cannot hold a price approval
+      await tx.fabric_width_cad.updateMany({
+        where: {
+          costingStyleId: option.costingStyleId,
+          componentName: option.componentName,
+          fabricId: option.fabricId, // Same base fabric
+          greigeId: option.greigeId, // Same greige
+          styleFabricId: option.styleFabricId, // Same style fabric assignment (key for embroidery differentiation)
+          patternPartId: option.patternPartId, // Same pattern part
+          purpose: option.purpose, // Same workflow mode (COSTING, RAW_MATERIAL_CALCULATION, PRODUCTION)
+          id: { not: optionId },
+          totalCostPerMeter: null,
+        },
+        data: {
+          isPreferred: false,
+          costingApprovalStatus: null,
+          costingApprovedBy: null,
+          costingApprovedAt: null,
+        },
+      });
 
-    return updated;
-  });
+      // Set this option as the PRIMARY approved option
+      const updated = await tx.fabric_width_cad.update({
+        where: { id: optionId },
+        data: {
+          isPreferred: true,
+          costingApprovalStatus: 'APPROVED',
+          costingApprovedBy: userId,
+          costingApprovedAt: new Date(),
+        },
+        include: {
+          processor: { select: { id: true, name: true, code: true } },
+          greige: { select: { id: true, greigeName: true, greigeCode: true } },
+        },
+      });
+
+      return updated;
+    });
+  } catch (e: any) {
+    // The partial unique index allows one APPROVED costing per option tuple; a concurrent
+    // approval can race the sibling demote above.
+    if (e?.code === 'P2002') {
+      throw new ValidationError(
+        'Another option with this width/component/purpose was approved at the same time. Refresh and try again.'
+      );
+    }
+    throw e;
+  }
 
   res.json(
     serialize({
       success: true,
-      data: result,
+      // Alias contract: costing endpoints expose the PRICE approval under the historical keys
+      data: {
+        ...result,
+        approvalStatus: result.costingApprovalStatus,
+        approvedBy: result.costingApprovedBy,
+        approvedAt: result.costingApprovedAt,
+      },
       message: 'Costing option approved successfully',
     })
   );
@@ -1464,20 +1526,27 @@ export async function unapproveCostingOption(req: Request, res: Response) {
     throw new ValidationError('Cannot modify locked PRODUCTION costing option');
   }
 
-  // Update to remove approval status
+  // Remove the PRICE approval only — CAD-geometry approval is a separate lifecycle and
+  // must survive a costing unapprove (two-owner split).
   const updated = await prisma.fabric_width_cad.update({
     where: { id: optionId },
     data: {
-      approvalStatus: null,
-      approvedBy: null,
-      approvedAt: null,
+      costingApprovalStatus: null,
+      costingApprovedBy: null,
+      costingApprovedAt: null,
       isPreferred: false,
     },
   });
 
   return res.json({
     success: true,
-    data: updated,
+    data: {
+      ...updated,
+      // Alias contract: costing endpoints expose the PRICE approval under the historical keys
+      approvalStatus: updated.costingApprovalStatus,
+      approvedBy: updated.costingApprovedBy,
+      approvedAt: updated.costingApprovedAt,
+    },
     message: 'Costing option unapproved successfully',
   });
 }
@@ -1513,9 +1582,9 @@ export async function deleteCostingOption(req: Request, res: Response) {
     throw new ValidationError('Cannot modify locked PRODUCTION costing option');
   }
 
-  // An approved option is the primary selection downstream (cost sheet, BOM).
-  // Unapprove first — both Options pages already expose that action.
-  if (option.approvalStatus === 'APPROVED') {
+  // An approved option (primary OR alternate) is a selection downstream (cost sheet, BOM).
+  // Unapprove first — both Options pages expose that action for both states.
+  if (option.costingApprovalStatus === 'APPROVED' || option.costingApprovalStatus === 'ALTERNATE_APPROVED') {
     throw new ValidationError(
       'Cannot remove costing from an approved option. Unapprove it first, then remove the costing.'
     );
@@ -1541,9 +1610,16 @@ export async function deleteCostingOption(req: Request, res: Response) {
       processingBatchGroupColorId: null,
       // Unlink from its run; run totals are derived at read time (computeRunTotals)
       costingRunId: null,
+      // A row without a costing cannot hold a PRICE approval (guard above means these are
+      // already unset — belt-and-braces so the invariant survives future guard edits).
+      costingApprovalStatus: null,
+      costingApprovedBy: null,
+      costingApprovedAt: null,
+      isPreferred: false,
       // NOT cleared: greigeCostPerMeter / costInputMode / greigeRateSource* are also
       // written by CAD Planning's auto-costing (including manual overrides typed on
       // the CAD page), and are overwritten on the next costing save anyway.
+      // NOT touched: approvalStatus/approvedBy/approvedAt — CAD-geometry approval survives.
     },
   });
 
@@ -1607,7 +1683,8 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
         costingStyleId: styleId,
         totalCostPerMeter: { not: null },
         purpose: 'RAW_MATERIAL_CALCULATION',
-        approvalStatus: 'APPROVED',
+        // PRICE approval (two-owner split) — the fallback feeds cost-sheet numbers
+        costingApprovalStatus: 'APPROVED',
       },
       include: {
         processor: { select: { id: true, name: true, code: true } },
@@ -1687,9 +1764,11 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
       totalCostPerMeter: option.totalCostPerMeter,
       costInputMode: option.costInputMode,
       isPreferred: option.isPreferred,
-      approvalStatus: option.approvalStatus,
-      approvedBy: option.approvedBy,
-      approvedAt: option.approvedAt,
+      // Response keys keep their historical names but carry the PRICE approval (two-owner
+      // split) — every consumer of this endpoint always meant costing approval by them.
+      approvalStatus: option.costingApprovalStatus,
+      approvedBy: option.costingApprovedBy,
+      approvedAt: option.costingApprovedAt,
       isLowestCost,
       orderQuantityPcs: option.orderQuantityPcs,
       cadMeters: option.cadMeters,
@@ -1699,9 +1778,10 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
     });
   }
 
-  // Count stats
+  // Count stats — PRICE approval (raw Prisma rows here; the grouped entries above are
+  // already aliased, so their .approvalStatus is the costing value)
   const totalOptions = options.length;
-  const approvedCount = options.filter((o) => o.approvalStatus === 'APPROVED').length;
+  const approvedCount = options.filter((o) => o.costingApprovalStatus === 'APPROVED').length;
   const componentCount = Object.keys(groupedByComponent).length;
   const allComponentsApproved = Object.values(groupedByComponent).every((opts) =>
     opts.some((o) => o.approvalStatus === 'APPROVED')
@@ -1747,9 +1827,15 @@ export async function promoteCostingOption(req: Request, res: Response) {
     throw new NotFoundError('Costing option', optionId);
   }
 
-  // Check if option is approved (required for promotion)
-  if (option.approvalStatus !== 'APPROVED') {
-    throw new ValidationError('Option must be approved before promotion');
+  // Check if the PRICE is approved (required for promotion — two-owner split)
+  if (option.costingApprovalStatus !== 'APPROVED') {
+    throw new ValidationError('Option must have an approved costing before promotion');
+  }
+
+  // A promotion clones the row into the next stage — promoting a costless row would
+  // create a locked PRODUCTION record with no price.
+  if (option.totalCostPerMeter == null) {
+    throw new ValidationError('Option has no costing to promote. Save a fabric costing first.');
   }
 
   // Define valid transitions
@@ -1779,9 +1865,14 @@ export async function promoteCostingOption(req: Request, res: Response) {
       // BUG-FC7 fix: sync purpose fields - always set both purpose and purposeEnum together
       purpose: targetPurpose,
       purposeEnum: targetPurpose as any,
-      approvalStatus: 'PENDING', // Needs approval in new stage
+      approvalStatus: 'PENDING', // allow-cad-approval: needs CAD approval in new stage
       approvedBy: null,
       approvedAt: null,
+      // The ...data spread copies the source's PRICE approval — the promoted copy must NOT
+      // be born costing-approved (and a second APPROVED row would hit the partial unique index)
+      costingApprovalStatus: null,
+      costingApprovedBy: null,
+      costingApprovedAt: null,
       isPreferred: false, // Reset preference in new stage
       isLocked: targetPurpose === 'PRODUCTION', // Lock PRODUCTION records
     },
@@ -1822,14 +1913,15 @@ export async function getStylesCostingStatus(req: Request, res: Response) {
       select: {
         id: true,
         purpose: true,
-        approvalStatus: true,
+        costingApprovalStatus: true,
         isLocked: true,
       },
     });
 
     const hasCosting = costings.length > 0;
+    // PRICE approval (two-owner split)
     const hasApproved = costings.some(
-      (c) => c.approvalStatus === 'APPROVED' || c.approvalStatus === 'ALTERNATE_APPROVED'
+      (c) => c.costingApprovalStatus === 'APPROVED' || c.costingApprovalStatus === 'ALTERNATE_APPROVED'
     );
     const hasProduction = costings.some((c) => c.purpose === 'PRODUCTION' && c.isLocked);
     const hasPending = hasCosting && !hasApproved;
@@ -1978,6 +2070,16 @@ export async function pushFromCAD(req: Request, res: Response) {
       continue;
     }
 
+    // Skip if the row carries a PRICE approval — reseeding would scaffold over an approved
+    // costing (two-owner split; kept IN ADDITION to the has-costing skip above)
+    if (row.costingApprovalStatus === 'APPROVED' || row.costingApprovalStatus === 'ALTERNATE_APPROVED') {
+      skippedRows.push({
+        id: row.id,
+        reason: 'Has an approved costing',
+      });
+      continue;
+    }
+
     // Get greige cost from latest procurement
     const latestProcurement = row.greige?.fabricProcurements?.[0];
     const greigeCostPerMeter = latestProcurement?.ratePerUnit
@@ -2071,7 +2173,7 @@ export async function validateStyleCADData(req: Request, res: Response) {
       purpose: true,
       componentName: true,
       cutableWidth: true,
-      approvalStatus: true,
+      approvalStatus: true, // allow-cad-approval: validateStyleCADData reports CAD readiness
       copiedFromId: true,
     },
   });

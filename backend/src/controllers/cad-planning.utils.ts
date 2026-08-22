@@ -197,7 +197,8 @@ export async function validateCADModification(cadId: string, operation: 'update'
     where: { id: cadId },
     select: {
       id: true,
-      approvalStatus: true,
+      approvalStatus: true, // allow-cad-approval: this IS the CAD-side lock
+      costingApprovalStatus: true,
       isLocked: true,
       purpose: true,
       approvedAt: true,
@@ -215,6 +216,16 @@ export async function validateCADModification(cadId: string, operation: 'update'
       `Cannot ${operation} CAD entry: This CAD has been approved and is locked. ` +
         `Approved by: ${cad.approvedBy} on ${cad.approvedAt?.toLocaleString()}. ` +
         `To make changes, first reject the approval, make your changes, then resubmit for approval.`
+    );
+  }
+
+  // Two-owner split: a row whose PRICE is approved is locked from the CAD side too —
+  // editing cutableWidth/cadMeters (or deleting the row and cascading its size breakdowns)
+  // would silently invalidate or destroy an approved costing.
+  if (cad.costingApprovalStatus === 'APPROVED' || cad.costingApprovalStatus === 'ALTERNATE_APPROVED') {
+    throw new BusinessError(
+      `Cannot ${operation} CAD entry: This row has an approved costing built on its geometry. ` +
+        `Unapprove the costing on the Fabric Costing Options page first, then make CAD changes.`
     );
   }
 

@@ -80,22 +80,30 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
     throw new NotFoundError('Style', styleId);
   }
 
-  // Validate CAD requirements for cost sheet creation
-  // Path 1: CAD for COSTING purpose is approved
+  // Validate CAD requirements for cost sheet creation.
+  // Two-owner split (2026-08-22), policy decision: these gates require BOTH approvals —
+  // CAD-geometry approval (consumption is final) AND the costing PRICE approval with a
+  // real price. A CAD-approved-but-unpriced row must never make a style look "ready to cost"
+  // (that used to pre-fill ₹0 fabric rates).
+  // Path 1: COSTING purpose fully approved
   const hasCostingCadApproved = await prisma.fabric_width_cad.findFirst({
     where: {
       costingStyleId: styleId,
       purpose: 'COSTING',
-      approvalStatus: 'APPROVED',
+      approvalStatus: 'APPROVED', // allow-cad-approval: CAD half of the both-approvals gate
+      costingApprovalStatus: { in: ['APPROVED', 'ALTERNATE_APPROVED'] },
+      totalCostPerMeter: { not: null },
     },
   });
 
-  // Path 2: CAD for RAW_MATERIAL_CALCULATION is approved AND fabric costing is complete
+  // Path 2: RAW_MATERIAL_CALCULATION fully approved AND fabric costing is complete
   const hasRawMaterialCadApproved = await prisma.fabric_width_cad.findFirst({
     where: {
       costingStyleId: styleId,
       purpose: 'RAW_MATERIAL_CALCULATION',
-      approvalStatus: 'APPROVED',
+      approvalStatus: 'APPROVED', // allow-cad-approval: CAD half of the both-approvals gate
+      costingApprovalStatus: { in: ['APPROVED', 'ALTERNATE_APPROVED'] },
+      totalCostPerMeter: { not: null },
     },
   });
 
@@ -113,7 +121,7 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
 
   if (!canCreateCostSheet && style.cadStatus !== 'APPROVED') {
     throw new ValidationError(
-      'Either CAD for Costing must be approved, OR CAD for Raw Material must be approved with fabric costing complete'
+      'Cost sheet needs a fabric row that is BOTH CAD-approved (CAD Planning) and costing-approved with a price (Fabric Costing Options). Approve the CAD and the costing first.'
     );
   }
 
@@ -132,6 +140,8 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
     where: {
       costingStyleId: styleId,
       purpose: 'COSTING',
+      // Uncosted rows must not feed the preview — they rendered as ₹0 fabric lines
+      totalCostPerMeter: { not: null },
     },
     include: {
       fabric: { select: { fabricName: true } },
@@ -147,7 +157,9 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
       where: {
         costingStyleId: styleId,
         purpose: 'RAW_MATERIAL_CALCULATION',
-        approvalStatus: 'APPROVED', // Only use approved RM CAD
+        // PRICE approval (two-owner split) — this fallback feeds cost-sheet numbers
+        costingApprovalStatus: 'APPROVED',
+        totalCostPerMeter: { not: null },
       },
       include: {
         fabric: { select: { fabricName: true } },
@@ -228,6 +240,9 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
       where: {
         costingStyleId: styleId,
         purpose: 'RAW_MATERIAL_CALCULATION',
+        // Last-resort fallback is deliberately approval-free, but uncosted rows still
+        // must not contribute ₹0 lines
+        totalCostPerMeter: { not: null },
       },
       include: {
         fabric: { select: { fabricName: true } },
@@ -529,10 +544,36 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
     addCurrency(totalFabricCost, totalTrimsCost, totalEmbroideryMaterialCost, totalAccessoriesCost, totalProcessingCost)
   );
 
+  // Uncosted CAD rows are now excluded from the preview (they used to render as ₹0 fabric
+  // lines). Surface which components were skipped so the omission is visible, not silent.
+  const uncostedRows = await prisma.fabric_width_cad.findMany({
+    where: {
+      costingStyleId: styleId,
+      purpose: { in: ['COSTING', 'RAW_MATERIAL_CALCULATION'] },
+      totalCostPerMeter: null,
+    },
+    select: { componentName: true },
+  });
+  const skippedUncosted = [
+    ...new Set(
+      uncostedRows
+        // same key convention as the pricing loops above ('default' for unnamed)
+        .filter((r) => !processedComponents.has(r.componentName || 'default'))
+        .map((r) => r.componentName || 'Unnamed component')
+    ),
+  ];
+  const warnings =
+    skippedUncosted.length > 0
+      ? [
+          `${skippedUncosted.length} component(s) have CAD data but no costing and were left out: ${skippedUncosted.join(', ')}. Save a fabric costing for them first.`,
+        ]
+      : [];
+
   // Return preview data WITHOUT creating in database
   // The frontend will use this to pre-fill the form, then user submits to actually create
   res.status(200).json({
     success: true,
+    warnings,
     data: {
       // Basic Information for pre-fill
       numberOfComponents,

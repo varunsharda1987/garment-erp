@@ -328,7 +328,9 @@ export async function rejectCADPurpose(req: Request, res: Response) {
     throw new BusinessError('CAD record does not belong to this style');
   }
 
-  // Update approval status
+  // Update approval status. Policy (two-owner split, user decision 2026-08-22): rejecting
+  // the CAD geometry also un-approves the row's PRICE — a price computed on rejected
+  // geometry must be re-reviewed after rework. Cost numbers are kept.
   const updated = await prisma.fabric_width_cad.update({
     where: { id: rowId },
     data: {
@@ -336,6 +338,10 @@ export async function rejectCADPurpose(req: Request, res: Response) {
       approvedBy: userId,
       approvedAt: new Date(),
       approvalNotes: rejectionNotes,
+      costingApprovalStatus: null,
+      costingApprovedBy: null,
+      costingApprovedAt: null,
+      isPreferred: false,
     },
     include: {
       approver: {

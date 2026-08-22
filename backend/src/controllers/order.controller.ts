@@ -627,12 +627,17 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
           continue;
         }
 
-        // Find approved COSTING CAD rows for this style
-        // approvedBy is set when CAD is approved (not null means approved)
+        // Find fully-approved COSTING CAD rows for this style.
+        // Two-owner split (2026-08-22): BOTH approvals are required by policy — CAD-geometry
+        // approval (quantities are final) AND the costing PRICE approval with an actual price.
+        // The old `approvedBy: { not: null }` proxy matched either flow and also matched
+        // phantom rows with no price, which cloned ₹0 RM rows.
         const costingCadRows = await prisma.fabric_width_cad.findMany({
           where: {
             purpose: 'COSTING',
-            approvedBy: { not: null }, // CAD is approved when approvedBy is set
+            approvalStatus: 'APPROVED', // allow-cad-approval: CAD half of the both-approvals gate
+            costingApprovalStatus: { in: ['APPROVED', 'ALTERNATE_APPROVED'] },
+            totalCostPerMeter: { not: null },
             styleFabric: {
               style_components: {
                 styleId: orderItem.styleId,
@@ -657,7 +662,8 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
             styleId: orderItem.styleId,
             clonedCount: 0,
             skipped: true,
-            reason: 'No approved COSTING CAD found',
+            reason:
+              'No fully-approved COSTING CAD found (needs CAD approval in CAD Planning AND an approved costing price)',
           });
           continue;
         }

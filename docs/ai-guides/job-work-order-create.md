@@ -54,8 +54,8 @@ The processor must exist as a supplier. To actually send greige, the greige must
 2. Click **Approve**.
 3. Click **Issue to Processor**.
 4. Under **Greige Lots ***, pick the lot and quantity. Use **Add lot** to split across lots, or **Auto-fill**. The total must match the order, shown as "matches the order".
-5. Fill **Challan Ref (optional)** and **Vehicle Number**.
-6. Click **Issue & Create Challan**.
+5. Fill **Vehicle Number** if you know the truck. You do not type a challan number — the system assigns it.
+6. Click **Issue & Create Challan**. The confirmation shows the challan number that was created.
 
 ## Traps
 - Dyeing or Printing **with** a style shows a message pointing to **Go to Processing** — that flow is created on the Processing page instead. Clear the Style field to raise it here as a stock job.

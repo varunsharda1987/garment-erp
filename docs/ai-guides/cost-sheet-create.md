@@ -29,7 +29,7 @@ sources:
 
 ## Before you start
 
-The style must exist, and its CAD must be approved before **Auto-Generate from CAD** will work. The system accepts either of two paths: CAD for **Costing** approved, or CAD for **Raw Material** approved together with fabric costing completed. Without one of these you get an error and must finish CAD Planning first.
+The style must exist, and **Auto-Generate from CAD** now needs a fabric row with **both approvals**: the CAD approved in **CAD Planning** (quantity) AND the costing approved with a real price on the **Fabric Costing Options** page. This works through either mode: a fully-approved **Costing** row, or a fully-approved **Raw Material** row with fabric costing completed. A row that is only CAD-approved but has no saved costing does not count — save and approve its costing first. Whole-style CAD approval also unlocks generation, but rows without a costing are left out of the preview (a warning lists the skipped components).
 
 ## Steps
 
@@ -55,6 +55,8 @@ The style must exist, and its CAD must be approved before **Auto-Generate from C
 - Any row with a zero rate or zero quantity blocks the save. Either type real values or tick **N/A** on that row.
 - A fabric row with a blank name blocks the save. Re-select the style or type the name.
 - If a warning banner shows the CAD is not approved, use **Go to CAD Planning** on that banner and finish CAD first.
+- If the error says the row needs to be **costing-approved with a price**, open **Fabric Costing Options** for the style, approve the costing there, then generate again.
+- Components with CAD data but **no saved costing** are skipped from the preview and listed in a warning — they no longer appear as ₹0 fabric lines. Save a fabric costing for them first if they belong in the sheet.
 - An approved cost sheet is read-only. To change it, create a new version from the list; a version reason is compulsory.
 - **Reload from Style** refreshes fabric and trim rows from the style. It overwrites what you typed in those tables.
 - If the style already has a cost sheet, the preview still runs but warns you. Check the list before making a duplicate.

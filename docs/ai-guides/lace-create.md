@@ -16,8 +16,13 @@ keywords:
   - रंगाई
   - ट्रिम
   - चौड़ाई
+  - lace image
+  - lace photo
+  - lace ki photo
+  - फोटो
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/components/Sidebar.tsx
   - frontend/src/App.tsx
   - frontend/src/pages/LaceForm.tsx
   - frontend/src/pages/LaceList.tsx
@@ -43,10 +48,14 @@ sources:
 12. Under **Suppliers**, click **Add Supplier**, select the **Supplier**, and fill **Price/Meter** if known. Tick **Preferred Supplier** and **Active** as needed. Use the bin icon to remove a row.
 13. Add a **Supplier Reference Code** under **Reference Codes** if the supplier uses their own SKU.
 14. Under **Style Associations**, select the styles that use this lace. The first style picked is treated as the primary one and goes into the auto-generated name.
-15. Add a **Description** if useful, then click **Create Lace**.
+15. Add a **Description** if useful.
+16. To attach a photo, scroll to **Lace Image** and click the box that says **Click to upload lace image**. JPG, PNG or WEBP files up to 5MB are accepted. On the preview, the upload button replaces the photo and the ✕ button removes it.
+17. Click **Create Lace**.
 
 ## Traps
 
 - Nothing here except the lace nature choice is strictly enforced, so it is easy to save a thin record. Fill width, type and composition so the auto-generated name is meaningful.
 - When editing an existing lace, do not touch the **Suppliers** section unless you mean to change it. The form only sends supplier rows when that section was opened or edited.
 - On edit, the name refreshes automatically when you change attributes, unless you have typed a name of your own.
+- When editing an existing lace, the ✕ button on the photo removes it from the server immediately — it does not wait for you to click **Update Lace**.
+- The photo also shows next to the lace in the style form's **Browse & Add Trims** window, so uploading one helps the team pick the right lace.

@@ -23,6 +23,7 @@ sources:
   - frontend/src/pages/FabricList.tsx
   - frontend/src/constants/fabric-finish-types.ts
   - backend/src/schemas/fabricGreige.schema.ts
+  - backend/src/services/fabric.service.ts
 ---
 
 ## Before you start

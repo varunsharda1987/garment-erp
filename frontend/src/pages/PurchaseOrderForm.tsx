@@ -201,12 +201,18 @@ function getDefaultUnit(category: string): Unit {
   return 'PIECE';
 }
 
-// Get approved CAD rows that have greige info (for Processing PO creation)
+// Get fully-approved CAD rows that have greige info (for Processing PO creation).
+// Two-owner split policy: a row feeds PO pre-fill only when BOTH the CAD geometry
+// (quantities) AND the costing price are approved.
 function getApprovedCADRowsWithGreige(cadData: CADTableData | null): CADSpreadsheetRow[] {
   if (!cadData?.cadRows) return [];
   return cadData.cadRows.filter(
     (row) =>
-      row.greigeId && row.greigeName && row.approvalStatus === 'APPROVED' && row.purpose === 'RAW_MATERIAL_CALCULATION'
+      row.greigeId &&
+      row.greigeName &&
+      row.approvalStatus === 'APPROVED' &&
+      (row.costingApprovalStatus === 'APPROVED' || row.costingApprovalStatus === 'ALTERNATE_APPROVED') &&
+      row.purpose === 'RAW_MATERIAL_CALCULATION'
   );
 }
 

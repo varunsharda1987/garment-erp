@@ -1343,8 +1343,14 @@ export function CADSpreadsheetTable({
                     const isEditing = editingRow === row.id;
                     const isSaving = savingRow === row.id;
                     const isDeleting = deletingRow === row.id;
-                    // Lock rows that are APPROVED when style is approved (prevents editing historical data)
-                    const isRowLocked = isStyleApproved && row.approvalStatus === CADApprovalStatus.APPROVED;
+                    // Lock rows that are APPROVED when style is approved (prevents editing historical data).
+                    // Two-owner split: a row whose costing PRICE is approved is also locked — editing
+                    // width/consumption under an approved price would silently invalidate it (the
+                    // backend's validateCADModification enforces the same rule).
+                    const hasApprovedCosting =
+                      row.costingApprovalStatus === 'APPROVED' || row.costingApprovalStatus === 'ALTERNATE_APPROVED';
+                    const isRowLocked =
+                      (isStyleApproved && row.approvalStatus === CADApprovalStatus.APPROVED) || hasApprovedCosting;
                     const currentPartId = getDisplayValue(row, 'partId', null);
                     const currentPartCode = row.partCode; // Use partCode from row data
                     const currentWidth = getDisplayValue(row, 'cutableWidth', null);
@@ -1376,7 +1382,13 @@ export function CADSpreadsheetTable({
                           isEditing && 'bg-primary/5',
                           isRowLocked && 'opacity-75 bg-muted'
                         )}
-                        title={isRowLocked ? 'This row is locked (approved CAD)' : undefined}
+                        title={
+                          isRowLocked
+                            ? hasApprovedCosting
+                              ? 'Locked — this row has an approved costing. Unapprove it on the Fabric Costing Options page to edit.'
+                              : 'This row is locked (approved CAD)'
+                            : undefined
+                        }
                       >
                         {/* Purpose - Editable */}
                         <TableCell className={cn('px-1 py-1.5', getFieldClass('editable', isEditing))}>

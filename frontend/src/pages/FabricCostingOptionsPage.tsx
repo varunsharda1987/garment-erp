@@ -798,6 +798,15 @@ export default function FabricCostingOptionsPage() {
                                                 <Check className="h-3 w-3 mr-1" />
                                                 Approved
                                               </Badge>
+                                            ) : option.approvalStatus === 'ALTERNATE_APPROVED' ? (
+                                              <Badge
+                                                variant="outline"
+                                                className="text-warning border-warning/40"
+                                                title="Approved as an alternate width — another option is the primary"
+                                              >
+                                                <Check className="h-3 w-3 mr-1" />
+                                                Alternate
+                                              </Badge>
                                             ) : (
                                               <Badge variant="outline">Pending</Badge>
                                             )}
@@ -845,30 +854,35 @@ export default function FabricCostingOptionsPage() {
                                                     </DropdownMenuItem>
                                                   )}
 
-                                                  {/* Unapprove (only for approved, non-locked options) */}
-                                                  {option.approvalStatus === 'APPROVED' && !option.isLocked && (
-                                                    <DropdownMenuItem
-                                                      onClick={() => handleUnapprove(option.id)}
-                                                      className="text-warning"
-                                                    >
-                                                      <X className="mr-2 h-4 w-4" />
-                                                      Unapprove
-                                                    </DropdownMenuItem>
-                                                  )}
-
-                                                  {/* Remove costing (not for locked Production records) */}
-                                                  {!(option.purpose === 'PRODUCTION' && option.isLocked) && (
-                                                    <>
-                                                      <DropdownMenuSeparator />
+                                                  {/* Unapprove (approved or alternate, non-locked options) */}
+                                                  {(option.approvalStatus === 'APPROVED' ||
+                                                    option.approvalStatus === 'ALTERNATE_APPROVED') &&
+                                                    !option.isLocked && (
                                                       <DropdownMenuItem
-                                                        onClick={() => handleDeleteClick(option.id, componentName)}
-                                                        className="text-destructive"
+                                                        onClick={() => handleUnapprove(option.id)}
+                                                        className="text-warning"
                                                       >
-                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                        Remove Costing
+                                                        <X className="mr-2 h-4 w-4" />
+                                                        Unapprove
                                                       </DropdownMenuItem>
-                                                    </>
-                                                  )}
+                                                    )}
+
+                                                  {/* Remove costing (not for locked Production records; the backend
+                                                      also refuses approved/alternate rows — unapprove first) */}
+                                                  {!(option.purpose === 'PRODUCTION' && option.isLocked) &&
+                                                    option.approvalStatus !== 'APPROVED' &&
+                                                    option.approvalStatus !== 'ALTERNATE_APPROVED' && (
+                                                      <>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                          onClick={() => handleDeleteClick(option.id, componentName)}
+                                                          className="text-destructive"
+                                                        >
+                                                          <Trash2 className="mr-2 h-4 w-4" />
+                                                          Remove Costing
+                                                        </DropdownMenuItem>
+                                                      </>
+                                                    )}
                                                 </DropdownMenuContent>
                                               </DropdownMenu>
                                             </div>

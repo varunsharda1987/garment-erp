@@ -20,6 +20,7 @@ import {
   Package,
   CheckCircle2,
   Trash2,
+  Lock,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -44,7 +45,6 @@ import type { StyleCostingStatus } from '../services/fabricCosting.service';
 import { getRunsByStyle, createRun, deleteRun, type CostingRun } from '../services/fabricCostingRun.service';
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
-import { isAxiosError } from 'axios';
 import { divideByShrinkage } from '../utils/math';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { resolveGreigeCost, isGreigeRateStale, greigeSourceLabel, describeLiveRate } from '../utils/greigeRate';
@@ -63,6 +63,7 @@ import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import type { Style } from '../types/style.types';
 import type { Customer } from '../types/customer.types';
 import { notify } from '../lib/notify';
+import { getErrorMessage } from '../lib/api-error-handler';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 // Helper to validate UUID format
@@ -674,6 +675,12 @@ export default function FabricCostingPage() {
               return {
                 ...existingRow,
                 fabricWidthCadId: matchingFabric.id, // Update with the saved ID from database
+                // Refresh approval + saved-costing state too — without this a row approved
+                // elsewhere (or just saved here) keeps stale local state until full reload
+                approvalStatus: matchingFabric.approvalStatus ?? null,
+                costingApprovalStatus: matchingFabric.costingApprovalStatus ?? null,
+                hasSavedCosting: matchingFabric.totalCostPerMeter != null,
+                savedOrderQuantityPcs: matchingFabric.orderQuantityPcs ?? null,
               };
             }
             return existingRow;
@@ -798,7 +805,10 @@ export default function FabricCostingPage() {
               isExpanded: false,
               isLoading: false,
               error: null,
+              // Two-owner split: approvalStatus = CAD geometry, costingApprovalStatus = price
               approvalStatus: fabric.approvalStatus || null,
+              costingApprovalStatus: fabric.costingApprovalStatus || null,
+              hasSavedCosting: true, // this branch = row had a saved costing in the DB at load
             };
           }
 
@@ -894,7 +904,11 @@ export default function FabricCostingPage() {
             isExpanded: false,
             isLoading: false,
             error: null,
-            approvalStatus: null,
+            // Two-owner split: a CAD-approved row with no costing is a LEGITIMATE state that
+            // must accept its first costing save — only the PRICE approval skips a row.
+            approvalStatus: fabric.approvalStatus || null,
+            costingApprovalStatus: fabric.costingApprovalStatus || null,
+            hasSavedCosting: false, // this branch = no saved costing in the DB at load
           };
         });
 
@@ -1290,12 +1304,9 @@ export default function FabricCostingPage() {
         });
       }
     } catch (error: unknown) {
-      // Extract error message and debug info from backend response
-      const errorMessage = isAxiosError(error)
-        ? ((error.response?.data as Record<string, unknown>)?.error as string) || error.message
-        : error instanceof Error
-          ? error.message
-          : 'Failed to lookup rate';
+      // getErrorMessage prefers the backend's human message over the machine code —
+      // the old data.error read rendered raw "VALIDATION_ERROR" toasts
+      const errorMessage = getErrorMessage(error) || 'Failed to lookup rate';
 
       updateRow(index, {
         isLoading: false,
@@ -1303,7 +1314,7 @@ export default function FabricCostingPage() {
       });
 
       // Show detailed error
-      notify.error(errorMessage || 'Failed to lookup rate');
+      notify.error(errorMessage);
     }
   };
 
@@ -1338,10 +1349,14 @@ export default function FabricCostingPage() {
     const missingGreige = costedRows.filter(
       (row) => row.costInputMode === 'BUILD_UP' && !(row.greigeCostPerMeter != null && row.greigeCostPerMeter > 0)
     );
-    // Don't send already-approved rows — backend rejects changes to approved costings.
-    // They can only be modified after unapproving first.
+    // Don't send rows whose COSTING is approved — the backend rejects re-pricing an approved
+    // costing. Two-owner split: CAD-geometry approval alone must NOT skip a row (a CAD-approved
+    // row with no saved costing needs its FIRST costing saved). hasSavedCosting is
+    // defense-in-depth: costing approval implies a saved cost.
     const approvedRows = costedRows.filter(
-      (row) => row.approvalStatus === 'APPROVED' || row.approvalStatus === 'ALTERNATE_APPROVED'
+      (row) =>
+        (row.costingApprovalStatus === 'APPROVED' || row.costingApprovalStatus === 'ALTERNATE_APPROVED') &&
+        row.hasSavedCosting
     );
     const rowsToSave = costedRows.filter((row) => !missingGreige.includes(row) && !approvedRows.includes(row));
 
@@ -1350,7 +1365,7 @@ export default function FabricCostingPage() {
       const allApproved = approvedRows.length > 0 && !hasMissingPrices && costedRows.length === approvedRows.length;
       notify.error(
         allApproved
-          ? 'All rows are already approved. Unapprove first to modify.'
+          ? 'All rows have an approved costing. Unapprove on the Options page first to modify.'
           : hasMissingPrices
             ? missingGreige.length > 0
               ? `Cannot save: no greige price for ${missingGreige.map(describeRow).join(', ')}. Enter a rate, or set one on the Greige Master.`
@@ -1366,9 +1381,11 @@ export default function FabricCostingPage() {
       );
     }
 
-    // Notify user if some rows were skipped because they're already approved
+    // Notify user if some rows were skipped because their costing is approved
     if (approvedRows.length > 0) {
-      notify.info(`${approvedRows.length} approved row(s) unchanged. Unapprove first to modify.`);
+      notify.info(
+        `${approvedRows.length} approved costing(s) unchanged. Unapprove on the Options page first to modify.`
+      );
     }
 
     setIsSaving(true);
@@ -1453,9 +1470,7 @@ export default function FabricCostingPage() {
         setShowCreateRunDialog(true);
       }
     } catch (error: unknown) {
-      const msg = isAxiosError(error)
-        ? ((error.response?.data as Record<string, unknown>)?.error as string) || 'Failed to save fabric costing'
-        : 'Failed to save fabric costing';
+      const msg = getErrorMessage(error) || 'Failed to save fabric costing';
       notify.error(msg);
     } finally {
       setIsSaving(false);
@@ -1479,9 +1494,7 @@ export default function FabricCostingPage() {
       const runs = await getRunsByStyle(selectedStyleId, purpose);
       setExistingRuns(runs);
     } catch (error: unknown) {
-      const msg = isAxiosError(error)
-        ? ((error.response?.data as Record<string, unknown>)?.error as string) || 'Failed to create costing run'
-        : 'Failed to create costing run';
+      const msg = getErrorMessage(error) || 'Failed to create costing run';
       notify.error(msg);
     } finally {
       setIsCreatingRun(false);
@@ -1498,9 +1511,7 @@ export default function FabricCostingPage() {
       const runs = await getRunsByStyle(selectedStyleId, purpose);
       setExistingRuns(runs);
     } catch (error: unknown) {
-      const msg = isAxiosError(error)
-        ? ((error.response?.data as Record<string, unknown>)?.error as string) || 'Failed to delete costing run'
-        : 'Failed to delete costing run';
+      const msg = getErrorMessage(error) || 'Failed to delete costing run';
       notify.error(msg);
     } finally {
       setIsDeletingRun(null);
@@ -1520,9 +1531,7 @@ export default function FabricCostingPage() {
       await fabricCostingService.approveCostingOption(row.fabricWidthCadId);
       notify.success('Costing option approved');
     } catch (error: unknown) {
-      const msg = isAxiosError(error)
-        ? ((error.response?.data as Record<string, unknown>)?.error as string) || 'Failed to approve'
-        : 'Failed to approve';
+      const msg = getErrorMessage(error) || 'Failed to approve';
       notify.error(msg);
     } finally {
       setApprovingRowId(null);
@@ -2783,6 +2792,17 @@ export default function FabricCostingPage() {
                                                 </Badge>
                                               )}
                                               <StockBadge row={row} effectiveQty={row.rowQuantity || orderQuantity} />
+                                              {(row.costingApprovalStatus === 'APPROVED' ||
+                                                row.costingApprovalStatus === 'ALTERNATE_APPROVED') && (
+                                                <Badge
+                                                  variant="outline"
+                                                  className="text-[9px] px-1 py-0 bg-warning-muted text-warning border-warning/20 flex-shrink-0 gap-0.5"
+                                                  title="Approved costing — skipped on save. Unapprove on the Options page to edit."
+                                                >
+                                                  <Lock className="h-2.5 w-2.5" />
+                                                  {row.costingApprovalStatus === 'APPROVED' ? 'Approved' : 'Alternate'}
+                                                </Badge>
+                                              )}
                                             </div>
                                             {parsed.line2 && (
                                               <p className="text-[10px] text-muted-foreground">{parsed.line2}</p>

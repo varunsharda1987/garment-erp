@@ -90,8 +90,9 @@ export default function StyleFabricCostingOptionsPage() {
       await fabricCostingService.approveCostingOption(optionId);
       notify.success('Option approved');
       fetchCostingOptions();
-    } catch {
-      notify.error('Failed to approve option');
+    } catch (error) {
+      // Surface the server's reason (e.g. "no costing yet — save a fabric costing first")
+      handleApiError(error, 'Failed to approve option');
     } finally {
       setApprovingId(null);
     }
@@ -104,8 +105,8 @@ export default function StyleFabricCostingOptionsPage() {
       await fabricCostingService.unapproveCostingOption(optionId);
       notify.success('Option unapproved');
       fetchCostingOptions();
-    } catch {
-      notify.error('Failed to unapprove option');
+    } catch (error) {
+      handleApiError(error, 'Failed to unapprove option');
     } finally {
       setUnapprovingId(null);
     }
@@ -144,8 +145,9 @@ export default function StyleFabricCostingOptionsPage() {
       const label = targetPurpose === 'COSTING' ? 'Costing' : 'Production';
       notify.success(`Promoted to ${label}`);
       fetchCostingOptions();
-    } catch {
-      notify.error('Failed to promote option');
+    } catch (error) {
+      // Surface the server's reason (e.g. "needs an approved costing before promotion")
+      handleApiError(error, 'Failed to promote option');
     } finally {
       setPromotingId(null);
     }
@@ -434,6 +436,15 @@ export default function StyleFabricCostingOptionsPage() {
                                       <Check className="h-3 w-3 mr-1" />
                                       Approved
                                     </Badge>
+                                  ) : option.approvalStatus === 'ALTERNATE_APPROVED' ? (
+                                    <Badge
+                                      variant="outline"
+                                      className="text-warning border-warning/40"
+                                      title="Approved as an alternate width — another option is the primary"
+                                    >
+                                      <Check className="h-3 w-3 mr-1" />
+                                      Alternate
+                                    </Badge>
                                   ) : (
                                     <Badge variant="outline">Pending</Badge>
                                   )}
@@ -483,16 +494,18 @@ export default function StyleFabricCostingOptionsPage() {
                                           </DropdownMenuItem>
                                         )}
 
-                                        {/* Unapprove (only for approved, non-locked options) */}
-                                        {option.approvalStatus === 'APPROVED' && !option.isLocked && (
-                                          <DropdownMenuItem
-                                            onClick={() => handleUnapprove(option.id)}
-                                            className="text-warning"
-                                          >
-                                            <X className="mr-2 h-4 w-4" />
-                                            Unapprove
-                                          </DropdownMenuItem>
-                                        )}
+                                        {/* Unapprove (approved or alternate, non-locked options) */}
+                                        {(option.approvalStatus === 'APPROVED' ||
+                                          option.approvalStatus === 'ALTERNATE_APPROVED') &&
+                                          !option.isLocked && (
+                                            <DropdownMenuItem
+                                              onClick={() => handleUnapprove(option.id)}
+                                              className="text-warning"
+                                            >
+                                              <X className="mr-2 h-4 w-4" />
+                                              Unapprove
+                                            </DropdownMenuItem>
+                                          )}
 
                                         {/* Promote to Production */}
                                         {(option.purpose === 'COSTING' ||
@@ -507,19 +520,22 @@ export default function StyleFabricCostingOptionsPage() {
                                             </DropdownMenuItem>
                                           )}
 
-                                        {/* Remove costing (not for locked Production records) */}
-                                        {!(option.purpose === 'PRODUCTION' && option.isLocked) && (
-                                          <>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem
-                                              onClick={() => handleDeleteClick(option.id, componentName)}
-                                              className="text-destructive"
-                                            >
-                                              <Trash2 className="mr-2 h-4 w-4" />
-                                              Remove Costing
-                                            </DropdownMenuItem>
-                                          </>
-                                        )}
+                                        {/* Remove costing (not for locked Production records; the backend
+                                            also refuses approved/alternate rows — unapprove first) */}
+                                        {!(option.purpose === 'PRODUCTION' && option.isLocked) &&
+                                          option.approvalStatus !== 'APPROVED' &&
+                                          option.approvalStatus !== 'ALTERNATE_APPROVED' && (
+                                            <>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem
+                                                onClick={() => handleDeleteClick(option.id, componentName)}
+                                                className="text-destructive"
+                                              >
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                Remove Costing
+                                              </DropdownMenuItem>
+                                            </>
+                                          )}
                                       </DropdownMenuContent>
                                     </DropdownMenu>
                                   </div>

@@ -284,8 +284,10 @@ export interface FabricForCosting {
   orderQuantityPcs?: number | null;
   // Creation timestamp for sorting by most recent
   createdAt?: string | null;
-  // Approval status from fabric_width_cad
+  // CAD-GEOMETRY approval from fabric_width_cad (two-owner split — CAD Planning owns this)
   approvalStatus?: string | null;
+  // Costing PRICE approval (two-owner split — Fabric Costing owns this)
+  costingApprovalStatus?: string | null;
 }
 
 // Style fabrics response
@@ -407,8 +409,13 @@ export interface FabricCostingRow {
   isExpanded: boolean;
   isLoading: boolean;
   error: string | null;
-  // Approval status (for filtering out approved rows on save)
+  // CAD-GEOMETRY approval (two-owner split; informational on this page)
   approvalStatus?: string | null;
+  // Costing PRICE approval — an approved-costing row is skipped on save and badged
+  costingApprovalStatus?: string | null;
+  // True when the row had a SAVED costing in the DB at load (the COSTED mapping branch).
+  // Used with costingApprovalStatus to decide skip-on-save.
+  hasSavedCosting: boolean;
 }
 
 // Page state

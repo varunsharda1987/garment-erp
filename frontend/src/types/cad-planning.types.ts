@@ -262,8 +262,10 @@ export interface CADSpreadsheetRow {
   // Order usage tracking
   orderCount?: number;
   stockLotNumber?: string | null;
-  // Approval status
+  // Approval status: approvalStatus = CAD geometry; costingApprovalStatus = the costing
+  // PRICE approval (two-owner split) — a price-approved row is locked from CAD edits
   approvalStatus?: string | null;
+  costingApprovalStatus?: string | null;
   isLocked?: boolean;
   fabricStockId?: string | null;
   // Copy lineage tracking

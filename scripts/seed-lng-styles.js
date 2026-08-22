@@ -138,12 +138,13 @@ async function main() {
         console.log(`  BOM already exists (${style._count.style_material_bom} items)`);
       }
 
-      // 4. Create CAD if no RAW_MATERIAL_CALCULATION CAD exists
+      // 4. Create CAD if no RAW_MATERIAL_CALCULATION CAD exists.
+      // Idempotency deliberately does NOT filter on approvalStatus — after an unapprove or
+      // reject, a re-run must find the existing row instead of creating a duplicate.
       const existingCad = await tx.fabric_width_cad.findFirst({
         where: {
           costingStyleId: style.id,
           purpose: 'RAW_MATERIAL_CALCULATION',
-          approvalStatus: 'APPROVED',
         }
       });
 
@@ -165,6 +166,9 @@ async function main() {
             greigeRateSourceDate: new Date('2026-01-11'),
             printDirection: 'TWO_WAY',
             purpose: 'RAW_MATERIAL_CALCULATION',
+            // Two-owner split: this is the CAD-GEOMETRY approval (legitimate without a cost).
+            // The costing PRICE approval (costingApprovalStatus) is granted later via the
+            // Fabric Costing Options page, never seeded.
             approvalStatus: 'APPROVED',
             approvedAt: now,
             approvedBy: CREATED_BY_ID,

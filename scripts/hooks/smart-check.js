@@ -393,6 +393,17 @@ function checkUnguardedCadDelete(tsFiles) {
   );
 }
 
+/** Check (E5): costing code touching the CAD-geometry approval column — BLOCKING new + ratchet. */
+function checkCostingApprovalDrift(tsFiles) {
+  console.log(`\n${c.cyan}Checking for CAD/costing approval drift...${c.reset}`);
+  return runRatchetedCheck(
+    'bare approvalStatus use(s) in costing-module code (two-owner split: costing approval is costingApprovalStatus)',
+    detectors.costingCadApprovalDrift(tsFiles),
+    'costing-approval-drift-baseline.json',
+    'Costing semantics must use costingApprovalStatus/costingApprovedBy/costingApprovedAt; approvalStatus is CAD-geometry approval only. Mark a genuine CAD-side use with `// allow-cad-approval`. If intentional, add the key to scripts/hooks/costing-approval-drift-baseline.json.'
+  );
+}
+
 /** Check (E4): a business default declared outside defaults.registry.ts — BLOCKING new + ratchet. */
 function checkHardcodedDefault(tsFiles) {
   console.log(`\n${c.cyan}Checking for hardcoded default values...${c.reset}`);
@@ -857,6 +868,7 @@ function runAllModeChecks() {
   if (!checkManualMaterialCreate(tsFiles)) ok = false;
   if (!checkColourSentinelLiteral(tsFiles)) ok = false;
   if (!checkUnguardedCadDelete(tsFiles)) ok = false;
+  if (!checkCostingApprovalDrift(tsFiles)) ok = false;
   if (!checkHardcodedDefault(tsFiles)) ok = false;
   if (!checkSchemaServiceUpdateParity(schemaFiles)) ok = false;
   checkAiGuides(); // warn-only
@@ -963,6 +975,7 @@ function main() {
     if (!checkManualMaterialCreate(categories.typescript)) allPassed = false;
     if (!checkColourSentinelLiteral(categories.typescript)) allPassed = false;
     if (!checkUnguardedCadDelete(categories.typescript)) allPassed = false;
+    if (!checkCostingApprovalDrift(categories.typescript)) allPassed = false;
     if (!checkHardcodedDefault(categories.typescript)) allPassed = false;
   }
 

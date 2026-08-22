@@ -1200,6 +1200,46 @@ function unguardedCadDelete(relFiles) {
   return out;
 }
 
+// Two-owner approval split (2026-08-22) — costing code must key on costingApprovalStatus.
+// fabric_width_cad.approvalStatus is CAD-GEOMETRY approval only ("how much fabric"); the
+// costing PRICE approval lives in costingApprovalStatus/costingApprovedBy/costingApprovedAt.
+// Costing-module code touching the bare approvalStatus re-creates the LNG281 dead-end:
+// CAD-approved rows blocked from their first costing, phantom "approved" costings feeding
+// cost sheets ₹0 rates, and approvals silently revoking siblings' geometry approval.
+// Sanctioned shapes: response aliasing `approvalStatus: x.costingApprovalStatus` is fine;
+// a genuine CAD-side read/write in these files carries // allow-cad-approval within the
+// 2 preceding lines (or inline).
+function costingCadApprovalDrift(relFiles) {
+  const out = [];
+  const SCOPED =
+    /^backend\/src\/(controllers\/(fabric-costing[^/]*|style-costing-calc\.controller|order\.controller)\.ts|services\/style\.service\.ts)$/;
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!SCOPED.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const lines = content.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      // Case-sensitive: never matches inside costingApprovalStatus (capital A there)
+      if (!/\bapprovalStatus\b/.test(line)) continue;
+      const trimmed = line.trim();
+      if (/^(\/\/|\*|\/\*)/.test(trimmed)) continue; // prose comments
+      if (/approvalStatus\s*:\s*(?:\w+\.)*costingApproval/.test(line)) continue; // response alias
+      const context = `${lines[i - 2] || ''}\n${lines[i - 1] || ''}\n${line}`;
+      if (/allow-cad-approval/.test(context)) continue;
+      out.push({
+        key: `${norm} :: approvalStatus :: L${i + 1}`,
+        file: rel,
+        line: i + 1,
+        detail:
+          'bare approvalStatus in costing-module code — that column is CAD-geometry approval only; the costing approval is costingApprovalStatus (mark a genuine CAD-side use with // allow-cad-approval)',
+      });
+    }
+  }
+  return out;
+}
+
 // Single source of defaults (2026-08-21) — a business default value declared anywhere other
 // than backend/src/config/defaults.registry.ts.
 //
@@ -1301,6 +1341,7 @@ module.exports = {
   manualMaterialCreate,
   colourSentinelLiteral,
   unguardedCadDelete,
+  costingCadApprovalDrift,
   schemaFrontendParity,
   schemaServiceUpdateParity,
   stockSyncNoWarehouse,

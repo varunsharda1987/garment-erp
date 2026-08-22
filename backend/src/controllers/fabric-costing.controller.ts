@@ -1784,6 +1784,7 @@ export async function getStyleCostingOptions(req: Request, res: Response) {
   const approvedCount = options.filter((o) => o.costingApprovalStatus === 'APPROVED').length;
   const componentCount = Object.keys(groupedByComponent).length;
   const allComponentsApproved = Object.values(groupedByComponent).every((opts) =>
+    // allow-cad-approval: aliased response objects — .approvalStatus IS the costing approval here
     opts.some((o) => o.approvalStatus === 'APPROVED')
   );
 

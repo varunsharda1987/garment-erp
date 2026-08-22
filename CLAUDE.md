@@ -122,18 +122,29 @@ materialId: !specificFk ? bomAny.materialId : undefined,
 
 There is **no separate fabric-costing table**. `fabric_width_cad` is one row serving two modules:
 
-- **CAD Planning owns** the geometry and lifecycle: `cutableWidth`, `cadMeters`, `cadAverage`, `markerEfficiency`, `purpose`/`purposeEnum`, `approvalStatus`/`approvedBy`/`isLocked`, and the cascade children `cad_size_breakdown` + `cad_pattern_parts`. This list is enforced as `CAD_OWNED_FIELDS` in `fabric-costing.controller.ts`.
-- **Fabric Costing owns** only the cost decoration: `costingStyleId`, `totalCostPerMeter`, `transportCostPerMeter`, `processingPricePerMeter`, `shrinkagePercent`/`shrinkageCostPerMeter`, `screenCostPerMeter`/`screenType`/`numberOfColors`, `processorId`, `rateCardId`, `orderQuantityPcs`, `processingBatchGroupColorId`, `costingRunId`.
+- **CAD Planning owns** the geometry and lifecycle: `cutableWidth`, `cadMeters`, `cadAverage`, `markerEfficiency`, `purpose`/`purposeEnum`, `approvalStatus`/`approvedBy`/`approvedAt`/`isLocked`, and the cascade children `cad_size_breakdown` + `cad_pattern_parts`. This list is enforced as `CAD_OWNED_FIELDS` in `fabric-costing.controller.ts`.
+- **Fabric Costing owns** the cost decoration: `costingStyleId`, `totalCostPerMeter`, `transportCostPerMeter`, `processingPricePerMeter`, `shrinkagePercent`/`shrinkageCostPerMeter`, `screenCostPerMeter`/`screenType`/`numberOfColors`, `processorId`, `rateCardId`, `orderQuantityPcs`, `processingBatchGroupColorId`, `costingRunId` — **and the PRICE approval**: `costingApprovalStatus`/`costingApprovedBy`/`costingApprovedAt`, writable ONLY via the approve/unapprove endpoints (never via save).
 - **Co-owned:** `greigeCostPerMeter` / `greigeRateSource*` — CAD Planning's auto-costing seeds them (including manual overrides typed on the CAD page). `costInputMode` is costing-owned; its ONLY legal values are `BUILD_UP` | `LANDED_PRICE`.
 
 A row "is a costing option" when `costingStyleId` and `totalCostPerMeter` are both non-null.
+
+### Two-owner approval split (2026-08-22)
+
+`approvalStatus` = **CAD-geometry approval** ("how much fabric is needed" is final). `costingApprovalStatus` = **price approval** ("what that fabric costs" is final). They are separate lifecycles:
+- `{approvalStatus: APPROVED, totalCostPerMeter: null}` is a LEGITIMATE state ("CAD-approved, not yet costed") — it must accept its first costing save.
+- A price approval implies `totalCostPerMeter` is set (approve refuses costless rows); a partial unique index enforces one APPROVED costing per option tuple.
+- Costing endpoints keep emitting the response key `approvalStatus` **sourced from `costingApprovalStatus`** (alias contract) — `getStyleFabrics`/`getCADTableData` are the exceptions that return both fields.
+- **Both-approvals policy** (order→production RM auto-clone, Processing-PO pre-fill, cost-sheet Auto-Generate gates): a row qualifies only with CAD approval AND a price approval AND a non-null cost.
+- CAD rejection (`rejectCADPlan`/`rejectCADPurpose`) also resets price approvals; `validateCADModification` blocks CAD edit/delete on price-approved rows.
+- Invariant sweep: `cd backend && npx ts-node scripts/check-phantom-approved-costings.ts --dry-run`.
 
 **Rules:**
 1. **Removing a costing must clear the costing columns, never delete the row** — deleting it destroys the approved CAD entry and cascades its size breakdowns. See `deleteCostingOption`, and `deleteRun` ("unlinks CADs, doesn't delete them").
 2. **Never delete `style_fabrics`/`style_components` without unlinking first** — `styleFabricId` is `ON DELETE CASCADE` into `fabric_width_cad`. Pattern: `style.service.ts` lines ~1212-1219.
 3. **Fabric Costing must not create CAD rows or edit CAD-owned fields**; CAD Planning must not overwrite a row that already has `totalCostPerMeter`.
+4. **Costing-module code must never key on the bare `approvalStatus`** — use `costingApprovalStatus` (enforced by the *CAD/costing approval drift* smart-check; genuine CAD-side uses carry `// allow-cad-approval`).
 
-Both rules 1 and 2 are enforced by the *Unguarded CAD delete* smart-check below.
+Rules 1, 2 and 4 are enforced by smart-checks below.
 
 ## CRITICAL: Enforced Guardrails (schema-drift + money-math)
 
@@ -151,6 +162,7 @@ Each check is a **baseline ratchet**: existing violations are grandfathered in `
 | Divide-by-shrinkage | Raw `/ (1 - x/100)` (→ Infinity at 100%) | Use `divideByShrinkage()` from `backend/src/utils/currency.ts` |
 | Currency format | `toLocaleString('en-IN', {minimumFractionDigits:2})` with no `maximumFractionDigits` (prints `₹563.796`) | Add `maximumFractionDigits: 2` |
 | Unguarded CAD delete | A `fabric_width_cad` delete with no `validateCADModification`, or a `style_fabrics`/`style_components` delete with no unlink first (cascade destroys APPROVED CAD planning + costing) | Guard with `validateCADModification(id, 'delete')`, or unlink `fabric_width_cad.updateMany({ styleFabricId: null })` first (see `style.service.ts`) |
+| CAD/costing approval drift | Bare `approvalStatus` in costing-module files (`fabric-costing*`, `style-costing-calc`, `order.controller`, `style.service`) — that column is CAD-geometry approval only | Use `costingApprovalStatus` for price semantics, or mark a genuine CAD-side use with `// allow-cad-approval` |
 
 **Escape hatch:** if a flagged line is genuinely intentional, copy the exact key the check prints into the matching `scripts/hooks/<check>-baseline.json`. Regenerate all baselines after a large intentional change by running the detectors whole-repo (see `scripts/hooks/drift-detectors.js` + `ratchet.js` `writeBaseline`).
 

@@ -35,6 +35,10 @@ const COSTING_FIELDS = [
   'orderQuantityPcs',
   'processingBatchGroupColorId',
   'costingRunId',
+  // Two-owner split: un-costing also clears the PRICE approval (belt-and-braces)
+  'costingApprovalStatus',
+  'costingApprovedBy',
+  'costingApprovedAt',
 ] as const;
 
 /** A CAD row carrying both CAD-owned data and a full costing decoration. */
@@ -147,15 +151,52 @@ describe('DELETE /api/fabric-costing/option/:optionId', () => {
     expect(after!.costingStyleId).toBe(styleId);
   });
 
-  it('refuses to un-cost an APPROVED option (unapprove first)', async () => {
-    const cad = await createCostedCadRow({ componentName: `${RUN}-APPROVED`, approvalStatus: 'APPROVED' });
+  it('refuses to un-cost an option with an APPROVED costing (unapprove first)', async () => {
+    // Two-owner split: the guard keys on the PRICE approval, not the CAD-geometry one
+    const cad = await createCostedCadRow({
+      componentName: `${RUN}-APPROVED`,
+      costingApprovalStatus: 'APPROVED',
+      costingApprovedBy: testUserId,
+      costingApprovedAt: new Date(),
+    });
 
     const res = await request(app).delete(`/api/fabric-costing/option/${cad.id}`).set(authHeader).expect(400);
     expect(res.body.message || res.body.error?.message).toMatch(/unapprove/i);
 
     const after = await prisma.fabric_width_cad.findUnique({ where: { id: cad.id } });
-    expect(after!.approvalStatus).toBe('APPROVED');
+    expect(after!.costingApprovalStatus).toBe('APPROVED');
     expect(after!.totalCostPerMeter).not.toBeNull();
+  });
+
+  it('refuses to un-cost an ALTERNATE_APPROVED option too', async () => {
+    const cad = await createCostedCadRow({
+      componentName: `${RUN}-ALT`,
+      costingApprovalStatus: 'ALTERNATE_APPROVED',
+    });
+
+    await request(app).delete(`/api/fabric-costing/option/${cad.id}`).set(authHeader).expect(400);
+
+    const after = await prisma.fabric_width_cad.findUnique({ where: { id: cad.id } });
+    expect(after!.costingApprovalStatus).toBe('ALTERNATE_APPROVED');
+    expect(after!.totalCostPerMeter).not.toBeNull();
+  });
+
+  it('un-costs a CAD-geometry-APPROVED row whose costing is unapproved — and keeps the CAD approval', async () => {
+    // Regression pin for the incident: CAD approval alone must never block costing operations
+    const cad = await createCostedCadRow({
+      componentName: `${RUN}-CADAPPR`,
+      approvalStatus: 'APPROVED',
+      approvedBy: testUserId,
+      approvedAt: new Date(),
+    });
+
+    await request(app).delete(`/api/fabric-costing/option/${cad.id}`).set(authHeader).expect(200);
+
+    const after = await prisma.fabric_width_cad.findUnique({ where: { id: cad.id } });
+    expect(after).not.toBeNull();
+    expect(after!.approvalStatus).toBe('APPROVED'); // CAD-geometry approval survives un-costing
+    expect(after!.totalCostPerMeter).toBeNull();
+    expect(after!.costingStyleId).toBeNull();
   });
 
   it('unlinks the row from its costing run, leaving the run in place', async () => {

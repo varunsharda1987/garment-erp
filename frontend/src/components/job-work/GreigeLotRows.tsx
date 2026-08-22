@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { toast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import type { GreigeStockDetail, JwoIssuePreviewLot } from '@/services/jobWorkOrder.service';
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import {
@@ -84,10 +84,8 @@ export function GreigeLotRows({
         const details = await jobWorkOrderService.getAvailableDetails(lotId);
         updateRow(index, { availableDetails: details, detailsExpanded: true });
       } catch (err) {
-        toast({
-          title: 'Failed to load bale/than details',
+        toast.error('Failed to load bale/than details', {
           description: err instanceof Error ? err.message : 'Unable to fetch details for this lot',
-          variant: 'destructive',
         });
       } finally {
         setLoadingDetails((prev) => {

@@ -272,9 +272,17 @@ export default function CADPlanningPage() {
       });
     });
 
-    const coveredFabricIds = new Set(
-      cadTableData.cadRows.filter((row) => row.cadAverage && row.cadAverage > 0).map((row) => row.styleFabricId)
-    );
+    // Combined-cutting rows cover several fabrics: styleFabricId is only the first one,
+    // the full list lives in combinedFabricIds (same expansion as CADSpreadsheetTable)
+    const coveredFabricIds = new Set<string>();
+    cadTableData.cadRows
+      .filter((row) => row.cadAverage && row.cadAverage > 0)
+      .forEach((row) => {
+        if (row.styleFabricId) coveredFabricIds.add(row.styleFabricId);
+        if (row.isCombinedCutting && Array.isArray(row.combinedFabricIds)) {
+          row.combinedFabricIds.forEach((fid) => coveredFabricIds.add(fid));
+        }
+      });
 
     const uncoveredFabrics =
       cadTableData.components?.flatMap((comp) => (comp.fabrics || []).filter((fab) => !coveredFabricIds.has(fab.id))) ||
@@ -294,11 +302,18 @@ export default function CADPlanningPage() {
     try {
       setSaving(true);
 
-      // Build fabricCADMappings from spreadsheet rows
+      // Build fabricCADMappings from spreadsheet rows.
+      // Combined-cutting rows map ALL their fabrics (combinedFabricIds includes the
+      // primary styleFabricId, so the else-if avoids duplicates).
       const fabricCADMappings: Array<{ fabricId: string; fabricCADId: string }> = [];
 
       cadTableData.cadRows.forEach((row) => {
-        if (row.styleFabricId && row.id) {
+        if (!row.id) return;
+        if (row.isCombinedCutting && Array.isArray(row.combinedFabricIds) && row.combinedFabricIds.length > 0) {
+          row.combinedFabricIds.forEach((fabricId) => {
+            fabricCADMappings.push({ fabricId, fabricCADId: row.id });
+          });
+        } else if (row.styleFabricId) {
           fabricCADMappings.push({
             fabricId: row.styleFabricId,
             fabricCADId: row.id,

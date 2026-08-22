@@ -3154,6 +3154,7 @@ export async function addCombinedCADRow(req: Request, res: Response) {
   const newCad = (await prisma.fabric_width_cad.create({
     data: {
       styleFabricId: firstFabric.id, // Link to first fabric for FK
+      costingStyleId: styleId, // Link to style for cost sheet discovery (matches single-row path)
       // For PRODUCTION: use fabric from stock; otherwise use style fabric's fabric
       fabricId:
         purpose === 'PRODUCTION' && validatedStock ? validatedStock.fabricId : firstFabric.fabric?.id || undefined,

@@ -1193,8 +1193,39 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     // Verify style exists
     await this.findByIdOrThrow(id);
 
+    // Identity key used to match a pre-edit style_fabric to its recreated twin
+    // (component replacement below deletes + recreates style_fabrics with new IDs)
+    const fabricIdentityKey = (f: {
+      componentName?: string | null;
+      fabricId?: string | null;
+      genericGreigeName?: string | null;
+      fabricFinishType?: string | null;
+      printDesign?: string | null;
+      colorMasterId?: string | null;
+    }) =>
+      [
+        (f.componentName || '').toLowerCase(),
+        f.fabricId || '',
+        (f.genericGreigeName || '').toLowerCase(),
+        f.fabricFinishType || '',
+        f.printDesign || '',
+        f.colorMasterId || '',
+      ].join('|');
+
     // Use transaction to handle all updates atomically
     return this.prisma.$transaction(async (tx) => {
+      // Pre-edit snapshot of CAD links + fabric identities, captured BEFORE the unlink
+      // below wipes styleFabricId. Used to restore exact links after recreation —
+      // including combined-cutting rows (combinedFabricIds must be rewritten to the
+      // new IDs) and fabric-master rows (which have no greige to match by).
+      let preEditCadLinks: Array<{
+        id: string;
+        styleFabricId: string | null;
+        isCombinedCutting: boolean;
+        combinedFabricIds: string | null;
+      }> = [];
+      const preEditFabricIdentity = new Map<string, string>(); // old style_fabric id -> identity key
+
       // Handle components replacement if provided
       if (data.components !== undefined) {
         // First get existing style_fabrics for all components
@@ -1203,13 +1234,42 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           select: { id: true },
         });
 
-        // Get all existing style_fabric IDs to preserve CAD/costing data
+        // Get all existing style_fabrics with identity fields to preserve CAD/costing data
         // Fixed: Single batch query instead of N+1 loop
         const existingFabrics = await tx.style_fabrics.findMany({
           where: { componentId: { in: existingComponents.map((c) => c.id) } },
-          select: { id: true },
+          select: {
+            id: true,
+            fabricId: true,
+            genericGreigeName: true,
+            fabricFinishType: true,
+            printDesign: true,
+            colorMasterId: true,
+            style_components: { select: { componentName: true } },
+          },
         });
         const existingFabricIds = existingFabrics.map((f) => f.id);
+        for (const f of existingFabrics) {
+          preEditFabricIdentity.set(
+            f.id,
+            fabricIdentityKey({
+              componentName: f.style_components?.componentName,
+              fabricId: f.fabricId,
+              genericGreigeName: f.genericGreigeName,
+              fabricFinishType: f.fabricFinishType,
+              printDesign: f.printDesign,
+              colorMasterId: f.colorMasterId,
+            })
+          );
+        }
+
+        // Snapshot which CAD row pointed at which fabric before the unlink below
+        if (existingFabricIds.length > 0) {
+          preEditCadLinks = await tx.fabric_width_cad.findMany({
+            where: { styleFabricId: { in: existingFabricIds } },
+            select: { id: true, styleFabricId: true, isCombinedCutting: true, combinedFabricIds: true },
+          });
+        }
 
         // CRITICAL: Unlink fabric_width_cad records BEFORE deleting style_fabrics
         // This preserves CAD planning and costing data that was approved
@@ -1360,6 +1420,73 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       // Re-link orphaned CAD records to new fabrics (after component replacement)
       // This ensures CAD planning data is preserved when style components are updated
       if (data.components !== undefined) {
+        const newFabrics = await tx.style_fabrics.findMany({
+          where: { style_components: { styleId: id } },
+          include: { style_components: { select: { componentName: true } } },
+        });
+
+        // Pass 1 — precise re-link via identity: map each pre-edit fabric to its
+        // recreated twin (same component + fabric identity) and restore the exact
+        // CAD links. This is the only correct path for combined-cutting rows and
+        // fabric-master rows, which the greige-name fallback below cannot place.
+        const newIdsByIdentity = new Map<string, string[]>();
+        for (const f of newFabrics) {
+          const key = fabricIdentityKey({
+            componentName: f.style_components?.componentName,
+            fabricId: f.fabricId,
+            genericGreigeName: f.genericGreigeName,
+            fabricFinishType: f.fabricFinishType,
+            printDesign: f.printDesign,
+            colorMasterId: f.colorMasterId,
+          });
+          if (!newIdsByIdentity.has(key)) newIdsByIdentity.set(key, []);
+          newIdsByIdentity.get(key)!.push(f.id);
+        }
+        const oldToNewFabricId = new Map<string, string>();
+        for (const [oldId, key] of preEditFabricIdentity) {
+          const candidates = newIdsByIdentity.get(key);
+          if (candidates && candidates.length > 0) {
+            oldToNewFabricId.set(oldId, candidates.shift() as string);
+          }
+        }
+
+        let identityRelinked = 0;
+        for (const link of preEditCadLinks) {
+          const newPrimary = link.styleFabricId ? oldToNewFabricId.get(link.styleFabricId) : undefined;
+
+          // Rewrite combined-cutting coverage through the old→new map (drop stale IDs)
+          let newCombinedJson: string | undefined;
+          if (link.isCombinedCutting && link.combinedFabricIds) {
+            try {
+              const oldIds: unknown = JSON.parse(link.combinedFabricIds);
+              if (Array.isArray(oldIds)) {
+                const mapped = oldIds
+                  .map((fid) => (typeof fid === 'string' ? oldToNewFabricId.get(fid) : undefined))
+                  .filter((v): v is string => Boolean(v));
+                if (mapped.length > 0) newCombinedJson = JSON.stringify(mapped);
+              }
+            } catch {
+              // unparseable JSON — leave as-is
+            }
+          }
+
+          if (newPrimary || newCombinedJson) {
+            await tx.fabric_width_cad.update({
+              where: { id: link.id },
+              data: {
+                ...(newPrimary ? { styleFabricId: newPrimary } : {}),
+                ...(newCombinedJson ? { combinedFabricIds: newCombinedJson } : {}),
+              },
+            });
+            identityRelinked++;
+          }
+        }
+        if (identityRelinked > 0) {
+          logDebug(`[UPDATE] Re-linked ${identityRelinked} CAD records to recreated fabrics by identity`);
+        }
+
+        // Pass 2 — fallback for CADs still orphaned (orphaned before this edit, or the
+        // fabric's identity changed in this edit)
         const orphanedCADs = await tx.fabric_width_cad.findMany({
           where: {
             costingStyleId: id,
@@ -1369,15 +1496,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         });
 
         if (orphanedCADs.length > 0) {
-          const newFabrics = await tx.style_fabrics.findMany({
-            where: { style_components: { styleId: id } },
-            include: { style_components: { select: { componentName: true } } },
-          });
-
-          // Group orphaned CADs by purpose and greige to distribute correctly
+          // Group orphaned CADs by purpose and greige/fabric to distribute correctly
           const cadsByPurpose = new Map<string, typeof orphanedCADs>();
           for (const cad of orphanedCADs) {
-            const key = `${cad.purpose}_${cad.greige?.genericGreigeName || ''}`;
+            const key = `${cad.purpose}_${cad.greige?.genericGreigeName || cad.fabricId || ''}`;
             if (!cadsByPurpose.has(key)) cadsByPurpose.set(key, []);
             cadsByPurpose.get(key)!.push(cad);
           }
@@ -1386,14 +1508,19 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           for (const [, cads] of cadsByPurpose) {
             const sortedCADs = cads.sort((a, b) => Number(a.cadMeters) - Number(b.cadMeters));
             const genericGreige = cads[0]?.greige?.genericGreigeName?.toLowerCase();
+            const cadFabricId = cads[0]?.fabricId;
 
-            // Find fabrics matching this greige
-            const matchingFabrics = newFabrics.filter((f) => f.genericGreigeName?.toLowerCase() === genericGreige);
+            // Match by greige name; ready-fabric rows (no greige) match by fabric master
+            const matchingFabrics = genericGreige
+              ? newFabrics.filter((f) => f.genericGreigeName?.toLowerCase() === genericGreige)
+              : cadFabricId
+                ? newFabrics.filter((f) => f.fabricId === cadFabricId)
+                : [];
 
             // Distribute CADs across matching fabrics (round-robin if more CADs than fabrics)
             for (let i = 0; i < sortedCADs.length; i++) {
               const cad = sortedCADs[i];
-              const fabric = matchingFabrics[i % matchingFabrics.length];
+              const fabric = matchingFabrics.length > 0 ? matchingFabrics[i % matchingFabrics.length] : undefined;
               if (fabric) {
                 await tx.fabric_width_cad.update({
                   where: { id: cad.id },
@@ -2241,8 +2368,56 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       throw new ValidationError('No fabrics found for this style. Cannot approve CAD plan.');
     }
 
-    const mappedFabricIds = new Set(fabricCADMappings.map((m) => m.fabricId));
-    const unmappedFabrics = allStyleFabrics.filter((sf) => !mappedFabricIds.has(sf.id));
+    // Fetch mapped CAD records up front — combined-cutting rows carry their full fabric
+    // coverage in combinedFabricIds (the styleFabricId FK only points at the first fabric)
+    const cadIds = fabricCADMappings.map((m) => m.fabricCADId);
+    const cadRecords = await this.prisma.fabric_width_cad.findMany({
+      where: { id: { in: cadIds } },
+      // BUG-CS5 FIX: Include fabricId - CAD rows can use either greigeId (greige processing) OR fabricId (ready fabric)
+      select: {
+        id: true,
+        cadAverage: true,
+        patternPartId: true,
+        greigeId: true,
+        fabricId: true,
+        isCombinedCutting: true,
+        combinedFabricIds: true,
+      },
+    });
+
+    const cadMap = new Map(cadRecords.map((c) => [c.id, c]));
+
+    // Expand combined-cutting rows into per-fabric mappings. Explicit mappings win;
+    // expansion only fills fabrics the client didn't send. Stale combinedFabricIds
+    // entries (style edits recreate style_fabrics with new IDs) are skipped by
+    // intersecting with the style's actual fabrics.
+    const styleFabricIdSet = new Set(allStyleFabrics.map((sf) => sf.id));
+    const mappingByFabricId = new Map<string, string>();
+    for (const m of fabricCADMappings) {
+      mappingByFabricId.set(m.fabricId, m.fabricCADId);
+    }
+    for (const m of fabricCADMappings) {
+      const cad = cadMap.get(m.fabricCADId);
+      if (!cad?.isCombinedCutting || !cad.combinedFabricIds) continue;
+      let combinedIds: unknown;
+      try {
+        combinedIds = JSON.parse(cad.combinedFabricIds);
+      } catch {
+        continue;
+      }
+      if (!Array.isArray(combinedIds)) continue;
+      for (const fid of combinedIds) {
+        if (typeof fid === 'string' && styleFabricIdSet.has(fid) && !mappingByFabricId.has(fid)) {
+          mappingByFabricId.set(fid, cad.id);
+        }
+      }
+    }
+    const expandedMappings: FabricCADMapping[] = Array.from(mappingByFabricId, ([fabricId, fabricCADId]) => ({
+      fabricId,
+      fabricCADId,
+    }));
+
+    const unmappedFabrics = allStyleFabrics.filter((sf) => !mappingByFabricId.has(sf.id));
 
     if (unmappedFabrics.length > 0) {
       const missing = unmappedFabrics
@@ -2254,15 +2429,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     }
 
     // Validate each mapped CAD record has valid data
-    const cadIds = fabricCADMappings.map((m) => m.fabricCADId);
-    const cadRecords = await this.prisma.fabric_width_cad.findMany({
-      where: { id: { in: cadIds } },
-      // BUG-CS5 FIX: Include fabricId - CAD rows can use either greigeId (greige processing) OR fabricId (ready fabric)
-      select: { id: true, cadAverage: true, patternPartId: true, greigeId: true, fabricId: true },
-    });
-
-    const cadMap = new Map(cadRecords.map((c) => [c.id, c]));
-    const invalidMappings = fabricCADMappings.filter((m) => {
+    const invalidMappings = expandedMappings.filter((m) => {
       const cad = cadMap.get(m.fabricCADId);
       return !cad || !cad.cadAverage || Number(cad.cadAverage) <= 0;
     });
@@ -2291,7 +2458,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
     }
 
     await Promise.all(
-      fabricCADMappings.map((mapping) =>
+      expandedMappings.map((mapping) =>
         this.prisma.style_fabrics.update({
           where: { id: mapping.fabricId },
           data: { fabricCADId: mapping.fabricCADId },

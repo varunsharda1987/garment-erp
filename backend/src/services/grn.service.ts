@@ -2581,6 +2581,15 @@ class GRNService {
       invoiceDate?: string;
       warehouseId?: string;
       remarks?: string;
+      // Entry mode for bale/than tracking
+      entryMode?: 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE';
+      details?: Array<{
+        detailType: 'THAN' | 'ROLL';
+        baleNumber?: number | null;
+        sequenceNo: number;
+        meters: number;
+        remarks?: string | null;
+      }>;
     },
     userId: string
   ) {
@@ -2611,9 +2620,17 @@ class GRNService {
       );
     }
 
-    // Quantity: direct meters, or than-count × fold-length
+    // Quantity: from details array, or direct meters, or than-count × fold-length
+    const entryMode = data.entryMode ?? 'TOTAL_METERS';
+    const hasDetails = data.details && data.details.length > 0;
     let qtyReceived = data.qtyReceivedMeters || 0;
-    if (!qtyReceived && data.thanCount && data.foldLengthCm) {
+    let thanCount = data.thanCount ?? null;
+
+    if (hasDetails && (entryMode === 'THAN_WISE' || entryMode === 'BALE_WISE')) {
+      // Sum meters from detail rows
+      qtyReceived = data.details!.reduce((sum, d) => sum + (d.meters || 0), 0);
+      thanCount = data.details!.length;
+    } else if (!qtyReceived && data.thanCount && data.foldLengthCm) {
       qtyReceived = (data.thanCount * data.foldLengthCm) / 100;
     }
     if (qtyReceived <= 0) {
@@ -2676,9 +2693,25 @@ class GRNService {
               rejectedQuantity: 0,
               unit: Unit.METER,
               receivedWidthInches: data.receivedWidthInches ?? null,
-              thanCount: data.thanCount ?? null,
+              thanCount,
               foldLengthCm: data.foldLengthCm ?? null,
               totalMeters: qtyReceived,
+              entryMode,
+              // Detail rows for THAN_WISE / BALE_WISE entry
+              ...(hasDetails
+                ? {
+                    grn_item_details: {
+                      create: data.details!.map((d, idx) => ({
+                        id: randomUUID(),
+                        detailType: d.detailType,
+                        baleNumber: d.baleNumber ?? null,
+                        sequenceNo: d.sequenceNo ?? idx + 1,
+                        meters: new Prisma.Decimal(d.meters),
+                        remarks: d.remarks ?? null,
+                      })),
+                    },
+                  }
+                : {}),
             },
           ],
         },

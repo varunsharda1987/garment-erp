@@ -85,6 +85,11 @@ export const createGRNSchema = z
 /**
  * Phase 4b: Create GRN against a Job Work Order (no purchase order)
  * POST /api/grn/jwo
+ *
+ * Entry modes:
+ * - TOTAL_METERS: Just qtyReceivedMeters (simple total)
+ * - THAN_WISE: Array of thans with meters (unbaled)
+ * - BALE_WISE: Array of thans grouped by baleNumber
  */
 export const createJwoGRNSchema = z.object({
   jobWorkOrderId: z.string().uuid('Invalid Job Work Order ID'),
@@ -97,6 +102,10 @@ export const createJwoGRNSchema = z.object({
   invoiceDate: z.string().optional().nullable(),
   warehouseId: z.string().optional().nullable(),
   remarks: z.string().max(1000).trim().optional().nullable(),
+  // Entry mode for bale/than tracking (same modes as regular GRN)
+  entryMode: entryModeEnum.optional().nullable(),
+  // Detail rows for THAN_WISE / BALE_WISE entry modes
+  details: z.array(grnItemDetailSchema).optional(),
 });
 
 /**

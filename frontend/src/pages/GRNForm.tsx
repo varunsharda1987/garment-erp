@@ -115,6 +115,11 @@ export default function GRNForm() {
 
   // Phase 4b: receive against a PO-less Job Work Order
   type ReceivableJwo = Awaited<ReturnType<typeof jobWorkOrderService.getReceivable>>[number];
+  type JwoEntryMode = 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE';
+  interface JwoDetailRow {
+    baleNumber: number | null;
+    meters: string;
+  }
   const [receivableJwos, setReceivableJwos] = useState<ReceivableJwo[]>([]);
   const [selectedJwoId, setSelectedJwoId] = useState('');
   const [jwoQtyMeters, setJwoQtyMeters] = useState('');
@@ -123,7 +128,41 @@ export default function GRNForm() {
   const [jwoFoldLengthCm, setJwoFoldLengthCm] = useState('');
   const [jwoChallanRef, setJwoChallanRef] = useState('');
   const [jwoSaving, setJwoSaving] = useState(false);
+  const [jwoEntryMode, setJwoEntryMode] = useState<JwoEntryMode>('TOTAL_METERS');
+  const [jwoDetails, setJwoDetails] = useState<JwoDetailRow[]>([]);
+  const [jwoCurrentBale, setJwoCurrentBale] = useState(1);
   const selectedJwo = receivableJwos.find((j) => j.id === selectedJwoId) || null;
+
+  // Reset JWO entry state when JWO selection changes
+  const resetJwoEntry = () => {
+    setJwoQtyMeters('');
+    setJwoWidth('');
+    setJwoThanCount('');
+    setJwoFoldLengthCm('');
+    setJwoChallanRef('');
+    setJwoEntryMode('TOTAL_METERS');
+    setJwoDetails([]);
+    setJwoCurrentBale(1);
+  };
+
+  const addJwoThan = (baleNumber: number | null) => {
+    setJwoDetails([...jwoDetails, { baleNumber, meters: '' }]);
+  };
+
+  const addJwoBale = () => {
+    setJwoCurrentBale((prev) => prev + 1);
+    setJwoDetails([...jwoDetails, { baleNumber: jwoCurrentBale, meters: '' }]);
+  };
+
+  const updateJwoDetail = (index: number, meters: string) => {
+    setJwoDetails(jwoDetails.map((d, i) => (i === index ? { ...d, meters } : d)));
+  };
+
+  const removeJwoDetail = (index: number) => {
+    setJwoDetails(jwoDetails.filter((_, i) => i !== index));
+  };
+
+  const jwoDetailSum = jwoDetails.reduce((sum, d) => sum + (parseFloat(d.meters) || 0), 0);
 
   useEffect(() => {
     fetchReceivablePOs();
@@ -139,23 +178,46 @@ export default function GRNForm() {
     const qty = parseFloat(jwoQtyMeters) || 0;
     const thanCount = parseInt(jwoThanCount) || 0;
     const foldLen = parseFloat(jwoFoldLengthCm) || 0;
-    if (qty <= 0 && !(thanCount > 0 && foldLen > 0)) {
-      handleApiError(new Error('Enter received meters, or than count + fold length'), 'Missing quantity');
-      return;
+
+    // Validate based on entry mode
+    if (jwoEntryMode === 'TOTAL_METERS') {
+      if (qty <= 0 && !(thanCount > 0 && foldLen > 0)) {
+        handleApiError(new Error('Enter received meters, or than count + fold length'), 'Missing quantity');
+        return;
+      }
+    } else if (jwoEntryMode === 'THAN_WISE' || jwoEntryMode === 'BALE_WISE') {
+      if (jwoDetails.length === 0 || jwoDetailSum <= 0) {
+        handleApiError(new Error('Add at least one than with meters'), 'Missing details');
+        return;
+      }
     }
+
     setJwoSaving(true);
     try {
+      // Build details array for THAN_WISE/BALE_WISE modes
+      const details =
+        jwoEntryMode !== 'TOTAL_METERS' && jwoDetails.length > 0
+          ? jwoDetails.map((d, idx) => ({
+              detailType: 'THAN' as const,
+              baleNumber: d.baleNumber,
+              sequenceNo: idx + 1,
+              meters: parseFloat(d.meters) || 0,
+            }))
+          : undefined;
+
       const grn = await createGRNFromJWO({
         jobWorkOrderId: selectedJwoId,
-        qtyReceivedMeters: qty > 0 ? qty : undefined,
+        qtyReceivedMeters: jwoEntryMode === 'TOTAL_METERS' && qty > 0 ? qty : undefined,
         receivedWidthInches: parseFloat(jwoWidth) || undefined,
-        thanCount: thanCount > 0 ? thanCount : undefined,
+        thanCount: jwoEntryMode === 'TOTAL_METERS' && thanCount > 0 ? thanCount : undefined,
         foldLengthCm: foldLen > 0 ? foldLen : undefined,
         receivedChallan: jwoChallanRef || undefined,
         invoiceNumber: invoiceNumber || undefined,
         invoiceDate: invoiceDate || undefined,
         warehouseId: warehouseId || undefined,
         remarks: remarks || undefined,
+        entryMode: jwoEntryMode,
+        details,
       });
       handleApiSuccess('GRN created', `${grn.grnNumber} created against ${selectedJwo?.jobWorkNumber}`);
       navigate('/procurement/grn');
@@ -970,6 +1032,7 @@ export default function GRNForm() {
                 onValueChange={(v) => {
                   setSelectedJwoId(v === 'none' ? '' : v);
                   if (v !== 'none') setSelectedPOId('');
+                  resetJwoEntry();
                 }}
               >
                 <SelectTrigger>
@@ -1003,23 +1066,28 @@ export default function GRNForm() {
                       ? ` (${Number(selectedJwo.qtySentMeters).toFixed(2)} greige − ${Number(selectedJwo.expectedShrinkage)}% shrinkage)`
                       : ''}
                   </p>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+                  {/* Entry mode selector */}
+                  <div className="flex flex-wrap items-end gap-3">
                     <div className="space-y-1">
-                      <Label className="text-xs">Received Meters</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={jwoQtyMeters}
-                        onChange={(e) => setJwoQtyMeters(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Width (inches)</Label>
-                      <Input type="number" step="0.1" value={jwoWidth} onChange={(e) => setJwoWidth(e.target.value)} />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs">Than Count</Label>
-                      <Input type="number" value={jwoThanCount} onChange={(e) => setJwoThanCount(e.target.value)} />
+                      <Label className="text-xs">Entry Mode</Label>
+                      <Select
+                        value={jwoEntryMode}
+                        onValueChange={(v) => {
+                          setJwoEntryMode(v as JwoEntryMode);
+                          setJwoDetails([]);
+                          setJwoCurrentBale(1);
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-xs w-[140px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="TOTAL_METERS">Total Meters</SelectItem>
+                          <SelectItem value="THAN_WISE">Than-wise</SelectItem>
+                          <SelectItem value="BALE_WISE">Bale-wise</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Fold Length (cm)</Label>
@@ -1028,9 +1096,158 @@ export default function GRNForm() {
                         step="0.1"
                         value={jwoFoldLengthCm}
                         onChange={(e) => setJwoFoldLengthCm(e.target.value)}
+                        className="h-8 w-[100px] text-xs"
+                        placeholder="e.g. 97"
                       />
                     </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Width (inches)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={jwoWidth}
+                        onChange={(e) => setJwoWidth(e.target.value)}
+                        className="h-8 w-[100px] text-xs"
+                        placeholder="e.g. 44"
+                      />
+                    </div>
+                    {jwoDetails.length > 0 && (
+                      <div className="text-xs">
+                        <span className="text-muted-foreground">Detail sum:</span>{' '}
+                        <span className="font-medium text-green-600">{jwoDetailSum.toFixed(3)}m</span>
+                      </div>
+                    )}
                   </div>
+
+                  {/* TOTAL_METERS mode */}
+                  {jwoEntryMode === 'TOTAL_METERS' && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Received Meters</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={jwoQtyMeters}
+                          onChange={(e) => setJwoQtyMeters(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Than Count</Label>
+                        <Input type="number" value={jwoThanCount} onChange={(e) => setJwoThanCount(e.target.value)} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* THAN_WISE mode */}
+                  {jwoEntryMode === 'THAN_WISE' && (
+                    <div className="bg-muted/30 rounded-md p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">Thans ({jwoDetails.length})</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={() => addJwoThan(null)}
+                        >
+                          <Plus className="h-3 w-3 mr-1" /> Add Than
+                        </Button>
+                      </div>
+                      {jwoDetails.map((d, di) => (
+                        <div key={di} className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-8">#{di + 1}</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.001"
+                            value={d.meters}
+                            onChange={(e) => updateJwoDetail(di, e.target.value)}
+                            className="h-7 w-[100px] text-xs"
+                            placeholder="Meters"
+                          />
+                          <span className="text-xs text-muted-foreground">m</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 text-destructive"
+                            onClick={() => removeJwoDetail(di)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* BALE_WISE mode */}
+                  {jwoEntryMode === 'BALE_WISE' && (
+                    <div className="bg-muted/30 rounded-md p-3 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">
+                          Bales ({new Set(jwoDetails.filter((d) => d.baleNumber).map((d) => d.baleNumber)).size})
+                          &middot; Thans ({jwoDetails.length})
+                        </span>
+                        <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={addJwoBale}>
+                          <Plus className="h-3 w-3 mr-1" /> Add Bale
+                        </Button>
+                      </div>
+                      {(() => {
+                        const baleGroups = new Map<number, Array<{ d: JwoDetailRow; idx: number }>>();
+                        jwoDetails.forEach((d, idx) => {
+                          const baleNum = d.baleNumber || 0;
+                          if (!baleGroups.has(baleNum)) baleGroups.set(baleNum, []);
+                          baleGroups.get(baleNum)!.push({ d, idx });
+                        });
+                        return Array.from(baleGroups.entries()).map(([baleNum, baleDetails]) => {
+                          const baleSum = baleDetails.reduce((s, { d }) => s + (parseFloat(d.meters) || 0), 0);
+                          return (
+                            <div key={baleNum} className="border rounded-md p-2 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium">
+                                  Bale {baleNum} ({baleDetails.length} thans, {baleSum.toFixed(3)}m)
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 text-xs"
+                                  onClick={() => addJwoThan(baleNum)}
+                                >
+                                  <Plus className="h-3 w-3 mr-1" /> Than
+                                </Button>
+                              </div>
+                              {baleDetails.map(({ d, idx }, ti) => (
+                                <div key={idx} className="flex items-center gap-2 pl-4">
+                                  <span className="text-xs text-muted-foreground w-8">T{ti + 1}</span>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.001"
+                                    value={d.meters}
+                                    onChange={(e) => updateJwoDetail(idx, e.target.value)}
+                                    className="h-7 w-[100px] text-xs"
+                                    placeholder="Meters"
+                                  />
+                                  <span className="text-xs text-muted-foreground">m</span>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 text-destructive"
+                                    onClick={() => removeJwoDetail(idx)}
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Vendor Challan Ref</Label>
@@ -1044,8 +1261,10 @@ export default function GRNForm() {
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Warehouse, invoice and remarks below apply to this receipt too. Quantity: enter meters directly, or
-                    than count × fold length.
+                    Warehouse, invoice and remarks below apply to this receipt too.{' '}
+                    {jwoEntryMode === 'TOTAL_METERS' && 'Quantity: enter meters directly, or than count × fold length.'}
+                    {jwoEntryMode === 'THAN_WISE' && 'Add individual thans with their meter lengths.'}
+                    {jwoEntryMode === 'BALE_WISE' && 'Add bales, then add thans to each bale with their meter lengths.'}
                   </p>
                 </div>
               )}

@@ -327,6 +327,10 @@ export async function createPlanningVersion(req: Request, res: Response) {
       greigeId: baseCad.greigeId,
       componentName: baseCad.componentName,
       purpose: baseCad.purpose, // Keep same purpose as base
+      // Landmine №8: purpose is stored twice (legacy string + typed enum) — every write
+      // must set BOTH. This copy previously carried only the string, creating rows the
+      // enum-only cutting gate could not see.
+      purposeEnum: (baseCad.purposeEnum ?? baseCad.purpose) as any,
       patternPartId: baseCad.patternPartId,
       isEmbroidery: baseCad.isEmbroidery,
       piecesPerMarker: baseCad.piecesPerMarker,

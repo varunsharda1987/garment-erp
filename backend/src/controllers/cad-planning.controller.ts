@@ -227,6 +227,10 @@ export async function generateCADOptions(req: Request, res: Response) {
             layerMarginMeters: 0.05, // Default 5cm layer margin
             greigeId: greigeId || null,
             componentName: componentName || null,
+            // Landmine №8: both purpose columns, always — a null pair reads as COSTING
+            // everywhere, so stamp the truth explicitly at creation
+            purpose: 'COSTING',
+            purposeEnum: 'COSTING',
             // Landmine №9: options are born unpreferred — the preferred mark is set only
             // when Fabric Costing approves a price (owner rule 2026-08-24)
             isPreferred: false,
@@ -1243,6 +1247,9 @@ export async function addCADWidth(req: Request, res: Response) {
       greigeId: greigeId || null,
       componentName: componentName || null,
       printDirection: printDirection || 'TWO_WAY', // Default to TWO_WAY (more efficient)
+      // Landmine №8: both purpose columns, always (null pair read as COSTING — stamp it)
+      purpose: 'COSTING',
+      purposeEnum: 'COSTING',
       isPreferred: false, // New entries default to not preferred
       createdById: req.user?.userId || 'system',
     },

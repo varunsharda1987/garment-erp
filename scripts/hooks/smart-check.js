@@ -415,6 +415,17 @@ function checkSaleOrderStatusWrite(tsFiles) {
   );
 }
 
+/** Check (E7): fabric_width_cad write touching one purpose column without the other — BLOCKING new + ratchet. */
+function checkCadPurposeSingleWrite(tsFiles) {
+  console.log(`\n${c.cyan}Checking CAD purpose dual-column parity...${c.reset}`);
+  return runRatchetedCheck(
+    'one-sided fabric_width_cad purpose write(s) (enum-only and string-only gates split)',
+    detectors.cadPurposeSingleWrite(tsFiles),
+    'cad-purpose-parity-baseline.json',
+    'Set BOTH `purpose` and `purposeEnum` in every fabric_width_cad create/update (or neither); mark a deliberate one-sided write with `// allow-single-purpose`. If intentional, add the key to scripts/hooks/cad-purpose-parity-baseline.json.'
+  );
+}
+
 /** Check (E4): a business default declared outside defaults.registry.ts — BLOCKING new + ratchet. */
 function checkHardcodedDefault(tsFiles) {
   console.log(`\n${c.cyan}Checking for hardcoded default values...${c.reset}`);
@@ -881,6 +892,7 @@ function runAllModeChecks() {
   if (!checkUnguardedCadDelete(tsFiles)) ok = false;
   if (!checkCostingApprovalDrift(tsFiles)) ok = false;
   if (!checkSaleOrderStatusWrite(tsFiles)) ok = false;
+  if (!checkCadPurposeSingleWrite(tsFiles)) ok = false;
   if (!checkHardcodedDefault(tsFiles)) ok = false;
   if (!checkSchemaServiceUpdateParity(schemaFiles)) ok = false;
   checkAiGuides(); // warn-only
@@ -989,6 +1001,7 @@ function main() {
     if (!checkUnguardedCadDelete(categories.typescript)) allPassed = false;
     if (!checkCostingApprovalDrift(categories.typescript)) allPassed = false;
     if (!checkSaleOrderStatusWrite(categories.typescript)) allPassed = false;
+    if (!checkCadPurposeSingleWrite(categories.typescript)) allPassed = false;
     if (!checkHardcodedDefault(categories.typescript)) allPassed = false;
   }
 

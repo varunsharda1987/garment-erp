@@ -1282,6 +1282,48 @@ function saleOrderStatusWrite(relFiles) {
   return out;
 }
 
+// CAD purpose dual-column parity (landmine №8, 2026-08-24) — fabric_width_cad stores the
+// workflow tag twice: legacy string `purpose` + typed `purposeEnum`. Gates are split
+// (enum-only cutting-release vs string-only cost-sheet), so a write touching ONE column
+// creates rows half the gates cannot see ("PRODUCTION CAD missing" while the CAD is on
+// screen). Every create/update must set both (or neither). Opt out with
+// // allow-single-purpose on/above the call line.
+function cadPurposeSingleWrite(relFiles) {
+  const out = [];
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^backend\/src\/.*\.ts$/.test(norm)) continue;
+    if (/\.test\.tsx?$|__tests__/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content || !/fabric_width_cad\.(create|createMany|update|updateMany)\(/.test(content)) continue;
+    const lines = content.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (!/fabric_width_cad\.(create|createMany|update|updateMany)\(/.test(lines[i])) continue;
+      const window = lines.slice(i, Math.min(i + 60, lines.length)).join('\n');
+      const dataM = /\bdata\s*:/.exec(window);
+      if (!dataM) continue;
+      // Truncate at the call's closing `});` so a following query's WHERE can't bleed in
+      // (matches same-line closes too — single-line calls otherwise leak the next statement)
+      let body = window.slice(dataM.index);
+      const close = body.search(/\}\s*\)\s*;/);
+      if (close !== -1) body = body.slice(0, close);
+      // `purpose:` or the shorthand `purpose,` / `purpose\n` (an ES6 property) — both are writes
+      const hasString = /\bpurpose\s*[:,\r\n]/.test(body);
+      const hasEnum = /\bpurposeEnum\s*[:,\r\n]/.test(body);
+      if (hasString === hasEnum) continue; // both or neither — fine
+      const context = `${lines[i - 2] || ''}\n${lines[i - 1] || ''}\n${lines[i]}`;
+      if (/allow-single-purpose/.test(context)) continue;
+      out.push({
+        key: `${norm} :: one-sided purpose write :: L${i + 1}`,
+        file: rel,
+        line: i + 1,
+        detail: `fabric_width_cad write sets ${hasString ? '`purpose` without `purposeEnum`' : '`purposeEnum` without `purpose`'} — the two copies must move together (enum-only and string-only gates both read this row); mark a deliberate one-sided write with // allow-single-purpose`,
+      });
+    }
+  }
+  return out;
+}
+
 // Single source of defaults (2026-08-21) — a business default value declared anywhere other
 // than backend/src/config/defaults.registry.ts.
 //
@@ -1385,6 +1427,7 @@ module.exports = {
   unguardedCadDelete,
   costingCadApprovalDrift,
   saleOrderStatusWrite,
+  cadPurposeSingleWrite,
   schemaFrontendParity,
   schemaServiceUpdateParity,
   stockSyncNoWarehouse,

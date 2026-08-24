@@ -792,7 +792,11 @@ export class StyleImportService {
                 actualCad: row.lastProductionAverage ? new Prisma.Decimal(row.lastProductionAverage) : null,
                 cadVariancePercent: cadVariancePercent ? new Prisma.Decimal(cadVariancePercent) : null,
                 cadWastagePercent: new Prisma.Decimal(5), // Default 5%
-                isPreferred: true, // Mark as preferred width
+                // Landmine №8: both purpose columns, always (null pair read as COSTING)
+                purpose: 'COSTING',
+                purposeEnum: 'COSTING',
+                // Landmine №9: born unpreferred — only costing's approve flow sets the mark
+                isPreferred: false,
                 createdById: userId,
                 createdAt: new Date(),
               },

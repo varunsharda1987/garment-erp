@@ -1432,6 +1432,15 @@ export default function FabricCostingPage() {
             // Order quantity used for slab rate lookup (use row-level if set)
             // Use nullish coalescing (??) to preserve 0 as a valid value
             orderQuantityPcs: row.rowQuantity ?? orderQuantity ?? 0,
+            // Qty-rate audit 2026-08-24: persist the EXACT meters the slab lookup ran on.
+            // For a batch-grouped row that is the COMBINED group total (held in row state,
+            // reconstructable nowhere else) — without it a downstream re-check at the order's
+            // own meters reports a phantom rate rise on every batched row.
+            costedAtQuantityMeters:
+              row.processingBatchGroupColorId != null && row.batchGroupTotalQuantity != null
+                ? row.batchGroupTotalQuantity
+                : row.cadMeters * (row.rowQuantity ?? orderQuantity ?? 0),
+            costedRateIsBatch: row.processingBatchGroupColorId != null && row.batchGroupTotalQuantity != null,
             // NOTE: cadMeters is CAD-owned - don't send it (managed by CAD Planning)
             // Workflow purpose mode
             purpose: purpose,

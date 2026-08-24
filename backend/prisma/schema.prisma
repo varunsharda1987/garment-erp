@@ -2854,6 +2854,7 @@ model processor_rate_card {
   laceCostingItems   style_costing_lace_items[]   @relation("lace_costing_rate_card")
   orderBomItems      order_bom_items[]            @relation("bom_item_rate_card")
   fabricWidthCads    fabric_width_cad[]           @relation("fabric_width_cad_rate_card")
+  jobWorkOrders      job_work_orders[]            @relation("jwo_rate_card")
 
   // Self-relation for rate history chain
   supersededBy processor_rate_card?  @relation("RateHistory", fields: [supersededById], references: [id])
@@ -4639,6 +4640,12 @@ model fabric_width_cad {
   processingBatchGroupColorId String?                      @map("processing_batch_group_color_id")
   costingRunId                String?                      @map("costing_run_id")
   copiedFromId                String?                      @map("copied_from_id")
+  // Qty-rate audit 2026-08-24: the EXACT meters passed to lookupRate when this row was priced —
+  // cadMeters × typed pcs for a lone row, the COMBINED batch-group meters when batched (that
+  // total lives nowhere else; orderQuantityPcs alone cannot reconstruct it). Costing-owned:
+  // cleared by deleteCostingOption, never written by CAD Planning.
+  costedAtQuantityMeters      Decimal?                     @map("costed_at_quantity_meters") @db.Decimal(12, 2)
+  costedRateIsBatch           Boolean                      @default(false) @map("costed_rate_is_batch")
   sizeBreakdowns              cad_size_breakdown[]
   embroideryPartCads          embroidery_part_cad[]        @relation("embroidery_part_cad_width")
   stockAllocations            fabric_stock_allocation[]    @relation("allocation_production_cad")
@@ -6839,6 +6846,15 @@ model job_work_orders {
   qtyBillable            Decimal?  @db.Decimal(10, 2)
   agreedRatePerMeter     Decimal   @db.Decimal(10, 2)
   isRateTbd              Boolean   @default(false) // True when rate=0 is intentional TBD
+  // Qty-rate audit 2026-08-24: rate provenance. The JWO is the document the processor is PAID
+  // against, yet it recorded only a bare number — no way to tell which card/slab priced it, or
+  // that it was priced off a different quantity tier than it dispatched.
+  rateCardId             String? // processor_rate_card that produced agreedRatePerMeter (null = manual/TBD)
+  slabId                 String? // quantity slab the rate was resolved in (denormalized audit)
+  rateSource             String? // 'RATE_CARD' | 'ORDER_BOM' | 'MANUAL' | 'TBD'
+  rateBasisQuantity      Decimal?  @db.Decimal(12, 2) // meters the slab lookup used (program or per-JWO basis)
+  costedRatePerMeter     Decimal?  @db.Decimal(10, 2) // upstream BOM/costing rate this JWO superseded (variance audit)
+  rateVarianceReason     String? // e.g. 'Qty changed: 1500m -> 700m (slab 500-1000m)'
   qtyReceivedMeters      Decimal?  @db.Decimal(10, 2)
   receivedWidthInches    Decimal?  @db.Decimal(10, 2)
   receivedDate           DateTime?
@@ -6917,6 +6933,7 @@ model job_work_orders {
   fabricStockLot          fabric_stock?                     @relation(fields: [fabricStockLotId], references: [id])
   labDip                  lab_dips?                         @relation(fields: [labDipId], references: [id])
   processor               suppliers                         @relation("JobWorkProcessor", fields: [processorId], references: [id])
+  rateCard                processor_rate_card?              @relation("jwo_rate_card", fields: [rateCardId], references: [id])
   style                   styles?                           @relation(fields: [styleId], references: [id])
   colorMaster             color_master?                     @relation(fields: [colorMasterId], references: [id])
   workOrder               work_orders?                      @relation("JobWorkForWorkOrder", fields: [workOrderId], references: [id])

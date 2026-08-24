@@ -73,6 +73,10 @@ export const saveFabricCostingSchema = z.object({
           // Metadata
           costInputMode: z.enum(['LANDED_PRICE', 'BUILD_UP']).nullable().optional(),
           orderQuantityPcs: z.number().int().nonnegative().nullable().optional(),
+          // Qty-rate audit 2026-08-24: the EXACT meters the slab lookup used (batch-group
+          // total when batched) — the basis every downstream rate re-check compares against
+          costedAtQuantityMeters: z.number().nonnegative().nullable().optional(),
+          costedRateIsBatch: z.boolean().optional(),
           purpose: z.enum(['COSTING', 'RAW_MATERIAL_CALCULATION', 'PRODUCTION']).optional(),
           processingBatchGroupColorId: z
             .string()

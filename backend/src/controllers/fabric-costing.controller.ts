@@ -1062,6 +1062,10 @@ export async function saveFabricCosting(req: Request, res: Response) {
             numberOfColors: costing.numberOfColors ? parseInt(costing.numberOfColors) : null,
             costInputMode: costing.costInputMode || null,
             orderQuantityPcs: costing.orderQuantityPcs != null ? parseInt(costing.orderQuantityPcs) : null,
+            // Qty-rate audit 2026-08-24: the exact slab-lookup basis (batch total when batched)
+            costedAtQuantityMeters:
+              costing.costedAtQuantityMeters != null ? parseFloat(costing.costedAtQuantityMeters) : null,
+            costedRateIsBatch: costing.costedRateIsBatch === true,
             processingBatchGroupColorId: costing.processingBatchGroupColorId || null,
             // New record starts as unapproved on BOTH sides of the two-owner split
             approvalStatus: null, // allow-cad-approval: clone reset of the CAD-side field
@@ -1133,6 +1137,10 @@ export async function saveFabricCosting(req: Request, res: Response) {
         numberOfColors: costing.numberOfColors ? parseInt(costing.numberOfColors) : null,
         costInputMode: costing.costInputMode || null,
         orderQuantityPcs: costing.orderQuantityPcs != null ? parseInt(costing.orderQuantityPcs) : null,
+        // Qty-rate audit 2026-08-24: the exact slab-lookup basis (batch total when batched)
+        costedAtQuantityMeters:
+          costing.costedAtQuantityMeters != null ? parseFloat(costing.costedAtQuantityMeters) : null,
+        costedRateIsBatch: costing.costedRateIsBatch === true,
         processingBatchGroupColorId: costing.processingBatchGroupColorId || null,
       };
 
@@ -1613,6 +1621,8 @@ export async function deleteCostingOption(req: Request, res: Response) {
       processorId: null,
       rateCardId: null,
       orderQuantityPcs: null,
+      costedAtQuantityMeters: null,
+      costedRateIsBatch: false,
       processingBatchGroupColorId: null,
       // Unlink from its run; run totals are derived at read time (computeRunTotals)
       costingRunId: null,

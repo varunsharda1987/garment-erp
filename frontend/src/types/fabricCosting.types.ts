@@ -483,6 +483,9 @@ export interface FabricCostingSaveItem {
   costInputMode: 'LANDED_PRICE' | 'BUILD_UP';
   // Order quantity used for slab rate lookup
   orderQuantityPcs?: number;
+  // Exact meters the slab lookup ran on (batch-group total when batched) — rate re-check basis
+  costedAtQuantityMeters?: number | null;
+  costedRateIsBatch?: boolean;
   // CAD consumption per piece (for fabric quantity calculation)
   cadMeters?: number;
   // Workflow purpose mode

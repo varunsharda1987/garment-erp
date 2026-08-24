@@ -33,6 +33,7 @@ const COSTING_FIELDS = [
   'processorId',
   'rateCardId',
   'orderQuantityPcs',
+  'costedAtQuantityMeters', // qty-rate audit 2026-08-24: slab-lookup basis is costing-owned
   'processingBatchGroupColorId',
   'costingRunId',
   // Two-owner split: un-costing also clears the PRICE approval (belt-and-braces)
@@ -68,6 +69,8 @@ async function createCostedCadRow(overrides: Record<string, any> = {}) {
       screenType: 'ROTARY',
       numberOfColors: 4,
       orderQuantityPcs: 500,
+      costedAtQuantityMeters: 925, // 1.85 cadMeters × 500 pcs — slab-lookup basis
+      costedRateIsBatch: true, // must reset to false on un-cost
       greigeCostPerMeter: 81,
       ...overrides,
     },
@@ -127,6 +130,8 @@ describe('DELETE /api/fabric-costing/option/:optionId', () => {
     for (const field of COSTING_FIELDS) {
       expect(after![field as keyof typeof after]).toBeNull();
     }
+    // Boolean costing flag resets to its default rather than null
+    expect(after!.costedRateIsBatch).toBe(false);
   });
 
   it('drops the row out of the style costing options list', async () => {

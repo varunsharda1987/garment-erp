@@ -826,6 +826,9 @@ class PurchaseOrderService {
       where: { id },
       data: {
         status: PurchaseOrderStatus.SENT,
+        // Landmine №7 note: this records WHO SENT the PO (there is no dedicated sentById
+        // column). No screen currently renders it as "Approved by" — if one ever does,
+        // label it "Sent by" or add a real sentById column first.
         approvedById: userId,
       },
       include: this.getFullInclude(),

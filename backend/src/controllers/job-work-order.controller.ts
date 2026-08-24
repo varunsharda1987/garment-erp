@@ -35,6 +35,7 @@ import {
   JWO_AT_PROCESSOR_STATUSES,
   JWO_RECEIVED_STATUSES,
 } from '../services/helpers/jwo-status.helper';
+import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
 import { applyShrinkageLoss, multiplyCurrency, roundToCent } from '../utils/currency';
 import type {
   CreateJobWorkOrderInput,
@@ -1270,6 +1271,14 @@ class JobWorkOrderController {
             logger.info(`[JWO] Deactivated orphan auto-created fabric master ${orphan.id} on cancel`);
           }
         }
+
+        // Landmine №7: the shadow PO must die with its job — this cascade was missing,
+        // leaving a live-looking PO for a dead job that a GRN could still book against
+        // (MRP re-orders while the PO claims received). Guarded: a PO that already
+        // received material is left alone for a human to resolve.
+        await echoShadowPoStatus(txClient, jwo.purchaseOrderId, 'CANCELLED', {
+          appendRemarks: `[JWO CANCELLED] ${jwo.jobWorkNumber}: ${reason || 'No reason given'}`.trim(),
+        });
 
         // Both status columns via the helper — the old jwoStatus-only write left the legacy
         // column claiming READY_TO_SEND, keeping cancelled orders on the receivable lists

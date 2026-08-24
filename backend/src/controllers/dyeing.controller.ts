@@ -19,6 +19,7 @@ import logger from '../utils/logger';
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 import greigeStockService from '../services/greige-stock.service';
 import { isJwoDead, JWO_PRE_ISSUE_STATUSES, JWO_AT_PROCESSOR_STATUSES } from '../services/helpers/jwo-status.helper';
+import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
 import { systemSettingsService } from '../services/system-settings.service';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from '../services/job-work-order.service';
 import { findProcessingRequirementMatches, updateJwoReceivedQuantity } from '../services/mrp.service';
@@ -1840,13 +1841,9 @@ export const sendProcessPO = async (req: Request, res: Response, _next: NextFunc
     throw e;
   }
 
-  // Legacy shadow PO → SENT (pre-4c pairs only)
-  if (job.purchaseOrderId) {
-    await prisma.purchase_orders.update({
-      where: { id: job.purchaseOrderId },
-      data: { status: 'SENT' },
-    });
-  }
+  // Legacy shadow PO → SENT (pre-4c pairs only). Guarded echo (landmine №7): a raw
+  // update here could resurrect a CANCELLED PO.
+  await echoShadowPoStatus(prisma, job.purchaseOrderId, 'SENT');
 
   // Re-fetch (envelope shape)
   const fullJwo = await resolveProcessJwo(job.id, 'DYEING');
@@ -2172,10 +2169,8 @@ export const updateStockProcessPO = async (req: Request, res: Response, _next: N
         },
       });
     }
-    await prisma.purchase_orders.update({
-      where: { id: job.purchaseOrderId },
-      data: { status: 'RECEIVED' },
-    });
+    // Guarded echo (landmine №7): never flips a CANCELLED PO to RECEIVED
+    await echoShadowPoStatus(prisma, job.purchaseOrderId, 'RECEIVED');
   } else {
     // JWO-only (D3): advance MRP requirements via the JWO receipt bridge — there is
     // no GRN in the manual flow to do it
@@ -2296,16 +2291,11 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
     },
   });
 
-  // Legacy shadow PO → CANCELLED (pre-4c pairs only)
-  if (job.purchaseOrderId) {
-    await prisma.purchase_orders.update({
-      where: { id: job.purchaseOrderId },
-      data: {
-        status: 'CANCELLED',
-        remarks: `[RETURNED UNPROCESSED] Greige returned without processing. ${remarks || ''}`.trim(),
-      },
-    });
-  }
+  // Legacy shadow PO → CANCELLED (pre-4c pairs only). Guarded echo (landmine №7):
+  // appends remarks instead of overwriting, and leaves a partially-received PO alone.
+  await echoShadowPoStatus(prisma, job.purchaseOrderId, 'CANCELLED', {
+    appendRemarks: `[RETURNED UNPROCESSED] Greige returned without processing. ${remarks || ''}`.trim(),
+  });
 
   // Re-fetch (envelope shape)
   const fullJwo = await resolveProcessJwo(job.id, 'DYEING');

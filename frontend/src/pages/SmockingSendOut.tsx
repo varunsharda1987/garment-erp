@@ -180,7 +180,7 @@ export default function SmockingSendOut() {
             poNumber: j.jobWorkNumber,
             supplierId: j.processorId,
             supplierName: j.processor?.name || '',
-            status: j.jwoStatus || j.status || '',
+            status: j.jwoStatus || '',
           }));
         setPos(items);
       })

@@ -24,7 +24,13 @@ import prisma from '../config/database'; // Use singleton to avoid connection po
 import { logInfo, logError, logWarn } from '../utils/logger';
 import { generateAtomicGRNNumber } from '../utils/atomicCodeGenerator';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
-import { setJwoStatus, setJwoStatusMany, isJwoDead, JWO_ACTIVE_FILTER } from './helpers/jwo-status.helper';
+import {
+  setJwoStatus,
+  setJwoStatusMany,
+  isJwoDead,
+  JWO_ACTIVE_FILTER,
+  JWO_AT_PROCESSOR_STATUSES,
+} from './helpers/jwo-status.helper';
 import { updateGreigeLastPurchaseRate } from './helpers/greige-rate.helper';
 import { determineFinishType } from './helpers/processing-fabric.helper';
 import { jobWorkOrderService } from './job-work-order.service';
@@ -164,8 +170,8 @@ class GRNService {
           logError('No job work order linked to PROCESSING PO', { poId: po.id });
         } else if (processingJob.receivedDate) {
           throw new Error('This processing PO has already been received via the Printing/Dyeing module');
-        } else if (processingJob.status !== 'AT_MILL' && processingJob.status !== 'SENT_TO_MILL') {
-          throw new Error(`Cannot receive. Job status is ${processingJob.status}, expected AT_MILL`);
+        } else if (!JWO_AT_PROCESSOR_STATUSES.includes(processingJob.jwoStatus!)) {
+          throw new Error(`Cannot receive. Job status is ${processingJob.jwoStatus}, expected at-processor`);
         }
       }
     }
@@ -353,14 +359,12 @@ class GRNService {
           const jobUpdate = await setJwoStatusMany(
             tx,
             // Re-check state too (not just receivedDate): a job cancelled between the pre-tx
-            // validation and this write must not be force-received. JWO_ACTIVE_FILTER makes
-            // this guard real — the legacy status never recorded cancellation, so the old
-            // status-only check was inert (landmine №1).
+            // validation and this write must not be force-received. jwoStatus check excludes
+            // CANCELLED/CLOSED (they're not in JWO_AT_PROCESSOR_STATUSES).
             {
               id: processingJob.id,
               receivedDate: null,
-              status: { in: ['AT_MILL', 'SENT_TO_MILL'] },
-              AND: [JWO_ACTIVE_FILTER],
+              jwoStatus: { in: JWO_AT_PROCESSOR_STATUSES },
             },
             'RECEIVED',
             {
@@ -2625,8 +2629,8 @@ class GRNService {
     if (jwo.receivedDate) {
       throw new Error(`${jwo.jobWorkNumber} has already been received`);
     }
-    if (jwo.status !== 'AT_MILL' && jwo.status !== 'SENT_TO_MILL') {
-      throw new Error(`Cannot receive ${jwo.jobWorkNumber}: status is ${jwo.status}, expected AT_MILL/SENT_TO_MILL`);
+    if (!JWO_AT_PROCESSOR_STATUSES.includes(jwo.jwoStatus!)) {
+      throw new Error(`Cannot receive ${jwo.jobWorkNumber}: status is ${jwo.jwoStatus}, expected at-processor`);
     }
     // Phase 5a (D6): GRN receiving is fabric/meters-shaped; piece-based job work
     // (embroidery/handwork/smocking/kaaj) is received on the JWO itself.

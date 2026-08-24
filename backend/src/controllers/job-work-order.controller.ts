@@ -28,7 +28,13 @@ import {
   syncMasterToMaterials,
   syncStockLevelQuantity,
 } from '../services/helpers/material-sync.helper';
-import { setJwoStatus, JWO_ACTIVE_FILTER } from '../services/helpers/jwo-status.helper';
+import {
+  setJwoStatus,
+  JWO_ACTIVE_FILTER,
+  JWO_PRE_ISSUE_STATUSES,
+  JWO_AT_PROCESSOR_STATUSES,
+  JWO_RECEIVED_STATUSES,
+} from '../services/helpers/jwo-status.helper';
 import { applyShrinkageLoss, multiplyCurrency, roundToCent } from '../utils/currency';
 import type {
   CreateJobWorkOrderInput,
@@ -36,11 +42,6 @@ import type {
   CloseJwoInput,
   DispatchJwoInput,
 } from '../schemas/jobWorkOrder.schema';
-
-// jwoStatus values from which material has NOT yet been issued (components may change)
-const PRE_ISSUE_JWO_STATUSES = [null, 'DRAFT', 'PENDING_APPROVAL', 'APPROVED'] as const;
-// Legacy statuses that mean the order is already received back (close allowed)
-const RECEIVED_LEGACY_STATUSES = ['RECEIVED', 'QUALITY_CHECKED', 'STOCK_UPDATED'] as const;
 
 // Standard includes for JWO queries
 const jwoInclude = {
@@ -311,7 +312,7 @@ class JobWorkOrderController {
       if (!jwo) {
         return res.status(404).json({ success: false, message: 'Job work order not found' });
       }
-      const preIssue = !jwo.sentDate && (PRE_ISSUE_JWO_STATUSES as readonly (string | null)[]).includes(jwo.jwoStatus);
+      const preIssue = !jwo.sentDate && (JWO_PRE_ISSUE_STATUSES as readonly (string | null)[]).includes(jwo.jwoStatus);
       if (!preIssue) {
         return res.status(422).json({
           success: false,
@@ -395,7 +396,7 @@ class JobWorkOrderController {
       if (!jwo) {
         return res.status(404).json({ success: false, message: 'Job work order not found' });
       }
-      const preIssue = !jwo.sentDate && (PRE_ISSUE_JWO_STATUSES as readonly (string | null)[]).includes(jwo.jwoStatus);
+      const preIssue = !jwo.sentDate && (JWO_PRE_ISSUE_STATUSES as readonly (string | null)[]).includes(jwo.jwoStatus);
       if (!preIssue) {
         return res.status(422).json({
           success: false,
@@ -565,7 +566,6 @@ class JobWorkOrderController {
         success: true,
         data: {
           jobWorkNumber: jwo.jobWorkNumber,
-          status: jwo.status,
           jwoStatus: jwo.jwoStatus,
           tolerancePercent: jwo.processTypeMaster?.tolerancePercent
             ? Number(jwo.processTypeMaster.tolerancePercent)
@@ -612,8 +612,7 @@ class JobWorkOrderController {
           message: `${jwo.jobWorkNumber} is cancelled and cannot be closed.`,
         });
       }
-      const isReceived =
-        jwo.jwoStatus === 'RECEIVED' || (RECEIVED_LEGACY_STATUSES as readonly string[]).includes(jwo.status as string);
+      const isReceived = JWO_RECEIVED_STATUSES.includes(jwo.jwoStatus!);
       if (!isReceived) {
         return res.status(422).json({
           success: false,
@@ -719,10 +718,7 @@ class JobWorkOrderController {
           isActive: true,
           purchaseOrderId: null,
           receivedDate: null,
-          status: { in: ['AT_MILL', 'SENT_TO_MILL'] },
-          // Landmine №1 fix: a cancelled/closed order must never reach the GRN dropdown —
-          // receiving its returned rolls would double-count stock already credited back
-          AND: [JWO_ACTIVE_FILTER],
+          jwoStatus: { in: JWO_AT_PROCESSOR_STATUSES },
           // Phase 5a (D6): GRN receiving is fabric/meters-only; PCS job work is
           // received on the JWO itself (POST /:id/receive)
           uom: 'MTR',
@@ -787,7 +783,6 @@ class JobWorkOrderController {
         ];
       }
 
-      if (status) where.status = status;
       if (jwoStatus) where.jwoStatus = jwoStatus;
       if (processType) where.processType = processType;
       if (processorId) where.processorId = processorId;
@@ -1058,7 +1053,7 @@ class JobWorkOrderController {
           processorId,
           sentDate: null,
           isActive: true,
-          OR: [{ jwoStatus: 'APPROVED' }, { AND: [{ jwoStatus: null }, { status: 'READY_TO_SEND' }] }],
+          jwoStatus: 'APPROVED',
         },
         select: { id: true },
         orderBy: { createdAt: 'asc' },
@@ -1203,7 +1198,7 @@ class JobWorkOrderController {
           .status(422)
           .json({ success: false, code: 'ALREADY_CANCELLED', message: `${jwo.jobWorkNumber} is already cancelled` });
       }
-      if (jwo.receivedDate || (RECEIVED_LEGACY_STATUSES as readonly string[]).includes(jwo.status)) {
+      if (jwo.receivedDate || JWO_RECEIVED_STATUSES.includes(jwo.jwoStatus!)) {
         return res.status(422).json({
           success: false,
           code: 'ALREADY_RECEIVED',
@@ -1452,7 +1447,7 @@ class JobWorkOrderController {
 
       // Count by status
       const statusCounts = await prisma.job_work_orders.groupBy({
-        by: ['status'],
+        by: ['jwoStatus'],
         where: { isActive: true },
         _count: { id: true },
       });
@@ -1495,7 +1490,7 @@ class JobWorkOrderController {
       res.json({
         success: true,
         data: {
-          byStatus: Object.fromEntries(statusCounts.map((s) => [s.status, s._count.id])),
+          byStatus: Object.fromEntries(statusCounts.map((s) => [s.jwoStatus, s._count.id])),
           byProcessType: Object.fromEntries(processTypeCounts.map((p) => [p.processType, p._count.id])),
           outstanding,
           section143Warnings: warnings,

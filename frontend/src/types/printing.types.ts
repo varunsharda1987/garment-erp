@@ -2,19 +2,10 @@
 // Printing Module Types
 // ============================================
 
+import type { JobWorkOrderStatus } from './jobWorkOrder.types';
+
 // Enums
 export type LabDipStatus = 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'RESUBMIT';
-
-export type JobWorkStatus =
-  | 'LAB_DIP_PENDING'
-  | 'LAB_DIP_SUBMITTED'
-  | 'LAB_DIP_APPROVED'
-  | 'READY_TO_SEND'
-  | 'SENT_TO_MILL'
-  | 'AT_MILL'
-  | 'RECEIVED'
-  | 'QUALITY_CHECKED'
-  | 'STOCK_UPDATED';
 
 export type PrintMethod = 'SCREEN_MACHINE' | 'SCREEN_HAND' | 'ROTARY' | 'BLOCK';
 
@@ -209,7 +200,7 @@ export interface JobWorkOrder {
   // Finished fabric (auto-created at sendToMill)
   finishedFabricId?: string;
 
-  status: JobWorkStatus;
+  status: JobWorkOrderStatus;
 
   remarks?: string;
 
@@ -341,7 +332,7 @@ export interface PrintingSummary {
   received: number;
   qualityChecked: number;
   byStatus: Array<{
-    status: JobWorkStatus;
+    status: JobWorkOrderStatus;
     count: number;
   }>;
 }
@@ -367,7 +358,7 @@ export interface JobWorkOrderQueryParams {
   limit?: number;
   search?: string;
   processType?: 'PRINTING' | 'DYEING';
-  status?: JobWorkStatus;
+  status?: JobWorkOrderStatus;
   labDipId?: string;
   styleId?: string;
   processorId?: string;
@@ -395,28 +386,34 @@ export const LabDipStatusColors: Record<LabDipStatus, string> = {
   RESUBMIT: 'bg-yellow-100 text-yellow-800',
 };
 
-export const JobWorkStatusLabels: Record<JobWorkStatus, string> = {
-  LAB_DIP_PENDING: 'Lab Dip Pending',
-  LAB_DIP_SUBMITTED: 'Lab Dip Submitted',
-  LAB_DIP_APPROVED: 'Lab Dip Approved',
-  READY_TO_SEND: 'Ready to Send',
-  SENT_TO_MILL: 'Sent to Mill',
-  AT_MILL: 'At Mill',
+export const JobWorkOrderStatusLabels: Record<JobWorkOrderStatus, string> = {
+  DRAFT: 'Draft',
+  PENDING_APPROVAL: 'Pending Approval',
+  APPROVED: 'Approved',
+  ISSUED: 'Issued',
+  IN_TRANSIT: 'In Transit',
+  AT_PROCESSOR: 'At Processor',
+  PARTIALLY_RECEIVED: 'Partially Received',
   RECEIVED: 'Received',
   QUALITY_CHECKED: 'Quality Checked',
   STOCK_UPDATED: 'Stock Updated',
+  CLOSED: 'Closed',
+  CANCELLED: 'Cancelled',
 };
 
-export const JobWorkStatusColors: Record<JobWorkStatus, string> = {
-  LAB_DIP_PENDING: 'bg-muted text-foreground',
-  LAB_DIP_SUBMITTED: 'bg-info-muted text-info',
-  LAB_DIP_APPROVED: 'bg-success-muted text-success',
-  READY_TO_SEND: 'bg-yellow-100 text-yellow-800',
-  SENT_TO_MILL: 'bg-accent/10 text-accent',
-  AT_MILL: 'bg-primary/10 text-primary',
+export const JobWorkOrderStatusColors: Record<JobWorkOrderStatus, string> = {
+  DRAFT: 'bg-muted text-foreground',
+  PENDING_APPROVAL: 'bg-yellow-100 text-yellow-800',
+  APPROVED: 'bg-success-muted text-success',
+  ISSUED: 'bg-accent/10 text-accent',
+  IN_TRANSIT: 'bg-blue-100 text-blue-800',
+  AT_PROCESSOR: 'bg-primary/10 text-primary',
+  PARTIALLY_RECEIVED: 'bg-orange-100 text-orange-800',
   RECEIVED: 'bg-teal-100 text-teal-800',
   QUALITY_CHECKED: 'bg-emerald-100 text-emerald-800',
   STOCK_UPDATED: 'bg-success-muted text-success',
+  CLOSED: 'bg-gray-100 text-gray-800',
+  CANCELLED: 'bg-red-100 text-red-800',
 };
 
 export const PrintMethodLabels: Record<PrintMethod, string> = {

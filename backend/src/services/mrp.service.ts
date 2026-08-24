@@ -2913,7 +2913,7 @@ export async function findProcessingRequirementMatches(params: {
     for (const link of req.requirement_jwo_links) {
       const jwo = link.job_work_orders;
       if (!jwo?.isActive) continue;
-      if (jwo.jwoStatus === 'CLOSED' || jwo.jwoStatus === 'CANCELLED' || jwo.status === 'STOCK_UPDATED') continue;
+      if (jwo.jwoStatus === 'CLOSED' || jwo.jwoStatus === 'CANCELLED' || jwo.jwoStatus === 'STOCK_UPDATED') continue;
       const existing = activeJwoMap.get(jwo.id);
       if (existing) {
         existing.requirementNumbers.push(req.requirementNumber);
@@ -2921,7 +2921,7 @@ export async function findProcessingRequirementMatches(params: {
         activeJwoMap.set(jwo.id, {
           jwoId: jwo.id,
           jobWorkNumber: jwo.jobWorkNumber,
-          status: jwo.jwoStatus || jwo.status,
+          status: jwo.jwoStatus!,
           requirementNumbers: [req.requirementNumber],
         });
       }
@@ -4399,7 +4399,6 @@ function mapToResponse(req: any): MaterialRequirementResponse {
         ? {
             id: link.job_work_orders.id,
             jobWorkNumber: link.job_work_orders.jobWorkNumber,
-            status: link.job_work_orders.status,
             jwoStatus: link.job_work_orders.jwoStatus,
           }
         : undefined,

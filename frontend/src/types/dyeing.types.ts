@@ -3,8 +3,13 @@
 // ============================================
 
 // Re-export common types from printing since they share the same backend models
-export type { LabDipStatus, JobWorkStatus } from './printing.types';
-export { LabDipStatusLabels, LabDipStatusColors, JobWorkStatusLabels, JobWorkStatusColors } from './printing.types';
+export type { LabDipStatus } from './printing.types';
+export {
+  LabDipStatusLabels,
+  LabDipStatusColors,
+  JobWorkOrderStatusLabels,
+  JobWorkOrderStatusColors,
+} from './printing.types';
 
 // Re-export Job Work Order types from printing (shared models)
 export type {

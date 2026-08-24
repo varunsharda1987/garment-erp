@@ -341,8 +341,7 @@ export interface JwoReconciliationComponent {
 
 export interface JwoReconciliation {
   jobWorkNumber: string;
-  status: string;
-  jwoStatus?: string;
+  jwoStatus: string;
   tolerancePercent: number | null;
   source: 'COMPONENTS' | 'ORDER_CHALLANS' | 'ORDER_SNAPSHOT';
   components: JwoReconciliationComponent[];

@@ -53,6 +53,20 @@ export function isJwoDead(jwoStatus: JobWorkOrderStatus | null | undefined): boo
   return jwoStatus === 'CANCELLED' || jwoStatus === 'CLOSED';
 }
 
+/** Statuses before material is issued (can still modify components, delete, etc.) */
+export const JWO_PRE_ISSUE_STATUSES: JobWorkOrderStatus[] = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED'];
+
+/** Statuses while at processor (can receive material) */
+export const JWO_AT_PROCESSOR_STATUSES: JobWorkOrderStatus[] = [
+  'ISSUED',
+  'IN_TRANSIT',
+  'AT_PROCESSOR',
+  'PARTIALLY_RECEIVED',
+];
+
+/** Statuses after receipt (close allowed) */
+export const JWO_RECEIVED_STATUSES: JobWorkOrderStatus[] = ['RECEIVED', 'QUALITY_CHECKED', 'STOCK_UPDATED'];
+
 /**
  * Set a JWO's status — writes jwoStatus AND its legacy mirror in one update.
  * `extra` carries any other fields the same update must set (receivedDate, remarks, …).

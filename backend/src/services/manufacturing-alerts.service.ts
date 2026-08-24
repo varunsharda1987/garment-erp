@@ -1,5 +1,5 @@
 import prisma from '../config/database';
-import { JWO_ACTIVE_FILTER } from './helpers/jwo-status.helper';
+import { JWO_AT_PROCESSOR_STATUSES } from './helpers/jwo-status.helper';
 import { systemSettingsService } from './system-settings.service';
 
 interface AlertCount {
@@ -91,12 +91,10 @@ class ManufacturingAlertsService {
         orderBy: { submissionDate: 'asc' },
       }),
 
-      // 2. Overdue Process POs (job_work_orders) - at mill but not received, past expected date
+      // 2. Overdue Process POs (job_work_orders) - at processor but not received, past expected date
       prisma.job_work_orders.findMany({
         where: {
-          status: { in: ['SENT_TO_MILL', 'AT_MILL'] },
-          // Landmine No.1: legacy status never records cancellation — exclude via jwoStatus
-          AND: [JWO_ACTIVE_FILTER],
+          jwoStatus: { in: JWO_AT_PROCESSOR_STATUSES },
           expectedReturnDate: { lt: today },
           receivedDate: null,
         },
@@ -229,9 +227,7 @@ class ManufacturingAlertsService {
     const jobWorkVendorData = await prisma.job_work_orders.groupBy({
       by: ['processorId', 'processType'],
       where: {
-        status: { in: ['SENT_TO_MILL', 'AT_MILL'] },
-        // Landmine No.1: legacy status never records cancellation — exclude via jwoStatus
-        AND: [JWO_ACTIVE_FILTER],
+        jwoStatus: { in: JWO_AT_PROCESSOR_STATUSES },
       },
       _count: { id: true },
       _sum: { qtySentMeters: true },

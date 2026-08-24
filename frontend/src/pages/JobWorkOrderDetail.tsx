@@ -364,7 +364,7 @@ export default function JobWorkOrderDetail() {
     jwo.requirementLinks?.[0]?.materialRequirements?.colorName ?? jwo.colorMaster?.colorName ?? jwo.colorName ?? null;
   const isOverdue = daysOutstanding !== null && daysOutstanding > 300 && !jwo.receivedDate;
   const hasAbnormalLoss = (jwo.qtyAbnormalLoss || 0) > 0;
-  const currentStatus = jwo.jwoStatus || jwo.status;
+  const currentStatus = jwo.jwoStatus;
 
   // Job Work Consolidation left the lifecycle actions on the old dyeing/printing screens, so the
   // page named after the document could not delete it — you had to know to go to
@@ -376,11 +376,10 @@ export default function JobWorkOrderDetail() {
   const canCancel = jwo.jwoStatus !== 'CANCELLED' && !jwo.receivedDate && !jwo.qtyReceivedMeters;
 
   const canDelete =
-    jwo.status === 'READY_TO_SEND' &&
     // Mirror the backend guard EXACTLY (dyeing.controller deleteProcessPO). Being stricter here is
     // what caused the original problem: the dyeing list only offered Delete for status 'DRAFT',
     // so records the backend was happy to delete had no button anywhere in the UI.
-    (!jwo.jwoStatus || ['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(jwo.jwoStatus)) &&
+    ['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(jwo.jwoStatus) &&
     (jwo.processType === 'DYEING' || jwo.processType === 'PRINTING');
 
   // ── Issue dialog: multi-lot state derived from the server's preview ──────────────────────────
@@ -862,17 +861,14 @@ export default function JobWorkOrderDetail() {
                 </Button>
               )}
 
-              {(currentStatus === 'APPROVED' || currentStatus === 'READY_TO_SEND') && (
+              {currentStatus === 'APPROVED' && (
                 <Button className="w-full" onClick={() => setIssueDialogOpen(true)}>
                   <Send className="mr-2 h-4 w-4" />
                   Issue to Processor
                 </Button>
               )}
 
-              {(currentStatus === 'ISSUED' ||
-                currentStatus === 'AT_MILL' ||
-                currentStatus === 'AT_PROCESSOR' ||
-                currentStatus === 'SENT_TO_MILL') &&
+              {['ISSUED', 'IN_TRANSIT', 'AT_PROCESSOR', 'PARTIALLY_RECEIVED'].includes(currentStatus) &&
                 !jwo.receivedDate && (
                   <Button className="w-full" onClick={() => setReceiveDialogOpen(true)}>
                     <Download className="mr-2 h-4 w-4" />
@@ -881,8 +877,7 @@ export default function JobWorkOrderDetail() {
                 )}
 
               {jwo.jwoStatus !== 'CLOSED' &&
-                (jwo.jwoStatus === 'RECEIVED' ||
-                  ['RECEIVED', 'QUALITY_CHECKED', 'STOCK_UPDATED'].includes(jwo.status)) && (
+                ['RECEIVED', 'QUALITY_CHECKED', 'STOCK_UPDATED'].includes(jwo.jwoStatus) && (
                   <Button
                     className="w-full"
                     variant="secondary"

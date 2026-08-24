@@ -110,21 +110,19 @@ export const processJwoInclude = {
 export type ProcessJwo = Prisma.job_work_ordersGetPayload<{ include: typeof processJwoInclude }>;
 
 /**
- * Unified process status — same ladder the old PO-based computeProcessPOStatus used
- * (derived entirely from the JWO's legacy status), with cancellation from either the
- * shadow PO or the JWO's universal status (legacy JobWorkStatus has no CANCELLED).
+ * Unified process status — derived entirely from jwoStatus (the single status authority).
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const computeProcessPOStatusFromJwo = (jwo: any): string => {
   if (jwo.purchaseOrder?.status === 'CANCELLED' || jwo.jwoStatus === 'CANCELLED') return 'CANCELLED';
 
-  const jobStatus = (jwo.status as string) || '';
-  if (jobStatus === 'STOCK_UPDATED') return 'STOCK_UPDATED';
-  if (jobStatus === 'QUALITY_CHECKED') return 'QUALITY_CHECKED';
-  if (jobStatus === 'RECEIVED') return 'RECEIVED';
-  if (jobStatus === 'AT_MILL' || jobStatus === 'SENT_TO_MILL') return 'AT_MILL';
-  if (jobStatus === 'READY_TO_SEND') return 'DRAFT';
-  if (jobStatus.includes('RETURNED')) return 'RETURNED';
+  const jwoStatus = jwo.jwoStatus || '';
+  if (jwoStatus === 'STOCK_UPDATED') return 'STOCK_UPDATED';
+  if (jwoStatus === 'QUALITY_CHECKED') return 'QUALITY_CHECKED';
+  if (jwoStatus === 'RECEIVED' || jwoStatus === 'PARTIALLY_RECEIVED') return 'RECEIVED';
+  if (jwoStatus === 'ISSUED' || jwoStatus === 'IN_TRANSIT' || jwoStatus === 'AT_PROCESSOR') return 'AT_MILL';
+  if (jwoStatus === 'DRAFT' || jwoStatus === 'PENDING_APPROVAL' || jwoStatus === 'APPROVED') return 'DRAFT';
+  if (jwoStatus === 'CLOSED') return 'CLOSED';
   return 'DRAFT';
 };
 
@@ -138,14 +136,17 @@ export const toProcessPOEnvelope = (jwo: ProcessJwo): any => {
 
   // PO-status analog for JWO-only records (type parity; UI derives from processPOStatus)
   const derivedPoStatus = (() => {
-    if (jwo.jwoStatus === 'CANCELLED') return 'CANCELLED';
-    switch (jwo.status) {
+    switch (jwo.jwoStatus) {
+      case 'CANCELLED':
+        return 'CANCELLED';
       case 'STOCK_UPDATED':
       case 'QUALITY_CHECKED':
       case 'RECEIVED':
+      case 'PARTIALLY_RECEIVED':
         return 'RECEIVED';
-      case 'AT_MILL':
-      case 'SENT_TO_MILL':
+      case 'ISSUED':
+      case 'IN_TRANSIT':
+      case 'AT_PROCESSOR':
         return 'SENT';
       default:
         return 'DRAFT';

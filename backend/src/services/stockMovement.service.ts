@@ -1,6 +1,11 @@
 // Stock Movement Service - Handle all stock movements and integrate with stock levels
 import { MovementType, StockTransactionType, Unit, Prisma } from '@prisma/client';
-import { JWO_ACTIVE_FILTER } from './helpers/jwo-status.helper';
+import {
+  JWO_ACTIVE_FILTER,
+  JWO_PRE_ISSUE_STATUSES,
+  JWO_AT_PROCESSOR_STATUSES,
+  JWO_RECEIVED_STATUSES,
+} from './helpers/jwo-status.helper';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
@@ -1453,12 +1458,11 @@ class StockMovementService {
       }
     }
 
-    // 2. Dyeing Process POs (at mill)
+    // 2. Dyeing Process POs (at processor)
     if (!sourceType || sourceType === 'DYEING') {
       const dyeingPOs = await prisma.job_work_orders.findMany({
         where: {
-          status: 'AT_MILL',
-          AND: [JWO_ACTIVE_FILTER], // landmine No.1: cancelled jobs must drop off these lists
+          jwoStatus: { in: JWO_AT_PROCESSOR_STATUSES },
           processType: 'DYEING',
           ...(processorId && { processorId }),
         },
@@ -1513,12 +1517,11 @@ class StockMovementService {
       }
     }
 
-    // 3. Printing Process POs (at mill)
+    // 3. Printing Process POs (at processor)
     if (!sourceType || sourceType === 'PRINTING') {
       const printingPOs = await prisma.job_work_orders.findMany({
         where: {
-          status: 'AT_MILL',
-          AND: [JWO_ACTIVE_FILTER], // landmine No.1: cancelled jobs must drop off these lists
+          jwoStatus: { in: JWO_AT_PROCESSOR_STATUSES },
           processType: 'PRINTING',
           ...(processorId && { processorId }),
         },
@@ -1627,9 +1630,7 @@ class StockMovementService {
           processType: 'EMBROIDERY',
           isActive: true,
           fabricStockLotId: { not: null },
-          status: { in: ['SENT_TO_MILL', 'AT_MILL'] },
-          // Landmine No.1: legacy status never records cancellation — exclude via jwoStatus
-          AND: [JWO_ACTIVE_FILTER],
+          jwoStatus: { in: JWO_AT_PROCESSOR_STATUSES },
           receivedDate: null,
           ...(processorId && { processorId }),
         },
@@ -1770,12 +1771,11 @@ class StockMovementService {
 
     const results: PendingOutwardItem[] = [];
 
-    // 1. Dyeing Process PO Drafts (READY_TO_SEND status)
+    // 1. Dyeing Process PO Drafts (pre-issue status)
     if (!sourceType || sourceType === 'DYEING') {
       const dyeingDrafts = await prisma.job_work_orders.findMany({
         where: {
-          status: 'READY_TO_SEND',
-          AND: [JWO_ACTIVE_FILTER], // landmine No.1: cancelled jobs must drop off these lists
+          jwoStatus: { in: JWO_PRE_ISSUE_STATUSES },
           processType: 'DYEING',
           ...(processorId && { processorId }),
         },
@@ -1812,12 +1812,11 @@ class StockMovementService {
       }
     }
 
-    // 2. Printing Process PO Drafts (READY_TO_SEND status)
+    // 2. Printing Process PO Drafts (pre-issue status)
     if (!sourceType || sourceType === 'PRINTING') {
       const printingDrafts = await prisma.job_work_orders.findMany({
         where: {
-          status: 'READY_TO_SEND',
-          AND: [JWO_ACTIVE_FILTER], // landmine No.1: cancelled jobs must drop off these lists
+          jwoStatus: { in: JWO_PRE_ISSUE_STATUSES },
           processType: 'PRINTING',
           ...(processorId && { processorId }),
         },
@@ -2029,14 +2028,14 @@ class StockMovementService {
         where: {
           sentDate: { gte: today, lt: tomorrow },
           processType: 'DYEING',
-          status: { in: ['AT_MILL', 'RECEIVED'] },
+          jwoStatus: { in: [...JWO_AT_PROCESSOR_STATUSES, ...JWO_RECEIVED_STATUSES] },
         },
       }),
       prisma.job_work_orders.count({
         where: {
           sentDate: { gte: today, lt: tomorrow },
           processType: 'PRINTING',
-          status: { in: ['AT_MILL', 'RECEIVED'] },
+          jwoStatus: { in: [...JWO_AT_PROCESSOR_STATUSES, ...JWO_RECEIVED_STATUSES] },
         },
       }),
       prisma.external_process_send_outs.count({

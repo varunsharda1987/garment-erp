@@ -18,7 +18,7 @@ import logger from '../utils/logger';
 // BUG-INV3 fix: Import material sync helpers for processor receipt stock_levels sync
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../services/helpers/material-sync.helper';
 import greigeStockService from '../services/greige-stock.service';
-import { isJwoDead } from '../services/helpers/jwo-status.helper';
+import { isJwoDead, JWO_PRE_ISSUE_STATUSES, JWO_AT_PROCESSOR_STATUSES } from '../services/helpers/jwo-status.helper';
 // BUG-PRT5 fix: Import decimal.js helpers for safe cost calculations
 import {
   toCurrency,
@@ -1139,7 +1139,7 @@ export const updateStock = async (req: Request, res: Response, _next: NextFuncti
     throw new NotFoundError('Print job', id);
   }
 
-  if (existing.status !== 'QUALITY_CHECKED') {
+  if (existing.jwoStatus !== 'QUALITY_CHECKED') {
     throw new ValidationError('Quality check must be completed first');
   }
 
@@ -1715,13 +1715,8 @@ export const deleteProcessPO = async (req: Request, res: Response, _next: NextFu
   }
 
   // Only allow delete if nothing has been sent yet
-  if (jwo.status !== 'READY_TO_SEND') {
-    throw new BusinessError(
-      `Cannot delete. Job status is ${jwo.status}. Only DRAFT/READY_TO_SEND orders can be deleted.`
-    );
-  }
-  if (jwo.jwoStatus && !['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(jwo.jwoStatus)) {
-    throw new BusinessError(`Cannot delete. Order is ${jwo.jwoStatus}.`);
+  if (!JWO_PRE_ISSUE_STATUSES.includes(jwo.jwoStatus!)) {
+    throw new BusinessError(`Cannot delete. Order is ${jwo.jwoStatus}. Only pre-issue orders can be deleted.`);
   }
   if (jwo.purchaseOrder && jwo.purchaseOrder.status !== 'DRAFT') {
     throw new BusinessError(`Cannot delete. Linked PO is ${jwo.purchaseOrder.status}, expected DRAFT.`);
@@ -2328,26 +2323,28 @@ export const getSummary = async (req: Request, res: Response, _next: NextFunctio
     prisma.lab_dips.count({ where: { processType, status: 'APPROVED' } }),
     prisma.job_work_orders.count({ where: { processType } }),
     prisma.job_work_orders.groupBy({
-      by: ['status'],
+      by: ['jwoStatus'],
       where: { processType },
       _count: true,
     }),
   ]);
 
-  const atMill = jobsByStatus.find((s) => s.status === 'AT_MILL')?._count || 0;
-  const received = jobsByStatus.find((s) => s.status === 'RECEIVED')?._count || 0;
-  const qualityChecked = jobsByStatus.find((s) => s.status === 'QUALITY_CHECKED')?._count || 0;
+  const atProcessor = jobsByStatus
+    .filter((s) => JWO_AT_PROCESSOR_STATUSES.includes(s.jwoStatus!))
+    .reduce((sum, s) => sum + s._count, 0);
+  const received = jobsByStatus.find((s) => s.jwoStatus === 'RECEIVED')?._count || 0;
+  const qualityChecked = jobsByStatus.find((s) => s.jwoStatus === 'QUALITY_CHECKED')?._count || 0;
 
   res.json({
     data: {
       total: totalJobs,
       labDipsPending,
       labDipsApproved,
-      atMill,
+      atMill: atProcessor,
       received,
       qualityChecked,
       byStatus: jobsByStatus.map((s) => ({
-        status: s.status,
+        status: s.jwoStatus,
         count: s._count,
       })),
     },
@@ -2365,26 +2362,28 @@ export const getSummaryByStyle = async (req: Request, res: Response, _next: Next
     prisma.lab_dips.count({ where: { processType, styleId, status: 'APPROVED' } }),
     prisma.job_work_orders.count({ where: { processType, styleId } }),
     prisma.job_work_orders.groupBy({
-      by: ['status'],
+      by: ['jwoStatus'],
       where: { processType, styleId },
       _count: true,
     }),
   ]);
 
-  const atMill = jobsByStatus.find((s) => s.status === 'AT_MILL')?._count || 0;
-  const received = jobsByStatus.find((s) => s.status === 'RECEIVED')?._count || 0;
-  const qualityChecked = jobsByStatus.find((s) => s.status === 'QUALITY_CHECKED')?._count || 0;
+  const atProcessor = jobsByStatus
+    .filter((s) => JWO_AT_PROCESSOR_STATUSES.includes(s.jwoStatus!))
+    .reduce((sum, s) => sum + s._count, 0);
+  const received = jobsByStatus.find((s) => s.jwoStatus === 'RECEIVED')?._count || 0;
+  const qualityChecked = jobsByStatus.find((s) => s.jwoStatus === 'QUALITY_CHECKED')?._count || 0;
 
   res.json({
     data: {
       total: totalJobs,
       labDipsPending,
       labDipsApproved,
-      atMill,
+      atMill: atProcessor,
       received,
       qualityChecked,
       byStatus: jobsByStatus.map((s) => ({
-        status: s.status,
+        status: s.jwoStatus,
         count: s._count,
       })),
     },
@@ -2402,26 +2401,28 @@ export const getSummaryByMill = async (req: Request, res: Response, _next: NextF
     prisma.lab_dips.count({ where: { processType, processorId, status: 'APPROVED' } }),
     prisma.job_work_orders.count({ where: { processType, processorId } }),
     prisma.job_work_orders.groupBy({
-      by: ['status'],
+      by: ['jwoStatus'],
       where: { processType, processorId },
       _count: true,
     }),
   ]);
 
-  const atMill = jobsByStatus.find((s) => s.status === 'AT_MILL')?._count || 0;
-  const received = jobsByStatus.find((s) => s.status === 'RECEIVED')?._count || 0;
-  const qualityChecked = jobsByStatus.find((s) => s.status === 'QUALITY_CHECKED')?._count || 0;
+  const atProcessor = jobsByStatus
+    .filter((s) => JWO_AT_PROCESSOR_STATUSES.includes(s.jwoStatus!))
+    .reduce((sum, s) => sum + s._count, 0);
+  const received = jobsByStatus.find((s) => s.jwoStatus === 'RECEIVED')?._count || 0;
+  const qualityChecked = jobsByStatus.find((s) => s.jwoStatus === 'QUALITY_CHECKED')?._count || 0;
 
   res.json({
     data: {
       total: totalJobs,
       labDipsPending,
       labDipsApproved,
-      atMill,
+      atMill: atProcessor,
       received,
       qualityChecked,
       byStatus: jobsByStatus.map((s) => ({
-        status: s.status,
+        status: s.jwoStatus,
         count: s._count,
       })),
     },

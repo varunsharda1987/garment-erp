@@ -386,7 +386,7 @@ export default function JobWorkOrderList() {
                             '-'
                           )}
                         </TableCell>
-                        <TableCell>{getStatusBadge(jwo.jwoStatus || jwo.status)}</TableCell>
+                        <TableCell>{getStatusBadge(jwo.jwoStatus)}</TableCell>
                         <TableCell>
                           {section143 ? (
                             <div className="flex items-center gap-1">

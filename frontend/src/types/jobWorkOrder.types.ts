@@ -17,17 +17,6 @@ export type JobWorkOrderStatus =
   | 'CLOSED'
   | 'CANCELLED';
 
-export type LegacyJobWorkStatus =
-  | 'LAB_DIP_PENDING'
-  | 'LAB_DIP_SUBMITTED'
-  | 'LAB_DIP_APPROVED'
-  | 'READY_TO_SEND'
-  | 'SENT_TO_MILL'
-  | 'AT_MILL'
-  | 'RECEIVED'
-  | 'QUALITY_CHECKED'
-  | 'STOCK_UPDATED';
-
 export interface JobWorkOrderComponent {
   id: string;
   jobWorkOrderId: string;
@@ -99,8 +88,7 @@ export interface JobWorkOrder {
   defectMeters?: number;
   defectType?: string;
   actualRate?: number;
-  status: LegacyJobWorkStatus;
-  jwoStatus?: JobWorkOrderStatus;
+  jwoStatus: JobWorkOrderStatus;
   remarks?: string;
   workOrderId?: string;
   outwardChallanId?: string;
@@ -169,7 +157,6 @@ export interface JobWorkOrderQueryParams {
   page?: number;
   limit?: number;
   search?: string;
-  status?: LegacyJobWorkStatus;
   jwoStatus?: JobWorkOrderStatus;
   processType?: string;
   processorId?: string;

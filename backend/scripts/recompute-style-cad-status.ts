@@ -2,13 +2,10 @@
  * Recompute styles.cadStatus from CAD rows (landmine №3 backfill).
  *
  * styles.cadStatus is DERIVED via services/helpers/cad-status.helper.ts since 2026-08-24.
- * This one-time backfill applies the derivation to every style that HAS CAD rows.
- *
- * Styles with ZERO CAD rows are deliberately left untouched and only reported: their
- * stamps predate the row-level CAD system (legacy LNG/DRE/COS lines), there is nothing
- * to derive from, and flipping them would add production-dashboard blockers to old
- * styles for no data-integrity gain — the dangerous bypass (cost-sheet gate) is closed
- * in code regardless of the stamp.
+ * This backfill applies the derivation to EVERY active style, including styles with
+ * zero CAD rows (owner decision 2026-08-24: legacy row-less "APPROVED" stamps flip to
+ * PENDING — honest state everywhere; those styles regain the badge the moment real CAD
+ * rows are created and approved). Idempotent — safe to re-run.
  *
  *   npx ts-node scripts/recompute-style-cad-status.ts           # dry-run (default)
  *   npx ts-node scripts/recompute-style-cad-status.ts --apply   # write
@@ -27,7 +24,6 @@ async function main() {
   });
 
   let flips = 0;
-  const legacyStamps: string[] = [];
 
   for (const style of styles) {
     const where = cadRowsOfStyle(style.id);
@@ -35,11 +31,6 @@ async function main() {
       prisma.fabric_width_cad.count({ where }),
       prisma.fabric_width_cad.count({ where: { ...where, approvalStatus: 'APPROVED' } }),
     ]);
-
-    if (totalRows === 0) {
-      if (style.cadStatus === 'APPROVED') legacyStamps.push(style.styleCode);
-      continue; // nothing to derive from — legacy stamp preserved (see header)
-    }
 
     const derived = deriveCadStatus(totalRows, approvedRows);
     if (derived !== style.cadStatus) {
@@ -52,10 +43,6 @@ async function main() {
   }
 
   console.log(`\nStyles checked: ${styles.length}; flips: ${flips}`);
-  console.log(
-    `Legacy APPROVED stamps with zero CAD rows (preserved, backfill CAD data when next used): ${legacyStamps.length}`
-  );
-  if (legacyStamps.length > 0) console.log(`  ${legacyStamps.join(', ')}`);
   console.log(APPLY ? 'Applied.' : 'Dry run — pass --apply to write.');
 }
 

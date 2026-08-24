@@ -119,7 +119,10 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
   // Allow if EITHER path is satisfied
   const canCreateCostSheet = hasCostingCadApproved || (hasRawMaterialCadApproved && hasFabricCostingComplete);
 
-  if (!canCreateCostSheet && style.cadStatus !== 'APPROVED') {
+  // Landmine №3 fix: the style-level cadStatus stamp is NO LONGER a bypass of the
+  // row-level both-approvals gate — ~40 legacy styles carried the stamp with zero
+  // approved rows, and this escape hatch let them generate ₹0-rate cost sheets.
+  if (!canCreateCostSheet) {
     throw new ValidationError(
       'Cost sheet needs a fabric row that is BOTH CAD-approved (CAD Planning) and costing-approved with a price (Fabric Costing Options). Approve the CAD and the costing first.'
     );

@@ -22,6 +22,7 @@ import {
 } from './cad-planning.utils';
 import { syncBomFabricId } from '../services/order-bom.service';
 import { ensureMaterialRecord } from '../services/helpers/material-sync.helper';
+import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 
 /**
  * Get all styles pending CAD approval
@@ -263,11 +264,8 @@ export async function generateCADOptions(req: Request, res: Response) {
     }
   }
 
-  // Update style status to IN_PROGRESS
-  await prisma.styles.update({
-    where: { id: styleId },
-    data: { cadStatus: 'IN_PROGRESS' },
-  });
+  // Style status is derived from the rows (landmine №3) — new options → IN_PROGRESS
+  await recomputeStyleCadStatus(prisma, styleId);
 
   return res.json({
     success: true,
@@ -1250,6 +1248,8 @@ export async function addCADWidth(req: Request, res: Response) {
     },
   });
 
+  await recomputeStyleCadStatus(prisma, styleId); // landmine №3: derived status
+
   return res.json({
     success: true,
     message: 'CAD width added successfully',
@@ -1301,10 +1301,26 @@ export async function deleteCADWidth(req: Request, res: Response) {
     throw new BusinessError('Cannot delete CAD that is assigned to style fabrics. Remove the assignment first.');
   }
 
+  // Resolve the owning style BEFORE deleting, so the derived status can be recomputed
+  const owningStyleId =
+    cad.costingStyleId ??
+    (cad.styleFabricId
+      ? (
+          await prisma.style_fabrics.findUnique({
+            where: { id: cad.styleFabricId },
+            select: { style_components: { select: { styleId: true } } },
+          })
+        )?.style_components?.styleId
+      : null);
+
   // Delete the CAD (size breakdowns will cascade delete)
   await prisma.fabric_width_cad.delete({
     where: { id: cadId },
   });
+
+  if (owningStyleId) {
+    await recomputeStyleCadStatus(prisma, owningStyleId); // landmine №3: derived status
+  }
 
   return res.json({
     success: true,
@@ -2971,6 +2987,8 @@ export async function addCADTableRow(req: Request, res: Response) {
   const responseIsAllParts =
     newCad.patternPart?.code === ALL_PARTS_CODE || newCad.componentName === ALL_PARTS_LEGACY_MARKER;
 
+  await recomputeStyleCadStatus(prisma, styleId); // landmine No.3: derived status
+
   return res.status(201).json({
     success: true,
     data: {
@@ -3200,6 +3218,8 @@ export async function addCombinedCADRow(req: Request, res: Response) {
       }
     }
   }
+
+  await recomputeStyleCadStatus(prisma, styleId); // landmine No.3: derived status
 
   return res.status(201).json({
     success: true,
@@ -3647,7 +3667,10 @@ export async function updateCADTableRow(req: Request, res: Response) {
         const rawMatCad = await prisma.fabric_width_cad.findFirst({
           where: {
             purpose: 'RAW_MATERIAL_CALCULATION',
-            approvedBy: { not: null },
+            // Landmine №6 fix: the variance baseline must be a genuinely APPROVED CAD.
+            // approvedBy-not-null was a proxy that a rejection used to stamp too, so a
+            // freshly rejected CAD could become the >3% variance comparison baseline.
+            approvalStatus: 'APPROVED',
             greigeId: existingCad.greigeId,
             cutableWidth: existingCad.cutableWidth,
           },
@@ -3823,23 +3846,9 @@ export async function deleteCADTableRow(req: Request, res: Response) {
     where: { id: rowId },
   });
 
-  // Auto-reset style cadStatus to PENDING if no CAD rows remain
-  // When the last row is deleted, the plan is no longer approved
-  const remainingRows = await prisma.fabric_width_cad.count({
-    where: {
-      styleFabric: {
-        style_components: { styleId },
-      },
-    },
-  });
-
-  if (remainingRows === 0) {
-    await prisma.styles.update({
-      where: { id: styleId },
-      data: { cadStatus: 'PENDING', approvedCadDate: null },
-    });
-    logInfo(`Reset cadStatus to PENDING for style ${styleId} — no CAD rows remain`);
-  }
+  // Style status is derived from the rows (landmine №3) — this generalizes the old
+  // "reset to PENDING when the last row goes" partial recompute
+  await recomputeStyleCadStatus(prisma, styleId);
 
   logInfo(`Deleted CAD row ${rowId} for style ${styleId}`);
 

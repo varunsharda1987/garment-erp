@@ -36,7 +36,6 @@ import {
   syncBomFabricFromCAD,
 } from '../controllers/cad-planning.controller';
 import {
-  approveCAD,
   approveCADPurpose,
   rejectCADPurpose,
   createPlanningVersion,
@@ -94,7 +93,6 @@ import {
   addCADWidthSchema,
   updateCADValuesWithBreakdownSchema,
   updateCADValuesSchema,
-  approveCADSchema,
   cadPurposeActionSchema,
   createPlanningVersionSchema,
   copyCADPurposeSchema,
@@ -396,12 +394,8 @@ router.put(
 // APPROVAL OPERATIONS
 // ============================================
 
-/**
- * @route   POST /api/cad-planning/approve
- * @desc    Approve a specific CAD option for a style (legacy)
- * @access  ADMIN, MERCHANDISER
- */
-router.post('/approve', authorize('ADMIN', 'MERCHANDISER'), validateBody(approveCADSchema), asyncHandler(approveCAD));
+// RETIRED 2026-08-24: legacy POST /approve stamped styles.cadStatus without touching
+// row-level approval (landmine No.3). Style status is now derived from rows.
 
 /**
  * @route   POST /api/cad-planning/:styleId/row/:rowId/approve

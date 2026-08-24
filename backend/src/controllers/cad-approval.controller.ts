@@ -5,6 +5,7 @@ import { calculateCadAverage } from './cad-planning.utils';
 import { NotFoundError, ValidationError, BusinessError, UnauthorizedError } from '../errors';
 import { Decimal } from '@prisma/client/runtime/library';
 import { multiplyCurrency, toNumber } from '../utils/currency'; // BUG-FAB12 fix
+import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 
 /**
  * Reserve fabric stock for a PRODUCTION CAD
@@ -83,106 +84,12 @@ async function reserveFabricStock(
   };
 }
 
-/**
- * Approve a specific CAD option for a style
- * POST /api/styles/cad-planning/approve
- * Body: { styleId, cadId, fabricId, approvalNotes? }
+/*
+ * RETIRED 2026-08-24 (landmine No.3): the legacy style-level approveCAD endpoint
+ * stamped styles.cadStatus='APPROVED' without ever touching fabric_width_cad.approvalStatus
+ * — the purest producer of the style-vs-row approval drift. No frontend caller existed.
+ * Style status is now DERIVED from rows via services/helpers/cad-status.helper.ts.
  */
-export async function approveCAD(req: Request, res: Response) {
-  const { styleId, cadId, fabricId, approvalNotes } = req.body;
-
-  // Verify style exists
-  const style = await prisma.styles.findUnique({
-    where: { id: styleId },
-    include: {
-      style_components: {
-        include: {
-          style_fabrics: {
-            where: {
-              fabricId: fabricId,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  if (!style) {
-    throw new NotFoundError('Style', styleId);
-  }
-
-  // Verify CAD exists and has required data
-  const cad = await prisma.fabric_width_cad.findUnique({
-    where: { id: cadId },
-    select: {
-      id: true,
-      cadMeters: true,
-      cadAverage: true,
-      cutableWidth: true,
-    },
-  });
-
-  if (!cad) {
-    throw new NotFoundError('CAD record', cadId);
-  }
-
-  // Validate that CAD has essential data before approval
-  if (!cad.cadMeters || Number(cad.cadMeters) <= 0) {
-    throw new BusinessError(
-      'Cannot approve CAD: Layer length (cadMeters) must be populated with a valid value. Please complete the CAD data before approval.'
-    );
-  }
-
-  if (!cad.cutableWidth || Number(cad.cutableWidth) <= 0) {
-    throw new BusinessError(
-      'Cannot approve CAD: Cutable width must be populated with a valid value. Please complete the CAD data before approval.'
-    );
-  }
-
-  // Update style_fabrics to reference this CAD
-  const fabricsToUpdate = style.style_components.flatMap((comp) => comp.style_fabrics.map((fabric) => fabric.id));
-
-  if (fabricsToUpdate.length > 0) {
-    await prisma.style_fabrics.updateMany({
-      where: {
-        id: { in: fabricsToUpdate },
-      },
-      data: {
-        fabricCADId: cadId,
-        fabricId: fabricId,
-      },
-    });
-  }
-
-  // Update style status to APPROVED with approval date
-  const updatedStyle = await prisma.styles.update({
-    where: { id: styleId },
-    data: {
-      cadStatus: 'APPROVED',
-      approvedCadDate: new Date(),
-    },
-  });
-
-  // Optionally add approval notes to CAD record
-  if (approvalNotes) {
-    await prisma.fabric_width_cad.update({
-      where: { id: cadId },
-      data: {
-        notes: approvalNotes,
-      },
-    });
-  }
-
-  return res.json({
-    success: true,
-    message: 'CAD approved successfully',
-    style: {
-      styleId: updatedStyle.id,
-      cadStatus: updatedStyle.cadStatus,
-      approvedCadDate: updatedStyle.approvedCadDate,
-    },
-  });
-}
 
 /**
  * Approve CAD Purpose (COSTING, RAW_MATERIAL_CALCULATION, or PRODUCTION)
@@ -277,6 +184,9 @@ export async function approveCADPurpose(req: Request, res: Response) {
     }
   }
 
+  // Landmine №3: style-level cadStatus is derived from the rows — never drifts again
+  await recomputeStyleCadStatus(prisma, styleId);
+
   return res.json({
     success: true,
     message: `${updated.purpose} CAD approved successfully`,
@@ -335,8 +245,14 @@ export async function rejectCADPurpose(req: Request, res: Response) {
     where: { id: rowId },
     data: {
       approvalStatus: 'REJECTED',
-      approvedBy: userId,
-      approvedAt: new Date(),
+      // Landmine №6 fix: a rejection must stamp the REJECTED audit fields and clear the
+      // approver ones — the old code wrote the rejector's name into approvedBy/approvedAt,
+      // and the production variance baseline (approvedBy-not-null proxy) then compared
+      // markers against rejected geometry.
+      rejectedBy: userId,
+      rejectedAt: new Date(),
+      approvedBy: null,
+      approvedAt: null,
       approvalNotes: rejectionNotes,
       costingApprovalStatus: null,
       costingApprovedBy: null,
@@ -344,7 +260,7 @@ export async function rejectCADPurpose(req: Request, res: Response) {
       isPreferred: false,
     },
     include: {
-      approver: {
+      rejector: {
         select: {
           id: true,
           firstName: true,
@@ -354,6 +270,9 @@ export async function rejectCADPurpose(req: Request, res: Response) {
     },
   });
 
+  // Landmine №3: style-level cadStatus is derived from the rows
+  await recomputeStyleCadStatus(prisma, styleId);
+
   return res.json({
     success: true,
     message: `${updated.purpose} CAD rejected`,
@@ -361,7 +280,7 @@ export async function rejectCADPurpose(req: Request, res: Response) {
       cadId: updated.id,
       purpose: updated.purpose,
       approvalStatus: updated.approvalStatus,
-      rejectedBy: updated.approver ? `${updated.approver.firstName} ${updated.approver.lastName}` : null,
+      rejectedBy: updated.rejector ? `${updated.rejector.firstName} ${updated.rejector.lastName}` : null,
       rejectionNotes: updated.approvalNotes,
     },
   });
@@ -437,6 +356,8 @@ export async function createPlanningVersion(req: Request, res: Response) {
       })),
     });
   }
+
+  await recomputeStyleCadStatus(prisma, styleId);
 
   return res.json({
     success: true,
@@ -568,6 +489,8 @@ export async function copyCADPurpose(req: Request, res: Response) {
       })),
     });
   }
+
+  await recomputeStyleCadStatus(prisma, styleId);
 
   return res.json({
     success: true,

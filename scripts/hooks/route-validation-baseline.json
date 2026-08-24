@@ -80,7 +80,6 @@
   "backend/src/routes/style.routes.ts :: POST /:styleId/processes",
   "backend/src/routes/style.routes.ts :: POST /components/:componentId/accessories",
   "backend/src/routes/style.routes.ts :: POST /components/:componentId/fabrics",
-  "backend/src/routes/style.routes.ts :: PUT /:id/approve-cad",
   "backend/src/routes/style.routes.ts :: PUT /accessories/:id",
   "backend/src/routes/style.routes.ts :: PUT /components/:id",
   "backend/src/routes/style.routes.ts :: PUT /fabrics/:id",

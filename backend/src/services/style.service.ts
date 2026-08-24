@@ -24,6 +24,7 @@ import {
   StyleTrimInput,
 } from '../types/style.types';
 import { generateSKU, checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } from '../utils/sku-generator';
+import { recomputeStyleCadStatus } from './helpers/cad-status.helper';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { systemSettingsService } from './system-settings.service';
 
@@ -2342,10 +2343,8 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       )
     );
 
-    await this.prisma.styles.update({
-      where: { id: styleId },
-      data: { cadStatus: 'IN_PROGRESS' },
-    });
+    // Style status is derived from the rows (landmine №3) — never write it directly
+    await recomputeStyleCadStatus(this.prisma, styleId);
 
     logInfo('CAD grouping updated', { styleId });
   }
@@ -2353,7 +2352,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
   /**
    * Approve CAD plan and link fabrics to CAD entries
    */
-  async approveCADPlan(styleId: string, fabricCADMappings: FabricCADMapping[]): Promise<styles> {
+  async approveCADPlan(styleId: string, fabricCADMappings: FabricCADMapping[], approvedById?: string): Promise<styles> {
     if (!fabricCADMappings || !Array.isArray(fabricCADMappings)) {
       throw new ValidationError('fabricCADMappings array is required');
     }
@@ -2457,24 +2456,37 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       );
     }
 
-    await Promise.all(
-      expandedMappings.map((mapping) =>
-        this.prisma.style_fabrics.update({
-          where: { id: mapping.fabricId },
-          data: { fabricCADId: mapping.fabricCADId },
-        })
-      )
-    );
+    // One transaction: link fabrics -> flip the SELECTED rows to APPROVED -> derive the
+    // style status from the rows. The old code stamped only styles.cadStatus and never
+    // touched row-level approval — the purest producer of the style-vs-row drift
+    // (landmine №3), and under the derived model the button would have been a no-op.
+    const mappedCadIds = [...new Set(expandedMappings.map((m) => m.fabricCADId))];
+    await this.prisma.$transaction(async (tx) => {
+      await Promise.all(
+        expandedMappings.map((mapping) =>
+          tx.style_fabrics.update({
+            where: { id: mapping.fabricId },
+            data: { fabricCADId: mapping.fabricCADId },
+          })
+        )
+      );
 
-    const updatedStyle = await this.prisma.styles.update({
-      where: { id: styleId },
-      data: {
-        cadStatus: 'APPROVED',
-        approvedCadDate: new Date(),
-      },
+      await tx.fabric_width_cad.updateMany({
+        where: { id: { in: mappedCadIds } },
+        data: {
+          approvalStatus: 'APPROVED', // allow-cad-approval: this IS the CAD-side approval
+          ...(approvedById ? { approvedBy: approvedById } : {}),
+          approvedAt: new Date(),
+          rejectedBy: null,
+          rejectedAt: null,
+        },
+      });
+
+      await recomputeStyleCadStatus(tx, styleId);
     });
 
-    logInfo('CAD plan approved', { styleId });
+    const updatedStyle = await this.prisma.styles.findUniqueOrThrow({ where: { id: styleId } });
+    logInfo('CAD plan approved', { styleId, approvedRows: mappedCadIds.length });
     return updatedStyle;
   }
 
@@ -2535,14 +2547,11 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       });
     }
 
-    // Reset style cadStatus to PENDING
-    const updatedStyle = await this.prisma.styles.update({
-      where: { id: styleId },
-      data: {
-        cadStatus: 'PENDING',
-        approvedCadDate: null,
-      },
-    });
+    // Style status is DERIVED from the rows (landmine №3): with every row just reset to
+    // PENDING this computes IN_PROGRESS (rows exist, none approved) — or PENDING if the
+    // style has no rows at all.
+    await recomputeStyleCadStatus(this.prisma, styleId);
+    const updatedStyle = await this.prisma.styles.findUniqueOrThrow({ where: { id: styleId } });
 
     logInfo('CAD plan rejected', { styleId });
     return updatedStyle;

@@ -507,7 +507,7 @@ export const approveCADPlan = async (req: Request, res: Response): Promise<void>
     throw new ValidationError('Style ID is required');
   }
 
-  const updatedStyle = await styleService.approveCADPlan(styleId, fabricCADMappings);
+  const updatedStyle = await styleService.approveCADPlan(styleId, fabricCADMappings, req.user?.userId);
 
   res.status(200).json({
     success: true,

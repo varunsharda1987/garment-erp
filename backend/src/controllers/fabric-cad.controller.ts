@@ -5,6 +5,7 @@ import { ValidationError, NotFoundError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
 import { multiplyCurrency, toNumber } from '../utils/currency'; // BUG-CAD8 fix
 import { validateCADModification } from './cad-planning.utils';
+import { recomputeStyleCadStatus } from '../services/helpers/cad-status.helper';
 
 /**
  * Fabric Width CAD Controller
@@ -283,9 +284,25 @@ export const deleteCAD = async (req: Request, res: Response) => {
   // PRODUCTION) CAD entry must not be destroyed through this legacy route.
   await validateCADModification(id, 'delete');
 
+  // Resolve the owning style BEFORE deleting so the derived cadStatus can be recomputed
+  const owningStyleId =
+    existingCAD.costingStyleId ??
+    (existingCAD.styleFabricId
+      ? (
+          await prisma.style_fabrics.findUnique({
+            where: { id: existingCAD.styleFabricId },
+            select: { style_components: { select: { styleId: true } } },
+          })
+        )?.style_components?.styleId
+      : null);
+
   await prisma.fabric_width_cad.delete({
     where: { id },
   });
+
+  if (owningStyleId) {
+    await recomputeStyleCadStatus(prisma, owningStyleId); // landmine №3: derived status
+  }
 
   res.json({ message: 'CAD entry deleted successfully' });
 };

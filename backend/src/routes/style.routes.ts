@@ -17,7 +17,6 @@ import {
   deleteDraft,
   publishDraft,
   updateCADGrouping,
-  approveCADPlan,
   canDeactivateStyle,
   getNextStyleCode,
 } from '../controllers/style.controller';
@@ -48,7 +47,6 @@ import {
   componentIdParamSchema,
   createStyleVariantsSchema,
   updateCADGroupingSchema,
-  approveCADPlanSchema,
   createComponentSchema,
   updateComponentSchema,
   createComponentFabricSchema,
@@ -242,18 +240,8 @@ router.post(
   asyncHandler(updateCADGrouping)
 );
 
-/**
- * @route   PUT /api/styles/:id/approve-cad
- * @desc    Approve CAD plan and link fabrics to selected CAD entries
- * @access  Protected - Admin, Merchandiser
- */
-router.put(
-  '/:id/approve-cad',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  validateParams(styleIdParamSchema),
-  validateBody(approveCADPlanSchema),
-  asyncHandler(approveCADPlan)
-);
+// RETIRED 2026-08-24: duplicate mount of approveCADPlan (the live route is
+// PUT /api/cad-planning/:styleId/approve-cad). No frontend caller existed.
 
 /**
  * @route   POST /api/styles/:id/restore

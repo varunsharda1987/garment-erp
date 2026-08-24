@@ -1343,14 +1343,14 @@ export function CADSpreadsheetTable({
                     const isEditing = editingRow === row.id;
                     const isSaving = savingRow === row.id;
                     const isDeleting = deletingRow === row.id;
-                    // Lock rows that are APPROVED when style is approved (prevents editing historical data).
-                    // Two-owner split: a row whose costing PRICE is approved is also locked — editing
-                    // width/consumption under an approved price would silently invalidate it (the
-                    // backend's validateCADModification enforces the same rule).
+                    // An APPROVED row is locked regardless of style-level status — the backend's
+                    // validateCADModification refuses edits on row approval alone, and since
+                    // 2026-08-24 styles.cadStatus is DERIVED from the rows (so gating the lock on
+                    // isStyleApproved let rows look editable while the server would refuse).
+                    // Two-owner split: an approved costing PRICE also locks the geometry.
                     const hasApprovedCosting =
                       row.costingApprovalStatus === 'APPROVED' || row.costingApprovalStatus === 'ALTERNATE_APPROVED';
-                    const isRowLocked =
-                      (isStyleApproved && row.approvalStatus === CADApprovalStatus.APPROVED) || hasApprovedCosting;
+                    const isRowLocked = row.approvalStatus === CADApprovalStatus.APPROVED || hasApprovedCosting;
                     const currentPartId = getDisplayValue(row, 'partId', null);
                     const currentPartCode = row.partCode; // Use partCode from row data
                     const currentWidth = getDisplayValue(row, 'cutableWidth', null);

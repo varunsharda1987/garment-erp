@@ -231,17 +231,7 @@ export const updateCADValuesSchema = z.object({
 // APPROVAL OPERATIONS
 // ============================================================================
 
-/**
- * Approve CAD (Legacy)
- * POST /api/cad-planning/approve
- */
-export const approveCADSchema = z.object({
-  styleId: z.string().uuid('Invalid style ID'),
-  cadId: z.string().uuid('Invalid CAD ID'),
-  remarks: z.string().max(500).optional(),
-  fabricId: z.string().uuid('Invalid fabric ID').optional(),
-  approvalNotes: z.string().max(500).optional(),
-});
+// RETIRED 2026-08-24: approveCADSchema removed with the legacy POST /cad-planning/approve route (landmine No.3)
 
 /**
  * Approve/Reject CAD Purpose
@@ -446,7 +436,6 @@ export type UpdateCADTableRowInput = z.infer<typeof updateCADTableRowSchema>;
 export type AddCADWidthInput = z.infer<typeof addCADWidthSchema>;
 export type UpdateCADValuesWithBreakdownInput = z.infer<typeof updateCADValuesWithBreakdownSchema>;
 export type UpdateCADValuesInput = z.infer<typeof updateCADValuesSchema>;
-export type ApproveCADInput = z.infer<typeof approveCADSchema>;
 export type CADPurposeActionInput = z.infer<typeof cadPurposeActionSchema>;
 export type CreatePlanningVersionInput = z.infer<typeof createPlanningVersionSchema>;
 export type CopyCADPurposeInput = z.infer<typeof copyCADPurposeSchema>;

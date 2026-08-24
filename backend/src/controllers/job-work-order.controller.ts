@@ -1278,6 +1278,7 @@ class JobWorkOrderController {
         // received material is left alone for a human to resolve.
         await echoShadowPoStatus(txClient, jwo.purchaseOrderId, 'CANCELLED', {
           appendRemarks: `[JWO CANCELLED] ${jwo.jobWorkNumber}: ${reason || 'No reason given'}`.trim(),
+          cancelledById: userId,
         });
 
         // Both status columns via the helper — the old jwoStatus-only write left the legacy

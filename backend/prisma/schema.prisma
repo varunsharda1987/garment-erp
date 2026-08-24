@@ -1451,6 +1451,10 @@ model purchase_orders {
   remarks                                   String?
   createdById                               String
   approvedById                              String?
+  // Landmine №7 follow-up (owner-approved 2026-08-24): who cancelled, and when — the one
+  // idea the dead parallel engine reached for; the live cancel recorded nobody.
+  cancelledById                             String?
+  cancelledAt                               DateTime?
   createdAt                                 DateTime                          @default(now())
   userId                                    String?
   isActive                                  Boolean                           @default(true)
@@ -1469,6 +1473,7 @@ model purchase_orders {
   goods_receiving_notes                     goods_receiving_notes[]
   purchase_order_items                      purchase_order_items[]
   users_purchase_orders_approvedByIdTousers users?                            @relation("purchase_orders_approvedByIdTousers", fields: [approvedById], references: [id])
+  cancelledBy                               users?                            @relation("po_cancelledBy", fields: [cancelledById], references: [id])
   users_purchase_orders_createdByIdTousers  users                             @relation("purchase_orders_createdByIdTousers", fields: [createdById], references: [id])
   suppliers                                 suppliers                         @relation(fields: [supplierId], references: [id])
   users_purchase_orders_userIdTousers       users?                            @relation("purchase_orders_userIdTousers", fields: [userId], references: [id])
@@ -3074,6 +3079,7 @@ model users {
   production_plans_created                                        production_plans[]                @relation("production_plans_createdBy")
   production_tracking                                             production_tracking[]
   purchase_orders_purchase_orders_approvedByIdTousers             purchase_orders[]                 @relation("purchase_orders_approvedByIdTousers")
+  cancelled_purchase_orders                                       purchase_orders[]                 @relation("po_cancelledBy")
   purchase_orders_purchase_orders_createdByIdTousers              purchase_orders[]                 @relation("purchase_orders_createdByIdTousers")
   purchase_orders_purchase_orders_userIdTousers                   purchase_orders[]                 @relation("purchase_orders_userIdTousers")
   qualityInspectionsCreated                                       quality_inspection[]              @relation("quality_inspection_createdBy")

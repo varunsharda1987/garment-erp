@@ -351,8 +351,9 @@ export const cancelPurchaseOrder = async (req: Request, res: Response) => {
   const { reason } = req.body;
 
   // Landmine №7: pass the role — without it the state machine's ADMIN override never
-  // engaged, so nobody (not even admin) could cancel a fully-received PO
-  const purchaseOrder = await purchaseOrderService.cancelPurchaseOrder(id, reason, req.user?.role);
+  // engaged, so nobody (not even admin) could cancel a fully-received PO. The userId
+  // stamps cancelledBy/cancelledAt (audit: previously nobody was recorded on cancel).
+  const purchaseOrder = await purchaseOrderService.cancelPurchaseOrder(id, reason, req.user?.role, req.user?.userId);
 
   logInfo(`Purchase order cancelled: ${purchaseOrder.poNumber}`);
 

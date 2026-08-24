@@ -9,6 +9,7 @@
  */
 
 import { echoShadowPoStatus } from '../helpers/shadow-po.helper';
+import { purchaseOrderService } from '../purchaseOrder.service';
 import prisma from '../../config/database';
 import { randomUUID } from 'crypto';
 
@@ -112,5 +113,23 @@ describe('shadow-po.helper', () => {
   it('tolerates a missing or null PO id (legacy JWOs without a shadow pair)', async () => {
     expect(await echoShadowPoStatus(prisma, null, 'CANCELLED')).toBe(false);
     expect(await echoShadowPoStatus(prisma, randomUUID(), 'SENT')).toBe(false);
+  });
+
+  it('cancel echo stamps who cancelled and when (audit follow-up)', async () => {
+    const po = await createPo('SENT');
+    await echoShadowPoStatus(prisma, po.id, 'CANCELLED', { cancelledById: testUserId });
+    const after = await prisma.purchase_orders.findUnique({ where: { id: po.id } });
+    expect(after!.cancelledById).toBe(testUserId);
+    expect(after!.cancelledAt).not.toBeNull();
+  });
+
+  it('the live cancelPurchaseOrder stamps the actor too (previously nobody was recorded)', async () => {
+    const po = await createPo('DRAFT');
+    await purchaseOrderService.cancelPurchaseOrder(po.id, 'audit test', 'ADMIN', testUserId);
+    const after = await prisma.purchase_orders.findUnique({ where: { id: po.id } });
+    expect(after!.status).toBe('CANCELLED');
+    expect(after!.cancelledById).toBe(testUserId);
+    expect(after!.cancelledAt).not.toBeNull();
+    expect(after!.remarks).toContain('Cancellation reason: audit test');
   });
 });

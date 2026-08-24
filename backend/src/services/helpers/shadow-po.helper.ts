@@ -38,7 +38,7 @@ export async function echoShadowPoStatus(
   client: DbClient,
   purchaseOrderId: string | null | undefined,
   target: ShadowPoEcho,
-  opts?: { appendRemarks?: string }
+  opts?: { appendRemarks?: string; cancelledById?: string }
 ): Promise<boolean> {
   if (!purchaseOrderId) return false;
 
@@ -53,10 +53,16 @@ export async function echoShadowPoStatus(
     return false;
   }
 
-  const data: Prisma.purchase_ordersUpdateManyMutationInput = { status: target };
+  // Unchecked variant: the checked input type rejects FK scalars like cancelledById
+  const data: Prisma.purchase_ordersUncheckedUpdateManyInput = { status: target };
   if (opts?.appendRemarks) {
     // Append, never overwrite — the old dyeing cancel echo destroyed prior remarks
     data.remarks = `${po.remarks || ''}\n${opts.appendRemarks}`.trim();
+  }
+  if (target === 'CANCELLED') {
+    // Who cancelled, and when (owner-approved 2026-08-24)
+    data.cancelledAt = new Date();
+    if (opts?.cancelledById) data.cancelledById = opts.cancelledById;
   }
 
   // Guarded write: the state precondition is re-checked in the WHERE (concurrency-safe)

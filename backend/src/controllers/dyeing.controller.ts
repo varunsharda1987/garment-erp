@@ -2295,6 +2295,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
   // appends remarks instead of overwriting, and leaves a partially-received PO alone.
   await echoShadowPoStatus(prisma, job.purchaseOrderId, 'CANCELLED', {
     appendRemarks: `[RETURNED UNPROCESSED] Greige returned without processing. ${remarks || ''}`.trim(),
+    cancelledById: userId,
   });
 
   // Re-fetch (envelope shape)

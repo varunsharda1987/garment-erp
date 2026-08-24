@@ -865,7 +865,7 @@ class PurchaseOrderService {
   /**
    * Cancel purchase order
    */
-  async cancelPurchaseOrder(id: string, reason: string, userRole?: string) {
+  async cancelPurchaseOrder(id: string, reason: string, userRole?: string, cancelledById?: string) {
     const existingPO = await prisma.purchase_orders.findUnique({
       where: { id },
     });
@@ -887,6 +887,9 @@ class PurchaseOrderService {
         data: {
           status: PurchaseOrderStatus.CANCELLED,
           remarks: reason ? `${existingPO.remarks || ''}\n\nCancellation reason: ${reason}`.trim() : existingPO.remarks,
+          // Who cancelled, and when (owner-approved 2026-08-24) — previously nobody was recorded
+          cancelledById: cancelledById ?? null,
+          cancelledAt: new Date(),
         },
         include: this.getMinimalInclude(),
       });

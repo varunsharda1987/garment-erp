@@ -1408,10 +1408,17 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     acknowledgeDuplicate = false,
   } = req.body;
 
-  // Validate required fields
-  if (!qtySentMeters || !sentWidthInches || !agreedRatePerMeter) {
-    throw new ValidationError('Missing required fields: qtySentMeters, sentWidthInches, agreedRatePerMeter');
+  // Validate required fields. isRateTbd is the sanctioned escape hatch for a genuinely
+  // un-negotiated rate — the falsy `!agreedRatePerMeter` check used to reject rate 0 even with
+  // isRateTbd set, making the flag unreachable on this path (qty-rate audit 2026-08-24).
+  if (!qtySentMeters || !sentWidthInches) {
+    throw new ValidationError('Missing required fields: qtySentMeters, sentWidthInches');
   }
+  if (!isRateTbd && (agreedRatePerMeter == null || Number(agreedRatePerMeter) <= 0)) {
+    throw new ValidationError('agreedRatePerMeter is required (or mark the rate as TBD)');
+  }
+  // TBD convention: rate 0 until negotiated (isRateTbd marks the zero as intentional)
+  const effectiveAgreedRate = isRateTbd ? Number(agreedRatePerMeter ?? 0) || 0 : Number(agreedRatePerMeter);
 
   if (!greigeStockLotId && !fabricStockLotId) {
     throw new ValidationError('Either greigeStockLotId or fabricStockLotId is required');
@@ -1560,7 +1567,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
   // issued — qtySentMeters is what the operator physically sends; the billable qty deducts
   // the expected shrinkage loss.
   const qtyBillable = decToNumber(roundToCent(applyShrinkageLoss(qtySentMeters, resolvedExpectedShrinkage ?? 0)));
-  const totalAmount = decToNumber(roundToCent(multiplyCurrency(qtyBillable, agreedRatePerMeter)));
+  const totalAmount = decToNumber(roundToCent(multiplyCurrency(qtyBillable, effectiveAgreedRate)));
 
   const result = await prisma.$transaction(async (tx) => {
     // Generate job work number
@@ -1592,7 +1599,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         sentWidthInches,
         expectedReturnDate: expectedReturnDate ? new Date(expectedReturnDate) : null,
         expectedShrinkage: resolvedExpectedShrinkage,
-        agreedRatePerMeter,
+        agreedRatePerMeter: effectiveAgreedRate,
         isRateTbd, // Explicit TBD marker when rate=0 is intentional
         remarks,
         jwoStatus: 'DRAFT',

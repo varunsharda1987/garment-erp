@@ -104,6 +104,22 @@ export default function OrderForm() {
   // Downstream dependency lock — prevents item editing when BOM/MRP exists
   const [hasDownstreamDeps, setHasDownstreamDeps] = useState(false);
 
+  // Multi-style orders (e.g. created from a Sale Order with several styles): this form edits only
+  // the FIRST item, so the remaining items are carried through UNCHANGED on save. The backend
+  // rejects an update payload that omits an existing style — before that rule, saving from here
+  // silently deleted every style after the first (qty-rate audit 2026-08-24).
+  const [passthroughItems, setPassthroughItems] = useState<
+    Array<{
+      styleId: string;
+      unitPrice: string | number;
+      totalQuantity: number;
+      itemDescription?: string;
+      deliveryDate?: string;
+      remarks?: string;
+      breakup: CreateOrderItemBreakup[];
+    }>
+  >([]);
+
   // Cost sheet selection for pricing
   const [costSheetDialogOpen, setCostSheetDialogOpen] = useState(false);
   const [costSheets, setCostSheets] = useState<CostSheet[]>([]);
@@ -345,8 +361,25 @@ export default function OrderForm() {
         setTotalForDistribution(order.totalQuantity.toString());
       }
 
-      // Load the first (and only) order item
+      // Load the first order item into the form; keep every other item verbatim for the save
+      // payload (the backend refuses partial item sets — omitted styles would be deleted).
       if (order.orderItems && order.orderItems.length > 0) {
+        setPassthroughItems(
+          order.orderItems.slice(1).map((oi) => ({
+            styleId: oi.styleId,
+            unitPrice: oi.unitPrice,
+            totalQuantity: oi.totalQuantity,
+            itemDescription: (oi as { itemDescription?: string }).itemDescription ?? undefined,
+            deliveryDate: (oi as { deliveryDate?: string }).deliveryDate ?? undefined,
+            remarks: (oi as { remarks?: string }).remarks ?? undefined,
+            breakup: (oi.breakup ?? []).map((b) => ({
+              colorId: b.colorId ?? '',
+              sizeId: b.sizeId,
+              quantity: b.quantity,
+            })),
+          }))
+        );
+
         const item = order.orderItems[0];
         setSelectedStyleId(item.styleId);
         setUnitPrice(item.unitPrice.toString());
@@ -997,7 +1030,9 @@ export default function OrderForm() {
         remarks: remarks || undefined,
       };
 
-      // Only send items when there are no downstream dependencies (BOM/MRP)
+      // Only send items when there are no downstream dependencies (BOM/MRP).
+      // Multi-style orders: the edited first item plus every other item passed through
+      // unchanged — the backend deletes any style missing from this array.
       if (!hasDownstreamDeps) {
         orderData.items = [
           {
@@ -1006,6 +1041,7 @@ export default function OrderForm() {
             totalQuantity: enteredTotalQty,
             breakup: validBreakup,
           },
+          ...passthroughItems,
         ];
       }
 
@@ -1059,6 +1095,19 @@ export default function OrderForm() {
           <div className="flex items-center gap-3 p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive">
             <AlertCircle className="h-5 w-5 flex-shrink-0" />
             <p className="text-sm">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {isEditMode && passthroughItems.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg text-amber-700 dark:text-amber-400">
+            <AlertCircle className="h-5 w-5 flex-shrink-0" />
+            <p className="text-sm">
+              This order has {passthroughItems.length + 1} styles. This form edits the first style only — the other{' '}
+              {passthroughItems.length} {passthroughItems.length === 1 ? 'style is' : 'styles are'} kept unchanged when
+              you save.
+            </p>
           </div>
         </div>
       )}

@@ -122,13 +122,19 @@ export async function getCurrentProcessorRate(
   effectiveFrom: Date;
   shrinkagePercent: number | null;
 } | null> {
+  // A rate is only comparable within ONE quantity slab. A null slabId used to drop the filter
+  // entirely, so findFirst matched an ARBITRARY slab of this greige and the caller compared the
+  // cost sheet against a rate the processor quoted for a different quantity tier. Unknown slab
+  // means the comparison is unresolvable — return null and let the caller skip.
+  if (!slabId) return null;
+
   const rate = await prisma.processor_rate_card.findFirst({
     where: {
       processorId,
       processingType,
       greigeId: greigeId || undefined,
       laceId: laceId || undefined,
-      slabId: slabId || undefined,
+      slabId,
       effectiveTo: null, // Currently active
       isActive: true,
     },
@@ -167,13 +173,16 @@ export async function getRateAtDate(
   effectiveFrom: Date;
   effectiveTo: Date | null;
 } | null> {
+  // Same slab rule as getCurrentProcessorRate: an unknown slab is unresolvable, not a wildcard.
+  if (!slabId) return null;
+
   const rate = await prisma.processor_rate_card.findFirst({
     where: {
       processorId,
       processingType,
       greigeId: greigeId || undefined,
       laceId: laceId || undefined,
-      slabId: slabId || undefined,
+      slabId,
       effectiveFrom: { lte: asOfDate },
       OR: [{ effectiveTo: null }, { effectiveTo: { gt: asOfDate } }],
     },

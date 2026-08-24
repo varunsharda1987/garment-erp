@@ -365,7 +365,11 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       effectiveCad,
       costPerMeter: cadRate,
       totalCost: effectiveCad * cadRate,
-      sourcingStrategy: cad.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
+      // LANDED_PRICE rows are all-in ready-fabric buys (greige/processing columns are null by
+      // contract) — a retained processorId must not flip them to GREIGE_PROCESSED, or the BOM
+      // emits a GREIGE line with greigeCost=null and MRP prices the greige PO at the ALL-IN
+      // landed rate, overpaying the weaver by the processing margin (qty-rate audit 2026-08-24).
+      sourcingStrategy: cad.processorId && cad.costInputMode !== 'LANDED_PRICE' ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
       processorId: cad.processorId || null,
       // MRP-48c: record WHICH processor rate card this line was costed against. Lace items have
       // always carried this (see the lace block below); fabric items never did, so
@@ -1019,7 +1023,11 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
       effectiveCad,
       costPerMeter: cadRate,
       totalCost: effectiveCad * cadRate,
-      sourcingStrategy: cad.processorId ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
+      // LANDED_PRICE rows are all-in ready-fabric buys (greige/processing columns are null by
+      // contract) — a retained processorId must not flip them to GREIGE_PROCESSED, or the BOM
+      // emits a GREIGE line with greigeCost=null and MRP prices the greige PO at the ALL-IN
+      // landed rate, overpaying the weaver by the processing margin (qty-rate audit 2026-08-24).
+      sourcingStrategy: cad.processorId && cad.costInputMode !== 'LANDED_PRICE' ? 'GREIGE_PROCESSED' : 'READY_FABRIC',
       processorId: cad.processorId || null,
       // MRP-48c: record WHICH processor rate card this line was costed against. Lace items have
       // always carried this (see the lace block below); fabric items never did, so

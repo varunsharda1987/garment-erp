@@ -1,5 +1,7 @@
 import { POCategory } from '@prisma/client';
 import prisma from '../config/database';
+import { lookupRate, lookupLaceRate } from './processor-rate-v2.service';
+import type { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
 
 // ============================================
 // TYPES
@@ -16,6 +18,9 @@ export interface RateResolutionContext {
   serviceType?: string;
   costSheetId?: string;
   printingType?: string;
+  // PROCESSING: meters the job will actually run — drives the quantity-slab match.
+  // Without it the resolver cannot pick a slab and returns null (never an arbitrary card).
+  quantityMeters?: number;
 }
 
 export interface RateResolutionResult {
@@ -208,22 +213,43 @@ async function resolveGreigeRate(ctx: RateResolutionContext): Promise<RateResolu
 }
 
 async function resolveProcessingRate(ctx: RateResolutionContext): Promise<RateResolutionResult> {
-  // Primary: Processor Rate Card (filtered by printingType if available)
-  if (ctx.supplierId) {
-    const rateCard = await prisma.processor_rate_card.findFirst({
-      where: {
-        processorId: ctx.supplierId,
-        isActive: true,
-        ...(ctx.printingType ? { printingType: ctx.printingType as any } : {}),
-      },
-      orderBy: { createdAt: 'desc' },
-      select: { ratePerMeter: true },
-    });
+  // A processing rate is only meaningful for a specific (processor, greige/lace, quantity slab)
+  // tuple — rate cards are keyed on all three. The old implementation here took the processor's
+  // NEWEST card ignoring greige, slab and quantity, so it could quote greige B's top-slab rate
+  // for greige A's 700m job. Without enough context to pick the right card we now return null,
+  // which lets callers fall back to the costed snapshot instead of an arbitrary number.
+  if (!ctx.supplierId || ctx.quantityMeters == null || ctx.quantityMeters <= 0) {
+    return { rate: null, source: 'Manual entry required' };
+  }
 
-    if (rateCard?.ratePerMeter && Number(rateCard.ratePerMeter) > 0) {
+  if (ctx.greigeId) {
+    const processingType: ProcessingTypeV2 = ctx.printingType ? 'PRINTING' : 'DYEING';
+    const result = await lookupRate({
+      processorId: ctx.supplierId,
+      processingType,
+      printingType: ctx.printingType as PrintingTypeV2 | undefined,
+      greigeId: ctx.greigeId,
+      quantityMeters: ctx.quantityMeters,
+    });
+    if (result && result.ratePerMeter > 0) {
       return {
-        rate: Number(rateCard.ratePerMeter),
-        source: 'Processor Rate Card',
+        rate: result.ratePerMeter,
+        source: `Processor Rate Card (${result.slabLabel || `${result.minQuantity}-${result.maxQuantity}m`})`,
+      };
+    }
+    return { rate: null, source: 'Manual entry required' };
+  }
+
+  if (ctx.laceId) {
+    const result = await lookupLaceRate({
+      processorId: ctx.supplierId,
+      laceId: ctx.laceId,
+      quantityMeters: ctx.quantityMeters,
+    });
+    if (result && result.ratePerMeter > 0) {
+      return {
+        rate: result.ratePerMeter,
+        source: `Processor Rate Card (${result.slab.label})`,
       };
     }
   }

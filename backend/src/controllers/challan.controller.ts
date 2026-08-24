@@ -170,11 +170,24 @@ export async function quickIssueChallanController(req: Request, res: Response) {
  * GET /api/po-rates/resolve
  */
 export async function resolveRateController(req: Request, res: Response) {
-  const { poCategory, styleId, supplierId, materialId, fabricId, laceId, serviceType, costSheetId } = req.query;
+  const {
+    poCategory,
+    styleId,
+    supplierId,
+    materialId,
+    fabricId,
+    greigeId,
+    laceId,
+    serviceType,
+    costSheetId,
+    quantityMeters,
+  } = req.query;
 
   if (!poCategory) {
     throw new ValidationError('poCategory is required');
   }
+
+  const parsedQuantity = quantityMeters != null ? Number(quantityMeters) : undefined;
 
   const result = await resolveRate({
     poCategory: poCategory as any,
@@ -182,9 +195,13 @@ export async function resolveRateController(req: Request, res: Response) {
     supplierId: supplierId as string,
     materialId: materialId as string,
     fabricId: fabricId as string,
+    greigeId: greigeId as string,
     laceId: laceId as string,
     serviceType: serviceType as string,
     costSheetId: costSheetId as string,
+    // PROCESSING needs greige + meters for a slab-aware rate; without them the resolver
+    // reports 'Manual entry required' instead of quoting an arbitrary card.
+    quantityMeters: parsedQuantity != null && Number.isFinite(parsedQuantity) ? parsedQuantity : undefined,
   });
 
   return res.json({ success: true, data: result });

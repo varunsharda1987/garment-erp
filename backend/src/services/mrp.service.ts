@@ -1676,11 +1676,15 @@ export async function calculateRequirementsFromOrder(
 
       // For GREIGE_PROCESSED sourcing, create TWO requirements: GREIGE + PROCESSING
       if (hasGreigeProcessing && greigeMaterialId) {
-        // Price snapshot: GREIGE uses greigeCost (the landed greige price from cost sheet),
-        // falling back to unitPrice (ready-fabric price) if greigeCost wasn't set.
+        // Price snapshot: GREIGE uses greigeCost (the landed greige price from cost sheet).
+        // The unitPrice fallback is allowed ONLY when the line has no processing rate either —
+        // then unitPrice plausibly IS a bare greige rate (legacy rows). When processingCost is
+        // set but greigeCost is null (e.g. a mis-classified LANDED_PRICE row), unitPrice is the
+        // ALL-IN rate and pricing the greige PO with it overpays the weaver by the processing
+        // margin — leave it null so PO generation resolves the rate loudly instead.
         const greigeSnapshotPrice = bomItem.greigeCost
           ? Number(bomItem.greigeCost)
-          : bomItem.unitPrice
+          : bomItem.unitPrice && !bomItem.processingCost
             ? Number(bomItem.unitPrice)
             : null;
 
@@ -3102,8 +3106,14 @@ export async function generatePOFromRequirements(
           const resolved = await resolveRate({
             poCategory: 'PROCESSING' as any,
             supplierId,
-            printingType: req.printingType || undefined,
+            printingType: req.printingType || (req as any).orderBomItem?.rateCard?.printingType || undefined,
             materialId: req.materialId,
+            // Slab-aware resolution: without greige + meters the resolver refuses (returns null)
+            // rather than quoting an arbitrary card, and the costed snapshot below wins.
+            greigeId:
+              ((req as any).orderBomItem?.greigeId ?? (req.materials as any)?.greigeId ?? undefined) || undefined,
+            laceId: ((req.materials as any)?.laceId ?? undefined) || undefined,
+            quantityMeters: Number(req.shortfall) > 0 ? Number(req.shortfall) : undefined,
           });
           if (resolved.rate && resolved.rate > 0) return { key: groupKey, rate: resolved.rate };
         } catch {
@@ -4962,7 +4972,9 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
           },
         },
         // Billing basis for PROCESSING rows (same fallback chain as generation)
-        orderBomItem: { select: { rateCard: { select: { shrinkagePercent: true } } } },
+        orderBomItem: {
+          select: { greigeId: true, rateCard: { select: { shrinkagePercent: true, printingType: true } } },
+        },
         linkedRequirement: { select: { shrinkagePercentUsed: true } },
       },
     });
@@ -4998,8 +5010,13 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
             // fix in generatePOFromRequirements) — otherwise the preview quotes one processor's
             // rate for a job that goes out in another's name.
             supplierId,
-            printingType: req.printingType || undefined,
+            printingType: req.printingType || (req as any).orderBomItem?.rateCard?.printingType || undefined,
             materialId: req.materialId,
+            // Same slab-aware context as generation, so the preview and the issued JWO agree.
+            greigeId:
+              ((req as any).orderBomItem?.greigeId ?? (req.materials as any)?.greigeId ?? undefined) || undefined,
+            laceId: ((req.materials as any)?.laceId ?? undefined) || undefined,
+            quantityMeters: Number(req.shortfall) > 0 ? Number(req.shortfall) : undefined,
           });
           if (resolved.rate && resolved.rate > 0) {
             costSheetRateMap.set(groupKey, resolved.rate);

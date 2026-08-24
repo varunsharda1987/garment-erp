@@ -764,6 +764,23 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
   const { customerId, orderDate, expectedDeliveryDate, priority, paymentTerms, shippingAddress, remarks, items } =
     req.body;
 
+  // Item replacement is destructive (delete-and-recreate, cascading order_item_costing etc.),
+  // so it needs a status gate and a completeness rule the old code lacked (qty-rate audit 2026-08-24).
+  const existingOrder = await prisma.orders.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      status: true,
+      order_items: { select: { id: true, styleId: true } },
+    },
+  });
+  if (!existingOrder) {
+    throw new NotFoundError('Order not found');
+  }
+  if (existingOrder.status === 'CANCELLED' || existingOrder.status === 'SPLIT') {
+    throw new BusinessError(`Cannot edit a ${existingOrder.status} order.`);
+  }
+
   // Build order-level update data
   const updateData: Record<string, unknown> = {
     orderDate: orderDate ? new Date(orderDate) : undefined,
@@ -780,6 +797,27 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
 
   // If items are provided, check for downstream dependencies before replacing
   if (items && Array.isArray(items) && items.length > 0) {
+    if (existingOrder.status !== 'PENDING') {
+      throw new BusinessError(
+        `Order items can only be edited while the order is PENDING (current status: ${existingOrder.status}). ` +
+          `Items on a running order are consumed by work orders, dispatch and costing — edit those documents instead.`
+      );
+    }
+
+    // Replacement deletes EVERY existing item and recreates only what was sent. A payload
+    // holding a subset (the old OrderForm sent just the first item) silently destroyed the
+    // other styles of a multi-style order. Require the payload to cover every existing style.
+    const submittedStyleIds = new Set((items as OrderItem[]).map((item) => item.styleId));
+    const missingStyleIds = [
+      ...new Set(existingOrder.order_items.filter((oi) => !submittedStyleIds.has(oi.styleId)).map((oi) => oi.styleId)),
+    ];
+    if (missingStyleIds.length > 0) {
+      throw new BusinessError(
+        `Order item update must include every existing item. ${missingStyleIds.length} existing style(s) are missing ` +
+          `from the payload — saving would permanently delete them from the order.`
+      );
+    }
+
     const [approvedBoms, activeRequirements] = await Promise.all([
       prisma.order_bom.count({
         where: { orderId: id, status: { in: ['APPROVED', 'LOCKED'] } },
@@ -835,63 +873,75 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
     updateData.totalQuantity = calcTotalQuantity;
     updateData.totalAmount = roundToCent(calcTotalAmountDec).toNumber();
 
-    // Delete existing order items and breakup, then create new ones
-    await prisma.order_item_breakup.deleteMany({
-      where: { order_items: { orderId: id } },
-    });
-    await prisma.order_items.deleteMany({
-      where: { orderId: id },
-    });
-
-    // Create new order items
-    for (const itemData of orderItemsData) {
-      await prisma.order_items.create({
-        data: {
-          ...itemData,
-          orderId: id,
-        } as any,
+    // Delete + recreate + work-order sync + header totals in ONE transaction. These ran as loose
+    // top-level writes before, so a mid-loop failure left the order with zero/partial items and
+    // stale header totals, and the dependency check above raced concurrent BOM/MRP writes.
+    await prisma.$transaction(async (tx) => {
+      // Delete existing order items and breakup, then create new ones
+      await tx.order_item_breakup.deleteMany({
+        where: { order_items: { orderId: id } },
       });
-    }
-
-    // Auto-sync PENDING work orders with updated order items
-    const pendingWorkOrders = await prisma.work_orders.findMany({
-      where: { orderId: id, status: 'PENDING' },
-    });
-
-    for (const wo of pendingWorkOrders) {
-      const matchingNewItem = await prisma.order_items.findFirst({
-        where: { orderId: id, styleId: wo.styleId },
-        include: { order_item_breakup: true },
+      await tx.order_items.deleteMany({
+        where: { orderId: id },
       });
 
-      if (matchingNewItem) {
-        await prisma.work_order_breakup.deleteMany({
-          where: { workOrderId: wo.id },
-        });
-
-        await prisma.work_orders.update({
-          where: { id: wo.id },
+      // Create new order items
+      for (const itemData of orderItemsData) {
+        await tx.order_items.create({
           data: {
-            orderItemId: matchingNewItem.id,
-            totalQuantity: matchingNewItem.totalQuantity,
-          },
+            ...itemData,
+            orderId: id,
+          } as any,
+        });
+      }
+
+      // Auto-sync PENDING work orders with updated order items
+      const pendingWorkOrders = await tx.work_orders.findMany({
+        where: { orderId: id, status: 'PENDING' },
+      });
+
+      for (const wo of pendingWorkOrders) {
+        const matchingNewItem = await tx.order_items.findFirst({
+          where: { orderId: id, styleId: wo.styleId },
+          include: { order_item_breakup: true },
         });
 
-        for (const b of matchingNewItem.order_item_breakup) {
-          await prisma.work_order_breakup.create({
+        if (matchingNewItem) {
+          await tx.work_order_breakup.deleteMany({
+            where: { workOrderId: wo.id },
+          });
+
+          await tx.work_orders.update({
+            where: { id: wo.id },
             data: {
-              id: randomUUID(),
-              workOrderId: wo.id,
-              colorId: b.colorId,
-              sizeId: b.sizeId,
-              plannedQuantity: b.quantity,
+              orderItemId: matchingNewItem.id,
+              totalQuantity: matchingNewItem.totalQuantity,
             },
           });
-        }
 
-        logInfo(`[updateOrder] Synced work order ${wo.workOrderNumber} with updated order items`);
+          for (const b of matchingNewItem.order_item_breakup) {
+            await tx.work_order_breakup.create({
+              data: {
+                id: randomUUID(),
+                workOrderId: wo.id,
+                colorId: b.colorId,
+                sizeId: b.sizeId,
+                plannedQuantity: b.quantity,
+              },
+            });
+          }
+
+          logInfo(`[updateOrder] Synced work order ${wo.workOrderNumber} with updated order items`);
+        }
       }
-    }
+
+      // Header totals commit atomically with the items they were computed from; the outer
+      // update below re-applies the same values only to load the response payload.
+      await tx.orders.update({
+        where: { id },
+        data: updateData as any,
+      });
+    });
   } else {
     // Never trust client-supplied header totals: always recompute totalQuantity/totalAmount from
     // SUM(order_items) so the stored aggregates (which feed statistics) cannot drift (bug-hunt orders-6)

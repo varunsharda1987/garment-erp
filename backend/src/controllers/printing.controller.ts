@@ -1346,9 +1346,15 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
     acknowledgeDuplicate = false,
   } = req.body;
 
-  if (!qtySentMeters || !sentWidthInches || agreedRatePerMeter === undefined) {
-    throw new ValidationError('Missing required fields: qtySentMeters, sentWidthInches, agreedRatePerMeter');
+  // Same rate rule as dyeing.createProcessPO: a positive rate is required unless isRateTbd
+  // marks the zero as intentional (qty-rate audit 2026-08-24 — previously a silent 0 passed).
+  if (!qtySentMeters || !sentWidthInches) {
+    throw new ValidationError('Missing required fields: qtySentMeters, sentWidthInches');
   }
+  if (!isRateTbd && (agreedRatePerMeter == null || Number(agreedRatePerMeter) <= 0)) {
+    throw new ValidationError('agreedRatePerMeter is required (or mark the rate as TBD)');
+  }
+  const effectiveAgreedRate = isRateTbd ? Number(agreedRatePerMeter ?? 0) || 0 : Number(agreedRatePerMeter);
 
   // Either labDipId OR (styleId + fabricId + processorId) must be provided
   if (!labDipId && (!directStyleId || !directFabricId || !directProcessorId)) {
@@ -1529,7 +1535,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
   // Billing basis (+ BUG-PRT5 decimal.js): the processor bills for the finished fabric he
   // returns, not the greige issued — deduct the expected shrinkage loss from the billed qty.
   const qtyBillable = toNumber(roundToCent(applyShrinkageLoss(qtySentMeters, resolvedExpectedShrinkage ?? 0)));
-  const totalAmount = toNumber(roundToCent(multiplyCurrency(qtyBillable, agreedRatePerMeter)));
+  const totalAmount = toNumber(roundToCent(multiplyCurrency(qtyBillable, effectiveAgreedRate)));
 
   const result = await prisma.$transaction(async (tx) => {
     // Generate job work number
@@ -1561,7 +1567,7 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         sentWidthInches,
         expectedReturnDate: expectedReturnDate ? new Date(expectedReturnDate) : null,
         expectedShrinkage: resolvedExpectedShrinkage,
-        agreedRatePerMeter,
+        agreedRatePerMeter: effectiveAgreedRate,
         isRateTbd, // Explicit TBD marker when rate=0 is intentional
         remarks,
         jwoStatus: 'DRAFT',

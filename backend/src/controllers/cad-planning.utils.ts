@@ -201,6 +201,7 @@ export async function validateCADModification(cadId: string, operation: 'update'
       costingApprovalStatus: true,
       isLocked: true,
       purpose: true,
+      totalCostPerMeter: true,
       approvedAt: true,
       approvedBy: true,
     },
@@ -229,11 +230,14 @@ export async function validateCADModification(cadId: string, operation: 'update'
     );
   }
 
-  // Additional check for PRODUCTION CAD with isLocked flag
-  if (cad.purpose === 'PRODUCTION' && cad.isLocked) {
+  // Landmine №11: the edit discipline is for REAL production costings — isLocked only
+  // records "created via the promote flow" and is never stamped on PRODUCTION CADs created
+  // from stock lots, so those escaped this rule. A PRODUCTION row is locked once it is
+  // promoted-locked OR carries a cost (an uncosted fresh stock CAD stays editable).
+  if (cad.purpose === 'PRODUCTION' && (cad.isLocked || cad.totalCostPerMeter !== null)) {
     throw new BusinessError(
-      `Cannot ${operation} CAD entry: This is a locked PRODUCTION CAD. ` +
-        `Production CADs cannot be modified after locking to maintain data integrity.`
+      `Cannot ${operation} CAD entry: This is a costed PRODUCTION CAD. ` +
+        `Production CADs cannot be modified once costed, to maintain data integrity.`
     );
   }
 }

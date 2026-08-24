@@ -988,11 +988,14 @@ export async function saveFabricCosting(req: Request, res: Response) {
 
   // REPEAT ORDER DETECTION: Check if style has previous PRODUCTION costings
   // If yes, this is a repeat order - auto-upgrade all new costings to PRODUCTION mode
+  // Landmine №11: "a real production costing" = PRODUCTION purpose WITH a cost — not
+  // isLocked, which only records "created via the promote flow" and is never stamped on
+  // PRODUCTION CADs created from stock lots (they were invisible to this shortcut).
   const hasProductionCostings = await prisma.fabric_width_cad.findFirst({
     where: {
       costingStyleId: styleId,
       purpose: 'PRODUCTION',
-      isLocked: true,
+      totalCostPerMeter: { not: null },
     },
   });
 
@@ -1927,7 +1930,10 @@ export async function getStylesCostingStatus(req: Request, res: Response) {
     const hasApproved = costings.some(
       (c) => c.costingApprovalStatus === 'APPROVED' || c.costingApprovalStatus === 'ALTERNATE_APPROVED'
     );
-    const hasProduction = costings.some((c) => c.purpose === 'PRODUCTION' && c.isLocked);
+    // Landmine №11: every row here already has a cost (the where filters on it), so
+    // PRODUCTION purpose alone means a real production costing — isLocked is provenance
+    // (promote flow) and is never set on stock-lot-created PRODUCTION rows.
+    const hasProduction = costings.some((c) => c.purpose === 'PRODUCTION');
     const hasPending = hasCosting && !hasApproved;
 
     return {

@@ -51,8 +51,8 @@ The processor must exist as a supplier. To actually send greige, the greige must
 
 ## Send the material out
 1. Open the new order from the list. It is in **Draft**.
-2. Click **Approve**.
-3. Click **Issue to Processor**.
+2. Click **Approve**. The status becomes **Approved**.
+3. Click **Issue to Processor**. This button only appears while the order is **Approved** — there is no other status that can issue.
 4. Under **Greige Lots ***, pick the lot and quantity. Use **Add lot** to split across lots, or **Auto-fill**. The total must match the order, shown as "matches the order".
 5. Fill **Vehicle Number** if you know the truck. You do not type a challan number — the system assigns it.
 6. Click **Issue & Create Challan**. The confirmation shows the challan number that was created.
@@ -61,4 +61,5 @@ The processor must exist as a supplier. To actually send greige, the greige must
 - Dyeing or Printing **with** a style shows a message pointing to **Go to Processing** — that flow is created on the Processing page instead. Clear the Style field to raise it here as a stock job.
 - **Expected Shrinkage** must be under 100.
 - All lot rows must be the same greige. One job work order sends one cloth.
+- A cancelled order is final for receiving — its issued material is credited back to stock, and the processor's return can no longer be booked against it. Cancel only when the material is really not coming back as this job.
 - Sending several orders to one processor on one truck? Use **Manufacturing → Dispatch to Processor** instead, and click **Send on one challan**.

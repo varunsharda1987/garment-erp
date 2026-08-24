@@ -50,3 +50,4 @@ sources:
 - The **Supplier** dropdown only lists suppliers whose category is Greige Supplier. If your supplier is missing, fix its category in **Materials & Masters → Suppliers**.
 - Purchase cost cannot be negative.
 - This entry creates *generic* greige — it is not tied to any style and can be allocated to any future order.
+- Back on the **Generic Greige Stock** list, the **Bales** and **Thans** columns show piece counts for stock that was received with a bale or than breakdown (for example through a bale-wise GRN). Stock with no breakdown shows a dash there. Both columns are also included in the CSV export.

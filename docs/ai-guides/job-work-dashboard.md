@@ -37,7 +37,7 @@ sources:
 1. Four tiles show **Outstanding at Processors**, **Section 143 Warnings**, **Over Tolerance (Debit Due)** and **By Process Type**.
 2. Search by JWO number, processor or style, or use the **Process Type** dropdown to filter to Dyeing, Printing, Embroidery, Stitching and so on.
 3. The table shows **JWO Number**, **Process**, **Processor**, **Style**, **Greige**, **Fabric**, **Width**, **Qty Received**, **Sent Date**, **Need By**, **Status** and **Section 143**.
-4. **Need By** turns red when the date has passed and nothing has come back.
+4. **Need By** turns red when the date has passed and nothing has come back. Closed and cancelled orders never turn red.
 5. The **Section 143** column shows days out with a colour: green is OK, yellow is a warning past 270 days, red is critical past 300 days and breached past 365 days.
 6. Click any row to open the order, or use the **⋯** menu for **View Details**, **Print JWO** and **Send via WhatsApp**.
 

@@ -54,3 +54,4 @@ Click **Reject**, type a **Rejection Reason *** (required, it cannot be blank) a
 - Approval is one-way from this screen — you cannot re-approve or re-edit an Accepted GRN here.
 - If two people approve the same GRN at once, the second one gets "GRN is no longer PENDING_QC". Refresh and check the status.
 - An inactive warehouse is rejected. Pick an active one.
+- A GRN made against a job work order will not approve if that job was cancelled or closed after the GRN was saved. The message says its stock was already credited back. Reject the GRN, or ask the office to re-open the job first.

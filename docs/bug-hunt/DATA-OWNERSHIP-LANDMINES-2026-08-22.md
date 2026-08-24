@@ -4,13 +4,20 @@
 
 Compiled from five independent fingerprint sweeps (shared-writes, proxy-reads, dual-representation, documented-contracts, status-machines), each with an adversarial verification pass (the contracts sweep ran without one — its unique items are flagged as such). Duplicates across sweeps are merged; the count of sweeps that independently found each item is noted.
 
-> **STATUS UPDATE 2026-08-24 — four landmines FIXED:**
+> **STATUS UPDATE 2026-08-24 — ALL ELEVEN LANDMINES FIXED:**
 > - **№1 JWO dual status** — **FULLY RETIRED**: legacy `status` column dropped, `JobWorkStatus` enum deleted, `jwoStatus` is the single authority. Commits: b0c253e2 (single write path + cancelled-order receiving block), migration 20260824140000_retire_legacy_jwo_status (column + index + enum dropped).
+> - **№2 sale-order status** — commit 8b5b2640: progress states DERIVED from item facts (sale-order-status.helper), dispatch outranks allocation (owner rule: buyer-visible progress never steps back on stock release), DRAFT/CANCELLED/DELIVERED pinned, allocation refuses dead/draft orders, `saleOrderStatusWrite` smart-check ratchet. B2B contract unchanged.
 > - **№3 cadStatus drift/bypass** — commit c082ca8b: styles.cadStatus derived from rows (cad-status.helper), cost-sheet bypass deleted, legacy style-approve routes retired, 27 styles honestly recomputed (15 up, 12 down); on 2026-08-24 the owner also flipped the 38 row-less legacy stamps to PENDING — every style badge is now derived, no exceptions.
 > - **№4 stock-ledger drift** — commit 65839180: returnGreigeStock() shared path (guarded + ledger + central sync), cutting restores mirrored, baseline 20→11, live DB verified 0 drift (one 5m orphan flagged for manual review: FAB-STK-0001).
+> - **№5 invoice + credit note** — commit (2026-08-24): balance-driven deriveInvoiceStatus (invoice-status.helper) used by all three writers; new SETTLED_WITH_CREDIT status (owner decision); money edits preserve approved-credit decrements. Was undetonated (0 credit notes) — disarmed before the first one.
 > - **№6 rejector-in-approver-fields** — folded into c082ca8b: rejections stamp rejectedBy/rejectedAt, variance baseline requires approvalStatus APPROVED.
+> - **№7 PO echoes** — commit 0f3663d0: six raw echo sites route through guarded echoShadowPoStatus (never resurrects CANCELLED, never erases a receipt, appends remarks); JWO cancel now cascades to its shadow PO; the userRole omission fixed (ADMIN can cancel a fully-received PO again). Dormant parallel engine untouched — owner decides delete/keep.
+> - **№8 purpose/purposeEnum** — commit 21ce80c8: all one-sided creators fixed (Create Version, generate-options, add-width, style-import), `cadPurposeSingleWrite` smart-check ratchet. Live data was already clean.
+> - **№9 isPreferred** — commit 64f55f68 (owner rule: the preferred width is a money/resources decision — Fabric Costing's approve flow is the ONLY writer): CAD-side writers retired (auto-prefer-largest-width, dialog switch, both orphan set-preferred endpoints incl. the cross-style wipe), options born unpreferred.
+> - **№10 work-order resurrect** — commit 622612ab: tracking refuses CANCELLED WOs; cutting auto-start is status-guarded (PENDING-only flip), COMPLETED/DISPATCHED never step back.
+> - **№11 isLocked misread** — commit 2401a27b: consumers read "PRODUCTION purpose WITH a cost"; isLocked demoted to promote-flow provenance; stock-created production CADs now count everywhere and share the edit discipline.
 >
-> Remaining: №2 sale-order status (B2B-facing), №5 invoice+credit-note, №7 PO echoes, №8 purpose/purposeEnum, №9 isPreferred, №10 work-order resurrect, №11 isLocked misread.
+> **The register is CLEARED.** Open follow-ups for the owner: (a) confirm the three dead-code deletions (parallel PO engine's 4 dead functions, legacy costing approve(), bulk-update job handler — study verdicts delivered 2026-08-24); (b) the 5m orphan stock row FAB-STK-0001; (c) drop the manual_backups tables after a safe interval.
 
 ---
 

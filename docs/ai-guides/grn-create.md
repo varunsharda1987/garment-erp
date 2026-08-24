@@ -35,7 +35,7 @@ A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Pa
 1. Open **Procurement → GRN (Goods Receipt)** in the sidebar.
 2. Click **+ Create GRN**. The page title reads **Create Goods Receiving Note**. (Shortcut: from the PO page click **Receive Goods** and the PO is already selected.)
 3. Under **Purchase Order Selection**, search by PO number, supplier, material or style, or use the category chips, then pick the PO in **Purchase Order ***.
-4. To receive from a processor instead, use **Or receive against a Job Work Order (no PO)**, pick the JWO, fill **Received Meters** (or **Than Count** plus **Fold Length (cm)**), **Width (inches)** and **Vendor Challan Ref**, then click the **Save GRN for ...** button in that box.
+4. To receive from a processor instead, use **Or receive against a Job Work Order (no PO)** and pick the JWO. Choose an **Entry Mode**: **Total Meters** (fill **Received Meters**, or **Than Count** plus **Fold Length (cm)**), **Than-wise** (click **Add Than** and type the meters of each than), or **Bale-wise** (click **Add Bale**, then **Than** inside each bale, and type the meters). The **Detail sum** shows the total as you type. Also fill **Fold Length (cm)**, **Width (inches)** and **Vendor Challan Ref**, then click the **Save GRN for ...** button in that box.
 5. Choose **Warehouse *** and confirm **Receiving Date *** (defaults to today).
 6. Fill **Invoice Number** and **Invoice Date** if the supplier sent an invoice. Both are optional.
 7. In **Items to Receive**, each pending line shows Ordered, Already Rcvd and Pending. Enter **This Receipt** for the lines you actually received. **Accepted** fills automatically as Received minus Rejected.
@@ -49,6 +49,7 @@ A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Pa
 - Over-receipt is allowed only up to the tolerance shown on the **Items to Receive** card. Beyond that the save is blocked with the maximum allowed quantity in the message.
 - Accepted + Rejected must equal Received on every line, or the save fails.
 - Lines that are already fully received do not appear — only pending quantity is shown.
+- A cancelled or closed job work order cannot be received. It does not appear in the JWO list, and a Processing PO whose linked job was cancelled refuses the save — that material was already credited back to stock. If the mill really returned goods, ask the office to re-open the job first.
 
 ## After saving
 The GRN is created with status **Pending QC**. Stock is NOT added yet — it is added only when the GRN is approved.

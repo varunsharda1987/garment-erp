@@ -39,6 +39,6 @@ sources:
 
 - The same material can appear on more than one row if it is kept in more than one warehouse. Add the rows up for the total.
 - The count at the bottom ("Showing N stock levels") reflects the filters currently applied, not the whole factory.
-- For a summary of the whole inventory instead of a list, open **Inventory → Inventory Dashboard**. From there the **View All** buttons jump to **Finished Fabric Stock**, **Generic Greige Stock** and **Stock Levels**.
+- For a summary of the whole inventory instead of a list, open **Inventory → Inventory Dashboard**. From there the **View All** buttons jump to **Finished Fabric Stock**, **Generic Greige Stock** and **Stock Levels**. Its greige card shows five tiles: **Total Meters**, **Total Value**, **Bales**, **Thans** and **Aging (>180d)**.
 - Greige and finished fabric also have their own detailed screens: **Inventory → Greige Stock** and **Inventory → Fabric Stock**. Use those when you need roll numbers, lot detail or ageing.
 - This screen is read-only. To change a quantity use **Inventory → Material Movements** (Stock In, Stock Out, Transfer, Adjustment) or **Inventory → Stock Counts**.

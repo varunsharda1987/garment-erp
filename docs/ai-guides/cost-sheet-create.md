@@ -29,7 +29,7 @@ sources:
 
 ## Before you start
 
-The style must exist, and **Auto-Generate from CAD** now needs a fabric row with **both approvals**: the CAD approved in **CAD Planning** (quantity) AND the costing approved with a real price on the **Fabric Costing Options** page. This works through either mode: a fully-approved **Costing** row, or a fully-approved **Raw Material** row with fabric costing completed. A row that is only CAD-approved but has no saved costing does not count — save and approve its costing first. Whole-style CAD approval also unlocks generation, but rows without a costing are left out of the preview (a warning lists the skipped components).
+The style must exist, and **Auto-Generate from CAD** needs a fabric row with **both approvals**: the CAD approved in **CAD Planning** (quantity) AND the costing approved with a real price on the **Fabric Costing Options** page. This works through either mode: a fully-approved **Costing** row, or a fully-approved **Raw Material** row with fabric costing completed. A row that is only CAD-approved but has no saved costing does not count — save and approve its costing first. There is no shortcut around this: a style whose CAD was approved as a whole but has no fully-approved priced row is still refused. Rows without a costing are left out of the preview (a warning lists the skipped components).
 
 ## Steps
 

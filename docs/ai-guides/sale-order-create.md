@@ -51,4 +51,4 @@ A Sale Order sells finished goods that are already in stock (or triggers product
 - Allocation only offers stock matching that exact style, colour and size.
 
 ## After saving
-The status moves on its own: Draft → Confirmed → Partially/Fully Allocated → Dispatched. The linked production order appears in a **Production** card at the top.
+The status moves on its own: Draft → Confirmed → Partially/Fully Allocated → Dispatched. There is no way to type or edit the status by hand — it always follows from what actually happened to the items (confirm, allocation, dispatch, delivery). The linked production order appears in a **Production** card at the top.

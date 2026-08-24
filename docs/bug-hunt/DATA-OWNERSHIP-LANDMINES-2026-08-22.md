@@ -5,7 +5,7 @@
 Compiled from five independent fingerprint sweeps (shared-writes, proxy-reads, dual-representation, documented-contracts, status-machines), each with an adversarial verification pass (the contracts sweep ran without one — its unique items are flagged as such). Duplicates across sweeps are merged; the count of sweeps that independently found each item is noted.
 
 > **STATUS UPDATE 2026-08-24 — four landmines FIXED:**
-> - **№1 JWO dual status** — commit b0c253e2: jwo-status.helper single write path, CANCELLED added to the legacy enum, cancelled-order receiving blocked at every GRN entrance, live diverged row repaired.
+> - **№1 JWO dual status** — **FULLY RETIRED**: legacy `status` column dropped, `JobWorkStatus` enum deleted, `jwoStatus` is the single authority. Commits: b0c253e2 (single write path + cancelled-order receiving block), migration 20260824140000_retire_legacy_jwo_status (column + index + enum dropped).
 > - **№3 cadStatus drift/bypass** — commit c082ca8b: styles.cadStatus derived from rows (cad-status.helper), cost-sheet bypass deleted, legacy style-approve routes retired, 27 styles honestly recomputed (15 up, 12 down); on 2026-08-24 the owner also flipped the 38 row-less legacy stamps to PENDING — every style badge is now derived, no exceptions.
 > - **№4 stock-ledger drift** — commit 65839180: returnGreigeStock() shared path (guarded + ledger + central sync), cutting restores mirrored, baseline 20→11, live DB verified 0 drift (one 5m orphan flagged for manual review: FAB-STK-0001).
 > - **№6 rejector-in-approver-fields** — folded into c082ca8b: rejections stamp rejectedBy/rejectedAt, variance baseline requires approvalStatus APPROVED.

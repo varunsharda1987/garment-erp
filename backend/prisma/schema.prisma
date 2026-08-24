@@ -6796,7 +6796,7 @@ model lab_dips {
 /// Job Work Order - Print/Dye job work tracking
 /// Phase 2+: Will absorb Service PO fields (terms, GST, approval)
 model job_work_orders {
-  id                     String        @id @default(uuid())
+  id                     String    @id @default(uuid())
   jobWorkNumber          String
   processType            String // Legacy - will migrate to processTypeId
   processTypeId          String? // FK to process_type_master (Phase 1+)
@@ -6814,53 +6814,52 @@ model job_work_orders {
   /// Free-text shade for a colour not in the master (e.g. a buyer's own name for it).
   colorName              String?
   reprocessReason        String?
-  qtySentMeters          Decimal       @db.Decimal(10, 2)
+  qtySentMeters          Decimal   @db.Decimal(10, 2)
   /// Greige (loom-state) width of the material issued, e.g. 63". Distinct from
   /// sentWidthInches, which holds the FINISHED width asked of the processor.
-  greigeWidthInches      Decimal?      @db.Decimal(10, 2)
+  greigeWidthInches      Decimal?  @db.Decimal(10, 2)
   /// ASKED FINISHED width (selvedge-to-selvedge target the processor must deliver,
   /// set on the stenter) = CAD cutable width + selvedge deduction. Historically named
   /// "sent", but no flow ever stored the greige width here.
-  sentWidthInches        Decimal?      @db.Decimal(10, 2) // Optional for garments
-  uom                    String        @default("MTR") // MTR, PCS, KG
+  sentWidthInches        Decimal?  @db.Decimal(10, 2) // Optional for garments
+  uom                    String    @default("MTR") // MTR, PCS, KG
   sentDate               DateTime?
   challanNumber          String?
   vehicleNumber          String?
   expectedReturnDate     DateTime?
-  expectedShrinkage      Decimal?      @db.Decimal(5, 2)
+  expectedShrinkage      Decimal?  @db.Decimal(5, 2)
   /// Billing qty = FINISHED goods the processor returns (fabric out), not the greige issued.
   /// NULL = legacy/piece-based job → billing falls back to qtySentMeters.
-  qtyBillable            Decimal?      @db.Decimal(10, 2)
-  agreedRatePerMeter     Decimal       @db.Decimal(10, 2)
-  isRateTbd              Boolean       @default(false) // True when rate=0 is intentional TBD
-  qtyReceivedMeters      Decimal?      @db.Decimal(10, 2)
-  receivedWidthInches    Decimal?      @db.Decimal(10, 2)
+  qtyBillable            Decimal?  @db.Decimal(10, 2)
+  agreedRatePerMeter     Decimal   @db.Decimal(10, 2)
+  isRateTbd              Boolean   @default(false) // True when rate=0 is intentional TBD
+  qtyReceivedMeters      Decimal?  @db.Decimal(10, 2)
+  receivedWidthInches    Decimal?  @db.Decimal(10, 2)
   receivedDate           DateTime?
   receivedChallan        String?
   invoiceNumber          String?
-  actualShrinkage        Decimal?      @db.Decimal(5, 2)
-  widthVariance          Decimal?      @db.Decimal(10, 2)
+  actualShrinkage        Decimal?  @db.Decimal(5, 2)
+  widthVariance          Decimal?  @db.Decimal(10, 2)
   qualityGrade           String?
   colorMatchStatus       String?
-  defectMeters           Decimal?      @db.Decimal(10, 2)
+  defectMeters           Decimal?  @db.Decimal(10, 2)
   defectType             String?
-  actualRate             Decimal?      @db.Decimal(10, 2)
-  status                 JobWorkStatus @default(READY_TO_SEND)
+  actualRate             Decimal?  @db.Decimal(10, 2)
   remarks                String?
   workOrderId            String?
   createdById            String
-  createdAt              DateTime      @default(now())
-  updatedAt              DateTime      @updatedAt
-  isActive               Boolean       @default(true)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+  isActive               Boolean   @default(true)
   finishedFabricId       String? // FK to auto-created finished fabric_master
   thanCount              Int? // Number of thans (folded bundles) received
-  foldLengthCm           Decimal?      @db.Decimal(5, 2) // "L" - actual fold length in cm
-  calculatedActualMeters Decimal?      @db.Decimal(10, 2) // thanCount × foldLengthCm / 100
+  foldLengthCm           Decimal?  @db.Decimal(5, 2) // "L" - actual fold length in cm
+  calculatedActualMeters Decimal?  @db.Decimal(10, 2) // thanCount × foldLengthCm / 100
   outwardChallanId       String? // FK to new challans table (outbound)
   inwardChallanId        String? // FK to new challans table (inbound)
-  purchaseOrderId        String?       @unique @db.VarChar(50) // FK to purchase_orders (Process PO link)
-  greigeStockLotId       String?       @db.VarChar(50) // FK to greige_stock (source greige)
-  grnId                  String?       @db.VarChar(50) // FK to GRN if received via GRN path
+  purchaseOrderId        String?   @unique @db.VarChar(50) // FK to purchase_orders (Process PO link)
+  greigeStockLotId       String?   @db.VarChar(50) // FK to greige_stock (source greige)
+  grnId                  String?   @db.VarChar(50) // FK to GRN if received via GRN path
 
   // ===== Phase 2: Commercial fields (absorbed from Service PO) =====
   // GST/Tax fields
@@ -6903,8 +6902,8 @@ model job_work_orders {
 
   // ===== End Phase 2 fields =====
 
-  // Phase 7: Universal lifecycle status (coexists with legacy 'status' during migration)
-  jwoStatus JobWorkOrderStatus?
+  // jwoStatus is the single lifecycle status for job work orders
+  jwoStatus JobWorkOrderStatus @default(DRAFT)
 
   createdBy               users                             @relation(fields: [createdById], references: [id])
   fabric                  fabric_master?                    @relation(fields: [fabricId], references: [id])
@@ -6945,7 +6944,6 @@ model job_work_orders {
   @@index([styleId])
   @@index([colorMasterId])
   @@index([processorId])
-  @@index([status])
   @@index([processType])
   @@index([workOrderId])
   @@index([outwardChallanId])
@@ -9894,25 +9892,7 @@ enum BuyerApprovalStatus {
   RESUBMIT_REQUIRED
 }
 
-/// Legacy JWO status — a derived MIRROR of jwoStatus since the 2026-08-22 two-status fix.
-/// All writes go through services/helpers/jwo-status.helper.ts (setJwoStatus), which maps
-/// jwoStatus onto this column. CANCELLED added so cancellation is total in both columns
-/// (previously a cancel left this column claiming READY_TO_SEND — landmine №1).
-enum JobWorkStatus {
-  LAB_DIP_PENDING
-  LAB_DIP_SUBMITTED
-  LAB_DIP_APPROVED
-  READY_TO_SEND
-  SENT_TO_MILL
-  AT_MILL
-  RECEIVED
-  QUALITY_CHECKED
-  STOCK_UPDATED
-  CANCELLED
-}
-
-/// Universal Job Work Order status (Phase 7)
-/// Use jwoStatus field; legacy 'status' field kept for backwards compatibility
+/// Universal Job Work Order status — the single lifecycle status for job work orders.
 enum JobWorkOrderStatus {
   DRAFT
   PENDING_APPROVAL

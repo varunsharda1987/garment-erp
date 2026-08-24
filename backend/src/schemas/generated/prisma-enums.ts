@@ -607,20 +607,6 @@ export type LabDipStatus = z.infer<typeof LabDipStatusEnum>;
 export const BuyerApprovalStatusEnum = z.enum(['NOT_SENT', 'PENDING', 'APPROVED', 'REJECTED', 'RESUBMIT_REQUIRED']);
 export type BuyerApprovalStatus = z.infer<typeof BuyerApprovalStatusEnum>;
 
-export const JobWorkStatusEnum = z.enum([
-  'LAB_DIP_PENDING',
-  'LAB_DIP_SUBMITTED',
-  'LAB_DIP_APPROVED',
-  'READY_TO_SEND',
-  'SENT_TO_MILL',
-  'AT_MILL',
-  'RECEIVED',
-  'QUALITY_CHECKED',
-  'STOCK_UPDATED',
-  'CANCELLED',
-]);
-export type JobWorkStatus = z.infer<typeof JobWorkStatusEnum>;
-
 export const JobWorkOrderStatusEnum = z.enum([
   'DRAFT',
   'PENDING_APPROVAL',

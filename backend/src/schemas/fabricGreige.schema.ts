@@ -341,7 +341,7 @@ export const createCADSchema = z.object({
   markerLengthMeters: z.coerce.number().nonnegative().optional().nullable(),
   piecesPerMarker: z.number().int().nonnegative().optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
-  isPreferred: z.boolean().optional().default(false),
+  // isPreferred removed (landmine №9): only Fabric Costing's approve flow writes the mark
 });
 
 /**
@@ -363,17 +363,10 @@ export const updateCADSchema = z.object({
   markerLengthMeters: z.coerce.number().nonnegative().optional().nullable(),
   piecesPerMarker: z.number().int().nonnegative().optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
-  isPreferred: z.boolean().optional(),
+  // isPreferred removed (landmine №9): only Fabric Costing's approve flow writes the mark
 });
 
-/**
- * Set Preferred Width
- * PATCH /api/fabric-greige/cad/:id/set-preferred
- */
-export const setPreferredWidthSchema = z.object({
-  // The route IS 'set-preferred'; requiring the flag in the body only forced callers to echo it.
-  isPreferred: z.literal(true).optional(),
-});
+// setPreferredWidthSchema RETIRED with its route (landmine №9, 2026-08-24)
 
 // ============================================================================
 // Param Validation Schemas
@@ -427,4 +420,3 @@ export type FabricQueryInput = z.infer<typeof fabricQuerySchema>;
 
 export type CreateCADInput = z.infer<typeof createCADSchema>;
 export type UpdateCADInput = z.infer<typeof updateCADSchema>;
-export type SetPreferredWidthInput = z.infer<typeof setPreferredWidthSchema>;

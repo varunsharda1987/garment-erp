@@ -82,7 +82,8 @@ export const createCAD = async (req: Request, res: Response) => {
     cadYards,
     cadWastagePercent,
     markerEfficiency,
-    isPreferred = false,
+    // isPreferred deliberately NOT accepted (landmine №9): "preferred" = the option the
+    // business will use, and Fabric Costing's approve flow is its only writer.
     supplierAvailability,
     priceDifferential,
     markerPlanFile,
@@ -128,19 +129,6 @@ export const createCAD = async (req: Request, res: Response) => {
     throw new ValidationError(`CAD entry already exists for ${cutableWidth}" width`);
   }
 
-  // If this is marked as preferred, unset other preferred entries for this fabric
-  if (isPreferred) {
-    await prisma.fabric_width_cad.updateMany({
-      where: {
-        fabricId,
-        isPreferred: true,
-      },
-      data: {
-        isPreferred: false,
-      },
-    });
-  }
-
   const cad = await prisma.fabric_width_cad.create({
     data: {
       fabricId,
@@ -150,7 +138,6 @@ export const createCAD = async (req: Request, res: Response) => {
       cadYards: cadYards ? parseFloat(cadYards) : null,
       cadWastagePercent: resolvedCadWastagePercent,
       markerEfficiency: markerEfficiency ? parseFloat(markerEfficiency) : null,
-      isPreferred,
       supplierAvailability,
       priceDifferential: priceDifferential ? parseFloat(priceDifferential) : null,
       markerPlanFile,
@@ -185,7 +172,8 @@ export const updateCAD = async (req: Request, res: Response) => {
     cadYards,
     cadWastagePercent,
     markerEfficiency,
-    isPreferred,
+    // isPreferred deliberately NOT accepted (landmine №9) — Fabric Costing's approve flow
+    // is the only writer of the preferred mark
     supplierAvailability,
     priceDifferential,
     markerPlanFile,
@@ -217,20 +205,6 @@ export const updateCAD = async (req: Request, res: Response) => {
     }
   }
 
-  // If setting as preferred, unset other preferred entries
-  if (isPreferred === true && !existingCAD.isPreferred) {
-    await prisma.fabric_width_cad.updateMany({
-      where: {
-        fabricId: existingCAD.fabricId,
-        isPreferred: true,
-        id: { not: id },
-      },
-      data: {
-        isPreferred: false,
-      },
-    });
-  }
-
   const updatedCAD = await prisma.fabric_width_cad.update({
     where: { id },
     data: {
@@ -241,7 +215,6 @@ export const updateCAD = async (req: Request, res: Response) => {
       cadWastagePercent: cadWastagePercent ? parseFloat(cadWastagePercent) : undefined,
       markerEfficiency:
         markerEfficiency !== undefined ? (markerEfficiency ? parseFloat(markerEfficiency) : null) : undefined,
-      isPreferred: isPreferred !== undefined ? isPreferred : undefined,
       supplierAvailability,
       priceDifferential:
         priceDifferential !== undefined ? (priceDifferential ? parseFloat(priceDifferential) : null) : undefined,
@@ -307,43 +280,10 @@ export const deleteCAD = async (req: Request, res: Response) => {
   res.json({ message: 'CAD entry deleted successfully' });
 };
 
-// Set preferred width for a fabric
-export const setPreferredWidth = async (req: Request, res: Response) => {
-  const { id } = req.params;
-
-  // Check if CAD entry exists
-  const existingCAD = await prisma.fabric_width_cad.findUnique({
-    where: { id },
-  });
-
-  if (!existingCAD) {
-    throw new NotFoundError('CAD entry', id);
-  }
-
-  // Unset all other preferred entries for this fabric
-  await prisma.fabric_width_cad.updateMany({
-    where: {
-      fabricId: existingCAD.fabricId,
-      isPreferred: true,
-    },
-    data: {
-      isPreferred: false,
-    },
-  });
-
-  // Set this one as preferred
-  const updatedCAD = await prisma.fabric_width_cad.update({
-    where: { id },
-    data: {
-      isPreferred: true,
-    },
-    include: {
-      fabric: true,
-    },
-  });
-
-  res.json(updatedCAD);
-};
+// setPreferredWidth RETIRED (landmine №9, 2026-08-24): "preferred" is the option the
+// business will use, written only by Fabric Costing's approve flow. This endpoint had no
+// frontend caller, and its sibling-clear was scoped by bare fabricId — one click wiped the
+// preferred mark across EVERY style using the fabric.
 
 // Get cost comparison for different widths
 export const getCostComparison = async (req: Request, res: Response) => {

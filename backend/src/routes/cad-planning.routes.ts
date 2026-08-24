@@ -31,7 +31,6 @@ import {
   deleteCADTableRow,
   updateCADValues,
   updateCADValuesWithBreakdown,
-  setPreferredCAD,
   getCADGroupDetails,
   syncBomFabricFromCAD,
 } from '../controllers/cad-planning.controller';
@@ -378,17 +377,8 @@ router.put(
   asyncHandler(updateCADValues)
 );
 
-/**
- * @route   PUT /api/cad-planning/cad/:cadId/set-preferred
- * @desc    Set a CAD width as preferred for a fabric
- * @access  ADMIN, MERCHANDISER, PRODUCTION_MANAGER
- */
-router.put(
-  '/cad/:cadId/set-preferred',
-  validateParams(cadIdParamSchema),
-  authorize('ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'),
-  asyncHandler(setPreferredCAD)
-);
+// set-preferred route RETIRED (landmine №9): the preferred mark is written only by
+// Fabric Costing's approve flow (owner rule 2026-08-24); this endpoint had no caller.
 
 // ============================================
 // APPROVAL OPERATIONS

@@ -227,7 +227,9 @@ export async function generateCADOptions(req: Request, res: Response) {
             layerMarginMeters: 0.05, // Default 5cm layer margin
             greigeId: greigeId || null,
             componentName: componentName || null,
-            isPreferred: cutableWidth === cutableWidths[0], // Prefer largest width
+            // Landmine №9: options are born unpreferred — the preferred mark is set only
+            // when Fabric Costing approves a price (owner rule 2026-08-24)
+            isPreferred: false,
             createdById: req.user?.userId || 'system',
           },
         });
@@ -829,7 +831,8 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
               widthUnit: 'inches',
               cadWastagePercent: await systemSettingsService.getNumberDefault('FABRIC_DEFAULT_WASTAGE_PERCENT'),
               layerMarginMeters: 0.05,
-              isPreferred: true,
+              // Landmine №9: born unpreferred — costing's approve flow sets the mark
+              isPreferred: false,
               createdById: req.user?.userId || 'system',
             },
           });
@@ -846,7 +849,7 @@ export async function getEnhancedCADPlanning(req: Request, res: Response) {
             processingPricePerMeter: null,
             markerEfficiency: null,
             componentName: null,
-            isPreferred: true,
+            isPreferred: false,
             notes: null,
             printDirection: null,
             sizeBreakdowns: [],
@@ -1556,8 +1559,9 @@ export async function getCADGroupDetails(req: Request, res: Response) {
  * Update CAD values with size breakdown
  * PUT /api/styles/cad-planning/update-cad/:cadId
  * Body: { cutableWidth?, cadMeters?, cadYards?, cadWastagePercent?, layerMarginMeters?,
- *         markerLengthMeters?, markerEfficiency?, notes?, isPreferred?,
+ *         markerLengthMeters?, markerEfficiency?, notes?,
  *         sizeBreakdowns?: { sizeName, sizeId?, quantity }[] }
+ * (isPreferred is NOT accepted — landmine №9: only costing's approve flow writes the mark)
  *
  * Auto-calculates piecesPerMarker from sum of sizeBreakdowns quantities
  */
@@ -1581,7 +1585,6 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
     supplierAvailability,
     priceDifferential,
     notes,
-    isPreferred,
     printDirection, // ONE_WAY or TWO_WAY
     sizeBreakdowns, // NEW: Array of { sizeName, sizeId?, quantity }
   } = req.body;
@@ -1625,7 +1628,6 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
   if (supplierAvailability !== undefined) updateData.supplierAvailability = supplierAvailability;
   if (priceDifferential !== undefined) updateData.priceDifferential = priceDifferential;
   if (notes !== undefined) updateData.notes = notes;
-  if (isPreferred !== undefined) updateData.isPreferred = isPreferred;
   if (printDirection !== undefined) updateData.printDirection = printDirection;
 
   // Calculate cadAverage if any relevant fields are updated
@@ -1716,43 +1718,10 @@ export async function updateCADValuesWithBreakdown(req: Request, res: Response) 
   });
 }
 
-/**
- * Set preferred CAD width for a fabric
- * PUT /api/styles/cad-planning/cad/:cadId/set-preferred
- */
-export async function setPreferredCAD(req: Request, res: Response) {
-  const { cadId } = req.params;
-
-  // Get the CAD record
-  const cad = await prisma.fabric_width_cad.findUnique({
-    where: { id: cadId },
-  });
-
-  if (!cad) {
-    throw new NotFoundError('CAD record', cadId);
-  }
-
-  // Unset all other preferred flags for this fabric
-  await prisma.fabric_width_cad.updateMany({
-    where: {
-      fabricId: cad.fabricId,
-      componentName: cad.componentName,
-      isPreferred: true,
-    },
-    data: { isPreferred: false },
-  });
-
-  // Set this one as preferred
-  await prisma.fabric_width_cad.update({
-    where: { id: cadId },
-    data: { isPreferred: true },
-  });
-
-  return res.json({
-    success: true,
-    message: 'Preferred CAD width updated',
-  });
-}
+// setPreferredCAD RETIRED (landmine №9, 2026-08-24): the preferred mark means "the option
+// the business will use" and Fabric Costing's approve flow is its only writer (owner rule:
+// money math + practical constraints decide the width, not marker efficiency alone). This
+// endpoint had no frontend caller.
 
 /**
  * Get all CAD history for a style

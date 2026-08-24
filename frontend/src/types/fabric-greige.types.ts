@@ -326,7 +326,7 @@ export interface FabricWidthCADFormData {
   cadYards?: number;
   cadWastagePercent: number;
   markerEfficiency?: number;
-  isPreferred: boolean;
+  // isPreferred removed (landmine №9): only Fabric Costing's approve flow writes the mark
   supplierAvailability?: 'always' | 'limited' | 'rare';
   priceDifferential?: number;
   markerPlanFile?: string;

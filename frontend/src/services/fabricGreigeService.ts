@@ -346,11 +346,8 @@ export const cadService = {
     return response.data;
   },
 
-  // Set as preferred width
-  async setPreferred(id: string): Promise<FabricWidthCAD> {
-    const response = await api.patch<FabricWidthCAD>(`${API_PREFIX}/cad/${id}/set-preferred`, {});
-    return response.data;
-  },
+  // setPreferred removed (landmine №9): the route is retired — only Fabric Costing's
+  // approve flow writes the preferred mark
 
   // Delete CAD entry
   async delete(id: string): Promise<{ message: string }> {

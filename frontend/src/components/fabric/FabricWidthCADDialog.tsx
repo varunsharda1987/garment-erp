@@ -14,7 +14,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cadService } from '@/services/fabricGreigeService';
 import type { FabricWidthCAD, FabricWidthCADFormData } from '@/types/fabric-greige.types';
@@ -51,7 +50,6 @@ export default function FabricWidthCADDialog({
   // had chosen it.
   const [cadWastagePercent, setCadWastagePercent] = useState<number | undefined>();
   const [markerEfficiency, setMarkerEfficiency] = useState<number | undefined>();
-  const [isPreferred, setIsPreferred] = useState(false);
   const [supplierAvailability, setSupplierAvailability] = useState<'always' | 'limited' | 'rare'>('always');
   const [priceDifferential, setPriceDifferential] = useState<number | undefined>();
   const [notes, setNotes] = useState('');
@@ -66,7 +64,6 @@ export default function FabricWidthCADDialog({
       // `??` not `||` — a CAD legitimately saved at 0% wastage must stay 0, not jump to the default.
       setCadWastagePercent(existingCAD.cadWastagePercent ?? fabricWastagePercent);
       setMarkerEfficiency(existingCAD.markerEfficiency ?? undefined);
-      setIsPreferred(existingCAD.isPreferred || false);
       setSupplierAvailability(existingCAD.supplierAvailability || 'always');
       setPriceDifferential(existingCAD.priceDifferential ?? undefined);
       setNotes(existingCAD.notes || '');
@@ -78,7 +75,6 @@ export default function FabricWidthCADDialog({
       setCadYards(undefined);
       setCadWastagePercent(fabricWastagePercent);
       setMarkerEfficiency(undefined);
-      setIsPreferred(false);
       setSupplierAvailability('always');
       setPriceDifferential(undefined);
       setNotes('');
@@ -131,7 +127,6 @@ export default function FabricWidthCADDialog({
       cadYards: cadYards || undefined,
       cadWastagePercent,
       markerEfficiency: markerEfficiency || undefined,
-      isPreferred,
       supplierAvailability,
       priceDifferential: priceDifferential || undefined,
       notes: notes || undefined,
@@ -272,13 +267,8 @@ export default function FabricWidthCADDialog({
             </div>
           </div>
 
-          {/* Preferred Toggle */}
-          <div className="flex items-center space-x-2">
-            <Switch id="isPreferred" checked={isPreferred} onCheckedChange={setIsPreferred} />
-            <Label htmlFor="isPreferred" className="cursor-pointer">
-              Mark as preferred width
-            </Label>
-          </div>
+          {/* Preferred toggle removed (landmine №9): the preferred width is decided by
+              Fabric Costing's price approval, not ticked by hand here */}
 
           {/* Notes */}
           <div className="space-y-2">

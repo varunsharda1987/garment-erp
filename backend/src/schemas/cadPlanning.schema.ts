@@ -191,7 +191,7 @@ export const updateCADValuesWithBreakdownSchema = z.object({
   supplierAvailability: z.string().max(200).optional().nullable(),
   priceDifferential: z.number().optional().nullable(),
   notes: z.string().max(1000).optional().nullable(),
-  isPreferred: z.boolean().optional(),
+  // isPreferred removed (landmine №9): only Fabric Costing's approve flow writes the mark
   printDirection: z.string().max(50).optional().nullable(),
   sizeBreakdowns: z
     .array(

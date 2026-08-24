@@ -920,6 +920,9 @@ export async function saveFabricCosting(req: Request, res: Response) {
     'approvedBy',
     'approvedAt',
     'approvalNotes',
+    // isPreferred is COSTING-owned since 2026-08-24 (landmine №9: owner rule — the
+    // preferred width is the money/resources decision), but writable ONLY via the
+    // approve/unapprove/promote flows, never via save — so it stays in this rejection list.
     'isPreferred',
     'copiedFromId',
     'piecesPerMarker',

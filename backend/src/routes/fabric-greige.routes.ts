@@ -21,7 +21,6 @@ import {
   styleFabricIdParamSchema,
   createCADSchema,
   updateCADSchema,
-  setPreferredWidthSchema,
   cadIdParamSchema,
 } from '../schemas/fabricGreige.schema';
 import * as greigeController from '../controllers/greige.controller';
@@ -260,14 +259,9 @@ router.put(
   asyncHandler(cadController.updateCAD)
 );
 
-// Set as preferred width
-router.patch(
-  '/cad/:id/set-preferred',
-  authenticateToken,
-  validateParams(cadIdParamSchema),
-  validateBody(setPreferredWidthSchema),
-  asyncHandler(cadController.setPreferredWidth)
-);
+// set-preferred route RETIRED (landmine №9): the preferred mark is written only by
+// Fabric Costing's approve flow; this endpoint had no caller and its sibling-clear
+// wiped the mark across every style sharing the fabric.
 
 // Delete CAD entry
 router.delete('/cad/:id', authenticateToken, validateParams(cadIdParamSchema), asyncHandler(cadController.deleteCAD));

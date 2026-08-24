@@ -676,7 +676,7 @@ export interface CadAverageFormData {
   cadWastagePercent?: number;
   markerEfficiency?: number;
   markerPlanFile?: string;
-  isPreferred?: boolean;
+  // isPreferred removed (landmine №9): only Fabric Costing's approve flow writes the mark
   notes?: string;
 }
 

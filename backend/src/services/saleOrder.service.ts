@@ -5,6 +5,7 @@ import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { multiplyCurrency, divideCurrency, roundToCent } from '../utils/currency';
 import { orderService, OrderItemInput, OrderPriority } from './order.service';
 import { NotFoundError, ValidationError, ConflictError, BusinessError } from '../errors';
+import { recomputeSaleOrderStatus } from './helpers/sale-order-status.helper';
 
 interface SOCreateInput {
   customerId: string;
@@ -178,6 +179,13 @@ export class SaleOrderService {
     }
 
     return prisma.$transaction(async (tx) => {
+      // Landmine №2: re-check INSIDE the transaction — a confirm racing this update must
+      // not let the item rewrite land on a no-longer-DRAFT order.
+      const current = await tx.sale_orders.findUnique({ where: { id }, select: { status: true } });
+      if (!current || current.status !== SaleOrderStatus.DRAFT) {
+        throw new Error('Can only update Sale Orders in DRAFT status');
+      }
+
       if (data.items) {
         await tx.sale_order_items.deleteMany({
           where: { saleOrderId: id },
@@ -287,7 +295,7 @@ export class SaleOrderService {
     return prisma.sale_orders.update({
       where: { id },
       data: {
-        status: SaleOrderStatus.CONFIRMED,
+        status: SaleOrderStatus.CONFIRMED, // allow-sale-order-status: commercial event (confirm)
         approvedById,
       },
       include: this.getDefaultIncludes(),
@@ -495,7 +503,7 @@ export class SaleOrderService {
       // Update sale order status to CANCELLED
       return tx.sale_orders.update({
         where: { id },
-        data: { status: SaleOrderStatus.CANCELLED },
+        data: { status: SaleOrderStatus.CANCELLED }, // allow-sale-order-status: commercial event (cancel)
         include: this.getDefaultIncludes(),
       });
     });
@@ -531,29 +539,11 @@ export class SaleOrderService {
         data: { allocatedQty: { decrement: allocation.allocatedQty } },
       });
 
-      // Recompute sale order status
+      // Landmine №2: derive the status from item facts — dispatch progress outranks
+      // allocation, so releasing stock on a partly-shipped order keeps its B2B badge.
       const soItem = allocation.saleOrderItem;
       if (soItem) {
-        const allItems = await tx.sale_order_items.findMany({
-          where: { saleOrderId: soItem.saleOrderId },
-        });
-
-        const allFullyAllocated = allItems.every((item) => item.allocatedQty >= item.quantity);
-        const someAllocated = allItems.some((item) => item.allocatedQty > 0);
-
-        let newStatus: SaleOrderStatus | undefined;
-        if (allFullyAllocated) {
-          newStatus = SaleOrderStatus.FULLY_ALLOCATED;
-        } else if (someAllocated) {
-          newStatus = SaleOrderStatus.PARTIALLY_ALLOCATED;
-        } else {
-          newStatus = SaleOrderStatus.CONFIRMED;
-        }
-
-        await tx.sale_orders.update({
-          where: { id: soItem.saleOrderId },
-          data: { status: newStatus },
-        });
+        await recomputeSaleOrderStatus(tx, soItem.saleOrderId);
       }
 
       return { success: true };
@@ -561,6 +551,24 @@ export class SaleOrderService {
   }
 
   async allocateStock(saleOrderItemId: string, fgStockId: string, quantity: number, userId: string) {
+    // Landmine №2: allocation must not resurrect a dead order or touch a draft one.
+    // (Before this guard, allocating against a CANCELLED order silently flipped it back
+    // to PARTIALLY/FULLY_ALLOCATED — visible to the B2B buyer as a live order.)
+    const targetItem = await prisma.sale_order_items.findUnique({
+      where: { id: saleOrderItemId },
+      select: { saleOrder: { select: { status: true, saleOrderNumber: true } } },
+    });
+    if (!targetItem) throw new NotFoundError('Sale order item', saleOrderItemId);
+    const soStatus = targetItem.saleOrder.status;
+    if (soStatus === SaleOrderStatus.DRAFT) {
+      throw new BusinessError('Confirm the sale order before allocating stock.');
+    }
+    if (soStatus === SaleOrderStatus.CANCELLED || soStatus === SaleOrderStatus.DELIVERED) {
+      throw new BusinessError(
+        `Cannot allocate stock — sale order ${targetItem.saleOrder.saleOrderNumber} is ${soStatus}.`
+      );
+    }
+
     // Verify the FG stock has enough available quantity
     const fgStock = await prisma.finished_goods_stock.findUnique({
       where: { id: fgStockId },
@@ -601,33 +609,13 @@ export class SaleOrderService {
         },
       });
 
-      // Check if all items in the sale order are fully allocated
+      // Landmine №2: derive the status from item facts (never overwrite dispatch progress)
       const soItem = await tx.sale_order_items.findUnique({
         where: { id: saleOrderItemId },
         select: { saleOrderId: true },
       });
-
       if (soItem) {
-        const allItems = await tx.sale_order_items.findMany({
-          where: { saleOrderId: soItem.saleOrderId },
-        });
-
-        const allFullyAllocated = allItems.every((item) => item.allocatedQty >= item.quantity);
-        const someAllocated = allItems.some((item) => item.allocatedQty > 0);
-
-        let newStatus: SaleOrderStatus | undefined;
-        if (allFullyAllocated) {
-          newStatus = SaleOrderStatus.FULLY_ALLOCATED;
-        } else if (someAllocated) {
-          newStatus = SaleOrderStatus.PARTIALLY_ALLOCATED;
-        }
-
-        if (newStatus) {
-          await tx.sale_orders.update({
-            where: { id: soItem.saleOrderId },
-            data: { status: newStatus },
-          });
-        }
+        await recomputeSaleOrderStatus(tx, soItem.saleOrderId);
       }
 
       return alloc;

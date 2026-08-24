@@ -90,7 +90,8 @@ export const updateSaleOrderSchema = z.object({
   deliveryDate: z.coerce.date().optional().nullable(),
   paymentTerms: z.string().max(100).optional().nullable(),
   deliveryAddress: z.string().max(500).optional().nullable(),
-  status: SaleOrderStatusEnum.optional(),
+  // Landmine №2: no `status` here — the service never applied it (silent drop), and status
+  // is event-written (confirm/cancel/POD) or derived (sale-order-status.helper), never PUT.
   remarks: z.string().max(500).optional().nullable(),
   items: z.array(saleOrderItemSchema).optional(),
 });

@@ -1240,6 +1240,48 @@ function costingCadApprovalDrift(relFiles) {
   return out;
 }
 
+// Sale-order status single-writer (landmine №2, 2026-08-24) — sale_orders.status PROGRESS
+// states (PARTIALLY/FULLY_ALLOCATED, PARTIALLY_DISPATCHED, DISPATCHED) are DERIVED from
+// item quantities by services/helpers/sale-order-status.helper.ts. The House of Kasya B2B
+// app reads this column live (docs/B2B_INTEGRATION_GUIDE.md §4); a raw status write from
+// allocation code once stepped partly-shipped orders back to CONFIRMED, making DELIVERED
+// unreachable. Event writers (confirm, cancel, POD DELIVERED) carry
+// // allow-sale-order-status within the 2 preceding lines or inline.
+function saleOrderStatusWrite(relFiles) {
+  const out = [];
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^backend\/src\/.*\.ts$/.test(norm)) continue;
+    if (/sale-order-status\.helper\.ts$/.test(norm)) continue; // the authority itself
+    if (/\.test\.tsx?$|__tests__/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content || !/sale_orders\.(update|updateMany)/.test(content)) continue;
+    const lines = content.split('\n');
+    // Flag `status:` inside a sale_orders.update/updateMany DATA block (a `status:` in the
+    // WHERE guard is a read): scan the 15-line window after each call, anchor on `data:`,
+    // and take the first status assignment at or after it (inline or on a later line).
+    for (let i = 0; i < lines.length; i++) {
+      if (!/sale_orders\.(update|updateMany)\(/.test(lines[i])) continue;
+      const window = lines.slice(i, Math.min(i + 15, lines.length)).join('\n');
+      const dataM = /\bdata\s*:/.exec(window);
+      if (!dataM) continue;
+      const statusM = /\bstatus\s*:/.exec(window.slice(dataM.index));
+      if (!statusM) continue;
+      const statusLine = i + window.slice(0, dataM.index + statusM.index).split('\n').length;
+      const context = `${lines[statusLine - 3] || ''}\n${lines[statusLine - 2] || ''}\n${lines[statusLine - 1]}`;
+      if (/allow-sale-order-status/.test(context)) continue;
+      out.push({
+        key: `${norm} :: sale_orders status write :: L${statusLine}`,
+        file: rel,
+        line: statusLine,
+        detail:
+          'raw sale_orders.status write — progress states are derived by sale-order-status.helper.ts (recomputeSaleOrderStatus); a commercial event write (confirm/cancel/POD) is marked // allow-sale-order-status',
+      });
+    }
+  }
+  return out;
+}
+
 // Single source of defaults (2026-08-21) — a business default value declared anywhere other
 // than backend/src/config/defaults.registry.ts.
 //
@@ -1342,6 +1384,7 @@ module.exports = {
   colourSentinelLiteral,
   unguardedCadDelete,
   costingCadApprovalDrift,
+  saleOrderStatusWrite,
   schemaFrontendParity,
   schemaServiceUpdateParity,
   stockSyncNoWarehouse,

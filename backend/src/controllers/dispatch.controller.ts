@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { toCurrency, toNumber, Decimal } from '../utils/currency'; // BUG-POD5 fix
+import { recomputeSaleOrderStatus } from '../services/helpers/sale-order-status.helper';
 
 // ============================================
 // Helper Functions
@@ -998,44 +999,24 @@ export const recordPOD = async (req: Request, res: Response) => {
         const totalOrdered = soItems.reduce((sum, i) => sum + i.quantity, 0);
         const totalDispatched = soItems.reduce((sum, i) => sum + i.dispatchedQty, 0);
 
-        // If all items are dispatched AND this POD confirms delivery, mark as DELIVERED
+        // If all items are dispatched AND this POD confirms delivery, mark as DELIVERED.
+        // Landmine №2: recompute first so a stale status (e.g. a legacy allocation
+        // overwrite) cannot leave the order outside the dispatch states this guard needs.
+        await recomputeSaleOrderStatus(tx, updatedNote.saleOrderId);
         if (totalDispatched >= totalOrdered) {
+          // DELIVERED is a commercial event (POD confirmation), not derived progress
           await tx.sale_orders.updateMany({
             where: {
               id: updatedNote.saleOrderId,
               status: { in: ['PARTIALLY_DISPATCHED', 'DISPATCHED'] },
             },
-            data: { status: 'DELIVERED' as any }, // P7.1: DELIVERED added to enum; user runs prisma generate
+            data: { status: 'DELIVERED' }, // allow-sale-order-status: POD delivery confirmation
           });
         }
       } else if (deliveryStatus === 'REJECTED') {
-        // Recompute status after rejection restored quantities
-        const soItems = await tx.sale_order_items.findMany({
-          where: { saleOrderId: updatedNote.saleOrderId },
-          select: { quantity: true, dispatchedQty: true },
-        });
-
-        const totalDispatched = soItems.reduce((sum, i) => sum + i.dispatchedQty, 0);
-
-        if (totalDispatched === 0) {
-          // Nothing dispatched anymore - back to FULLY_ALLOCATED or CONFIRMED
-          await tx.sale_orders.updateMany({
-            where: {
-              id: updatedNote.saleOrderId,
-              status: { in: ['PARTIALLY_DISPATCHED', 'DISPATCHED'] },
-            },
-            data: { status: 'FULLY_ALLOCATED' },
-          });
-        } else {
-          // Some still dispatched
-          await tx.sale_orders.updateMany({
-            where: {
-              id: updatedNote.saleOrderId,
-              status: 'DISPATCHED',
-            },
-            data: { status: 'PARTIALLY_DISPATCHED' },
-          });
-        }
+        // Landmine №2: rejection decremented dispatchedQty — derive honestly from the
+        // remaining facts (falls back through allocation states, not hardcoded FULLY_ALLOCATED)
+        await recomputeSaleOrderStatus(tx, updatedNote.saleOrderId);
       }
     }
 
@@ -1442,38 +1423,9 @@ export const getOrdersReadyForDispatch = async (req: Request, res: Response) => 
 // SALE ORDER DISPATCH (P7.1 - B2B Integration)
 // ============================================
 
-/**
- * Recompute sale order status based on dispatched quantities.
- * Called after any dispatch that touches sale order items.
- */
-const recomputeSaleOrderStatus = async (tx: Prisma.TransactionClient, saleOrderId: string): Promise<void> => {
-  const items = await tx.sale_order_items.findMany({
-    where: { saleOrderId },
-    select: { quantity: true, dispatchedQty: true },
-  });
-
-  if (items.length === 0) return;
-
-  const totalOrdered = items.reduce((sum, i) => sum + i.quantity, 0);
-  const totalDispatched = items.reduce((sum, i) => sum + i.dispatchedQty, 0);
-
-  let newStatus: string | undefined;
-  if (totalDispatched >= totalOrdered) {
-    newStatus = 'DISPATCHED';
-  } else if (totalDispatched > 0) {
-    newStatus = 'PARTIALLY_DISPATCHED';
-  }
-
-  if (newStatus) {
-    await tx.sale_orders.updateMany({
-      where: {
-        id: saleOrderId,
-        status: { in: ['CONFIRMED', 'PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED', 'PARTIALLY_DISPATCHED'] },
-      },
-      data: { status: newStatus as any },
-    });
-  }
-};
+// Sale-order status recompute now lives in services/helpers/sale-order-status.helper.ts
+// (landmine №2): one derivation for allocation AND dispatch, dispatch facts ranked above
+// allocation, DRAFT/CANCELLED/DELIVERED pinned.
 
 /**
  * Create Delivery Note from Sale Order.

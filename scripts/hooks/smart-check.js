@@ -404,6 +404,17 @@ function checkCostingApprovalDrift(tsFiles) {
   );
 }
 
+/** Check (E6): raw sale_orders.status write outside the recompute helper — BLOCKING new + ratchet. */
+function checkSaleOrderStatusWrite(tsFiles) {
+  console.log(`\n${c.cyan}Checking for raw sale-order status writes...${c.reset}`);
+  return runRatchetedCheck(
+    'raw sale_orders.status write(s) (progress states are derived — B2B reads this column live)',
+    detectors.saleOrderStatusWrite(tsFiles),
+    'sale-order-status-baseline.json',
+    'Call recomputeSaleOrderStatus(tx, saleOrderId) from services/helpers/sale-order-status.helper.ts after quantity changes; mark a commercial event write (confirm/cancel/POD DELIVERED) with `// allow-sale-order-status`. If intentional, add the key to scripts/hooks/sale-order-status-baseline.json.'
+  );
+}
+
 /** Check (E4): a business default declared outside defaults.registry.ts — BLOCKING new + ratchet. */
 function checkHardcodedDefault(tsFiles) {
   console.log(`\n${c.cyan}Checking for hardcoded default values...${c.reset}`);
@@ -869,6 +880,7 @@ function runAllModeChecks() {
   if (!checkColourSentinelLiteral(tsFiles)) ok = false;
   if (!checkUnguardedCadDelete(tsFiles)) ok = false;
   if (!checkCostingApprovalDrift(tsFiles)) ok = false;
+  if (!checkSaleOrderStatusWrite(tsFiles)) ok = false;
   if (!checkHardcodedDefault(tsFiles)) ok = false;
   if (!checkSchemaServiceUpdateParity(schemaFiles)) ok = false;
   checkAiGuides(); // warn-only
@@ -976,6 +988,7 @@ function main() {
     if (!checkColourSentinelLiteral(categories.typescript)) allPassed = false;
     if (!checkUnguardedCadDelete(categories.typescript)) allPassed = false;
     if (!checkCostingApprovalDrift(categories.typescript)) allPassed = false;
+    if (!checkSaleOrderStatusWrite(categories.typescript)) allPassed = false;
     if (!checkHardcodedDefault(categories.typescript)) allPassed = false;
   }
 

@@ -69,13 +69,18 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
     CANCELLED: [], // Terminal
   },
 
+  // Landmine №2 note: sale-order PROGRESS states (allocation/dispatch tiers) are DERIVED
+  // from item quantities by services/helpers/sale-order-status.helper.ts — allocation may
+  // step down when stock is released, dispatch steps down only when dispatchedQty is
+  // reduced (rejected delivery). This declaration documents the event transitions.
   saleOrder: {
     DRAFT: ['CONFIRMED', 'CANCELLED'],
     CONFIRMED: ['PARTIALLY_ALLOCATED', 'FULLY_ALLOCATED', 'CANCELLED'],
-    PARTIALLY_ALLOCATED: ['FULLY_ALLOCATED', 'PARTIALLY_DISPATCHED', 'CANCELLED'],
-    FULLY_ALLOCATED: ['PARTIALLY_DISPATCHED', 'DISPATCHED'],
-    PARTIALLY_DISPATCHED: ['DISPATCHED'],
-    DISPATCHED: [], // Terminal
+    PARTIALLY_ALLOCATED: ['CONFIRMED', 'FULLY_ALLOCATED', 'PARTIALLY_DISPATCHED', 'CANCELLED'],
+    FULLY_ALLOCATED: ['CONFIRMED', 'PARTIALLY_ALLOCATED', 'PARTIALLY_DISPATCHED', 'DISPATCHED', 'CANCELLED'],
+    PARTIALLY_DISPATCHED: ['DISPATCHED', 'DELIVERED', 'CANCELLED'],
+    DISPATCHED: ['PARTIALLY_DISPATCHED', 'DELIVERED'], // steps back only via rejected/returned delivery
+    DELIVERED: [], // Terminal (POD confirmed)
     CANCELLED: [], // Terminal
   },
 

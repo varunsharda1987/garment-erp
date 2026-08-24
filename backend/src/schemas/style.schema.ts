@@ -239,10 +239,12 @@ export const createStyleSchema = z.object({
   accountingSKU: z.string().optional().nullable(),
   accountingUnit: z.string().optional().nullable(),
   bulletPoints: z.string().optional().nullable(),
-  buyerStyleRef: z
-    .string()
-    .min(1, 'Buyer reference is required')
-    .max(100, 'Buyer style reference must be at most 100 characters'),
+  // B2B CONTRACT §5.9 (docs/B2B_INTEGRATION_GUIDE.md): createStyleSchema's minimal
+  // required set must NOT grow — the House of Kasya auto-create sends only
+  // styleCode/styleName/brandName/customerName/sellingPrice/status. The 2026-08-04 sweep
+  // made this field required, silently breaking that path AND the ERP's own style form
+  // (which sends null when the field is empty). Caught by b2b-contract.test.ts 2026-08-24.
+  buyerStyleRef: z.string().max(100, 'Buyer style reference must be at most 100 characters').optional().nullable(),
 
   // Nested arrays
   components: z.array(styleComponentSchema).optional().default([]),

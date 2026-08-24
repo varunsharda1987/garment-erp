@@ -477,6 +477,34 @@ function checkAiGuides() {
 }
 
 /**
+ * Check: the B2B contract suite — runs the executable contract when its surface is staged.
+ * Blocks on a genuine test failure; a suite that cannot run (no DB) warns instead.
+ */
+function checkB2bContract() {
+  console.log(`\n${c.cyan}Running the B2B contract test (staged files touch the House of Kasya surface)...${c.reset}`);
+  try {
+    execSync('node node_modules/jest/bin/jest.js --testPathPatterns=b2b-contract --runInBand --silent', {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      cwd: path.join(process.cwd(), 'backend'),
+      timeout: 180000,
+    });
+    console.log(`${c.green}  ✓ B2B contract holds (10 promises verified)${c.reset}`);
+    return true;
+  } catch (error) {
+    const out = `${error.stdout || ''}${error.stderr || ''}`;
+    if (/ECONNREFUSED|connect|P1001|database/i.test(out) && !/Tests:\s+\d+ failed/.test(out)) {
+      console.log(`${c.yellow}  ⚠ Could not run the B2B contract suite (DB unreachable?) — not blocking${c.reset}`);
+      return true;
+    }
+    console.log(`${c.red}  ✗ B2B CONTRACT BROKEN — a promise the House of Kasya app depends on failed${c.reset}`);
+    console.log(`${c.dim}    Run: cd backend && node node_modules/jest/bin/jest.js --testPathPatterns=b2b-contract --runInBand${c.reset}`);
+    console.log(`${c.dim}    Fix the breaking change (or coordinate with the B2B app and update guide + test together).${c.reset}`);
+    return false;
+  }
+}
+
+/**
  * Check: Stock services use material-sync helper
  */
 function checkStockServicePattern(backendFiles) {
@@ -1022,6 +1050,15 @@ function main() {
   if (categories.backendTs.length) {
     checksRun++;
     if (!checkStockServicePattern(categories.backendTs)) allPassed = false;
+  }
+
+  // B2B contract surface touched → run the executable contract (blocks on failure).
+  // The House of Kasya app is a LIVE external consumer; docs/B2B_INTEGRATION_GUIDE.md §5
+  // froze these shapes after a July incident where a schema change silently 400'd every
+  // push. Needs the local DB — skipped with a warning if the suite cannot run.
+  if (stagedFiles.some((f) => /saleOrder\.(schema|controller|service|routes)|serializer\.ts|style\.schema\.ts|style\.service\.ts|b2b-contract\.test/.test(f))) {
+    checksRun++;
+    if (!checkB2bContract()) allPassed = false;
   }
 
   // Any TypeScript changes → check console.log

@@ -96,7 +96,13 @@ serializer — note `_count` becomes `count`):
 - `saleOrderNumber`, `saleDate`, `expectedShipDate`
 - `items[].quantity / allocatedQty / dispatchedQty / unitPrice`,
   `items[].style{styleCode,styleName}`, `items[].color{colorName}`, `items[].size{sizeName,sizeCode}`
-- `count.deliveryNotes`, `count.invoices`
+- delivery-note / invoice counts — **the serializer preserves the `_count` KEY but camelizes
+  its inner keys**: the real shape is `_count.deliveryNotes` / `_count.invoices`.
+  (Corrected 2026-08-24 — this doc previously claimed `count.deliveryNotes`, and the B2B
+  client's defensive fallback (`count?.deliveryNotes ?? _count?.delivery_notes ?? 0`) missed
+  BOTH spellings, so its Factory-status modal showed 0 counts silently. The contract test
+  `backend/src/__tests__/integration/b2b-contract.test.ts` now pins the real shape; the B2B
+  client must read `_count?.deliveryNotes`.)
 
 **Additive fields (2026-08-04, backward-compatible):** `sale_orders` gained nullable
 `orderDate`, `deliveryDate`, `paymentTerms`, `deliveryAddress` (the Zod schema accepted these

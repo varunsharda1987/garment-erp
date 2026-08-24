@@ -954,7 +954,7 @@ export const createDyeJob = async (req: Request, res: Response, _next: NextFunct
       expectedShrinkage,
       agreedRatePerMeter,
       remarks,
-      status: 'READY_TO_SEND',
+      jwoStatus: 'DRAFT',
       createdById: userId,
     },
     include: jobWorkOrderInclude,
@@ -1597,7 +1597,6 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         agreedRatePerMeter,
         isRateTbd, // Explicit TBD marker when rate=0 is intentional
         remarks,
-        status: 'READY_TO_SEND',
         jwoStatus: 'DRAFT',
         createdById: userId,
       },

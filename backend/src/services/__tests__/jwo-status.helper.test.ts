@@ -1,18 +1,18 @@
 /**
- * jwo-status.helper — pins the two-column JWO status contract (landmine №1 fix).
+ * jwo-status.helper — pins the JWO status contract.
  *
- * jwoStatus is the single source of truth; the legacy `status` column is a derived mirror
- * written only through setJwoStatus/setJwoStatusMany. A cancel must land in BOTH columns,
- * and JWO_ACTIVE_FILTER must drop cancelled orders from receivable-shaped queries — the
- * exact hole that let a cancelled job's returned rolls be received again (double stock).
+ * jwoStatus is the single source of truth for job work order status.
+ * The legacy `status` column has been retired.
  */
 
 import {
   setJwoStatus,
   setJwoStatusMany,
   JWO_ACTIVE_FILTER,
-  JWO_TO_LEGACY_STATUS,
   isJwoDead,
+  JWO_PRE_ISSUE_STATUSES,
+  JWO_AT_PROCESSOR_STATUSES,
+  JWO_RECEIVED_STATUSES,
 } from '../helpers/jwo-status.helper';
 import prisma from '../../config/database';
 
@@ -52,7 +52,6 @@ describe('jwo-status.helper', () => {
         processType: 'DYEING',
         qtySentMeters: 100,
         agreedRatePerMeter: 10,
-        status: 'READY_TO_SEND',
         jwoStatus: 'DRAFT',
         uom: 'MTR',
         createdById: testUserId,
@@ -76,55 +75,45 @@ describe('jwo-status.helper', () => {
     await prisma.$disconnect();
   });
 
-  it('CANCELLED lands in BOTH columns (the incident: legacy used to stay READY_TO_SEND)', async () => {
+  it('setJwoStatus updates jwoStatus', async () => {
     await setJwoStatus(prisma, jwoId, 'CANCELLED', { remarks: '[CANCELLED] test' });
 
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: jwoId } });
     expect(jwo!.jwoStatus).toBe('CANCELLED');
-    expect(jwo!.status).toBe('CANCELLED');
   });
 
-  it('ISSUED mirrors legacy AT_MILL; RECEIVED mirrors RECEIVED', async () => {
+  it('setJwoStatus can set ISSUED and RECEIVED with receivedDate', async () => {
     await setJwoStatus(prisma, jwoId, 'ISSUED');
     let jwo = await prisma.job_work_orders.findUnique({ where: { id: jwoId } });
-    expect(jwo!.status).toBe('AT_MILL');
+    expect(jwo!.jwoStatus).toBe('ISSUED');
 
     await setJwoStatus(prisma, jwoId, 'RECEIVED', { receivedDate: new Date() });
     jwo = await prisma.job_work_orders.findUnique({ where: { id: jwoId } });
-    expect(jwo!.status).toBe('RECEIVED');
+    expect(jwo!.jwoStatus).toBe('RECEIVED');
     expect(jwo!.receivedDate).not.toBeNull();
   });
 
-  it('PARTIALLY_RECEIVED leaves the legacy column untouched (external-process convention)', async () => {
+  it('setJwoStatus can set PARTIALLY_RECEIVED', async () => {
     await setJwoStatus(prisma, jwoId, 'ISSUED');
     await setJwoStatus(prisma, jwoId, 'PARTIALLY_RECEIVED');
 
     const jwo = await prisma.job_work_orders.findUnique({ where: { id: jwoId } });
     expect(jwo!.jwoStatus).toBe('PARTIALLY_RECEIVED');
-    expect(jwo!.status).toBe('AT_MILL'); // unchanged until fully received
   });
 
   it('JWO_ACTIVE_FILTER drops cancelled orders from receivable-shaped queries', async () => {
-    // Shape of getReceivable / the at-mill dashboards: legacy filter + active filter
     await setJwoStatus(prisma, jwoId, 'ISSUED');
 
     const receivableBefore = await prisma.job_work_orders.findMany({
-      where: { id: jwoId, status: { in: ['AT_MILL', 'SENT_TO_MILL'] }, AND: [JWO_ACTIVE_FILTER] },
+      where: { id: jwoId, jwoStatus: { in: JWO_AT_PROCESSOR_STATUSES }, AND: [JWO_ACTIVE_FILTER] },
     });
     expect(receivableBefore).toHaveLength(1);
 
     await setJwoStatus(prisma, jwoId, 'CANCELLED');
     const receivableAfter = await prisma.job_work_orders.findMany({
-      where: { id: jwoId, status: { in: ['AT_MILL', 'SENT_TO_MILL'] }, AND: [JWO_ACTIVE_FILTER] },
+      where: { id: jwoId, jwoStatus: { in: JWO_AT_PROCESSOR_STATUSES }, AND: [JWO_ACTIVE_FILTER] },
     });
     expect(receivableAfter).toHaveLength(0);
-
-    // NULL jwoStatus (legacy-only creates) must still pass the filter
-    await prisma.job_work_orders.update({ where: { id: jwoId }, data: { jwoStatus: null, status: 'AT_MILL' } });
-    const legacyRows = await prisma.job_work_orders.findMany({
-      where: { id: jwoId, status: { in: ['AT_MILL', 'SENT_TO_MILL'] }, AND: [JWO_ACTIVE_FILTER] },
-    });
-    expect(legacyRows).toHaveLength(1);
   });
 
   it('setJwoStatusMany enforces its guard (count 0 when the where excludes the row)', async () => {
@@ -141,14 +130,29 @@ describe('jwo-status.helper', () => {
     expect(jwo!.jwoStatus).toBe('CANCELLED');
   });
 
-  it('mapping table stays total over the enum', () => {
-    // Compile-time Record<> already enforces this; the runtime assertion guards enum growth
-    const values = Object.keys(JWO_TO_LEGACY_STATUS);
-    expect(values).toContain('CANCELLED');
-    expect(values).toHaveLength(12);
+  it('status groups cover the expected values', () => {
+    expect(JWO_PRE_ISSUE_STATUSES).toContain('DRAFT');
+    expect(JWO_PRE_ISSUE_STATUSES).toContain('PENDING_APPROVAL');
+    expect(JWO_PRE_ISSUE_STATUSES).toContain('APPROVED');
+    expect(JWO_PRE_ISSUE_STATUSES).toHaveLength(3);
+
+    expect(JWO_AT_PROCESSOR_STATUSES).toContain('ISSUED');
+    expect(JWO_AT_PROCESSOR_STATUSES).toContain('IN_TRANSIT');
+    expect(JWO_AT_PROCESSOR_STATUSES).toContain('AT_PROCESSOR');
+    expect(JWO_AT_PROCESSOR_STATUSES).toContain('PARTIALLY_RECEIVED');
+    expect(JWO_AT_PROCESSOR_STATUSES).toHaveLength(4);
+
+    expect(JWO_RECEIVED_STATUSES).toContain('RECEIVED');
+    expect(JWO_RECEIVED_STATUSES).toContain('QUALITY_CHECKED');
+    expect(JWO_RECEIVED_STATUSES).toContain('STOCK_UPDATED');
+    expect(JWO_RECEIVED_STATUSES).toHaveLength(3);
+  });
+
+  it('isJwoDead identifies terminal statuses', () => {
     expect(isJwoDead('CANCELLED')).toBe(true);
     expect(isJwoDead('CLOSED')).toBe(true);
     expect(isJwoDead('ISSUED')).toBe(false);
+    expect(isJwoDead('DRAFT')).toBe(false);
     expect(isJwoDead(null)).toBe(false);
   });
 });

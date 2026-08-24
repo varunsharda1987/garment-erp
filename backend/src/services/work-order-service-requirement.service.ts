@@ -1119,7 +1119,6 @@ export async function generateServiceJWOs(data: {
           uom,
           agreedRatePerMeter: rate,
           expectedReturnDate: new Date(expectedDeliveryDate),
-          status: 'READY_TO_SEND',
           jwoStatus: 'DRAFT',
           remarks: `[Service Req] ${woNumbers.join(', ')}${remarks ? `\n${remarks}` : ''}`,
           createdById: userId,

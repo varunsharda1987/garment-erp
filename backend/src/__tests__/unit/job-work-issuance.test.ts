@@ -33,7 +33,6 @@ function baseJwo(overrides: Record<string, unknown> = {}) {
     jobWorkNumber: 'DJ-EBEW-003-001',
     sentDate: null,
     jwoStatus: 'APPROVED',
-    status: 'READY_TO_SEND',
     fabricType: 'GREIGE',
     uom: 'MTR',
     qtySentMeters: 8792.09,

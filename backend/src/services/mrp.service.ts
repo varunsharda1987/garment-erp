@@ -2797,7 +2797,6 @@ export function buildJwoDataForProcessingPO(seed: ProcessingJwoSeed, jobWorkNumb
     isRateTbd: false,
     expectedShrinkage: seed.expectedShrinkage,
     expectedReturnDate: seed.expectedReturnDate,
-    status: 'READY_TO_SEND' as const,
     jwoStatus: 'DRAFT' as const,
     remarks: `[MRP] Auto-created from ${seed.requirementNumbers.join(', ')}`,
     createdById: seed.userId,

@@ -232,8 +232,7 @@ class JobWorkOrderController {
           isRateTbd: isKaaj ? false : body.isRateTbd,
           expectedReturnDate: body.expectedReturnDate ?? null,
           remarks: body.remarks ?? null,
-          status: 'READY_TO_SEND', // legacy status keeps existing send/receive flows working
-          jwoStatus: 'DRAFT', // universal status per service-rules
+          jwoStatus: 'DRAFT',
           buttonholeCount: isKaaj ? (body.buttonholeCount ?? 0) : null,
           buttonCount: isKaaj ? (body.buttonCount ?? 0) : null,
           buttonholeRatePerUnit: buttonholeRate,

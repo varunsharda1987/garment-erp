@@ -11,9 +11,12 @@ import { Prisma, order_bom, OrderBOMStatus, Unit } from '@prisma/client';
 import { ConflictError, NotFoundError, ValidationError, BusinessError } from '../errors';
 import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
 import { processorRateValidationService } from './processor-rate-validation.service';
+// Qty-rate audit 2026-08-24: the single slab-aware rate authority (never re-implement slab matching)
+import { lookupRate } from './processor-rate-v2.service';
+import type { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
 import { systemSettingsService } from './system-settings.service';
 import { resolveShrinkagePercent } from './helpers/shrinkage-resolver.helper';
-import { divideByShrinkage, toNumber } from '../utils/currency';
+import { divideByShrinkage, toNumber, toCurrency, roundToCent } from '../utils/currency';
 import { SearchFilter } from '../types/prisma.types';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -332,6 +335,53 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         warnings: rateValidation.warningItems.map((w) => ({
           itemName: w.itemName,
           change: `${w.costSheetRate} → ${w.currentRate} (${w.percentageChange.toFixed(2)}%)`,
+        })),
+      });
+    }
+
+    // Qty-rate audit 2026-08-24: the check above pins the ORIGINAL slab (time drift). This one
+    // re-runs the slab lookup at THIS ORDER's actual meters — the costed 2500m may sit in a
+    // different slab than the ordered 1500m. Blocks until the caller accepts, then the ORDER's
+    // BOM lines carry the fresh rate + card (style-level costing stays untouched, so repeat
+    // orders of the same style at other quantities keep their own correct basis).
+    const bomOrderQuantity = order.order_items[0]?.totalQuantity || order.totalQuantity;
+    const slabValidation = await processorRateValidationService.validateQuantitySlabs(
+      input.costSheetId,
+      bomOrderQuantity
+    );
+    const rateOverridesByItemId = new Map<string, { processingCost: number; rateCardId: string }>();
+    if (slabValidation.driftItems.length > 0) {
+      if (!input.acceptRateChanges) {
+        const driftSummary = slabValidation.driftItems
+          .map(
+            (d) =>
+              `${d.itemName}: ₹${d.costSheetRate}/m @ ${d.slabLabelOld ?? 'costed slab'} → ₹${d.orderRate}/m @ ${d.slabLabelNew} (${d.percentageChange > 0 ? '+' : ''}${d.percentageChange.toFixed(1)}%)`
+          )
+          .join('; ');
+        throw new BusinessError(
+          `This order's quantity (${bomOrderQuantity} pcs) falls in a different processor rate slab than the style ` +
+            `was costed at. ${driftSummary}. Review and accept the order-quantity rates to continue — the accepted ` +
+            `rates apply to THIS order's BOM only.`,
+          {
+            code: 'RATE_SLAB_CHANGED',
+            driftItems: slabValidation.driftItems,
+            orderQuantity: bomOrderQuantity,
+          }
+        );
+      }
+      for (const drift of slabValidation.driftItems) {
+        rateOverridesByItemId.set(drift.itemId, {
+          processingCost: drift.orderRate,
+          rateCardId: drift.rateCardIdNew,
+        });
+      }
+      logWarn('Order BOM creation applying accepted order-quantity rate overrides', {
+        orderId: input.orderId,
+        costSheetId: input.costSheetId,
+        overrides: slabValidation.driftItems.map((d) => ({
+          item: d.itemName,
+          rate: `${d.costSheetRate} → ${d.orderRate}`,
+          slab: `${d.slabLabelOld ?? '?'} → ${d.slabLabelNew}`,
         })),
       });
     }
@@ -1073,7 +1123,20 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         // greigeCost/processingCost stay on the row as the procurement breakdown:
         // MRP reads THOSE (never unitPrice) for greige-processed lines, so PO/JWO
         // pricing is unaffected. Matches lace, READY_FABRIC and the width-change path.
-        const unitPrice = Number(fabricItem.costPerMeter) || 0;
+        // Accepted order-quantity rate override (RATE_SLAB_CHANGED flow): processing enters the
+        // build-up linearly, so the all-in unitPrice shifts by exactly the processing delta.
+        const rateOverride = rateOverridesByItemId.get(fabricItem.id);
+        const baseUnitPrice = Number(fabricItem.costPerMeter) || 0;
+        const unitPrice =
+          rateOverride && baseUnitPrice > 0
+            ? toNumber(
+                roundToCent(
+                  toCurrency(baseUnitPrice)
+                    .plus(toCurrency(rateOverride.processingCost))
+                    .minus(toCurrency(Number(fabricItem.processingCost) || 0))
+                )
+              )
+            : baseUnitPrice;
         const totalCost = totalWithWastage * unitPrice;
 
         bomItems.push({
@@ -1105,8 +1168,13 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
             null,
           processorId: fabricItem.processorId,
           greigeCost: fabricItem.greigeCost ? Number(fabricItem.greigeCost) : null,
-          processingCost: fabricItem.processingCost ? Number(fabricItem.processingCost) : null,
-          rateCardId: fabricItem.rateCardId,
+          // Order-scoped rate: the accepted order-quantity slab rate wins over the costed snapshot
+          processingCost: rateOverride
+            ? rateOverride.processingCost
+            : fabricItem.processingCost
+              ? Number(fabricItem.processingCost)
+              : null,
+          rateCardId: rateOverride ? rateOverride.rateCardId : fabricItem.rateCardId,
           colorName: fabricItem.colorName || null,
           fabricWidthInches: fabricItem.width ? Number(fabricItem.width) : null,
           selectedCadId: fabricItem.fabricCADId || null,
@@ -1519,6 +1587,18 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     const targetOrderItem = targetOrder.order_items.find((item) => item.styleId === input.styleId);
     const newOrderQuantity = input.adjustQuantity || targetOrderItem?.totalQuantity || targetOrder.totalQuantity;
 
+    // Qty-rate audit 2026-08-24: this was the single most exposed repeat-order path — the copy
+    // recalculated QUANTITIES at the target order but carried the source order's historical
+    // RATES verbatim, with neither the ≥5% staleness gate nor any slab check. Re-price every
+    // greige-processed line at the TARGET quantity; block until accepted, then the new BOM's
+    // lines carry the fresh rate (order-scoped — source order and style costing untouched).
+    const copyRateOverrides = await this.checkCopiedItemsRateDrift(
+      sourceBOM.items,
+      newOrderQuantity,
+      input.acceptRateChanges === true,
+      { targetOrderId: input.targetOrderId, sourceOrderId: input.sourceOrderId }
+    );
+
     // Get next version
     const latestBOM = await this.prisma.order_bom.findFirst({
       where: {
@@ -1537,7 +1617,11 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       const totalQuantity = quantityPerGarment * newOrderQuantity;
       const wastagePercent = Number(item.wastagePercent) || 0;
       const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
-      const unitPrice = Number(item.unitPrice);
+      const rateOverride = copyRateOverrides.get(item.id);
+      // Processing enters the all-in price linearly → shift unitPrice by the accepted delta
+      const unitPrice = rateOverride
+        ? toNumber(roundToCent(toCurrency(Number(item.unitPrice)).plus(toCurrency(rateOverride.delta))))
+        : Number(item.unitPrice);
       const totalCost = totalWithWastage * unitPrice;
 
       return {
@@ -1557,8 +1641,12 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         sourcingStrategy: item.sourcingStrategy,
         processorId: item.processorId,
         greigeCost: item.greigeCost ? Number(item.greigeCost) : null,
-        processingCost: item.processingCost ? Number(item.processingCost) : null,
-        rateCardId: item.rateCardId,
+        processingCost: rateOverride
+          ? rateOverride.processingCost
+          : item.processingCost
+            ? Number(item.processingCost)
+            : null,
+        rateCardId: rateOverride ? rateOverride.rateCardId : item.rateCardId,
         colorName: item.colorName || null,
         quantityPerGarment,
         orderQuantity: newOrderQuantity,
@@ -1734,10 +1822,25 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           fabricId: item.fabricId,
           greigeId: item.greigeId,
           sourcingStrategy: item.sourcingStrategy,
-          processorId: item.processorId,
-          greigeCost: item.greigeCost ? Number(item.greigeCost) : null,
-          processingCost: item.processingCost ? Number(item.processingCost) : null,
-          rateCardId: item.rateCardId,
+          // Qty-rate audit 2026-08-24: the new width's CAD row carries its own processor
+          // economics — copying the OLD item's rates while taking the NEW row's unitPrice mixed
+          // two different widths' pricing (MRP prices greige POs off greigeCost, so the old copy
+          // silently mispriced procurement after a width change). Prefer the new CAD's values,
+          // falling back to the old item's only when the CAD row has none.
+          processorId: cad.processorId ?? item.processorId,
+          greigeCost:
+            cad.greigeCostPerMeter != null
+              ? Number(cad.greigeCostPerMeter)
+              : item.greigeCost
+                ? Number(item.greigeCost)
+                : null,
+          processingCost:
+            cad.processingPricePerMeter != null
+              ? Number(cad.processingPricePerMeter)
+              : item.processingCost
+                ? Number(item.processingCost)
+                : null,
+          rateCardId: cad.rateCardId ?? item.rateCardId,
           colorName: item.colorName || null,
           quantityPerGarment: newCadAverage,
           orderQuantity,
@@ -1850,6 +1953,130 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     });
 
     return newBOM as order_bom;
+  }
+
+  /**
+   * Qty-rate audit 2026-08-24: slab/rate re-check for BOM paths that COPY existing items
+   * (copyFromPreviousOrder — and any future clone path). For every greige-processed line,
+   * re-runs the slab-aware lookup at the TARGET order's meters and compares against the
+   * copied rate. Throws RATE_SLAB_CHANGED with the full diff unless `accepted`; when
+   * accepted, returns the per-item overrides (fresh rate + card + unit-price delta) for the
+   * caller to write onto the NEW order-scoped items.
+   */
+  private async checkCopiedItemsRateDrift(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sourceItems: any[],
+    targetOrderQuantity: number,
+    accepted: boolean,
+    context: { targetOrderId: string; sourceOrderId?: string }
+  ): Promise<Map<string, { processingCost: number; rateCardId: string; delta: number }>> {
+    const overrides = new Map<string, { processingCost: number; rateCardId: string; delta: number }>();
+    if (!targetOrderQuantity || targetOrderQuantity <= 0) return overrides;
+
+    const driftItems: Array<{
+      itemId: string;
+      itemName: string;
+      processorId: string;
+      greigeId: string;
+      copiedRate: number;
+      orderRate: number;
+      slabLabelOld: string | null;
+      slabLabelNew: string;
+      orderQuantityMeters: number;
+      difference: number;
+      percentageChange: number;
+      rateCardIdNew: string;
+    }> = [];
+
+    for (const item of sourceItems) {
+      if (item.sourcingStrategy !== 'GREIGE_PROCESSED' || !item.processorId || !item.greigeId) continue;
+      const copiedRate = item.processingCost != null ? Number(item.processingCost) : 0;
+      if (copiedRate <= 0) continue;
+
+      const quantityPerGarment = Number(item.quantityPerGarment) || 0;
+      const wastagePercent = Number(item.wastagePercent) || 0;
+      const targetMeters = quantityPerGarment * targetOrderQuantity * (1 + wastagePercent / 100);
+      if (targetMeters <= 0) continue;
+
+      // Process/print type + original slab from the pinned rate card when it exists
+      let processingType: ProcessingTypeV2 = 'DYEING';
+      let printingType: PrintingTypeV2 | undefined;
+      let slabLabelOld: string | null = null;
+      if (item.rateCardId) {
+        const card = await this.prisma.processor_rate_card.findUnique({
+          where: { id: item.rateCardId },
+          select: { processingType: true, printingType: true, slab: { select: { slabLabel: true } } },
+        });
+        if (card?.processingType === 'PRINTING') {
+          processingType = 'PRINTING';
+          printingType = (card.printingType ?? undefined) as PrintingTypeV2 | undefined;
+          if (!printingType) continue; // unresolvable print sub-type — skip beats false alarm
+        }
+        slabLabelOld = card?.slab?.slabLabel ?? null;
+      }
+
+      let fresh: Awaited<ReturnType<typeof lookupRate>> = null;
+      try {
+        fresh = await lookupRate({
+          processorId: item.processorId,
+          processingType,
+          printingType,
+          greigeId: item.greigeId,
+          quantityMeters: targetMeters,
+        });
+      } catch {
+        // unresolvable — treat as no card, skip
+      }
+      if (!fresh || fresh.ratePerMeter <= 0) continue;
+
+      // Copied rates are historical: BOTH time drift and slab drift matter on this path,
+      // so any paise-level difference is reportable.
+      const differenceDec = toCurrency(fresh.ratePerMeter).minus(toCurrency(copiedRate));
+      if (differenceDec.abs().lessThan(0.005)) continue;
+
+      const difference = differenceDec.toNumber();
+      driftItems.push({
+        itemId: item.id,
+        itemName: item.componentName || 'Fabric',
+        processorId: item.processorId,
+        greigeId: item.greigeId,
+        copiedRate,
+        orderRate: fresh.ratePerMeter,
+        slabLabelOld,
+        slabLabelNew: fresh.slabLabel,
+        orderQuantityMeters: targetMeters,
+        difference,
+        percentageChange: toCurrency(difference)
+          .dividedBy(toCurrency(copiedRate))
+          .times(100)
+          .toDecimalPlaces(2)
+          .toNumber(),
+        rateCardIdNew: fresh.id,
+      });
+      overrides.set(item.id, { processingCost: fresh.ratePerMeter, rateCardId: fresh.id, delta: difference });
+    }
+
+    if (driftItems.length > 0 && !accepted) {
+      const driftSummary = driftItems
+        .map(
+          (d) =>
+            `${d.itemName}: ₹${d.copiedRate}/m (${d.slabLabelOld ?? 'copied'}) → ₹${d.orderRate}/m @ ${d.slabLabelNew} ` +
+            `(${d.percentageChange > 0 ? '+' : ''}${d.percentageChange.toFixed(1)}%)`
+        )
+        .join('; ');
+      throw new BusinessError(
+        `The copied BOM carries rates from the source order that no longer match this order's quantity. ` +
+          `${driftSummary}. Review and accept the current rates to continue — they apply to THIS order's BOM only.`,
+        {
+          code: 'RATE_SLAB_CHANGED',
+          driftItems,
+          sourceOrderId: context.sourceOrderId,
+          targetOrderId: context.targetOrderId,
+        }
+      );
+    }
+
+    return overrides;
   }
 
   // ============================================
@@ -2097,11 +2324,37 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     // Check if parent order is cancelled
     const order = await this.prisma.orders.findUnique({
       where: { id: bom.orderId },
-      select: { status: true },
+      select: {
+        status: true,
+        totalQuantity: true,
+        order_items: { where: { styleId: bom.styleId }, select: { totalQuantity: true } },
+      },
     });
 
     if (order?.status === 'CANCELLED') {
       throw new BusinessError('Cannot approve BOM for a cancelled order');
+    }
+
+    // Qty-rate audit 2026-08-24: a DRAFT BOM survives order-item edits with its stale
+    // orderQuantity, and approval used to accept it without ever comparing against the LIVE
+    // order — a BOM computed at 2500 pcs could be approved for an order now carrying 1500 pcs,
+    // with every rate slab-picked at the old quantity. Approval is the last gate before MRP
+    // explodes from these lines, so refuse the mismatch and demand a regenerated BOM.
+    const liveOrderQuantity = order?.order_items?.[0]?.totalQuantity ?? order?.totalQuantity ?? null;
+    if (liveOrderQuantity != null && liveOrderQuantity > 0) {
+      const staleItems = await this.prisma.order_bom_items.findMany({
+        where: { orderBomId: id, orderQuantity: { not: liveOrderQuantity } },
+        select: { orderQuantity: true },
+        take: 1,
+      });
+      if (staleItems.length > 0) {
+        throw new BusinessError(
+          `This BOM was calculated for ${staleItems[0].orderQuantity} pcs but the order now carries ` +
+            `${liveOrderQuantity} pcs. Regenerate the BOM from the cost sheet (or re-copy it) so quantities ` +
+            `and processor rate slabs match the live order before approving.`,
+          { code: 'BOM_QUANTITY_STALE', bomQuantity: staleItems[0].orderQuantity, orderQuantity: liveOrderQuantity }
+        );
+      }
     }
 
     const updatedBOM = await this.prisma.order_bom.update({

@@ -6,6 +6,8 @@ import { multiplyCurrency, divideCurrency, roundToCent } from '../utils/currency
 import { orderService, OrderItemInput, OrderPriority } from './order.service';
 import { NotFoundError, ValidationError, ConflictError, BusinessError } from '../errors';
 import { recomputeSaleOrderStatus } from './helpers/sale-order-status.helper';
+import { processorRateValidationService } from './processor-rate-validation.service';
+import { logWarn } from '../utils/logger';
 
 interface SOCreateInput {
   customerId: string;
@@ -426,7 +428,7 @@ export class SaleOrderService {
 
     const defaultRemarks = `Production for ${so.saleOrderNumber}${so.buyerPoNumber ? ` / Buyer PO ${so.buyerPoNumber}` : ''}`;
 
-    return orderService.createWithItems(
+    const createdOrder = await orderService.createWithItems(
       {
         customerId: so.customerId,
         saleOrderId: id,
@@ -439,6 +441,39 @@ export class SaleOrderService {
       },
       userId
     );
+
+    // Qty-rate audit 2026-08-24: non-blocking advisory — surface up front when this sale
+    // order's quantity prices in a different processor rate slab than the style costing
+    // assumed. The BLOCK sits at Order BOM creation and at IN_PRODUCTION confirmation.
+    const rateWarnings: Array<{ styleId: string; driftItems: unknown[] }> = [];
+    for (const orderItem of orderItems) {
+      try {
+        const itemQuantity = orderItem.breakup.reduce((sum, b) => sum + b.quantity, 0);
+        if (itemQuantity <= 0) continue;
+        const latestSheet = await prisma.style_costing.findFirst({
+          where: {
+            styleId: orderItem.styleId,
+            isApproved: true,
+            supersededById: null,
+          },
+          orderBy: { version: 'desc' },
+          select: { id: true },
+        });
+        if (!latestSheet) continue;
+        const slabCheck = await processorRateValidationService.validateQuantitySlabs(latestSheet.id, itemQuantity);
+        if (slabCheck.driftItems.length > 0) {
+          rateWarnings.push({ styleId: orderItem.styleId, driftItems: slabCheck.driftItems });
+        }
+      } catch (warnError) {
+        // Read-only advisory — must never fail production-order creation
+        logWarn(`[startProduction] Rate-slab advisory check failed for style ${orderItem.styleId}`, warnError);
+      }
+    }
+
+    if (rateWarnings.length > 0) {
+      return { ...createdOrder, rateWarnings } as typeof createdOrder;
+    }
+    return createdOrder;
   }
 
   /**

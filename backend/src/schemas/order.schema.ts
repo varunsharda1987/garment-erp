@@ -59,6 +59,10 @@ export const updateOrderSchema = createOrderSchema.partial();
 export const updateOrderStatusSchema = z.object({
   status: OrderStatus,
   reason: z.string().max(500).optional(),
+  // Qty-rate audit 2026-08-24: confirming IN_PRODUCTION blocks with RATE_SLAB_CHANGED when the
+  // order's quantity lands in a different processor rate slab than the style was costed at.
+  // Re-sending with acceptRates: true accepts the order-quantity rates (order-scoped).
+  acceptRates: z.boolean().optional(),
 });
 
 // Cancel order with options.

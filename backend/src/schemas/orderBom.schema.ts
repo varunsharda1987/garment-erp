@@ -74,6 +74,10 @@ export const createFromCostSheetSchema = z.object({
   styleId: z.string().uuid('Invalid style ID'),
   costSheetId: z.string().min(1, 'Cost sheet ID is required'), // CS-TIMESTAMP format
   orderItemId: z.string().uuid().optional(),
+  // Qty-rate audit 2026-08-24: creation blocks with RATE_SLAB_CHANGED when the order quantity
+  // lands in a different processor rate slab than the style was costed at; re-send with true
+  // to accept the order-quantity rates (written to THIS order's BOM only).
+  acceptRateChanges: z.boolean().optional(),
 });
 
 /**
@@ -84,6 +88,9 @@ export const copyFromPreviousOrderSchema = z.object({
   styleId: z.string().uuid('Invalid style ID'),
   orderItemId: z.string().uuid().optional(),
   adjustQuantity: z.number().int().positive().optional(),
+  // Same RATE_SLAB_CHANGED contract as createFromCostSheetSchema — copied BOMs carry the
+  // source order's historical rates and must be re-checked at the target quantity.
+  acceptRateChanges: z.boolean().optional(),
 });
 
 /**

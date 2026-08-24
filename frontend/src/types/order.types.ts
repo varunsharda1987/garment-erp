@@ -237,6 +237,10 @@ export interface UpdateOrderRequest {
 
 export interface UpdateOrderStatusRequest {
   status: OrderStatus;
+  reason?: string;
+  // RATE_SLAB_CHANGED acceptance at IN_PRODUCTION confirmation: accept the order-quantity
+  // processor rates (order-scoped; the style costing is never modified)
+  acceptRates?: boolean;
 }
 
 // ============================================

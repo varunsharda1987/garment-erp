@@ -17,6 +17,7 @@ import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { extractRateSlabChange } from '@/lib/rate-slab-change';
 import { ShoppingCart, ArrowRight } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 
@@ -58,6 +59,10 @@ export default function OrderList() {
 
   // BOM creation loading state
   const [bomLoadingId, setBomLoadingId] = useState<string | null>(null);
+
+  // RATE_SLAB_CHANGED prompt: order quantity prices in a different processor rate slab than
+  // the style was costed at — BOM creation blocked until accepted (order-scoped)
+  const [rateChangePrompt, setRateChangePrompt] = useState<{ order: Order; message: string } | null>(null);
 
   useEffect(() => {
     fetchCustomers();
@@ -195,7 +200,7 @@ export default function OrderList() {
     return null;
   };
 
-  const handleCreateBOM = async (order: Order) => {
+  const handleCreateBOM = async (order: Order, acceptRateChanges = false) => {
     const styleId = order.orderItems?.[0]?.styleId;
     if (!styleId) {
       handleApiError(new Error('No order items found'), 'Cannot create BOM');
@@ -216,11 +221,22 @@ export default function OrderList() {
         );
         return;
       }
-      const bom = await createFromCostSheet(order.id, { styleId, costSheetId: approved.id });
+      const bom = await createFromCostSheet(order.id, {
+        styleId,
+        costSheetId: approved.id,
+        acceptRateChanges,
+      });
       handleApiSuccess('BOM Created', 'BOM created successfully. Redirecting to review...');
       navigate(`/order-bom/${bom.id}`);
     } catch (err) {
-      handleApiError(err, 'Failed to create BOM');
+      const slabMessage = extractRateSlabChange(err);
+      if (slabMessage && !acceptRateChanges) {
+        // Order-quantity rate-slab change (qty-rate audit 2026-08-24): show the diff, retry
+        // with acceptance — the accepted rates apply to THIS order's BOM only.
+        setRateChangePrompt({ order, message: slabMessage });
+      } else {
+        handleApiError(err, 'Failed to create BOM');
+      }
     } finally {
       setBomLoadingId(null);
     }
@@ -525,6 +541,25 @@ export default function OrderList() {
         cancelText="Keep Order"
         onConfirm={confirmDelete}
         variant="destructive"
+      />
+
+      {/* Order-quantity rate-slab change (RATE_SLAB_CHANGED): accepting applies the
+          order-quantity rates to THIS order's BOM only — style costing is untouched. */}
+      <ConfirmDialog
+        open={rateChangePrompt != null}
+        onOpenChange={(open) => {
+          if (!open) setRateChangePrompt(null);
+        }}
+        title="Processor rate differs at this order quantity"
+        description={rateChangePrompt?.message ?? ''}
+        confirmText="Accept order-quantity rates"
+        cancelText="Cancel"
+        onConfirm={() => {
+          const target = rateChangePrompt?.order;
+          setRateChangePrompt(null);
+          if (target) void handleCreateBOM(target, true);
+        }}
+        variant="default"
       />
     </>
   );

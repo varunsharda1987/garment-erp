@@ -585,8 +585,17 @@ export async function getStyleFabrics(req: Request, res: Response) {
       // source row live, so returning both double-counts batch quantities in
       // the rate-slab lookup. Any row referenced as another returned row's
       // clonedFromCadId is an ancestor — only the tip of each chain survives.
+      // Qty-rate audit 2026-08-24: order-confirmation RM clones also carry clonedFromCadId,
+      // but they are per-order DERIVATIVES, not supersessions — letting them hide the
+      // approved COSTING row blanked processor/qty/rate-card on this page after every
+      // order confirmation. Only same-lineage (non-order) clones supersede.
       const allCadRows = (styleFabric as any).cadRows || [];
-      const supersededIds = new Set(allCadRows.map((r: any) => r.clonedFromCadId).filter(Boolean));
+      const supersededIds = new Set(
+        allCadRows
+          .filter((r: any) => !r.clonedFromOrderId)
+          .map((r: any) => r.clonedFromCadId)
+          .filter(Boolean)
+      );
       const cadRows = allCadRows.filter((r: any) => !supersededIds.has(r.id));
 
       if (cadRows.length > 0) {

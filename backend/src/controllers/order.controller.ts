@@ -5,6 +5,7 @@ import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import { logInfo, logWarn } from '../utils/logger';
 import { orderService } from '../services/order.service';
+import { processorRateValidationService } from '../services/processor-rate-validation.service';
 import { NotFoundError, ValidationError, BusinessError, UnauthorizedError } from '../errors';
 import workOrderService from '../services/workOrder.service';
 import { generateAtomicOrderNumber } from '../utils/atomicCodeGenerator';
@@ -272,98 +273,39 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
 
   // =====================================================
   // CREATE COST SHEET SNAPSHOTS FOR EACH ORDER ITEM
-  // This captures the cost sheet data at order creation time
-  // for accurate pricing and variance tracking later
+  // Single writer lives in orderService.createCostingSnapshots — shared with the Sale Order
+  // path (createWithItems), which previously created NO snapshot at all (qty-rate audit
+  // 2026-08-24). Failures are surfaced in the response instead of silently swallowed
+  // (bug-hunt orders-7).
   // =====================================================
-  const costingSnapshots: string[] = [];
-  // Snapshot failures are surfaced in the response instead of being silently swallowed (bug-hunt orders-7)
-  const costingFailures: { orderItemId: string; styleId: string; reason: string }[] = [];
+  const snapshotResult = await orderService.createCostingSnapshots(
+    order.order_items.map((oi) => ({ id: oi.id, styleId: oi.styleId }))
+  );
+  const costingSnapshots = snapshotResult.created;
+  const costingFailures = snapshotResult.failures;
 
+  // Qty-rate audit 2026-08-24: non-blocking WARN at creation — the BLOCK sits at Order BOM
+  // creation and at IN_PRODUCTION confirmation. This just tells the user up front that the
+  // order's quantity prices in a different processor rate slab than the style costing assumed.
+  const rateWarnings: Array<{ styleId: string; driftItems: unknown[] }> = [];
   for (const orderItem of order.order_items) {
     try {
-      // Find the approved cost sheet for this style (latest version)
-      const costSheet = await prisma.style_costing.findFirst({
-        where: {
-          styleId: orderItem.styleId,
-          isApproved: true,
-          supersededById: null, // Only get the current active version
-        },
+      const latestSheet = await prisma.style_costing.findFirst({
+        where: { styleId: orderItem.styleId, isApproved: true, supersededById: null },
         orderBy: { version: 'desc' },
+        select: { id: true },
       });
-
-      if (costSheet) {
-        // Create the costing snapshot
-        const costingSnapshot = {
-          id: costSheet.id,
-          version: costSheet.version,
-          versionDate: costSheet.versionDate,
-          fabricDetails: costSheet.fabricDetails,
-          fabricTotal: costSheet.fabricTotal,
-          trimsDetails: costSheet.trimsDetails,
-          trimsTotal: costSheet.trimsTotal,
-          cmtTotal: costSheet.cmtTotal,
-          cuttingCost: costSheet.cuttingCost,
-          stitchingCost: costSheet.stitchingCost,
-          finishingCost: costSheet.finishingCost,
-          embroideryDetails: costSheet.embroideryDetails,
-          embroideryTotal: costSheet.embroideryTotal,
-          accessoriesDetails: costSheet.accessoriesDetails,
-          accessoriesTotal: costSheet.accessoriesTotal,
-          valueLossPercent: costSheet.valueLossPercent,
-          valueLossAmount: costSheet.valueLossAmount,
-          markupPercent: costSheet.markupPercent,
-          markupAmount: costSheet.markupAmount,
-          subtotal: costSheet.subtotal,
-          totalProductCost: costSheet.totalProductCost,
-          totalCostPerPiece: costSheet.totalCostPerPiece,
-          sellingPricePerPiece: costSheet.sellingPricePerPiece,
-          profitMargin: costSheet.profitMargin,
-        };
-
-        // Create order_item_costing record with snapshot
-        // Note: Using type assertion for fields that use @map in schema
-        await prisma.order_item_costing.create({
-          data: {
-            orderItemId: orderItem.id,
-            baseCostingId: costSheet.id,
-            fabricTotal: costSheet.fabricTotal || 0,
-            trimsTotal: costSheet.trimsTotal || 0,
-            cmtTotal: costSheet.cmtTotal || 0,
-            embroideryTotal: costSheet.embroideryTotal || 0,
-            accessoriesTotal: costSheet.accessoriesTotal || 0,
-            totalCostPerPiece: costSheet.totalCostPerPiece || costSheet.totalProductCost || 0,
-            profitMargin: costSheet.profitMargin,
-            sellingPricePerPiece: costSheet.sellingPricePerPiece,
-            // Fields with @map need to use the Prisma model name (camelCase)
-            costingSnapshot: costingSnapshot as any,
-            snapshotCreatedAt: new Date(),
-            originalCostSheetVersion: costSheet.version,
-            estimatedCostPerPiece: costSheet.totalCostPerPiece || costSheet.totalProductCost || 0,
-          } as any,
-        });
-
-        costingSnapshots.push(orderItem.id);
-        logInfo(
-          `[createOrder] Created cost sheet snapshot for order item ${orderItem.id} from cost sheet v${costSheet.version}`
-        );
-      } else {
-        logWarn(`[createOrder] No approved cost sheet found for style ${orderItem.styleId}`);
-        costingFailures.push({
-          orderItemId: orderItem.id,
-          styleId: orderItem.styleId,
-          reason: 'No approved cost sheet found for style',
-        });
+      if (!latestSheet) continue;
+      const slabCheck = await processorRateValidationService.validateQuantitySlabs(
+        latestSheet.id,
+        orderItem.totalQuantity
+      );
+      if (slabCheck.driftItems.length > 0) {
+        rateWarnings.push({ styleId: orderItem.styleId, driftItems: slabCheck.driftItems });
       }
-    } catch (snapshotError) {
-      // allow-swallow — failure is surfaced to the caller via costingInfo.failures in the response (T2)
-      // Don't fail the order if snapshot fails — but report it so the caller can retry
-      // instead of silently losing the variance baseline (bug-hunt orders-7)
-      logWarn(`[createOrder] Failed to create cost sheet snapshot for order item ${orderItem.id}:`, snapshotError);
-      costingFailures.push({
-        orderItemId: orderItem.id,
-        styleId: orderItem.styleId,
-        reason: snapshotError instanceof Error ? snapshotError.message : 'Snapshot creation failed',
-      });
+    } catch (warnError) {
+      // Read-only advisory check — a failure here must never fail order creation
+      logWarn(`[createOrder] Rate-slab advisory check failed for style ${orderItem.styleId}:`, warnError);
     }
   }
 
@@ -375,6 +317,7 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
       totalItems: order.order_items.length,
       failures: costingFailures.length > 0 ? costingFailures : undefined,
     },
+    rateWarnings: rateWarnings.length > 0 ? rateWarnings : undefined,
   });
 };
 
@@ -562,7 +505,7 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
  */
 export const updateOrderStatus = async (req: Request, res: Response): Promise<void> => {
   const { id } = req.params;
-  const { status, reason } = req.body;
+  const { status, reason, acceptRates } = req.body;
 
   // Get the current order with items to check for status change
   const currentOrder = await prisma.orders.findUnique({
@@ -572,6 +515,7 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
         select: {
           id: true,
           styleId: true,
+          totalQuantity: true,
         },
       },
     },
@@ -582,6 +526,50 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
   }
 
   const previousStatus = currentOrder.status;
+
+  // =====================================================
+  // Qty-rate audit 2026-08-24: PRE-TRANSITION rate-slab gate.
+  // This MUST run before orderService.updateStatus — the status flip commits there, and the
+  // RM-clone loop below swallows its errors by design, so any check placed inside it can never
+  // block. If this order's quantity lands in a different processor rate slab than the style was
+  // costed at, confirmation stops until the user accepts the order-quantity rates
+  // (acceptRates: true), which apply to THIS order only — the style costing is never edited.
+  // =====================================================
+  if (status === 'IN_PRODUCTION' && previousStatus !== 'IN_PRODUCTION' && acceptRates !== true) {
+    for (const orderItem of currentOrder.order_items) {
+      const gateCostSheet = await prisma.style_costing.findFirst({
+        where: {
+          styleId: orderItem.styleId,
+          purpose: { in: ['RAW_MATERIAL_CALCULATION', 'PRODUCTION', 'PROCUREMENT_PRODUCTION'] },
+          supersededById: null,
+          isApproved: true,
+        },
+        orderBy: { version: 'desc' },
+        select: { id: true },
+      });
+      if (!gateCostSheet) continue; // cost-sheet existence is enforced at order creation
+
+      const slabCheck = await processorRateValidationService.validateQuantitySlabs(
+        gateCostSheet.id,
+        orderItem.totalQuantity
+      );
+      if (slabCheck.driftItems.length > 0) {
+        const driftSummary = slabCheck.driftItems
+          .map(
+            (d) =>
+              `${d.itemName}: costed ₹${d.costSheetRate}/m @ ${d.slabLabelOld ?? 'costed slab'} → this order ` +
+              `₹${d.orderRate}/m @ ${d.slabLabelNew} (${d.percentageChange > 0 ? '+' : ''}${d.percentageChange.toFixed(1)}%)`
+          )
+          .join('; ');
+        throw new BusinessError(
+          `Cannot confirm: this order's quantity (${orderItem.totalQuantity} pcs) falls in a different processor ` +
+            `rate slab than the style was costed at. ${driftSummary}. Confirm again accepting the order-quantity ` +
+            `rates (they apply to this order only).`,
+          { code: 'RATE_SLAB_CHANGED', driftItems: slabCheck.driftItems, styleId: orderItem.styleId }
+        );
+      }
+    }
+  }
 
   // Delegate to the service so the state machine actually runs (validateTransition + admin-override
   // logging). The raw prisma.orders.update this replaced allowed ANY transition — e.g. DELIVERED back
@@ -603,21 +591,24 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
 
     for (const orderItem of order.order_items) {
       try {
-        // Check if RAW_MATERIAL_CALCULATION CAD already exists for this style+order
-        // Using raw query due to field name mapping in Prisma schema
+        // Idempotency guard, scoped to THIS order. The old guard fetched an ARBITRARY RM row
+        // for the style (findFirst, no orderBy) and skipped only if that one row happened to
+        // belong to this order — so a repeat order for the same style always re-cloned the
+        // whole RM set, and re-confirming could duplicate it (qty-rate audit 2026-08-24).
         const existingRawMat = await prisma.fabric_width_cad.findFirst({
           where: {
             purpose: 'RAW_MATERIAL_CALCULATION',
+            clonedFromOrderId: id,
             styleFabric: {
               style_components: {
                 styleId: orderItem.styleId,
               },
             },
           } as any,
+          select: { id: true },
         });
 
-        // Check if this specific order has already triggered RAW_MAT
-        if (existingRawMat && (existingRawMat as any).clonedFromOrderId === id) {
+        if (existingRawMat) {
           rawMatResults.push({
             styleId: orderItem.styleId,
             clonedCount: 0,
@@ -693,7 +684,28 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
               clonedFromOrderId: id,
               clonedFromCadId: costingCad.id,
               notes: `Cloned from COSTING CAD ${costingCad.id} when order ${order.orderNumber} was confirmed`,
-              // Cost data
+              // Cost data — qty-rate audit 2026-08-24: the clone used to DROP the identity of the
+              // price (processorId/rateCardId/costingStyleId/fabricId/componentName/shrinkage/
+              // screen), leaving an unauditable number, an orphan invisible to every
+              // costingStyleId-keyed reader, and R2 phantom-check growth. Copy the full costing
+              // decoration and stamp THIS order's quantity beside the costed basis.
+              costingStyleId: orderItem.styleId,
+              fabricId: costingCad.fabricId,
+              componentName: costingCad.componentName,
+              patternPartId: costingCad.patternPartId,
+              processorId: costingCad.processorId,
+              rateCardId: costingCad.rateCardId,
+              shrinkagePercent: costingCad.shrinkagePercent,
+              shrinkageCostPerMeter: costingCad.shrinkageCostPerMeter,
+              transportCostPerMeter: costingCad.transportCostPerMeter,
+              screenCostPerMeter: costingCad.screenCostPerMeter,
+              screenType: costingCad.screenType,
+              numberOfColors: costingCad.numberOfColors,
+              processingBatchGroupColorId: costingCad.processingBatchGroupColorId,
+              orderQuantityPcs: orderItem.totalQuantity,
+              costedAtQuantityMeters: costingCad.costedAtQuantityMeters,
+              costedRateIsBatch: costingCad.costedRateIsBatch,
+              createdById: req.user?.userId ?? null,
               greigeCostPerMeter: costingCad.greigeCostPerMeter,
               processingPricePerMeter: costingCad.processingPricePerMeter,
               totalCostPerMeter: costingCad.totalCostPerMeter,

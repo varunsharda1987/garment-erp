@@ -23,6 +23,7 @@ import { PageHeader } from '../components/PageHeader';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
+import { extractRateSlabChange } from '../lib/rate-slab-change';
 import { formatCurrency } from '../lib/currency';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import {
@@ -35,7 +36,6 @@ import {
   getBOMItemDisplayName,
   getBOMItemCode,
   getStatusBadgeColor,
-  deactivateOrderBOM,
   createFromCostSheet,
 } from '../services/orderBom.service';
 import type { OrderBOM, OrderBOMItem, FabricCadOption } from '../types/orderBom.types';
@@ -51,6 +51,9 @@ const OrderBOMDetail = () => {
   const [lockDialogOpen, setLockDialogOpen] = useState(false);
   const [regenerateDialogOpen, setRegenerateDialogOpen] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  // RATE_SLAB_CHANGED prompt: the order's quantity prices in a different processor rate slab
+  // than the style was costed at — regeneration blocked until the user accepts (order-scoped)
+  const [rateChangeMessage, setRateChangeMessage] = useState<string | null>(null);
 
   // Next-step banners (shown after approve/lock actions)
   const [justApprovedMsg, setJustApprovedMsg] = useState<string | null>(null);
@@ -147,21 +150,31 @@ const OrderBOMDetail = () => {
     }
   };
 
-  const handleRegenerate = async () => {
+  const handleRegenerate = async (acceptRateChanges = false) => {
     if (!bom || !bom.sourceCostSheetId) return;
     setRegenerating(true);
     try {
-      await deactivateOrderBOM(bom.orderId, bom.styleId);
+      // No explicit deactivate: createFromCostSheet supersedes the active BOM inside its own
+      // transaction, and its RATE_SLAB_CHANGED check throws BEFORE that — so a blocked attempt
+      // leaves the current BOM fully intact (qty-rate audit 2026-08-24).
       const newBom = await createFromCostSheet(bom.orderId, {
         styleId: bom.styleId,
         costSheetId: bom.sourceCostSheetId,
         orderItemId: bom.orderItemId ?? undefined,
+        acceptRateChanges,
       });
       handleApiSuccess('BOM regenerated successfully');
       setRegenerateDialogOpen(false);
+      setRateChangeMessage(null);
       navigate(`/order-bom/${newBom.id}`, { replace: true });
     } catch (err) {
-      handleApiError(err, 'Failed to regenerate BOM');
+      const slabMessage = extractRateSlabChange(err);
+      if (slabMessage && !acceptRateChanges) {
+        setRegenerateDialogOpen(false);
+        setRateChangeMessage(slabMessage);
+      } else {
+        handleApiError(err, 'Failed to regenerate BOM');
+      }
     } finally {
       setRegenerating(false);
     }
@@ -778,8 +791,25 @@ const OrderBOMDetail = () => {
         }
         confirmText={regenerating ? 'Regenerating...' : 'Regenerate'}
         cancelText="Cancel"
-        onConfirm={handleRegenerate}
+        onConfirm={() => handleRegenerate(false)}
         variant="destructive"
+      />
+
+      {/* Order-quantity rate-slab change: backend refused with RATE_SLAB_CHANGED — the order's
+          quantity prices in a different processor slab than the style was costed at. Accepting
+          applies the order-quantity rates to THIS order's BOM only. */}
+      <ConfirmDialog
+        open={rateChangeMessage != null}
+        onOpenChange={(open) => {
+          if (!open) setRateChangeMessage(null);
+        }}
+        title="Processor rate differs at this order quantity"
+        description={rateChangeMessage ?? ''}
+        confirmText={regenerating ? 'Applying...' : 'Accept order-quantity rates'}
+        cancelText="Cancel"
+        onConfirm={() => handleRegenerate(true)}
+        isLoading={regenerating}
+        variant="default"
       />
 
       {/* Change Width Modal */}

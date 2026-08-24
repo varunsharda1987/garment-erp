@@ -210,12 +210,16 @@ export interface CreateOrderBOMFromCostSheetRequest {
   styleId: string;
   costSheetId: string;
   orderItemId?: string;
+  // RATE_SLAB_CHANGED acceptance: apply the order-quantity processor rates to this order's BOM
+  acceptRateChanges?: boolean;
 }
 
 export interface CopyOrderBOMRequest {
   styleId: string;
   orderItemId?: string;
   adjustQuantity?: number;
+  // Same RATE_SLAB_CHANGED contract — copied BOMs are re-checked at the target quantity
+  acceptRateChanges?: boolean;
 }
 
 export interface UpdateOrderBOMRequest {

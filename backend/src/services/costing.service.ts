@@ -712,6 +712,10 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
       where: {
         costingStyleId: styleId,
         purpose: { in: ['COSTING', 'RAW_MATERIAL_CALCULATION'] },
+        // Qty-rate audit 2026-08-24: order-confirmation clones now carry costingStyleId (for
+        // auditability); they are per-order derivatives of a COSTING row already counted here —
+        // including them would double the fabric budget on every confirmed order.
+        clonedFromOrderId: null,
       },
       select: {
         greigeCostPerMeter: true,

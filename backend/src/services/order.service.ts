@@ -251,6 +251,21 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       logInfo('Work orders auto-created for order', { orderId: order.id, itemCount: orderItemsData.length });
     }
 
+    // 3.5 Snapshot the approved cost sheet onto order_item_costing for each item.
+    // Qty-rate audit 2026-08-24: this snapshot previously existed ONLY in the HTTP createOrder
+    // controller, so orders born from a Sale Order (startProduction → createWithItems) — the
+    // primary business flow — had NO costing baseline: no costingSnapshot, no
+    // originalCostSheetVersion, no variance anchor. Shared helper now covers both entry points.
+    const costingSnapshotResult = await this.createCostingSnapshots(
+      orderItemsData.map((i) => ({ id: i.id, styleId: i.styleId }))
+    );
+    if (costingSnapshotResult.failures.length > 0) {
+      logWarn('Cost-sheet snapshot failures during order creation', {
+        orderId: order.id,
+        failures: costingSnapshotResult.failures,
+      });
+    }
+
     // 4. Fetch and return complete order with all includes
     const completeOrder = await this.prisma.orders.findUnique({
       where: { id: order.id },
@@ -308,6 +323,104 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       return { ...completeOrder!, workOrderFailures } as orders;
     }
     return completeOrder!;
+  }
+
+  /**
+   * Snapshot the latest approved cost sheet onto order_item_costing for each order item.
+   *
+   * The snapshot is the order's costing baseline (variance anchor, version badge). One writer,
+   * two callers: the HTTP createOrder controller and createWithItems (Sale Order path) — before
+   * 2026-08-24 only the controller wrote it, so SO-originated orders had no baseline at all.
+   * Failures are collected per item, never thrown: a missing snapshot must not kill the order.
+   */
+  async createCostingSnapshots(
+    orderItems: Array<{ id: string; styleId: string }>
+  ): Promise<{ created: string[]; failures: { orderItemId: string; styleId: string; reason: string }[] }> {
+    const created: string[] = [];
+    const failures: { orderItemId: string; styleId: string; reason: string }[] = [];
+
+    for (const orderItem of orderItems) {
+      try {
+        // Latest approved, non-superseded cost sheet for the style
+        const costSheet = await this.prisma.style_costing.findFirst({
+          where: {
+            styleId: orderItem.styleId,
+            isApproved: true,
+            supersededById: null,
+          },
+          orderBy: { version: 'desc' },
+        });
+
+        if (!costSheet) {
+          failures.push({
+            orderItemId: orderItem.id,
+            styleId: orderItem.styleId,
+            reason: 'No approved cost sheet found for style',
+          });
+          continue;
+        }
+
+        const costingSnapshot = {
+          id: costSheet.id,
+          version: costSheet.version,
+          versionDate: costSheet.versionDate,
+          fabricDetails: costSheet.fabricDetails,
+          fabricTotal: costSheet.fabricTotal,
+          trimsDetails: costSheet.trimsDetails,
+          trimsTotal: costSheet.trimsTotal,
+          cmtTotal: costSheet.cmtTotal,
+          cuttingCost: costSheet.cuttingCost,
+          stitchingCost: costSheet.stitchingCost,
+          finishingCost: costSheet.finishingCost,
+          embroideryDetails: costSheet.embroideryDetails,
+          embroideryTotal: costSheet.embroideryTotal,
+          accessoriesDetails: costSheet.accessoriesDetails,
+          accessoriesTotal: costSheet.accessoriesTotal,
+          valueLossPercent: costSheet.valueLossPercent,
+          valueLossAmount: costSheet.valueLossAmount,
+          markupPercent: costSheet.markupPercent,
+          markupAmount: costSheet.markupAmount,
+          subtotal: costSheet.subtotal,
+          totalProductCost: costSheet.totalProductCost,
+          totalCostPerPiece: costSheet.totalCostPerPiece,
+          sellingPricePerPiece: costSheet.sellingPricePerPiece,
+          profitMargin: costSheet.profitMargin,
+        };
+
+        await this.prisma.order_item_costing.create({
+          data: {
+            orderItemId: orderItem.id,
+            baseCostingId: costSheet.id,
+            fabricTotal: costSheet.fabricTotal || 0,
+            trimsTotal: costSheet.trimsTotal || 0,
+            cmtTotal: costSheet.cmtTotal || 0,
+            embroideryTotal: costSheet.embroideryTotal || 0,
+            accessoriesTotal: costSheet.accessoriesTotal || 0,
+            totalCostPerPiece: costSheet.totalCostPerPiece || costSheet.totalProductCost || 0,
+            profitMargin: costSheet.profitMargin,
+            sellingPricePerPiece: costSheet.sellingPricePerPiece,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            costingSnapshot: costingSnapshot as any,
+            snapshotCreatedAt: new Date(),
+            originalCostSheetVersion: costSheet.version,
+            estimatedCostPerPiece: costSheet.totalCostPerPiece || costSheet.totalProductCost || 0,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          } as any,
+        });
+
+        created.push(orderItem.id);
+      } catch (snapshotError) {
+        // allow-swallow — failures are returned to the caller for surfacing, never thrown
+        logWarn(`Failed to create cost sheet snapshot for order item ${orderItem.id}`, snapshotError);
+        failures.push({
+          orderItemId: orderItem.id,
+          styleId: orderItem.styleId,
+          reason: snapshotError instanceof Error ? snapshotError.message : 'Snapshot creation failed',
+        });
+      }
+    }
+
+    return { created, failures };
   }
 
   // ============================================

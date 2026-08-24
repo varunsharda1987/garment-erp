@@ -85,6 +85,11 @@ export interface CreateOrderBOMFromCostSheetInput {
   costSheetId: string;
   orderItemId?: string;
   createdById: string;
+  // Qty-rate audit 2026-08-24: when the order's quantity lands in a different processor rate
+  // slab than the style was costed at, creation BLOCKS with RATE_SLAB_CHANGED until the caller
+  // re-sends with this flag — acceptance writes the order-correct rate to order_bom_items
+  // (order-scoped; the style-level costing row is never touched).
+  acceptRateChanges?: boolean;
 }
 
 /**
@@ -97,6 +102,9 @@ export interface CopyOrderBOMInput {
   orderItemId?: string;
   createdById: string;
   adjustQuantity?: number; // New order quantity (optional, uses source if not provided)
+  // Same contract as CreateOrderBOMFromCostSheetInput.acceptRateChanges — repeat orders carry
+  // the SOURCE order's historical rates, so the target quantity must be slab-checked too.
+  acceptRateChanges?: boolean;
 }
 
 /**

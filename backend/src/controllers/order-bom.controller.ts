@@ -23,6 +23,8 @@ const CopyFromOrderSchema = z.object({
   styleId: z.string().uuid('Invalid style ID'),
   orderItemId: z.string().uuid().optional(),
   adjustQuantity: z.number().int().positive().optional(),
+  // RATE_SLAB_CHANGED acceptance (qty-rate audit 2026-08-24)
+  acceptRateChanges: z.boolean().optional(),
 });
 
 // ============================================
@@ -48,6 +50,7 @@ export const createFromCostSheet = async (req: Request, res: Response) => {
     costSheetId: validatedData.costSheetId,
     orderItemId: validatedData.orderItemId,
     createdById: userId,
+    acceptRateChanges: validatedData.acceptRateChanges,
   });
 
   res.status(201).json({
@@ -81,6 +84,7 @@ export const copyFromPreviousOrder = async (req: Request, res: Response) => {
     orderItemId: validatedData.orderItemId,
     adjustQuantity: validatedData.adjustQuantity,
     createdById: userId,
+    acceptRateChanges: validatedData.acceptRateChanges,
   });
 
   res.status(201).json({

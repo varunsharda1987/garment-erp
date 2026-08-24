@@ -652,6 +652,21 @@ class WorkOrderService {
     // outerTx lets callers (e.g. pushToCutting) make the tracking insert atomic with their own
     // writes (bug-hunt production-15).
     const runInTransaction = async (tx: Prisma.TransactionClient) => {
+      // Landmine №10: production must never be recorded against a cancelled work order —
+      // a stray entry (stale screen, wrong pick, API client) used to resurrect it below.
+      const targetWo = await tx.work_orders.findUnique({
+        where: { id: data.workOrderId },
+        select: { status: true, workOrderNumber: true },
+      });
+      if (!targetWo) {
+        throw new Error('Work order not found');
+      }
+      if (targetWo.status === OrderStatus.CANCELLED) {
+        throw new Error(
+          `Work order ${targetWo.workOrderNumber} is CANCELLED — production cannot be recorded against it.`
+        );
+      }
+
       const created = await tx.production_tracking.create({
         data: {
           id: randomUUID(),
@@ -684,12 +699,15 @@ class WorkOrderService {
       if (data.productionStage === ProductionStage.CUTTING) {
         const workOrder = await tx.work_orders.findUnique({ where: { id: data.workOrderId } });
         if (workOrder && !workOrder.actualStartDate) {
-          // Mark as started when cutting begins
+          // Landmine №10: explicit status precondition, not the empty-start-date proxy —
+          // a cancelled WO also has an empty start date (resurrection), and a COMPLETED/
+          // DISPATCHED WO must never step back to IN_PRODUCTION. Stamping the start date
+          // is fine for any live status; the status flip is PENDING-only.
           await tx.work_orders.update({
             where: { id: data.workOrderId },
             data: {
               actualStartDate: new Date(),
-              status: OrderStatus.IN_PRODUCTION,
+              ...(workOrder.status === OrderStatus.PENDING ? { status: OrderStatus.IN_PRODUCTION } : {}),
             },
           });
         }

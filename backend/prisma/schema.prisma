@@ -9252,6 +9252,7 @@ enum InvoiceStatus {
   PARTIALLY_PAID
   PAID
   OVERDUE
+  SETTLED_WITH_CREDIT // fully settled, but partly/wholly by credit note (owner decision 2026-08-24, landmine №5)
 }
 
 enum LocationType {

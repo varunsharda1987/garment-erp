@@ -128,7 +128,7 @@ export type PrintDirection = z.infer<typeof PrintDirectionEnum>;
 export const InspectionTypeEnum = z.enum(['INLINE', 'FINAL', 'AQL', 'RANDOM', 'MIDLINE']);
 export type InspectionType = z.infer<typeof InspectionTypeEnum>;
 
-export const InvoiceStatusEnum = z.enum(['PENDING', 'PARTIALLY_PAID', 'PAID', 'OVERDUE']);
+export const InvoiceStatusEnum = z.enum(['PENDING', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'SETTLED_WITH_CREDIT']);
 export type InvoiceStatus = z.infer<typeof InvoiceStatusEnum>;
 
 export const LocationTypeEnum = z.enum(['FACTORY', 'WAREHOUSE', 'OFFICE']);

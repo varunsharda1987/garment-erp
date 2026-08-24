@@ -87,6 +87,7 @@ export default function AccountsDashboard() {
       PENDING: 'bg-yellow-100 text-yellow-800',
       PARTIALLY_PAID: 'bg-info-muted text-info',
       PAID: 'bg-success-muted text-success',
+      SETTLED_WITH_CREDIT: 'bg-info-muted text-info',
       OVERDUE: 'bg-destructive/10 text-destructive',
       CANCELLED: 'bg-muted text-foreground',
     };

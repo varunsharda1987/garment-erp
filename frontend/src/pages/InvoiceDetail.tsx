@@ -223,6 +223,8 @@ export default function InvoiceDetail() {
         return 'info';
       case 'PAID':
         return 'success';
+      case 'SETTLED_WITH_CREDIT':
+        return 'success';
       case 'OVERDUE':
         return 'destructive';
       default:

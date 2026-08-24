@@ -8,13 +8,14 @@ import type { State } from './location.types';
 // Status Enums
 // ============================================
 
-export type InvoiceStatus = 'PENDING' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE';
+export type InvoiceStatus = 'PENDING' | 'PARTIALLY_PAID' | 'PAID' | 'OVERDUE' | 'SETTLED_WITH_CREDIT';
 
 export const InvoiceStatusLabels: Record<InvoiceStatus, string> = {
   PENDING: 'Pending',
   PARTIALLY_PAID: 'Partially Paid',
   PAID: 'Paid',
   OVERDUE: 'Overdue',
+  SETTLED_WITH_CREDIT: 'Settled with Credit',
 };
 
 export const InvoiceStatusColors: Record<InvoiceStatus, string> = {
@@ -22,6 +23,7 @@ export const InvoiceStatusColors: Record<InvoiceStatus, string> = {
   PARTIALLY_PAID: 'bg-yellow-100 text-yellow-800',
   PAID: 'bg-success-muted text-success',
   OVERDUE: 'bg-destructive/10 text-destructive',
+  SETTLED_WITH_CREDIT: 'bg-info-muted text-info',
 };
 
 export type PaymentMethod = 'CASH' | 'CHEQUE' | 'BANK_TRANSFER' | 'UPI';

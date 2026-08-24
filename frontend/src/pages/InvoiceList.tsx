@@ -141,6 +141,8 @@ export default function InvoiceList() {
         return 'info';
       case 'PAID':
         return 'success';
+      case 'SETTLED_WITH_CREDIT':
+        return 'success';
       case 'OVERDUE':
         return 'destructive';
       default:
@@ -362,6 +364,7 @@ export default function InvoiceList() {
                 <SelectItem value="PARTIALLY_PAID">Partially Paid</SelectItem>
                 <SelectItem value="PAID">Paid</SelectItem>
                 <SelectItem value="OVERDUE">Overdue</SelectItem>
+                <SelectItem value="SETTLED_WITH_CREDIT">Settled with Credit</SelectItem>
               </SelectContent>
             </Select>
           </div>

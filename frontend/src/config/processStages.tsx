@@ -798,6 +798,7 @@ export const processStages: ProcessStage[] = [
     statusFlow: [
       { from: 'PENDING', to: 'PARTIALLY_PAID' },
       { from: 'PARTIALLY_PAID', to: 'PAID' },
+      { from: 'PARTIALLY_PAID', to: 'SETTLED_WITH_CREDIT' },
       { from: 'PENDING', to: 'OVERDUE' },
     ],
     databaseModels: ['invoices', 'payments'],

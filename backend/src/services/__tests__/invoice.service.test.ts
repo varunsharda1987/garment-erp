@@ -463,7 +463,8 @@ describe('InvoiceService', () => {
         createdById: testUserId,
       });
 
-      const pattern = /^INV-\d{4}-\d{4}$/;
+      // Unified atomic format (2026-07-26): INV2607-0001 — no dash after the prefix
+      const pattern = /^INV\d{4}-\d{4}$/;
       expect(invoice.invoiceNumber).toMatch(pattern);
     });
   });

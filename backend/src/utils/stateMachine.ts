@@ -54,10 +54,11 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
   },
 
   invoice: {
-    PENDING: ['PARTIALLY_PAID', 'PAID', 'OVERDUE'],
-    PARTIALLY_PAID: ['PAID', 'OVERDUE'],
+    PENDING: ['PARTIALLY_PAID', 'PAID', 'OVERDUE', 'SETTLED_WITH_CREDIT'],
+    PARTIALLY_PAID: ['PAID', 'OVERDUE', 'SETTLED_WITH_CREDIT'],
     PAID: [], // Terminal
-    OVERDUE: ['PARTIALLY_PAID', 'PAID'], // Can be paid even when overdue
+    OVERDUE: ['PARTIALLY_PAID', 'PAID', 'SETTLED_WITH_CREDIT'], // Can be settled even when overdue
+    SETTLED_WITH_CREDIT: [], // Terminal (landmine №5: settled partly/wholly by credit note)
   },
 
   challan: {

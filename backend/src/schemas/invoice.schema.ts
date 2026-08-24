@@ -148,7 +148,7 @@ export const invoiceQuerySchema = z.object({
 
   search: z.string().optional(),
 
-  status: z.enum(['PENDING', 'PARTIALLY_PAID', 'PAID', 'OVERDUE']).optional(),
+  status: z.enum(['PENDING', 'PARTIALLY_PAID', 'PAID', 'OVERDUE', 'SETTLED_WITH_CREDIT']).optional(),
 
   customerId: z.string().uuid('Invalid customer ID format').optional(),
 

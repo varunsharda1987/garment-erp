@@ -4,6 +4,7 @@ import { gstService } from './gst.service';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { generateAtomicCreditNoteNumber } from '../utils/atomicCodeGenerator';
 import { roundToCent, multiplyCurrency, addCurrency, subtractCurrency, toCurrency } from '../utils/currency';
+import { deriveInvoiceStatus } from './helpers/invoice-status.helper';
 
 interface CreditNoteCreateInput {
   invoiceId: string;
@@ -372,16 +373,18 @@ export class CreditNoteService {
         select: { invoiceId: true, totalAmount: true },
       });
 
-      // Atomic decrement; if the credit fully settles the invoice, mark it PAID. A negative balance is
-      // allowed (credit exceeding the open balance = refund due).
+      // Atomic decrement. A negative balance is allowed (credit exceeding the open
+      // balance = refund due).
       const inv = await tx.invoices.update({
         where: { id: note!.invoiceId },
         data: { balanceAmount: { decrement: note!.totalAmount } },
       });
-      // BUG-PAY4 fix: use decimal.js for balance check precision
-      const invBalanceDec = toCurrency(inv.balanceAmount.toString());
-      if (invBalanceDec.lessThanOrEqualTo(0.005) && inv.status !== 'PAID') {
-        await tx.invoices.update({ where: { id: inv.id }, data: { status: 'PAID' } });
+      // Landmine №5: one shared derivation for every status writer. A credit that fully
+      // settles the invoice lands on SETTLED_WITH_CREDIT (owner decision 2026-08-24) —
+      // and a partial credit correctly steps PENDING → PARTIALLY_PAID.
+      const newStatus = deriveInvoiceStatus(inv.totalAmount, inv.paidAmount, inv.balanceAmount, inv.dueDate);
+      if (inv.status !== newStatus) {
+        await tx.invoices.update({ where: { id: inv.id }, data: { status: newStatus } });
       }
 
       // Fetched AFTER the invoice update so the included invoice reflects the new balance.

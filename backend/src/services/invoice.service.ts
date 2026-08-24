@@ -13,6 +13,7 @@ import { randomUUID } from 'crypto';
 import { gstService } from './gst.service';
 import { roundToCent, multiplyCurrency, addCurrency, toCurrency } from '../utils/currency';
 import { generateAtomicInvoiceNumber } from '../utils/atomicCodeGenerator';
+import { deriveInvoiceStatus } from './helpers/invoice-status.helper';
 
 // ============================================
 // Types
@@ -67,6 +68,7 @@ export interface InvoiceSummary {
   pending: number;
   partiallyPaid: number;
   paid: number;
+  settledWithCredit: number; // landmine №5: settled partly/wholly by credit note
   overdue: number;
   totalAmount: number;
   paidAmount: number;
@@ -173,36 +175,9 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
     return generateAtomicInvoiceNumber();
   }
 
-  /**
-   * Calculate invoice status based on payments
-   */
-  private calculateInvoiceStatus(
-    totalAmount: Prisma.Decimal | number,
-    paidAmount: Prisma.Decimal | number,
-    dueDate: Date
-  ): InvoiceStatus {
-    const total = typeof totalAmount === 'number' ? totalAmount : parseFloat(totalAmount.toString());
-    const paid = typeof paidAmount === 'number' ? paidAmount : parseFloat(paidAmount.toString());
-
-    if (paid >= total) {
-      return 'PAID';
-    }
-
-    if (paid > 0) {
-      // Check if overdue
-      if (new Date() > new Date(dueDate)) {
-        return 'OVERDUE';
-      }
-      return 'PARTIALLY_PAID';
-    }
-
-    // No payments yet
-    if (new Date() > new Date(dueDate)) {
-      return 'OVERDUE';
-    }
-
-    return 'PENDING';
-  }
+  // calculateInvoiceStatus REPLACED by deriveInvoiceStatus (helpers/invoice-status.helper.ts,
+  // landmine №5): the payments-only math here ignored approved credit notes, so a part-credit
+  // part-payment invoice stayed PARTIALLY_PAID/OVERDUE forever and accounts kept dunning it.
 
   /**
    * Create a new invoice with optional line items
@@ -837,13 +812,28 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
           updateData.cgstAmount = newCgst;
           updateData.sgstAmount = newSgst;
           updateData.igstAmount = newIgst;
-          updateData.balanceAmount = roundToCent(toCurrency(newTotal).minus(paid)).toNumber();
-          updateData.status = this.calculateInvoiceStatus(newTotal, paid.toNumber(), data.dueDate || existing.dueDate);
+          // Landmine №5: the balance is total − paid − APPROVED CREDITS. The old
+          // total−paid recompute silently re-added every credited amount to the
+          // receivable on any money edit, desyncing the ERP from Tally.
+          const creditAgg = await tx.credit_notes.aggregate({
+            where: { invoiceId: id, status: 'APPROVED' },
+            _sum: { totalAmount: true },
+          });
+          const creditApplied = toCurrency((creditAgg._sum.totalAmount ?? 0).toString());
+          const newBalance = roundToCent(toCurrency(newTotal).minus(paid).minus(creditApplied)).toNumber();
+          updateData.balanceAmount = newBalance;
+          updateData.status = deriveInvoiceStatus(
+            newTotal,
+            paid.toNumber(),
+            newBalance,
+            data.dueDate || existing.dueDate
+          );
         } else if (data.dueDate !== undefined) {
           // A due-date-only change can still flip OVERDUE ↔ PENDING/PARTIALLY_PAID
-          updateData.status = this.calculateInvoiceStatus(
-            Number(existing.totalAmount),
-            Number(existing.paidAmount),
+          updateData.status = deriveInvoiceStatus(
+            existing.totalAmount,
+            existing.paidAmount,
+            existing.balanceAmount,
             data.dueDate
           );
         }
@@ -995,8 +985,16 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
           throw new ValidationError(`Payment amount (${data.amount}) exceeds the remaining balance for this invoice.`);
         }
 
-        // Recompute status from the atomic result, not the stale pre-tx snapshot
-        const newStatus = this.calculateInvoiceStatus(updated.totalAmount, updated.paidAmount, updated.dueDate);
+        // Recompute status from the atomic result, not the stale pre-tx snapshot.
+        // Landmine №5: derive from the BALANCE — it already carries credit-note decrements,
+        // so the final payment on a part-credited invoice lands on SETTLED_WITH_CREDIT
+        // instead of sticking at PARTIALLY_PAID forever.
+        const newStatus = deriveInvoiceStatus(
+          updated.totalAmount,
+          updated.paidAmount,
+          updated.balanceAmount,
+          updated.dueDate
+        );
         await tx.invoices.update({ where: { id: data.invoiceId }, data: { status: newStatus } });
 
         logInfo(`Payment recorded for invoice ${invoice.invoiceNumber}: ${data.amount}`);
@@ -1022,6 +1020,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
           this.model.count({ where: { ...where, status: 'PARTIALLY_PAID' } }),
           this.model.count({ where: { ...where, status: 'PAID' } }),
           this.model.count({ where: { ...where, status: 'OVERDUE' } }),
+          this.model.count({ where: { ...where, status: 'SETTLED_WITH_CREDIT' } }),
         ]),
         this.model.aggregate({
           where,
@@ -1039,6 +1038,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         partiallyPaid: statusCounts[1],
         paid: statusCounts[2],
         overdue: statusCounts[3],
+        settledWithCredit: statusCounts[4],
         totalAmount: amounts._sum.totalAmount ? parseFloat(amounts._sum.totalAmount.toString()) : 0,
         paidAmount: amounts._sum.paidAmount ? parseFloat(amounts._sum.paidAmount.toString()) : 0,
         balanceAmount: amounts._sum.balanceAmount ? parseFloat(amounts._sum.balanceAmount.toString()) : 0,

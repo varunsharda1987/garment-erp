@@ -23,7 +23,6 @@ export type {
   JobResult,
   ImportJobData,
   ExportJobData,
-  BulkUpdateJobData,
   ReportJobData,
   EmailJobData,
   CleanupJobData,

@@ -319,33 +319,15 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     return costSheet;
   }
 
-  /**
-   * Approve or reject cost sheet
+  /*
+   * Dead-code removal (2026-08-24, owner-approved): the legacy `approve()` method was
+   * removed here. It was the pre-migration approval writer — it set only the boolean
+   * `isApproved` and never touched `approvalStatus`, so wiring it in could mark a
+   * REJECTED cost sheet approved on half the screens (copyable into procurement, locked
+   * from edits, undeletable). Zero callers (verified in the 2026-08-24 study). The live
+   * approval path is style-costing-approval.controller.ts approveCostSheet — it writes
+   * BOTH flags together, behind the ADMIN route gate.
    */
-  async approve(id: string, userId: string, approved: boolean): Promise<style_costing> {
-    logDebug('Approving cost sheet', { id, approved });
-
-    const costSheet = await this.prisma.style_costing.findUnique({
-      where: { id },
-    });
-
-    if (!costSheet) {
-      throw new NotFoundError('Cost Sheet', id);
-    }
-
-    const updatedCostSheet = await this.prisma.style_costing.update({
-      where: { id },
-      data: {
-        isApproved: approved,
-        approvedById: approved ? userId : null,
-        approvedAt: approved ? new Date() : null,
-      },
-      include: this.getDefaultIncludes(),
-    });
-
-    logInfo(approved ? 'Cost sheet approved' : 'Cost sheet approval revoked', { id });
-    return updatedCostSheet;
-  }
 
   /**
    * Delete cost sheet (only unapproved)

@@ -1,14 +1,14 @@
 /**
- * PO Status Manager Service
+ * PO Status Manager Service — what REMAINS after the 2026-08-24 dead-code removal:
  *
- * Handles PO status transitions and linked updates:
- * - GRN received quantity updates
- * - Processing PO auto-ready when Greige received
- * - MRP requirement received quantity updates
- * - Service requirement status updates
+ * - checkProcessingPOReadiness: when a GREIGE/GREIGE_LACE PO is fully received, trims the
+ *   linked Processing POs to the received quantity and flips them PENDING_GREIGE →
+ *   READY_FOR_PROCESSING (called from grn.service.ts post-commit).
+ * - getPOsBySource / getPOSourceStats: the PO list page's tab counts and stat cards.
  *
- * This service extends the linked PO status pattern from Cost Sheet
- * to all PO sources (MRP, Service Requirements).
+ * Everything else this file once held was an unreachable SECOND implementation of the PO
+ * workflow (see the removal notes inline). The live PO workflow is purchaseOrder.service.ts
+ * + utils/stateMachine.ts — new PO status logic belongs THERE, never here.
  */
 
 import { PurchaseOrderStatus } from '@prisma/client';
@@ -60,75 +60,14 @@ export interface StatusUpdateResult {
  * updateJwoReceivedQuantity (both tx-aware, both atomic increments).
  */
 
-/**
- * Update PO status based on receiving progress
+/*
+ * Landmine №7 dead-code removal (2026-08-24, owner-approved): `updatePOReceivingStatus`
+ * was removed here. It was an unreachable second copy of purchaseOrder.service.ts's
+ * updateReceivingStatus with WORSE rules: aggregate totals instead of per-item (an
+ * over-receipt on one item masked a shortfall on another) and a never-downgrade ladder
+ * that would have lost the deliberate QC-rejection re-open behavior. Zero callers
+ * outside its own test (verified in the 2026-08-24 adversarial study).
  */
-export async function updatePOReceivingStatus(poId: string): Promise<PurchaseOrderStatus> {
-  // Get all PO items with their quantities
-  const poItems = await prisma.purchase_order_items.findMany({
-    where: { poId },
-    select: {
-      orderedQuantity: true,
-      receivedQuantity: true,
-    },
-  });
-
-  if (poItems.length === 0) {
-    return 'DRAFT';
-  }
-
-  // Calculate totals
-  const totalOrdered = poItems.reduce((sum, item) => sum + Number(item.orderedQuantity), 0);
-  const totalReceived = poItems.reduce((sum, item) => sum + Number(item.receivedQuantity), 0);
-
-  // Determine new status
-  let newStatus: PurchaseOrderStatus;
-
-  if (totalReceived === 0) {
-    // No change to status if nothing received yet
-    const po = await prisma.purchase_orders.findUnique({
-      where: { id: poId },
-      select: { status: true },
-    });
-    return po?.status || 'DRAFT';
-  } else if (totalReceived >= totalOrdered) {
-    newStatus = 'RECEIVED';
-  } else {
-    newStatus = 'PARTIALLY_RECEIVED';
-  }
-
-  // Update PO status (only if it should change)
-  const po = await prisma.purchase_orders.findUnique({
-    where: { id: poId },
-    select: { status: true },
-  });
-
-  // Don't downgrade status
-  const statusOrder: PurchaseOrderStatus[] = [
-    'DRAFT',
-    'PENDING_GREIGE',
-    'READY_FOR_PROCESSING',
-    'SENT',
-    'ACKNOWLEDGED',
-    'PARTIALLY_RECEIVED',
-    'RECEIVED',
-    'CANCELLED',
-  ];
-
-  const currentIndex = statusOrder.indexOf(po?.status || 'DRAFT');
-  const newIndex = statusOrder.indexOf(newStatus);
-
-  // Only update if moving forward (or to RECEIVED which is always allowed)
-  if (newIndex > currentIndex || newStatus === 'RECEIVED') {
-    await prisma.purchase_orders.update({
-      where: { id: poId },
-      data: { status: newStatus },
-    });
-    return newStatus;
-  }
-
-  return po?.status || 'DRAFT';
-}
 
 // Phase 5a: updateLinkedServiceRequirements deleted — service requirements are fulfilled by
 // Job Work Orders (service_requirement_jwo_links + updateWosrReceivedQuantity), never POs.
@@ -229,126 +168,19 @@ export async function checkProcessingPOReadiness(greigePOId: string): Promise<st
   return readiedPOs;
 }
 
-// ============================================
-// Manual Status Update Functions
-// ============================================
-
-/**
- * Send PO to supplier
+/*
+ * Landmine №7 dead-code removal (2026-08-24, owner-approved): `sendPO`, `acknowledgePO`
+ * and `cancelPO` were removed here — an unreachable second copy of the PO workflow
+ * (their duplicate routes lost the mount-order race from day one, BUG-DASH2). Each
+ * skipped a guard the live path has:
+ *   - cancelPO reset material_requirements to PO_REQUIRED with NO status filter — a
+ *     RECEIVED requirement would be re-ordered by MRP (the MRP-24 class);
+ *   - it OVERWROTE remarks and ran two unwrapped writes (torn state on failure);
+ *   - it stamped the actor into `userId` while the live path uses approvedById;
+ *   - none of them called validateTransition.
+ * The live workflow is purchaseOrder.service.ts sendPurchaseOrder / acknowledgePurchaseOrder /
+ * cancelPurchaseOrder — the only sanctioned PO status writers.
  */
-export async function sendPO(poId: string, userId: string): Promise<{ success: boolean; poNumber: string }> {
-  const po = await prisma.purchase_orders.findUnique({
-    where: { id: poId },
-    select: { status: true, poNumber: true },
-  });
-
-  if (!po) {
-    throw new Error('PO not found');
-  }
-
-  const validStatuses: PurchaseOrderStatus[] = ['DRAFT', 'READY_FOR_PROCESSING'];
-  if (!validStatuses.includes(po.status)) {
-    throw new Error(`Cannot send PO with status "${po.status}". Must be DRAFT or READY_FOR_PROCESSING.`);
-  }
-
-  await prisma.purchase_orders.update({
-    where: { id: poId },
-    data: {
-      status: 'SENT',
-      userId,
-    },
-  });
-
-  return { success: true, poNumber: po.poNumber };
-}
-
-/**
- * Acknowledge PO receipt by supplier
- */
-export async function acknowledgePO(poId: string, userId: string): Promise<{ success: boolean; poNumber: string }> {
-  const po = await prisma.purchase_orders.findUnique({
-    where: { id: poId },
-    select: { status: true, poNumber: true },
-  });
-
-  if (!po) {
-    throw new Error('PO not found');
-  }
-
-  if (po.status !== 'SENT') {
-    throw new Error(`Cannot acknowledge PO with status "${po.status}". Must be SENT.`);
-  }
-
-  await prisma.purchase_orders.update({
-    where: { id: poId },
-    data: {
-      status: 'ACKNOWLEDGED',
-      approvedById: userId,
-    },
-  });
-
-  return { success: true, poNumber: po.poNumber };
-}
-
-/**
- * Cancel PO
- */
-export async function cancelPO(
-  poId: string,
-  reason: string,
-  userId: string
-): Promise<{ success: boolean; poNumber: string }> {
-  const po = await prisma.purchase_orders.findUnique({
-    where: { id: poId },
-    select: { status: true, poNumber: true },
-  });
-
-  if (!po) {
-    throw new Error('PO not found');
-  }
-
-  // Cannot cancel if already received or cancelled
-  if (po.status === 'RECEIVED' || po.status === 'CANCELLED') {
-    throw new Error(`Cannot cancel PO with status "${po.status}".`);
-  }
-
-  // Cannot cancel if partially received
-  if (po.status === 'PARTIALLY_RECEIVED') {
-    throw new Error('Cannot cancel PO that has been partially received. Use GRN rejection instead.');
-  }
-
-  await prisma.purchase_orders.update({
-    where: { id: poId },
-    data: {
-      status: 'CANCELLED',
-      remarks: reason,
-      userId,
-    },
-  });
-
-  // Revert linked MRP requirements to PO_REQUIRED
-  await prisma.requirement_po_links
-    .findMany({
-      where: {
-        purchaseOrderId: poId,
-      },
-      select: { requirementId: true },
-    })
-    .then(async (links) => {
-      const reqIds = links.map((l) => l.requirementId);
-      if (reqIds.length > 0) {
-        await prisma.material_requirements.updateMany({
-          where: { id: { in: reqIds } },
-          data: { status: 'PO_REQUIRED' },
-        });
-      }
-    });
-
-  // Phase 5a: no service-requirement revert — service work is never PO-backed anymore
-  // (JWO deletion/cancellation handles WOSR reversion via service_requirement_jwo_links).
-
-  return { success: true, poNumber: po.poNumber };
-}
 
 // ============================================
 // Query Functions
@@ -476,10 +308,7 @@ export async function getPOSourceStats(): Promise<{
 
 // Export default for convenience
 export default {
-  updatePOReceivingStatus,
-  sendPO,
-  acknowledgePO,
-  cancelPO,
+  checkProcessingPOReadiness,
   getPOsBySource,
   getPOSourceStats,
 };

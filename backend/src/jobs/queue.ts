@@ -25,8 +25,8 @@ const isRedisConfigured = (): boolean => {
   return process.env.REDIS_ENABLED === 'true' || !!process.env.REDIS_HOST || process.env.NODE_ENV === 'production';
 };
 
-// Job types
-export type JobType = 'import' | 'export' | 'bulk-update' | 'report' | 'email' | 'cleanup' | 'notification';
+// Job types ('bulk-update' deleted 2026-08-24 — an unvalidated mass-writer; see handlers.ts)
+export type JobType = 'import' | 'export' | 'report' | 'email' | 'cleanup' | 'notification';
 
 // Job data interfaces
 export interface ImportJobData {
@@ -42,15 +42,6 @@ export interface ExportJobData {
   module: string;
   filters?: Record<string, unknown>;
   format: 'csv' | 'xlsx' | 'json';
-  userId: string;
-}
-
-export interface BulkUpdateJobData {
-  type: 'bulk-update';
-  module: string;
-  ids: string[];
-  operation?: 'update' | 'soft-delete' | 'restore';
-  updates?: Record<string, unknown>;
   userId: string;
 }
 
@@ -86,7 +77,6 @@ export interface NotificationJobData {
 export type JobData =
   | ImportJobData
   | ExportJobData
-  | BulkUpdateJobData
   | ReportJobData
   | EmailJobData
   | CleanupJobData

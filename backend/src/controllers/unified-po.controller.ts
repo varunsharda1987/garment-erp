@@ -19,13 +19,7 @@ import {
   mapServiceTypeToPOCategory,
   UnifiedPOCreationInput,
 } from '../services/unified-po-creation.service';
-import {
-  sendPO,
-  acknowledgePO,
-  cancelPO,
-  getPOsBySource,
-  getPOSourceStats,
-} from '../services/po-status-manager.service';
+import { getPOsBySource, getPOSourceStats } from '../services/po-status-manager.service';
 import { POSource, POCategory, Unit, ServiceType, PurchaseOrderStatus } from '@prisma/client';
 
 /**
@@ -221,70 +215,13 @@ export async function getPOStatsController(req: Request, res: Response) {
   });
 }
 
-/**
- * PATCH /api/purchase-orders/:id/send
- * Send PO to supplier
+/*
+ * Landmine №7 dead-code removal (2026-08-24, owner-approved): sendPOController,
+ * acknowledgePOController and cancelPOController were removed — never route-registered
+ * (their duplicate routes lost the mount-order race to purchaseOrder.routes.ts from day
+ * one, BUG-DASH2). The live endpoints are purchaseOrder.controller.ts
+ * sendPurchaseOrder / acknowledgePurchaseOrder / cancelPurchaseOrder.
  */
-export async function sendPOController(req: Request, res: Response) {
-  const userId = req.user?.userId;
-  if (!userId) {
-    throw new UnauthorizedError('User not authenticated');
-  }
-
-  const { id } = req.params;
-
-  const result = await sendPO(id, userId);
-
-  res.json({
-    success: true,
-    data: result,
-  });
-}
-
-/**
- * PATCH /api/purchase-orders/:id/acknowledge
- * Acknowledge PO receipt
- */
-export async function acknowledgePOController(req: Request, res: Response) {
-  const userId = req.user?.userId;
-  if (!userId) {
-    throw new UnauthorizedError('User not authenticated');
-  }
-
-  const { id } = req.params;
-
-  const result = await acknowledgePO(id, userId);
-
-  res.json({
-    success: true,
-    data: result,
-  });
-}
-
-/**
- * PATCH /api/purchase-orders/:id/cancel
- * Cancel PO
- */
-export async function cancelPOController(req: Request, res: Response) {
-  const userId = req.user?.userId;
-  if (!userId) {
-    throw new UnauthorizedError('User not authenticated');
-  }
-
-  const { id } = req.params;
-  const { reason } = req.body;
-
-  if (!reason) {
-    throw new ValidationError('Cancellation reason is required');
-  }
-
-  const result = await cancelPO(id, reason, userId);
-
-  res.json({
-    success: true,
-    data: result,
-  });
-}
 
 /**
  * GET /api/purchase-orders/category-mapping/material/:materialType
@@ -332,9 +269,6 @@ export default {
   checkDuplicatesController,
   getPOsBySourceController,
   getPOStatsController,
-  sendPOController,
-  acknowledgePOController,
-  cancelPOController,
   getMaterialCategoryMappingController,
   getServiceCategoryMappingController,
 };

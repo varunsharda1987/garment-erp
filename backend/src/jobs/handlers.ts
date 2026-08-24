@@ -135,158 +135,16 @@ async function handleExportJob(data: JobData): Promise<JobResult> {
   }
 }
 
-/**
- * Bulk update job handler
- * Supports: status updates, soft-delete, field updates across multiple records
+/*
+ * Dead-code removal (2026-08-24, owner-approved): `handleBulkUpdateJob` was removed here.
+ * It took a free-form field list from the caller and wrote it straight onto orders /
+ * work-orders / POs / masters via updateMany — no validateTransition, no cascades, no
+ * audit trail, no authorization. Doubly unreachable: nothing ever enqueued 'bulk-update',
+ * and the job queue itself is never bootstrapped at startup (initializeJobQueue /
+ * registerAllJobHandlers have no callers — /api/jobs/status always reports unavailable).
+ * If the queue is ever bootstrapped for async reports, do NOT reintroduce a raw
+ * mass-writer — route bulk changes through the owning services.
  */
-async function handleBulkUpdateJob(data: JobData): Promise<JobResult> {
-  if (data.type !== 'bulk-update') {
-    return { success: false, error: 'Invalid job type' };
-  }
-
-  try {
-    logInfo(`Processing bulk update for module: ${data.module}, ${data.ids.length} records`, {
-      operation: data.operation,
-      userId: data.userId,
-    });
-
-    const { module, ids, operation = 'update', updates, userId } = data;
-
-    if (!ids || ids.length === 0) {
-      return { success: false, error: 'No record IDs provided' };
-    }
-
-    // Determine update data based on operation
-    const getUpdateData = (): { isActive: boolean } | Record<string, unknown> => {
-      if (operation === 'soft-delete') {
-        return { isActive: false };
-      }
-      if (operation === 'restore') {
-        return { isActive: true };
-      }
-      // 'update' operation requires updates object
-      if (!updates || Object.keys(updates).length === 0) {
-        throw new Error('Updates object is required for update operation');
-      }
-      return updates;
-    };
-
-    const updateData = getUpdateData();
-    let updatedCount = 0;
-
-    // Use transactions for atomic bulk updates
-    await prisma.$transaction(async (tx) => {
-      switch (module) {
-        case 'orders': {
-          const result = await tx.orders.updateMany({
-            where: { id: { in: ids } },
-            data: updateData as Parameters<typeof tx.orders.updateMany>[0]['data'],
-          });
-          updatedCount = result.count;
-          break;
-        }
-
-        case 'work-orders': {
-          const result = await tx.work_orders.updateMany({
-            where: { id: { in: ids } },
-            data: updateData as Parameters<typeof tx.work_orders.updateMany>[0]['data'],
-          });
-          updatedCount = result.count;
-          break;
-        }
-
-        case 'materials': {
-          const result = await tx.materials.updateMany({
-            where: { id: { in: ids } },
-            data: updateData as Parameters<typeof tx.materials.updateMany>[0]['data'],
-          });
-          updatedCount = result.count;
-          break;
-        }
-
-        case 'suppliers': {
-          const result = await tx.suppliers.updateMany({
-            where: { id: { in: ids } },
-            data: updateData as Parameters<typeof tx.suppliers.updateMany>[0]['data'],
-          });
-          updatedCount = result.count;
-          break;
-        }
-
-        case 'customers': {
-          const result = await tx.customers.updateMany({
-            where: { id: { in: ids } },
-            data: updateData as Parameters<typeof tx.customers.updateMany>[0]['data'],
-          });
-          updatedCount = result.count;
-          break;
-        }
-
-        case 'styles': {
-          const result = await tx.styles.updateMany({
-            where: { id: { in: ids } },
-            data: updateData as Parameters<typeof tx.styles.updateMany>[0]['data'],
-          });
-          updatedCount = result.count;
-          break;
-        }
-
-        case 'purchase-orders': {
-          const result = await tx.purchase_orders.updateMany({
-            where: { id: { in: ids } },
-            data: updateData as Parameters<typeof tx.purchase_orders.updateMany>[0]['data'],
-          });
-          updatedCount = result.count;
-          break;
-        }
-
-        default:
-          throw new Error(`Unsupported module for bulk update: ${module}`);
-      }
-    });
-
-    // Notify user if userId provided
-    if (userId && updatedCount > 0) {
-      await notificationService.create({
-        userId,
-        type: 'SUCCESS',
-        title: 'Bulk Update Complete',
-        message: `Successfully updated ${updatedCount} ${module.replace(/-/g, ' ')} records.`,
-        referenceType: module,
-      });
-    }
-
-    logInfo(`Bulk update completed: ${updatedCount} records updated`, { module, operation });
-
-    return {
-      success: true,
-      message: `Updated ${updatedCount} records`,
-      data: {
-        module,
-        operation,
-        requestedCount: ids.length,
-        updatedCount,
-      },
-    };
-  } catch (error) {
-    logError('Bulk update job failed:', error);
-
-    // Notify user of failure
-    if (data.userId) {
-      await notificationService.create({
-        userId: data.userId,
-        type: 'ALERT',
-        title: 'Bulk Update Failed',
-        message: `Failed to update ${data.module?.replace(/-/g, ' ')} records. ${error instanceof Error ? error.message : ''}`,
-      });
-    }
-
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
 
 /**
  * Report generation job handler
@@ -405,7 +263,7 @@ export function registerAllJobHandlers(): void {
   registerJobHandler('cleanup', handleCleanupJob);
   registerJobHandler('import', handleImportJob);
   registerJobHandler('export', handleExportJob);
-  registerJobHandler('bulk-update', handleBulkUpdateJob);
+  // 'bulk-update' handler deleted 2026-08-24 — see the removal note above
   registerJobHandler('report', handleReportJob);
   registerJobHandler('email', handleEmailJob);
   registerJobHandler('notification', handleNotificationJob);

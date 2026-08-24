@@ -17,7 +17,7 @@ Compiled from five independent fingerprint sweeps (shared-writes, proxy-reads, d
 > - **№10 work-order resurrect** — commit 622612ab: tracking refuses CANCELLED WOs; cutting auto-start is status-guarded (PENDING-only flip), COMPLETED/DISPATCHED never step back.
 > - **№11 isLocked misread** — commit 2401a27b: consumers read "PRODUCTION purpose WITH a cost"; isLocked demoted to promote-flow provenance; stock-created production CADs now count everywhere and share the edit discipline.
 >
-> **The register is CLEARED.** Open follow-ups for the owner: (a) confirm the three dead-code deletions (parallel PO engine's 4 dead functions, legacy costing approve(), bulk-update job handler — study verdicts delivered 2026-08-24); (b) the 5m orphan stock row FAB-STK-0001; (c) drop the manual_backups tables after a safe interval.
+> **The register is CLEARED.** Housekeeping (owner-approved 2026-08-24, commit 193e8bf6): the three dead code paths are DELETED — po-status-manager's 4 unreachable functions (its 2 live ones kept), legacy costing.service.approve(), and the bulk-update job handler; removal notes left at each site. Bonus (208cbe65): purchase_orders now records `cancelledById`/`cancelledAt` — the one idea the dead engine reached for that the live path lacked. Remaining follow-ups: (a) the 5m orphan stock row FAB-STK-0001; (b) B2B contract test in CI (open question 8); (c) drop the manual_backups tables after a safe interval.
 
 ---
 

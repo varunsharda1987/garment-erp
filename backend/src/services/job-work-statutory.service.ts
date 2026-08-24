@@ -135,9 +135,8 @@ class JobWorkStatutoryService {
         sentDate: { not: null },
         isActive: true,
         // Cancelled orders had their stock credited back and their challan cancelled —
-        // they must not age toward the 365-day breach. Explicit OR because Prisma `not`
-        // on a nullable enum silently excludes NULL (legacy) rows.
-        AND: [{ OR: [{ jwoStatus: null }, { jwoStatus: { not: 'CANCELLED' } }] }],
+        // they must not age toward the 365-day breach.
+        jwoStatus: { not: 'CANCELLED' },
         // Not fully received: either no receivedDate or qty mismatch
         OR: [
           { receivedDate: null },

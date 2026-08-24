@@ -357,7 +357,7 @@ async function acquireIssueMutex(tx: Tx, jwo: JwoForIssue, issueDate: Date): Pro
     where: {
       id: jwo.id,
       sentDate: null,
-      OR: [{ jwoStatus: null }, { jwoStatus: { notIn: ['CANCELLED', 'CLOSED'] } }],
+      jwoStatus: { notIn: ['CANCELLED', 'CLOSED'] },
     },
     data: { sentDate: issueDate },
   });

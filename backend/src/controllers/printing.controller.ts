@@ -762,7 +762,7 @@ export const getAllPrintJobs = async (req: Request, res: Response, _next: NextFu
   }
 
   if (status) {
-    where.status = status as any;
+    where.jwoStatus = status as any;
   }
 
   if (labDipId) {
@@ -1059,8 +1059,7 @@ export const receiveFromMill = async (req: Request, res: Response, _next: NextFu
       thanCount: thanCount || null,
       foldLengthCm: foldLengthCm ? new Prisma.Decimal(foldLengthCm) : null,
       calculatedActualMeters: calculatedActualMeters ? new Prisma.Decimal(calculatedActualMeters) : null,
-      status: 'RECEIVED',
-      jwoStatus: 'RECEIVED', // two-status sync (landmine No.1): legacy column mirrors jwoStatus
+      jwoStatus: 'RECEIVED',
     },
   });
   if (guarded.count === 0) {
@@ -1110,8 +1109,7 @@ export const qualityCheck = async (req: Request, res: Response, _next: NextFunct
       defectType,
       actualRate,
       remarks: remarks ? `${existing.remarks || ''}\n[QC Note] ${remarks}` : existing.remarks,
-      status: 'QUALITY_CHECKED',
-      jwoStatus: 'QUALITY_CHECKED', // two-status sync (landmine No.1): legacy column mirrors jwoStatus
+      jwoStatus: 'QUALITY_CHECKED',
     },
     include: jobWorkOrderInclude,
   });
@@ -1213,8 +1211,7 @@ export const updateStock = async (req: Request, res: Response, _next: NextFuncti
   const job = await prisma.job_work_orders.update({
     where: { id },
     data: {
-      status: 'STOCK_UPDATED',
-      jwoStatus: 'STOCK_UPDATED', // two-status sync (landmine No.1): legacy column mirrors jwoStatus
+      jwoStatus: 'STOCK_UPDATED',
     },
     include: jobWorkOrderInclude,
   });
@@ -1967,8 +1964,7 @@ export const receiveProcessPO = async (req: Request, res: Response, _next: NextF
       foldLengthCm: foldLengthCm ? new Prisma.Decimal(foldLengthCm) : null,
       calculatedActualMeters: calculatedActualMeters ? new Prisma.Decimal(calculatedActualMeters) : null,
       inwardChallanId,
-      status: 'RECEIVED',
-      jwoStatus: 'RECEIVED', // two-status sync (landmine No.1): legacy column mirrors jwoStatus
+      jwoStatus: 'RECEIVED',
     },
   });
 
@@ -2019,8 +2015,7 @@ export const qualityCheckProcessPO = async (req: Request, res: Response, _next: 
       defectType,
       actualRate,
       remarks: remarks ? `${job.remarks || ''}\n[QC Note] ${remarks}` : job.remarks,
-      status: 'QUALITY_CHECKED',
-      jwoStatus: 'QUALITY_CHECKED', // two-status sync (landmine No.1): legacy column mirrors jwoStatus
+      jwoStatus: 'QUALITY_CHECKED',
     },
   });
 
@@ -2144,8 +2139,7 @@ export const updateStockProcessPO = async (req: Request, res: Response, _next: N
   await prisma.job_work_orders.update({
     where: { id: job.id },
     data: {
-      status: 'STOCK_UPDATED',
-      jwoStatus: 'STOCK_UPDATED', // two-status sync (landmine No.1): legacy column mirrors jwoStatus
+      jwoStatus: 'STOCK_UPDATED',
     },
   });
 
@@ -2274,8 +2268,7 @@ export const returnUnprocessedProcessPO = async (req: Request, res: Response, _n
     where: { id: job.id },
     data: {
       inwardChallanId,
-      status: 'CANCELLED', // legacy mirror of jwoStatus (CANCELLED added to the legacy enum 2026-08-22)
-      jwoStatus: 'CANCELLED', // exits dedup guard + drives CANCELLED status for JWO-only records
+      jwoStatus: 'CANCELLED',
       remarks:
         `${job.remarks || ''}\n[RETURNED UNPROCESSED] ${returnedQtyMeters} meters returned on ${(returnDate ? new Date(returnDate) : new Date()).toISOString().split('T')[0]}. ${remarks || ''}`.trim(),
       qtyReceivedMeters: 0, // Nothing was processed

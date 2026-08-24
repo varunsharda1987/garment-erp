@@ -2871,7 +2871,7 @@ export async function findProcessingRequirementMatches(params: {
       requirement_jwo_links: {
         include: {
           job_work_orders: {
-            select: { id: true, jobWorkNumber: true, status: true, jwoStatus: true, isActive: true },
+            select: { id: true, jobWorkNumber: true, jwoStatus: true, isActive: true },
           },
         },
       },

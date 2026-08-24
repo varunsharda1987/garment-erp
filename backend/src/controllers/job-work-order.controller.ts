@@ -306,7 +306,7 @@ class JobWorkOrderController {
 
       const jwo = await prisma.job_work_orders.findUnique({
         where: { id },
-        select: { id: true, jobWorkNumber: true, processorId: true, jwoStatus: true, sentDate: true, status: true },
+        select: { id: true, jobWorkNumber: true, processorId: true, jwoStatus: true, sentDate: true },
       });
       if (!jwo) {
         return res.status(404).json({ success: false, message: 'Job work order not found' });

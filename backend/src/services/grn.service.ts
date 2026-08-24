@@ -2393,7 +2393,7 @@ class GRNService {
       processorName: job.processor?.name || '',
       agreedRate: Number(job.agreedRatePerMeter),
       greigeStockLotId: job.greigeStockLotId,
-      status: job.status,
+      jwoStatus: job.jwoStatus,
       receivedDate: job.receivedDate,
     };
   }

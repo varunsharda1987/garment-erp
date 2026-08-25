@@ -699,7 +699,9 @@ export default function BulkPOGenerationDialog({
                                               ? 'Manual'
                                               : item.rateSource === 'COST_SHEET'
                                                 ? 'Cost sheet'
-                                                : item.rateSource}
+                                                : item.rateSource === 'ORDER_BOM_STALE'
+                                                  ? 'BOM rate stale — market moved ≥5%'
+                                                  : item.rateSource}
                                         </span>
                                       )}
                                     </div>

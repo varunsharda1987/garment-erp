@@ -3010,7 +3010,7 @@ export async function generatePOFromRequirements(
     include: {
       materials: true,
       orderBom: { select: { sourceCostSheetId: true } },
-      orders: { select: { orderNumber: true } },
+      orders: { select: { orderNumber: true, status: true } },
       order_items: {
         select: {
           styleId: true,
@@ -3052,6 +3052,19 @@ export async function generatePOFromRequirements(
 
   if (requirements.length === 0) {
     throw new Error('No valid requirements found for PO generation');
+  }
+
+  // Qty-rate audit 2026-08-24: calculateMRP blocks cancelled orders (MRP-09), but generation
+  // selected requirements purely by id + status and never joined back to the order — so a
+  // cancelled order's leftover requirements could still be turned into POs and JWOs priced at
+  // their stale snapshots. Refuse them here.
+  const cancelledOrderReqs = requirements.filter((r) => (r as any).orders?.status === 'CANCELLED');
+  if (cancelledOrderReqs.length > 0) {
+    const nums = [...new Set(cancelledOrderReqs.map((r) => (r as any).orders?.orderNumber ?? r.requirementNumber))];
+    throw new Error(
+      `Cannot generate documents for requirements of CANCELLED order(s): ${nums.join(', ')}. ` +
+        `Cancel or re-plan the requirements instead.`
+    );
   }
 
   // MRP-04: PROCESSING requirements are Job-Work-Order-only (Job Work Consolidation phases
@@ -5241,13 +5254,30 @@ export async function previewPOsFromRequirements(request: POPreviewRequest): Pro
         priceMap.get(mg.materialId) ??
         0;
       // Track rate source for frontend display (exception-only: show badge only when NOT ORDER_BOM)
-      const effectiveRateSource = mg.snapshotPrice
+      let effectiveRateSource = mg.snapshotPrice
         ? mg.rateSource
         : costSheetRateMap.has(groupKey) || costSheetRateMap.has(mg.materialId)
           ? 'COST_SHEET'
           : priceMap.has(mg.materialId)
             ? 'SUPPLIER_PRICE'
             : null;
+      // Qty-rate audit 2026-08-24: "ORDER_BOM = silence = trusted" hid stale greige snapshots —
+      // the wizard stayed reassuringly quiet while pricing the PO at a rate typed on the CAD row
+      // weeks earlier. When the live resolver (stock-lot blend → last purchase) diverges ≥5%
+      // from the snapshot, downgrade the label so the existing exception-only badge lights up.
+      if (isGreige && mg.snapshotPrice && effectiveRateSource === 'ORDER_BOM') {
+        const liveRate = costSheetRateMap.get(groupKey) ?? costSheetRateMap.get(mg.materialId) ?? null;
+        if (liveRate != null && liveRate > 0 && mg.snapshotPrice > 0) {
+          const divergencePct = Math.abs((liveRate - mg.snapshotPrice) / mg.snapshotPrice) * 100;
+          if (divergencePct >= 5) {
+            effectiveRateSource = 'ORDER_BOM_STALE';
+            logWarn(
+              `[MRP] PO preview: greige snapshot ₹${mg.snapshotPrice} diverges ${divergencePct.toFixed(1)}% from ` +
+                `live rate ₹${liveRate} for ${mat?.code ?? mg.materialId} — flagged ORDER_BOM_STALE`
+            );
+          }
+        }
+      }
       // MRP-05: honour the prices/quantities the user edited in the review step, exactly as
       // generatePOFromRequirements does (same groupKey-then-materialId lookup order). Without
       // this the preview showed resolved rates while the created PO used the edited ones.

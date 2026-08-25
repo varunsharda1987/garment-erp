@@ -954,6 +954,19 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
         data: updateData as any,
       });
     });
+
+    // Qty-rate audit 2026-08-24: replacing the items CASCADE-deleted order_item_costing and
+    // nothing ever recreated it — after any edit the order permanently lost its costing
+    // baseline (variance anchor, version badge). Re-snapshot at the new quantities.
+    const resnapshot = await orderService.createCostingSnapshots(
+      orderItemsData.map((item) => ({ id: item.id, styleId: item.styleId }))
+    );
+    if (resnapshot.failures.length > 0) {
+      logWarn('[updateOrder] Cost-sheet re-snapshot failures after item replacement', {
+        orderId: id,
+        failures: resnapshot.failures,
+      });
+    }
   } else {
     // Never trust client-supplied header totals: always recompute totalQuantity/totalAmount from
     // SUM(order_items) so the stored aggregates (which feed statistics) cannot drift (bug-hunt orders-6)

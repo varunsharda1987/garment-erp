@@ -667,13 +667,30 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
         data: { status: 'CANCELLED' },
       });
 
-      // Deactivate all related Order BOMs
+      // Deactivate all related Order BOMs.
+      // Qty-rate audit 2026-08-24: LOCKED BOMs are exempt — order-bom.service.deactivate()
+      // refuses them, and this raw updateMany used to flatten that rule.
       await tx.order_bom.updateMany({
         where: {
           orderId: id,
           isActive: true,
+          status: { not: 'LOCKED' },
         },
         data: { isActive: false },
+      });
+
+      // Qty-rate audit 2026-08-24: cancellation is a 100%-quantity-reduction amendment, but the
+      // order's material requirements stayed PENDING/PO_REQUIRED with their full pre-cancel
+      // quantities and price snapshots — still purchasable, and their live rows blocked any
+      // later correction of the order. Same open-status filter as order-bom.service.
+      // cancelBomRequirements: rows already on POs (PO_GENERATED/PO_SENT/…) are kept, since a
+      // real commercial document references them.
+      await tx.material_requirements.updateMany({
+        where: {
+          orderId: id,
+          status: { notIn: ['RECEIVED', 'CANCELLED', 'PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
+        },
+        data: { status: 'CANCELLED' },
       });
 
       // Handle ALL lace allocations for this order (not just RESERVED/IN_USE)

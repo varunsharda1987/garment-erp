@@ -179,7 +179,51 @@ async function resolveGreigeRate(ctx: RateResolutionContext): Promise<RateResolu
   // This fixes D1 where greige PO prices could never resolve from cost sheet.
   const lookupId = ctx.greigeId || ctx.fabricId;
 
-  // Primary: Cost Sheet greigeCost
+  // Qty-rate audit 2026-08-24: this resolver had exactly two sources — the number typed on the
+  // CAD row weeks earlier (via the cost sheet) and a supplier price that MRP's auto-created
+  // material_suppliers rows never populate. The live signals the system already maintains were
+  // read by NOTHING: greige_stock lots carry a per-lot purchaseCost, and greige_master.
+  // lastPurchaseRate is refreshed on every greige GRN. Priority now:
+  //   1. qty-weighted blend of AVAILABLE stock lots' purchaseCost (what the greige on the shelf
+  //      actually cost; width-blind, mirroring MRP's stock netting)
+  //   2. greige_master.lastPurchaseRate (most recent real purchase)
+  //   3. Cost Sheet greigeCost (the costed snapshot)
+  //   4. material_suppliers.supplierPrice
+  if (ctx.greigeId) {
+    const lots = await prisma.greige_stock.findMany({
+      where: { greigeId: ctx.greigeId, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
+      select: { purchaseCost: true, quantityAvailable: true },
+    });
+    let weightedValue = 0;
+    let totalQty = 0;
+    for (const lot of lots) {
+      const cost = lot.purchaseCost != null ? Number(lot.purchaseCost) : 0;
+      const qty = Number(lot.quantityAvailable);
+      if (cost > 0 && qty > 0) {
+        weightedValue += cost * qty;
+        totalQty += qty;
+      }
+    }
+    if (totalQty > 0) {
+      return {
+        rate: Math.round((weightedValue / totalQty) * 100) / 100,
+        source: `Stock lots (qty-weighted avg of ${totalQty}m available)`,
+      };
+    }
+
+    const master = await prisma.greige_master.findUnique({
+      where: { id: ctx.greigeId },
+      select: { lastPurchaseRate: true, lastPurchaseAt: true },
+    });
+    if (master?.lastPurchaseRate && Number(master.lastPurchaseRate) > 0) {
+      return {
+        rate: Number(master.lastPurchaseRate),
+        source: `Last purchase${master.lastPurchaseAt ? ` (${master.lastPurchaseAt.toISOString().slice(0, 10)})` : ''}`,
+      };
+    }
+  }
+
+  // Cost Sheet greigeCost (the costed snapshot)
   if (ctx.costSheetId && lookupId) {
     // Try greigeId first (for actual greige fabrics), then fabricId (for finished fabrics)
     const costingItem = await prisma.style_costing_fabric_items.findFirst({

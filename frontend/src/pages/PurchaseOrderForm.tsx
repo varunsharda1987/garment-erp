@@ -806,8 +806,10 @@ export default function PurchaseOrderForm() {
     };
     setItems((prev) => [...prev, newItem]);
 
-    // Auto-lookup rate from processor rate card
-    lookupProcessingRate(newItem.tempId, greige.id, 1);
+    // Qty-rate audit 2026-08-24: NO auto-lookup at the placeholder quantity of 1 — slabs are
+    // matched on meters, so quantity 1 always hit the bottom (most expensive) slab and that
+    // rate stuck until the quantity field was edited. The re-lookup fires from updateItem the
+    // moment a real quantity is typed.
   };
 
   const lookupProcessingRate = async (tempId: string, greigeId: string, quantity: number) => {

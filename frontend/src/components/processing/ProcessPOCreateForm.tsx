@@ -93,6 +93,10 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
   const [shrinkageFromRateCard, setShrinkageFromRateCard] = useState(false);
   const [agreedRatePerMeter, setAgreedRatePerMeter] = useState<number>(0);
   const [isRateTbd, setIsRateTbd] = useState(false); // Explicit TBD when rate=0 is intentional
+  // Qty-rate audit 2026-08-24: the card's quote at THIS job's meters — shown beside the rate
+  // input (and prefilled while the operator hasn't typed one) instead of being discarded
+  const [cardRate, setCardRate] = useState<number | null>(null);
+  const [cardSlabLabel, setCardSlabLabel] = useState<string | null>(null);
   const [expectedReturnDate, setExpectedReturnDate] = useState('');
   const [remarks, setRemarks] = useState('');
 
@@ -311,13 +315,28 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
         } else if (!cancelled) {
           setShrinkageFromRateCard(false);
         }
+        // Qty-rate audit 2026-08-24: the SAME response carries the slab-correct rate for this
+        // job's meters — it was thrown away while the operator typed a number from memory.
+        // Surface it, and prefill only while the rate field is still untouched (0, not TBD).
+        if (!cancelled) {
+          setCardRate(rate?.ratePerMeter ?? null);
+          setCardSlabLabel(rate?.slabLabel ?? null);
+          if (rate?.ratePerMeter != null && rate.ratePerMeter > 0) {
+            setAgreedRatePerMeter((current) => (current > 0 || isRateTbd ? current : rate.ratePerMeter));
+          }
+        }
       } catch {
-        if (!cancelled) setShrinkageFromRateCard(false);
+        if (!cancelled) {
+          setShrinkageFromRateCard(false);
+          setCardRate(null);
+          setCardSlabLabel(null);
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedGreigeStock, selectedProcessor, effectiveProcessType, qtySentMeters]);
 
   // Create mutation
@@ -1098,6 +1117,20 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
                   placeholder="e.g., 25.00"
                   disabled={isRateTbd}
                 />
+                {cardRate != null && cardRate > 0 && !isRateTbd && (
+                  <p
+                    className={
+                      Math.abs(agreedRatePerMeter - cardRate) >= 0.005
+                        ? 'text-xs text-amber-600 dark:text-amber-400'
+                        : 'text-xs text-muted-foreground'
+                    }
+                  >
+                    Rate card:{' '}
+                    {cardRate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/m
+                    {cardSlabLabel ? ` @ ${cardSlabLabel}` : ''} for this quantity
+                    {Math.abs(agreedRatePerMeter - cardRate) >= 0.005 ? ' — differs from the typed rate' : ''}
+                  </p>
+                )}
                 <div className="flex items-center space-x-2 mt-2">
                   <Checkbox
                     id="isRateTbd"

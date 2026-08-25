@@ -18,6 +18,7 @@ import prisma from '../config/database';
 import {
   toCurrency,
   multiplyCurrency,
+  addCurrency,
   divideCurrency,
   percentOf,
   roundToCent,
@@ -365,9 +366,16 @@ class JobWorkOrderService {
 
     // Billing basis: the processor charges for the finished goods returned (qtyBillable),
     // not the greige issued (qtySentMeters). NULL qtyBillable = legacy/piece-based jobs.
-    const qtyMeters = toCurrency(jwo.qtyBillable ?? jwo.qtySentMeters);
-    const ratePerMeter = toCurrency(jwo.agreedRatePerMeter);
-    const subtotal = multiplyCurrency(qtyMeters, ratePerMeter);
+    // KAAJ_BUTTON is its own basis (qty-rate audit 2026-08-24): two per-UNIT operations,
+    // agreedRatePerMeter deliberately 0 — the generic qty × rate here used to overwrite a
+    // KAAJ job's correct subtotal with zero whenever totals were recomputed.
+    const subtotal =
+      jwo.processType === 'KAAJ_BUTTON'
+        ? addCurrency(
+            multiplyCurrency(jwo.buttonholeCount ?? 0, toCurrency(jwo.buttonholeRatePerUnit ?? 0)),
+            multiplyCurrency(jwo.buttonCount ?? 0, toCurrency(jwo.buttonRatePerUnit ?? 0))
+          )
+        : multiplyCurrency(toCurrency(jwo.qtyBillable ?? jwo.qtySentMeters), toCurrency(jwo.agreedRatePerMeter));
 
     // R1: Do NOT fall back to a default rate — throw if unresolved
     const gstRate = jwo.gstRate ?? jwo.processTypeMaster?.gstRate ?? null;

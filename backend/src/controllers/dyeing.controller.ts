@@ -24,6 +24,7 @@ import { systemSettingsService } from '../services/system-settings.service';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from '../services/job-work-order.service';
 import { findProcessingRequirementMatches, updateJwoReceivedQuantity } from '../services/mrp.service';
 import { resolveJwoExpectedShrinkage } from '../services/helpers/shrinkage-resolver.helper';
+import { resolveJwoRate, jwoRateProvenance } from '../services/helpers/jwo-rate.helper';
 import { applyShrinkageLoss, multiplyCurrency, roundToCent, toNumber as decToNumber } from '../utils/currency';
 import {
   processJwoInclude,
@@ -1569,6 +1570,19 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
   const qtyBillable = decToNumber(roundToCent(applyShrinkageLoss(qtySentMeters, resolvedExpectedShrinkage ?? 0)));
   const totalAmount = decToNumber(roundToCent(multiplyCurrency(qtyBillable, effectiveAgreedRate)));
 
+  // Qty-rate audit 2026-08-24: resolve the card's quote at THIS job's billable meters. The
+  // operator's typed rate still rules the document (negotiated rates are legitimate) — the
+  // card/slab identity and any variance are persisted so the paid rate is auditable.
+  const rateResolution = greigeForShrinkage?.greigeId
+    ? await resolveJwoRate({
+        processorId: resolvedProcessorId,
+        processingType: 'DYEING',
+        greigeId: greigeForShrinkage.greigeId,
+        basisQuantityMeters: qtyBillable,
+      })
+    : null;
+  const rateProvenance = jwoRateProvenance(rateResolution, effectiveAgreedRate, { isRateTbd });
+
   const result = await prisma.$transaction(async (tx) => {
     // Generate job work number
     const styleCode = (labDip as any).style?.styleCode || 'STK';
@@ -1601,6 +1615,13 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         expectedShrinkage: resolvedExpectedShrinkage,
         agreedRatePerMeter: effectiveAgreedRate,
         isRateTbd, // Explicit TBD marker when rate=0 is intentional
+        // Rate provenance (qty-rate audit 2026-08-24)
+        rateCardId: rateProvenance.rateCardId,
+        slabId: rateProvenance.slabId,
+        rateSource: rateProvenance.rateSource,
+        rateBasisQuantity: rateProvenance.rateBasisQuantity,
+        costedRatePerMeter: rateProvenance.costedRatePerMeter,
+        rateVarianceReason: rateProvenance.rateVarianceReason,
         remarks,
         jwoStatus: 'DRAFT',
         createdById: userId,

@@ -231,6 +231,11 @@ class JobWorkOrderController {
           uom: body.uom || (body.fabricStockLotId ? 'MTR' : processTypeMaster.unitOfMeasure),
           agreedRatePerMeter: isKaaj ? 0 : body.agreedRate,
           isRateTbd: isKaaj ? false : body.isRateTbd,
+          // Rate provenance (qty-rate audit 2026-08-24): this surface serves stock/sample and
+          // piece/service jobs with no greige lineage — no slab card applies, the operator's
+          // number IS the rate. Recording that honestly beats leaving the column null.
+          rateSource: !isKaaj && body.isRateTbd ? 'TBD' : 'MANUAL',
+          rateBasisQuantity: qtyBillable ?? body.quantity,
           expectedReturnDate: body.expectedReturnDate ?? null,
           remarks: body.remarks ?? null,
           jwoStatus: 'DRAFT',

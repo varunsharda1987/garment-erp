@@ -39,6 +39,7 @@ import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from '../serv
 import { maxNumericSuffix, seedScopedSequenceIfMissing, generateJobWorkNumber } from '../utils/jobWorkNumber';
 import { findProcessingRequirementMatches, updateJwoReceivedQuantity } from '../services/mrp.service';
 import { resolveJwoExpectedShrinkage } from '../services/helpers/shrinkage-resolver.helper';
+import { jwoRateProvenance } from '../services/helpers/jwo-rate.helper';
 import {
   processJwoInclude,
   toProcessPOEnvelope,
@@ -1537,6 +1538,11 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
   const qtyBillable = toNumber(roundToCent(applyShrinkageLoss(qtySentMeters, resolvedExpectedShrinkage ?? 0)));
   const totalAmount = toNumber(roundToCent(multiplyCurrency(qtyBillable, effectiveAgreedRate)));
 
+  // Qty-rate audit 2026-08-24: printing rate cards are keyed on the print SUB-TYPE, which this
+  // endpoint's body does not carry — the card lookup is unresolvable here, so provenance records
+  // the rate as MANUAL (or TBD). The typed rate rules the document either way.
+  const rateProvenance = jwoRateProvenance(null, effectiveAgreedRate, { isRateTbd });
+
   const result = await prisma.$transaction(async (tx) => {
     // Generate job work number
     const styleCode = (labDip as any).style?.styleCode || 'STK';
@@ -1569,6 +1575,13 @@ export const createProcessPO = async (req: Request, res: Response, _next: NextFu
         expectedShrinkage: resolvedExpectedShrinkage,
         agreedRatePerMeter: effectiveAgreedRate,
         isRateTbd, // Explicit TBD marker when rate=0 is intentional
+        // Rate provenance (qty-rate audit 2026-08-24)
+        rateCardId: rateProvenance.rateCardId,
+        slabId: rateProvenance.slabId,
+        rateSource: rateProvenance.rateSource,
+        rateBasisQuantity: qtyBillable,
+        costedRatePerMeter: rateProvenance.costedRatePerMeter,
+        rateVarianceReason: rateProvenance.rateVarianceReason,
         remarks,
         jwoStatus: 'DRAFT',
         createdById: userId,

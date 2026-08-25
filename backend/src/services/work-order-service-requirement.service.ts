@@ -354,28 +354,15 @@ export async function calculateRequirementsFromWorkOrder(input: CalculateService
     const quantityRequired = workOrderQuantity;
     const unit = Unit.PIECE; // Can be customized based on service type
 
-    // Find preferred processor from rate cards
-    // Note: processor_rate_card doesn't have styleId, so we match by processingType only
-    const rateCard = await prisma.processor_rate_card.findFirst({
-      where: {
-        processingType: process.processType,
-        isActive: true,
-      },
-      include: {
-        processor: {
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            isActive: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const preferredProcessorId = rateCard?.processorId || null;
-    const estimatedRate = rateCard?.ratePerMeter ? Number(rateCard.ratePerMeter) : null;
+    // Qty-rate audit 2026-08-24: this used to take the NEWEST processor_rate_card matching
+    // the processingType — with no processor, greige, slab or quantity filter — and multiply
+    // its ₹/METER fabric-processing rate by a PIECE count. That auto-assigned an arbitrary
+    // processor and produced a category-confused estimate (fabric dyeing cards priced
+    // per-piece embroidery). Service requirements now start unpriced and unassigned; the
+    // processor is chosen by the user and the rate comes from the style process / cost sheet
+    // at JWO creation.
+    const preferredProcessorId = process.supplierId || null;
+    const estimatedRate = process.estimatedCost != null ? Number(process.estimatedCost) : null;
     // BUG-JWO5 fix: use decimal.js for safe cost calculation
     const estimatedTotal = estimatedRate ? toNumber(multiplyCurrency(estimatedRate, quantityRequired)) : null;
 
@@ -1040,19 +1027,15 @@ export async function generateServiceJWOs(data: {
       throw new BusinessError(`Cannot generate job work: ${serviceType} requirements have zero quantity.`);
     }
 
-    // D4 rate chain: weighted estimatedRate → processor rate card → approved style costing → 422
+    // D4 rate chain: weighted estimatedRate → approved style costing → 422.
+    // Qty-rate audit 2026-08-24: the middle tier used to grab the NEWEST processor_rate_card
+    // matching the processingType — with no processor filter — so a job issued to processor A
+    // could be priced from processor B's card, in ₹/METER, for a PIECE-based service. Fabric
+    // processing cards are not a rate source for piece services; the tier is gone.
     let rate = 0;
     const totalEst = reqs.reduce((sum, req) => sum + Number(req.estimatedTotal ?? 0), 0);
     if (totalEst > 0) {
       rate = toNumber(divideCurrency(totalEst, totalQty));
-    }
-    if (rate <= 0) {
-      const rateCard = await prisma.processor_rate_card.findFirst({
-        where: { processingType: serviceType, isActive: true, processor: { isActive: true } },
-        orderBy: { createdAt: 'desc' },
-        select: { ratePerMeter: true },
-      });
-      rate = rateCard?.ratePerMeter != null ? Number(rateCard.ratePerMeter) : 0;
     }
     if (rate <= 0) {
       const costingField = STYLE_COSTING_SERVICE_FIELDS[serviceType];
@@ -1118,6 +1101,10 @@ export async function generateServiceJWOs(data: {
           qtySentMeters: totalQty,
           uom,
           agreedRatePerMeter: rate,
+          // Rate provenance (qty-rate audit 2026-08-24): service rates come from the style's
+          // own estimates/cost sheet, never a fabric slab card
+          rateSource: 'MANUAL',
+          rateBasisQuantity: totalQty,
           expectedReturnDate: new Date(expectedDeliveryDate),
           jwoStatus: 'DRAFT',
           remarks: `[Service Req] ${woNumbers.join(', ')}${remarks ? `\n${remarks}` : ''}`,

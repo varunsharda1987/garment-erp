@@ -52,6 +52,8 @@ import { gstService } from './gst.service';
 import { resolveRate } from './po-rate-resolver.service';
 import { findRateCardsForShrinkage } from './processor-rate-v2.service';
 import { resolveShrinkagePercent } from './helpers/shrinkage-resolver.helper';
+// Qty-rate audit 2026-08-24: slab-correct JWO pricing at the job's ACTUAL meters + provenance
+import { resolveJwoRate, jwoRateProvenance, JwoRateResolution } from './helpers/jwo-rate.helper';
 import logger, { logWarn } from '../utils/logger';
 import { MASTER_CONFIG } from './helpers/master-config';
 import { ensureMaterialRecord } from './helpers/material-sync.helper';
@@ -3275,6 +3277,41 @@ export async function generatePOFromRequirements(
     }
   }
 
+  // Qty-rate audit 2026-08-24: PROCESSING items re-resolve the slab rate at their FINAL
+  // quantity — after netting, consolidation and the wizard's manual qty override, none of
+  // which ever re-priced before (the wizard override REPLACED the quantity while keeping the
+  // rate the costing-time pcs had slab-picked). An operator's explicit manual PRICE override
+  // still wins; otherwise the card's quote at the job's actual meters replaces the snapshot,
+  // and the variance is persisted on the JWO for audit.
+  const jwoRateResolutions = new Map<string, JwoRateResolution>();
+  if (requirements.every((req) => req.requirementType === 'PROCESSING')) {
+    const reqByIdForRates = new Map(requirements.map((r) => [r.id, r]));
+    for (const item of poItems) {
+      const req = reqByIdForRates.get(item.requirementIds[0]) as any;
+      if (!req) continue;
+      const greigeId = req.orderBomItem?.greigeId ?? req.materials?.greigeId ?? null;
+      if (!greigeId) continue;
+      const rcType = req.orderBomItem?.rateCard?.processingType;
+      const isPrinting = rcType === 'PRINTING' || (!rcType && !!req.printingType);
+      const resolution = await resolveJwoRate({
+        processorId: supplierId,
+        processingType: isPrinting ? 'PRINTING' : 'DYEING',
+        printingType: (req.printingType ?? req.orderBomItem?.rateCard?.printingType ?? undefined) as any,
+        greigeId,
+        basisQuantityMeters: item.quantity, // billable meters, post-override
+        upstreamRatePerMeter: item.unitPrice,
+      });
+      jwoRateResolutions.set(item.requirementIds[0], resolution);
+      const manualPriceOverride = (itemPrices as any)?.[buildGroupKey(req)] ?? (itemPrices as any)?.[req.materialId];
+      if (manualPriceOverride == null && resolution.cardRatePerMeter != null) {
+        if (resolution.differsFromUpstream) {
+          logWarn(`[MRP] JWO rate re-resolved at final quantity: ${resolution.varianceReason}`);
+        }
+        item.unitPrice = resolution.cardRatePerMeter;
+      }
+    }
+  }
+
   // Validate: no items with zero price
   const zeroPriceItems = poItems.filter((item) => item.unitPrice <= 0);
   if (zeroPriceItems.length > 0) {
@@ -3364,6 +3401,26 @@ export async function generatePOFromRequirements(
           `average ${ratePerMeter} so the total (${totalJobValue}) is preserved.`
       );
     }
+
+    // Rate provenance for the JWO (qty-rate audit 2026-08-24). Single-item jobs (the norm —
+    // each PROCESSING requirement is its own group) pin the exact card + slab; bundles carry
+    // the weighted average, with the card pinned only when every item resolved the SAME card.
+    const usedResolutions = poItems
+      .map((item) => jwoRateResolutions.get(item.requirementIds[0]))
+      .filter((r): r is JwoRateResolution => r != null);
+    const singleResolution = poItems.length === 1 ? (usedResolutions[0] ?? null) : null;
+    const bundleCardIds = new Set(usedResolutions.map((r) => r.rateCardId).filter(Boolean));
+    const rateProvenance = singleResolution
+      ? jwoRateProvenance(singleResolution, ratePerMeter)
+      : {
+          rateCardId: bundleCardIds.size === 1 ? [...bundleCardIds][0]! : null,
+          slabId: null,
+          rateSource: usedResolutions.some((r) => r.cardRatePerMeter != null) ? 'RATE_CARD' : 'ORDER_BOM',
+          rateBasisQuantity: totalBillableMeters,
+          costedRatePerMeter: null,
+          rateVarianceReason:
+            poItems.length > 1 ? `Value-weighted average of ${poItems.length} bundled requirement(s)` : null,
+        };
     const primary = requirements[0] as any;
     const styleCode = primary.order_items?.styles?.styleCode || 'STK';
 
@@ -3470,6 +3527,14 @@ export async function generatePOFromRequirements(
             jobWorkNumber
           ),
           processTypeId: processTypeMaster?.id ?? null,
+          // Rate provenance (qty-rate audit 2026-08-24): which card/slab priced this JWO, at
+          // what basis meters, and what it superseded — the paid document is now auditable.
+          rateCardId: rateProvenance.rateCardId,
+          slabId: rateProvenance.slabId,
+          rateSource: rateProvenance.rateSource,
+          rateBasisQuantity: rateProvenance.rateBasisQuantity,
+          costedRatePerMeter: rateProvenance.costedRatePerMeter,
+          rateVarianceReason: rateProvenance.rateVarianceReason,
           remarks: `[MRP] Job work for ${requirements.map((r) => r.requirementNumber).join(', ')}${remarks ? `\n${remarks}` : ''}`,
         },
       });
@@ -4798,6 +4863,36 @@ export async function convertToGreigeProcessing(
         ? MaterialRequirementStatus.PARTIAL_STOCK
         : MaterialRequirementStatus.PO_REQUIRED;
 
+  // Qty-rate audit 2026-08-24: this dialog accepted a free-typed processing cost with no
+  // rate-card consultation at all (rateSource stayed 'MANUAL' even when a card existed for
+  // exactly this processor+greige+quantity). A typed cost still wins — negotiations are
+  // legitimate — but when the field is left empty, price from the card at the ACTUAL
+  // converted quantity instead of leaving the requirement unpriced.
+  let resolvedProcessingCost = data.processingCost ?? null;
+  let processingRateSource: string = 'MANUAL';
+  if (resolvedProcessingCost == null || resolvedProcessingCost <= 0) {
+    // Process type from the processor's cards for this greige: PRINTING only when that is the
+    // ONLY kind of card they hold (an ambiguous mix defaults to DYEING; printing rate cards
+    // additionally need the sub-type, taken from the card itself).
+    const allPrinting = cards.length > 0 && cards.every((c) => c.processingType === 'PRINTING');
+    const printingCard = allPrinting ? cards.find((c) => c.printingType != null) : undefined;
+    const cardResolution = await resolveJwoRate({
+      processorId: data.processorId,
+      processingType: allPrinting ? 'PRINTING' : 'DYEING',
+      printingType: (printingCard?.printingType ?? undefined) as any,
+      greigeId: data.greigeId,
+      basisQuantityMeters: shortfallQty, // billable fabric-out meters the processor charges for
+    });
+    if (cardResolution.cardRatePerMeter != null) {
+      resolvedProcessingCost = cardResolution.cardRatePerMeter;
+      processingRateSource = 'RATE_CARD';
+      logger.info(
+        `[MRP] convert-to-greige: processing cost resolved from rate card — ₹${resolvedProcessingCost}/m ` +
+          `@ ${cardResolution.slabLabel} (${shortfallQty}m)`
+      );
+    }
+  }
+
   // MRP-25: steps 4-6 were three unrelated writes with no transaction. A failure between them
   // left the parent CONVERTED with shortfall 0 and no greige/processing rows to replace it —
   // the fabric silently stopped being planned at all. They are now atomic.
@@ -4833,7 +4928,7 @@ export async function convertToGreigeProcessing(
         status: greigeStatus,
         requirementType: 'MATERIAL',
         processorId: data.processorId,
-        processingCost: data.processingCost || null,
+        processingCost: resolvedProcessingCost,
         requiredDate: requirement.requiredDate,
         linkedRequirementId: requirementId,
         createdById: userId,
@@ -4867,13 +4962,14 @@ export async function convertToGreigeProcessing(
         requirementType: 'PROCESSING',
         preferredSupplierId: data.processorId,
         processorId: data.processorId,
-        processingCost: data.processingCost || null,
+        processingCost: resolvedProcessingCost,
         linkedRequirementId: greigeReq.id,
         requiredDate: requirement.requiredDate,
         createdById: userId,
-        // P1 snapshot: user-provided processing cost, manual conversion
-        unitPrice: data.processingCost ?? null,
-        rateSource: 'MANUAL',
+        // P1 snapshot: user-typed cost stays MANUAL; an empty field now resolves from the
+        // processor's rate card at the converted quantity (qty-rate audit 2026-08-24)
+        unitPrice: resolvedProcessingCost,
+        rateSource: processingRateSource,
         orderBomItemId: null, // No direct BOM item — manual conversion
       },
       include: getRequirementIncludes(),

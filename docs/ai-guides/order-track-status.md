@@ -44,5 +44,6 @@ For all running orders at once, open **Production Status** at the top of the sid
 
 ## Good to know
 - The order status updates on its own as work moves through the pipeline. There is no manual status dropdown on the order page.
+- Clicking **Create BOM** can show a dialog titled **Processor rate differs at this order quantity**. It means this order's quantity falls in a different processor rate band than the style was costed at. **Accept order-quantity rates** continues with rates that apply to this order only.
 - If an **SO ...** chip sits next to the order number, that order came from a sale order — click the chip to open it.
 - **Create Work Orders** on the order page creates any missing production runs. **Edit Order** reopens the order form.

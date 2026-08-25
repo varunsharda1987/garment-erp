@@ -47,7 +47,9 @@ The style must be published (**Active** status) and must already have an **Appro
 - Size breakup and Unit Price are optional. A quantity mismatch warning is only information — the order saves with the Total Qty you typed.
 - "This style has no size options" means you must add SKU variants in Style Master first.
 - There are no Payment Terms, Shipping Address or Remarks boxes on this screen. Payment terms fill in automatically from the customer's credit days.
-- When editing later, if an approved or locked BOM or MRP requirements exist, Style, Total Qty and the size breakdown are locked.
+- When editing later, if an approved or locked BOM or MRP requirements exist, Style, Total Qty and the size breakdown are locked. Items can only be edited while the order is still **Pending**.
+- An order started from a sale order can carry several styles. An amber notice on the edit page says the form edits the **first style only** — the other styles are kept unchanged when you save.
 
 ## After saving
 You return to the Orders list. The next step is **Create BOM** on the order's row.
+If a dialog titled **Processor rate differs at this order quantity** appears when creating the BOM, the order's quantity falls in a different processor rate band than the style was costed at. Click **Accept order-quantity rates** to continue — the accepted rates apply to this order's BOM only, and the style costing is not changed.

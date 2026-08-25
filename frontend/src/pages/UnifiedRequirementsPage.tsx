@@ -29,6 +29,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { useDefaultSettings } from '@/hooks/useDefaultSettings';
 import VendorAllocationDialog from '@/components/VendorAllocationDialog';
 import ProcessingAssignDialog from '@/components/ProcessingAssignDialog';
 import BulkPOGenerationDialog from '@/components/BulkPOGenerationDialog';
@@ -881,7 +882,12 @@ function MaterialRequirementsTab({
                       <TableCell>
                         <div>
                           <div className="text-sm font-medium">{req.material?.name || 'N/A'}</div>
-                          <div className="text-xs text-muted-foreground">{req.material?.code}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {req.material?.code}
+                            {/* Greige rows: the loom width is what is being ordered — show it here
+                                (the CAD cutable width is deliberately NOT shown on purchase surfaces) */}
+                            {req.greigeWidthInches != null && ` · ${Number(req.greigeWidthInches)}" greige width`}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -1234,12 +1240,12 @@ interface OutsourcedRow {
   id: string;
   rowKey: string; // prefixed: 'proc-{id}' or 'svc-{id}'
   source: 'PROCESSING' | 'SERVICE';
-  style: string; // Style code or name
+  styleCode: string; // System-generated style code (e.g., "STY-00123")
   buyerStyleRef?: string | null;
-  workType: string; // e.g. "Dyeing", "Embroidery"
-  printingType?: string | null; // e.g. PIGMENT, PROCIAN, DISCHARGE
-  reference: string; // Order # or Work Order #
-  referenceLink?: string; // navigation path
+  // Material name / fabric spec for PROCESSING; service type label for SERVICE
+  materialName: string;
+  // Renamed: actual process type (DISCHARGE, PROCIAN, etc.) — the real "work type"
+  processType?: string | null;
   processor: string;
   processorAssigned: boolean;
   quantity: string; // "100 MTR" — for PROCESSING this is the BILLABLE fabric-out qty
@@ -1257,7 +1263,8 @@ interface OutsourcedRow {
   createdAt: string;
   componentName?: string | null;
   colorName?: string | null;
-  fabricWidth?: number | null;
+  fabricWidth?: number | null; // CAD cutable width — never shown bare; finish width = cutable + selvedge deduction
+  greigeWidthInches?: number | null; // loom width of the greige to issue
   jwoLink?: string; // navigation path to JWO detail
   jwoNumber?: string | null; // JWO number for display/export
   // Original data references for bulk operations
@@ -1716,6 +1723,10 @@ function OutsourcedWorkTab({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  // Selvedge deduction: finish (asked) width = CAD cutable width + this. Same source the JWO
+  // screen uses; undefined until the settings query resolves (no local fallback, by design).
+  const { cutableWidthDeduction } = useDefaultSettings();
+
   // Sub-filter: all / processing / service
   const sourceFilter = (searchParams.get('source') || 'all') as OutsourcedSource;
 
@@ -1885,12 +1896,10 @@ function OutsourcedWorkTab({
           id: req.id,
           rowKey: `proc-${req.id}`,
           source: 'PROCESSING',
-          style: req.orderItem?.styleName || '-',
+          styleCode: req.orderItem?.styleCode || req.orderItem?.styleName || '-',
           buyerStyleRef: req.orderItem?.buyerStyleRef ?? null,
-          workType: req.material?.name || 'Processing',
-          printingType: req.printingType || null,
-          reference: req.order?.orderNumber || '-',
-          referenceLink: req.orderId ? `/orders/${req.orderId}` : undefined,
+          materialName: req.material?.name || 'Processing',
+          processType: req.printingType || null,
           processor: req.processor?.name || req.preferredSupplier?.name || 'Not Assigned',
           processorAssigned: !!(req.processorId || req.preferredSupplierId),
           // Billing basis: show the fabric-out qty the processor bills for; the greige to
@@ -1923,6 +1932,7 @@ function OutsourcedWorkTab({
           componentName: req.componentName || null,
           colorName: req.colorName || null,
           fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
+          greigeWidthInches: req.greigeWidthInches ? Number(req.greigeWidthInches) : null,
           jwoLink: jwo ? `/job-work-orders/${jwo.id}` : undefined,
           jwoNumber: jwo?.jobWorkNumber || null,
           originalProcessing: req,
@@ -1938,11 +1948,10 @@ function OutsourcedWorkTab({
           id: req.id,
           rowKey: `svc-${req.id}`,
           source: 'SERVICE',
-          style: req.workOrder?.style?.styleCode || req.workOrder?.style?.styleName || '-',
+          styleCode: req.workOrder?.style?.styleCode || req.workOrder?.style?.styleName || '-',
           buyerStyleRef: req.workOrder?.style?.buyerStyleRef ?? null,
-          workType: ServiceTypeLabels[req.serviceType] || req.serviceType,
-          reference: req.workOrder?.workOrderNumber || '-',
-          referenceLink: req.workOrderId ? `/production/work-orders/${req.workOrderId}` : undefined,
+          materialName: ServiceTypeLabels[req.serviceType] || req.serviceType,
+          processType: null, // Service rows show service type in materialName, no separate process
           processor: req.assignedProcessor?.name || req.preferredProcessor?.name || 'Not Assigned',
           processorAssigned: !!(req.assignedProcessorId || req.preferredProcessorId),
           quantity: formatQuantity(req.quantityRequired, req.unit),
@@ -2032,10 +2041,10 @@ function OutsourcedWorkTab({
       'Buyer Ref',
       'Component',
       'Color',
-      'Width',
-      'Work Type',
-      'Printing Type',
-      'Reference',
+      'Material',
+      'Finish Width',
+      'Greige Width',
+      'Process',
       'Processor',
       'Quantity',
       'Rate/Unit',
@@ -2045,14 +2054,14 @@ function OutsourcedWorkTab({
       'Created At',
     ];
     const csvRows = rows.map((row) => [
-      row.style,
+      row.styleCode,
       row.buyerStyleRef || '',
       row.componentName || '',
       row.colorName || '',
-      row.fabricWidth ? `${row.fabricWidth}"` : '',
-      row.workType,
-      row.printingType || '',
-      row.reference,
+      row.materialName || '',
+      row.fabricWidth != null && cutableWidthDeduction != null ? `${row.fabricWidth + cutableWidthDeduction}"` : '',
+      row.greigeWidthInches != null ? `${row.greigeWidthInches}"` : '',
+      row.processType || '',
       row.processor,
       row.quantity,
       row.costRate != null ? row.costRate.toFixed(2) : '',
@@ -2341,19 +2350,12 @@ function OutsourcedWorkTab({
                 </TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>Style</TableHead>
-                <TableHead>Buyer Ref</TableHead>
-                {sourceFilter !== 'service' && <TableHead>Component</TableHead>}
-                {sourceFilter !== 'service' && <TableHead>Color</TableHead>}
+                <TableHead>Material</TableHead>
                 {sourceFilter !== 'service' && <TableHead>Width</TableHead>}
-                <TableHead>Work Type</TableHead>
-                {sourceFilter !== 'service' && <TableHead>Printing Type</TableHead>}
-                <TableHead>Reference</TableHead>
-                {/* MRP-34: this was hidden in the Service-only view — the one view whose primary
-                    action is "Assign Processors", so the assigned processor was invisible exactly
-                    where it mattered. Service rows carry a processor too. */}
-                <TableHead>Processor / Vendor</TableHead>
-                <TableHead className="text-right">Quantity</TableHead>
-                <TableHead className="text-right">Est. Cost</TableHead>
+                {sourceFilter !== 'service' && <TableHead>Process</TableHead>}
+                <TableHead>Processor</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
+                <TableHead className="text-right">Cost</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
               </TableRow>
@@ -2362,7 +2364,7 @@ function OutsourcedWorkTab({
               {isLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={sourceFilter === 'service' ? 11 : 15}
+                    colSpan={sourceFilter === 'service' ? 9 : 11}
                     className="text-center py-12 text-muted-foreground"
                   >
                     Loading outsourced work items...
@@ -2371,7 +2373,7 @@ function OutsourcedWorkTab({
               ) : rows.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={sourceFilter === 'service' ? 11 : 15}
+                    colSpan={sourceFilter === 'service' ? 9 : 11}
                     className="text-center py-12 text-muted-foreground"
                   >
                     No outsourced work items found
@@ -2380,6 +2382,7 @@ function OutsourcedWorkTab({
               ) : (
                 rows.map((row) => (
                   <TableRow key={row.rowKey}>
+                    {/* Checkbox */}
                     <TableCell>
                       {row.isSelectable && (
                         <Checkbox
@@ -2388,6 +2391,7 @@ function OutsourcedWorkTab({
                         />
                       )}
                     </TableCell>
+                    {/* Source badge */}
                     <TableCell>
                       <Badge
                         variant="outline"
@@ -2400,65 +2404,64 @@ function OutsourcedWorkTab({
                         {row.source === 'PROCESSING' ? 'Processing' : 'Service'}
                       </Badge>
                     </TableCell>
+                    {/* Style (with Buyer Ref as subtitle) */}
                     <TableCell>
-                      <span className="text-sm font-medium">{row.style}</span>
+                      <div className="text-sm font-medium">{row.styleCode}</div>
+                      {row.buyerStyleRef && <div className="text-xs text-muted-foreground">{row.buyerStyleRef}</div>}
                     </TableCell>
+                    {/* Material (consolidated: Component + Color + Fabric spec) */}
                     <TableCell>
-                      <span className="text-sm">{row.buyerStyleRef || '—'}</span>
+                      {row.source === 'PROCESSING' ? (
+                        <div className="text-sm">
+                          {row.componentName && <div className="font-medium">{row.componentName}</div>}
+                          {row.colorName && <div className="text-xs text-muted-foreground">{row.colorName}</div>}
+                          {row.materialName && row.materialName !== 'Processing' && (
+                            <div className="text-xs text-muted-foreground">{row.materialName}</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-sm font-medium">{row.materialName}</span>
+                      )}
                     </TableCell>
+                    {/* Width (Processing only) */}
                     {sourceFilter !== 'service' && (
                       <TableCell>
-                        <span className="text-sm">{row.componentName || '-'}</span>
+                        {row.fabricWidth != null && cutableWidthDeduction != null ? (
+                          <div className="text-sm whitespace-nowrap">
+                            <div>Finish {row.fabricWidth + cutableWidthDeduction}&quot;</div>
+                            {row.greigeWidthInches != null && (
+                              <div className="text-xs text-muted-foreground">Greige {row.greigeWidthInches}&quot;</div>
+                            )}
+                          </div>
+                        ) : row.greigeWidthInches != null ? (
+                          <span className="text-sm whitespace-nowrap">Greige {row.greigeWidthInches}&quot;</span>
+                        ) : (
+                          <span className="text-sm">-</span>
+                        )}
                       </TableCell>
                     )}
+                    {/* Process (Processing only - the actual work type) */}
                     {sourceFilter !== 'service' && (
                       <TableCell>
-                        <span className="text-sm">{row.colorName || '-'}</span>
-                      </TableCell>
-                    )}
-                    {sourceFilter !== 'service' && (
-                      <TableCell>
-                        <span className="text-sm">{row.fabricWidth ? `${row.fabricWidth}"` : '-'}</span>
-                      </TableCell>
-                    )}
-                    <TableCell>
-                      <span className="text-sm font-medium">{row.workType}</span>
-                    </TableCell>
-                    {sourceFilter !== 'service' && (
-                      <TableCell>
-                        {row.printingType ? (
-                          <span className="text-sm font-semibold text-accent">
-                            {row.printingType.replace('_', ' ')}
-                          </span>
+                        {row.processType ? (
+                          <span className="text-sm font-semibold text-accent">{row.processType.replace('_', ' ')}</span>
                         ) : (
                           <span className="text-sm text-muted-foreground">—</span>
                         )}
                       </TableCell>
                     )}
-                    <TableCell>
-                      {row.referenceLink ? (
-                        <button
-                          className="text-sm text-info hover:underline font-medium"
-                          onClick={() => navigate(row.referenceLink!)}
-                        >
-                          {row.reference}
-                        </button>
-                      ) : (
-                        <span className="text-sm">{row.reference}</span>
-                      )}
-                    </TableCell>
-                    {/* MRP-34: always rendered — see the header comment. */}
+                    {/* Processor */}
                     <TableCell>
                       <span className={`text-sm ${row.processorAssigned ? '' : 'text-primary'}`}>{row.processor}</span>
                     </TableCell>
+                    {/* Qty */}
                     <TableCell className="text-right text-sm">
                       {row.quantity}
                       {row.greigeIssueInfo && (
                         <div className="text-[10px] text-muted-foreground whitespace-nowrap">{row.greigeIssueInfo}</div>
                       )}
                     </TableCell>
-                    {/* MRP-28: the headline figure is always the estimated TOTAL; the per-unit
-                        rate sits underneath so the two sources stay comparable. */}
+                    {/* Cost */}
                     <TableCell className="text-right">
                       <span className="text-sm font-medium text-accent">
                         {row.costTotal != null ? formatCurrency(row.costTotal) : '-'}
@@ -2467,6 +2470,7 @@ function OutsourcedWorkTab({
                         <div className="text-xs text-muted-foreground">{formatCurrency(row.costRate)}/unit</div>
                       )}
                     </TableCell>
+                    {/* Status */}
                     <TableCell>
                       {row.jwoLink ? (
                         <button
@@ -2483,6 +2487,7 @@ function OutsourcedWorkTab({
                         </span>
                       )}
                     </TableCell>
+                    {/* Date */}
                     <TableCell className="text-sm text-muted-foreground">{formatDate(row.createdAt)}</TableCell>
                   </TableRow>
                 ))

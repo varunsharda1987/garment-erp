@@ -662,6 +662,26 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         throw new ConflictError('Style code already exists');
       }
 
+      // Check for duplicate buyer style reference (only among active styles)
+      if (data.buyerStyleRef?.trim()) {
+        const existingBuyerRef = await this.prisma.styles.findFirst({
+          where: {
+            buyerStyleRef: data.buyerStyleRef.trim(),
+            isActive: true,
+          },
+          select: {
+            id: true,
+            styleCode: true,
+          },
+        });
+
+        if (existingBuyerRef) {
+          throw new ConflictError(
+            `Buyer reference "${data.buyerStyleRef}" already exists on style ${existingBuyerRef.styleCode}`
+          );
+        }
+      }
+
       return this.prisma.styles.create({
         data: {
           id: randomUUID(),
@@ -1193,6 +1213,27 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
     // Verify style exists
     await this.findByIdOrThrow(id);
+
+    // Check for duplicate buyer style reference (only among OTHER active styles)
+    if (data.buyerStyleRef?.trim()) {
+      const existingBuyerRef = await this.prisma.styles.findFirst({
+        where: {
+          buyerStyleRef: data.buyerStyleRef.trim(),
+          isActive: true,
+          id: { not: id }, // Exclude current style
+        },
+        select: {
+          id: true,
+          styleCode: true,
+        },
+      });
+
+      if (existingBuyerRef) {
+        throw new ConflictError(
+          `Buyer reference "${data.buyerStyleRef}" already exists on style ${existingBuyerRef.styleCode}`
+        );
+      }
+    }
 
     // Identity key used to match a pre-edit style_fabric to its recreated twin
     // (component replacement below deletes + recreates style_fabrics with new IDs)

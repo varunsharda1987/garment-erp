@@ -18,9 +18,10 @@ import {
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import UnapproveImpactDialog, { getCostingInUseDetails } from '@/components/fabric-costing/UnapproveImpactDialog';
 import { fabricCostingService } from '../services/fabricCosting.service';
 import { styleService } from '../services/style.service';
-import type { CostingOption } from '../types/fabricCosting.types';
+import type { CostingOption, CostingInUseErrorDetails } from '../types/fabricCosting.types';
 import type { Style } from '../types/style.types';
 import { notify } from '../lib/notify';
 import { handleApiError } from '../lib/api-error-handler';
@@ -45,6 +46,12 @@ export default function StyleFabricCostingOptionsPage() {
   // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [optionToDelete, setOptionToDelete] = useState<{ id: string; componentName: string } | null>(null);
+
+  // Unapprove guard: 409 COSTING_OPTION_IN_USE → impact dialog (blocked or confirmable)
+  const [unapproveImpact, setUnapproveImpact] = useState<{
+    optionId: string;
+    details: CostingInUseErrorDetails;
+  } | null>(null);
 
   // Fetch style info
   useEffect(() => {
@@ -98,15 +105,22 @@ export default function StyleFabricCostingOptionsPage() {
     }
   };
 
-  // Handle unapprove
-  const handleUnapprove = async (optionId: string) => {
+  // Handle unapprove (confirmImpact = user acknowledged the dependent-documents warning)
+  const handleUnapprove = async (optionId: string, confirmImpact = false) => {
     setUnapprovingId(optionId);
     try {
-      await fabricCostingService.unapproveCostingOption(optionId);
+      await fabricCostingService.unapproveCostingOption(optionId, { confirmImpact });
+      setUnapproveImpact(null);
       notify.success('Option unapproved');
       fetchCostingOptions();
     } catch (error) {
-      handleApiError(error, 'Failed to unapprove option');
+      const inUse = getCostingInUseDetails(error);
+      if (inUse) {
+        // Downstream documents froze this rate — show them instead of a toast
+        setUnapproveImpact({ optionId, details: inUse });
+      } else {
+        handleApiError(error, 'Failed to unapprove option');
+      }
     } finally {
       setUnapprovingId(null);
     }
@@ -564,6 +578,15 @@ export default function StyleFabricCostingOptionsPage() {
         cancelText="Cancel"
         onConfirm={confirmDelete}
         variant="destructive"
+      />
+
+      <UnapproveImpactDialog
+        open={!!unapproveImpact}
+        onOpenChange={(open) => !open && setUnapproveImpact(null)}
+        blocking={unapproveImpact?.details.blocking ?? false}
+        dependents={unapproveImpact?.details.dependents ?? null}
+        isLoading={!!unapprovingId}
+        onConfirm={() => unapproveImpact && handleUnapprove(unapproveImpact.optionId, true)}
       />
     </div>
   );

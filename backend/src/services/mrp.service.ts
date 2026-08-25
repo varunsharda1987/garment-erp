@@ -2079,6 +2079,7 @@ export async function calculateRequirementsFromOrder(
               status: req.status,
               processorId: req.processorId,
               processingCost: req.processingCost,
+              fabricWidth: req.fabricWidth,
               linkedRequirementId: linkedGreigeId || existing.linkedRequirementId,
               calculatedAt: new Date(),
               // Re-link to the CURRENT BOM (same reason as the MATERIAL revive block above)
@@ -2115,6 +2116,7 @@ export async function calculateRequirementsFromOrder(
               processorId: req.processorId,
               processingCost: req.processingCost,
               printingType: req.printingType || null,
+              fabricWidth: req.fabricWidth,
               linkedRequirementId: linkedGreigeId,
               colorName: req.colorName || null,
               componentName: req.componentName || null,
@@ -4272,6 +4274,9 @@ function getRequirementIncludes() {
         name: true,
         materialType: true,
         fabricId: true,
+        // Loom width of the greige this material represents (null for non-greige) —
+        // purchase surfaces display THIS, not the CAD cutable width
+        greige_master: { select: { greigeWidth: true } },
       },
     },
     preferredSupplier: {
@@ -4324,7 +4329,6 @@ function getRequirementIncludes() {
           select: {
             id: true,
             jobWorkNumber: true,
-            status: true,
             jwoStatus: true,
           },
         },
@@ -4390,6 +4394,9 @@ function mapToResponse(req: any): MaterialRequirementResponse {
     colorName: req.colorName || null,
     componentName: req.componentName || null,
     fabricWidth: req.fabricWidth ? Number(req.fabricWidth) : null,
+    greigeWidthInches: req.materials?.greige_master?.greigeWidth
+      ? Number(req.materials.greige_master.greigeWidth)
+      : null,
 
     // P5.3 Provenance fields
     unitPrice: req.unitPrice ? Number(req.unitPrice) : null,
@@ -4942,6 +4949,7 @@ export async function convertToGreigeProcessing(
         requirementType: 'MATERIAL',
         processorId: data.processorId,
         processingCost: resolvedProcessingCost,
+        fabricWidth: requirement.fabricWidth,
         requiredDate: requirement.requiredDate,
         linkedRequirementId: requirementId,
         createdById: userId,
@@ -4976,6 +4984,7 @@ export async function convertToGreigeProcessing(
         preferredSupplierId: data.processorId,
         processorId: data.processorId,
         processingCost: resolvedProcessingCost,
+        fabricWidth: requirement.fabricWidth,
         linkedRequirementId: greigeReq.id,
         requiredDate: requirement.requiredDate,
         createdById: userId,

@@ -82,3 +82,49 @@ export async function getStockPreview(saleOrderId: string): Promise<StockPreview
   const response = await api.get(`${BASE_URL}/${saleOrderId}/stock-preview`);
   return response.data;
 }
+
+/**
+ * Cancel a sale order and release all allocations.
+ * Only works for non-terminal statuses without active production or dispatched items.
+ */
+export async function cancelSaleOrder(id: string): Promise<SaleOrder> {
+  const response = await api.post(`${BASE_URL}/${id}/cancel`);
+  return response.data;
+}
+
+/**
+ * Release a specific FG stock allocation from a sale order item.
+ */
+export async function deallocateStock(allocationId: string): Promise<void> {
+  await api.post(`${BASE_URL}/deallocate-stock`, { allocationId });
+}
+
+// === Buyer PO Management ===
+
+import type { BuyerPO } from '@/types/saleOrder.types';
+
+/**
+ * Add a buyer PO number to a sale order.
+ */
+export async function addBuyerPo(saleOrderId: string, buyerPoNumber: string, remarks?: string): Promise<BuyerPO> {
+  const response = await api.post(`${BASE_URL}/${saleOrderId}/buyer-pos`, {
+    buyerPoNumber,
+    remarks,
+  });
+  return response.data.data;
+}
+
+/**
+ * Remove a buyer PO from a sale order.
+ */
+export async function removeBuyerPo(poId: string): Promise<void> {
+  await api.delete(`${BASE_URL}/buyer-pos/${poId}`);
+}
+
+/**
+ * Set a buyer PO as primary for a sale order.
+ */
+export async function setPrimaryBuyerPo(poId: string): Promise<BuyerPO> {
+  const response = await api.post(`${BASE_URL}/buyer-pos/${poId}/set-primary`);
+  return response.data.data;
+}

@@ -10,6 +10,7 @@ import {
   allocateStockSchema,
   deallocateStockSchema,
   saleOrderQuerySchema,
+  addBuyerPoSchema,
 } from '../schemas/saleOrder.schema';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { idParamSchema } from '../schemas/common.schema';
@@ -99,6 +100,26 @@ router.post(
   '/:id/cancel',
   validateParams(idParamSchema),
   asyncHandler(saleOrderController.cancel.bind(saleOrderController))
+);
+
+// === Buyer PO Management ===
+
+// POST /api/sale-orders/:id/buyer-pos - Add a buyer PO to a sale order
+router.post(
+  '/:id/buyer-pos',
+  validateParams(idParamSchema),
+  validateBody(addBuyerPoSchema),
+  asyncHandler(saleOrderController.addBuyerPo.bind(saleOrderController))
+);
+
+// DELETE /api/sale-orders/buyer-pos/:poId - Remove a buyer PO
+router.delete('/buyer-pos/:poId', asyncHandler(saleOrderController.removeBuyerPo.bind(saleOrderController)));
+
+// POST /api/sale-orders/buyer-pos/:poId/set-primary - Set a buyer PO as primary
+// no-body — action route, no payload needed
+router.post(
+  '/buyer-pos/:poId/set-primary',
+  asyncHandler(saleOrderController.setPrimaryBuyerPo.bind(saleOrderController))
 );
 
 export default router;

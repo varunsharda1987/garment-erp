@@ -153,10 +153,16 @@ export const fabricCostingService = {
   },
 
   /**
-   * Unapprove a costing option - revert to Pending status
+   * Unapprove a costing option - revert to Pending status.
+   * A 409 with details.code COSTING_OPTION_IN_USE means downstream documents
+   * froze this rate: blocking (approved cost sheet — cannot proceed) or
+   * confirmable (retry with confirmImpact: true after the user acknowledges).
    */
-  async unapproveCostingOption(optionId: string): Promise<CostingOption> {
-    const response = await api.patch<ApiResponse<CostingOption>>(`${BASE_URL}/option/${optionId}/unapprove`, {});
+  async unapproveCostingOption(optionId: string, opts?: { confirmImpact?: boolean }): Promise<CostingOption> {
+    const response = await api.patch<ApiResponse<CostingOption>>(
+      `${BASE_URL}/option/${optionId}/unapprove`,
+      opts?.confirmImpact ? { confirmImpact: true } : {}
+    );
     return response.data.data;
   },
 

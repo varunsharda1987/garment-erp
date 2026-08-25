@@ -601,3 +601,54 @@ export interface CostingOptionsFilters {
   page: number;
   limit: number;
 }
+
+// ============================================================================
+// Unapprove guard (ESSKY091LS): downstream documents that froze a rate from a
+// costing option. Returned in the 409 COSTING_OPTION_IN_USE error details of
+// PATCH /fabric-costing/option/:optionId/unapprove.
+// ============================================================================
+
+export interface CadDependentCostSheet {
+  costSheetId: string;
+  version: number;
+  purpose: string;
+  costSheetApprovalStatus: string;
+  styleCode: string | null;
+  fabricItemIds: string[];
+}
+
+export interface CadCostingDependents {
+  cadId: string;
+  costSheets: CadDependentCostSheet[];
+  supersededCostSheetCount: number;
+  orderBoms: Array<{
+    orderBomId: string;
+    bomVersion: number;
+    bomStatus: string;
+    orderNumber: string;
+    itemCount: number;
+  }>;
+  inactiveOrderBomItemCount: number;
+  orderItems: Array<{ orderItemId: string; orderNumber: string }>;
+  orderItemCostingCount: number;
+  purchaseOrders: Array<{ purchaseOrderId: string; poNumber: string; status: string }>;
+  materialRequirements: Array<{ requirementId: string; requirementNumber: string; status: string }>;
+  counts: {
+    costSheetItems: number;
+    orderBomItems: number;
+    orderItems: number;
+    orderItemCostingCount: number;
+    purchaseOrders: number;
+    materialRequirements: number;
+  };
+  blockingCostSheets: CadDependentCostSheet[];
+  hasBlockingDependents: boolean;
+  hasWarnDependents: boolean;
+}
+
+export interface CostingInUseErrorDetails {
+  code: 'COSTING_OPTION_IN_USE';
+  blocking: boolean;
+  requiresConfirmation?: boolean;
+  dependents: CadCostingDependents;
+}

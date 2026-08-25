@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -39,7 +39,7 @@ import {
   rejectCostSheet,
   createCostSheetVersion,
 } from '../services/costSheet.service';
-import type { CostSheet } from '../types/costSheet.types';
+import type { CostSheet, CostSheetDriftItem } from '../types/costSheet.types';
 
 const CostSheetDetail = () => {
   const navigate = useNavigate();
@@ -56,6 +56,21 @@ const CostSheetDetail = () => {
   const [rejecting, setRejecting] = useState(false);
   const [createVersionDialogOpen, setCreateVersionDialogOpen] = useState(false);
   const [creatingVersion, setCreatingVersion] = useState(false);
+
+  // Source-costing drift: match drifted fabric items to fabricDetails rows by
+  // name + width (name-only fallback). Unmatched items still show in the banner.
+  const driftByFabric = useMemo(() => {
+    const map = new Map<string, CostSheetDriftItem>();
+    for (const item of costSheet?.sourceCostingDrift?.items ?? []) {
+      map.set(`${item.fabricName.toLowerCase()}|${Number(item.width ?? 0)}`, item);
+      const nameKey = item.fabricName.toLowerCase();
+      if (!map.has(nameKey)) map.set(nameKey, item);
+    }
+    return map;
+  }, [costSheet?.sourceCostingDrift]);
+
+  const getDriftForFabric = (name: string, width: number): CostSheetDriftItem | undefined =>
+    driftByFabric.get(`${name.toLowerCase()}|${Number(width)}`) ?? driftByFabric.get(name.toLowerCase());
 
   useEffect(() => {
     if (!id) {
@@ -339,6 +354,57 @@ const CostSheetDetail = () => {
         </CardContent>
       </Card>
 
+      {/* Source-costing drift: the fabric costing this sheet was built from has
+          changed (re-priced, unapproved or cleared) since the snapshot was taken. */}
+      {costSheet.sourceCostingDrift?.hasDrift && (
+        <div className="mb-6 p-4 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+            <div className="space-y-2">
+              <p className="font-medium text-amber-800 dark:text-amber-300">
+                The fabric costing has changed since this cost sheet was made
+              </p>
+              <ul className="space-y-1 text-sm text-amber-800 dark:text-amber-200">
+                {costSheet.sourceCostingDrift.items.map((item) => (
+                  <li key={item.itemId}>
+                    <span className="font-medium">{item.fabricName}</span>
+                    {item.current.componentName && ` (${item.current.componentName}`}
+                    {item.current.componentName &&
+                      item.current.cutableWidth != null &&
+                      `, ${item.current.cutableWidth}"`}
+                    {item.current.componentName && ')'}
+                    {': '}
+                    {item.flags.includes('SOURCE_UNCOSTED')
+                      ? 'the source costing was removed.'
+                      : item.flags.includes('PRICE_CHANGED') || item.flags.includes('CONSUMPTION_CHANGED')
+                        ? `sheet uses ${formatCurrency(item.snapshot.costPerMeter ?? 0)}/m, source now says ${formatCurrency(item.current.totalCostPerMeter ?? 0)}/m` +
+                          (item.snapshot.greigeCost != null || item.current.greigeCostPerMeter != null
+                            ? ` (greige ${item.snapshot.greigeCost ?? '—'} → ${item.current.greigeCostPerMeter ?? '—'}, processing ${item.snapshot.processingCost ?? '—'} → ${item.current.processingPricePerMeter ?? '—'}).`
+                            : '.')
+                        : ''}
+                    {item.flags.includes('CONSUMPTION_CHANGED') &&
+                      ` Average ${item.snapshot.cadMeters ?? '—'} → ${item.current.cadAverage ?? '—'} m/pc.`}
+                    {item.flags.includes('SOURCE_UNAPPROVED') &&
+                      !item.flags.includes('SOURCE_UNCOSTED') &&
+                      ' The source costing is currently not approved.'}
+                  </li>
+                ))}
+              </ul>
+              {costSheet.sourceCostingDrift.summary.totalEstimatedImpactPerPiece !== 0 && (
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                  Estimated difference at current source rates:{' '}
+                  {formatCurrency(costSheet.sourceCostingDrift.summary.totalEstimatedImpactPerPiece)} per piece
+                </p>
+              )}
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                To adopt the new rates, create a new version of this cost sheet — or revert the fabric costing so it
+                matches this sheet again.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Cost Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card>
@@ -393,18 +459,38 @@ const CostSheetDetail = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-card divide-y divide-gray-200">
-                  {costSheet.fabricDetails.map((fabric, index) => (
-                    <tr key={index}>
-                      <td className="px-4 py-3 text-sm">{index + 1}</td>
-                      <td className="px-4 py-3 text-sm font-medium">{fabric.fabricName}</td>
-                      <td className="px-4 py-3 text-sm text-center">{fabric.fabricWidth}"</td>
-                      <td className="px-4 py-3 text-sm text-center">{fabric.fabricAverage.toFixed(3)}</td>
-                      <td className="px-4 py-3 text-sm text-right">{formatCurrency(fabric.fabricRate)}</td>
-                      <td className="px-4 py-3 text-sm text-right font-semibold">
-                        {formatCurrency(fabric.fabricTotal)}
-                      </td>
-                    </tr>
-                  ))}
+                  {costSheet.fabricDetails.map((fabric, index) => {
+                    const drift = getDriftForFabric(fabric.fabricName, fabric.fabricWidth);
+                    return (
+                      <tr key={index}>
+                        <td className="px-4 py-3 text-sm">{index + 1}</td>
+                        <td className="px-4 py-3 text-sm font-medium">{fabric.fabricName}</td>
+                        <td className="px-4 py-3 text-sm text-center">{fabric.fabricWidth}"</td>
+                        <td className="px-4 py-3 text-sm text-center">{fabric.fabricAverage.toFixed(3)}</td>
+                        <td className="px-4 py-3 text-sm text-right">
+                          <span className="inline-flex items-center gap-2 justify-end">
+                            {drift && (
+                              <Badge
+                                variant="outline"
+                                className="border-amber-400 text-amber-700 dark:text-amber-400"
+                                title={
+                                  drift.current.totalCostPerMeter != null
+                                    ? `Source costing now ${formatCurrency(drift.current.totalCostPerMeter)}/m (was ${formatCurrency(drift.snapshot.costPerMeter ?? 0)}/m at snapshot)`
+                                    : 'Source costing was removed or unapproved'
+                                }
+                              >
+                                source changed
+                              </Badge>
+                            )}
+                            {formatCurrency(fabric.fabricRate)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-right font-semibold">
+                          {formatCurrency(fabric.fabricTotal)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot className="bg-muted">
                   <tr>

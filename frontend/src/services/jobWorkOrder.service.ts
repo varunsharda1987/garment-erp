@@ -275,8 +275,24 @@ export const jobWorkOrderService = {
    * material back to stock, and reverts the requirements it covered to open so they can be
    * re-planned. Refused once goods have been received.
    */
-  async cancel(id: string, reason?: string): Promise<JobWorkOrder> {
+  async cancel(id: string, reason?: string): Promise<{ data: JobWorkOrder; pendingDisposition?: boolean }> {
     const response = await api.post(`${BASE_URL}/${id}/cancel`, reason ? { reason } : {});
+    return { data: response.data.data, pendingDisposition: response.data.pendingDisposition };
+  },
+
+  /**
+   * Two-step cancel: after cancellation, user decides what happens to issued material.
+   * Only available for CANCELLED JWOs with inventoryDisposition = 'PENDING'.
+   */
+  async disposeInventory(
+    id: string,
+    disposition: 'RETURNED_TO_STOCK' | 'AT_PROCESSOR' | 'WRITTEN_OFF' | 'TRANSFERRED' | 'RETURNED_TO_SUPPLIER',
+    options?: { notes?: string; targetJwoId?: string }
+  ): Promise<JobWorkOrder> {
+    const response = await api.post(`${BASE_URL}/${id}/dispose-inventory`, {
+      disposition,
+      ...options,
+    });
     return response.data.data;
   },
 

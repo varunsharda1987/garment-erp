@@ -9,7 +9,9 @@ import { lookupRate } from '../services/processor-rate-v2.service';
 import { serialize } from '../utils/serializer';
 import prisma from '../config/database';
 import { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
-import { NotFoundError, ValidationError, ForbiddenError } from '../errors';
+import { NotFoundError, ValidationError, ForbiddenError, ConflictError } from '../errors';
+import { getCadCostingDependents } from '../services/helpers/cad-costing-provenance.helper';
+import { logInfo } from '../utils/logger';
 
 /**
  * POST /api/fabric-costing/calculate
@@ -1529,11 +1531,25 @@ export async function approveCostingOption(req: Request, res: Response) {
 }
 
 /**
+ * Unapprove-guard policy (ESSKY091LS incident, 2026-08-25). The save endpoint
+ * refuses to re-price an APPROVED option, so unapprove is the only door back
+ * into pricing — and downstream money documents (cost sheets → order BOMs →
+ * MRP → POs) freeze their fabric rate from this row.
+ *   HARD_BLOCK_APPROVED: an active APPROVED cost sheet built from the option
+ *     makes unapproval a hard 409 (re-version/unapprove the sheet first);
+ *     other dependents need an explicit confirmImpact retry.
+ *   WARN_CONFIRM_ALL: every dependent (approved sheets included) goes through
+ *     the confirmImpact path. One-line flip if the team wants warn-only.
+ */
+const UNAPPROVE_DEPENDENT_POLICY: 'HARD_BLOCK_APPROVED' | 'WARN_CONFIRM_ALL' = 'HARD_BLOCK_APPROVED';
+
+/**
  * PATCH /api/fabric-costing/options/:optionId/unapprove
  * Unapprove a costing option - revert to Pending status
  */
 export async function unapproveCostingOption(req: Request, res: Response) {
   const { optionId } = req.params;
+  const { confirmImpact } = req.body ?? {};
 
   // Get the option first
   const option = await prisma.fabric_width_cad.findUnique({
@@ -1547,6 +1563,49 @@ export async function unapproveCostingOption(req: Request, res: Response) {
   // Prevent modifying locked PRODUCTION records
   if (option.isLocked) {
     throw new ValidationError('Cannot modify locked PRODUCTION costing option');
+  }
+
+  // Consult provenance before removing a live price approval: anything that
+  // froze this rate keeps its snapshot, so silently re-opening the price here
+  // is how cost sheets end up "orphaned" from their source.
+  const holdsPriceApproval =
+    option.costingApprovalStatus === 'APPROVED' || option.costingApprovalStatus === 'ALTERNATE_APPROVED';
+  if (holdsPriceApproval) {
+    const dependents = await getCadCostingDependents(optionId);
+
+    if (UNAPPROVE_DEPENDENT_POLICY === 'HARD_BLOCK_APPROVED' && dependents.hasBlockingDependents) {
+      const sheets = dependents.blockingCostSheets;
+      const sheetList = sheets
+        .map((s) => `${s.costSheetId} (v${s.version}${s.styleCode ? `, ${s.styleCode}` : ''})`)
+        .join(', ');
+      throw new ConflictError(
+        `Cannot unapprove: approved cost sheet${sheets.length > 1 ? 's' : ''} ${sheetList} ` +
+          `${sheets.length > 1 ? 'were' : 'was'} built from this costing. ` +
+          `Create a new cost sheet version (or unapprove the cost sheet) first, then re-cost.`,
+        { code: 'COSTING_OPTION_IN_USE', blocking: true, dependents }
+      );
+    }
+
+    const hasAnyDependents = dependents.hasBlockingDependents || dependents.hasWarnDependents;
+    if (hasAnyDependents && confirmImpact !== true) {
+      throw new ConflictError(
+        'This costing already feeds existing documents (cost sheets, order BOMs, requirements or POs). ' +
+          'They keep their frozen rates and will show as drifted from the source. Confirm to unapprove anyway.',
+        {
+          code: 'COSTING_OPTION_IN_USE',
+          blocking: false,
+          requiresConfirmation: true,
+          dependents,
+        }
+      );
+    }
+    if (hasAnyDependents) {
+      logInfo('Costing option unapproved despite downstream dependents (user confirmed impact)', {
+        optionId,
+        counts: dependents.counts,
+        blockingCostSheets: dependents.blockingCostSheets.map((s) => s.costSheetId),
+      });
+    }
   }
 
   // Remove the PRICE approval only — CAD-geometry approval is a separate lifecycle and

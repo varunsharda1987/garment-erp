@@ -179,6 +179,9 @@ export type CostSheet = {
   approvalStatus: CostSheetApprovalStatus;
   rejectionNotes?: string;
 
+  // Source-costing drift (attached by GET /style-costing/:id; advisory, may be null)
+  sourceCostingDrift?: CostSheetSourceDrift | null;
+
   // Basic Information
   numberOfComponents?: number;
   category?: string;
@@ -488,4 +491,53 @@ export type RateValidation = {
 
 export type CostSheetWithRateValidation = CostSheet & {
   rateValidation: RateValidation;
+  sourceCostingDrift?: CostSheetSourceDrift | null;
+};
+
+// ============================================
+// SOURCE-COSTING DRIFT (ESSKY091LS)
+// The relational fabric items froze a rate snapshot from fabric_width_cad;
+// this reports where the source costing has since been re-priced, unapproved
+// or cleared. Attached by GET /style-costing/:id (advisory — may be null).
+// ============================================
+
+export type SnapshotDriftFlag = 'PRICE_CHANGED' | 'CONSUMPTION_CHANGED' | 'SOURCE_UNAPPROVED' | 'SOURCE_UNCOSTED';
+
+export type CostSheetDriftItem = {
+  itemId: string;
+  fabricName: string;
+  width: number | null;
+  isManualOverride: boolean;
+  overrideReason: string | null;
+  flags: SnapshotDriftFlag[];
+  snapshot: {
+    costPerMeter: number | null;
+    greigeCost: number | null;
+    processingCost: number | null;
+    cadMeters: number | null;
+  };
+  current: {
+    totalCostPerMeter: number | null;
+    greigeCostPerMeter: number | null;
+    processingPricePerMeter: number | null;
+    cadAverage: number | null;
+    costingApprovalStatusCurrent: string | null;
+    componentName: string | null;
+    cutableWidth: number | null;
+    cadUpdatedAt: string;
+  };
+  estimatedImpactPerPiece: number | null;
+};
+
+export type CostSheetSourceDrift = {
+  costSheetId: string;
+  hasDrift: boolean;
+  items: CostSheetDriftItem[];
+  untrackedItems: number;
+  summary: {
+    itemsChecked: number;
+    itemsWithDrift: number;
+    totalEstimatedImpactPerPiece: number;
+    flagCounts: Partial<Record<SnapshotDriftFlag, number>>;
+  };
 };

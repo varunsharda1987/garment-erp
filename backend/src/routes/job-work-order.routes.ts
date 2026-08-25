@@ -19,6 +19,7 @@ import {
   receiveJwoSchema,
   cancelJwoSchema,
   dispatchJwoSchema,
+  disposeInventorySchema,
 } from '../schemas/jobWorkOrder.schema';
 
 const router = Router();
@@ -69,7 +70,13 @@ router.post(
 );
 // no-body — approver comes from the auth token, nothing read from the body
 router.post('/:id/approve', jobWorkOrderController.approve.bind(jobWorkOrderController));
-// Phase 5b: pre-receive cancellation (credits issued material back)
+// Phase 5b: pre-receive cancellation (marks CANCELLED, sets inventoryDisposition=PENDING)
 router.post('/:id/cancel', validateBody(cancelJwoSchema), jobWorkOrderController.cancel.bind(jobWorkOrderController));
+// Two-step cancel: user decides what happens to issued material after cancellation
+router.post(
+  '/:id/dispose-inventory',
+  validateBody(disposeInventorySchema),
+  jobWorkOrderController.disposeInventory.bind(jobWorkOrderController)
+);
 
 export default router;

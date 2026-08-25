@@ -46,7 +46,7 @@ export function StatusBadge({ status, variant, className }: StatusBadgeProps) {
 
     // Warning states
     if (statusLower.includes('warning') || statusLower.includes('on hold') || statusLower.includes('delayed')) {
-      return 'bg-warning/10 text-warning-foreground border-warning/20 hover:bg-warning/20';
+      return 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200';
     }
 
     // Error/Destructive states
@@ -73,7 +73,7 @@ export function StatusBadge({ status, variant, className }: StatusBadgeProps) {
       case 'success':
         return 'bg-success/10 text-success border-success/20 hover:bg-success/20';
       case 'warning':
-        return 'bg-warning/10 text-warning-foreground border-warning/20 hover:bg-warning/20';
+        return 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200';
       case 'info':
         return 'bg-info/10 text-info border-info/20 hover:bg-info/20';
       case 'destructive':

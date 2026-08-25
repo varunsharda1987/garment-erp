@@ -34,7 +34,7 @@ export const SaleOrderStatusEnum = z.enum([
 const saleOrderItemSchema = z.object({
   styleId: z.string().uuid('Invalid style ID'),
   colorId: z.string().uuid('Invalid color ID').nullable().optional(),
-  sizeId: z.string().uuid('Invalid size ID'),
+  sizeId: z.string().uuid('Invalid size ID').nullable().optional(),
   quantity: z.number().int().positive('Quantity must be positive'),
   unitPrice: z.number().nonnegative('Unit price cannot be negative'),
   remarks: z.string().max(500).optional(),
@@ -153,6 +153,15 @@ export const saleOrderQuerySchema = z.object({
   toDate: z.coerce.date().optional(),
 });
 
+/**
+ * Add Buyer PO
+ * POST /api/sale-orders/:id/buyer-pos
+ */
+export const addBuyerPoSchema = z.object({
+  buyerPoNumber: z.string().min(1, 'Buyer PO number is required').max(100),
+  remarks: z.string().max(500).optional(),
+});
+
 // ============================================================================
 // Type Exports
 // ============================================================================
@@ -163,3 +172,4 @@ export type ConfirmSaleOrderInput = z.infer<typeof confirmSaleOrderSchema>;
 export type StartProductionInput = z.infer<typeof startProductionSchema>;
 export type AllocateStockInput = z.infer<typeof allocateStockSchema>;
 export type SaleOrderQueryInput = z.infer<typeof saleOrderQuerySchema>;
+export type AddBuyerPoInput = z.infer<typeof addBuyerPoSchema>;

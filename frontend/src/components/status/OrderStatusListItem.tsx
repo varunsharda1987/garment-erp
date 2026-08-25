@@ -15,9 +15,12 @@ import {
   Ruler,
   Settings,
   PlayCircle,
+  ClipboardList,
+  Truck,
+  Layers,
 } from 'lucide-react';
 import type { OrderStatusItem } from '@/types/orderProductionStatus.types';
-import StageProgressBar from './StageProgressBar';
+import CompactProgressBar from './CompactProgressBar';
 import EnhancedBlockerCard from '../production/EnhancedBlockerCard';
 import QuickActions from './QuickActions';
 import ProductionTrackingInlineForm from '@/components/production/ProductionTrackingInlineForm';
@@ -277,13 +280,13 @@ export default function OrderStatusListItem({
             </div>
           )}
 
-          {/* Row 5: Stage Progress Bar with Samples and Inspections */}
-          <StageProgressBar
+          {/* Row 5: Compact Progress Bar with expandable phases */}
+          <CompactProgressBar
             currentStage={item.currentStage}
-            stageBreakdown={item.stageBreakdown}
             overallProgress={item.overallProgress}
             sampleStatus={item.sampleStatus}
             inspectionStatus={item.inspectionStatus}
+            isDelayed={item.isDelayed}
           />
 
           {/* Row 6: Blockers (if any) */}
@@ -402,23 +405,67 @@ export default function OrderStatusListItem({
           </div>
 
           {/* Row 8: Quick Actions */}
-          <div className="pt-3 border-t border-border flex items-center justify-between">
-            {/* Update Stage Button (for Production Managers and Admins) */}
-            {user?.role && ['ADMIN', 'PRODUCTION_MANAGER'].includes(user.role) && latestWorkOrderId && (
+          <div className="pt-3 border-t border-border flex items-center justify-between flex-wrap gap-2">
+            {/* Left side: Direct links and Update Stage */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Update Stage Button (for Production Managers and Admins) */}
+              {user?.role && ['ADMIN', 'PRODUCTION_MANAGER'].includes(user.role) && latestWorkOrderId && (
+                <Button
+                  size="sm"
+                  variant={showTrackingForm ? 'secondary' : 'outline'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowTrackingForm(!showTrackingForm);
+                  }}
+                >
+                  <PlayCircle className="h-4 w-4 mr-1" />
+                  {showTrackingForm ? 'Hide' : 'Update Stage'}
+                </Button>
+              )}
+
+              {/* Direct Links */}
+              {item.workOrders.workOrderCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/work-orders?styleId=${item.styleId}`);
+                  }}
+                >
+                  <ClipboardList className="h-4 w-4 mr-1" />
+                  Work Orders ({item.workOrders.workOrderCount})
+                </Button>
+              )}
+
               <Button
                 size="sm"
-                variant={showTrackingForm ? 'secondary' : 'outline'}
+                variant="outline"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setShowTrackingForm(!showTrackingForm);
+                  navigate(`/mrp?styleId=${item.styleId}`);
                 }}
               >
-                <PlayCircle className="h-4 w-4 mr-1" />
-                {showTrackingForm ? 'Hide' : 'Update Stage'}
+                <Layers className="h-4 w-4 mr-1" />
+                MRP
               </Button>
-            )}
 
-            {/* Suggested Actions */}
+              {['IN_PRINTING', 'IN_DYING', 'IN_EMBROIDERY'].includes(item.currentStage) && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/job-work-orders?styleId=${item.styleId}`);
+                  }}
+                >
+                  <Truck className="h-4 w-4 mr-1" />
+                  JWOs
+                </Button>
+              )}
+            </div>
+
+            {/* Right side: Suggested Actions */}
             {item.suggestedActions.length > 0 && <QuickActions actions={item.suggestedActions} />}
           </div>
         </div>

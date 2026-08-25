@@ -224,6 +224,37 @@ export class SaleOrderController {
     const result = await saleOrderService.deallocateStock(allocationId);
     res.json({ data: result, message: 'Allocation released successfully' });
   }
+
+  /**
+   * Add a buyer PO number to a sale order.
+   */
+  async addBuyerPo(req: Request, res: Response) {
+    const { id } = req.params;
+    const { buyerPoNumber, remarks } = req.body;
+
+    const result = await saleOrderService.addBuyerPo(id, buyerPoNumber, remarks);
+    res.status(201).json({ data: result, message: 'Buyer PO added' });
+  }
+
+  /**
+   * Remove a buyer PO from a sale order.
+   */
+  async removeBuyerPo(req: Request, res: Response) {
+    const { poId } = req.params;
+
+    await saleOrderService.removeBuyerPo(poId);
+    res.json({ message: 'Buyer PO removed' });
+  }
+
+  /**
+   * Set a buyer PO as primary for a sale order.
+   */
+  async setPrimaryBuyerPo(req: Request, res: Response) {
+    const { poId } = req.params;
+
+    const result = await saleOrderService.setPrimaryBuyerPo(poId);
+    res.json({ data: result, message: 'Primary buyer PO updated' });
+  }
 }
 
 export const saleOrderController = new SaleOrderController();

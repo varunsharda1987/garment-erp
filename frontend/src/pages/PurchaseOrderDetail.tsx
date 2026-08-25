@@ -78,7 +78,23 @@ interface ExtendedPurchaseOrder extends PurchaseOrder {
 interface ExtendedPOItem {
   componentName?: string;
   colorName?: string;
+  /** CAD cutable width snapshot — planning-internal, never displayed bare */
   fabricWidth?: number;
+  materials?: {
+    /** Greige loom width — the width actually being ORDERED on a greige PO */
+    greigeMaster?: { greigeWidth?: number | string | null } | null;
+    /** Actual width of a ready fabric being bought */
+    fabricMaster?: { actualWidth?: number | string | null } | null;
+  };
+}
+
+/** Width of what is being ordered: greige loom width, else ready-fabric actual width. */
+function orderedWidthLabel(item: ExtendedPOItem): string {
+  const greigeWidth = item.materials?.greigeMaster?.greigeWidth;
+  if (greigeWidth != null) return `${Number(greigeWidth)}" greige`;
+  const fabricWidth = item.materials?.fabricMaster?.actualWidth;
+  if (fabricWidth != null) return `${Number(fabricWidth)}" fabric`;
+  return '-';
 }
 
 interface GRNItem {
@@ -566,7 +582,7 @@ export default function PurchaseOrderDetail() {
                 <TableHead>HSN/SAC</TableHead>
                 <TableHead>Component</TableHead>
                 <TableHead>Color</TableHead>
-                <TableHead>Width</TableHead>
+                <TableHead>Ordered Width</TableHead>
                 <TableHead className="text-right">Ordered</TableHead>
                 <TableHead className="text-right">Received</TableHead>
                 <TableHead>Unit</TableHead>
@@ -617,10 +633,8 @@ export default function PurchaseOrderDetail() {
                       {(item as unknown as ExtendedPOItem).componentName || '-'}
                     </TableCell>
                     <TableCell className="text-sm">{(item as unknown as ExtendedPOItem).colorName || '-'}</TableCell>
-                    <TableCell className="text-sm">
-                      {(item as unknown as ExtendedPOItem).fabricWidth
-                        ? `${(item as unknown as ExtendedPOItem).fabricWidth}"`
-                        : '-'}
+                    <TableCell className="text-sm whitespace-nowrap">
+                      {orderedWidthLabel(item as unknown as ExtendedPOItem)}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {Number(item.orderedQuantity).toLocaleString()}

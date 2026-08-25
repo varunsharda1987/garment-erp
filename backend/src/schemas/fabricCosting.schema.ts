@@ -126,6 +126,9 @@ export const approveCostingOptionSchema = z.object({
  */
 export const unapproveCostingOptionSchema = z.object({
   reason: z.string().max(500).optional(),
+  // ESSKY091LS guard: acknowledges the 409 COSTING_OPTION_IN_USE warning — the
+  // option's rate is frozen into downstream documents and they will show drift.
+  confirmImpact: z.boolean().optional(),
 });
 
 /**

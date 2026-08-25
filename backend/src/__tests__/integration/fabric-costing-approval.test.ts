@@ -50,6 +50,38 @@ async function createCostedCadRow(overrides: Record<string, any> = {}) {
   });
 }
 
+/** A cost sheet on the test style (approvalStatus via overrides).
+ *  version auto-increments — style_costing is unique on (styleId, purpose, version). */
+let sheetVersionCounter = 0;
+async function createCostSheet(overrides: Record<string, any> = {}) {
+  sheetVersionCounter += 1;
+  return prisma.style_costing.create({
+    data: {
+      id: `CS-${RUN}-${randomUUID().slice(0, 8)}`,
+      styleId,
+      createdById: testUserId,
+      purpose: 'RAW_MATERIAL_CALCULATION',
+      version: sheetVersionCounter,
+      ...overrides,
+    },
+  });
+}
+
+/** Freeze a fabric-item snapshot from a CAD row onto a cost sheet. */
+async function linkSheetItem(costingId: string, cadId: string) {
+  return prisma.style_costing_fabric_items.create({
+    data: {
+      costingId,
+      fabricCADId: cadId,
+      fabricName: `${RUN} Fabric`,
+      width: 52,
+      cadMeters: 2.16,
+      costPerMeter: 52,
+      totalCost: 112.32,
+    },
+  });
+}
+
 beforeAll(async () => {
   const user = await createTestUser({
     email: `test-${RUN.toLowerCase()}@smoke.test`,
@@ -67,6 +99,10 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // Guard-test fixtures first (FK order: items cascade from sheets/orders)
+  await prisma.style_costing.deleteMany({ where: { id: { startsWith: `CS-${RUN}` } } });
+  await prisma.orders.deleteMany({ where: { orderNumber: { startsWith: RUN } } });
+  await prisma.customers.deleteMany({ where: { code: { startsWith: RUN } } });
   await prisma.fabric_width_cad.deleteMany({ where: { componentName: { startsWith: RUN } } });
   await prisma.styles.deleteMany({ where: { id: styleId } });
   await prisma.users.deleteMany({ where: { id: testUserId } });
@@ -224,6 +260,146 @@ describe('PATCH /api/fabric-costing/option/:optionId/unapprove', () => {
     expect(after!.costingApprovedAt).toBeNull();
     expect(after!.isPreferred).toBe(false);
     expect(after!.approvalStatus).toBe('APPROVED'); // CAD approval untouched
+  });
+});
+
+describe('PATCH unapprove — downstream dependents guard (ESSKY091LS)', () => {
+  it('hard-blocks when an active APPROVED cost sheet froze this price — even with confirmImpact', async () => {
+    const cad = await createCostedCadRow({
+      componentName: `${RUN}-GUARD1`,
+      costingApprovalStatus: 'APPROVED',
+      costingApprovedBy: testUserId,
+      costingApprovedAt: new Date(),
+      isPreferred: true,
+    });
+    const sheet = await createCostSheet({ approvalStatus: 'APPROVED' });
+    await linkSheetItem(sheet.id, cad.id);
+
+    const res = await request(app)
+      .patch(`/api/fabric-costing/option/${cad.id}/unapprove`)
+      .set(authHeader)
+      .send({})
+      .expect(409);
+    expect(res.body.details.code).toBe('COSTING_OPTION_IN_USE');
+    expect(res.body.details.blocking).toBe(true);
+    expect(res.body.details.dependents.blockingCostSheets.map((s: any) => s.costSheetId)).toContain(sheet.id);
+
+    // The hard block is not bypassable by the confirm flag
+    await request(app)
+      .patch(`/api/fabric-costing/option/${cad.id}/unapprove`)
+      .set(authHeader)
+      .send({ confirmImpact: true })
+      .expect(409);
+
+    const after = await prisma.fabric_width_cad.findUnique({ where: { id: cad.id } });
+    expect(after!.costingApprovalStatus).toBe('APPROVED'); // DB untouched
+    expect(after!.isPreferred).toBe(true);
+  });
+
+  it('draft (PENDING) sheet dependents require confirmImpact, then unapprove succeeds', async () => {
+    const cad = await createCostedCadRow({
+      componentName: `${RUN}-GUARD2`,
+      costingApprovalStatus: 'APPROVED',
+      costingApprovedBy: testUserId,
+      costingApprovedAt: new Date(),
+    });
+    const sheet = await createCostSheet({}); // approvalStatus defaults to PENDING
+    await linkSheetItem(sheet.id, cad.id);
+
+    const res = await request(app)
+      .patch(`/api/fabric-costing/option/${cad.id}/unapprove`)
+      .set(authHeader)
+      .send({})
+      .expect(409);
+    expect(res.body.details.blocking).toBe(false);
+    expect(res.body.details.requiresConfirmation).toBe(true);
+
+    await request(app)
+      .patch(`/api/fabric-costing/option/${cad.id}/unapprove`)
+      .set(authHeader)
+      .send({ confirmImpact: true })
+      .expect(200);
+
+    const after = await prisma.fabric_width_cad.findUnique({ where: { id: cad.id } });
+    expect(after!.costingApprovalStatus).toBeNull();
+  });
+
+  it('a superseded APPROVED sheet is history — unapprove stays one click', async () => {
+    const cad = await createCostedCadRow({
+      componentName: `${RUN}-GUARD3`,
+      costingApprovalStatus: 'APPROVED',
+      costingApprovedBy: testUserId,
+      costingApprovedAt: new Date(),
+    });
+    const v2 = await createCostSheet({});
+    const v1 = await createCostSheet({ approvalStatus: 'APPROVED', supersededById: v2.id });
+    await linkSheetItem(v1.id, cad.id); // only the superseded sheet points at the CAD
+
+    await request(app).patch(`/api/fabric-costing/option/${cad.id}/unapprove`).set(authHeader).send({}).expect(200);
+  });
+
+  it('an active order BOM dependent warns + confirms (frozen rate stays on the BOM)', async () => {
+    const cad = await createCostedCadRow({
+      componentName: `${RUN}-GUARD4`,
+      costingApprovalStatus: 'APPROVED',
+      costingApprovedBy: testUserId,
+      costingApprovedAt: new Date(),
+    });
+    const customer = await prisma.customers.create({
+      data: {
+        code: `${RUN}C`,
+        name: `${RUN} Customer`,
+        type: 'BUYER',
+        category: 'DOMESTIC',
+        createdById: testUserId,
+      },
+    });
+    const order = await prisma.orders.create({
+      data: {
+        id: randomUUID(),
+        orderNumber: `${RUN}ORD1`,
+        customerId: customer.id,
+        expectedDeliveryDate: new Date(),
+        totalQuantity: 100,
+        totalAmount: 10000,
+        createdById: testUserId,
+      },
+    });
+    const bom = await prisma.order_bom.create({
+      data: { orderId: order.id, styleId, createdById: testUserId, status: 'APPROVED' },
+    });
+    await prisma.order_bom_items.create({
+      data: {
+        orderBomId: bom.id,
+        materialType: 'FABRIC',
+        selectedCadId: cad.id,
+        quantityPerGarment: 2.16,
+        orderQuantity: 100,
+        totalQuantity: 216,
+        unit: 'METERS',
+        unitPrice: 52,
+        totalCost: 11232,
+      },
+    });
+
+    const res = await request(app)
+      .patch(`/api/fabric-costing/option/${cad.id}/unapprove`)
+      .set(authHeader)
+      .send({})
+      .expect(409);
+    expect(res.body.details.blocking).toBe(false);
+    expect(res.body.details.requiresConfirmation).toBe(true);
+    expect(res.body.details.dependents.orderBoms.map((b: any) => b.orderNumber)).toContain(`${RUN}ORD1`);
+
+    await request(app)
+      .patch(`/api/fabric-costing/option/${cad.id}/unapprove`)
+      .set(authHeader)
+      .send({ confirmImpact: true })
+      .expect(200);
+
+    // The BOM keeps its frozen rate — the guard never rewrites snapshots
+    const bomItem = await prisma.order_bom_items.findFirst({ where: { selectedCadId: cad.id } });
+    expect(Number(bomItem!.unitPrice)).toBe(52);
   });
 });
 

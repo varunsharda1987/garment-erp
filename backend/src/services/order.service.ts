@@ -648,6 +648,26 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       );
     }
 
+    // Block if JWOs have material activity (issued greige or receipts)
+    const activeJWOs = await this.prisma.job_work_orders.findMany({
+      where: {
+        workOrder: { orderId: id },
+        OR: [{ greigeIssueDetails: { some: {} } }, { receivingGRNs: { some: {} } }],
+      },
+      select: { id: true, jobWorkNumber: true, jwoStatus: true },
+    });
+
+    if (activeJWOs.length > 0) {
+      const jwoSummary = activeJWOs
+        .slice(0, 3)
+        .map((j) => j.jobWorkNumber)
+        .join(', ');
+      throw new BusinessError(
+        `Cannot cancel order: ${activeJWOs.length} JWO(s) have material issued or processing received: ${jwoSummary}${activeJWOs.length > 3 ? ', ...' : ''}. ` +
+          `Cancel those JWOs and return materials before cancelling the order.`
+      );
+    }
+
     // Use transaction to cancel order, work orders, deactivate BOMs, and handle lace
     await this.prisma.$transaction(async (tx) => {
       // Cancel the order
@@ -844,6 +864,30 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
     const activeWorkOrders = order.work_orders.filter((wo) => !['PENDING', 'CANCELLED'].includes(wo.status));
     if (activeWorkOrders.length > 0) {
       return { canDelete: false, reason: 'Order has active work orders (production has started)' };
+    }
+
+    // Check JWOs with material activity (issued greige or receipts)
+    const jwosWithActivity = await this.prisma.job_work_orders.findMany({
+      where: {
+        workOrder: { orderId: id },
+        OR: [
+          { greigeIssueDetails: { some: {} } },
+          { receivingGRNs: { some: {} } },
+          { jwoStatus: { in: ['ISSUED', 'IN_TRANSIT', 'AT_PROCESSOR', 'PARTIALLY_RECEIVED', 'RECEIVED'] } },
+        ],
+      },
+      select: { id: true, jobWorkNumber: true, jwoStatus: true },
+    });
+
+    if (jwosWithActivity.length > 0) {
+      const jwoSummary = jwosWithActivity
+        .slice(0, 3)
+        .map((j) => j.jobWorkNumber)
+        .join(', ');
+      return {
+        canDelete: false,
+        reason: `Cannot delete: ${jwosWithActivity.length} JWO(s) have material activity (${jwoSummary}${jwosWithActivity.length > 3 ? ', ...' : ''}). Cancel JWOs and return materials first.`,
+      };
     }
 
     // Check delivery notes - no in-transit or delivered. Must use the actual DeliveryStatus enum values

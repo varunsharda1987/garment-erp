@@ -332,6 +332,14 @@ export interface MaterialRequirementResponse {
   colorName?: string | null;
   componentName?: string | null;
   fabricWidth?: number | null;
+  /**
+   * Loom width of the greige being bought/issued (greige_master.greigeWidth via the
+   * requirement's material). Null for non-greige materials. Display rule: purchase
+   * surfaces show THIS width (it is what is ordered); processing surfaces show the
+   * asked FINISH width (fabricWidth cutable + selvedge deduction) alongside it —
+   * bare cutable width is never shown to users (industry model 2026-08-18).
+   */
+  greigeWidthInches?: number | null;
 
   // P5.3 Provenance fields - snapshot from approved Order BOM
   unitPrice?: number | null;

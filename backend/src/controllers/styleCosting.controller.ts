@@ -2,8 +2,14 @@ import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../config/database';
-import { logInfo } from '../utils/logger';
-import { UnauthorizedError, NotFoundError, ValidationError, BusinessError } from '../errors';
+import { logInfo, logWarn } from '../utils/logger';
+import {
+  computeCostSheetSourceDrift,
+  getCostSheetOrderDependents,
+  consumerOrderNumbers,
+  type CostSheetSourceDrift,
+} from '../services/helpers/cad-costing-provenance.helper';
+import { UnauthorizedError, NotFoundError, ValidationError, BusinessError, ConflictError } from '../errors';
 import { systemSettingsService } from '../services/system-settings.service';
 import { processorRateValidationService } from '../services/processor-rate-validation.service';
 import { findRateCardsForShrinkage } from '../services/processor-rate-v2.service';
@@ -661,10 +667,23 @@ export const getCostSheetById = async (req: Request, res: Response): Promise<voi
   // This helps the frontend show if rates have changed since cost sheet creation
   const rateValidation = await processorRateValidationService.validateCostSheetRates(id);
 
+  // Source-costing drift (ESSKY091LS): rateValidation compares against the
+  // CURRENT rate card, so it is blind to a manual re-price of the CAD costing
+  // this sheet snapshotted from. Compare the frozen fabric-item snapshots
+  // against their source fabric_width_cad rows directly. Advisory — never
+  // fails the fetch.
+  let sourceCostingDrift: CostSheetSourceDrift | null = null;
+  try {
+    sourceCostingDrift = await computeCostSheetSourceDrift(id);
+  } catch (driftError) {
+    logWarn('sourceCostingDrift computation failed for cost sheet', { id, driftError });
+  }
+
   res.json({
     success: true,
     data: {
       ...costSheet,
+      sourceCostingDrift,
       rateValidation: {
         status: rateValidation.status,
         isValid: rateValidation.isValid,
@@ -831,6 +850,18 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
 
   if (isApprovedCostSheet) {
     throw new BusinessError('Cannot update approved cost sheet. Please create a new version if changes are needed.');
+  }
+
+  // Order-consumption freeze (2026-08-25): a non-APPROVED sheet with live order
+  // consumers is a broken state (revoke is guarded, so this only catches legacy/
+  // bypass data) — editing it would silently shift the numbers under the order.
+  const consumers = await getCostSheetOrderDependents(id);
+  if (consumers.hasLiveConsumers) {
+    throw new ConflictError(
+      `Cannot edit: order(s) ${consumerOrderNumbers(consumers).join(', ')} were created from this cost sheet. ` +
+        `Create a new cost sheet version instead.`,
+      { code: 'COST_SHEET_IN_USE', dependents: consumers }
+    );
   }
 
   // If rejected, reset the status to pending on update (allows resubmission)
@@ -1189,6 +1220,19 @@ export const deleteCostSheet = async (req: Request, res: Response): Promise<void
   if (costSheet.isApproved) {
     throw new BusinessError(
       'Cannot delete approved cost sheet. Approved cost sheets cannot be deleted for audit purposes.'
+    );
+  }
+
+  // Order-consumption freeze (2026-08-25): if ANY order BOM or order-item costing
+  // ever referenced this sheet — even inactive/historical ones — deleting it
+  // destroys the audit lineage those documents point at (their FKs go SET NULL).
+  const consumers = await getCostSheetOrderDependents(id);
+  if (consumers.anyBomCount > 0 || consumers.anyOrderItemCostingCount > 0) {
+    throw new ConflictError(
+      `Cannot delete: ${consumers.anyBomCount} order BOM(s) and ` +
+        `${consumers.anyOrderItemCostingCount} order-item costing(s) reference this cost sheet. ` +
+        `It must be kept for audit. Create a new version if changes are needed.`,
+      { code: 'COST_SHEET_IN_USE', dependents: consumers }
     );
   }
 

@@ -200,6 +200,8 @@ export interface MaterialRequirement {
   colorName?: string | null;
   componentName?: string | null;
   fabricWidth?: number | null;
+  /** Loom width of the greige being ordered/issued (null for non-greige materials) */
+  greigeWidthInches?: number | null;
 
   // P5.3 Provenance fields - snapshot from approved Order BOM
   unitPrice?: number | null;

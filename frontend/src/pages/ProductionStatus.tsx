@@ -9,13 +9,28 @@ import StatusSummaryCards from '@/components/status/StatusSummaryCards';
 import StatusFilterBar from '@/components/status/StatusFilterBar';
 import StatusListItem from '@/components/status/StatusListItem';
 import OrderStatusListItem from '@/components/status/OrderStatusListItem';
+import CompactOrderRow, { CompactOrderHeader } from '@/components/status/CompactOrderRow';
+import ProductionKanban from '@/components/status/ProductionKanban';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChevronLeft, ChevronRight, Loader2, Layers, ShoppingCart, RefreshCw, Clock } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Layers,
+  ShoppingCart,
+  RefreshCw,
+  Clock,
+  LayoutGrid,
+  List,
+  Kanban,
+} from 'lucide-react';
+import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
 type ViewMode = 'style' | 'order';
+type DisplayMode = 'detailed' | 'compact' | 'kanban';
 
 interface FilterState {
   status?: StatusFilter;
@@ -23,11 +38,15 @@ interface FilterState {
   cadStatus?: 'PENDING' | 'IN_PROGRESS' | 'APPROVED';
   brand?: string;
   customer?: string;
+  orderDateRange?: DateRange;
+  deliveryDateRange?: DateRange;
 }
 
 export default function ProductionStatus() {
   // View mode - default to order-centric
   const [viewMode, setViewMode] = useState<ViewMode>('order');
+  // Display mode - detailed (cards) or compact (table rows)
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('detailed');
 
   // Style-centric data
   const [styleItems, setStyleItems] = useState<ProductionStatusItem[]>([]);
@@ -209,19 +228,52 @@ export default function ProductionStatus() {
           </p>
         </div>
 
-        {/* View Mode Toggle */}
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-          <TabsList className="grid w-[280px] grid-cols-2">
-            <TabsTrigger value="order" className="flex items-center gap-2">
-              <ShoppingCart className="h-4 w-4" />
-              By Order
-            </TabsTrigger>
-            <TabsTrigger value="style" className="flex items-center gap-2">
-              <Layers className="h-4 w-4" />
-              By Style
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-4">
+          {/* Display Mode Toggle */}
+          <div className="flex items-center border border-border rounded-lg overflow-hidden">
+            <Button
+              variant={displayMode === 'detailed' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none h-9 px-3"
+              onClick={() => setDisplayMode('detailed')}
+            >
+              <LayoutGrid className="h-4 w-4 mr-1.5" />
+              Detailed
+            </Button>
+            <Button
+              variant={displayMode === 'compact' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none h-9 px-3"
+              onClick={() => setDisplayMode('compact')}
+            >
+              <List className="h-4 w-4 mr-1.5" />
+              Compact
+            </Button>
+            <Button
+              variant={displayMode === 'kanban' ? 'default' : 'ghost'}
+              size="sm"
+              className="rounded-none h-9 px-3"
+              onClick={() => setDisplayMode('kanban')}
+            >
+              <Kanban className="h-4 w-4 mr-1.5" />
+              Board
+            </Button>
+          </div>
+
+          {/* View Mode Toggle */}
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+            <TabsList className="grid w-[280px] grid-cols-2">
+              <TabsTrigger value="order" className="flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4" />
+                By Order
+              </TabsTrigger>
+              <TabsTrigger value="style" className="flex items-center gap-2">
+                <Layers className="h-4 w-4" />
+                By Style
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
       {/* Last Updated & Refresh */}
@@ -295,8 +347,8 @@ export default function ProductionStatus() {
         </div>
       )}
 
-      {/* Status List - Order View */}
-      {!loading && items.length > 0 && viewMode === 'order' && (
+      {/* Status List - Order View - Detailed */}
+      {!loading && items.length > 0 && viewMode === 'order' && displayMode === 'detailed' && (
         <div className="space-y-4">
           {orderItems.map((item) => (
             <OrderStatusListItem
@@ -312,8 +364,23 @@ export default function ProductionStatus() {
         </div>
       )}
 
-      {/* Pagination */}
-      {!loading && totalPages > 1 && (
+      {/* Status List - Order View - Compact */}
+      {!loading && items.length > 0 && viewMode === 'order' && displayMode === 'compact' && (
+        <div className="bg-card rounded-lg border border-border overflow-hidden">
+          <CompactOrderHeader />
+          {orderItems.map((item) => (
+            <CompactOrderRow key={item.orderItemId} item={item} onExpand={() => setDisplayMode('detailed')} />
+          ))}
+        </div>
+      )}
+
+      {/* Status List - Order View - Kanban Board */}
+      {!loading && items.length > 0 && viewMode === 'order' && displayMode === 'kanban' && (
+        <ProductionKanban items={orderItems} />
+      )}
+
+      {/* Pagination - hide in kanban mode */}
+      {!loading && totalPages > 1 && displayMode !== 'kanban' && (
         <div className="flex items-center justify-between bg-card p-4 rounded-lg border border-border">
           <Button
             variant="outline"

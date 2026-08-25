@@ -1564,7 +1564,8 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
           }
 
           // Second: if still remaining, take from unallocated FG stock
-          if (remaining > 0 && soItem.colorId) {
+          // Requires both colorId and sizeId to be specified
+          if (remaining > 0 && soItem.colorId && soItem.sizeId) {
             const fgRows = await tx.finished_goods_stock.findMany({
               where: {
                 styleId: soItem.styleId,
@@ -1605,10 +1606,15 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
           }
 
           // Create delivery note item linked to sale order item
-          // Note: colorId is required in delivery_note_items schema
+          // Note: colorId and sizeId are required in delivery_note_items schema
           if (!soItem.colorId) {
             throw new ValidationError(
               `Sale order item ${item.saleOrderItemId} has no color specified - color is required for dispatch`
+            );
+          }
+          if (!soItem.sizeId) {
+            throw new ValidationError(
+              `Sale order item ${item.saleOrderItemId} has no size specified - size is required for dispatch. Please specify size via Production Order first.`
             );
           }
           await tx.delivery_note_items.create({

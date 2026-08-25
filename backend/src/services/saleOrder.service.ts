@@ -74,9 +74,11 @@ export class SaleOrderService {
 
     const subtotal = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
+    const soId = randomUUID();
+
     return prisma.sale_orders.create({
       data: {
-        id: randomUUID(),
+        id: soId,
         saleOrderNumber,
         buyerPoNumber: data.buyerPoNumber ?? null,
         customerId: data.customerId,
@@ -103,6 +105,15 @@ export class SaleOrderService {
             totalPrice: item.quantity * item.unitPrice,
           })),
         },
+        // Also create buyer PO junction record if provided
+        ...(data.buyerPoNumber && {
+          buyerPos: {
+            create: {
+              buyerPoNumber: data.buyerPoNumber,
+              isPrimary: true,
+            },
+          },
+        }),
       },
       include: this.getDefaultIncludes(),
     });
@@ -128,6 +139,8 @@ export class SaleOrderService {
         { saleOrderNumber: { contains: search, mode: 'insensitive' } },
         { buyerPoNumber: { contains: search, mode: 'insensitive' } },
         { customer: { name: { contains: search, mode: 'insensitive' } } },
+        // Also search in all buyer POs (junction table)
+        { buyerPos: { some: { buyerPoNumber: { contains: search, mode: 'insensitive' } } } },
       ];
     }
 
@@ -250,15 +263,60 @@ export class SaleOrderService {
     });
   }
 
-  async delete(id: string) {
-    const so = await prisma.sale_orders.findUnique({
+  /**
+   * Check if a sale order can be deleted
+   * Returns { canDelete: true } or { canDelete: false, reason: string }
+   */
+  async canDeleteSaleOrder(id: string): Promise<{ canDelete: boolean; reason?: string }> {
+    const saleOrder = await prisma.sale_orders.findUnique({
       where: { id },
-      select: { status: true },
+      include: {
+        _count: {
+          select: {
+            productionOrders: true,
+            delivery_notes: true,
+            invoices: true,
+          },
+        },
+      },
     });
 
-    if (!so) throw new Error('Sale Order not found');
-    if (so.status !== SaleOrderStatus.DRAFT) {
-      throw new Error('Can only delete Sale Orders in DRAFT status');
+    if (!saleOrder) {
+      return { canDelete: false, reason: 'Sale Order not found' };
+    }
+
+    if (saleOrder.status !== SaleOrderStatus.DRAFT) {
+      return { canDelete: false, reason: `Sale Order is ${saleOrder.status}, only DRAFT orders can be deleted` };
+    }
+
+    if (saleOrder._count.productionOrders > 0) {
+      return {
+        canDelete: false,
+        reason: `Cannot delete: ${saleOrder._count.productionOrders} production order(s) linked. Cancel production first.`,
+      };
+    }
+
+    if (saleOrder._count.delivery_notes > 0) {
+      return {
+        canDelete: false,
+        reason: `Cannot delete: ${saleOrder._count.delivery_notes} delivery note(s) exist. Cancel them first.`,
+      };
+    }
+
+    if (saleOrder._count.invoices > 0) {
+      return {
+        canDelete: false,
+        reason: `Cannot delete: ${saleOrder._count.invoices} invoice(s) exist. Cancel them first.`,
+      };
+    }
+
+    return { canDelete: true };
+  }
+
+  async delete(id: string) {
+    const { canDelete, reason } = await this.canDeleteSaleOrder(id);
+    if (!canDelete) {
+      throw new BusinessError(reason || 'Cannot delete this sale order');
     }
 
     return prisma.$transaction(async (tx) => {
@@ -380,6 +438,16 @@ export class SaleOrderService {
     }
 
     // Map SO items (style+colour+size grain) → order items (one per style, breakup per colour/size).
+    // Items without sizeId cannot be converted to production orders - they need size breakdown first.
+    const itemsWithoutSize = so.items.filter((i) => !i.sizeId);
+    if (itemsWithoutSize.length > 0) {
+      const styleIds = [...new Set(itemsWithoutSize.map((i) => i.styleId))];
+      throw new Error(
+        `Cannot start production: ${itemsWithoutSize.length} item(s) have no size specified. ` +
+          `Please specify size breakdown for styles: ${styleIds.slice(0, 3).join(', ')}${styleIds.length > 3 ? '...' : ''}`
+      );
+    }
+
     const byStyle = new Map<string, typeof so.items>();
     for (const item of so.items) {
       const group = byStyle.get(item.styleId) ?? [];
@@ -392,12 +460,12 @@ export class SaleOrderService {
       // guarantees breakup sum === totalQuantity, which work-order auto-creation requires.
       const breakupMap = new Map<string, { colorId: string | null; sizeId: string; quantity: number }>();
       for (const item of group) {
-        const key = `${item.colorId ?? ''}|${item.sizeId}`;
+        const key = `${item.colorId ?? ''}|${item.sizeId!}`;
         const entry = breakupMap.get(key);
         if (entry) {
           entry.quantity += item.quantity;
         } else {
-          breakupMap.set(key, { colorId: item.colorId ?? null, sizeId: item.sizeId, quantity: item.quantity });
+          breakupMap.set(key, { colorId: item.colorId ?? null, sizeId: item.sizeId!, quantity: item.quantity });
         }
       }
 
@@ -441,6 +509,10 @@ export class SaleOrderService {
       },
       userId
     );
+
+    // Reverse sync: push size breakdown from Production Order back to Sale Order items.
+    // This ensures SO items have sizeId for dispatch/allocation.
+    await this.syncSizesFromProductionOrder(id, orderItems);
 
     // Qty-rate audit 2026-08-24: non-blocking advisory — surface up front when this sale
     // order's quantity prices in a different processor rate slab than the style costing
@@ -659,6 +731,76 @@ export class SaleOrderService {
     return allocation;
   }
 
+  /**
+   * Reverse sync: push size breakdown from Production Order back to Sale Order items.
+   * Splits sizeless SO items into sized items based on the production breakup.
+   *
+   * Example: SO item (Style A, Color X, no size, 100 pcs)
+   * Production breakup: S=30, M=40, L=30
+   * Result: 3 SO items (Style A, Color X, S, 30), (Style A, Color X, M, 40), (Style A, Color X, L, 30)
+   */
+  private async syncSizesFromProductionOrder(
+    saleOrderId: string,
+    orderItems: Array<{
+      styleId: string;
+      unitPrice: string | number;
+      breakup: Array<{ colorId: string | null; sizeId: string; quantity: number }>;
+    }>
+  ) {
+    // Find sizeless SO items that need to be split
+    const sizelessItems = await prisma.sale_order_items.findMany({
+      where: { saleOrderId, sizeId: null },
+      select: { id: true, styleId: true, colorId: true, quantity: true, unitPrice: true },
+    });
+
+    if (sizelessItems.length === 0) return;
+
+    await prisma.$transaction(async (tx) => {
+      for (const soItem of sizelessItems) {
+        // Find the matching order item breakup
+        const orderItem = orderItems.find((oi) => oi.styleId === soItem.styleId);
+        if (!orderItem) continue;
+
+        // Filter breakup entries that match this SO item's color
+        const matchingBreakup = orderItem.breakup.filter(
+          (b) => (b.colorId || null) === (soItem.colorId || null) && b.quantity > 0
+        );
+
+        if (matchingBreakup.length === 0) continue;
+
+        // Delete the sizeless item
+        await tx.sale_order_items.delete({ where: { id: soItem.id } });
+
+        // Create new sized items from the breakup
+        for (const entry of matchingBreakup) {
+          const totalPrice = entry.quantity * Number(soItem.unitPrice);
+          await tx.sale_order_items.create({
+            data: {
+              saleOrderId,
+              styleId: soItem.styleId,
+              colorId: entry.colorId,
+              sizeId: entry.sizeId,
+              quantity: entry.quantity,
+              unitPrice: soItem.unitPrice,
+              totalPrice,
+            },
+          });
+        }
+      }
+
+      // Recalculate sale order totals
+      const allItems = await tx.sale_order_items.findMany({
+        where: { saleOrderId },
+        select: { totalPrice: true },
+      });
+      const subtotal = allItems.reduce((sum, i) => sum + Number(i.totalPrice), 0);
+      await tx.sale_orders.update({
+        where: { id: saleOrderId },
+        data: { subtotal, totalAmount: subtotal }, // taxAmount stays as-is
+      });
+    });
+  }
+
   async getAvailableStock(styleId: string, colorId?: string, sizeId?: string) {
     const where: Prisma.finished_goods_stockWhereInput = { styleId };
     if (colorId) where.colorId = colorId;
@@ -760,7 +902,7 @@ export class SaleOrderService {
     const itemPreviews = await Promise.all(
       so.items.map(async (item) => {
         // Get available FG stock for this item
-        const stocks = await this.getAvailableStock(item.styleId, item.colorId || undefined, item.sizeId);
+        const stocks = await this.getAvailableStock(item.styleId, item.colorId || undefined, item.sizeId || undefined);
         const totalAvailable = stocks.reduce((sum, s) => sum + s.availableQty, 0);
         const availableQty = Math.min(totalAvailable, item.quantity);
         const shortfall = Math.max(0, item.quantity - totalAvailable);
@@ -920,10 +1062,133 @@ export class SaleOrderService {
           createdAt: true,
         },
       },
+      buyerPos: {
+        orderBy: [{ isPrimary: 'desc' as const }, { createdAt: 'asc' as const }],
+        select: {
+          id: true,
+          buyerPoNumber: true,
+          isPrimary: true,
+          remarks: true,
+          createdAt: true,
+        },
+      },
       _count: {
         select: { items: true, delivery_notes: true, invoices: true },
       },
     };
+  }
+
+  /**
+   * Add a buyer PO number to a sale order.
+   * First PO added becomes primary automatically.
+   */
+  async addBuyerPo(saleOrderId: string, buyerPoNumber: string, remarks?: string) {
+    const so = await prisma.sale_orders.findUnique({
+      where: { id: saleOrderId },
+      select: { id: true, buyerPoNumber: true },
+    });
+    if (!so) throw new NotFoundError('Sale Order', saleOrderId);
+
+    // Check if this is the first PO
+    const existingCount = await prisma.sale_order_buyer_pos.count({
+      where: { saleOrderId },
+    });
+    const isPrimary = existingCount === 0;
+
+    const buyerPo = await prisma.sale_order_buyer_pos.create({
+      data: {
+        saleOrderId,
+        buyerPoNumber,
+        isPrimary,
+        remarks: remarks || null,
+      },
+    });
+
+    // If this is the first/primary PO, sync to legacy field
+    if (isPrimary) {
+      await prisma.sale_orders.update({
+        where: { id: saleOrderId },
+        data: { buyerPoNumber },
+      });
+    }
+
+    return buyerPo;
+  }
+
+  /**
+   * Remove a buyer PO from a sale order.
+   * If removing the primary, the next oldest becomes primary.
+   */
+  async removeBuyerPo(buyerPoId: string) {
+    const buyerPo = await prisma.sale_order_buyer_pos.findUnique({
+      where: { id: buyerPoId },
+      select: { id: true, saleOrderId: true, isPrimary: true },
+    });
+    if (!buyerPo) throw new NotFoundError('Buyer PO', buyerPoId);
+
+    await prisma.$transaction(async (tx) => {
+      // Delete the PO
+      await tx.sale_order_buyer_pos.delete({ where: { id: buyerPoId } });
+
+      // If this was primary, promote the next oldest
+      if (buyerPo.isPrimary) {
+        const nextPo = await tx.sale_order_buyer_pos.findFirst({
+          where: { saleOrderId: buyerPo.saleOrderId },
+          orderBy: { createdAt: 'asc' },
+        });
+
+        if (nextPo) {
+          await tx.sale_order_buyer_pos.update({
+            where: { id: nextPo.id },
+            data: { isPrimary: true },
+          });
+          await tx.sale_orders.update({
+            where: { id: buyerPo.saleOrderId },
+            data: { buyerPoNumber: nextPo.buyerPoNumber },
+          });
+        } else {
+          // No more POs, clear legacy field
+          await tx.sale_orders.update({
+            where: { id: buyerPo.saleOrderId },
+            data: { buyerPoNumber: null },
+          });
+        }
+      }
+    });
+  }
+
+  /**
+   * Set a buyer PO as the primary PO for a sale order.
+   */
+  async setPrimaryBuyerPo(buyerPoId: string) {
+    const buyerPo = await prisma.sale_order_buyer_pos.findUnique({
+      where: { id: buyerPoId },
+      select: { id: true, saleOrderId: true, buyerPoNumber: true, isPrimary: true },
+    });
+    if (!buyerPo) throw new NotFoundError('Buyer PO', buyerPoId);
+    if (buyerPo.isPrimary) return buyerPo; // Already primary
+
+    await prisma.$transaction(async (tx) => {
+      // Clear existing primary
+      await tx.sale_order_buyer_pos.updateMany({
+        where: { saleOrderId: buyerPo.saleOrderId, isPrimary: true },
+        data: { isPrimary: false },
+      });
+
+      // Set new primary
+      await tx.sale_order_buyer_pos.update({
+        where: { id: buyerPoId },
+        data: { isPrimary: true },
+      });
+
+      // Sync to legacy field
+      await tx.sale_orders.update({
+        where: { id: buyerPo.saleOrderId },
+        data: { buyerPoNumber: buyerPo.buyerPoNumber },
+      });
+    });
+
+    return prisma.sale_order_buyer_pos.findUnique({ where: { id: buyerPoId } });
   }
 }
 

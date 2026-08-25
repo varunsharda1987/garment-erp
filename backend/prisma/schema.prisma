@@ -3043,6 +3043,7 @@ model users {
   issue_reports                                                   issue_reports[]
   job_work_orders                                                 job_work_orders[]
   job_work_orders_approved                                        job_work_orders[]                 @relation("JobWorkApprover")
+  job_work_orders_disposition                                     job_work_orders[]                 @relation("JwoDispositionBy")
   lab_dips_approved                                               lab_dips[]                        @relation("LabDipApprover")
   lab_dips_created                                                lab_dips[]                        @relation("LabDipCreator")
   label_master                                                    label_master[]
@@ -3381,11 +3382,12 @@ model sale_orders {
   updatedAt        DateTime        @updatedAt
   isActive         Boolean         @default(true)
 
-  customer         customers          @relation(fields: [customerId], references: [id])
-  style            styles?            @relation("so_primaryStyle", fields: [styleId], references: [id])
-  createdBy        users              @relation("so_createdBy", fields: [createdById], references: [id])
-  approvedBy       users?             @relation("so_approvedBy", fields: [approvedById], references: [id])
+  customer         customers              @relation(fields: [customerId], references: [id])
+  style            styles?                @relation("so_primaryStyle", fields: [styleId], references: [id])
+  createdBy        users                  @relation("so_createdBy", fields: [createdById], references: [id])
+  approvedBy       users?                 @relation("so_approvedBy", fields: [approvedById], references: [id])
   items            sale_order_items[]
+  buyerPos         sale_order_buyer_pos[]
   delivery_notes   delivery_notes[]
   invoices         invoices[]
   productionOrders orders[]
@@ -3398,12 +3400,13 @@ model sale_orders {
 }
 
 /// Sale Order Items - Line items with FG stock allocation tracking
+/// sizeId is optional: order can be placed without size, breakdown specified later in Production Order
 model sale_order_items {
   id            String  @id @default(uuid())
   saleOrderId   String
   styleId       String
   colorId       String?
-  sizeId        String
+  sizeId        String?
   quantity      Int
   unitPrice     Decimal @default(0) @db.Decimal(10, 2)
   totalPrice    Decimal @default(0) @db.Decimal(12, 2)
@@ -3414,13 +3417,30 @@ model sale_order_items {
   saleOrder           sale_orders            @relation(fields: [saleOrderId], references: [id], onDelete: Cascade)
   style               styles                 @relation(fields: [styleId], references: [id])
   color               color_options?         @relation(fields: [colorId], references: [id])
-  size                size_options           @relation(fields: [sizeId], references: [id])
+  size                size_options?          @relation(fields: [sizeId], references: [id])
   allocations         fg_stock_allocations[]
   delivery_note_items delivery_note_items[]
 
   @@unique([saleOrderId, styleId, colorId, sizeId])
   @@index([saleOrderId])
   @@index([styleId])
+}
+
+/// Sale Order Buyer POs - Multiple buyer PO numbers per sale order
+/// Maintains backward compatibility with single buyerPoNumber field on sale_orders
+model sale_order_buyer_pos {
+  id            String   @id @default(uuid())
+  saleOrderId   String
+  buyerPoNumber String   @db.VarChar(100)
+  isPrimary     Boolean  @default(false)
+  remarks       String?
+  createdAt     DateTime @default(now())
+
+  saleOrder sale_orders @relation(fields: [saleOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([saleOrderId, buyerPoNumber])
+  @@index([saleOrderId])
+  @@index([buyerPoNumber])
 }
 
 /// FG Stock Allocations - Reserve finished goods for sale order items
@@ -6961,6 +6981,17 @@ model job_work_orders {
   processingStage         processing_stage?                 @relation("ProcessingStageJWO")
   greigeIssueDetails      greige_issue_details[]            @relation("GreigeIssueDetailsJWO")
 
+  // Inventory disposition after cancellation (two-step cancel flow)
+  inventoryDisposition      InventoryDisposition?
+  inventoryDispositionDate  DateTime?
+  inventoryDispositionById  String?
+  inventoryDispositionBy    users?                @relation("JwoDispositionBy", fields: [inventoryDispositionById], references: [id])
+  inventoryDispositionNotes String?
+  // For TRANSFERRED disposition: target JWO that received the material
+  inventoryTransferredToId  String?
+  inventoryTransferredTo    job_work_orders?      @relation("JwoInventoryTransfer", fields: [inventoryTransferredToId], references: [id])
+  inventoryTransferredFrom  job_work_orders[]     @relation("JwoInventoryTransfer")
+
   @@index([embroideryId])
   @@index([labDipId])
   @@index([processTypeId])
@@ -6978,6 +7009,9 @@ model job_work_orders {
   @@index([approvedById])
   @@index([statutoryDueDate])
   @@index([jwoStatus])
+  @@index([inventoryDisposition])
+  @@index([inventoryDispositionById])
+  @@index([inventoryTransferredToId])
 }
 
 /// Job Work Order Component - Multi-material support for JWOs
@@ -9930,6 +9964,16 @@ enum JobWorkOrderStatus {
   STOCK_UPDATED
   CLOSED
   CANCELLED
+}
+
+/// Tracks what happened to issued material after JWO cancellation
+enum InventoryDisposition {
+  PENDING // Cancelled but user hasn't decided yet
+  RETURNED_TO_STOCK // Material credited back to warehouse
+  AT_PROCESSOR // Material left at processor for future use
+  WRITTEN_OFF // Marked as lost/damaged via adjustment
+  TRANSFERRED // Moved to another JWO at same processor
+  RETURNED_TO_SUPPLIER // Sent back to greige supplier
 }
 
 enum PrintMethod {

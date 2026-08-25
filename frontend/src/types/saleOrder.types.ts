@@ -18,12 +18,21 @@ export interface LinkedProductionOrder {
   createdAt?: string;
 }
 
+/** Buyer PO record (multiple POs per sale order) */
+export interface BuyerPO {
+  id: string;
+  buyerPoNumber: string;
+  isPrimary: boolean;
+  remarks?: string | null;
+  createdAt: string;
+}
+
 export interface SaleOrderItem {
   id: string;
   saleOrderId: string;
   styleId: string;
   colorId?: string | null;
-  sizeId: string;
+  sizeId?: string | null;
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -46,7 +55,7 @@ export interface SaleOrderItem {
     id: string;
     sizeName: string;
     sizeCode: string;
-  };
+  } | null;
   allocations?: Array<{
     id: string;
     allocatedQty: number;
@@ -109,6 +118,7 @@ export interface SaleOrder {
     lastName: string;
   } | null;
   productionOrders?: LinkedProductionOrder[];
+  buyerPos?: BuyerPO[];
   _count?: {
     items: number;
     deliveryNotes: number;
@@ -116,35 +126,41 @@ export interface SaleOrder {
   };
 }
 
+export interface SOItemInput {
+  styleId: string;
+  colorId?: string | null;
+  sizeId?: string | null;
+  quantity: number;
+  unitPrice: number;
+  remarks?: string;
+}
+
 export interface CreateSORequest {
   customerId: string;
-  buyerPoNumber?: string; // Buyer's (HOK) PO number
+  buyerPoNumber?: string; // Buyer's (HOK) PO number — B2B tracking key
   styleId?: string | null; // Primary style for the order
   expectedShipDate?: string;
   buyerDeadline?: string; // Buyer's required completion date
+  orderDate?: string; // Buyer's PO/order date
+  deliveryDate?: string; // Agreed delivery date
+  paymentTerms?: string;
+  deliveryAddress?: string;
   remarks?: string;
-  items: Array<{
-    styleId: string;
-    colorId?: string | null;
-    sizeId: string;
-    quantity: number;
-    unitPrice: number;
-  }>;
+  items: SOItemInput[];
 }
 
 export interface UpdateSORequest {
-  buyerPoNumber?: string | null; // Buyer's (HOK) PO number
+  customerId?: string;
+  buyerPoNumber?: string | null; // Buyer's (HOK) PO number — B2B tracking key
   styleId?: string | null; // Primary style for the order
-  expectedShipDate?: string;
+  expectedShipDate?: string | null;
   buyerDeadline?: string | null; // Buyer's required completion date
-  remarks?: string;
-  items?: Array<{
-    styleId: string;
-    colorId?: string | null;
-    sizeId: string;
-    quantity: number;
-    unitPrice: number;
-  }>;
+  orderDate?: string | null; // Buyer's PO/order date
+  deliveryDate?: string | null; // Agreed delivery date
+  paymentTerms?: string | null;
+  deliveryAddress?: string | null;
+  remarks?: string | null;
+  items?: SOItemInput[];
 }
 
 export interface SOQueryParams {

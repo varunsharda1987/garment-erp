@@ -17,6 +17,15 @@ export type JobWorkOrderStatus =
   | 'CLOSED'
   | 'CANCELLED';
 
+/** Tracks what happened to issued material after JWO cancellation */
+export type InventoryDisposition =
+  | 'PENDING'
+  | 'RETURNED_TO_STOCK'
+  | 'AT_PROCESSOR'
+  | 'WRITTEN_OFF'
+  | 'TRANSFERRED'
+  | 'RETURNED_TO_SUPPLIER';
+
 export interface JobWorkOrderComponent {
   id: string;
   jobWorkOrderId: string;
@@ -121,6 +130,15 @@ export interface JobWorkOrder {
   tolerancePercent?: number;
   qtyNormalLoss?: number;
   qtyAbnormalLoss?: number;
+
+  // Inventory disposition (two-step cancel flow)
+  inventoryDisposition?: InventoryDisposition | null;
+  inventoryDispositionDate?: string | null;
+  inventoryDispositionById?: string | null;
+  inventoryDispositionBy?: { id: string; firstName: string; lastName: string } | null;
+  inventoryDispositionNotes?: string | null;
+  inventoryTransferredToId?: string | null;
+  inventoryTransferredTo?: { id: string; jobWorkNumber: string } | null;
 
   // Relations
   processor?: { id: string; name: string; code: string; phone?: string | null; contactPerson?: string | null };

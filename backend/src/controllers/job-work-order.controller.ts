@@ -1181,9 +1181,9 @@ class JobWorkOrderController {
 
   /**
    * POST /api/job-work-orders/:id/cancel
-   * Phase 5b: pre-receive cancellation. Reverses the issue (credits the source lot back,
-   * restores needsEmbroidery for embroidery fabric lots), reverts linked requirements,
-   * and sets jwoStatus CANCELLED (exits the MRP dedup guard).
+   * Phase 5b: pre-receive cancellation. Marks JWO as CANCELLED, reverts linked requirements,
+   * and sets inventoryDisposition = 'PENDING' if material was issued. Does NOT auto-return
+   * inventory — user decides disposition in a follow-up step via /dispose-inventory.
    */
   async cancel(req: Request, res: Response) {
     try {
@@ -1211,14 +1211,13 @@ class JobWorkOrderController {
         });
       }
 
+      // Track whether this JWO had issued material requiring disposition
+      const hasIssuedMaterial = !!jwo.sentDate;
+
       const updated = await prisma.$transaction(async (txClient) => {
-        // Reverse the issued material (only if the JWO was actually issued).
-        // unissueForCancel: guarded per-lot restore (multi-lot via components), RETURN
-        // ledger rows, stock_levels sync (the piece the old inline block missed for
-        // greige), and cancels the outward challan so ITC-04 stops declaring it.
-        if (jwo.sentDate) {
-          await unissueForCancel(txClient, jwo, userId);
-        }
+        // Two-step cancel: do NOT auto-return inventory. Instead, mark disposition as PENDING
+        // and let user decide via /dispose-inventory endpoint. This matches reality: the
+        // material is still physically at the processor after commercial cancellation.
 
         // Revert linked requirements (only rows with nothing received yet)
         const wosrLinks = await txClient.service_requirement_jwo_links.findMany({
@@ -1292,16 +1291,174 @@ class JobWorkOrderController {
         await setJwoStatus(txClient, id, 'CANCELLED', {
           remarks: `${jwo.remarks || ''}\n[CANCELLED] ${reason || 'No reason given'}`.trim(),
         });
+
+        // If material was issued, mark disposition as PENDING for user to decide
+        if (hasIssuedMaterial) {
+          await txClient.job_work_orders.update({
+            where: { id },
+            data: { inventoryDisposition: 'PENDING' },
+          });
+        }
+
         return txClient.job_work_orders.findUnique({ where: { id }, include: jwoInclude });
       });
 
-      logger.info(`[JWO] Cancelled ${jwo.jobWorkNumber}${jwo.sentDate ? ' (issued material credited back)' : ''}`);
-      return res.json({ success: true, data: updated, message: `${jwo.jobWorkNumber} cancelled` });
+      logger.info(`[JWO] Cancelled ${jwo.jobWorkNumber}${hasIssuedMaterial ? ' (inventory disposition pending)' : ''}`);
+      return res.json({
+        success: true,
+        data: updated,
+        message: `${jwo.jobWorkNumber} cancelled`,
+        pendingDisposition: hasIssuedMaterial,
+      });
     } catch (error) {
       logger.error('Error cancelling JWO:', error);
       return res.status(500).json({
         success: false,
         message: error instanceof Error ? error.message : 'Failed to cancel job work order',
+      });
+    }
+  }
+
+  /**
+   * POST /api/job-work-orders/:id/dispose-inventory
+   * Two-step cancel flow: after a JWO is cancelled, user decides what happens to the material
+   * that was issued to the processor.
+   */
+  async disposeInventory(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { disposition, notes, targetJwoId } = req.body as {
+        disposition: 'RETURNED_TO_STOCK' | 'AT_PROCESSOR' | 'WRITTEN_OFF' | 'TRANSFERRED' | 'RETURNED_TO_SUPPLIER';
+        notes?: string;
+        targetJwoId?: string;
+      };
+      const userId = (req as any).user?.userId;
+      if (!userId) {
+        return res.status(401).json({ success: false, message: 'User not authenticated' });
+      }
+
+      const jwo = await prisma.job_work_orders.findUnique({
+        where: { id },
+        include: { processor: { select: { id: true, name: true } } },
+      });
+      if (!jwo) {
+        return res.status(404).json({ success: false, message: 'Job work order not found' });
+      }
+      if (jwo.jwoStatus !== 'CANCELLED') {
+        return res.status(422).json({
+          success: false,
+          message: 'Inventory disposition is only available for cancelled JWOs',
+        });
+      }
+      if (jwo.inventoryDisposition && jwo.inventoryDisposition !== 'PENDING') {
+        return res.status(422).json({
+          success: false,
+          message: `Inventory disposition already completed: ${jwo.inventoryDisposition}`,
+        });
+      }
+      if (!jwo.sentDate) {
+        return res.status(422).json({
+          success: false,
+          message: 'No material was issued to this JWO — nothing to dispose',
+        });
+      }
+
+      // Validate TRANSFERRED requires target JWO
+      if (disposition === 'TRANSFERRED') {
+        if (!targetJwoId) {
+          return res.status(400).json({
+            success: false,
+            message: 'Target JWO ID is required for transfer disposition',
+          });
+        }
+        const targetJwo = await prisma.job_work_orders.findUnique({ where: { id: targetJwoId } });
+        if (!targetJwo) {
+          return res.status(404).json({ success: false, message: 'Target JWO not found' });
+        }
+        if (targetJwo.processorId !== jwo.processorId) {
+          return res.status(422).json({
+            success: false,
+            message: 'Cannot transfer: target JWO must be at the same processor',
+          });
+        }
+        if (!['DRAFT', 'PENDING_APPROVAL', 'APPROVED'].includes(targetJwo.jwoStatus!)) {
+          return res.status(422).json({
+            success: false,
+            message: `Cannot transfer: target JWO is ${targetJwo.jwoStatus}, must be DRAFT/PENDING_APPROVAL/APPROVED`,
+          });
+        }
+      }
+
+      const updated = await prisma.$transaction(async (txClient) => {
+        // Handle each disposition type
+        switch (disposition) {
+          case 'RETURNED_TO_STOCK':
+            // Credit material back to warehouse stock (original behavior)
+            await unissueForCancel(txClient, jwo, userId);
+            break;
+
+          case 'AT_PROCESSOR':
+            // Material stays at processor — just update the field, no stock changes
+            // Material can be allocated to a future JWO at this processor
+            break;
+
+          case 'WRITTEN_OFF':
+            // Create a stock adjustment for the lost/damaged material
+            // For now, just mark as written off — full adjustment integration can be added later
+            logger.info(`[JWO] Material written off for ${jwo.jobWorkNumber}: ${jwo.qtySentMeters}m`);
+            break;
+
+          case 'TRANSFERRED':
+            // Transfer the material allocation to the target JWO
+            // This is a complex operation — for now, log and mark
+            logger.info(
+              `[JWO] Material transferred from ${jwo.jobWorkNumber} to target JWO ${targetJwoId}: ${jwo.qtySentMeters}m`
+            );
+            await txClient.job_work_orders.update({
+              where: { id },
+              data: { inventoryTransferredToId: targetJwoId },
+            });
+            break;
+
+          case 'RETURNED_TO_SUPPLIER':
+            // Material is being sent back to the greige supplier
+            // This would typically create a supplier return challan
+            logger.info(`[JWO] Material returned to supplier for ${jwo.jobWorkNumber}: ${jwo.qtySentMeters}m`);
+            break;
+        }
+
+        // Update the disposition status
+        return txClient.job_work_orders.update({
+          where: { id },
+          data: {
+            inventoryDisposition: disposition,
+            inventoryDispositionDate: new Date(),
+            inventoryDispositionById: userId,
+            inventoryDispositionNotes: notes,
+          },
+          include: jwoInclude,
+        });
+      });
+
+      const actionMessages: Record<string, string> = {
+        RETURNED_TO_STOCK: 'Material credited back to warehouse stock',
+        AT_PROCESSOR: 'Material left at processor for future use',
+        WRITTEN_OFF: 'Material marked as written off',
+        TRANSFERRED: `Material transferred to another JWO`,
+        RETURNED_TO_SUPPLIER: 'Material marked for return to supplier',
+      };
+
+      logger.info(`[JWO] Inventory disposition for ${jwo.jobWorkNumber}: ${disposition}`);
+      return res.json({
+        success: true,
+        data: updated,
+        message: `${jwo.jobWorkNumber}: ${actionMessages[disposition]}`,
+      });
+    } catch (error) {
+      logger.error('Error disposing inventory:', error);
+      return res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to dispose inventory',
       });
     }
   }

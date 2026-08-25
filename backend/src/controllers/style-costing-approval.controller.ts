@@ -4,10 +4,52 @@ import prisma from '../config/database';
 import { logInfo } from '../utils/logger';
 import { calculateVariance } from '../services/costSheet.service';
 import { UnauthorizedError, NotFoundError, ValidationError, BusinessError, ConflictError } from '../errors';
+import { getCostSheetOrderDependents, consumerOrderNumbers } from '../services/helpers/cad-costing-provenance.helper';
+import type { Prisma } from '@prisma/client';
 
 // ============================================================================
 // APPROVAL & VERSIONING OPERATIONS
 // ============================================================================
+
+/**
+ * Copy the four relational item tables (fabric/trim/accessory/lace) from one cost
+ * sheet to another. Order-BOM generation reads ONLY these tables (the JSON detail
+ * columns are a display snapshot) — a copied sheet without its item rows produces
+ * an empty/broken BOM, so every flow that clones a style_costing row must call this
+ * inside the same transaction as the clone.
+ */
+async function copyCostSheetItemTables(
+  tx: Prisma.TransactionClient,
+  sourceCostingId: string,
+  targetCostingId: string
+): Promise<void> {
+  const [fabricItems, trimItems, accessoryItems, laceItems] = await Promise.all([
+    tx.style_costing_fabric_items.findMany({ where: { costingId: sourceCostingId } }),
+    tx.style_costing_trim_items.findMany({ where: { costingId: sourceCostingId } }),
+    tx.style_costing_accessory_items.findMany({ where: { costingId: sourceCostingId } }),
+    tx.style_costing_lace_items.findMany({ where: { costingId: sourceCostingId } }),
+  ]);
+
+  const reKey = <T extends { id: string; costingId: string; createdAt: Date; updatedAt: Date }>(rows: T[]) =>
+    rows.map(({ id: _id, costingId: _costingId, createdAt: _c, updatedAt: _u, ...rest }) => ({
+      ...rest,
+      id: randomUUID(),
+      costingId: targetCostingId,
+    }));
+
+  if (fabricItems.length > 0) {
+    await tx.style_costing_fabric_items.createMany({ data: reKey(fabricItems) as any });
+  }
+  if (trimItems.length > 0) {
+    await tx.style_costing_trim_items.createMany({ data: reKey(trimItems) as any });
+  }
+  if (accessoryItems.length > 0) {
+    await tx.style_costing_accessory_items.createMany({ data: reKey(accessoryItems) as any });
+  }
+  if (laceItems.length > 0) {
+    await tx.style_costing_lace_items.createMany({ data: reKey(laceItems) as any });
+  }
+}
 
 /**
  * Approve or reject cost sheet
@@ -63,6 +105,28 @@ export const approveCostSheet = async (req: Request, res: Response): Promise<voi
 
   if (!costSheet) {
     throw new NotFoundError('Cost sheet', id);
+  }
+
+  // Order-consumption freeze (2026-08-25): once a live order consumed this sheet
+  // (an active order BOM was generated from it, or an order-item costing is based
+  // on it), its approval must not be pulled out from under those frozen numbers —
+  // that de-anchors the BOM/MRP prices from any visible source (the ESSKY082/083/
+  // 089LS drift class). `lockedForOrders` was write-only dead code; this live
+  // check is the real lock. Sanctioned path: create a new cost-sheet version
+  // (the consumed version stays APPROVED as the order's source of record), or
+  // delete the order/BOM first.
+  const currentlyApproved = costSheet.approvalStatus === 'APPROVED' || costSheet.isApproved;
+  if (currentlyApproved && approvalStatus !== 'APPROVED') {
+    const consumers = await getCostSheetOrderDependents(id);
+    if (consumers.hasLiveConsumers) {
+      const orderList = consumerOrderNumbers(consumers).join(', ');
+      const verb = approvalStatus === 'REJECTED' ? 'reject' : 'unapprove';
+      throw new ConflictError(
+        `Cannot ${verb}: order(s) ${orderList} were created from this cost sheet. ` +
+          `Delete the order's BOM (or the order) first, or create a new cost sheet version instead.`,
+        { code: 'COST_SHEET_IN_USE', dependents: consumers }
+      );
+    }
   }
 
   // Build update data
@@ -286,6 +350,10 @@ export const createCostSheetVersion = async (req: Request, res: Response): Promi
         },
       },
     });
+
+    // Copy the relational item tables — the JSON columns copied above are only a
+    // display snapshot; Order-BOM generation reads these tables.
+    await copyCostSheetItemTables(tx, sourceCostSheet.id, created.id);
 
     // Link the old version to this new version (supersededBy relation)
     await tx.style_costing.update({
@@ -537,100 +605,107 @@ export const copyCostSheetForProcurement = async (req: Request, res: Response): 
 
   logInfo(`[copyCostSheetForProcurement] Creating PROCUREMENT_PRODUCTION cost sheet from COSTING ${sourceCostSheetId}`);
 
-  // Create new PROCUREMENT_PRODUCTION cost sheet
-  const newCostSheet = await prisma.style_costing.create({
-    data: {
-      id: randomUUID(),
-      styleId: sourceCostSheet.styleId,
-      purpose: 'PROCUREMENT_PRODUCTION',
-      copiedFromCostingId: sourceCostSheetId,
+  // Create new PROCUREMENT_PRODUCTION cost sheet (+ its relational item rows, atomically)
+  const newCostSheet = await prisma.$transaction(async (tx) => {
+    const created = await tx.style_costing.create({
+      data: {
+        id: randomUUID(),
+        styleId: sourceCostSheet.styleId,
+        purpose: 'PROCUREMENT_PRODUCTION',
+        copiedFromCostingId: sourceCostSheetId,
 
-      // Copy basic information
-      numberOfComponents: sourceCostSheet.numberOfComponents,
-      category: sourceCostSheet.category,
-      subCategory: sourceCostSheet.subCategory,
+        // Copy basic information
+        numberOfComponents: sourceCostSheet.numberOfComponents,
+        category: sourceCostSheet.category,
+        subCategory: sourceCostSheet.subCategory,
 
-      // Copy detail arrays
-      fabricDetails: sourceCostSheet.fabricDetails as any,
-      trimsDetails: sourceCostSheet.trimsDetails as any,
-      cmtCost: sourceCostSheet.cmtCost,
-      embroideryDetails: sourceCostSheet.embroideryDetails as any,
-      accessoriesDetails: sourceCostSheet.accessoriesDetails as any,
+        // Copy detail arrays
+        fabricDetails: sourceCostSheet.fabricDetails as any,
+        trimsDetails: sourceCostSheet.trimsDetails as any,
+        cmtCost: sourceCostSheet.cmtCost,
+        embroideryDetails: sourceCostSheet.embroideryDetails as any,
+        accessoriesDetails: sourceCostSheet.accessoriesDetails as any,
 
-      // Copy totals to budget fields
-      fabricBudget: sourceCostSheet.fabricTotal,
-      trimsBudget: sourceCostSheet.trimsTotal,
-      cmtBudget: sourceCostSheet.cmtTotal,
-      embroideryBudget: sourceCostSheet.embroideryTotal,
-      accessoriesBudget: sourceCostSheet.accessoriesTotal,
-      totalBudget: sourceCostSheet.totalProductCost,
+        // Copy totals to budget fields
+        fabricBudget: sourceCostSheet.fabricTotal,
+        trimsBudget: sourceCostSheet.trimsTotal,
+        cmtBudget: sourceCostSheet.cmtTotal,
+        embroideryBudget: sourceCostSheet.embroideryTotal,
+        accessoriesBudget: sourceCostSheet.accessoriesTotal,
+        totalBudget: sourceCostSheet.totalProductCost,
 
-      // Buffer percentages (use defaults from schema)
-      fabricBufferPercent: 5.0,
-      trimsBufferPercent: 10.0,
-      cmtBufferPercent: 5.0,
-      embroideryBufferPercent: 8.0,
-      accessoriesBufferPercent: 10.0,
+        // Buffer percentages (use defaults from schema)
+        fabricBufferPercent: 5.0,
+        trimsBufferPercent: 10.0,
+        cmtBufferPercent: 5.0,
+        embroideryBufferPercent: 8.0,
+        accessoriesBufferPercent: 10.0,
 
-      // Copy existing totals (as starting point)
-      fabricTotal: sourceCostSheet.fabricTotal,
-      trimsTotal: sourceCostSheet.trimsTotal,
-      cmtTotal: sourceCostSheet.cmtTotal,
-      embroideryTotal: sourceCostSheet.embroideryTotal,
-      accessoriesTotal: sourceCostSheet.accessoriesTotal,
-      totalProductCost: sourceCostSheet.totalProductCost,
+        // Copy existing totals (as starting point)
+        fabricTotal: sourceCostSheet.fabricTotal,
+        trimsTotal: sourceCostSheet.trimsTotal,
+        cmtTotal: sourceCostSheet.cmtTotal,
+        embroideryTotal: sourceCostSheet.embroideryTotal,
+        accessoriesTotal: sourceCostSheet.accessoriesTotal,
+        totalProductCost: sourceCostSheet.totalProductCost,
 
-      // Copy value loss and markup
-      valueLossPercent: sourceCostSheet.valueLossPercent,
-      valueLossAmount: sourceCostSheet.valueLossAmount,
-      markupPercent: sourceCostSheet.markupPercent,
-      markupAmount: sourceCostSheet.markupAmount,
+        // Copy value loss and markup
+        valueLossPercent: sourceCostSheet.valueLossPercent,
+        valueLossAmount: sourceCostSheet.valueLossAmount,
+        markupPercent: sourceCostSheet.markupPercent,
+        markupAmount: sourceCostSheet.markupAmount,
 
-      // Actuals initially null (to be filled during procurement)
-      fabricActual: null,
-      trimsActual: null,
-      cmtActual: null,
-      embroideryActual: null,
-      accessoriesActual: null,
-      totalActual: null,
+        // Actuals initially null (to be filled during procurement)
+        fabricActual: null,
+        trimsActual: null,
+        cmtActual: null,
+        embroideryActual: null,
+        accessoriesActual: null,
+        totalActual: null,
 
-      // Variance fields initially null (auto-calculated later)
-      fabricVariance: null,
-      fabricVariancePercent: null,
-      trimsVariance: null,
-      trimsVariancePercent: null,
-      cmtVariance: null,
-      cmtVariancePercent: null,
-      embroideryVariance: null,
-      embroideryVariancePercent: null,
-      accessoriesVariance: null,
-      accessoriesVariancePercent: null,
-      totalVariance: null,
-      totalVariancePercent: null,
-      varianceStatus: 'PENDING',
+        // Variance fields initially null (auto-calculated later)
+        fabricVariance: null,
+        fabricVariancePercent: null,
+        trimsVariance: null,
+        trimsVariancePercent: null,
+        cmtVariance: null,
+        cmtVariancePercent: null,
+        embroideryVariance: null,
+        embroideryVariancePercent: null,
+        accessoriesVariance: null,
+        accessoriesVariancePercent: null,
+        totalVariance: null,
+        totalVariancePercent: null,
+        varianceStatus: 'PENDING',
 
-      // Start with version 1 (new version sequence for procurement)
-      version: 1,
-      versionDate: new Date(),
-      versionReason: `Copied from COSTING cost sheet (ID: ${sourceCostSheetId}) for procurement`,
+        // Start with version 1 (new version sequence for procurement)
+        version: 1,
+        versionDate: new Date(),
+        versionReason: `Copied from COSTING cost sheet (ID: ${sourceCostSheetId}) for procurement`,
 
-      // Not approved initially (requires review and approval)
-      isApproved: false,
-      approvedById: null,
-      approvedAt: null,
+        // Not approved initially (requires review and approval)
+        isApproved: false,
+        approvedById: null,
+        approvedAt: null,
 
-      // Track creation
-      createdById: req.user?.userId || sourceCostSheet.createdById,
-    },
-    include: {
-      styles: {
-        select: {
-          id: true,
-          styleCode: true,
-          styleName: true,
+        // Track creation
+        createdById: req.user?.userId || sourceCostSheet.createdById,
+      },
+      include: {
+        styles: {
+          select: {
+            id: true,
+            styleCode: true,
+            styleName: true,
+          },
         },
       },
-    },
+    });
+
+    // Copy the relational item tables — Order-BOM generation reads these, not the JSON snapshot
+    await copyCostSheetItemTables(tx, sourceCostSheetId, created.id);
+
+    return created;
   });
 
   logInfo(`[copyCostSheetForProcurement] Successfully created PROCUREMENT_PRODUCTION cost sheet ${newCostSheet.id}`, {

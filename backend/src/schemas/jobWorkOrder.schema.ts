@@ -175,6 +175,18 @@ export const cancelJwoSchema = z.object({
 
 export type CancelJwoInput = z.infer<typeof cancelJwoSchema>;
 
+/**
+ * POST /api/job-work-orders/:id/dispose-inventory — two-step cancel flow.
+ * After a JWO is cancelled, user decides what happens to the material at the processor.
+ */
+export const disposeInventorySchema = z.object({
+  disposition: z.enum(['RETURNED_TO_STOCK', 'AT_PROCESSOR', 'WRITTEN_OFF', 'TRANSFERRED', 'RETURNED_TO_SUPPLIER']),
+  notes: z.string().max(500).optional(),
+  targetJwoId: z.string().uuid().optional(),
+});
+
+export type DisposeInventoryInput = z.infer<typeof disposeInventorySchema>;
+
 export type IssueJwoInput = z.infer<typeof issueJwoSchema>;
 
 /**

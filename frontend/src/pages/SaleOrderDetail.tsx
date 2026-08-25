@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle, Factory, Package, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Factory, Package, ShoppingBag, Pencil, Plus, Trash2, Star } from 'lucide-react';
 import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SmartConfirmDialog } from '@/components/SmartConfirmDialog';
+import { SaleOrderForm, CancelOrderDialog } from '@/components/sale-order';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,8 +20,19 @@ import {
   allocateStock,
   getAvailableStock,
   startProduction,
+  updateSaleOrder,
+  cancelSaleOrder,
+  addBuyerPo,
+  removeBuyerPo,
+  setPrimaryBuyerPo,
 } from '@/services/saleOrder.service';
-import type { SaleOrderStatus, SaleOrderItem, AvailableFGStock } from '@/types/saleOrder.types';
+import type {
+  SaleOrderStatus,
+  SaleOrderItem,
+  AvailableFGStock,
+  UpdateSORequest,
+  CreateSORequest,
+} from '@/types/saleOrder.types';
 
 const STATUS_COLORS: Record<SaleOrderStatus, string> = {
   DRAFT: 'bg-muted text-foreground',
@@ -46,6 +58,8 @@ export default function SaleOrderDetail() {
   const queryClient = useQueryClient();
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [startProdDialogOpen, setStartProdDialogOpen] = useState(false);
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [prodDeliveryDate, setProdDeliveryDate] = useState('');
   const [prodPriority, setProdPriority] = useState('MEDIUM');
   const [prodRemarks, setProdRemarks] = useState('');
@@ -53,6 +67,9 @@ export default function SaleOrderDetail() {
   const [selectedItem, setSelectedItem] = useState<SaleOrderItem | null>(null);
   const [allocateQty, setAllocateQty] = useState('');
   const [selectedFgStockId, setSelectedFgStockId] = useState('');
+  const [addPoDialogOpen, setAddPoDialogOpen] = useState(false);
+  const [newPoNumber, setNewPoNumber] = useState('');
+  const [newPoRemarks, setNewPoRemarks] = useState('');
 
   // BUG-ORD14 fix: standardized query key
   const { data: so, isLoading } = useQuery({
@@ -67,9 +84,9 @@ export default function SaleOrderDetail() {
       getAvailableStock({
         styleId: selectedItem!.styleId,
         colorId: selectedItem!.colorId || undefined,
-        sizeId: selectedItem!.sizeId,
+        sizeId: selectedItem!.sizeId || undefined,
       }),
-    enabled: !!selectedItem && allocateDialogOpen,
+    enabled: !!selectedItem && !!selectedItem.sizeId && allocateDialogOpen,
   });
 
   const confirmMutation = useMutation({
@@ -127,6 +144,78 @@ export default function SaleOrderDetail() {
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: (data: UpdateSORequest) => updateSaleOrder(id!, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') });
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all });
+      toast.success('Sale Order updated');
+      setEditSheetOpen(false);
+    },
+    onError: (error: unknown) => {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr?.response?.data?.message || 'Failed to update sale order');
+    },
+  });
+
+  const handleEditSubmit = async (data: CreateSORequest | UpdateSORequest) => {
+    updateMutation.mutate(data as UpdateSORequest);
+  };
+
+  const addBuyerPoMutation = useMutation({
+    mutationFn: ({ buyerPoNumber, remarks }: { buyerPoNumber: string; remarks?: string }) =>
+      addBuyerPo(id!, buyerPoNumber, remarks),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') });
+      toast.success('Buyer PO added');
+      setAddPoDialogOpen(false);
+      setNewPoNumber('');
+      setNewPoRemarks('');
+    },
+    onError: (error: unknown) => {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr?.response?.data?.message || 'Failed to add buyer PO');
+    },
+  });
+
+  const removeBuyerPoMutation = useMutation({
+    mutationFn: (poId: string) => removeBuyerPo(poId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') });
+      toast.success('Buyer PO removed');
+    },
+    onError: (error: unknown) => {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr?.response?.data?.message || 'Failed to remove buyer PO');
+    },
+  });
+
+  const setPrimaryBuyerPoMutation = useMutation({
+    mutationFn: (poId: string) => setPrimaryBuyerPo(poId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') });
+      toast.success('Primary buyer PO updated');
+    },
+    onError: (error: unknown) => {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr?.response?.data?.message || 'Failed to set primary buyer PO');
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: () => cancelSaleOrder(id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') });
+      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all });
+      toast.success('Sale Order cancelled');
+      setCancelDialogOpen(false);
+    },
+    onError: (error: unknown) => {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr?.response?.data?.message || 'Failed to cancel sale order');
+    },
+  });
+
   if (isLoading) {
     return <div className="p-6 text-center text-muted-foreground">Loading...</div>;
   }
@@ -139,6 +228,8 @@ export default function SaleOrderDetail() {
   const canAllocate = ['CONFIRMED', 'PARTIALLY_ALLOCATED'].includes(so.status);
   const activeProductionOrders = (so.productionOrders || []).filter((po) => po.status !== 'CANCELLED');
   const canStartProduction = canAllocate && activeProductionOrders.length === 0 && (so.items?.length || 0) > 0;
+  const isTerminal = ['CANCELLED', 'DELIVERED'].includes(so.status);
+  const canShowCancelButton = !isTerminal;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
@@ -167,6 +258,17 @@ export default function SaleOrderDetail() {
           </Badge>
         </div>
         <div className="flex gap-2">
+          {isDraft && (
+            <Button variant="outline" onClick={() => setEditSheetOpen(true)}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          )}
+          {canShowCancelButton && (
+            <Button variant="outline" onClick={() => setCancelDialogOpen(true)}>
+              Cancel Order
+            </Button>
+          )}
           {isDraft && so.items && so.items.length > 0 && (
             <Button onClick={() => setConfirmDialogOpen(true)}>
               <CheckCircle className="h-4 w-4 mr-2" />
@@ -281,6 +383,75 @@ export default function SaleOrderDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Buyer POs Card */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm">Buyer PO Numbers</CardTitle>
+            <Button variant="outline" size="sm" onClick={() => setAddPoDialogOpen(true)}>
+              <Plus className="h-3 w-3 mr-1" />
+              Add PO
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {(!so.buyerPos || so.buyerPos.length === 0) && !so.buyerPoNumber ? (
+            <p className="text-sm text-muted-foreground">No buyer PO numbers</p>
+          ) : (
+            <div className="space-y-2">
+              {so.buyerPos?.map((po) => (
+                <div
+                  key={po.id}
+                  className={`flex items-center justify-between px-3 py-2 rounded-md text-sm ${
+                    po.isPrimary ? 'bg-info-muted border border-info/20' : 'bg-muted'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {po.isPrimary && <Star className="h-3 w-3 text-info fill-info" />}
+                    <span className="font-mono font-medium">{po.buyerPoNumber}</span>
+                    {po.remarks && <span className="text-muted-foreground">- {po.remarks}</span>}
+                    {po.isPrimary && (
+                      <Badge variant="outline" className="text-xs">
+                        Primary
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {!po.isPrimary && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        title="Set as primary"
+                        onClick={() => setPrimaryBuyerPoMutation.mutate(po.id)}
+                        disabled={setPrimaryBuyerPoMutation.isPending}
+                      >
+                        <Star className="h-3 w-3" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive hover:text-destructive"
+                      title="Remove"
+                      onClick={() => removeBuyerPoMutation.mutate(po.id)}
+                      disabled={removeBuyerPoMutation.isPending}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {so.buyerPos?.length === 0 && so.buyerPoNumber && (
+                <div className="text-sm text-muted-foreground italic">
+                  Legacy PO: {so.buyerPoNumber} (add a PO to migrate)
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Items */}
       <Card>
@@ -568,6 +739,81 @@ export default function SaleOrderDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Sale Order Sheet */}
+      <SaleOrderForm
+        open={editSheetOpen}
+        onOpenChange={setEditSheetOpen}
+        onSubmit={handleEditSubmit}
+        saleOrder={so}
+        mode="edit"
+        isSubmitting={updateMutation.isPending}
+      />
+
+      {/* Add Buyer PO Dialog */}
+      <Dialog
+        open={addPoDialogOpen}
+        onOpenChange={(open) => {
+          setAddPoDialogOpen(open);
+          if (!open) {
+            setNewPoNumber('');
+            setNewPoRemarks('');
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Buyer PO</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>PO Number *</Label>
+              <Input
+                value={newPoNumber}
+                onChange={(e) => setNewPoNumber(e.target.value)}
+                placeholder="e.g., HOK-2024-0456"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Remarks (optional)</Label>
+              <Input
+                value={newPoRemarks}
+                onChange={(e) => setNewPoRemarks(e.target.value)}
+                placeholder="Any notes..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddPoDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!newPoNumber.trim()) {
+                  toast.error('PO number is required');
+                  return;
+                }
+                addBuyerPoMutation.mutate({
+                  buyerPoNumber: newPoNumber.trim(),
+                  remarks: newPoRemarks.trim() || undefined,
+                });
+              }}
+              disabled={addBuyerPoMutation.isPending}
+            >
+              {addBuyerPoMutation.isPending ? 'Adding...' : 'Add'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Order Dialog */}
+      <CancelOrderDialog
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        onConfirm={() => cancelMutation.mutate()}
+        saleOrder={so}
+        isLoading={cancelMutation.isPending}
+      />
     </div>
   );
 }

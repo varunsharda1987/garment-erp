@@ -623,6 +623,16 @@ export const JobWorkOrderStatusEnum = z.enum([
 ]);
 export type JobWorkOrderStatus = z.infer<typeof JobWorkOrderStatusEnum>;
 
+export const InventoryDispositionEnum = z.enum([
+  'PENDING',
+  'RETURNED_TO_STOCK',
+  'AT_PROCESSOR',
+  'WRITTEN_OFF',
+  'TRANSFERRED',
+  'RETURNED_TO_SUPPLIER',
+]);
+export type InventoryDisposition = z.infer<typeof InventoryDispositionEnum>;
+
 export const PrintMethodEnum = z.enum(['SCREEN_MACHINE', 'SCREEN_HAND', 'ROTARY', 'BLOCK']);
 export type PrintMethod = z.infer<typeof PrintMethodEnum>;
 

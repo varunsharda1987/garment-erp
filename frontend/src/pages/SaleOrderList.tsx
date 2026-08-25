@@ -20,11 +20,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { SaleOrderForm } from '@/components/sale-order';
 import { getAllSaleOrders, createSaleOrder, deleteSaleOrder } from '@/services/saleOrder.service';
-import type { SaleOrder, SaleOrderStatus, CreateSORequest } from '@/types/saleOrder.types';
+import type { SaleOrder, SaleOrderStatus, CreateSORequest, UpdateSORequest } from '@/types/saleOrder.types';
 
 const STATUS_COLORS: Record<SaleOrderStatus, string> = {
   DRAFT: 'bg-muted text-foreground',
@@ -45,14 +44,7 @@ export default function SaleOrderList() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [soToDelete, setSoToDelete] = useState<SaleOrder | null>(null);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-
-  // Create form state
-  const [customerSearch, setCustomerSearch] = useState('');
-  const [selectedCustomerId, setSelectedCustomerId] = useState('');
-  const [selectedCustomerLabel, setSelectedCustomerLabel] = useState('');
-  const [expectedShipDate, setExpectedShipDate] = useState('');
-  const [remarks, setRemarks] = useState('');
+  const [createSheetOpen, setCreateSheetOpen] = useState(false);
 
   // BUG-ORD14 fix: standardized query key
   const { data, isLoading } = useQuery({
@@ -66,26 +58,12 @@ export default function SaleOrderList() {
       }),
   });
 
-  // Search customers using existing customer API
-  const { data: customerResults } = useQuery({
-    queryKey: ['customers-search', customerSearch],
-    queryFn: async () => {
-      const { default: api } = await import('../lib/api');
-      // GET /customers supports ?search (customerQuerySchema); there is no /customers/search route.
-      // Response is the paginated shape { data: [...], pagination: {...} } — read .data.data.
-      const response = await api.get('/customers', { params: { search: customerSearch, limit: 20 } });
-      return response.data.data;
-    },
-    enabled: customerSearch.length >= 2,
-  });
-
   const createMutation = useMutation({
     mutationFn: createSaleOrder,
     onSuccess: (created) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all }); // BUG-ORD14 fix: standardized query key
       toast.success('Sale Order created');
-      setCreateDialogOpen(false);
-      resetForm();
+      setCreateSheetOpen(false);
       navigate(`/sale-orders/${created.id}`);
     },
     onError: (error: unknown) => {
@@ -108,28 +86,8 @@ export default function SaleOrderList() {
     },
   });
 
-  const resetForm = () => {
-    setCustomerSearch('');
-    setSelectedCustomerId('');
-    setSelectedCustomerLabel('');
-    setExpectedShipDate('');
-    setRemarks('');
-  };
-
-  const handleCreate = () => {
-    if (!selectedCustomerId) {
-      toast.error('Please select a customer');
-      return;
-    }
-
-    const request: CreateSORequest = {
-      customerId: selectedCustomerId,
-      expectedShipDate: expectedShipDate || undefined,
-      remarks: remarks || undefined,
-      items: [], // Items will be added in detail page
-    };
-
-    createMutation.mutate(request);
+  const handleCreateSubmit = async (data: CreateSORequest | UpdateSORequest) => {
+    createMutation.mutate(data as CreateSORequest);
   };
 
   const formatCurrency = (amount: number) => {
@@ -146,12 +104,7 @@ export default function SaleOrderList() {
           </h1>
           <p className="text-muted-foreground">Sell from existing finished goods stock</p>
         </div>
-        <Button
-          onClick={() => {
-            resetForm();
-            setCreateDialogOpen(true);
-          }}
-        >
+        <Button onClick={() => setCreateSheetOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           New Sale Order
         </Button>
@@ -229,8 +182,39 @@ export default function SaleOrderList() {
                   >
                     <TableCell className="font-mono font-medium">
                       {so.saleOrderNumber}
-                      {so.buyerPoNumber && (
-                        <div className="text-xs text-muted-foreground font-normal">PO {so.buyerPoNumber}</div>
+                      {(so.buyerPos?.length ? so.buyerPos.length > 0 : so.buyerPoNumber) && (
+                        <div className="text-xs text-muted-foreground font-normal">
+                          {so.buyerPos?.length ? (
+                            so.buyerPos.length === 1 ? (
+                              <>PO {so.buyerPos[0].buyerPoNumber}</>
+                            ) : (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-help">
+                                      PO{' '}
+                                      {so.buyerPos.find((p) => p.isPrimary)?.buyerPoNumber ||
+                                        so.buyerPos[0].buyerPoNumber}
+                                      <span className="ml-1 text-info">+{so.buyerPos.length - 1}</span>
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <div className="space-y-1">
+                                      {so.buyerPos.map((po) => (
+                                        <div key={po.id}>
+                                          {po.isPrimary ? '★ ' : ''}
+                                          {po.buyerPoNumber}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )
+                          ) : (
+                            <>PO {so.buyerPoNumber}</>
+                          )}
+                        </div>
                       )}
                     </TableCell>
                     <TableCell>
@@ -300,61 +284,14 @@ export default function SaleOrderList() {
         </CardContent>
       </Card>
 
-      {/* Create Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>New Sale Order</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Customer *</Label>
-              <Input
-                placeholder="Search customers..."
-                value={selectedCustomerLabel || customerSearch}
-                onChange={(e) => {
-                  setCustomerSearch(e.target.value);
-                  setSelectedCustomerId('');
-                  setSelectedCustomerLabel('');
-                }}
-              />
-              {customerSearch.length >= 2 && !selectedCustomerId && customerResults && (
-                <div className="border rounded-md max-h-40 overflow-y-auto">
-                  {(customerResults as Array<{ id: string; code: string; name: string }>).map((c) => (
-                    <div
-                      key={c.id}
-                      className="px-3 py-2 hover:bg-muted cursor-pointer text-sm"
-                      onClick={() => {
-                        setSelectedCustomerId(c.id);
-                        setSelectedCustomerLabel(`${c.code} - ${c.name}`);
-                        setCustomerSearch('');
-                      }}
-                    >
-                      <span className="font-mono">{c.code}</span> — {c.name}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label>Expected Ship Date</Label>
-              <Input type="date" value={expectedShipDate} onChange={(e) => setExpectedShipDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Remarks</Label>
-              <Textarea placeholder="Optional notes..." value={remarks} onChange={(e) => setRemarks(e.target.value)} />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreate} disabled={createMutation.isPending}>
-              {createMutation.isPending ? 'Creating...' : 'Create Sale Order'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Create Sale Order Sheet */}
+      <SaleOrderForm
+        open={createSheetOpen}
+        onOpenChange={setCreateSheetOpen}
+        onSubmit={handleCreateSubmit}
+        mode="create"
+        isSubmitting={createMutation.isPending}
+      />
 
       {/* Delete Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

@@ -392,49 +392,22 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     });
 
     if (existingBomCount === 0) {
-      // Parse cost sheet JSON to check for trims/accessories
-      const csTrims =
-        (costSheet.trimsDetails as unknown as Array<{
-          trimName?: string;
-          trimRate?: number;
-          trimQuantity?: number;
-          materialType?: string;
-          threadId?: string;
-          buttonId?: string;
-          zipperId?: string;
-          elasticId?: string;
-          labelId?: string;
-          packagingId?: string;
-          materialId?: string;
-          hookEyeId?: string;
-          snapButtonId?: string;
-          buckleId?: string;
-          beltId?: string;
-          velcroId?: string;
-          drawstringId?: string;
-          ribbonId?: string;
-          sequinId?: string;
-          beadId?: string;
-          motifId?: string;
-          interliningId?: string;
-          paddingId?: string;
-          otherFastenerId?: string;
-          otherTapeId?: string;
-          otherDecorativeId?: string;
-          otherFunctionalId?: string;
-          isNotApplicable?: boolean;
-        }>) || [];
-      const csAccessories =
-        (costSheet.accessoriesDetails as unknown as Array<{
-          accessoryName?: string;
-          accessoryRate?: number;
-          accessoryQuantity?: number;
-          labelId?: string;
-          packagingId?: string;
-          materialId?: string;
-          materialType?: string;
-          isNotApplicable?: boolean;
-        }>) || [];
+      // Relational item tables are the source of truth (the JSON detail columns are only a
+      // display snapshot) — read trims/accessories from style_costing_trim_items /
+      // style_costing_accessory_items, converting Decimals to numbers so the `|| 1` /
+      // `?? 0` fallbacks below behave like they did on plain JSON numbers.
+      const csTrims = (((costSheet as any).trimItems || []) as any[]).map((t) => ({
+        ...t,
+        trimRate: t.trimRate != null ? Number(t.trimRate) : undefined,
+        trimQuantity: t.trimQuantity != null ? Number(t.trimQuantity) : undefined,
+        isNotApplicable: t.isNotApplicable === true,
+      }));
+      const csAccessories = (((costSheet as any).accessoryItems || []) as any[]).map((a) => ({
+        ...a,
+        accessoryRate: a.accessoryRate != null ? Number(a.accessoryRate) : undefined,
+        accessoryQuantity: a.accessoryQuantity != null ? Number(a.accessoryQuantity) : undefined,
+        isNotApplicable: a.isNotApplicable === true,
+      }));
 
       if (csTrims.length > 0 || csAccessories.length > 0) {
         logInfo('style_material_bom is empty — auto-populating from cost sheet', {
@@ -562,128 +535,80 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
 
     const nextVersion = latestBOM ? latestBOM.version + 1 : 1;
 
-    // Parse cost sheet details for prices
-    const fabricDetails =
-      (costSheet.fabricDetails as unknown as Array<{
-        fabricName?: string;
-        fabricRate?: number;
-        fabricAverage?: number;
-        fabricTotal?: number;
-        fabricWidth?: number;
-        fabricId?: string;
-        sourcingStrategy?: string;
-        processorId?: string;
-        greigeCost?: number;
-        processingCost?: number;
-        rateCardId?: string;
-      }>) || [];
-
-    // Phase 4: Prefer relational trimItems/accessoryItems, fall back to JSON for backwards compatibility
-    // The relational tables are the SINGLE SOURCE OF TRUTH (all FK fields preserved)
+    // Relational item tables are the SINGLE SOURCE OF TRUTH (all FK fields preserved).
+    // The JSON detail columns (trimsDetails/accessoriesDetails/fabricDetails) are a display
+    // snapshot only — the legacy JSON fallback branches were removed (2026-08-25): every
+    // live cost sheet has relational rows, and the copy/version flows now clone them too.
     const trimItemsRelational = (costSheet as any).trimItems || [];
     const accessoryItemsRelational = (costSheet as any).accessoryItems || [];
 
-    // Convert relational to the same shape as JSON for uniform downstream processing
-    const trimsDetails: CostSheetTrimDetail[] =
-      trimItemsRelational.length > 0
-        ? trimItemsRelational.map((t: any) => ({
-            trimName: t.trimName,
-            trimRate: Number(t.trimRate) || 0,
-            trimQuantity: Number(t.trimQuantity) || 0,
-            trimTotal: Number(t.trimTotal) || 0,
-            bomId: t.bomId,
-            unit: t.unit,
-            materialType: t.materialType,
-            isNotApplicable: t.isNotApplicable === true,
-            threadId: t.threadId,
-            buttonId: t.buttonId,
-            zipperId: t.zipperId,
-            elasticId: t.elasticId,
-            labelId: t.labelId,
-            packagingId: t.packagingId,
-            materialId: t.materialId,
-            hookEyeId: t.hookEyeId,
-            snapButtonId: t.snapButtonId,
-            buckleId: t.buckleId,
-            beltId: t.beltId,
-            velcroId: t.velcroId,
-            drawstringId: t.drawstringId,
-            ribbonId: t.ribbonId,
-            sequinId: t.sequinId,
-            beadId: t.beadId,
-            motifId: t.motifId,
-            interliningId: t.interliningId,
-            paddingId: t.paddingId,
-            otherFastenerId: t.otherFastenerId,
-            otherTapeId: t.otherTapeId,
-            otherDecorativeId: t.otherDecorativeId,
-            otherFunctionalId: t.otherFunctionalId,
-          }))
-        : // Fallback to JSON for old cost sheets without relational data
-          (costSheet.trimsDetails as unknown as Array<{
-            trimName?: string;
-            trimRate?: number;
-            trimQuantity?: number;
-            trimTotal?: number;
-            bomId?: string;
-            unit?: string;
-            materialType?: string;
-            threadId?: string;
-            buttonId?: string;
-            zipperId?: string;
-            elasticId?: string;
-            labelId?: string;
-            packagingId?: string;
-            materialId?: string;
-            hookEyeId?: string;
-            snapButtonId?: string;
-            buckleId?: string;
-            beltId?: string;
-            velcroId?: string;
-            drawstringId?: string;
-            ribbonId?: string;
-            sequinId?: string;
-            beadId?: string;
-            motifId?: string;
-            interliningId?: string;
-            paddingId?: string;
-            otherFastenerId?: string;
-            otherTapeId?: string;
-            otherDecorativeId?: string;
-            otherFunctionalId?: string;
-            isNotApplicable?: boolean;
-          }>) || [];
+    // An empty relational trim list on a sheet whose JSON snapshot has trims means a legacy
+    // sheet that predates the relational tables — re-save it to populate them. Warn loudly
+    // instead of silently emitting a trimless BOM. (Create schema enforces ≥1 trim, so this
+    // only fires for pre-migration sheets.)
+    if (
+      trimItemsRelational.length === 0 &&
+      Array.isArray(costSheet.trimsDetails) &&
+      costSheet.trimsDetails.length > 0
+    ) {
+      logWarn(
+        `[OrderBOM] Cost sheet ${input.costSheetId} has trims in its JSON snapshot but no relational ` +
+          `style_costing_trim_items rows — legacy sheet. Re-save the cost sheet to populate them; ` +
+          `generating this BOM WITHOUT trims.`
+      );
+    }
 
-    const accessoriesDetails: CostSheetAccessoryDetail[] =
-      accessoryItemsRelational.length > 0
-        ? accessoryItemsRelational.map((a: any) => ({
-            accessoryName: a.accessoryName,
-            accessoryRate: Number(a.accessoryRate) || 0,
-            accessoryQuantity: Number(a.accessoryQuantity) || 0,
-            accessoryTotal: Number(a.accessoryTotal) || 0,
-            labelId: a.labelId,
-            packagingId: a.packagingId,
-            materialId: a.materialId,
-            materialType: a.materialType,
-            isNotApplicable: a.isNotApplicable === true,
-          }))
-        : // Fallback to JSON for old cost sheets
-          (costSheet.accessoriesDetails as unknown as Array<{
-            accessoryName?: string;
-            accessoryRate?: number;
-            accessoryQuantity?: number;
-            accessoryTotal?: number;
-            labelId?: string;
-            packagingId?: string;
-            materialId?: string;
-            materialType?: string;
-            isNotApplicable?: boolean;
-          }>) || [];
+    // Convert relational to the plain-number shape used by downstream matching
+    const trimsDetails: CostSheetTrimDetail[] = trimItemsRelational.map((t: any) => ({
+      trimName: t.trimName,
+      trimRate: Number(t.trimRate) || 0,
+      trimQuantity: Number(t.trimQuantity) || 0,
+      trimTotal: Number(t.trimTotal) || 0,
+      bomId: t.bomId,
+      unit: t.unit,
+      materialType: t.materialType,
+      isNotApplicable: t.isNotApplicable === true,
+      threadId: t.threadId,
+      buttonId: t.buttonId,
+      zipperId: t.zipperId,
+      elasticId: t.elasticId,
+      labelId: t.labelId,
+      packagingId: t.packagingId,
+      materialId: t.materialId,
+      hookEyeId: t.hookEyeId,
+      snapButtonId: t.snapButtonId,
+      buckleId: t.buckleId,
+      beltId: t.beltId,
+      velcroId: t.velcroId,
+      drawstringId: t.drawstringId,
+      ribbonId: t.ribbonId,
+      sequinId: t.sequinId,
+      beadId: t.beadId,
+      motifId: t.motifId,
+      interliningId: t.interliningId,
+      paddingId: t.paddingId,
+      otherFastenerId: t.otherFastenerId,
+      otherTapeId: t.otherTapeId,
+      otherDecorativeId: t.otherDecorativeId,
+      otherFunctionalId: t.otherFunctionalId,
+    }));
+
+    // Zero accessories is legitimate (accessoriesDetails is optional on the create schema) —
+    // an empty relational list simply means the sheet has none.
+    const accessoriesDetails: CostSheetAccessoryDetail[] = accessoryItemsRelational.map((a: any) => ({
+      accessoryName: a.accessoryName,
+      accessoryRate: Number(a.accessoryRate) || 0,
+      accessoryQuantity: Number(a.accessoryQuantity) || 0,
+      accessoryTotal: Number(a.accessoryTotal) || 0,
+      labelId: a.labelId,
+      packagingId: a.packagingId,
+      materialId: a.materialId,
+      materialType: a.materialType,
+      isNotApplicable: a.isNotApplicable === true,
+    }));
 
     logDebug('[OrderBOM] Trim/Accessory source', {
-      trimSource: trimItemsRelational.length > 0 ? 'relational' : 'JSON',
       trimCount: trimsDetails.length,
-      accessorySource: accessoryItemsRelational.length > 0 ? 'relational' : 'JSON',
       accessoryCount: accessoriesDetails.length,
     });
 
@@ -1050,15 +975,21 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
       }
     }
 
-    // Add fabric items - prefer relational fabricItems (has fabricId), fallback to JSON for legacy
-    // P3.5+ wastage unification: fetch fabric default wastage for fabric section
-    const fabricDefaultWastageForFabrics = await systemSettingsService.getNumberDefault(
-      'FABRIC_DEFAULT_WASTAGE_PERCENT'
-    );
+    // Add fabric items from the relational style_costing_fabric_items table — the ONLY
+    // source Order-BOM trusts. The legacy JSON-fabricDetails fallback was removed
+    // (2026-08-25): it silently dropped fabricWidthInches/selectedCadId/colorName/rateCardId
+    // on every BOM line it produced. A sheet with no relational fabric rows is a
+    // pre-migration sheet — re-save it (the create schema enforces ≥1 fabric).
     const hasFabricItemsRelation = costSheet.fabricItems && costSheet.fabricItems.length > 0;
+    if (!hasFabricItemsRelation) {
+      throw new BusinessError(
+        `Cost sheet has no fabric items in style_costing_fabric_items (legacy sheet). ` +
+          `Open the cost sheet and re-save it to populate its fabric items, then generate the Order BOM again.`
+      );
+    }
 
-    if (hasFabricItemsRelation) {
-      // Use relational fabric items (newer, has fabricId for proper code display)
+    {
+      // Use relational fabric items (has fabricId for proper code display)
       for (let i = 0; i < costSheet.fabricItems.length; i++) {
         const fabricItem = costSheet.fabricItems[i];
 
@@ -1180,128 +1111,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           selectedCadId: fabricItem.fabricCADId || null,
         });
       }
-    } else {
-      // Fallback to JSON fabricDetails (primary path — relational table is not populated)
-      for (let i = 0; i < fabricDetails.length; i++) {
-        const fabric = fabricDetails[i];
-        const quantityPerGarment = fabric.fabricAverage;
-        if (!quantityPerGarment || quantityPerGarment <= 0) {
-          throw new Error(
-            `Fabric average (consumption per garment) not set for "${fabric.fabricName || 'Unknown fabric'}". ` +
-              `Set the fabric average in the cost sheet before approving BOM.`
-          );
-        }
-        const totalQuantity = quantityPerGarment * orderQuantity;
-        const wastagePercent = fabricDefaultWastageForFabrics;
-        const totalWithWastage = totalQuantity * (1 + wastagePercent / 100);
-
-        // Resolve fabricId: use JSON value, then direct lookup from style_fabrics (set during CAD approval)
-        let fabricId = fabric.fabricId || null;
-
-        if (!fabricId && costSheet.styleId) {
-          const styleComponents = await this.prisma.style_components.findMany({
-            where: { styleId: costSheet.styleId },
-            select: { id: true },
-          });
-          if (styleComponents.length > 0) {
-            // P1.9: Include fabric relation for name-based matching instead of index
-            const styleFabrics = await this.prisma.style_fabrics.findMany({
-              where: {
-                componentId: { in: styleComponents.map((c) => c.id) },
-                fabricId: { not: null },
-              },
-              select: { fabricId: true, fabric: { select: { fabricName: true } } },
-            });
-            // P1.9: Match by fabricName instead of index
-            const jsonFabricName = (fabric.fabricName || '').toLowerCase().trim();
-            const matchedStyleFabric = styleFabrics.find(
-              (sf) => sf.fabric?.fabricName && sf.fabric.fabricName.toLowerCase().trim() === jsonFabricName
-            );
-            if (matchedStyleFabric) {
-              fabricId = matchedStyleFabric.fabricId;
-              logInfo('Resolved fabricId via style_fabrics (name match)', {
-                fabricName: fabric.fabricName,
-                fabricId,
-              });
-            } else if (styleFabrics.length === 1) {
-              // Single fabric fallback (unambiguous)
-              fabricId = styleFabrics[0].fabricId;
-              logInfo('Resolved fabricId via style_fabrics (single fabric)', { fabricId });
-            } else if (styleFabrics[i]) {
-              // P1.9: Index fallback with warning
-              fabricId = styleFabrics[i].fabricId;
-              logWarn(
-                `[P1.9] order-bom JSON path: Index-based fallback for fabric "${fabric.fabricName}" at index ${i}. ` +
-                  `Consider ensuring fabricId is set on JSON fabric items.`
-              );
-            }
-          }
-        }
-
-        // Derive sourcingStrategy from fabric_width_cad if missing (backward compat for old cost sheets)
-        let sourcingStrategy = fabric.sourcingStrategy || null;
-        let processorId = fabric.processorId || null;
-        let greigeCost = fabric.greigeCost ? Number(fabric.greigeCost) : null;
-        let processingCost = fabric.processingCost ? Number(fabric.processingCost) : null;
-        let cadGreigeId: string | null = null;
-        if (!sourcingStrategy && costSheet.styleId) {
-          const cadRow = await this.prisma.fabric_width_cad.findFirst({
-            where: {
-              costingStyleId: costSheet.styleId,
-              processorId: { not: null },
-            },
-            select: { processorId: true, greigeId: true, greigeCostPerMeter: true, processingPricePerMeter: true },
-          });
-          if (cadRow?.processorId) {
-            sourcingStrategy = 'GREIGE_PROCESSED';
-            processorId = cadRow.processorId;
-            cadGreigeId = cadRow.greigeId;
-            greigeCost = cadRow.greigeCostPerMeter ? Number(cadRow.greigeCostPerMeter) : null;
-            processingCost = cadRow.processingPricePerMeter ? Number(cadRow.processingPricePerMeter) : null;
-          } else {
-            sourcingStrategy = 'READY_FABRIC';
-          }
-        }
-
-        // Resolve greigeId: from fabric master if fabricId available, otherwise from CAD row
-        let greigeId: string | null = cadGreigeId;
-        if (sourcingStrategy === 'GREIGE_PROCESSED' && fabricId && !greigeId) {
-          const fm = await this.prisma.fabric_master.findUnique({
-            where: { id: fabricId },
-            select: { greigeId: true },
-          });
-          greigeId = fm?.greigeId || null;
-        }
-
-        // unitPrice = the all-in rate (legacy JSON sheets: fabricRate); bare greige rate
-        // only as a last resort — see the relational path above for the full rationale
-        const unitPrice = fabric.fabricRate || greigeCost || 0;
-        const totalCost = totalWithWastage * unitPrice;
-
-        bomItems.push({
-          id: uuidv4(),
-          orderBomId: '', // Will be set in transaction
-          materialType: sourcingStrategy === 'GREIGE_PROCESSED' ? 'GREIGE' : 'FABRIC',
-          fabricId,
-          sourcingStrategy: sourcingStrategy || 'READY_FABRIC',
-          greigeId,
-          processorId,
-          greigeCost,
-          processingCost,
-          rateCardId: fabric.rateCardId || null,
-          quantityPerGarment,
-          orderQuantity,
-          totalQuantity,
-          wastagePercent,
-          totalWithWastage,
-          unit: 'METER',
-          unitPrice,
-          totalCost,
-          componentName: fabric.fabricName || `Fabric ${i + 1}`,
-          usageCategory: 'FABRIC',
-          sortOrder: i,
-        });
-      }
     }
 
     // Add lace items from style_costing_lace_items (relational table)
@@ -1353,7 +1162,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         componentName: laceItem.laceName || laceItem.lace?.laceName || `Lace ${i + 1}`,
         usageCategory: 'LACE',
         notes: laceItem.notes || (laceItem.sourcingStrategy ? `Sourcing: ${laceItem.sourcingStrategy}` : undefined),
-        sortOrder: fabricDetails.length + i,
+        sortOrder: costSheet.fabricItems.length + i,
         // Pass sourcing info for later reference
         sourcingStrategy: laceItem.sourcingStrategy,
         // Lace uses greigeId field for greige lace reference (same pattern as fabric)

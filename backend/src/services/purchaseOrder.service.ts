@@ -1050,6 +1050,12 @@ class PurchaseOrderService {
               name: true,
               materialType: true,
               unit: true,
+              // Width of what is being ORDERED: greige loom width for greige buys,
+              // the fabric's actual width for ready-fabric buys. The item's own
+              // fabricWidth column is the CAD cutable width — planning-internal,
+              // never shown bare on purchase surfaces (industry model 2026-08-18).
+              greige_master: { select: { greigeWidth: true } },
+              fabric_master: { select: { actualWidth: true } },
             },
           },
         },

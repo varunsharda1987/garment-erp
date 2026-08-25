@@ -5,10 +5,10 @@
 
 import { BaseService, PaginationOptions, PaginatedResult, IncludeConfig } from './base.service';
 import { style_costing, Prisma } from '@prisma/client';
-import { ConflictError, NotFoundError, ValidationError, BusinessError } from '../errors';
-import { logInfo, logError, logDebug, logWarn } from '../utils/logger';
+import { NotFoundError, BusinessError } from '../errors';
+import { logInfo, logDebug, logWarn } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
-import { multiplyCurrency, toNumber, addCurrency, sumByField, percentOf, toCurrency, Decimal } from '../utils/currency'; // BUG-FAB12 fix, BUG-COST6 fix
+import { multiplyCurrency, toNumber, addCurrency, toCurrency, Decimal } from '../utils/currency'; // BUG-FAB12 fix, BUG-COST6 fix
 
 // ============================================
 // Types
@@ -108,77 +108,15 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     return undefined; // Use specific includes in each method
   }
 
-  // ============================================
-  // Create Methods
-  // ============================================
-
-  /**
-   * Create a new cost sheet for a style
+  /*
+   * Dead-code removal (JSON-fallback cleanup): the legacy `createCostSheet()` method
+   * was removed here. It wrote ONLY the JSON detail columns (fabricDetails/trimsDetails/
+   * accessoriesDetails) and never populated the relational item tables
+   * (style_costing_fabric_items etc.) that Order-BOM generation reads — a sheet created
+   * through it would produce an empty BOM. Zero callers (only getBudgetSuggestions is
+   * imported from this service). The live writer is styleCosting.controller.ts, which
+   * writes JSON + relational rows in one transaction.
    */
-  async createCostSheet(data: CreateCostSheetDTO, userId: string): Promise<style_costing> {
-    logDebug('Creating cost sheet', { styleId: data.styleId });
-
-    // Check if style exists
-    const style = await this.prisma.styles.findUnique({
-      where: { id: data.styleId },
-    });
-
-    if (!style) {
-      throw new NotFoundError('Style', data.styleId);
-    }
-
-    // Check if cost sheet already exists
-    const existingCostSheet = await this.prisma.style_costing.findFirst({
-      where: { styleId: data.styleId },
-    });
-
-    if (existingCostSheet) {
-      throw new ConflictError('Cost sheet already exists for this style');
-    }
-
-    // Calculate all totals
-    const calculations = this.calculateCosts(data);
-
-    // Generate cost sheet ID
-    const costSheetId = `CS-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-
-    const costSheet = await this.prisma.style_costing.create({
-      data: {
-        id: costSheetId,
-        styleId: data.styleId,
-        numberOfComponents: data.numberOfComponents,
-        category: data.category,
-        subCategory: data.subCategory,
-        fabricDetails: JSON.parse(JSON.stringify(data.fabricDetails)),
-        fabricTotal: calculations.fabricTotal,
-        trimsDetails: JSON.parse(JSON.stringify(data.trimsDetails)),
-        trimsTotal: calculations.trimsTotal,
-        cuttingCost: data.cmtCosts.cuttingCost,
-        stitchingCost: data.cmtCosts.stitchingCost,
-        finishingCost: data.cmtCosts.finishingCost,
-        buttonAttachmentCost: data.cmtCosts.buttonAttachmentCost,
-        handworkCmtCost: data.cmtCosts.handworkCost,
-        smockingCost: data.cmtCosts.smockingCost,
-        cmtTotal: calculations.cmtTotal,
-        embroideryDetails: JSON.parse(JSON.stringify(data.embroideryDetails || [])),
-        embroideryTotal: calculations.embroideryTotal,
-        accessoriesDetails: JSON.parse(JSON.stringify(data.accessoriesDetails || [])),
-        accessoriesTotal: calculations.accessoriesTotal,
-        valueLossPercent: data.valueLossPercent ?? 2,
-        valueLossAmount: calculations.valueLossAmount,
-        markupPercent: data.markupPercent ?? 15,
-        markupAmount: calculations.markupAmount,
-        subtotal: calculations.subtotal,
-        totalProductCost: calculations.totalProductCost,
-        notes: data.notes,
-        createdById: userId,
-      },
-      include: this.getDefaultIncludes(),
-    });
-
-    logInfo('Cost sheet created', { id: costSheet.id, styleId: data.styleId });
-    return costSheet;
-  }
 
   // ============================================
   // Read Methods
@@ -245,79 +183,12 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
     return costSheet;
   }
 
-  // ============================================
-  // Update Methods
-  // ============================================
-
-  /**
-   * Update cost sheet (only for unapproved cost sheets)
+  /*
+   * Dead-code removal (JSON-fallback cleanup): the legacy `updateCostSheet()` method was
+   * removed for the same reason as createCostSheet above — a JSON-only writer with zero
+   * callers that would leave the relational item tables stale. The live update path is
+   * styleCosting.controller.ts, which rebuilds the item tables on every save.
    */
-  async updateCostSheet(id: string, data: UpdateCostSheetDTO): Promise<style_costing> {
-    logDebug('Updating cost sheet', { id });
-
-    const existingCostSheet = await this.prisma.style_costing.findUnique({
-      where: { id },
-    });
-
-    if (!existingCostSheet) {
-      throw new NotFoundError('Cost Sheet', id);
-    }
-
-    if (existingCostSheet.isApproved) {
-      throw new BusinessError('Cannot update approved cost sheet');
-    }
-
-    // Merge existing data with updates for calculation
-    const mergedData = this.mergeWithExisting(existingCostSheet, data);
-    const calculations = this.calculateCosts(mergedData);
-
-    const updateData: Prisma.style_costingUpdateInput = {
-      ...(data.numberOfComponents !== undefined && { numberOfComponents: data.numberOfComponents }),
-      ...(data.category !== undefined && { category: data.category }),
-      ...(data.subCategory !== undefined && { subCategory: data.subCategory }),
-      ...(data.fabricDetails && {
-        fabricDetails: JSON.parse(JSON.stringify(data.fabricDetails)),
-      }),
-      fabricTotal: calculations.fabricTotal,
-      ...(data.trimsDetails && {
-        trimsDetails: JSON.parse(JSON.stringify(data.trimsDetails)),
-      }),
-      trimsTotal: calculations.trimsTotal,
-      ...(data.cmtCosts && {
-        cuttingCost: data.cmtCosts.cuttingCost,
-        stitchingCost: data.cmtCosts.stitchingCost,
-        finishingCost: data.cmtCosts.finishingCost,
-        buttonAttachmentCost: data.cmtCosts.buttonAttachmentCost,
-        handworkCmtCost: data.cmtCosts.handworkCost,
-        smockingCost: data.cmtCosts.smockingCost,
-      }),
-      cmtTotal: calculations.cmtTotal,
-      ...(data.embroideryDetails && {
-        embroideryDetails: JSON.parse(JSON.stringify(data.embroideryDetails)),
-      }),
-      embroideryTotal: calculations.embroideryTotal,
-      ...(data.accessoriesDetails && {
-        accessoriesDetails: JSON.parse(JSON.stringify(data.accessoriesDetails)),
-      }),
-      accessoriesTotal: calculations.accessoriesTotal,
-      ...(data.valueLossPercent !== undefined && { valueLossPercent: data.valueLossPercent }),
-      valueLossAmount: calculations.valueLossAmount,
-      ...(data.markupPercent !== undefined && { markupPercent: data.markupPercent }),
-      markupAmount: calculations.markupAmount,
-      subtotal: calculations.subtotal,
-      totalProductCost: calculations.totalProductCost,
-      ...(data.notes !== undefined && { notes: data.notes }),
-    };
-
-    const costSheet = await this.prisma.style_costing.update({
-      where: { id },
-      data: updateData,
-      include: this.getDefaultIncludes(),
-    });
-
-    logInfo('Cost sheet updated', { id });
-    return costSheet;
-  }
 
   /*
    * Dead-code removal (2026-08-24, owner-approved): the legacy `approve()` method was
@@ -358,74 +229,8 @@ class CostingServiceClass extends BaseService<style_costing, CreateCostSheetDTO,
   // Private Helper Methods
   // ============================================
 
-  // BUG-COST6 fix: use decimal.js for all aggregations to avoid floating-point errors
-  private calculateCosts(data: CreateCostSheetDTO | ReturnType<typeof this.mergeWithExisting>): CostCalculationResult {
-    const fabricTotalDec = sumByField(data.fabricDetails, 'fabricTotal');
-    const trimsTotalDec = sumByField(data.trimsDetails, 'trimTotal');
-    const cmtTotalDec = addCurrency(...Object.values(data.cmtCosts));
-    const embroideryTotalDec = sumByField(data.embroideryDetails || [], 'embroideryTotal');
-    const accessoriesTotalDec = sumByField(data.accessoriesDetails || [], 'accessoryTotal');
-
-    const subtotalDec = fabricTotalDec
-      .plus(trimsTotalDec)
-      .plus(cmtTotalDec)
-      .plus(embroideryTotalDec)
-      .plus(accessoriesTotalDec);
-    const valueLossPercent = data.valueLossPercent ?? 2;
-    // percentOf expects number, so convert subtotalDec
-    const valueLossAmountDec = percentOf(toNumber(subtotalDec), valueLossPercent);
-    const totalAfterValueLossDec = subtotalDec.plus(valueLossAmountDec);
-    const markupPercent = data.markupPercent ?? 15;
-    // percentOf expects number, so convert totalAfterValueLossDec
-    const markupAmountDec = percentOf(toNumber(totalAfterValueLossDec), markupPercent);
-    const totalProductCostDec = totalAfterValueLossDec.plus(markupAmountDec);
-
-    return {
-      fabricTotal: toNumber(fabricTotalDec),
-      trimsTotal: toNumber(trimsTotalDec),
-      cmtTotal: toNumber(cmtTotalDec),
-      embroideryTotal: toNumber(embroideryTotalDec),
-      accessoriesTotal: toNumber(accessoriesTotalDec),
-      subtotal: toNumber(subtotalDec),
-      valueLossAmount: toNumber(valueLossAmountDec),
-      markupAmount: toNumber(markupAmountDec),
-      totalProductCost: toNumber(totalProductCostDec),
-    };
-  }
-
-  /** Convert nullable Prisma Decimal to number, using the provided default for NULL values */
-  private decimalToNum(value: unknown, defaultValue = 0): number {
-    if (value == null) return defaultValue;
-    const num = Number(value);
-    if (Number.isNaN(num)) return defaultValue;
-    return num;
-  }
-
-  private mergeWithExisting(existing: style_costing, updates: UpdateCostSheetDTO): CreateCostSheetDTO {
-    return {
-      styleId: existing.styleId,
-      numberOfComponents: updates.numberOfComponents ?? existing.numberOfComponents ?? undefined,
-      category: updates.category ?? existing.category ?? undefined,
-      subCategory: updates.subCategory ?? existing.subCategory ?? undefined,
-      fabricDetails: updates.fabricDetails ?? (existing.fabricDetails as unknown as FabricDetail[]) ?? [],
-      trimsDetails: updates.trimsDetails ?? (existing.trimsDetails as unknown as TrimDetail[]) ?? [],
-      cmtCosts: updates.cmtCosts ?? {
-        cuttingCost: this.decimalToNum(existing.cuttingCost),
-        stitchingCost: this.decimalToNum(existing.stitchingCost),
-        finishingCost: this.decimalToNum(existing.finishingCost),
-        buttonAttachmentCost: this.decimalToNum(existing.buttonAttachmentCost),
-        handworkCost: this.decimalToNum(existing.handworkCmtCost),
-        smockingCost: this.decimalToNum(existing.smockingCost),
-      },
-      embroideryDetails:
-        updates.embroideryDetails ?? (existing.embroideryDetails as unknown as EmbroideryDetail[]) ?? [],
-      accessoriesDetails:
-        updates.accessoriesDetails ?? (existing.accessoriesDetails as unknown as AccessoryDetail[]) ?? [],
-      valueLossPercent: updates.valueLossPercent ?? this.decimalToNum(existing.valueLossPercent, 2),
-      markupPercent: updates.markupPercent ?? this.decimalToNum(existing.markupPercent, 15),
-      notes: updates.notes ?? existing.notes ?? undefined,
-    };
-  }
+  // calculateCosts / decimalToNum / mergeWithExisting removed with createCostSheet/
+  // updateCostSheet above — they were private helpers of those dead methods only.
 
   private calculateFabricCosts(style: {
     style_components: Array<{

@@ -125,6 +125,12 @@ export default function JobWorkOrderDetail() {
   const [waDialogOpen, setWaDialogOpen] = useState(false);
   const { cutableWidthDeduction } = useDefaultSettings();
   const [cancelReason, setCancelReason] = useState('');
+  // Two-step cancel: disposition dialog shown after cancellation for issued JWOs
+  const [dispositionDialogOpen, setDispositionDialogOpen] = useState(false);
+  const [selectedDisposition, setSelectedDisposition] = useState<
+    'RETURNED_TO_STOCK' | 'AT_PROCESSOR' | 'WRITTEN_OFF' | 'TRANSFERRED' | 'RETURNED_TO_SUPPLIER'
+  >('RETURNED_TO_STOCK');
+  const [dispositionNotes, setDispositionNotes] = useState('');
   const [qtyReceived, setQtyReceived] = useState('');
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [closeInvoiceNumber, setCloseInvoiceNumber] = useState('');
@@ -161,24 +167,59 @@ export default function JobWorkOrderDetail() {
     },
   });
 
-  // Cancel is the universal withdrawal path: it works for every process type (delete exists only
-  // on the legacy dyeing/printing routes), credits issued material back to stock, and reverts the
-  // requirements this order covered to open. Refused once anything has been received.
+  // Cancel is the universal withdrawal path: it works for every process type, reverts the
+  // requirements this order covered to open. For ISSUED JWOs, shows disposition dialog after.
   const cancelMutation = useMutation({
     mutationFn: () => jobWorkOrderService.cancel(id!, cancelReason || undefined),
-    onSuccess: () => {
-      toast.success(`${jwo?.jobWorkNumber ?? 'Job work order'} cancelled. Covered requirements are open again.`);
+    onSuccess: (result) => {
       setCancelDialogOpen(false);
       setCancelReason('');
       queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
       queryClient.invalidateQueries({ queryKey: ['job-work-orders'] });
       queryClient.invalidateQueries({ queryKey: ['mrp'] });
       queryClient.invalidateQueries({ queryKey: ['service-requirements'] });
+
+      // Two-step cancel: if material was issued, prompt for disposition
+      if (result.pendingDisposition) {
+        toast.success(`${jwo?.jobWorkNumber ?? 'Job work order'} cancelled. Now decide what happens to the material.`);
+        setDispositionDialogOpen(true);
+      } else {
+        toast.success(`${jwo?.jobWorkNumber ?? 'Job work order'} cancelled.`);
+      }
     },
     onError: (err: unknown) => {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
         'Failed to cancel job work order';
+      toast.error(msg);
+    },
+  });
+
+  // Two-step cancel: dispose inventory after cancellation
+  const dispositionMutation = useMutation({
+    mutationFn: () =>
+      jobWorkOrderService.disposeInventory(id!, selectedDisposition, {
+        notes: dispositionNotes || undefined,
+      }),
+    onSuccess: () => {
+      const messages: Record<string, string> = {
+        RETURNED_TO_STOCK: 'Material credited back to warehouse stock',
+        AT_PROCESSOR: 'Material left at processor for future use',
+        WRITTEN_OFF: 'Material marked as written off',
+        TRANSFERRED: 'Material transferred to another JWO',
+        RETURNED_TO_SUPPLIER: 'Material marked for return to supplier',
+      };
+      toast.success(messages[selectedDisposition]);
+      setDispositionDialogOpen(false);
+      setDispositionNotes('');
+      queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
+      queryClient.invalidateQueries({ queryKey: ['greige-stock'] });
+      queryClient.invalidateQueries({ queryKey: ['stock-levels'] });
+    },
+    onError: (err: unknown) => {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Failed to dispose inventory';
       toast.error(msg);
     },
   });
@@ -486,6 +527,23 @@ export default function JobWorkOrderDetail() {
       </div>
 
       {/* Alerts */}
+      {/* Two-step cancel: pending disposition banner */}
+      {jwo.jwoStatus === 'CANCELLED' && jwo.inventoryDisposition === 'PENDING' && (
+        <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+          <Package className="h-4 w-4 text-amber-600" />
+          <AlertTitle className="text-amber-800 dark:text-amber-400">Inventory disposition pending</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              This JWO was cancelled but {jwo.qtySentMeters} meters of material is still at{' '}
+              {jwo.processor?.name ?? 'the processor'}.
+            </span>
+            <Button size="sm" variant="outline" onClick={() => setDispositionDialogOpen(true)}>
+              Decide now
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {isOverdue && (
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
@@ -1215,9 +1273,11 @@ export default function JobWorkOrderDetail() {
           <DialogHeader>
             <DialogTitle>Cancel job work order</DialogTitle>
             <DialogDescription>
-              {jwo.jobWorkNumber} will be withdrawn. Any material already issued is credited back to stock, and the
-              requirements this order covered return to open so you can adjust the quantity and generate again. The
-              record is kept with an audit trail rather than removed.
+              {jwo.jobWorkNumber} will be withdrawn. Requirements this order covered return to open so you can adjust
+              the quantity and generate again.{' '}
+              {jwo.sentDate
+                ? 'You will then decide what to do with the material at the processor.'
+                : 'The record is kept with an audit trail.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2">
@@ -1236,6 +1296,80 @@ export default function JobWorkOrderDetail() {
             </Button>
             <Button variant="destructive" onClick={() => cancelMutation.mutate()} disabled={cancelMutation.isPending}>
               {cancelMutation.isPending ? 'Cancelling…' : 'Cancel job work order'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Two-step cancel: inventory disposition dialog */}
+      <Dialog open={dispositionDialogOpen} onOpenChange={setDispositionDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>What should happen to the material?</DialogTitle>
+            <DialogDescription>
+              {jwo.qtySentMeters} meters of greige is at {jwo.processor?.name ?? 'the processor'}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            {(
+              [
+                {
+                  value: 'RETURNED_TO_STOCK',
+                  label: 'Return to warehouse stock',
+                  desc: 'Credit back to greige inventory',
+                },
+                { value: 'AT_PROCESSOR', label: 'Leave at processor', desc: 'Keep for future jobs at this processor' },
+                {
+                  value: 'TRANSFERRED',
+                  label: 'Transfer to another JWO',
+                  desc: 'Move to a different job (coming soon)',
+                },
+                {
+                  value: 'RETURNED_TO_SUPPLIER',
+                  label: 'Return to supplier',
+                  desc: 'Send back to the greige supplier',
+                },
+                { value: 'WRITTEN_OFF', label: 'Write off', desc: 'Mark as lost or damaged' },
+              ] as const
+            ).map((opt) => (
+              <label
+                key={opt.value}
+                className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                  selectedDisposition === opt.value ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'
+                } ${opt.value === 'TRANSFERRED' ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <input
+                  type="radio"
+                  name="disposition"
+                  value={opt.value}
+                  checked={selectedDisposition === opt.value}
+                  onChange={() => opt.value !== 'TRANSFERRED' && setSelectedDisposition(opt.value)}
+                  disabled={opt.value === 'TRANSFERRED'}
+                  className="mt-1"
+                />
+                <div>
+                  <div className="font-medium">{opt.label}</div>
+                  <div className="text-sm text-muted-foreground">{opt.desc}</div>
+                </div>
+              </label>
+            ))}
+            <div className="pt-2">
+              <Label htmlFor="disposition-notes">Notes (optional)</Label>
+              <Input
+                id="disposition-notes"
+                value={dispositionNotes}
+                onChange={(e) => setDispositionNotes(e.target.value)}
+                placeholder="Any additional details..."
+                maxLength={500}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDispositionDialogOpen(false)}>
+              Decide later
+            </Button>
+            <Button onClick={() => dispositionMutation.mutate()} disabled={dispositionMutation.isPending}>
+              {dispositionMutation.isPending ? 'Processing…' : 'Confirm'}
             </Button>
           </DialogFooter>
         </DialogContent>

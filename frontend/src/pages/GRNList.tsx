@@ -4,12 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getAllGRNs } from '@/services/grn.service';
-import { getAllSuppliers } from '@/services/supplier.service';
 import type { GRN, GRNStatus } from '@/types/grn.types';
 import { GRNStatusLabels } from '@/types/grn.types';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { handleApiError } from '@/lib/api-error-handler';
 import { PackageOpen, Eye } from 'lucide-react';
 
@@ -21,16 +21,9 @@ type Column<T> = {
   headerClassName?: string;
 };
 
-interface Supplier {
-  id: string;
-  code: string;
-  name: string;
-}
-
 export default function GRNList() {
   const navigate = useNavigate();
   const [grns, setGRNs] = useState<GRN[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,12 +35,8 @@ export default function GRNList() {
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [supplierFilter, setSupplierFilter] = useState<string>('all');
+  const [supplierFilter, setSupplierFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-
-  useEffect(() => {
-    fetchSuppliers();
-  }, []);
 
   // Reset to page 1 when filters change
   useEffect(() => {
@@ -59,15 +48,6 @@ export default function GRNList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery, supplierFilter, statusFilter]);
 
-  const fetchSuppliers = async () => {
-    try {
-      const response = await getAllSuppliers({ limit: 200 });
-      setSuppliers(response.data);
-    } catch (err) {
-      handleApiError(err, 'Failed to load suppliers', false);
-    }
-  };
-
   const fetchGRNs = async () => {
     try {
       setIsLoading(true);
@@ -76,7 +56,7 @@ export default function GRNList() {
         page: currentPage,
         limit: pageSize,
         search: searchQuery || undefined,
-        supplierId: supplierFilter !== 'all' ? supplierFilter : undefined,
+        supplierId: supplierFilter || undefined,
         status: statusFilter !== 'all' ? (statusFilter as GRNStatus) : undefined,
       });
       setGRNs(response.data);
@@ -235,19 +215,12 @@ export default function GRNList() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Suppliers" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Suppliers</SelectItem>
-                {suppliers.map((supplier) => (
-                  <SelectItem key={supplier.id} value={supplier.id}>
-                    {supplier.name} ({supplier.code})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SupplierCombobox
+              value={supplierFilter}
+              onValueChange={setSupplierFilter}
+              placeholder="All Suppliers"
+              allowAll
+            />
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>

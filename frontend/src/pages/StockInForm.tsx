@@ -1,7 +1,7 @@
 // Stock IN Form - Create stock receipt with material-type-specific fields
 // Supports multi-item receipt from a single supplier/processor
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Save, X, Info, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,11 +53,11 @@ import { getAllZippers } from '../services/zipper.service';
 import { getAllElastics } from '../services/elastic.service';
 import { getAllLabels } from '../services/label.service';
 import { getAllPackaging } from '../services/packaging.service';
-import { getAllSuppliers } from '../services/supplier.service';
+import { getSupplierById } from '../services/supplier.service';
 import { Combobox } from '@/components/ui/combobox';
 import type { ComboboxOption } from '@/components/ui/combobox';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { SupplierCategoryLabels, SupplierCategory } from '../types/supplier.types';
-import type { Supplier } from '../types/supplier.types';
 import {
   getAllowedMaterialTypes,
   MATERIAL_SUPPLIER_CATEGORIES,
@@ -153,6 +153,7 @@ interface StockInLineItem {
   // Type-specific fields (simplified for multi-item)
   foldLengthCm: string;
   thanCount: string;
+  rollNumbers: string; // Comma-separated roll numbers (Greige only)
   lotNumber: string;
   remarks: string;
 }
@@ -169,6 +170,7 @@ function createEmptyLineItem(): StockInLineItem {
     rate: '',
     foldLengthCm: '',
     thanCount: '',
+    rollNumbers: '',
     lotNumber: '',
     remarks: '',
   };
@@ -176,6 +178,10 @@ function createEmptyLineItem(): StockInLineItem {
 
 export default function StockInForm() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  // URL query param for pre-selecting material type (e.g., ?materialType=GREIGE)
+  const preselectedMaterialType = searchParams.get('materialType') as MaterialType | null;
 
   // Navigation timeout ref for cleanup
   const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -221,6 +227,9 @@ export default function StockInForm() {
     supplierInvoice: '',
     foldLengthCm: '',
     thanCount: '',
+    // New fields for backdating support
+    receivedDate: '', // YYYY-MM-DD format, defaults to today
+    invoiceDate: '', // YYYY-MM-DD format
   });
 
   // Supplier selection for Fresh Stock (multi-item mode)
@@ -228,8 +237,6 @@ export default function StockInForm() {
   const [supplierId, setSupplierId] = useState('');
   const [supplierName, setSupplierName] = useState('');
   const [supplierCategories, setSupplierCategories] = useState<SupplierCategory[]>([]);
-  const [supplierOptions, setSupplierOptions] = useState<ComboboxOption[]>([]);
-  const [suppliersRaw, setSuppliersRaw] = useState<Partial<Supplier>[]>([]);
 
   // Derived: allowed material types based on selected supplier's categories
   const allowedMaterialTypes = getAllowedMaterialTypes(supplierCategories);
@@ -249,12 +256,29 @@ export default function StockInForm() {
     loadData();
   }, []);
 
-  // Load suppliers when category changes
+  // Handle preselected material type from URL query param
+  // Auto-set the first line item's material type when supplier allows it
   useEffect(() => {
-    if (sourceType === 'FRESH_STOCK') {
-      loadSuppliers();
+    if (
+      preselectedMaterialType &&
+      supplierId &&
+      allowedMaterialTypes.includes(preselectedMaterialType) &&
+      lineItems.length > 0 &&
+      !lineItems[0].materialType
+    ) {
+      setLineItems((prev) =>
+        prev.map((item, idx) =>
+          idx === 0
+            ? {
+                ...item,
+                materialType: preselectedMaterialType,
+                unit: MATERIAL_TYPE_UNITS[preselectedMaterialType] || '',
+              }
+            : item
+        )
+      );
     }
-  }, [sourceType, supplierCategory]);
+  }, [preselectedMaterialType, supplierId, allowedMaterialTypes, lineItems]);
 
   const loadData = async () => {
     try {
@@ -425,50 +449,42 @@ export default function StockInForm() {
     }
   };
 
-  // Load suppliers for Fresh Stock mode - only material suppliers, not processors
-  const loadSuppliers = async () => {
-    try {
-      const result = await getAllSuppliers({
-        category: supplierCategory || undefined,
-        limit: 200,
-      });
-      const data = (result as any).data || [];
-      // Filter by selected category if one is chosen (show all suppliers including processors)
-      const filtered = supplierCategory
-        ? data.filter((s: Supplier) => s.supplierCategories?.includes(supplierCategory as SupplierCategory))
-        : data;
-      setSuppliersRaw(filtered);
-      setSupplierOptions(
-        filtered.map((s: Supplier) => ({
-          value: s.id,
-          label: `${s.code ? s.code + ' - ' : ''}${s.name}`,
-          searchText: `${s.code || ''} ${s.name}`,
-        }))
-      );
-    } catch (err) {
-      logError('Failed to load suppliers:', err);
+  // Handle supplier selection - fetch supplier details and auto-set material type if single category
+  const handleSupplierChange = async (supId: string) => {
+    if (!supId) {
+      // Clear selection
+      setSupplierId('');
+      setSupplierName('');
+      setSupplierCategories([]);
+      setLineItems([createEmptyLineItem()]);
+      return;
     }
-  };
 
-  // Handle supplier selection - store categories and auto-set material type if single category
-  const handleSupplierChange = (supId: string) => {
     setSupplierId(supId);
-    const sup = suppliersRaw.find((s) => s.id === supId);
-    setSupplierName(sup?.name || '');
-    const categories = Array.isArray(sup?.supplierCategories) ? sup.supplierCategories : [];
-    setSupplierCategories(categories as SupplierCategory[]);
 
-    // Reset line items when supplier changes
-    const newLineItem = createEmptyLineItem();
-    const allowed = getAllowedMaterialTypes(categories);
+    try {
+      // Fetch full supplier details including categories
+      const supplier = await getSupplierById(supId);
+      setSupplierName(supplier.name || '');
+      const categories = Array.isArray(supplier.supplierCategories) ? supplier.supplierCategories : [];
+      setSupplierCategories(categories as SupplierCategory[]);
 
-    // If supplier has only one material type, auto-select it for the first line item
-    if (allowed.length === 1) {
-      newLineItem.materialType = allowed[0];
-      newLineItem.unit = MATERIAL_TYPE_UNITS[allowed[0]] || '';
+      // Reset line items when supplier changes
+      const newLineItem = createEmptyLineItem();
+      const allowed = getAllowedMaterialTypes(categories);
+
+      // If supplier has only one material type, auto-select it for the first line item
+      if (allowed.length === 1) {
+        newLineItem.materialType = allowed[0];
+        newLineItem.unit = MATERIAL_TYPE_UNITS[allowed[0]] || '';
+      }
+
+      setLineItems([newLineItem]);
+    } catch (err) {
+      logError('Failed to load supplier details:', err);
+      setSupplierName('');
+      setSupplierCategories([]);
     }
-
-    setLineItems([newLineItem]);
   };
 
   // --- Line Item Management Functions ---
@@ -682,6 +698,7 @@ export default function StockInForm() {
           rate: item.rate ? Number(item.rate) : undefined,
           foldLengthCm: item.foldLengthCm ? Number(item.foldLengthCm) : undefined,
           thanCount: item.thanCount ? Number(item.thanCount) : undefined,
+          rollNumbers: item.rollNumbers || undefined,
           remarks: itemRemarks,
         };
       });
@@ -695,6 +712,9 @@ export default function StockInForm() {
           referenceNumber: formData.challanNumber || formData.supplierInvoice || undefined,
           remarks: `From: ${supplierName}${formData.remarks ? ' | ' + formData.remarks : ''}`,
           items: bulkItems,
+          invoiceNumber: formData.supplierInvoice || undefined,
+          invoiceDate: formData.invoiceDate || undefined,
+          receivedDate: formData.receivedDate || undefined,
         });
       } else if (bulkItems.length === 1) {
         // Single item - use existing endpoint
@@ -713,6 +733,10 @@ export default function StockInForm() {
           remarks: `From: ${supplierName}${item.remarks ? ' | ' + item.remarks : ''}${formData.remarks ? ' | ' + formData.remarks : ''}`,
           foldLengthCm: item.foldLengthCm,
           thanCount: item.thanCount,
+          rollNumbers: item.rollNumbers,
+          invoiceNumber: formData.supplierInvoice || undefined,
+          invoiceDate: formData.invoiceDate || undefined,
+          receivedDate: formData.receivedDate || undefined,
         });
       }
 
@@ -1032,13 +1056,11 @@ export default function StockInForm() {
                   <Label>
                     Supplier <span className="text-destructive">*</span>
                   </Label>
-                  <Combobox
-                    options={supplierOptions}
+                  <SupplierCombobox
                     value={supplierId}
                     onValueChange={handleSupplierChange}
                     placeholder="Search by name or code..."
-                    searchPlaceholder="Type to search suppliers..."
-                    emptyText="No material suppliers found"
+                    categoryFilter={supplierCategory || undefined}
                   />
                 </div>
                 {/* Category Filter (Optional) */}
@@ -1099,7 +1121,7 @@ export default function StockInForm() {
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">Step 2: Warehouse & Reference</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="warehouseId">
@@ -1130,6 +1152,28 @@ export default function StockInForm() {
                     value={formData.supplierInvoice}
                     onChange={(e) => handleChange('supplierInvoice', e.target.value)}
                     placeholder="Invoice number"
+                  />
+                </div>
+              </div>
+              {/* Date fields for backdating support */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="receivedDate">Received Date</Label>
+                  <Input
+                    id="receivedDate"
+                    type="date"
+                    value={formData.receivedDate}
+                    onChange={(e) => handleChange('receivedDate', e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Leave blank for today</p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invoiceDate">Invoice Date</Label>
+                  <Input
+                    id="invoiceDate"
+                    type="date"
+                    value={formData.invoiceDate}
+                    onChange={(e) => handleChange('invoiceDate', e.target.value)}
                   />
                 </div>
               </div>
@@ -1362,6 +1406,18 @@ export default function StockInForm() {
                                 </div>
                               )}
                           </>
+                        )}
+
+                        {/* Roll Numbers (greige only) */}
+                        {item.materialType === 'GREIGE' && (
+                          <div className="space-y-2 col-span-full">
+                            <Label>Roll Numbers</Label>
+                            <Input
+                              value={item.rollNumbers}
+                              onChange={(e) => updateLineItem(item.tempId, 'rollNumbers', e.target.value)}
+                              placeholder="Comma-separated roll numbers (e.g., R001, R002, R003)"
+                            />
+                          </div>
                         )}
                       </div>
                     )}

@@ -32,9 +32,12 @@ export interface CreateStockMovementDTO {
   performedById: string;
   foldLengthCm?: Decimal;
   thanCount?: number;
+  rollNumbers?: string; // Comma-separated roll numbers (Greige only)
   // Invoice tracking
   invoiceNumber?: string;
   invoiceDate?: Date;
+  // Backdating support (defaults to today if not provided)
+  receivedDate?: Date;
 }
 
 export interface StockTransferDTO {
@@ -75,6 +78,7 @@ export interface BulkStockInItemDTO {
   rate?: Decimal;
   foldLengthCm?: Decimal;
   thanCount?: number;
+  rollNumbers?: string; // Comma-separated roll numbers (Greige only)
   remarks?: string;
 }
 
@@ -89,6 +93,8 @@ export interface BulkStockInDTO {
   // Invoice tracking
   invoiceNumber?: string;
   invoiceDate?: Date;
+  // Backdating support (defaults to today if not provided)
+  receivedDate?: Date;
 }
 
 class StockMovementService {
@@ -292,7 +298,10 @@ class StockMovementService {
           warehouseId: data.warehouseId,
           foldLengthCm: data.foldLengthCm ? Number(data.foldLengthCm) : undefined,
           thanCount: data.thanCount,
+          rollNumbers: data.rollNumbers,
           invoiceNumber: data.invoiceNumber,
+          invoiceDate: data.invoiceDate,
+          receivedDate: data.receivedDate,
           performedById: data.performedById,
         },
         tx
@@ -393,7 +402,10 @@ class StockMovementService {
             warehouseId: data.warehouseId,
             foldLengthCm: item.foldLengthCm ? Number(item.foldLengthCm) : undefined,
             thanCount: item.thanCount,
+            rollNumbers: item.rollNumbers,
             invoiceNumber: data.invoiceNumber,
+            invoiceDate: data.invoiceDate,
+            receivedDate: data.receivedDate,
             performedById: data.performedById,
           },
           tx

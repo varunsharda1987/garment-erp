@@ -64,26 +64,35 @@ Use this for any greige you bought from a supplier, even if you forgot to make t
 
 ---
 
-## Option 2: Stock In (Opening balance or corrections only)
+## Option 2: Stock In (Opening balance, corrections, or backdated entries)
 
-Use this **only** for opening stock or physical count adjustments — not for regular purchases.
+Use this for opening stock, physical count adjustments, or backdated entries when PO → GRN is not practical.
 
 ### Steps
 
 1. Open **Inventory → Stock In** in the sidebar.
-2. Under **Material Type**, select **Greige Fabric**.
-3. In **Select Material**, search and pick the greige.
-4. Enter **Quantity** and **Unit** (usually Meters).
-5. Pick the **Warehouse** where the greige is stored.
-6. Optionally select the **Supplier** (for reference only — no payment is created).
-7. Add a clear **Remarks** explaining why there is no PO, for example "Opening balance at system go-live".
-8. Click **Save Stock In**.
+2. Select your **Supplier** first (choose a Greige Supplier).
+3. Pick the **Warehouse** where the greige is stored.
+4. Fill **Received Date** if backdating (leave blank for today).
+5. Fill **Invoice Number** and **Invoice Date** from the supplier bill.
+6. Under **Material Type**, select **Greige Fabric**.
+7. In **Select Material**, search and pick the greige.
+8. Enter **Quantity** and **Unit** (usually Meters).
+9. If the cloth is folded short, enter **Than Count** and **Fold Length (L)** in cm.
+10. For greige, you can also enter **Roll Numbers** (comma-separated).
+11. Optionally add **Remarks** explaining why there is no PO.
+12. Click **Save Stock In**.
+
+### New fields (2026-08-26)
+- **Received Date** — backdate entries to the actual receipt date
+- **Invoice Date** — record the supplier's invoice date
+- **Roll Numbers** — track specific rolls for greige entries
 
 ### Limitations
 - No payment liability is created — accounting will not show you owe the supplier.
 - No GST input credit is captured.
 - Entry is flagged for supervisor review.
-- Should not be used for regular purchases.
+- For regular purchases, PO → GRN is still recommended.
 
 ---
 

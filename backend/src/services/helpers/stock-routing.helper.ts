@@ -35,7 +35,10 @@ export interface StockInRoutingData {
   warehouseId?: string;
   foldLengthCm?: number;
   thanCount?: number;
+  rollNumbers?: string; // Comma-separated roll numbers (Greige only)
   invoiceNumber?: string;
+  invoiceDate?: Date; // Invoice date for backdated entries
+  receivedDate?: Date; // Backdating support (defaults to today if not provided)
   batchNumber?: string;
   lotNumber?: string;
   qualityGrade?: string;
@@ -108,6 +111,10 @@ export async function routeToSpecializedStock(
           sourceType: 'MANUAL',
           foldLengthCm: data.foldLengthCm,
           thanCount: data.thanCount,
+          rollNumbers: data.rollNumbers,
+          invoiceNumber: data.invoiceNumber,
+          invoiceDate: data.invoiceDate,
+          receivedDate: data.receivedDate, // Backdating support
           qualityGrade: data.qualityGrade,
           skipMaterialSync: true, // Parent (createStockIn) already handles material/stock_levels sync
           tx: client, // Pass transaction context so records are part of parent transaction
@@ -138,7 +145,7 @@ export async function routeToSpecializedStock(
           warehouseId: data.warehouseId || null,
           status: 'AVAILABLE',
           stockType: 'GENERIC',
-          receivedDate: new Date(),
+          receivedDate: data.receivedDate || new Date(), // Backdating support
           createdById: data.performedById,
         },
       });

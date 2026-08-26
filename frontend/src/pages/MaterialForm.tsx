@@ -15,14 +15,12 @@ import {
   getParentCategories,
   getChildCategories,
 } from '../services/material.service';
-import { getAllSuppliers } from '../services/supplier.service';
 import { searchHSNSACMasters } from '../services/hsnSacMaster.service';
 import { Unit, UnitLabels } from '../types/material.types';
 import type { CreateMaterialRequest, MaterialCategory, SupplierRelationship } from '../types/material.types';
 import type { HSNSACSearchResult } from '../types/hsnSacMaster.types';
-import type { Supplier } from '../types/supplier.types';
 import { logError } from '../lib/logger';
-import { getRelevantSupplierCategories } from '../lib/supplier-category-mapping';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 
 interface MaterialFormProps {
   mode?: 'create' | 'edit';
@@ -35,7 +33,6 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [parentCategories, setParentCategories] = useState<MaterialCategory[]>([]);
   const [childCategories, setChildCategories] = useState<MaterialCategory[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<Unit | ''>('');
   const [selectedParentCategoryId, setSelectedParentCategoryId] = useState<string>('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
@@ -92,21 +89,6 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
     [setValue]
   );
 
-  // Get filtered suppliers based on selected material category
-  const filteredSuppliers = (() => {
-    const selectedCategory = childCategories.find((c) => c.id === selectedCategoryId);
-    if (!selectedCategory) {
-      return suppliers; // Show all if no category selected
-    }
-
-    const relevantCategories = getRelevantSupplierCategories(selectedCategory.name);
-    if (relevantCategories.length === 0) {
-      return suppliers; // Show all if no mapping defined
-    }
-
-    return suppliers.filter((s) => (s.supplierCategories || []).some((cat) => relevantCategories.includes(cat)));
-  })();
-
   const isNewMaterial = mode === 'create' || !id;
 
   // Auto-generate material code for new materials
@@ -123,18 +105,14 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
     }
   }, [isNewMaterial, setValue]);
 
-  // Load parent categories and suppliers
+  // Load parent categories
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [parentsData, suppliersData] = await Promise.all([
-          getParentCategories(),
-          getAllSuppliers({ limit: 100 }),
-        ]);
+        const parentsData = await getParentCategories();
         setParentCategories(parentsData);
-        setSuppliers(suppliersData.data);
       } catch (err) {
-        logError('Failed to fetch data:', err);
+        logError('Failed to fetch parent categories:', err);
       }
     };
     fetchData();
@@ -439,27 +417,11 @@ export default function MaterialForm({ mode = 'create' }: MaterialFormProps) {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
                           <Label>Supplier *</Label>
-                          <Select
-                            value={supplier.supplierId}
+                          <SupplierCombobox
+                            value={supplier.supplierId || ''}
                             onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select supplier..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {filteredSuppliers.length === 0 ? (
-                                <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                                  No relevant suppliers found for this material category
-                                </div>
-                              ) : (
-                                filteredSuppliers.map((s) => (
-                                  <SelectItem key={s.id} value={s.id}>
-                                    {s.code} - {s.name}
-                                  </SelectItem>
-                                ))
-                              )}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Select supplier..."
+                          />
                         </div>
 
                         <div className="flex items-center gap-6">

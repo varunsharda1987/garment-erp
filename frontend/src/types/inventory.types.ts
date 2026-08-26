@@ -318,6 +318,12 @@ export interface CreateStockInDTO {
   remarks?: string;
   foldLengthCm?: number;
   thanCount?: number;
+  rollNumbers?: string; // Comma-separated roll numbers (Greige only)
+  // Invoice tracking
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  // Backdating support
+  receivedDate?: string;
 }
 
 export interface CreateStockOutDTO {

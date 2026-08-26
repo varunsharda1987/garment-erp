@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,8 +18,7 @@ import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError } from '@/lib/api-error-handler';
 import stockMovementService, { type UnifiedMovement } from '../services/stockMovement.service';
-import { getAllSuppliers } from '../services/supplier.service';
-import type { Supplier } from '../types/supplier.types';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 
 type Column<T> = {
   key: string;
@@ -46,14 +44,6 @@ export default function StockMovementList() {
   const [invoiceSearch, setInvoiceSearch] = useState('');
   const [materialSearch, setMaterialSearch] = useState('');
   const [supplierId, setSupplierId] = useState('');
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-
-  // Load suppliers for filter dropdown
-  useEffect(() => {
-    getAllSuppliers({ limit: 200 }).then((response) => {
-      setSuppliers(response.data || []);
-    });
-  }, []);
 
   useEffect(() => {
     loadMovements();
@@ -294,25 +284,15 @@ export default function StockMovementList() {
           <div className="flex flex-wrap gap-4">
             <div className="w-48">
               <Label htmlFor="supplierFilter">Supplier</Label>
-              <Select
+              <SupplierCombobox
                 value={supplierId}
                 onValueChange={(v) => {
-                  setSupplierId(v === 'all' ? '' : v);
+                  setSupplierId(v);
                   setPagination((p) => ({ ...p, page: 1 }));
                 }}
-              >
-                <SelectTrigger id="supplierFilter">
-                  <SelectValue placeholder="All Suppliers" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Suppliers</SelectItem>
-                  {suppliers.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.code} - {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                placeholder="All Suppliers"
+                allowAll
+              />
             </div>
             <div className="w-40">
               <Label htmlFor="invoiceSearch">Invoice#</Label>

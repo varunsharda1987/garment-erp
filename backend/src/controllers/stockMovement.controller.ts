@@ -116,8 +116,10 @@ export const createStockIn = async (req: Request, res: Response) => {
     remarks,
     foldLengthCm,
     thanCount,
+    rollNumbers,
     invoiceNumber,
     invoiceDate,
+    receivedDate,
   } = req.body;
 
   // Resolve materialId from polymorphic itemType/itemId if not provided directly
@@ -155,8 +157,10 @@ export const createStockIn = async (req: Request, res: Response) => {
     performedById: userId,
     foldLengthCm: foldLengthCm ? new Decimal(foldLengthCm) : undefined,
     thanCount: thanCount != null ? parseInt(thanCount) : undefined,
+    rollNumbers,
     invoiceNumber,
     invoiceDate: invoiceDate ? new Date(invoiceDate) : undefined,
+    receivedDate: receivedDate ? new Date(receivedDate) : undefined,
   };
 
   const movement = await stockMovementService.createStockIn(movementData);
@@ -180,8 +184,17 @@ export const createBulkStockIn = async (req: Request, res: Response) => {
     throw new ValidationError('User not authenticated');
   }
 
-  const { warehouseId, supplierId, referenceType, referenceNumber, remarks, items, invoiceNumber, invoiceDate } =
-    req.body;
+  const {
+    warehouseId,
+    supplierId,
+    referenceType,
+    referenceNumber,
+    remarks,
+    items,
+    invoiceNumber,
+    invoiceDate,
+    receivedDate,
+  } = req.body;
 
   // Validate basic fields
   if (!warehouseId || !items || !Array.isArray(items) || items.length === 0) {
@@ -229,6 +242,7 @@ export const createBulkStockIn = async (req: Request, res: Response) => {
       rate: item.rate ? new Decimal(item.rate) : undefined,
       foldLengthCm: item.foldLengthCm ? new Decimal(item.foldLengthCm) : undefined,
       thanCount: item.thanCount != null ? parseInt(item.thanCount) : undefined,
+      rollNumbers: item.rollNumbers,
       remarks: item.remarks,
     });
   }
@@ -243,6 +257,7 @@ export const createBulkStockIn = async (req: Request, res: Response) => {
     items: resolvedItems,
     invoiceNumber,
     invoiceDate: invoiceDate ? new Date(invoiceDate) : undefined,
+    receivedDate: receivedDate ? new Date(receivedDate) : undefined,
   };
 
   const result = await stockMovementService.createBulkStockIn(bulkData);

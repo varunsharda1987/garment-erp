@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { getReceivablePurchaseOrders } from '@/services/purchaseOrder.service';
 import { createGRN, createGRNFromJWO, getPendingItemsForPO } from '@/services/grn.service';
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
-import { warehouseService } from '@/services/warehouse.service';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import type { PurchaseOrder } from '@/types/purchaseOrder.types';
 import type {
   CreateGRNRequest,
@@ -19,7 +19,6 @@ import type {
   GRNItemDetailRequest,
   PendingPOItem,
 } from '@/types/grn.types';
-import type { Warehouse } from '@/types/inventory.types';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -94,7 +93,6 @@ export default function GRNForm() {
   const preselectedPOId = searchParams.get('poId');
 
   const [receivablePOs, setReceivablePOs] = useState<PurchaseOrder[]>([]);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [tolerancePercent, setTolerancePercent] = useState(10);
@@ -166,7 +164,6 @@ export default function GRNForm() {
 
   useEffect(() => {
     fetchReceivablePOs();
-    fetchWarehouses();
     jobWorkOrderService
       .getReceivable()
       .then(setReceivableJwos)
@@ -248,15 +245,6 @@ export default function GRNForm() {
       handleApiError(err, 'Failed to load purchase orders', false);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchWarehouses = async () => {
-    try {
-      const data = await warehouseService.getAll({ isActive: true });
-      setWarehouses(data);
-    } catch (err) {
-      handleApiError(err, 'Failed to load warehouses', false);
     }
   };
 
@@ -1275,18 +1263,7 @@ export default function GRNForm() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Warehouse *</Label>
-              <Select value={warehouseId} onValueChange={setWarehouseId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select warehouse" />
-                </SelectTrigger>
-                <SelectContent>
-                  {warehouses.map((w) => (
-                    <SelectItem key={w.id} value={w.id}>
-                      {w.warehouseCode} - {w.warehouseName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <WarehouseCombobox value={warehouseId} onValueChange={setWarehouseId} placeholder="Select warehouse" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="receivingDate">Receiving Date *</Label>

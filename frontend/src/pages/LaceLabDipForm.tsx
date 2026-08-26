@@ -14,11 +14,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { laceLabDipService } from '../services/laceLabDip.service';
 import { getGreigeLace } from '../services/lace.service';
-import { getAllSuppliers } from '../services/supplier.service';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import type { LaceLabDip, LabDipStatus, CreateLabDipInput, UpdateLabDipStatusInput } from '../types/laceLabDip.types';
 import { LAB_DIP_STATUS_COLORS, LAB_DIP_STATUS_LABELS, LAB_DIP_STATUS_TRANSITIONS } from '../types/laceLabDip.types';
 import type { Lace } from '../types/lace.types';
-import type { Supplier } from '../types/supplier.types';
 import { notify } from '../lib/notify';
 import { ArrowLeft, CheckCircle, XCircle, Clock, Send, Package, UserCheck } from 'lucide-react';
 
@@ -45,18 +44,13 @@ export default function LaceLabDipForm() {
 
   // Dropdown data
   const [greigeLaces, setGreigeLaces] = useState<Lace[]>([]);
-  const [processors, setProcessors] = useState<Supplier[]>([]);
 
   // Load dropdown data
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [lacesRes, suppliersRes] = await Promise.all([
-          getGreigeLace({ limit: 100 }),
-          getAllSuppliers({ limit: 100, category: 'DYEING_PRINTING' }),
-        ]);
+        const lacesRes = await getGreigeLace({ limit: 100 });
         setGreigeLaces(lacesRes.data);
-        setProcessors(suppliersRes.data);
       } catch (error) {
         console.error('Failed to load dropdown data:', error);
         notify.error('Failed to load form data');
@@ -381,18 +375,13 @@ export default function LaceLabDipForm() {
                 <Label>
                   Processor <span className="text-destructive">*</span>
                 </Label>
-                <Select value={processorId} onValueChange={setProcessorId} disabled={isEditMode}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select processor..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {processors.map((proc) => (
-                      <SelectItem key={proc.id} value={proc.id}>
-                        {proc.code} - {proc.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SupplierCombobox
+                  value={processorId || ''}
+                  onValueChange={setProcessorId}
+                  placeholder="Select processor..."
+                  categoryFilter="DYEING_PRINTING"
+                  disabled={isEditMode}
+                />
               </div>
 
               {/* Target Color */}

@@ -14,6 +14,7 @@ export const GRNStatus = {
   ACCEPTED: 'ACCEPTED',
   REJECTED: 'REJECTED',
   PARTIALLY_ACCEPTED: 'PARTIALLY_ACCEPTED',
+  REVERSED: 'REVERSED',
 } as const;
 
 export type GRNStatus = (typeof GRNStatus)[keyof typeof GRNStatus];
@@ -23,6 +24,7 @@ export const GRNStatusLabels: Record<GRNStatus, string> = {
   ACCEPTED: 'Accepted',
   REJECTED: 'Rejected',
   PARTIALLY_ACCEPTED: 'Partially Accepted',
+  REVERSED: 'Reversed',
 };
 
 export const GRNStatusColors: Record<GRNStatus, string> = {
@@ -30,6 +32,7 @@ export const GRNStatusColors: Record<GRNStatus, string> = {
   ACCEPTED: 'bg-success-muted text-success',
   REJECTED: 'bg-destructive/10 text-destructive',
   PARTIALLY_ACCEPTED: 'bg-orange-100 text-orange-800',
+  REVERSED: 'bg-muted text-muted-foreground',
 };
 
 export type GRNEntryMode = 'TOTAL_METERS' | 'THAN_WISE' | 'BALE_WISE' | 'ROLL_WISE';

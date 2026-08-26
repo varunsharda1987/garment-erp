@@ -6,14 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { StyleCodeMultiSelect } from '@/components/StyleCodeMultiSelect'; // BUG-MM6 fix
 import ColorPicker from '@/components/ColorPicker';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { createZipper, getZipperById, updateZipper } from '@/services/zipper.service';
-import { getAllSuppliers } from '@/services/supplier.service';
 import type { ZipperFormData, ZipperSupplierInput } from '@/types/zipper.types';
-import type { Supplier } from '@/types/supplier.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -26,7 +24,6 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [availableSuppliers, setAvailableSuppliers] = useState<Supplier[]>([]);
   const [zipperCode, setZipperCode] = useState<string>('');
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
   const [selectedStyleCodes, setSelectedStyleCodes] = useState<string[]>([]); // BUG-MM6 fix
@@ -35,19 +32,6 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
   const { register, handleSubmit, setValue } = useForm<ZipperFormData>();
 
   const isNewZipper = mode === 'create' || !id;
-
-  // Load available suppliers (filtered by TRIMS_SUPPLIER category)
-  useEffect(() => {
-    const fetchSuppliers = async () => {
-      try {
-        const response = await getAllSuppliers({ limit: 100, category: 'TRIMS_SUPPLIER' });
-        setAvailableSuppliers(response.data);
-      } catch (err) {
-        console.error('Failed to fetch suppliers:', err);
-      }
-    };
-    fetchSuppliers();
-  }, []);
 
   // Load zipper data for edit mode
   useEffect(() => {
@@ -332,21 +316,12 @@ export default function ZipperForm({ mode = 'create' }: ZipperFormProps) {
                           <Label>
                             Supplier <span className="text-destructive">*</span>
                           </Label>
-                          <Select
-                            value={supplier.supplierId || undefined}
+                          <SupplierCombobox
+                            value={supplier.supplierId || ''}
                             onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select supplier..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableSuppliers.map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  {s.code} - {s.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Select supplier..."
+                            categoryFilter="TRIMS_SUPPLIER"
+                          />
                         </div>
 
                         {/* Price per Piece */}

@@ -43,7 +43,7 @@ import {
   deletePurchaseOrder,
   cancelPurchaseOrder,
 } from '@/services/purchaseOrder.service';
-import { getAllSuppliers } from '@/services/supplier.service';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import type { PurchaseOrderStatus, POSource, PurchaseOrderFilters, POStats } from '@/types/purchaseOrder.types';
 import {
   PurchaseOrderStatusLabels,
@@ -71,12 +71,6 @@ import {
   Plus,
   X,
 } from 'lucide-react';
-
-interface Supplier {
-  id: string;
-  code: string;
-  name: string;
-}
 
 export default function PurchaseOrderList() {
   const navigate = useNavigate();
@@ -144,15 +138,8 @@ export default function PurchaseOrderList() {
     { staleTime: 30 * 1000 }
   );
 
-  const { data: suppliersResponse } = useListQuery(
-    queryKeys.suppliers.list({ limit: 200 }),
-    () => getAllSuppliers({ limit: 200 }),
-    { staleTime: 5 * 60 * 1000 }
-  );
-
   const purchaseOrders = poResponse?.data || [];
   const pagination = poResponse?.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 };
-  const suppliers: Supplier[] = (suppliersResponse as { data?: Supplier[] })?.data || [];
 
   // ─── Computed Stats ────────────────────────────────────────
 
@@ -431,22 +418,13 @@ export default function PurchaseOrderList() {
                   </SelectContent>
                 </Select>
 
-                <Select
-                  value={searchParams.get('supplierId') || 'all'}
-                  onValueChange={(v) => updateURLParams({ supplierId: v === 'all' ? undefined : v, page: undefined })}
-                >
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="All Suppliers" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Suppliers</SelectItem>
-                    {suppliers.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SupplierCombobox
+                  value={searchParams.get('supplierId') || ''}
+                  onValueChange={(v) => updateURLParams({ supplierId: v || undefined, page: undefined })}
+                  placeholder="All Suppliers"
+                  allowAll
+                  className="w-[200px]"
+                />
 
                 {/* Source filter only on All tab */}
                 {activeTab === 'all' && (

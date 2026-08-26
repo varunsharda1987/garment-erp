@@ -31,7 +31,7 @@ export const createSupplier = async (req: Request, res: Response): Promise<void>
  */
 export const getAllSuppliers = async (req: Request, res: Response): Promise<void> => {
   const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 10;
+  const limit = parseInt(req.query.limit as string) || 50;
   const search = req.query.search as string;
   const rating = req.query.rating ? parseInt(req.query.rating as string) : undefined;
   const category = req.query.category as string;

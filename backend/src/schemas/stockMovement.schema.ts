@@ -84,10 +84,14 @@ export const createStockInSchema = z.object({
   // Fabric/Greige specific
   foldLengthCm: z.number().positive().optional(),
   thanCount: z.number().int().positive().optional(),
+  rollNumbers: z.string().max(500).optional(), // Comma-separated roll numbers (Greige only)
 
   // Invoice tracking
   invoiceNumber: z.string().max(50).optional(),
-  invoiceDate: z.string().datetime().or(z.date()).optional(),
+  invoiceDate: z.coerce.date().optional(),
+
+  // Backdating support (defaults to today if not provided)
+  receivedDate: z.coerce.date().optional(),
 });
 
 /**
@@ -102,6 +106,7 @@ export const bulkStockInItemSchema = z.object({
   rate: z.number().nonnegative().optional(),
   foldLengthCm: z.number().positive().optional(),
   thanCount: z.number().int().positive().optional(),
+  rollNumbers: z.string().max(500).optional(), // Comma-separated roll numbers (Greige only)
   remarks: z.string().max(500).optional(),
 });
 
@@ -119,7 +124,10 @@ export const createBulkStockInSchema = z.object({
 
   // Invoice tracking
   invoiceNumber: z.string().max(50).optional(),
-  invoiceDate: z.string().datetime().or(z.date()).optional(),
+  invoiceDate: z.coerce.date().optional(),
+
+  // Backdating support (defaults to today if not provided)
+  receivedDate: z.coerce.date().optional(),
 });
 
 // ============================================================================

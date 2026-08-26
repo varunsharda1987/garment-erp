@@ -32,8 +32,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
-import { getAllSuppliers } from '@/services/supplier.service';
 import { styleService } from '@/services/style.service';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import ColorPicker from '@/components/ColorPicker';
 import { billableFromGreige } from '@/utils/shrinkage';
 import api from '@/lib/api';
@@ -63,6 +63,24 @@ const FABRIC_PROCESS_TYPES: string[] = ['DYEING', 'PRINTING', 'FINISHING'];
  * Finishing is deliberately absent — two finishing runs of one greige ARE the same cloth.
  */
 const SHADE_REQUIRED_PROCESS_TYPES: string[] = ['DYEING', 'PRINTING'];
+
+/**
+ * Maps JWO process types to supplier categories for filtering the processor dropdown.
+ * This ensures only relevant processors appear for each process type.
+ */
+const PROCESS_TO_CATEGORY: Record<string, string> = {
+  DYEING: 'DYEING_PRINTING',
+  PRINTING: 'DYEING_PRINTING',
+  EMBROIDERY: 'EMBROIDERY',
+  WASHING: 'WASHING',
+  FINISHING: 'FINISHING_CONTRACTOR',
+  CUTTING: 'CMT_UNIT',
+  STITCHING: 'CMT_UNIT',
+  HANDWORK: 'HAND_WORK',
+  SMOCKING: 'SMOCKING',
+  KAAJ_BUTTON: 'OTHER_SERVICES',
+  TRANSPORTATION: 'OTHER_SERVICES',
+};
 
 interface Props {
   open: boolean;
@@ -132,14 +150,6 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
     staleTime: 5 * 60 * 1000,
   });
   const designs: Array<{ id: string; embroideryCode?: string; designName?: string }> = designsResponse?.data || [];
-
-  const { data: suppliersResponse } = useQuery({
-    queryKey: ['suppliers-for-jwo'],
-    queryFn: () => getAllSuppliers({ limit: 200 }),
-    enabled: open,
-    staleTime: 5 * 60 * 1000,
-  });
-  const suppliers = (suppliersResponse as { data?: Array<{ id: string; name: string; code?: string }> })?.data || [];
 
   const { data: stylesResponse } = useQuery({
     queryKey: ['styles-for-jwo', styleSearch],
@@ -257,7 +267,14 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Process Type *</Label>
-            <Select value={processType} onValueChange={setProcessType}>
+            <Select
+              value={processType}
+              onValueChange={(val) => {
+                setProcessType(val);
+                // Reset processor when process type changes (filtered list changes)
+                setProcessorId('');
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select process type" />
               </SelectTrigger>
@@ -340,18 +357,12 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
 
               <div className="space-y-2">
                 <Label>Processor *</Label>
-                <Select value={processorId} onValueChange={setProcessorId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select processor" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {suppliers.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SupplierCombobox
+                  value={processorId}
+                  onValueChange={setProcessorId}
+                  placeholder="Select processor..."
+                  categoryFilter={PROCESS_TO_CATEGORY[processType]}
+                />
               </div>
 
               {isStockFabricJob && (

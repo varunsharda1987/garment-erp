@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { StyleCodeMultiSelect } from '@/components/StyleCodeMultiSelect';
 import ColorPicker from '@/components/ColorPicker';
 import { createThread, getThreadById, updateThread } from '@/services/thread.service';
-import { getAllSuppliers } from '@/services/supplier.service';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import type {
   ThreadFormData,
   ThreadSupplierInput,
@@ -19,7 +19,6 @@ import type {
   ThreadPly,
   ThreadMaterial,
 } from '@/types/thread.types';
-import type { Supplier } from '@/types/supplier.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -32,7 +31,6 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [availableSuppliers, setAvailableSuppliers] = useState<Supplier[]>([]);
   const [threadCode, setThreadCode] = useState<string>('');
   const [selectedStyleCodes, setSelectedStyleCodes] = useState<string[]>([]);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
@@ -74,19 +72,6 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
       }
     }
   }, [watchedPackagingType, watchedPly, setValue]);
-
-  // Load available suppliers (filtered by THREAD_SUPPLIER category)
-  useEffect(() => {
-    const fetchSuppliers = async () => {
-      try {
-        const response = await getAllSuppliers({ limit: 100, category: 'THREAD_SUPPLIER' });
-        setAvailableSuppliers(response.data);
-      } catch (err) {
-        console.error('Failed to fetch suppliers:', err);
-      }
-    };
-    fetchSuppliers();
-  }, []);
 
   // Load thread data for edit mode
   useEffect(() => {
@@ -541,21 +526,12 @@ export default function ThreadForm({ mode = 'create' }: ThreadFormProps) {
                           <Label>
                             Supplier <span className="text-destructive">*</span>
                           </Label>
-                          <Select
-                            value={supplier.supplierId || undefined}
+                          <SupplierCombobox
+                            value={supplier.supplierId || ''}
                             onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select supplier..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableSuppliers.map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  {s.code} - {s.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Select supplier..."
+                            categoryFilter="THREAD_SUPPLIER"
+                          />
                         </div>
 
                         {/* Price per Cone */}

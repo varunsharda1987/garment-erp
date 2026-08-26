@@ -6,13 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import ColorPicker from '@/components/ColorPicker';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { createElastic, getElasticById, updateElastic } from '@/services/elastic.service';
-import { getAllSuppliers } from '@/services/supplier.service';
 import type { ElasticFormData, ElasticSupplierInput } from '@/types/elastic.types';
-import type { Supplier } from '@/types/supplier.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -25,7 +23,6 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [availableSuppliers, setAvailableSuppliers] = useState<Supplier[]>([]);
   const [elasticCode, setElasticCode] = useState<string>('');
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
   const [suppliers, setSuppliers] = useState<ElasticSupplierInput[]>([]);
@@ -33,19 +30,6 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
   const { register, handleSubmit, setValue } = useForm<ElasticFormData>();
 
   const isNewElastic = mode === 'create' || !id;
-
-  // Load available suppliers (filtered by TRIMS_SUPPLIER category)
-  useEffect(() => {
-    const fetchSuppliers = async () => {
-      try {
-        const response = await getAllSuppliers({ limit: 100, category: 'TRIMS_SUPPLIER' });
-        setAvailableSuppliers(response.data);
-      } catch (err) {
-        console.error('Failed to fetch suppliers:', err);
-      }
-    };
-    fetchSuppliers();
-  }, []);
 
   // Load elastic data for edit mode
   useEffect(() => {
@@ -319,21 +303,12 @@ export default function ElasticForm({ mode = 'create' }: ElasticFormProps) {
                           <Label>
                             Supplier <span className="text-destructive">*</span>
                           </Label>
-                          <Select
-                            value={supplier.supplierId || undefined}
+                          <SupplierCombobox
+                            value={supplier.supplierId || ''}
                             onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select supplier..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableSuppliers.map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  {s.code} - {s.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Select supplier..."
+                            categoryFilter="TRIMS_SUPPLIER"
+                          />
                         </div>
 
                         {/* Price per Meter */}

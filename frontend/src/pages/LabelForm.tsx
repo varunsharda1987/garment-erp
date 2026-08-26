@@ -9,12 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { createLabel, getLabelById, updateLabel } from '@/services/label.service';
-import { getAllSuppliers } from '@/services/supplier.service';
 import { getAllCustomers } from '@/services/customer.service';
 import { getAllSizeCategories } from '@/services/sizeCategory.service';
 import type { LabelFormData, LabelSupplierInput } from '@/types/label.types';
 import { getLabelCategoryTerm } from '@/types/label.types';
-import type { Supplier } from '@/types/supplier.types';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import type { Customer, BrandCategory } from '@/types/customer.types';
 import type { SizeCategory } from '@/types/sizeCategory.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -29,7 +28,6 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [availableSuppliers, setAvailableSuppliers] = useState<Supplier[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [brandCategoryId, setBrandCategoryId] = useState<string>('');
@@ -71,16 +69,8 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
 
   const isNewLabel = mode === 'create' || !id;
 
-  // Load available suppliers (filtered by TRIMS_SUPPLIER category), customers, and size categories
+  // Load customers and size categories
   useEffect(() => {
-    const fetchSuppliers = async () => {
-      try {
-        const response = await getAllSuppliers({ limit: 100, category: 'TRIMS_SUPPLIER' });
-        setAvailableSuppliers(response.data);
-      } catch (err) {
-        console.error('Failed to fetch suppliers:', err);
-      }
-    };
     const fetchCustomers = async () => {
       try {
         const response = await getAllCustomers({ limit: 200 });
@@ -97,7 +87,6 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
         console.error('Failed to fetch size categories:', err);
       }
     };
-    fetchSuppliers();
     fetchCustomers();
     fetchSizeCategories();
   }, []);
@@ -676,21 +665,12 @@ export default function LabelForm({ mode = 'create' }: LabelFormProps) {
                           <Label>
                             Supplier <span className="text-destructive">*</span>
                           </Label>
-                          <Select
-                            value={supplier.supplierId || undefined}
+                          <SupplierCombobox
+                            value={supplier.supplierId || ''}
                             onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select supplier..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableSuppliers.map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  {s.code} - {s.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Select supplier..."
+                            categoryFilter="TRIMS_SUPPLIER"
+                          />
                         </div>
 
                         {/* Price per Piece */}

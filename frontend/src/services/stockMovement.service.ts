@@ -117,8 +117,14 @@ export const stockMovementService = {
       rate?: number;
       foldLengthCm?: number;
       thanCount?: number;
+      rollNumbers?: string;
       remarks?: string;
     }>;
+    // Invoice tracking
+    invoiceNumber?: string;
+    invoiceDate?: string;
+    // Backdating support
+    receivedDate?: string;
   }): Promise<{ batchId: string; movements: StockMovement[]; itemCount: number; totalQuantity: string }> {
     const response = await api.post<
       ApiResponse<{ batchId: string; movements: StockMovement[]; itemCount: number; totalQuantity: string }>

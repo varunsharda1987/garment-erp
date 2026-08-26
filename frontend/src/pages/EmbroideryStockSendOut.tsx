@@ -12,13 +12,12 @@ import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { embroideryService } from '../services/embroidery.service';
-import { getAllSuppliers } from '../services/supplier.service';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { styleService } from '../services/style.service';
 import { getAllOrders } from '../services/order.service';
 import { CheckCircle, XCircle, ArrowLeft, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Embroidery, EmbroiderySendOutRequest } from '../types/embroidery.types';
-import type { Supplier } from '../types/supplier.types';
 import type { Style } from '../types/style.types';
 import type { Order } from '../types/order.types';
 import { logError } from '../lib/logger';
@@ -57,7 +56,6 @@ export default function EmbroideryStockSendOut() {
   // Data lists
   const [fabricStockList, setFabricStockList] = useState<FabricStock[]>([]);
   const [embroideryList, setEmbroideryList] = useState<Embroidery[]>([]);
-  const [supplierList, setSupplierList] = useState<Supplier[]>([]);
   const [styleList, setStyleList] = useState<Style[]>([]);
   const [orderList, setOrderList] = useState<Order[]>([]);
 
@@ -114,16 +112,6 @@ export default function EmbroideryStockSendOut() {
       // Load embroidery designs
       const embroideryData = await embroideryService.getAllEmbroidery({ limit: 200, isActive: true });
       setEmbroideryList(embroideryData.data || []);
-
-      // Load suppliers (embroidery category)
-      const supplierData = await getAllSuppliers({ limit: 200, category: 'EMBROIDERY' });
-      // If no embroidery-specific suppliers, load all
-      if (!supplierData.data?.length) {
-        const allSuppliers = await getAllSuppliers({ limit: 200 });
-        setSupplierList(allSuppliers.data || []);
-      } else {
-        setSupplierList(supplierData.data || []);
-      }
 
       // Load styles and orders for optional earmarking (non-blocking)
       try {
@@ -258,7 +246,6 @@ export default function EmbroideryStockSendOut() {
 
   const selectedStock = fabricStockList.find((s) => s.id === selectedStockId);
   const selectedEmbroidery = embroideryList.find((e) => e.id === selectedEmbroideryId);
-  const selectedSupplier = supplierList.find((s) => s.id === selectedSupplierId);
 
   const estimatedCost =
     formData.quantitySent && formData.agreedRate
@@ -499,24 +486,14 @@ export default function EmbroideryStockSendOut() {
                   <Label>
                     Supplier <span className="text-destructive">*</span>
                   </Label>
-                  <Select value={selectedSupplierId} onValueChange={setSelectedSupplierId}>
-                    <SelectTrigger className="w-full mt-1">
-                      <SelectValue placeholder="Select embroidery supplier..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {supplierList.map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.id}>
-                          {supplier.code} - {supplier.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SupplierCombobox
+                    value={selectedSupplierId || ''}
+                    onValueChange={setSelectedSupplierId}
+                    placeholder="Select embroidery processor..."
+                    categoryFilter="EMBROIDERY"
+                    className="mt-1"
+                  />
                 </div>
-                {selectedSupplier && (
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Contact: {selectedSupplier.contactPerson || 'N/A'} | Phone: {selectedSupplier.phone || 'N/A'}
-                  </p>
-                )}
               </div>
 
               {/* Step 4: Send-Out Details */}

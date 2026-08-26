@@ -10,6 +10,8 @@ interface SupplierComboboxProps {
   className?: string;
   disabled?: boolean;
   categoryFilter?: string; // Optional filter by supplier category
+  allowAll?: boolean; // Show "All Suppliers" option for filter use cases
+  allLabel?: string; // Custom label for "all" option (default: "All Suppliers")
 }
 
 export function SupplierCombobox({
@@ -19,6 +21,8 @@ export function SupplierCombobox({
   className,
   disabled = false,
   categoryFilter,
+  allowAll = false,
+  allLabel = 'All Suppliers',
 }: SupplierComboboxProps) {
   const [suppliers, setSuppliers] = useState<ComboboxOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -59,9 +63,12 @@ export function SupplierCombobox({
     [categoryFilter]
   );
 
+  // Build options list with optional "All" at the top
+  const options = allowAll ? [{ value: '', label: allLabel, searchText: 'all suppliers' }, ...suppliers] : suppliers;
+
   return (
     <Combobox
-      options={suppliers}
+      options={options}
       value={value}
       onValueChange={onValueChange}
       placeholder={!initialLoaded ? 'Loading suppliers...' : placeholder}

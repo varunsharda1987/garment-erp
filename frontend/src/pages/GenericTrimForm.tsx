@@ -10,15 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { genericTrimService } from '@/services/genericTrim.service';
 import { TRIM_TYPE_CONFIGS } from '@/types/genericTrim.types';
 import type { FieldConfig } from '@/types/genericTrim.types';
-import { getAllSuppliers } from '@/services/supplier.service';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { ArrowLeft, Save, Loader2 } from 'lucide-react';
-
-interface Supplier {
-  id: string;
-  code: string;
-  name: string;
-}
 
 export default function GenericTrimForm() {
   const navigate = useNavigate();
@@ -30,23 +24,9 @@ export default function GenericTrimForm() {
 
   // Form state - dynamic based on config
   const [formData, setFormData] = useState<Record<string, string | number | boolean | null>>({});
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(isEditMode);
   const [error, setError] = useState<string | null>(null);
-
-  // Load trim suppliers only
-  useEffect(() => {
-    const fetchSuppliers = async () => {
-      try {
-        const response = await getAllSuppliers({ limit: 100, category: 'TRIMS_SUPPLIER' });
-        setSuppliers(response.data || []);
-      } catch (err) {
-        console.error('Failed to load suppliers:', err);
-      }
-    };
-    fetchSuppliers();
-  }, []);
 
   // Load existing item for edit mode
   useEffect(() => {
@@ -323,22 +303,12 @@ export default function GenericTrimForm() {
             {/* Supplier */}
             <div className="space-y-2">
               <Label htmlFor="supplierId">Supplier</Label>
-              <Select
-                value={typeof formData.supplierId === 'string' && formData.supplierId ? formData.supplierId : 'none'}
-                onValueChange={(val) => handleInputChange('supplierId', val === 'none' ? '' : val)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select supplier (optional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Supplier</SelectItem>
-                  {suppliers.map((supplier) => (
-                    <SelectItem key={supplier.id} value={supplier.id}>
-                      {supplier.name} ({supplier.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SupplierCombobox
+                value={typeof formData.supplierId === 'string' ? formData.supplierId : ''}
+                onValueChange={(value) => handleInputChange('supplierId', value)}
+                placeholder="Select supplier..."
+                categoryFilter="TRIMS_SUPPLIER"
+              />
             </div>
 
             {/* Description */}

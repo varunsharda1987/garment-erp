@@ -6,13 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { embroideryService } from '@/services/embroidery.service';
-import { getAllSuppliers } from '@/services/supplier.service';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import type { CreateEmbroideryRequest } from '@/types/embroidery.types';
-import type { Supplier } from '@/types/supplier.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Sparkles, ArrowLeft } from 'lucide-react';
 
@@ -40,7 +38,6 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
   const [embroideryCode, setEmbroideryCode] = useState<string>('');
   const [isActive, setIsActive] = useState(true);
@@ -57,32 +54,6 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
   });
 
   const isNewEmbroidery = mode === 'create' || !id;
-
-  // Load suppliers
-  useEffect(() => {
-    const fetchSuppliers = async () => {
-      try {
-        const response = await getAllSuppliers({ limit: 100, category: 'EMBROIDERY_SUPPLIER' });
-        // If no embroidery suppliers, try getting all suppliers
-        if (response.data.length === 0) {
-          const allResponse = await getAllSuppliers({ limit: 100 });
-          setSuppliers(allResponse.data);
-        } else {
-          setSuppliers(response.data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch suppliers:', err);
-        // Try to get all suppliers as fallback
-        try {
-          const allResponse = await getAllSuppliers({ limit: 100 });
-          setSuppliers(allResponse.data);
-        } catch {
-          // Ignore
-        }
-      }
-    };
-    fetchSuppliers();
-  }, []);
 
   // Load embroidery data for edit mode
   useEffect(() => {
@@ -377,21 +348,12 @@ export default function EmbroideryForm({ mode = 'create' }: EmbroideryFormProps)
                 {/* Supplier */}
                 <div>
                   <Label htmlFor="supplierId">Supplier</Label>
-                  <Select
-                    value={selectedSupplierId || undefined}
-                    onValueChange={(value) => setSelectedSupplierId(value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select supplier (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {suppliers.map((supplier) => (
-                        <SelectItem key={supplier.id} value={supplier.id}>
-                          {supplier.code} - {supplier.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SupplierCombobox
+                    value={selectedSupplierId}
+                    onValueChange={setSelectedSupplierId}
+                    placeholder="Select supplier (optional)"
+                    categoryFilter="EMBROIDERY"
+                  />
                   {selectedSupplierId && (
                     <Button
                       type="button"

@@ -12,9 +12,8 @@ import { StyleCodeMultiSelect } from '@/components/StyleCodeMultiSelect';
 import { LookupSelect } from '@/components/LookupSelect';
 import ColorPicker from '@/components/ColorPicker';
 import { createLace, getLaceById, updateLace, getGreigeLace, deleteLaceImage } from '@/services/lace.service';
-import { getAllSuppliers } from '@/services/supplier.service';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import type { LaceFormData, LaceSupplierInput, Lace } from '@/types/lace.types';
-import type { Supplier } from '@/types/supplier.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Plus, Trash2, Upload, X, Image as ImageIcon } from 'lucide-react';
 
@@ -27,7 +26,6 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [availableSuppliers, setAvailableSuppliers] = useState<Supplier[]>([]);
   const [laceCode, setLaceCode] = useState<string>('');
   const [selectedStyleCodes, setSelectedStyleCodes] = useState<string[]>([]);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(null);
@@ -54,19 +52,6 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
   const { register, handleSubmit, setValue } = useForm<LaceFormData>();
 
   const isNewLace = mode === 'create' || !id;
-
-  // Load available suppliers (filtered by LACE_SUPPLIER category)
-  useEffect(() => {
-    const fetchSuppliers = async () => {
-      try {
-        const response = await getAllSuppliers({ limit: 100, category: 'LACE_SUPPLIER' });
-        setAvailableSuppliers(response.data);
-      } catch (err) {
-        console.error('Failed to fetch suppliers:', err);
-      }
-    };
-    fetchSuppliers();
-  }, []);
 
   // Load greige laces for dropdown (when creating finished lace)
   useEffect(() => {
@@ -499,21 +484,12 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                           <Label>
                             Supplier <span className="text-destructive">*</span>
                           </Label>
-                          <Select
-                            value={supplier.supplierId || undefined}
+                          <SupplierCombobox
+                            value={supplier.supplierId || ''}
                             onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select supplier..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableSuppliers.map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  {s.code} - {s.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Select supplier..."
+                            categoryFilter="LACE_SUPPLIER"
+                          />
                         </div>
 
                         {/* Price per Meter */}

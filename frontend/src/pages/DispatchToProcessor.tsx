@@ -23,7 +23,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { GreigeLotRows } from '@/components/job-work/GreigeLotRows';
@@ -36,7 +35,7 @@ import {
   type IssueLotRow,
 } from '@/components/job-work/lot-rows';
 import { jobWorkOrderService, type DispatchOrderInput, type DispatchableOrder } from '@/services/jobWorkOrder.service';
-import { getAllSuppliers } from '@/services/supplier.service';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 
 /**
  * Blockers no lot selection can clear. Everything else the server reports on a dispatchable order
@@ -61,13 +60,6 @@ export default function DispatchToProcessor() {
   const [selection, setSelection] = useState<Record<string, OrderSelection>>({});
   /** Per-order message from a rejected submit, shown against the row it belongs to. */
   const [orderErrors, setOrderErrors] = useState<Record<string, string>>({});
-
-  const { data: suppliersResponse } = useQuery({
-    queryKey: ['suppliers-for-dispatch'],
-    queryFn: () => getAllSuppliers({ limit: 200 }),
-    staleTime: 5 * 60 * 1000,
-  });
-  const suppliers = (suppliersResponse as { data?: Array<{ id: string; name: string }> })?.data ?? [];
 
   const {
     data: dispatchable,
@@ -246,18 +238,7 @@ export default function DispatchToProcessor() {
         <CardContent className="grid gap-4 md:grid-cols-4">
           <div className="space-y-2 md:col-span-2">
             <Label>Processor *</Label>
-            <Select value={processorId} onValueChange={changeProcessor}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select processor" />
-              </SelectTrigger>
-              <SelectContent>
-                {suppliers.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SupplierCombobox value={processorId} onValueChange={changeProcessor} placeholder="Select processor..." />
           </div>
           <div className="space-y-2">
             <Label>Dispatch date</Label>

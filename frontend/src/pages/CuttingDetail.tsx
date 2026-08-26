@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Dialog,
@@ -19,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { cuttingBatchService } from '@/services/cutting.service';
 import type { IssuedFabricItem } from '@/types/cutting.types';
-import * as supplierService from '@/services/supplier.service';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import type {
   CuttingBatch,
   CuttingBatchStatus,
@@ -47,11 +46,6 @@ import {
   Printer,
 } from 'lucide-react';
 import { format } from 'date-fns';
-
-interface ContractorOption {
-  id: string;
-  name: string;
-}
 
 export default function CuttingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -84,7 +78,6 @@ export default function CuttingDetail() {
   const [issueRemarks, setIssueRemarks] = useState('');
   const [issueQtys, setIssueQtys] = useState<Record<string, number>>({});
   const [isIssueing, setIsIssueing] = useState(false);
-  const [contractors, setContractors] = useState<ContractorOption[]>([]);
 
   // Confirm complete dialog
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
@@ -140,16 +133,6 @@ export default function CuttingDetail() {
     } catch (err) {
       // BUG-MFG12 FIX: Surface error to user instead of silent console.error
       handleApiError(err, 'Failed to load stitching issues');
-    }
-  };
-
-  const fetchContractors = async () => {
-    try {
-      const data = await supplierService.getAllSuppliers({ category: 'STITCHING_CONTRACTOR', limit: 200 });
-      setContractors(data.data || []);
-    } catch (err) {
-      // BUG-MFG13 FIX: Surface error to user instead of silent console.error
-      handleApiError(err, 'Failed to load stitching contractors');
     }
   };
 
@@ -373,7 +356,6 @@ export default function CuttingDetail() {
   // ============================================
 
   const handleOpenIssueForm = () => {
-    fetchContractors();
     setShowIssueForm(true);
     setIssueQtys({});
     setIssuedToId('');
@@ -1023,18 +1005,12 @@ export default function CuttingDetail() {
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div className="space-y-1">
                       <Label className="text-sm">Issue To</Label>
-                      <Select value={issuedToId} onValueChange={setIssuedToId}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select contractor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {contractors.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SupplierCombobox
+                        value={issuedToId}
+                        onValueChange={setIssuedToId}
+                        placeholder="Select contractor..."
+                        categoryFilter="STITCHING_CONTRACTOR"
+                      />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-sm">Issue Date</Label>

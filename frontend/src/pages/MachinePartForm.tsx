@@ -6,12 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { createMachinePart, getMachinePartById, updateMachinePart } from '@/services/machinePart.service';
-import { getAllSuppliers } from '@/services/supplier.service';
 import type { CreateMachinePartRequest, UpdateMachinePartRequest, MachinePart } from '@/types/machinePart.types';
-import type { Supplier } from '@/types/supplier.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -32,7 +30,6 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [availableSuppliers, setAvailableSuppliers] = useState<Supplier[]>([]);
   const [partCode, setPartCode] = useState<string>('');
   const [suppliers, setSuppliers] = useState<SupplierInput[]>([]);
 
@@ -44,19 +41,6 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
   } = useForm<CreateMachinePartRequest>();
 
   const isNewPart = mode === 'create' || !id;
-
-  // Load available suppliers (filtered by MACHINE_PARTS_SUPPLIER category)
-  useEffect(() => {
-    const fetchSuppliers = async () => {
-      try {
-        const response = await getAllSuppliers({ limit: 100, category: 'MACHINE_PARTS_SUPPLIER' });
-        setAvailableSuppliers(response.data);
-      } catch (err) {
-        console.error('Failed to fetch suppliers:', err);
-      }
-    };
-    fetchSuppliers();
-  }, []);
 
   // Load machine part data for edit mode
   useEffect(() => {
@@ -290,21 +274,12 @@ export default function MachinePartForm({ mode = 'create' }: MachinePartFormProp
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
                           <Label>Supplier *</Label>
-                          <Select
-                            value={supplier.supplierId}
+                          <SupplierCombobox
+                            value={supplier.supplierId || ''}
                             onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select supplier" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableSuppliers.map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  {s.code} - {s.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Select supplier..."
+                            categoryFilter="MACHINE_PARTS_SUPPLIER"
+                          />
                         </div>
 
                         <div>

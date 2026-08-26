@@ -9,12 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { createPackaging, getPackagingById, updatePackaging } from '@/services/packaging.service';
-import { getAllSuppliers } from '@/services/supplier.service';
 import { getAllCustomers } from '@/services/customer.service';
 import type { PackagingFormData, PackagingSupplierInput } from '@/types/packaging.types';
 import { PACKAGING_TYPES } from '@/types/packaging.types';
-import type { Supplier } from '@/types/supplier.types';
 import type { Customer, BrandCategory } from '@/types/customer.types';
+import { SupplierCombobox } from '@/components/SupplierCombobox';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -27,7 +26,6 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [availableSuppliers, setAvailableSuppliers] = useState<Supplier[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [brandCategoryId, setBrandCategoryId] = useState<string>('');
@@ -48,16 +46,8 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
 
   const isNewPackaging = mode === 'create' || !id;
 
-  // Load available packaging suppliers and customers
+  // Load available customers
   useEffect(() => {
-    const fetchSuppliers = async () => {
-      try {
-        const response = await getAllSuppliers({ limit: 100, category: 'PACKAGING_SUPPLIER' });
-        setAvailableSuppliers(response.data);
-      } catch (err) {
-        console.error('Failed to fetch suppliers:', err);
-      }
-    };
     const fetchCustomers = async () => {
       try {
         const response = await getAllCustomers({ limit: 200 });
@@ -66,7 +56,6 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
         console.error('Failed to fetch customers:', err);
       }
     };
-    fetchSuppliers();
     fetchCustomers();
   }, []);
 
@@ -442,21 +431,12 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
                           <Label>
                             Supplier <span className="text-destructive">*</span>
                           </Label>
-                          <Select
-                            value={supplier.supplierId}
+                          <SupplierCombobox
+                            value={supplier.supplierId || ''}
                             onValueChange={(value) => handleSupplierChange(index, 'supplierId', value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select supplier..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {availableSuppliers.map((s) => (
-                                <SelectItem key={s.id} value={s.id}>
-                                  {s.code} - {s.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Select supplier..."
+                            categoryFilter="PACKAGING_SUPPLIER"
+                          />
                         </div>
 
                         {/* Price per Piece */}

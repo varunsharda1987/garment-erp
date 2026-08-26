@@ -6,16 +6,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
 import { ButtonSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import stockMovementService from '../services/stockMovement.service';
-import warehouseService from '../services/warehouse.service';
 import stockLevelService from '../services/stockLevel.service';
 import { Unit } from '../types/inventory-exports';
-import type { Warehouse, StockLevel } from '../types/inventory-exports';
+import type { StockLevel } from '../types/inventory-exports';
 import { logError } from '../lib/logger';
 
 export default function StockTransferForm() {
@@ -23,7 +22,6 @@ export default function StockTransferForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [availableStock, setAvailableStock] = useState<StockLevel[]>([]);
   const [selectedStock, setSelectedStock] = useState<StockLevel | null>(null);
 
@@ -35,10 +33,6 @@ export default function StockTransferForm() {
     unit: '' as Unit | '',
     remarks: '',
   });
-
-  useEffect(() => {
-    loadWarehouses();
-  }, []);
 
   useEffect(() => {
     if (formData.fromWarehouseId) {
@@ -55,15 +49,6 @@ export default function StockTransferForm() {
       }
     }
   }, [formData.materialId, availableStock]);
-
-  const loadWarehouses = async () => {
-    try {
-      const data = await warehouseService.getAll({ isActive: true });
-      setWarehouses(data);
-    } catch (err) {
-      logError('Failed to load warehouses:', err);
-    }
-  };
 
   const loadStockLevels = async (warehouseId: string) => {
     try {
@@ -158,21 +143,11 @@ export default function StockTransferForm() {
                 <Label htmlFor="fromWarehouseId">
                   From Warehouse <span className="text-destructive">*</span>
                 </Label>
-                <Select
+                <WarehouseCombobox
                   value={formData.fromWarehouseId}
                   onValueChange={(value) => handleChange('fromWarehouseId', value)}
-                >
-                  <SelectTrigger id="fromWarehouseId">
-                    <SelectValue placeholder="Select warehouse" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {warehouses.map((wh) => (
-                      <SelectItem key={wh.id} value={wh.id}>
-                        {wh.warehouseCode} - {wh.warehouseName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select source warehouse..."
+                />
               </div>
 
               {/* Swap Button */}
@@ -193,18 +168,11 @@ export default function StockTransferForm() {
                 <Label htmlFor="toWarehouseId">
                   To Warehouse <span className="text-destructive">*</span>
                 </Label>
-                <Select value={formData.toWarehouseId} onValueChange={(value) => handleChange('toWarehouseId', value)}>
-                  <SelectTrigger id="toWarehouseId">
-                    <SelectValue placeholder="Select warehouse" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {warehouses.map((wh) => (
-                      <SelectItem key={wh.id} value={wh.id} disabled={wh.id === formData.fromWarehouseId}>
-                        {wh.warehouseCode} - {wh.warehouseName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <WarehouseCombobox
+                  value={formData.toWarehouseId}
+                  onValueChange={(value) => handleChange('toWarehouseId', value)}
+                  placeholder="Select destination warehouse..."
+                />
               </div>
 
               {/* Material Selection */}

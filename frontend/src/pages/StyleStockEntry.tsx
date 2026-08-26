@@ -1,18 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Combobox } from '../components/ui/combobox';
 import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 import { getStyleFabrics, createStyleStock } from '../services/style-stock.service';
 import type { StyleStockEntry as StockEntry, ComponentWithFabrics, UnlinkedFabric } from '../types/style-stock.types';
 import type { Style } from '../types/style.types';
-import type { Warehouse } from '../types/inventory.types';
 import { getStyleById } from '../services/style.service';
-import { warehouseService } from '../services/warehouse.service';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { CheckCircle, XCircle, Package, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
@@ -40,7 +38,6 @@ export default function StyleStockEntry() {
   const [components, setComponents] = useState<ComponentWithFabrics[]>([]);
   const [unlinkedFabrics, setUnlinkedFabrics] = useState<UnlinkedFabric[]>([]);
   const [stockEntries, setStockEntries] = useState<Record<string, StockFormData>>({});
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,29 +49,6 @@ export default function StyleStockEntry() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [styleId]);
-
-  useEffect(() => {
-    const loadWarehouses = async () => {
-      try {
-        const data = await warehouseService.getAll({ isActive: true });
-        setWarehouses(data);
-      } catch (err) {
-        console.error('Failed to load warehouses:', err);
-      }
-    };
-    loadWarehouses();
-  }, []);
-
-  const warehouseOptions = useMemo(
-    () =>
-      warehouses
-        .filter((wh) => wh.warehouseType !== 'JOB_WORK')
-        .map((wh) => ({
-          value: wh.warehouseName,
-          label: `${wh.warehouseCode} - ${wh.warehouseName}`,
-        })),
-    [warehouses]
-  );
 
   const loadStyleData = async () => {
     try {
@@ -456,13 +430,10 @@ export default function StyleStockEntry() {
 
                           <div>
                             <Label>Warehouse Location</Label>
-                            <Combobox
-                              options={warehouseOptions}
+                            <WarehouseCombobox
                               value={entry.warehouseLocation}
                               onValueChange={(value) => handleFieldChange(fabric.fabricId, 'warehouseLocation', value)}
-                              placeholder="Select warehouse"
-                              searchPlaceholder="Search warehouses..."
-                              emptyText="No warehouse found"
+                              placeholder="Select warehouse..."
                             />
                           </div>
 

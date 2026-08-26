@@ -13,8 +13,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { ButtonSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import stockMovementService from '../services/stockMovement.service';
-import warehouseService from '../services/warehouse.service';
 import { getAllMaterials } from '../services/material.service';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { greigeService, fabricService } from '../services/fabricGreigeService';
 
 // Source type for stock in

@@ -12,8 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ButtonSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import stockCountService from '../services/stockCount.service';
-import warehouseService from '../services/warehouse.service';
 import stockLevelService from '../services/stockLevel.service';
 import { CountType } from '../types/inventory.types';
 import { logError } from '../lib/logger';
@@ -24,7 +24,6 @@ export default function StockCountForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [warehouses, setWarehouses] = useState<{ id: string; warehouseCode: string; warehouseName: string }[]>([]);
   const [availableMaterials, setAvailableMaterials] = useState<
     { id: string; materialId: string; quantity: number; unit: string; materials?: { code: string; name: string } }[]
   >([]);
@@ -38,25 +37,10 @@ export default function StockCountForm() {
   });
 
   useEffect(() => {
-    loadWarehouses();
-  }, []);
-
-  useEffect(() => {
     if (formData.warehouseId) {
       loadMaterials(formData.warehouseId);
     }
   }, [formData.warehouseId]);
-
-  const loadWarehouses = async () => {
-    try {
-      const data = await warehouseService.getAll({ isActive: true });
-      setWarehouses(data);
-    } catch (err) {
-      logError('Failed to load warehouses:', err);
-      // bug-hunt: was silent, now notifies user
-      toast.error('Failed to load warehouses');
-    }
-  };
 
   const loadMaterials = async (warehouseId: string) => {
     try {
@@ -148,18 +132,11 @@ export default function StockCountForm() {
                 <Label htmlFor="warehouseId">
                   Warehouse <span className="text-destructive">*</span>
                 </Label>
-                <Select value={formData.warehouseId} onValueChange={(value) => handleChange('warehouseId', value)}>
-                  <SelectTrigger id="warehouseId">
-                    <SelectValue placeholder="Select warehouse" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {warehouses.map((wh) => (
-                      <SelectItem key={wh.id} value={wh.id}>
-                        {wh.warehouseCode} - {wh.warehouseName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <WarehouseCombobox
+                  value={formData.warehouseId}
+                  onValueChange={(value) => handleChange('warehouseId', value)}
+                  placeholder="Select warehouse..."
+                />
               </div>
 
               {/* Count Type */}

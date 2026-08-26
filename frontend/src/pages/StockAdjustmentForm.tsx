@@ -12,11 +12,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ButtonSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import stockMovementService from '../services/stockMovement.service';
-import warehouseService from '../services/warehouse.service';
 import stockLevelService from '../services/stockLevel.service';
 import { Unit, AdjustmentReason } from '../types/inventory-exports';
-import type { Warehouse, StockLevel } from '../types/inventory-exports';
+import type { StockLevel } from '../types/inventory-exports';
 import { logError } from '../lib/logger';
 
 export default function StockAdjustmentForm() {
@@ -24,7 +24,6 @@ export default function StockAdjustmentForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [availableStock, setAvailableStock] = useState<StockLevel[]>([]);
   const [selectedStock, setSelectedStock] = useState<StockLevel | null>(null);
 
@@ -37,10 +36,6 @@ export default function StockAdjustmentForm() {
     reason: '' as AdjustmentReason | '',
     remarks: '',
   });
-
-  useEffect(() => {
-    loadWarehouses();
-  }, []);
 
   useEffect(() => {
     if (formData.warehouseId) {
@@ -57,15 +52,6 @@ export default function StockAdjustmentForm() {
       }
     }
   }, [formData.materialId, availableStock]);
-
-  const loadWarehouses = async () => {
-    try {
-      const data = await warehouseService.getAll({ isActive: true });
-      setWarehouses(data);
-    } catch (err) {
-      logError('Failed to load warehouses:', err);
-    }
-  };
 
   const loadStockLevels = async (warehouseId: string) => {
     try {
@@ -151,18 +137,11 @@ export default function StockAdjustmentForm() {
                 <Label htmlFor="warehouseId">
                   Warehouse <span className="text-destructive">*</span>
                 </Label>
-                <Select value={formData.warehouseId} onValueChange={(value) => handleChange('warehouseId', value)}>
-                  <SelectTrigger id="warehouseId">
-                    <SelectValue placeholder="Select warehouse" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {warehouses.map((wh) => (
-                      <SelectItem key={wh.id} value={wh.id}>
-                        {wh.warehouseCode} - {wh.warehouseName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <WarehouseCombobox
+                  value={formData.warehouseId}
+                  onValueChange={(value) => handleChange('warehouseId', value)}
+                  placeholder="Select warehouse..."
+                />
               </div>
 
               {/* Material Selection */}

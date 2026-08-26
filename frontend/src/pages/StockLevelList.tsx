@@ -12,10 +12,10 @@ import { PageHeader } from '@/components/PageHeader';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import { StatusBadge } from '@/components/StatusBadge';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { handleApiError } from '@/lib/api-error-handler';
 import { formatMaterialType } from '@/lib/formatters';
 import stockLevelService from '../services/stockLevel.service';
-import warehouseService from '../services/warehouse.service';
 import type { StockLevel } from '../types/inventory-exports';
 
 // Local type definition to avoid import issues
@@ -30,33 +30,19 @@ type Column<T> = {
 export default function StockLevelList() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [stockLevels, setStockLevels] = useState<StockLevel[]>([]);
-  const [warehouses, setWarehouses] = useState<{ id: string; warehouseCode: string; warehouseName: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const initialMaterialType = searchParams.get('materialType') || 'all';
-  const [warehouseFilter, setWarehouseFilter] = useState('all');
+  const [warehouseFilter, setWarehouseFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [materialTypeFilter, setMaterialTypeFilter] = useState(initialMaterialType);
 
   useEffect(() => {
-    loadWarehouses();
-  }, []);
-
-  useEffect(() => {
     loadStockLevels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [warehouseFilter, showLowStockOnly, searchTerm, materialTypeFilter]);
-
-  const loadWarehouses = async () => {
-    try {
-      const data = await warehouseService.getAll({ isActive: true });
-      setWarehouses(data);
-    } catch (err: unknown) {
-      handleApiError(err, 'Failed to load warehouses', false);
-    }
-  };
 
   const loadStockLevels = async () => {
     try {
@@ -67,7 +53,7 @@ export default function StockLevelList() {
         // Filter by material type
         data = await stockLevelService.getByMaterialType(materialTypeFilter);
         // Apply warehouse filter client-side if needed
-        if (warehouseFilter && warehouseFilter !== 'all') {
+        if (warehouseFilter) {
           data = data.filter((sl: StockLevel) => sl.warehouseId === warehouseFilter);
         }
         // Apply search filter client-side if needed
@@ -79,10 +65,10 @@ export default function StockLevelList() {
           );
         }
       } else if (showLowStockOnly) {
-        data = await stockLevelService.getBelowReorderLevel(warehouseFilter !== 'all' ? warehouseFilter : undefined);
+        data = await stockLevelService.getBelowReorderLevel(warehouseFilter || undefined);
       } else {
         data = await stockLevelService.getAll({
-          warehouseId: warehouseFilter !== 'all' ? warehouseFilter : undefined,
+          warehouseId: warehouseFilter || undefined,
           search: searchTerm || undefined,
         });
       }
@@ -273,19 +259,11 @@ export default function StockLevelList() {
             </div>
             <div className="w-64">
               <Label htmlFor="warehouseFilter">Warehouse</Label>
-              <Select value={warehouseFilter} onValueChange={setWarehouseFilter}>
-                <SelectTrigger id="warehouseFilter">
-                  <SelectValue placeholder="All Warehouses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Warehouses</SelectItem>
-                  {warehouses.map((wh) => (
-                    <SelectItem key={wh.id} value={wh.id}>
-                      {wh.warehouseCode} - {wh.warehouseName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <WarehouseCombobox
+                value={warehouseFilter}
+                onValueChange={setWarehouseFilter}
+                placeholder="All Warehouses"
+              />
             </div>
           </div>
         </CardContent>

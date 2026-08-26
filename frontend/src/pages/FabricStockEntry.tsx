@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Combobox } from '../components/ui/combobox';
 import { fabricService } from '../services/fabricGreigeService';
-import { warehouseService } from '../services/warehouse.service';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { CheckCircle, XCircle, Package2, ArrowLeft, ChevronDown, ChevronUp, AlertTriangle, Link2 } from 'lucide-react';
 import type { FabricMaster } from '../types/fabric-greige.types';
 import api from '@/lib/api';
@@ -36,9 +36,6 @@ export default function FabricStockEntry() {
     notes: '',
   });
 
-  const [warehouses, setWarehouses] = useState<
-    Array<{ id: string; warehouseCode: string; warehouseName: string; isVirtual?: boolean }>
-  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,19 +52,9 @@ export default function FabricStockEntry() {
   const loadFabricList = async () => {
     try {
       setIsLoading(true);
-      const [fabricResponse, warehouseData] = await Promise.all([
-        fabricService.getAll({ limit: 200, isActive: 'true' }),
-        warehouseService.getAll({ isActive: true }),
-      ]);
+      const fabricResponse = await fabricService.getAll({ limit: 200, isActive: 'true' });
       const loadedList = fabricResponse.data || [];
       setFabricList(loadedList);
-      setWarehouses(warehouseData);
-
-      // Set default warehouse to "Kashaya Fabs"
-      const kashayaFabs = warehouseData.find((wh) => wh.warehouseName === 'Kashaya Fabs');
-      if (kashayaFabs) {
-        setFormData((prev) => ({ ...prev, warehouseLocation: kashayaFabs.warehouseName }));
-      }
 
       // Auto-select fabric if passed via URL query param (from FabricDetail "Add Stock")
       if (preselectedFabricId) {
@@ -500,22 +487,12 @@ export default function FabricStockEntry() {
 
               <div>
                 <Label htmlFor="warehouseLocation">Warehouse Location</Label>
-                <Select
+                <WarehouseCombobox
                   value={formData.warehouseLocation}
                   onValueChange={(v) => handleFieldChange('warehouseLocation', v)}
-                >
-                  <SelectTrigger className="mt-1">
-                    <SelectValue placeholder="Select warehouse" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {warehouses.map((wh) => (
-                      <SelectItem key={wh.id} value={wh.warehouseName}>
-                        {wh.warehouseCode} - {wh.warehouseName}
-                        {wh.isVirtual ? ' (Virtual)' : ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  placeholder="Select warehouse..."
+                  className="mt-1"
+                />
               </div>
 
               <div>

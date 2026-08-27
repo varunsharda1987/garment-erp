@@ -13,6 +13,26 @@ import { gstService } from './gst.service';
 import warehouseService from './warehouse.service';
 
 // ============================================
+// Constants
+// ============================================
+
+/**
+ * Supplier categories that are processors — they receive materials/garments
+ * for processing and need a JOB_WORK warehouse for stock tracking.
+ */
+const PROCESSOR_CATEGORIES: SupplierCategory[] = [
+  'DYEING_PRINTING',
+  'EMBROIDERY',
+  'HAND_WORK',
+  'SMOCKING',
+  'CMT_UNIT',
+  'FINISHING_CONTRACTOR',
+  'STITCHING_CONTRACTOR',
+  'WASHING',
+  'DORI_PIPING_CONTRACTOR',
+];
+
+// ============================================
 // Types
 // ============================================
 
@@ -219,8 +239,9 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
       include: this.getDefaultIncludes(),
     });
 
-    // Auto-create JOB_WORK warehouse for DYEING_PRINTING processors
-    if (data.supplierCategories?.includes('DYEING_PRINTING')) {
+    // Auto-create JOB_WORK warehouse for processor suppliers
+    const isProcessor = data.supplierCategories?.some((cat) => PROCESSOR_CATEGORIES.includes(cat));
+    if (isProcessor) {
       try {
         const warehouseCode = await warehouseService.generateWarehouseCode('JOB_WORK');
         await warehouseService.createWarehouse({
@@ -311,8 +332,9 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
       include: this.getDefaultIncludes(),
     });
 
-    // Auto-create JOB_WORK warehouse if DYEING_PRINTING was added and no warehouse exists
-    if (data.supplierCategories?.includes('DYEING_PRINTING')) {
+    // Auto-create JOB_WORK warehouse if processor category was added and no warehouse exists
+    const isProcessor = data.supplierCategories?.some((cat) => PROCESSOR_CATEGORIES.includes(cat));
+    if (isProcessor) {
       const existingWarehouse = await this.prisma.warehouses.findFirst({
         where: { supplierId: id },
       });

@@ -361,6 +361,7 @@ export type CostSheetListFilters = {
   limit?: number;
   search?: string;
   approved?: string;
+  purpose?: string;
 };
 
 export type CostSheetListResponse = {

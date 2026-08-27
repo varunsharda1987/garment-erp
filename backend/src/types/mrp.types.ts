@@ -310,6 +310,8 @@ export interface MaterialRequirementResponse {
   availableStock: number;
   allocatedFromStock: number;
   shortfall: number;
+  /** Live current stock for this material (queried at response time, not a snapshot) */
+  currentStock: number;
   preferredSupplierId: string | null;
   requirementType?: string;
   processorId?: string | null;

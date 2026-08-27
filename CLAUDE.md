@@ -277,9 +277,16 @@ The app runs via PM2 (auto-managed, no manual start needed):
 - **Backend API:** http://localhost:5000
 
 PM2 commands (user-run only):
-- `pm2 start ecosystem.config.js` — Start all services
-- `pm2 logs` — View logs
-- `pm2 restart all` — Restart after deploy
+- `pm2 start ecosystem.config.js` — Start this app's services
+- `pm2 logs garment-erp-api` — View this app's logs
+- `node C:\Users\NEW\ops\pm2-safe-restart.js garment-erp-api:5000 garment-erp-web:3000` — Restart after deploy
+
+⚠ **The PM2 daemon on this PC is SHARED with three other businesses** (kasya-b2b, harleen-b2b,
+thar-coal, plus inward-web/ucip/redis — 13 processes). Never run `pm2 restart all`, `pm2 reload all`,
+`pm2 kill`, `pm2 update` or `npm install -g pm2`: each one bounces or drops every business at once,
+and a CLI/daemon version split forces a daemon respawn. `pm2-safe-restart.js` is the ONE sanctioned
+restart path — it version-guards, stops rather than restarts, kills only a *verified* stale fork, and
+asserts the port owner matches PM2's pid afterwards.
 
 ## New Module Checklist
 

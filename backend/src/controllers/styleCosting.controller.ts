@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { Prisma } from '@prisma/client';
+import { CostSheetPurpose, Prisma } from '@prisma/client';
 import { z } from 'zod';
 import prisma from '../config/database';
 import { logInfo, logWarn } from '../utils/logger';
@@ -515,7 +515,7 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
  * GET /api/style-costing
  */
 export const getAllCostSheets = async (req: Request, res: Response): Promise<void> => {
-  const { page = '1', limit = '10', search = '', approved = 'all' } = req.query;
+  const { page = '1', limit = '10', search = '', approved = 'all', purpose = 'all' } = req.query;
 
   const pageNum = parseInt(page as string);
   const limitNum = parseInt(limit as string);
@@ -549,6 +549,11 @@ export const getAllCostSheets = async (req: Request, res: Response): Promise<voi
     } else if (approved === 'false') {
       where.isApproved = false;
     }
+  }
+
+  // Filter by purpose
+  if (purpose !== 'all') {
+    where.purpose = purpose as CostSheetPurpose;
   }
 
   // Get total count

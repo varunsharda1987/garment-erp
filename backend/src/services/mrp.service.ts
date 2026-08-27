@@ -811,6 +811,138 @@ function netFreeStock(sum: { quantityAvailable?: unknown; quantityReserved?: unk
 }
 
 /**
+ * Batch lookup current stock for multiple requirements.
+ * Groups requirements by stock table type and queries in bulk.
+ * Returns a Map of materialId -> currentStock (live, not snapshot).
+ */
+async function batchGetCurrentStock(
+  requirements: Array<{
+    materialId: string;
+    materials?: {
+      id: string;
+      materialType: string;
+      greigeId?: string | null;
+      fabricId?: string | null;
+      laceId?: string | null;
+    } | null;
+  }>
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+
+  // Group by stock table type
+  const greigeIds = new Set<string>();
+  const fabricIds = new Set<string>();
+  const laceIds = new Set<string>();
+  const genericMaterialIds = new Set<string>();
+  const materialIdToLookupId = new Map<string, { type: 'greige' | 'fabric' | 'lace' | 'generic'; lookupId: string }>();
+
+  for (const req of requirements) {
+    if (!req.materials) continue;
+
+    const m = req.materials;
+    if (m.greigeId) {
+      greigeIds.add(m.greigeId);
+      materialIdToLookupId.set(req.materialId, { type: 'greige', lookupId: m.greigeId });
+    } else if (m.fabricId) {
+      fabricIds.add(m.fabricId);
+      materialIdToLookupId.set(req.materialId, { type: 'fabric', lookupId: m.fabricId });
+    } else if (m.laceId) {
+      laceIds.add(m.laceId);
+      materialIdToLookupId.set(req.materialId, { type: 'lace', lookupId: m.laceId });
+    } else {
+      genericMaterialIds.add(req.materialId);
+      materialIdToLookupId.set(req.materialId, { type: 'generic', lookupId: req.materialId });
+    }
+  }
+
+  // Batch query greige_stock
+  const greigeStockMap = new Map<string, number>();
+  if (greigeIds.size > 0) {
+    const greigeStock = await prisma.greige_stock.groupBy({
+      by: ['greigeId'],
+      where: {
+        greigeId: { in: [...greigeIds] },
+        status: 'AVAILABLE',
+        processorId: null, // Stock at processor is not available for planning
+      },
+      _sum: { quantityAvailable: true, quantityReserved: true },
+    });
+    for (const g of greigeStock) {
+      greigeStockMap.set(g.greigeId, netFreeStock(g._sum));
+    }
+  }
+
+  // Batch query fabric_stock
+  const fabricStockMap = new Map<string, number>();
+  if (fabricIds.size > 0) {
+    const fabricStock = await prisma.fabric_stock.groupBy({
+      by: ['fabricId'],
+      where: {
+        fabricId: { in: [...fabricIds] },
+        status: 'AVAILABLE',
+      },
+      _sum: { quantityAvailable: true, quantityReserved: true },
+    });
+    for (const f of fabricStock) {
+      fabricStockMap.set(f.fabricId, netFreeStock(f._sum));
+    }
+  }
+
+  // Batch query lace_stock
+  const laceStockMap = new Map<string, number>();
+  if (laceIds.size > 0) {
+    const laceStock = await prisma.lace_stock.groupBy({
+      by: ['laceId'],
+      where: {
+        laceId: { in: [...laceIds] },
+        status: 'AVAILABLE',
+      },
+      _sum: { quantityAvailable: true, quantityReserved: true },
+    });
+    for (const l of laceStock) {
+      laceStockMap.set(l.laceId, netFreeStock(l._sum));
+    }
+  }
+
+  // Batch query generic materials via derived_stock_view
+  const genericStockMap = new Map<string, number>();
+  if (genericMaterialIds.size > 0) {
+    for (const materialId of genericMaterialIds) {
+      const stock = await getDerivedOnHand(materialId);
+      genericStockMap.set(materialId, stock);
+    }
+  }
+
+  // Build result map: materialId -> currentStock
+  for (const req of requirements) {
+    const lookup = materialIdToLookupId.get(req.materialId);
+    if (!lookup) {
+      result.set(req.materialId, 0);
+      continue;
+    }
+
+    let stock = 0;
+    switch (lookup.type) {
+      case 'greige':
+        stock = greigeStockMap.get(lookup.lookupId) ?? 0;
+        break;
+      case 'fabric':
+        stock = fabricStockMap.get(lookup.lookupId) ?? 0;
+        break;
+      case 'lace':
+        stock = laceStockMap.get(lookup.lookupId) ?? 0;
+        break;
+      case 'generic':
+        stock = genericStockMap.get(lookup.lookupId) ?? 0;
+        break;
+    }
+    result.set(req.materialId, stock);
+  }
+
+  return result;
+}
+
+/**
  * Calculate material requirements from an order's BOM
  * Formula: totalRequired = orderQuantity × quantityPerUnit × (1 + wastagePercent/100)
  */
@@ -2273,8 +2405,14 @@ export async function getRequirements(
     prisma.material_requirements.count({ where }),
   ]);
 
+  // Enrich with live current stock (not the snapshot from creation time)
+  const currentStockMap = await batchGetCurrentStock(data);
+
   return {
-    data: data.map(mapToResponse),
+    data: data.map((req) => ({
+      ...mapToResponse(req),
+      currentStock: currentStockMap.get(req.materialId) ?? 0,
+    })),
     total,
   };
 }
@@ -4274,6 +4412,8 @@ function getRequirementIncludes() {
         name: true,
         materialType: true,
         fabricId: true,
+        greigeId: true,
+        laceId: true,
         // Loom width of the greige this material represents (null for non-greige) —
         // purchase surfaces display THIS, not the CAD cutable width
         greige_master: { select: { greigeWidth: true } },
@@ -4372,6 +4512,7 @@ function mapToResponse(req: any): MaterialRequirementResponse {
     availableStock: Number(req.availableStock),
     allocatedFromStock: Number(req.allocatedFromStock),
     shortfall: Number(req.shortfall),
+    currentStock: 0, // Default; enriched by getRequirements() with live stock lookup
     preferredSupplierId: req.preferredSupplierId,
     requirementType: req.requirementType || 'MATERIAL',
     processorId: req.processorId || null,

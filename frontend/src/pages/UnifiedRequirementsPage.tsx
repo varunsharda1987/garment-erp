@@ -10,10 +10,11 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useListQuery, queryKeys } from '@/hooks/useQuery';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -48,6 +49,7 @@ import {
   getRequirementStyles,
   convertToGreigeProcessing,
   previewPOs,
+  allocateStock,
 } from '@/services/mrp.service';
 import {
   getAllServiceRequirements,
@@ -389,6 +391,8 @@ export default function UnifiedRequirementsPage() {
 // Material Requirements Tab (only MATERIAL type)
 // ─────────────────────────────────────────────────────────────
 
+type ViewMode = 'flat' | 'byMaterial' | 'byParty' | 'byStyle';
+
 function MaterialRequirementsTab({
   searchParams,
   updateURLParams,
@@ -414,6 +418,12 @@ function MaterialRequirementsTab({
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [requirementToCancel, setRequirementToCancel] = useState<string | null>(null);
   const [recalcDialogOpen, setRecalcDialogOpen] = useState(false);
+
+  // Allocate from Stock state
+  const [allocateStockDialogOpen, setAllocateStockDialogOpen] = useState(false);
+  const [allocatingRequirement, setAllocatingRequirement] = useState<MaterialRequirement | null>(null);
+  const [allocateQuantity, setAllocateQuantity] = useState('');
+  const [isAllocating, setIsAllocating] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
 
   // Convert to Greige Processing state
@@ -426,9 +436,14 @@ function MaterialRequirementsTab({
   const [processingCostInput, setProcessingCostInput] = useState('');
   const [isConverting, setIsConverting] = useState(false);
 
+  // View mode for grouping
+  const [viewMode, setViewMode] = useState<ViewMode>('flat');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
   const [searchInput, setSearchInput] = useDebouncedSearchParam(searchParams, updateURLParams);
 
   // Filters — hard-code requirementType to MATERIAL
+  // When in grouped view, fetch more items (pagination makes less sense when grouping)
   const filters = useMemo(
     (): RequirementFilters => ({
       orderId: searchParams.get('orderId') || undefined,
@@ -437,12 +452,12 @@ function MaterialRequirementsTab({
       styleId: searchParams.get('styleId') || undefined,
       requirementType: 'MATERIAL',
       search: searchParams.get('search') || undefined,
-      page: parseInt(searchParams.get('page') || '1'),
-      limit: 20,
+      page: viewMode === 'flat' ? parseInt(searchParams.get('page') || '1') : 1,
+      limit: viewMode === 'flat' ? 20 : 100, // Backend caps at 100
       sortBy: 'createdAt',
       sortOrder: 'desc',
     }),
-    [searchParams]
+    [searchParams, viewMode]
   );
 
   // Queries
@@ -469,6 +484,92 @@ function MaterialRequirementsTab({
   const pagination = requirementsResponse?.pagination || { page: 1, limit: 20, total: 0, totalPages: 1 };
   const suppliers: Supplier[] = suppliersResponse?.data || [];
   const styleOptions = stylesForFilter || [];
+
+  // Grouped view data
+  interface RequirementGroup {
+    key: string;
+    label: string;
+    subLabel?: string;
+    requirements: MaterialRequirement[];
+    totalShortfall: number;
+    count: number;
+    selectableCount: number;
+  }
+
+  const groupedRequirements = useMemo((): RequirementGroup[] | null => {
+    if (viewMode === 'flat') return null;
+
+    const grouped = new Map<string, RequirementGroup>();
+
+    for (const req of requirements) {
+      let key: string, label: string, subLabel: string | undefined;
+
+      switch (viewMode) {
+        case 'byMaterial':
+          key = req.materialId || 'unknown';
+          label = req.material?.name || 'Unknown Material';
+          subLabel = req.material?.code;
+          break;
+        case 'byParty':
+          key = req.preferredSupplierId || 'unassigned';
+          label = req.preferredSupplier?.name || 'Not Assigned';
+          subLabel = req.preferredSupplier?.code;
+          break;
+        case 'byStyle':
+          key = req.orderItem?.styleId || 'unknown';
+          label = req.orderItem?.styleName || 'Unknown Style';
+          subLabel = req.orderItem?.styleCode;
+          break;
+        default:
+          key = 'unknown';
+          label = 'Unknown';
+      }
+
+      const existing = grouped.get(key) || {
+        key,
+        label,
+        subLabel,
+        requirements: [],
+        totalShortfall: 0,
+        count: 0,
+        selectableCount: 0,
+      };
+      existing.requirements.push(req);
+      existing.totalShortfall += Number(req.shortfall) || 0;
+      existing.count++;
+      if (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') {
+        existing.selectableCount++;
+      }
+      grouped.set(key, existing);
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => b.count - a.count);
+  }, [requirements, viewMode]);
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const handleSelectGroup = (group: RequirementGroup, checked: boolean) => {
+    const groupSelectableIds = group.requirements
+      .filter((r) => r.status === 'PO_REQUIRED' || r.status === 'PARTIAL_STOCK')
+      .map((r) => r.id);
+    setSelectedIds((prev) =>
+      checked ? [...new Set([...prev, ...groupSelectableIds])] : prev.filter((id) => !groupSelectableIds.includes(id))
+    );
+  };
+
+  const isGroupFullySelected = (group: RequirementGroup): boolean => {
+    const groupSelectableIds = group.requirements
+      .filter((r) => r.status === 'PO_REQUIRED' || r.status === 'PARTIAL_STOCK')
+      .map((r) => r.id);
+    return groupSelectableIds.length > 0 && groupSelectableIds.every((id) => selectedIds.includes(id));
+  };
 
   // Selection helpers
   const selectableRequirements = useMemo(
@@ -581,6 +682,51 @@ function MaterialRequirementsTab({
     } finally {
       setRequirementToCancel(null);
       setCancelDialogOpen(false);
+    }
+  };
+
+  // Allocate from Stock handlers
+  const openAllocateStockDialog = (req: MaterialRequirement) => {
+    setAllocatingRequirement(req);
+    // Default to allocating the full shortfall or available stock, whichever is less
+    const maxAllocatable = Math.min(req.currentStock, req.shortfall);
+    setAllocateQuantity(maxAllocatable.toFixed(2));
+    setAllocateStockDialogOpen(true);
+  };
+
+  const handleAllocateStock = async () => {
+    if (!allocatingRequirement) return;
+    const qty = parseFloat(allocateQuantity);
+    if (isNaN(qty) || qty <= 0) {
+      handleApiError(new Error('Invalid quantity'), 'Please enter a valid quantity');
+      return;
+    }
+    if (qty > allocatingRequirement.currentStock) {
+      handleApiError(
+        new Error('Exceeds available'),
+        `Cannot allocate more than available stock (${allocatingRequirement.currentStock})`
+      );
+      return;
+    }
+    if (qty > allocatingRequirement.shortfall) {
+      handleApiError(
+        new Error('Exceeds shortfall'),
+        `Cannot allocate more than shortfall (${allocatingRequirement.shortfall})`
+      );
+      return;
+    }
+
+    setIsAllocating(true);
+    try {
+      await allocateStock(allocatingRequirement.id, { quantity: qty });
+      handleApiSuccess(`Allocated ${qty} ${allocatingRequirement.unit} from stock`);
+      refreshData();
+      setAllocateStockDialogOpen(false);
+      setAllocatingRequirement(null);
+    } catch (err) {
+      handleApiError(err, 'Failed to allocate stock');
+    } finally {
+      setIsAllocating(false);
     }
   };
 
@@ -813,182 +959,471 @@ function MaterialRequirementsTab({
                 ))}
               </SelectContent>
             </Select>
+
+            {/* View Mode Selector */}
+            <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="View Mode" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="flat">Flat View</SelectItem>
+                <SelectItem value="byMaterial">By Material</SelectItem>
+                <SelectItem value="byParty">By Party</SelectItem>
+                <SelectItem value="byStyle">By Style</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
 
       {/* Results summary */}
       <div className="text-sm text-muted-foreground px-1">
-        Showing {requirements.length} of {pagination.total} requirements
+        {viewMode === 'flat' ? (
+          <>
+            Showing {requirements.length} of {pagination.total} requirements
+          </>
+        ) : (
+          <>
+            {groupedRequirements?.length || 0} groups · {requirements.length} requirements
+            {pagination.total > requirements.length && (
+              <span className="ml-1 text-warning">
+                (showing first {requirements.length} of {pagination.total})
+              </span>
+            )}
+          </>
+        )}
       </div>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox checked={allOnPageSelected} onCheckedChange={handleSelectAll} />
-                </TableHead>
-                <TableHead>Requirement #</TableHead>
-                <TableHead>Material</TableHead>
-                <TableHead>Style</TableHead>
-                <TableHead>Order</TableHead>
-                <TableHead className="text-right">Required</TableHead>
-                <TableHead className="text-right">Shortfall</TableHead>
-                <TableHead>Required Date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Vendor</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">
-                    Loading requirements...
-                  </TableCell>
-                </TableRow>
-              ) : requirements.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={11} className="text-center py-12 text-muted-foreground">
-                    No material requirements found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                requirements.map((req) => {
-                  const isSelectable = req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK';
-                  return (
-                    <TableRow key={req.id}>
-                      <TableCell>
-                        {isSelectable && (
-                          <Checkbox
-                            checked={selectedIds.includes(req.id)}
-                            onCheckedChange={(checked) => handleSelectOne(req.id, !!checked)}
+      {/* Grouped View */}
+      {viewMode !== 'flat' && groupedRequirements && (
+        <div className="space-y-2">
+          {isLoading ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">Loading requirements...</CardContent>
+            </Card>
+          ) : groupedRequirements.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                No material requirements found
+              </CardContent>
+            </Card>
+          ) : (
+            groupedRequirements.map((group) => (
+              <Collapsible
+                key={group.key}
+                open={expandedGroups.has(group.key)}
+                onOpenChange={() => toggleGroup(group.key)}
+              >
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 py-3 px-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {group.selectableCount > 0 && (
+                            <Checkbox
+                              checked={isGroupFullySelected(group)}
+                              onCheckedChange={(checked) => handleSelectGroup(group, !!checked)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          )}
+                          <ChevronRight
+                            className={`h-4 w-4 transition-transform ${
+                              expandedGroups.has(group.key) ? 'rotate-90' : ''
+                            }`}
                           />
-                        )}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">
-                        {req.requirementNumber}
-                        {/* MRP-12: a split remainder would otherwise look like an unexplained
-                            duplicate row — say what it is. */}
-                        {req.splitFromId && (
-                          <Badge variant="outline" className="ml-2 text-xs font-normal">
-                            Balance
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="text-sm font-medium">{req.material?.name || 'N/A'}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {req.material?.code}
-                            {/* Greige rows: the loom width is what is being ordered — show it here
-                                (the CAD cutable width is deliberately NOT shown on purchase surfaces) */}
-                            {req.greigeWidthInches != null && ` · ${Number(req.greigeWidthInches)}" greige width`}
+                          <div>
+                            <div className="font-medium">{group.label}</div>
+                            {group.subLabel && <div className="text-sm text-muted-foreground">{group.subLabel}</div>}
                           </div>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="text-sm font-medium">{req.orderItem?.styleName || '-'}</div>
-                          {req.orderItem?.styleCode && (
-                            <div className="text-xs text-muted-foreground">
-                              {req.orderItem?.styleCode}
-                              {req.orderItem?.buyerStyleRef ? ` (${req.orderItem.buyerStyleRef})` : ''}
-                            </div>
+                        <div className="flex items-center gap-3 text-sm">
+                          <Badge variant="secondary">{group.count} items</Badge>
+                          {group.totalShortfall > 0 && (
+                            <Badge variant="destructive">{group.totalShortfall.toFixed(2)} shortfall</Badge>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">{req.order?.orderNumber || '-'}</div>
-                        {req.orderBom && (
-                          <div className="text-xs text-muted-foreground">BOM v{req.orderBom.version}</div>
-                        )}
-                      </TableCell>
-                      {/* MRP-29: both were raw Decimal-derived floats (1234.5670000000002 MTR was
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0 px-4 pb-4">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-10"></TableHead>
+                            <TableHead>Requirement #</TableHead>
+                            {viewMode !== 'byMaterial' && <TableHead>Material</TableHead>}
+                            {viewMode !== 'byStyle' && <TableHead>Style</TableHead>}
+                            <TableHead>Order</TableHead>
+                            <TableHead className="text-right">Required</TableHead>
+                            <TableHead className="text-right">Shortfall</TableHead>
+                            <TableHead className="text-right">Current Stock</TableHead>
+                            <TableHead>Required Date</TableHead>
+                            <TableHead>Status</TableHead>
+                            {viewMode !== 'byParty' && <TableHead>Vendor</TableHead>}
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {group.requirements.map((req) => {
+                            const isSelectable = req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK';
+                            return (
+                              <TableRow key={req.id}>
+                                <TableCell>
+                                  {isSelectable && (
+                                    <Checkbox
+                                      checked={selectedIds.includes(req.id)}
+                                      onCheckedChange={(checked) => handleSelectOne(req.id, !!checked)}
+                                    />
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-sm font-medium">
+                                  {req.requirementNumber}
+                                  {req.splitFromId && (
+                                    <Badge variant="outline" className="ml-2 text-xs font-normal">
+                                      Balance
+                                    </Badge>
+                                  )}
+                                </TableCell>
+                                {viewMode !== 'byMaterial' && (
+                                  <TableCell>
+                                    <div>
+                                      <div className="text-sm font-medium">{req.material?.name || 'N/A'}</div>
+                                      <div className="text-xs text-muted-foreground">
+                                        {req.material?.code}
+                                        {req.greigeWidthInches != null && ` · ${Number(req.greigeWidthInches)}" greige`}
+                                      </div>
+                                    </div>
+                                  </TableCell>
+                                )}
+                                {viewMode !== 'byStyle' && (
+                                  <TableCell>
+                                    <div>
+                                      <div className="text-sm font-medium">{req.orderItem?.styleName || '-'}</div>
+                                      {req.orderItem?.styleCode && (
+                                        <div className="text-xs text-muted-foreground">
+                                          {req.orderItem?.styleCode}
+                                          {req.orderItem?.buyerStyleRef ? ` (${req.orderItem.buyerStyleRef})` : ''}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                )}
+                                <TableCell>
+                                  <div className="text-sm">{req.order?.orderNumber || '-'}</div>
+                                  {req.orderBom && (
+                                    <div className="text-xs text-muted-foreground">BOM v{req.orderBom.version}</div>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right text-sm">
+                                  {formatQuantity(req.totalRequired, req.unit)}
+                                  {req.shrinkagePercentUsed != null && req.shrinkageSource !== 'NONE' && (
+                                    <div
+                                      className={`text-xs ${
+                                        req.shrinkageSource === 'GREIGE_MASTER_FALLBACK'
+                                          ? 'text-primary'
+                                          : 'text-muted-foreground'
+                                      }`}
+                                    >
+                                      incl. {req.shrinkagePercentUsed}% shrinkage
+                                      {req.shrinkageSource === 'GREIGE_MASTER_FALLBACK' && ' (assumed)'}
+                                    </div>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <span
+                                    className={`text-sm font-medium ${req.shortfall > 0 ? 'text-primary' : 'text-success'}`}
+                                  >
+                                    {req.shortfall > 0 ? formatQuantity(req.shortfall, req.unit) : 'Fulfilled'}
+                                  </span>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  {req.currentStock > 0 ? (
+                                    <div>
+                                      <span className="text-sm font-medium text-success">
+                                        {formatQuantity(req.currentStock, req.unit)}
+                                      </span>
+                                      {req.currentStock >= req.shortfall && req.shortfall > 0 && (
+                                        <Badge className="ml-2 text-xs bg-success/10 text-success border-success/20">
+                                          Can Fulfill
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-sm text-muted-foreground">-</span>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-sm">{formatDate(req.requiredDate)}</TableCell>
+                                <TableCell>
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${MaterialRequirementStatusColors[req.status]}`}
+                                  >
+                                    {MaterialRequirementStatusLabels[req.status]}
+                                  </span>
+                                </TableCell>
+                                {viewMode !== 'byParty' && (
+                                  <TableCell>
+                                    <span className="text-sm">{req.preferredSupplier?.name || 'Not Assigned'}</span>
+                                  </TableCell>
+                                )}
+                                <TableCell className="text-right">
+                                  <div className="flex gap-1 justify-end">
+                                    {/* Allocate from Stock button */}
+                                    {req.currentStock > 0 &&
+                                      req.shortfall > 0 &&
+                                      (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="text-success hover:text-success text-xs"
+                                          onClick={() => openAllocateStockDialog(req)}
+                                        >
+                                          Use Stock
+                                        </Button>
+                                      )}
+                                    {req.shortfall > 0 &&
+                                      req.material?.materialType === 'FABRIC' &&
+                                      !req.material?.fabricId &&
+                                      (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          className="text-info hover:text-info text-xs"
+                                          onClick={() => openConvertGreigeDialog(req)}
+                                        >
+                                          Greige Process
+                                        </Button>
+                                      )}
+                                    {(req.status === 'PENDING' || req.status === 'PO_REQUIRED') && (
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-destructive hover:text-destructive"
+                                        onClick={() => {
+                                          setRequirementToCancel(req.id);
+                                          setCancelDialogOpen(true);
+                                        }}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Flat Table View */}
+      {viewMode === 'flat' && (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox checked={allOnPageSelected} onCheckedChange={handleSelectAll} />
+                  </TableHead>
+                  <TableHead>Requirement #</TableHead>
+                  <TableHead>Material</TableHead>
+                  <TableHead>Style</TableHead>
+                  <TableHead>Order</TableHead>
+                  <TableHead className="text-right">Required</TableHead>
+                  <TableHead className="text-right">Shortfall</TableHead>
+                  <TableHead className="text-right">Current Stock</TableHead>
+                  <TableHead>Required Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Vendor</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={12} className="text-center py-12 text-muted-foreground">
+                      Loading requirements...
+                    </TableCell>
+                  </TableRow>
+                ) : requirements.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={12} className="text-center py-12 text-muted-foreground">
+                      No material requirements found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  requirements.map((req) => {
+                    const isSelectable = req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK';
+                    return (
+                      <TableRow key={req.id}>
+                        <TableCell>
+                          {isSelectable && (
+                            <Checkbox
+                              checked={selectedIds.includes(req.id)}
+                              onCheckedChange={(checked) => handleSelectOne(req.id, !!checked)}
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm font-medium">
+                          {req.requirementNumber}
+                          {/* MRP-12: a split remainder would otherwise look like an unexplained
+                            duplicate row — say what it is. */}
+                          {req.splitFromId && (
+                            <Badge variant="outline" className="ml-2 text-xs font-normal">
+                              Balance
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="text-sm font-medium">{req.material?.name || 'N/A'}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {req.material?.code}
+                              {/* Greige rows: the loom width is what is being ordered — show it here
+                                (the CAD cutable width is deliberately NOT shown on purchase surfaces) */}
+                              {req.greigeWidthInches != null && ` · ${Number(req.greigeWidthInches)}" greige width`}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="text-sm font-medium">{req.orderItem?.styleName || '-'}</div>
+                            {req.orderItem?.styleCode && (
+                              <div className="text-xs text-muted-foreground">
+                                {req.orderItem?.styleCode}
+                                {req.orderItem?.buyerStyleRef ? ` (${req.orderItem.buyerStyleRef})` : ''}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-sm">{req.order?.orderNumber || '-'}</div>
+                          {req.orderBom && (
+                            <div className="text-xs text-muted-foreground">BOM v{req.orderBom.version}</div>
+                          )}
+                        </TableCell>
+                        {/* MRP-29: both were raw Decimal-derived floats (1234.5670000000002 MTR was
                           renderable) and Shortfall silently dropped its unit. */}
-                      <TableCell className="text-right text-sm">
-                        {formatQuantity(req.totalRequired, req.unit)}
-                        {/* MRP-48f: a greige quantity is shrinkage-inflated. Say which shrinkage,
+                        <TableCell className="text-right text-sm">
+                          {formatQuantity(req.totalRequired, req.unit)}
+                          {/* MRP-48f: a greige quantity is shrinkage-inflated. Say which shrinkage,
                             and warn when it rests on a fallback average rather than the
                             processor's committed figure — this previously reached a log only. */}
-                        {req.shrinkagePercentUsed != null && req.shrinkageSource !== 'NONE' && (
-                          <div
-                            className={`text-xs ${
-                              req.shrinkageSource === 'GREIGE_MASTER_FALLBACK'
-                                ? 'text-primary'
-                                : 'text-muted-foreground'
-                            }`}
-                            title={
-                              req.shrinkageSource === 'GREIGE_MASTER_FALLBACK'
-                                ? 'No processor rate card found — planned on the greige master average. Attach a rate card so the quantity matches the processor’s committed loss.'
-                                : 'Shrinkage from the processor’s rate card'
-                            }
+                          {req.shrinkagePercentUsed != null && req.shrinkageSource !== 'NONE' && (
+                            <div
+                              className={`text-xs ${
+                                req.shrinkageSource === 'GREIGE_MASTER_FALLBACK'
+                                  ? 'text-primary'
+                                  : 'text-muted-foreground'
+                              }`}
+                              title={
+                                req.shrinkageSource === 'GREIGE_MASTER_FALLBACK'
+                                  ? 'No processor rate card found — planned on the greige master average. Attach a rate card so the quantity matches the processor’s committed loss.'
+                                  : 'Shrinkage from the processor’s rate card'
+                              }
+                            >
+                              incl. {req.shrinkagePercentUsed}% shrinkage
+                              {req.shrinkageSource === 'GREIGE_MASTER_FALLBACK' && ' (assumed)'}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span
+                            className={`text-sm font-medium ${req.shortfall > 0 ? 'text-primary' : 'text-success'}`}
                           >
-                            incl. {req.shrinkagePercentUsed}% shrinkage
-                            {req.shrinkageSource === 'GREIGE_MASTER_FALLBACK' && ' (assumed)'}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <span className={`text-sm font-medium ${req.shortfall > 0 ? 'text-primary' : 'text-success'}`}>
-                          {req.shortfall > 0 ? formatQuantity(req.shortfall, req.unit) : 'Fulfilled'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-sm">{formatDate(req.requiredDate)}</TableCell>
-                      <TableCell>
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${MaterialRequirementStatusColors[req.status]}`}
-                        >
-                          {MaterialRequirementStatusLabels[req.status]}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm">{req.preferredSupplier?.name || 'Not Assigned'}</span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex gap-1 justify-end">
-                          {req.shortfall > 0 &&
-                            req.material?.materialType === 'FABRIC' &&
-                            !req.material?.fabricId &&
-                            (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') && (
+                            {req.shortfall > 0 ? formatQuantity(req.shortfall, req.unit) : 'Fulfilled'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {req.currentStock > 0 ? (
+                            <div>
+                              <span className="text-sm font-medium text-success">
+                                {formatQuantity(req.currentStock, req.unit)}
+                              </span>
+                              {req.currentStock >= req.shortfall && req.shortfall > 0 && (
+                                <Badge className="ml-2 text-xs bg-success/10 text-success border-success/20">
+                                  Can Fulfill
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm">{formatDate(req.requiredDate)}</TableCell>
+                        <TableCell>
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${MaterialRequirementStatusColors[req.status]}`}
+                          >
+                            {MaterialRequirementStatusLabels[req.status]}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">{req.preferredSupplier?.name || 'Not Assigned'}</span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex gap-1 justify-end">
+                            {/* Allocate from Stock button - show when stock available and requirement has shortfall */}
+                            {req.currentStock > 0 &&
+                              req.shortfall > 0 &&
+                              (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-success hover:text-success text-xs"
+                                  onClick={() => openAllocateStockDialog(req)}
+                                >
+                                  Use Stock
+                                </Button>
+                              )}
+                            {req.shortfall > 0 &&
+                              req.material?.materialType === 'FABRIC' &&
+                              !req.material?.fabricId &&
+                              (req.status === 'PO_REQUIRED' || req.status === 'PARTIAL_STOCK') && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-info hover:text-info text-xs"
+                                  onClick={() => openConvertGreigeDialog(req)}
+                                >
+                                  Greige Process
+                                </Button>
+                              )}
+                            {(req.status === 'PENDING' || req.status === 'PO_REQUIRED') && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="text-info hover:text-info text-xs"
-                                onClick={() => openConvertGreigeDialog(req)}
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => {
+                                  setRequirementToCancel(req.id);
+                                  setCancelDialogOpen(true);
+                                }}
                               >
-                                Greige Process
+                                Cancel
                               </Button>
                             )}
-                          {(req.status === 'PENDING' || req.status === 'PO_REQUIRED') && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => {
-                                setRequirementToCancel(req.id);
-                                setCancelDialogOpen(true);
-                              }}
-                            >
-                              Cancel
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Pagination */}
-      {pagination.totalPages > 1 && (
+      {/* Pagination - only for flat view */}
+      {viewMode === 'flat' && pagination.totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <Button
             variant="outline"
@@ -1221,6 +1656,71 @@ function MaterialRequirementsTab({
               disabled={!selectedGreigeId || !selectedProcessorId || isConverting}
             >
               {isConverting ? 'Converting...' : 'Convert to Greige'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Allocate from Stock Dialog */}
+      <Dialog open={allocateStockDialogOpen} onOpenChange={setAllocateStockDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Allocate from Stock</DialogTitle>
+            <DialogDescription>
+              Allocate existing stock to fulfill requirement {allocatingRequirement?.requirementNumber}.
+            </DialogDescription>
+          </DialogHeader>
+          {allocatingRequirement && (
+            <div className="space-y-4 py-4">
+              <div className="rounded-md border p-3 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Material</span>
+                  <span>{allocatingRequirement.material?.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Required</span>
+                  <span>{formatQuantity(allocatingRequirement.totalRequired, allocatingRequirement.unit)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Current Shortfall</span>
+                  <span className="text-primary font-medium">
+                    {formatQuantity(allocatingRequirement.shortfall, allocatingRequirement.unit)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Available in Stock</span>
+                  <span className="text-success font-medium">
+                    {formatQuantity(allocatingRequirement.currentStock, allocatingRequirement.unit)}
+                  </span>
+                </div>
+              </div>
+              <div>
+                <Label>Quantity to Allocate ({allocatingRequirement.unit})</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={Math.min(allocatingRequirement.currentStock, allocatingRequirement.shortfall)}
+                  value={allocateQuantity}
+                  onChange={(e) => setAllocateQuantity(e.target.value)}
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Max:{' '}
+                  {formatQuantity(
+                    Math.min(allocatingRequirement.currentStock, allocatingRequirement.shortfall),
+                    allocatingRequirement.unit
+                  )}
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAllocateStockDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAllocateStock} disabled={isAllocating || !allocateQuantity}>
+              {isAllocating ? 'Allocating...' : 'Allocate Stock'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1752,6 +2252,10 @@ function OutsourcedWorkTab({
 
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Grouped view state
+  const [viewMode, setViewMode] = useState<ViewMode>('flat');
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
   const page = parseInt(searchParams.get('page') || '1');
   const searchFilter = searchParams.get('search') || undefined;
   const processorIdFilter = searchParams.get('processorId') || undefined;
@@ -1819,12 +2323,12 @@ function OutsourcedWorkTab({
       orderItemId: workOrderIdFilter ? (scopeWorkOrder?.orderItemId ?? undefined) : undefined,
       status: statusFilter?.split(',') as MaterialRequirementStatus[] | undefined,
       search: searchFilter,
-      page,
-      limit: 20,
+      page: viewMode === 'flat' ? page : 1,
+      limit: viewMode === 'flat' ? 20 : 100, // Backend caps at 100
       sortBy: 'createdAt',
       sortOrder: 'desc',
     }),
-    [statusFilter, searchFilter, orderIdFilter, workOrderIdFilter, scopeWorkOrder, page]
+    [statusFilter, searchFilter, orderIdFilter, workOrderIdFilter, scopeWorkOrder, page, viewMode]
   );
 
   const { data: processingResponse, isLoading: processingLoading } = useQuery({
@@ -1844,12 +2348,12 @@ function OutsourcedWorkTab({
       status: statusFilter?.split(',') as ServiceRequirementStatus[] | undefined,
       processorId: processorIdFilter,
       search: searchFilter,
-      page,
-      limit: 20,
+      page: viewMode === 'flat' ? page : 1,
+      limit: viewMode === 'flat' ? 20 : 100, // Match processing limit
       sortBy: 'createdAt',
       sortOrder: 'desc',
     }),
-    [statusFilter, searchFilter, processorIdFilter, orderIdFilter, workOrderIdFilter, page]
+    [statusFilter, searchFilter, processorIdFilter, orderIdFilter, workOrderIdFilter, page, viewMode]
   );
 
   const { data: serviceResponse, isLoading: serviceLoading } = useQuery({
@@ -1974,6 +2478,97 @@ function OutsourcedWorkTab({
 
     return result;
   }, [processingResponse, serviceResponse, sourceFilter]);
+
+  // ─── Grouped View Logic ────────────────────────────────────
+  interface OutsourcedGroup {
+    key: string;
+    label: string;
+    subLabel?: string;
+    rows: OutsourcedRow[];
+    count: number;
+    totalCost: number;
+  }
+
+  const groupedRows = useMemo((): OutsourcedGroup[] | null => {
+    if (viewMode === 'flat') return null;
+
+    const grouped = new Map<string, OutsourcedGroup>();
+
+    for (const row of rows) {
+      let key: string;
+      let label: string;
+      let subLabel: string | undefined;
+
+      switch (viewMode) {
+        case 'byMaterial':
+          // Group by material name / process type
+          key = row.materialName || 'unknown';
+          label = row.materialName || 'Unknown';
+          subLabel = row.processType || undefined;
+          break;
+        case 'byParty':
+          // Group by processor
+          key = row.processor || 'unassigned';
+          label = row.processor || 'Not Assigned';
+          break;
+        case 'byStyle':
+          // Group by style
+          key = row.styleCode || 'unknown';
+          label = row.styleCode || 'Unknown Style';
+          subLabel = row.buyerStyleRef || undefined;
+          break;
+        default:
+          continue;
+      }
+
+      const existing = grouped.get(key) || {
+        key,
+        label,
+        subLabel,
+        rows: [],
+        count: 0,
+        totalCost: 0,
+      };
+      existing.rows.push(row);
+      existing.count++;
+      existing.totalCost += row.costTotal || 0;
+      grouped.set(key, existing);
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => b.count - a.count);
+  }, [rows, viewMode]);
+
+  // Group toggle and selection helpers
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const handleSelectGroup = (group: OutsourcedGroup, checked: boolean) => {
+    const selectableInGroup = group.rows.filter((r) => r.isSelectable);
+    const procIds = selectableInGroup.filter((r) => r.source === 'PROCESSING').map((r) => r.id);
+    const svcIds = selectableInGroup.filter((r) => r.source === 'SERVICE').map((r) => r.id);
+
+    if (checked) {
+      setSelectedProcessingIds((prev) => [...new Set([...prev, ...procIds])]);
+      setSelectedServiceIds((prev) => [...new Set([...prev, ...svcIds])]);
+    } else {
+      setSelectedProcessingIds((prev) => prev.filter((id) => !procIds.includes(id)));
+      setSelectedServiceIds((prev) => prev.filter((id) => !svcIds.includes(id)));
+    }
+  };
+
+  const isGroupFullySelected = (group: OutsourcedGroup): boolean => {
+    const selectableInGroup = group.rows.filter((r) => r.isSelectable);
+    if (selectableInGroup.length === 0) return false;
+    return selectableInGroup.every((r) =>
+      r.source === 'PROCESSING' ? selectedProcessingIds.includes(r.id) : selectedServiceIds.includes(r.id)
+    );
+  };
 
   // Pagination: when viewing a single source, use server pagination; when "all", show merged results
   const pagination = useMemo(() => {
@@ -2306,6 +2901,19 @@ function OutsourcedWorkTab({
               </SelectContent>
             </Select>
 
+            {/* View Mode selector */}
+            <Select value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="View Mode" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="flat">Flat View</SelectItem>
+                <SelectItem value="byMaterial">By Material</SelectItem>
+                <SelectItem value="byParty">By Processor</SelectItem>
+                <SelectItem value="byStyle">By Style</SelectItem>
+              </SelectContent>
+            </Select>
+
             {/* MRP-35: the export only ever contained the rows currently loaded. Say so in the
                 label rather than letting it read as a full export of the filtered set. */}
             <Button
@@ -2336,169 +2944,364 @@ function OutsourcedWorkTab({
         )}
       </div>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-10">
-                  <Checkbox
-                    checked={selectableRows.length > 0 && allSelectedIds.length === selectableRows.length}
-                    onCheckedChange={handleSelectAll}
-                  />
-                </TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Style</TableHead>
-                <TableHead>Material</TableHead>
-                {sourceFilter !== 'service' && <TableHead>Width</TableHead>}
-                {sourceFilter !== 'service' && <TableHead>Process</TableHead>}
-                <TableHead>Processor</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
+      {/* Flat Table View */}
+      {viewMode === 'flat' ? (
+        <Card>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    colSpan={sourceFilter === 'service' ? 9 : 11}
-                    className="text-center py-12 text-muted-foreground"
-                  >
-                    Loading outsourced work items...
-                  </TableCell>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={selectableRows.length > 0 && allSelectedIds.length === selectableRows.length}
+                      onCheckedChange={handleSelectAll}
+                    />
+                  </TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Style</TableHead>
+                  <TableHead>Material</TableHead>
+                  {sourceFilter !== 'service' && <TableHead>Width</TableHead>}
+                  {sourceFilter !== 'service' && <TableHead>Process</TableHead>}
+                  <TableHead>Processor</TableHead>
+                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-right">Cost</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
                 </TableRow>
-              ) : rows.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={sourceFilter === 'service' ? 9 : 11}
-                    className="text-center py-12 text-muted-foreground"
-                  >
-                    No outsourced work items found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                rows.map((row) => (
-                  <TableRow key={row.rowKey}>
-                    {/* Checkbox */}
-                    <TableCell>
-                      {row.isSelectable && (
-                        <Checkbox
-                          checked={isSelected(row)}
-                          onCheckedChange={(checked) => handleSelectOne(row, !!checked)}
-                        />
-                      )}
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={sourceFilter === 'service' ? 9 : 11}
+                      className="text-center py-12 text-muted-foreground"
+                    >
+                      Loading outsourced work items...
                     </TableCell>
-                    {/* Source badge */}
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={
-                          row.source === 'PROCESSING'
-                            ? 'border-accent/25 text-accent bg-accent/10'
-                            : 'border-teal-300 text-teal-700 bg-teal-50'
-                        }
-                      >
-                        {row.source === 'PROCESSING' ? 'Processing' : 'Service'}
-                      </Badge>
+                  </TableRow>
+                ) : rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={sourceFilter === 'service' ? 9 : 11}
+                      className="text-center py-12 text-muted-foreground"
+                    >
+                      No outsourced work items found
                     </TableCell>
-                    {/* Style (with Buyer Ref as subtitle) */}
-                    <TableCell>
-                      <div className="text-sm font-medium">{row.styleCode}</div>
-                      {row.buyerStyleRef && <div className="text-xs text-muted-foreground">{row.buyerStyleRef}</div>}
-                    </TableCell>
-                    {/* Material (consolidated: Component + Color + Fabric spec) */}
-                    <TableCell>
-                      {row.source === 'PROCESSING' ? (
-                        <div className="text-sm">
-                          {row.componentName && <div className="font-medium">{row.componentName}</div>}
-                          {row.colorName && <div className="text-xs text-muted-foreground">{row.colorName}</div>}
-                          {row.materialName && row.materialName !== 'Processing' && (
-                            <div className="text-xs text-muted-foreground">{row.materialName}</div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-sm font-medium">{row.materialName}</span>
-                      )}
-                    </TableCell>
-                    {/* Width (Processing only) */}
-                    {sourceFilter !== 'service' && (
+                  </TableRow>
+                ) : (
+                  rows.map((row) => (
+                    <TableRow key={row.rowKey}>
+                      {/* Checkbox */}
                       <TableCell>
-                        {row.fabricWidth != null && cutableWidthDeduction != null ? (
-                          <div className="text-sm whitespace-nowrap">
-                            <div>Finish {row.fabricWidth + cutableWidthDeduction}&quot;</div>
-                            {row.greigeWidthInches != null && (
-                              <div className="text-xs text-muted-foreground">Greige {row.greigeWidthInches}&quot;</div>
+                        {row.isSelectable && (
+                          <Checkbox
+                            checked={isSelected(row)}
+                            onCheckedChange={(checked) => handleSelectOne(row, !!checked)}
+                          />
+                        )}
+                      </TableCell>
+                      {/* Source badge */}
+                      <TableCell>
+                        <Badge
+                          variant="outline"
+                          className={
+                            row.source === 'PROCESSING'
+                              ? 'border-accent/25 text-accent bg-accent/10'
+                              : 'border-teal-300 text-teal-700 bg-teal-50'
+                          }
+                        >
+                          {row.source === 'PROCESSING' ? 'Processing' : 'Service'}
+                        </Badge>
+                      </TableCell>
+                      {/* Style (with Buyer Ref as subtitle) */}
+                      <TableCell>
+                        <div className="text-sm font-medium">{row.styleCode}</div>
+                        {row.buyerStyleRef && <div className="text-xs text-muted-foreground">{row.buyerStyleRef}</div>}
+                      </TableCell>
+                      {/* Material (consolidated: Component + Color + Fabric spec) */}
+                      <TableCell>
+                        {row.source === 'PROCESSING' ? (
+                          <div className="text-sm">
+                            {row.componentName && <div className="font-medium">{row.componentName}</div>}
+                            {row.colorName && <div className="text-xs text-muted-foreground">{row.colorName}</div>}
+                            {row.materialName && row.materialName !== 'Processing' && (
+                              <div className="text-xs text-muted-foreground">{row.materialName}</div>
                             )}
                           </div>
-                        ) : row.greigeWidthInches != null ? (
-                          <span className="text-sm whitespace-nowrap">Greige {row.greigeWidthInches}&quot;</span>
                         ) : (
-                          <span className="text-sm">-</span>
+                          <span className="text-sm font-medium">{row.materialName}</span>
                         )}
                       </TableCell>
-                    )}
-                    {/* Process (Processing only - the actual work type) */}
-                    {sourceFilter !== 'service' && (
+                      {/* Width (Processing only) */}
+                      {sourceFilter !== 'service' && (
+                        <TableCell>
+                          {row.fabricWidth != null && cutableWidthDeduction != null ? (
+                            <div className="text-sm whitespace-nowrap">
+                              <div>Finish {row.fabricWidth + cutableWidthDeduction}&quot;</div>
+                              {row.greigeWidthInches != null && (
+                                <div className="text-xs text-muted-foreground">
+                                  Greige {row.greigeWidthInches}&quot;
+                                </div>
+                              )}
+                            </div>
+                          ) : row.greigeWidthInches != null ? (
+                            <span className="text-sm whitespace-nowrap">Greige {row.greigeWidthInches}&quot;</span>
+                          ) : (
+                            <span className="text-sm">-</span>
+                          )}
+                        </TableCell>
+                      )}
+                      {/* Process (Processing only - the actual work type) */}
+                      {sourceFilter !== 'service' && (
+                        <TableCell>
+                          {row.processType ? (
+                            <span className="text-sm font-semibold text-accent">
+                              {row.processType.replace('_', ' ')}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      )}
+                      {/* Processor */}
                       <TableCell>
-                        {row.processType ? (
-                          <span className="text-sm font-semibold text-accent">{row.processType.replace('_', ' ')}</span>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">—</span>
+                        <span className={`text-sm ${row.processorAssigned ? '' : 'text-primary'}`}>
+                          {row.processor}
+                        </span>
+                      </TableCell>
+                      {/* Qty */}
+                      <TableCell className="text-right text-sm">
+                        {row.quantity}
+                        {row.greigeIssueInfo && (
+                          <div className="text-[10px] text-muted-foreground whitespace-nowrap">
+                            {row.greigeIssueInfo}
+                          </div>
                         )}
                       </TableCell>
-                    )}
-                    {/* Processor */}
-                    <TableCell>
-                      <span className={`text-sm ${row.processorAssigned ? '' : 'text-primary'}`}>{row.processor}</span>
-                    </TableCell>
-                    {/* Qty */}
-                    <TableCell className="text-right text-sm">
-                      {row.quantity}
-                      {row.greigeIssueInfo && (
-                        <div className="text-[10px] text-muted-foreground whitespace-nowrap">{row.greigeIssueInfo}</div>
-                      )}
-                    </TableCell>
-                    {/* Cost */}
-                    <TableCell className="text-right">
-                      <span className="text-sm font-medium text-accent">
-                        {row.costTotal != null ? formatCurrency(row.costTotal) : '-'}
-                      </span>
-                      {row.costRate != null && (
-                        <div className="text-xs text-muted-foreground">{formatCurrency(row.costRate)}/unit</div>
-                      )}
-                    </TableCell>
-                    {/* Status */}
-                    <TableCell>
-                      {row.jwoLink ? (
-                        <button
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${row.statusColor} hover:underline cursor-pointer`}
-                          onClick={() => navigate(row.jwoLink!)}
-                        >
-                          {row.statusLabel}
-                        </button>
-                      ) : (
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${row.statusColor}`}
-                        >
-                          {row.statusLabel}
+                      {/* Cost */}
+                      <TableCell className="text-right">
+                        <span className="text-sm font-medium text-accent">
+                          {row.costTotal != null ? formatCurrency(row.costTotal) : '-'}
                         </span>
-                      )}
-                    </TableCell>
-                    {/* Date */}
-                    <TableCell className="text-sm text-muted-foreground">{formatDate(row.createdAt)}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                        {row.costRate != null && (
+                          <div className="text-xs text-muted-foreground">{formatCurrency(row.costRate)}/unit</div>
+                        )}
+                      </TableCell>
+                      {/* Status */}
+                      <TableCell>
+                        {row.jwoLink ? (
+                          <button
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${row.statusColor} hover:underline cursor-pointer`}
+                            onClick={() => navigate(row.jwoLink!)}
+                          >
+                            {row.statusLabel}
+                          </button>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${row.statusColor}`}
+                          >
+                            {row.statusLabel}
+                          </span>
+                        )}
+                      </TableCell>
+                      {/* Date */}
+                      <TableCell className="text-sm text-muted-foreground">{formatDate(row.createdAt)}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : (
+        /* Grouped View */
+        <div className="space-y-2">
+          {isLoading ? (
+            <Card>
+              <CardContent className="text-center py-12 text-muted-foreground">
+                Loading outsourced work items...
+              </CardContent>
+            </Card>
+          ) : !groupedRows || groupedRows.length === 0 ? (
+            <Card>
+              <CardContent className="text-center py-12 text-muted-foreground">
+                No outsourced work items found
+              </CardContent>
+            </Card>
+          ) : (
+            groupedRows.map((group) => (
+              <Collapsible
+                key={group.key}
+                open={expandedGroups.has(group.key)}
+                onOpenChange={() => toggleGroup(group.key)}
+              >
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 py-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={isGroupFullySelected(group)}
+                            onCheckedChange={(checked) => handleSelectGroup(group, !!checked)}
+                            onClick={(e) => e.stopPropagation()}
+                            disabled={group.rows.filter((r) => r.isSelectable).length === 0}
+                          />
+                          <ChevronRight
+                            className={`h-4 w-4 transition-transform ${expandedGroups.has(group.key) ? 'rotate-90' : ''}`}
+                          />
+                          <div>
+                            <div className="font-medium">{group.label}</div>
+                            {group.subLabel && <div className="text-sm text-muted-foreground">{group.subLabel}</div>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <Badge variant="secondary">{group.count} items</Badge>
+                          {group.totalCost > 0 && (
+                            <Badge variant="outline" className="text-accent border-accent/30">
+                              {formatCurrency(group.totalCost)}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0 pb-2">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-10"></TableHead>
+                            <TableHead>Source</TableHead>
+                            {viewMode !== 'byStyle' && <TableHead>Style</TableHead>}
+                            {viewMode !== 'byMaterial' && <TableHead>Material</TableHead>}
+                            {sourceFilter !== 'service' && <TableHead>Width</TableHead>}
+                            {sourceFilter !== 'service' && <TableHead>Process</TableHead>}
+                            {viewMode !== 'byParty' && <TableHead>Processor</TableHead>}
+                            <TableHead className="text-right">Qty</TableHead>
+                            <TableHead className="text-right">Cost</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {group.rows.map((row) => (
+                            <TableRow key={row.rowKey}>
+                              <TableCell>
+                                {row.isSelectable && (
+                                  <Checkbox
+                                    checked={isSelected(row)}
+                                    onCheckedChange={(checked) => handleSelectOne(row, !!checked)}
+                                  />
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    row.source === 'PROCESSING'
+                                      ? 'border-accent/25 text-accent bg-accent/10'
+                                      : 'border-teal-300 text-teal-700 bg-teal-50'
+                                  }
+                                >
+                                  {row.source === 'PROCESSING' ? 'Processing' : 'Service'}
+                                </Badge>
+                              </TableCell>
+                              {viewMode !== 'byStyle' && (
+                                <TableCell>
+                                  <div className="text-sm font-medium">{row.styleCode}</div>
+                                  {row.buyerStyleRef && (
+                                    <div className="text-xs text-muted-foreground">{row.buyerStyleRef}</div>
+                                  )}
+                                </TableCell>
+                              )}
+                              {viewMode !== 'byMaterial' && (
+                                <TableCell>
+                                  {row.source === 'PROCESSING' ? (
+                                    <div className="text-sm">
+                                      {row.componentName && <div className="font-medium">{row.componentName}</div>}
+                                      {row.colorName && (
+                                        <div className="text-xs text-muted-foreground">{row.colorName}</div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-sm font-medium">{row.materialName}</span>
+                                  )}
+                                </TableCell>
+                              )}
+                              {sourceFilter !== 'service' && (
+                                <TableCell>
+                                  {row.fabricWidth != null && cutableWidthDeduction != null ? (
+                                    <div className="text-sm whitespace-nowrap">
+                                      <div>Finish {row.fabricWidth + cutableWidthDeduction}&quot;</div>
+                                      {row.greigeWidthInches != null && (
+                                        <div className="text-xs text-muted-foreground">
+                                          Greige {row.greigeWidthInches}&quot;
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : row.greigeWidthInches != null ? (
+                                    <span className="text-sm whitespace-nowrap">
+                                      Greige {row.greigeWidthInches}&quot;
+                                    </span>
+                                  ) : (
+                                    <span className="text-sm">-</span>
+                                  )}
+                                </TableCell>
+                              )}
+                              {sourceFilter !== 'service' && (
+                                <TableCell>
+                                  {row.processType ? (
+                                    <span className="text-sm font-semibold text-accent">
+                                      {row.processType.replace('_', ' ')}
+                                    </span>
+                                  ) : (
+                                    <span className="text-sm text-muted-foreground">—</span>
+                                  )}
+                                </TableCell>
+                              )}
+                              {viewMode !== 'byParty' && (
+                                <TableCell>
+                                  <span className={`text-sm ${row.processorAssigned ? '' : 'text-primary'}`}>
+                                    {row.processor}
+                                  </span>
+                                </TableCell>
+                              )}
+                              <TableCell className="text-right text-sm">{row.quantity}</TableCell>
+                              <TableCell className="text-right">
+                                <span className="text-sm font-medium text-accent">
+                                  {row.costTotal != null ? formatCurrency(row.costTotal) : '-'}
+                                </span>
+                              </TableCell>
+                              <TableCell>
+                                {row.jwoLink ? (
+                                  <button
+                                    className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${row.statusColor} hover:underline cursor-pointer`}
+                                    onClick={() => navigate(row.jwoLink!)}
+                                  >
+                                    {row.statusLabel}
+                                  </button>
+                                ) : (
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${row.statusColor}`}
+                                  >
+                                    {row.statusLabel}
+                                  </span>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+            ))
+          )}
+        </div>
+      )}
 
-      {/* Pagination */}
-      {pagination.totalPages > 1 && (
+      {/* Pagination - only show in flat view */}
+      {viewMode === 'flat' && pagination.totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <Button
             variant="outline"

@@ -56,6 +56,7 @@ const CostSheetList = () => {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [approvedFilter, setApprovedFilter] = useState('all');
+  const [purposeFilter, setPurposeFilter] = useState('all');
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
 
@@ -86,6 +87,7 @@ const CostSheetList = () => {
         ...apiParams,
         search,
         approved: approvedFilter,
+        ...(purposeFilter !== 'all' && { purpose: purposeFilter }),
       });
       setCostSheets(response.data);
       setTotalPages(response.pagination.totalPages); // backend key is totalPages (bug-hunt orders-13)
@@ -101,7 +103,7 @@ const CostSheetList = () => {
   useEffect(() => {
     fetchCostSheets();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, search, approvedFilter]);
+  }, [currentPage, pageSize, search, approvedFilter, purposeFilter]);
 
   const handleDeleteClick = (id: string, styleCode: string) => {
     setCostSheetToModify({ id, styleCode, action: 'delete' });
@@ -229,7 +231,7 @@ const CostSheetList = () => {
       {/* Filters */}
       <Card className="mb-4">
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label htmlFor="search">Search by Style</Label>
               <SearchInput
@@ -259,6 +261,27 @@ const CostSheetList = () => {
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="pending">Pending</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="purposeFilter">Purpose</Label>
+              <Select
+                value={purposeFilter}
+                onValueChange={(value: string) => {
+                  setPurposeFilter(value);
+                  resetPage();
+                }}
+              >
+                <SelectTrigger id="purposeFilter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="COSTING">Costing</SelectItem>
+                  <SelectItem value="RAW_MATERIAL_CALCULATION">RM Calculation</SelectItem>
+                  <SelectItem value="PRODUCTION">Production</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -292,12 +315,18 @@ const CostSheetList = () => {
               icon={<FileText className="h-16 w-16" />}
               title="No cost sheets found"
               description={
-                search || approvedFilter !== 'all'
+                search || approvedFilter !== 'all' || purposeFilter !== 'all'
                   ? 'Try adjusting your search or filter criteria'
                   : 'Create your first cost sheet to get started'
               }
-              actionLabel={!search && approvedFilter === 'all' ? 'Create First Cost Sheet' : undefined}
-              onAction={!search && approvedFilter === 'all' ? () => navigate('/cost-sheets/new') : undefined}
+              actionLabel={
+                !search && approvedFilter === 'all' && purposeFilter === 'all' ? 'Create First Cost Sheet' : undefined
+              }
+              onAction={
+                !search && approvedFilter === 'all' && purposeFilter === 'all'
+                  ? () => navigate('/cost-sheets/new')
+                  : undefined
+              }
             />
           </CardContent>
         </Card>

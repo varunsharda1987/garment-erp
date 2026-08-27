@@ -45,6 +45,7 @@ import type { StyleCostingStatus } from '../services/fabricCosting.service';
 import { getRunsByStyle, createRun, deleteRun, type CostingRun } from '../services/fabricCostingRun.service';
 import { styleService } from '../services/style.service';
 import { customerService } from '../services/customer.service';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { divideByShrinkage } from '../utils/math';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { resolveGreigeCost, isGreigeRateStale, greigeSourceLabel, describeLiveRate } from '../utils/greigeRate';
@@ -61,7 +62,6 @@ import type {
 import { SCREEN_TYPE_LABELS, DEFAULT_SCREEN_COSTS } from '../types/fabricCosting.types';
 import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
 import type { Style } from '../types/style.types';
-import type { Customer } from '../types/customer.types';
 import { notify } from '../lib/notify';
 import { getErrorMessage } from '../lib/api-error-handler';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
@@ -344,10 +344,10 @@ export default function FabricCostingPage() {
   const initialPurpose = hasExplicitPurpose ? (preselectedPurpose as CostingPurpose) : 'COSTING';
 
   // Selection state
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [styles, setStyles] = useState<Style[]>([]);
   const [processors, setProcessors] = useState<ProcessorInfo[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
+  const [selectedCustomerName, setSelectedCustomerName] = useState('');
   const [selectedStyleId, setSelectedStyleId] = useState('');
   const [orderQuantity, setOrderQuantity] = useState<number>(0);
   const [previousQuantity, setPreviousQuantity] = useState<number | null>(null);
@@ -365,7 +365,6 @@ export default function FabricCostingPage() {
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Loading states
-  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
   const [isLoadingStyles, setIsLoadingStyles] = useState(false);
   const [isLoadingFabrics, setIsLoadingFabrics] = useState(false);
   const [, setIsLoadingProcessors] = useState(false);
@@ -413,21 +412,23 @@ export default function FabricCostingPage() {
     return priority.find((p) => costedPurposes?.includes(p)) ?? null;
   }, []);
 
-  // Fetch customers on mount
+  // Fetch customer details when selectedCustomerId changes (to get name for style filtering)
   useEffect(() => {
-    const fetchCustomers = async () => {
-      setIsLoadingCustomers(true);
+    const fetchCustomerName = async () => {
+      if (!selectedCustomerId) {
+        setSelectedCustomerName('');
+        return;
+      }
       try {
-        const response = await customerService.getAllCustomers({ page: 1, limit: 100 });
-        setCustomers(response.data);
+        const customer = await customerService.getCustomerById(selectedCustomerId);
+        setSelectedCustomerName(customer?.name || '');
       } catch {
-        notify.error('Failed to load customers');
-      } finally {
-        setIsLoadingCustomers(false);
+        // Silently fail - name lookup is for filtering convenience
+        setSelectedCustomerName('');
       }
     };
-    fetchCustomers();
-  }, []);
+    fetchCustomerName();
+  }, [selectedCustomerId]);
 
   // Fetch processors on mount
   useEffect(() => {
@@ -447,7 +448,7 @@ export default function FabricCostingPage() {
 
   // Handle preselected style from URL query param (e.g., from CAD Planning page)
   useEffect(() => {
-    if (preselectedStyleId && customers.length > 0) {
+    if (preselectedStyleId) {
       // Validate UUID format before making API call
       if (!isValidUUID(preselectedStyleId)) {
         notify.warning('Invalid style ID format in URL. Please search for the style manually.');
@@ -475,13 +476,7 @@ export default function FabricCostingPage() {
               formatStyleCodeWithRef(response.styleCode, response.buyerStyleRef) +
                 (response.styleName ? ` - ${response.styleName}` : '')
             );
-            // Set customer if available
-            if (response.customerName) {
-              const customer = customers.find((c) => c.name === response.customerName);
-              if (customer) {
-                setSelectedCustomerId(customer.id);
-              }
-            }
+            // Note: Customer auto-selection removed - CustomerCombobox handles selection independently
           }
         } catch {
           notify.error('Failed to load preselected style. It may have been deleted.');
@@ -489,7 +484,7 @@ export default function FabricCostingPage() {
       };
       loadPreselectedStyle();
     }
-  }, [preselectedStyleId, customers, hasExplicitPurpose, pickCostedPurpose]);
+  }, [preselectedStyleId, hasExplicitPurpose, pickCostedPurpose]);
 
   // Style search with debounce
   const handleStyleSearch = useCallback(
@@ -512,11 +507,16 @@ export default function FabricCostingPage() {
         setIsSearching(true);
         try {
           // BUG FIX: Respect selected customer filter when searching
-          const customerName = selectedCustomerId
-            ? customers.find((c) => c.id === selectedCustomerId)?.name
-            : undefined;
           // Include both ACTIVE and DRAFT styles for costing (no status filter)
-          const response = await styleService.getAllStyles(1, 20, query, undefined, undefined, customerName, undefined);
+          const response = await styleService.getAllStyles(
+            1,
+            20,
+            query,
+            undefined,
+            undefined,
+            selectedCustomerName || undefined,
+            undefined
+          );
           setStyleSearchResults(response.data);
           setShowSearchResults(true);
 
@@ -533,7 +533,7 @@ export default function FabricCostingPage() {
         }
       }, 300);
     },
-    [selectedCustomerId, customers]
+    [selectedCustomerName]
   );
 
   // Handle style selection from search
@@ -556,13 +556,7 @@ export default function FabricCostingPage() {
     setInternalDirty(false);
     initialLoadRef.current = true;
 
-    // Find and set the customer from the style
-    if (style.customerName) {
-      const customer = customers.find((c) => c.name === style.customerName);
-      if (customer) {
-        setSelectedCustomerId(customer.id);
-      }
-    }
+    // Note: Customer auto-selection removed - CustomerCombobox handles selection independently
   };
 
   // Clear search
@@ -624,14 +618,13 @@ export default function FabricCostingPage() {
         return;
       }
 
+      // Wait for customer name to be fetched
+      if (!selectedCustomerName) {
+        return;
+      }
+
       setIsLoadingStyles(true);
       try {
-        const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
-        if (!selectedCustomer) {
-          setStyles([]);
-          return;
-        }
-
         // Include both ACTIVE and DRAFT styles for costing (no status filter)
         const response = await styleService.getAllStyles(
           1,
@@ -639,7 +632,7 @@ export default function FabricCostingPage() {
           undefined,
           undefined,
           undefined,
-          selectedCustomer.name,
+          selectedCustomerName,
           undefined
         );
         setStyles(response.data);
@@ -650,7 +643,7 @@ export default function FabricCostingPage() {
       }
     };
     fetchStyles();
-  }, [selectedCustomerId, customers]);
+  }, [selectedCustomerId, selectedCustomerName]);
 
   // Fetch fabrics for selected style - extracted to useCallback so it can be called after save
   const fetchStyleFabrics = useCallback(
@@ -1905,18 +1898,11 @@ export default function FabricCostingPage() {
         <div className="grid grid-cols-4 gap-4">
           <div>
             <Label className="text-sm font-medium mb-2 block">Customer</Label>
-            <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId}>
-              <SelectTrigger>
-                <SelectValue placeholder={isLoadingCustomers ? 'Loading...' : 'Select customer'} />
-              </SelectTrigger>
-              <SelectContent>
-                {customers.map((customer) => (
-                  <SelectItem key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CustomerCombobox
+              value={selectedCustomerId}
+              onValueChange={setSelectedCustomerId}
+              placeholder="Select customer..."
+            />
           </div>
 
           <div>

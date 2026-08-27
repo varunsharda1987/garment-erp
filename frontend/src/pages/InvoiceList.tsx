@@ -4,10 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getInvoices, deleteInvoice, getInvoiceSummary } from '@/services/invoice.service';
-import { customerService } from '@/services/customer.service';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
 import type { Invoice, InvoiceStatus, InvoiceSummary } from '@/types/invoice.types';
 import { InvoiceStatusLabels } from '@/types/invoice.types';
-import type { Customer } from '@/types/customer.types';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -30,7 +29,6 @@ export default function InvoiceList() {
   const [searchParams] = useSearchParams();
   const statusParam = searchParams.get('status');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +41,7 @@ export default function InvoiceList() {
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [customerFilter, setCustomerFilter] = useState<string>('all');
+  const [customerFilter, setCustomerFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>(statusParam || 'all');
 
   // Delete dialog state
@@ -51,7 +49,6 @@ export default function InvoiceList() {
   const [invoiceToDelete, setInvoiceToDelete] = useState<{ id: string; invoiceNumber: string } | null>(null);
 
   useEffect(() => {
-    fetchCustomers();
     fetchSummary();
   }, []);
 
@@ -64,15 +61,6 @@ export default function InvoiceList() {
     fetchInvoices();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery, customerFilter, statusFilter]);
-
-  const fetchCustomers = async () => {
-    try {
-      const response = await customerService.getAllCustomers({ limit: 100 });
-      setCustomers(response.data);
-    } catch (err) {
-      handleApiError(err, 'Failed to load customers', false);
-    }
-  };
 
   const fetchSummary = async () => {
     try {
@@ -91,7 +79,7 @@ export default function InvoiceList() {
         page: currentPage,
         limit: pageSize,
         search: searchQuery || undefined,
-        customerId: customerFilter !== 'all' ? customerFilter : undefined,
+        customerId: customerFilter || undefined,
         status: statusFilter !== 'all' ? (statusFilter as InvoiceStatus) : undefined,
       });
       setInvoices(response.data);
@@ -341,19 +329,7 @@ export default function InvoiceList() {
             <div className="md:col-span-2">
               <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search by invoice number..." />
             </div>
-            <Select value={customerFilter} onValueChange={setCustomerFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Customers" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Customers</SelectItem>
-                {customers?.map((customer) => (
-                  <SelectItem key={customer.id} value={customer.id}>
-                    {customer.billingName || customer.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CustomerCombobox value={customerFilter} onValueChange={setCustomerFilter} placeholder="All Customers" />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>
                 <SelectValue placeholder="All Statuses" />

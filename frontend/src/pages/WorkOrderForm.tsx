@@ -12,12 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import workOrderService from '../services/workOrder.service';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
-import warehouseService from '../services/warehouse.service';
 import { handleApiError } from '../lib/api-error-handler';
 import type { WorkOrder, Priority, UpdateWorkOrderDTO } from '../types/production.types';
-import type { Warehouse } from '../types/inventory.types';
 
 export default function WorkOrderForm() {
   const navigate = useNavigate();
@@ -41,14 +40,11 @@ export default function WorkOrderForm() {
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
 
   // Editable form fields
-  const [warehouseId, setLocationId] = useState<string>('');
+  const [warehouseId, setWarehouseId] = useState<string>('');
   const [plannedStartDate, setPlannedStartDate] = useState('');
   const [plannedEndDate, setPlannedEndDate] = useState('');
   const [priority, setPriority] = useState<Priority>('MEDIUM');
   const [remarks, setRemarks] = useState('');
-
-  // Lookup data
-  const [locations, setLocations] = useState<Warehouse[]>([]);
 
   useEffect(() => {
     if (id) {
@@ -65,16 +61,12 @@ export default function WorkOrderForm() {
       setLoading(true);
       setError(null);
 
-      const [workOrderData, locationsData] = await Promise.all([
-        workOrderService.getById(id!),
-        warehouseService.getAll({}),
-      ]);
+      const workOrderData = await workOrderService.getById(id!);
 
       setWorkOrder(workOrderData);
-      setLocations(locationsData);
 
       // Populate form fields with defensive date parsing
-      setLocationId(workOrderData.warehouseId || '');
+      setWarehouseId(workOrderData.warehouseId || '');
       setPlannedStartDate(workOrderData.plannedStartDate ? workOrderData.plannedStartDate.split('T')[0] : '');
       setPlannedEndDate(workOrderData.plannedEndDate ? workOrderData.plannedEndDate.split('T')[0] : '');
       setPriority(workOrderData.priority);
@@ -224,21 +216,11 @@ export default function WorkOrderForm() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="warehouseId">Production Location</Label>
-                  <Select value={warehouseId || 'NONE'} onValueChange={(v) => setLocationId(v === 'NONE' ? '' : v)}>
-                    <SelectTrigger id="warehouseId">
-                      <SelectValue placeholder="Select location (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="NONE">Not Assigned</SelectItem>
-                      {locations
-                        .filter((loc) => loc.id && loc.id.trim() !== '')
-                        .map((loc) => (
-                          <SelectItem key={loc.id} value={loc.id}>
-                            {loc.warehouseName} ({loc.city || 'N/A'})
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                  <WarehouseCombobox
+                    value={warehouseId}
+                    onValueChange={setWarehouseId}
+                    placeholder="Select location (optional)"
+                  />
                   <p className="text-xs text-muted-foreground mt-1">Where production will take place</p>
                 </div>
 

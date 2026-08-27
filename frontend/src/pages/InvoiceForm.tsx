@@ -7,10 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { customerService } from '@/services/customer.service';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { getAllOrders, getOrderById } from '@/services/order.service';
 import { createInvoice, getInvoiceById, updateInvoice } from '@/services/invoice.service';
-import type { Customer } from '@/types/customer.types';
 import type { Order } from '@/types/order.types';
 import type { InvoiceItemInput } from '@/types/invoice.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -32,7 +31,6 @@ export default function InvoiceForm() {
   const { id } = useParams();
   const isEditMode = Boolean(id);
 
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
@@ -51,7 +49,6 @@ export default function InvoiceForm() {
   const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
 
   useEffect(() => {
-    fetchCustomers();
     if (isEditMode && id) {
       fetchInvoice(id);
     }
@@ -66,15 +63,6 @@ export default function InvoiceForm() {
       setOrderId('');
     }
   }, [customerId]);
-
-  const fetchCustomers = async () => {
-    try {
-      const response = await customerService.getAllCustomers({ limit: 100 });
-      setCustomers(response.data);
-    } catch (err) {
-      handleApiError(err, 'Failed to load customers');
-    }
-  };
 
   const fetchCustomerOrders = async (custId: string) => {
     try {
@@ -268,18 +256,12 @@ export default function InvoiceForm() {
                 <Label htmlFor="customerId">
                   Customer <span className="text-destructive">*</span>
                 </Label>
-                <Select value={customerId} onValueChange={setCustomerId} disabled={isEditMode}>
-                  <SelectTrigger id="customerId">
-                    <SelectValue placeholder="Select customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers?.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.billingName || customer.name} ({customer.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <CustomerCombobox
+                  value={customerId}
+                  onValueChange={setCustomerId}
+                  placeholder="Select customer..."
+                  disabled={isEditMode}
+                />
               </div>
 
               <div className="space-y-2">

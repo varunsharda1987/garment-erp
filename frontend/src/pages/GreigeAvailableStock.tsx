@@ -11,6 +11,7 @@ import { Label } from '../components/ui/label';
 import { getGenericGreigeStock } from '../services/style-stock.service';
 import { greigeStockService } from '../services/greigeStock.service';
 import { warehouseService } from '../services/warehouse.service';
+import { WarehouseCombobox } from '../components/WarehouseCombobox';
 import type { GenericGreigeStock, GreigeStockDetail, UpdateGreigeStockData } from '../types/style-stock.types';
 import {
   Search,
@@ -65,7 +66,6 @@ export default function GreigeAvailableStock() {
   const [warehouseFilter, setWarehouseFilter] = useState('all');
   const [showAgedOnly, setShowAgedOnly] = useState(false);
   const [page, setPage] = useState(1);
-  const [warehouses, setWarehouses] = useState<Array<{ id: string; warehouseCode: string; warehouseName: string }>>([]);
 
   // Expandable rows
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -75,6 +75,7 @@ export default function GreigeAvailableStock() {
   // Edit dialog
   const [editingEntry, setEditingEntry] = useState<GreigeStockDetail | null>(null);
   const [editForm, setEditForm] = useState<UpdateGreigeStockData>({});
+  const [editWarehouseId, setEditWarehouseId] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
 
   // Adjust dialog
@@ -97,12 +98,8 @@ export default function GreigeAvailableStock() {
   const loadData = async () => {
     try {
       setIsLoading(true);
-      const [stockData, warehouseData] = await Promise.all([
-        getGenericGreigeStock(),
-        warehouseService.getAll({ isActive: true }),
-      ]);
+      const stockData = await getGenericGreigeStock();
       setGreigeStock(stockData);
-      setWarehouses(warehouseData);
 
       // BUG-GR10 fix: Fetch configurable aging threshold from system settings
       try {
@@ -163,11 +160,7 @@ export default function GreigeAvailableStock() {
   const totalPages = Math.ceil(filteredStock.length / PAGE_SIZE);
   const paginatedStock = filteredStock.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const uniqueWarehouses = [
-    ...new Set([...greigeStock.flatMap((s) => s.warehouses || []), ...warehouses.map((w) => w.warehouseName)]),
-  ]
-    .filter(Boolean)
-    .sort();
+  const uniqueWarehouses = [...new Set(greigeStock.flatMap((s) => s.warehouses || []))].filter(Boolean).sort();
 
   const getTotalStock = () => filteredStock.reduce((sum, s) => sum + (s.totalStock || 0), 0);
   const getTotalValue = () => filteredStock.reduce((sum, s) => sum + (s.totalValue || 0), 0);
@@ -222,13 +215,21 @@ export default function GreigeAvailableStock() {
       warehouseLocation: entry.warehouseLocation ?? undefined,
       rollNumbers: entry.rollNumbers ?? undefined,
     });
+    // Reset warehouse ID - user will re-select if they want to change it
+    setEditWarehouseId('');
   };
 
   const handleSaveEdit = async () => {
     if (!editingEntry) return;
     setIsSaving(true);
     try {
-      await greigeStockService.updateStock(editingEntry.id, editForm);
+      // If a new warehouse was selected, look up its name
+      let finalForm = { ...editForm };
+      if (editWarehouseId) {
+        const warehouse = await warehouseService.getById(editWarehouseId);
+        finalForm.warehouseLocation = warehouse.warehouseName;
+      }
+      await greigeStockService.updateStock(editingEntry.id, finalForm);
       toast.success('Stock entry updated');
       setEditingEntry(null);
       await refreshExpandedRow(editingEntry.greigeId);
@@ -811,26 +812,14 @@ export default function GreigeAvailableStock() {
             </div>
             <div className="space-y-2">
               <Label>Warehouse Location</Label>
-              <Select
-                value={editForm.warehouseLocation || '__none__'}
-                onValueChange={(v) =>
-                  // '__none__' is a Radix-safe sentinel for the empty "Select warehouse" option
-                  // (Radix SelectItem forbids value=""); map it back to undefined so the saved value is unchanged.
-                  setEditForm({ ...editForm, warehouseLocation: v === '__none__' ? undefined : v })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select warehouse" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Select warehouse</SelectItem>
-                  {warehouses.map((wh) => (
-                    <SelectItem key={wh.id} value={wh.warehouseName}>
-                      {wh.warehouseCode} - {wh.warehouseName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {editForm.warehouseLocation && !editWarehouseId && (
+                <p className="text-xs text-muted-foreground mb-1">Current: {editForm.warehouseLocation}</p>
+              )}
+              <WarehouseCombobox
+                value={editWarehouseId}
+                onValueChange={setEditWarehouseId}
+                placeholder="Select new warehouse..."
+              />
             </div>
             <div className="space-y-2">
               <Label>Roll Numbers</Label>

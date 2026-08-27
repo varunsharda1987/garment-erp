@@ -62,6 +62,7 @@ import type { StyleTrim, TrimType } from '../components/TrimSelector';
 import { AccessorySelector } from '../components/AccessorySelector';
 import type { StyleAccessory } from '../components/AccessorySelector';
 import { CADGroupPreview } from '../components/CADGroupPreview';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
 import type { EmbroiderySearchResult } from '../types/embroidery.types';
 import type { Customer, BrandCategory } from '../types/customer.types';
 // MaterialType and MaterialUsageCategory imports removed - using simplified data structures
@@ -2416,18 +2417,12 @@ export default function StyleFormRedesigned() {
                   {/* Row 1: Customer/Buyer, Brand - MUST BE SELECTED FIRST for style code generation */}
                   <div>
                     <Label>Customer/Buyer *</Label>
-                    <Select value={selectedCustomerId} onValueChange={handleCustomerChange}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select customer..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {customers.map((c: Customer) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <CustomerCombobox
+                      value={selectedCustomerId}
+                      onValueChange={handleCustomerChange}
+                      placeholder="Select customer..."
+                      className="w-full"
+                    />
                   </div>
                   <div>
                     <Label>Brand</Label>

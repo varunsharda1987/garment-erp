@@ -3,13 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { getAllOrders, deleteOrder, hardDeleteOrder, canDeleteOrder } from '@/services/order.service';
-import { customerService } from '@/services/customer.service';
 import { createFromCostSheet } from '@/services/orderBom.service';
 import { getCostSheetVersionsByStyle } from '@/services/costSheet.service';
 import type { Order, OrderStatus, Priority } from '@/types/order.types';
 import { OrderStatusLabels, PriorityLabels } from '@/types/order.types';
-import type { Customer } from '@/types/customer.types';
 import ExportButton from '@/components/ExportButton';
 import ImportButton from '@/components/ImportButton';
 import SearchInput from '@/components/SearchInput';
@@ -33,7 +32,6 @@ type Column<T> = {
 export default function OrderList() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,10 +62,6 @@ export default function OrderList() {
   // the style was costed at — BOM creation blocked until accepted (order-scoped)
   const [rateChangePrompt, setRateChangePrompt] = useState<{ order: Order; message: string } | null>(null);
 
-  useEffect(() => {
-    fetchCustomers();
-  }, []);
-
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
@@ -77,15 +71,6 @@ export default function OrderList() {
     fetchOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery, customerFilter, statusFilter, priorityFilter]);
-
-  const fetchCustomers = async () => {
-    try {
-      const response = await customerService.getAllCustomers({ limit: 100 });
-      setCustomers(response.data);
-    } catch (err) {
-      handleApiError(err, 'Failed to load customers', false);
-    }
-  };
 
   const fetchOrders = async () => {
     try {
@@ -454,19 +439,11 @@ export default function OrderList() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Select value={customerFilter} onValueChange={setCustomerFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Customers" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Customers</SelectItem>
-                  {customers.map((customer) => (
-                    <SelectItem key={customer.id} value={customer.id}>
-                      {customer.name} ({customer.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <CustomerCombobox
+                value={customerFilter === 'all' ? '' : customerFilter}
+                onValueChange={(v) => setCustomerFilter(v || 'all')}
+                placeholder="All Customers"
+              />
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>

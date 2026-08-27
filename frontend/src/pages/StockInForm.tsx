@@ -64,7 +64,6 @@ import {
   getSupplierMaterialLabel,
 } from '../lib/supplier-material-mapping';
 import { Unit } from '../types/inventory.types';
-import type { Warehouse } from '../types/inventory.types';
 import type { Material } from '../types/material.types';
 import type { GreigeMaster, FabricMaster } from '../types/fabric-greige.types';
 import type { Lace } from '../types/lace.types';
@@ -206,7 +205,6 @@ export default function StockInForm() {
   const [selectedProcessorStock, setSelectedProcessorStock] = useState<ProcessorGreigeStock | null>(null);
   const [receivedQuantity, setReceivedQuantity] = useState<string>('');
 
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [unifiedMaterials, setUnifiedMaterials] = useState<ExtendedMaterialItem[]>([]);
 
   const [formData, setFormData] = useState({
@@ -242,13 +240,6 @@ export default function StockInForm() {
   const allowedMaterialTypes = getAllowedMaterialTypes(supplierCategories);
   const hasSingleMaterialType = allowedMaterialTypes.length === 1;
 
-  // Warehouse options for combobox
-  const warehouseOptions: ComboboxOption[] = warehouses.map((wh) => ({
-    value: wh.id,
-    label: `${wh.warehouseCode} - ${wh.warehouseName}`,
-    searchText: `${wh.warehouseCode} ${wh.warehouseName}`,
-  }));
-
   // Multi-item line items for Fresh Stock
   const [lineItems, setLineItems] = useState<StockInLineItem[]>([createEmptyLineItem()]);
 
@@ -283,7 +274,6 @@ export default function StockInForm() {
   const loadData = async () => {
     try {
       const [
-        warehousesData,
         materialsResponse,
         greigeResponse,
         fabricResponse,
@@ -296,7 +286,6 @@ export default function StockInForm() {
         packagingResponse,
         processorsData,
       ] = await Promise.all([
-        warehouseService.getAll({ isActive: true }),
         getAllMaterials({ limit: 100 }),
         greigeService.getAll({ limit: 100, isActive: 'true' }),
         fabricService.getAll({ limit: 100, isActive: 'true' }),
@@ -309,7 +298,6 @@ export default function StockInForm() {
         getAllPackaging({ limit: 100 }),
         greigeService.getProcessorsWithStock().catch(() => []),
       ]);
-      setWarehouses(warehousesData);
       setProcessorsWithStock(processorsData);
 
       // Build unified materials list with full data
@@ -1006,23 +994,11 @@ export default function StockInForm() {
                       <Label htmlFor="warehouseId">
                         Receive to Warehouse <span className="text-destructive">*</span>
                       </Label>
-                      <Select
+                      <WarehouseCombobox
                         value={formData.warehouseId}
                         onValueChange={(value) => handleChange('warehouseId', value)}
-                      >
-                        <SelectTrigger id="warehouseId">
-                          <SelectValue placeholder="Select warehouse" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {warehouses
-                            .filter((wh) => wh.warehouseType !== 'JOB_WORK')
-                            .map((wh) => (
-                              <SelectItem key={wh.id} value={wh.id}>
-                                {wh.warehouseCode} - {wh.warehouseName}
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Select warehouse..."
+                      />
                     </div>
 
                     {/* Remarks */}
@@ -1127,13 +1103,10 @@ export default function StockInForm() {
                   <Label htmlFor="warehouseId">
                     Warehouse <span className="text-destructive">*</span>
                   </Label>
-                  <Combobox
-                    options={warehouseOptions}
+                  <WarehouseCombobox
                     value={formData.warehouseId}
                     onValueChange={(value) => handleChange('warehouseId', value)}
-                    placeholder="Search warehouse..."
-                    searchPlaceholder="Type to search warehouses..."
-                    emptyText="No warehouses found"
+                    placeholder="Select warehouse..."
                   />
                 </div>
                 <div className="space-y-2">

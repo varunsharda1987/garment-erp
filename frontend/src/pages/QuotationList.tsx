@@ -3,11 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { getQuotations, deleteQuotation, getQuotationSummary } from '@/services/quotation.service';
-import { customerService } from '@/services/customer.service';
 import type { Quotation, QuotationStatus, QuotationSummary } from '@/types/quotation.types';
 import { QuotationStatusLabels } from '@/types/quotation.types';
-import type { Customer } from '@/types/customer.types';
 import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -29,7 +28,6 @@ export default function QuotationList() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [quotations, setQuotations] = useState<Quotation[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [summary, setSummary] = useState<QuotationSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +48,6 @@ export default function QuotationList() {
   const [quotationToDelete, setQuotationToDelete] = useState<{ id: string; quotationNumber: string } | null>(null);
 
   useEffect(() => {
-    fetchCustomers();
     fetchSummary();
   }, []);
 
@@ -63,15 +60,6 @@ export default function QuotationList() {
     fetchQuotations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, pageSize, searchQuery, customerFilter, statusFilter]);
-
-  const fetchCustomers = async () => {
-    try {
-      const response = await customerService.getAllCustomers({ limit: 100 });
-      setCustomers(response.data);
-    } catch (err) {
-      handleApiError(err, 'Failed to load customers', false);
-    }
-  };
 
   const fetchSummary = async () => {
     try {
@@ -329,19 +317,11 @@ export default function QuotationList() {
             <div className="md:col-span-2">
               <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search by quotation number..." />
             </div>
-            <Select value={customerFilter} onValueChange={setCustomerFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Customers" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Customers</SelectItem>
-                {customers?.map((customer) => (
-                  <SelectItem key={customer.id} value={customer.id}>
-                    {customer.billingName || customer.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <CustomerCombobox
+              value={customerFilter === 'all' ? '' : customerFilter}
+              onValueChange={(v) => setCustomerFilter(v || 'all')}
+              placeholder="All Customers"
+            />
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger>
                 <SelectValue placeholder="All Statuses" />

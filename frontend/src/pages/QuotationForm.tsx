@@ -6,10 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { customerService } from '@/services/customer.service';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { styleService } from '@/services/style.service';
 import { createQuotation, getQuotationById, updateQuotation } from '@/services/quotation.service';
-import type { Customer } from '@/types/customer.types';
 import type { Style } from '@/types/style.types';
 import type { QuotationItemInput } from '@/types/quotation.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
@@ -29,7 +28,6 @@ export default function QuotationForm() {
   // Pre-selected style when arriving from an approved cost sheet's "Create Quotation" (B14-08)
   const prefillStyleId = searchParams.get('styleId') || '';
 
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [styles, setStyles] = useState<Style[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -52,7 +50,6 @@ export default function QuotationForm() {
   ]);
 
   useEffect(() => {
-    fetchCustomers();
     fetchStyles();
     if (isEditMode && id) {
       fetchQuotation(id);
@@ -62,16 +59,6 @@ export default function QuotationForm() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isEditMode]);
-
-  const fetchCustomers = async () => {
-    try {
-      // Reduced from 1000 to 200 for performance
-      const response = await customerService.getAllCustomers({ limit: 200 });
-      setCustomers(response.data);
-    } catch (err) {
-      handleApiError(err, 'Failed to load customers');
-    }
-  };
 
   const fetchStyles = async () => {
     try {
@@ -234,18 +221,12 @@ export default function QuotationForm() {
                 <Label htmlFor="customerId">
                   Customer <span className="text-destructive">*</span>
                 </Label>
-                <Select value={customerId} onValueChange={setCustomerId} disabled={isEditMode}>
-                  <SelectTrigger id="customerId">
-                    <SelectValue placeholder="Select customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers?.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.billingName || customer.name} ({customer.code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <CustomerCombobox
+                  value={customerId}
+                  onValueChange={setCustomerId}
+                  placeholder="Select customer..."
+                  disabled={isEditMode}
+                />
               </div>
 
               <div className="space-y-2">

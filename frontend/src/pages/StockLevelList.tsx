@@ -281,7 +281,7 @@ export default function StockLevelList() {
             icon: <Package className="h-16 w-16" />,
             title: showLowStockOnly ? 'No low stock items' : 'No stock levels found',
             description:
-              searchTerm || warehouseFilter
+              searchTerm || warehouseFilter || materialTypeFilter !== 'all'
                 ? 'Try adjusting your search or filter criteria'
                 : showLowStockOnly
                   ? 'All materials are adequately stocked'

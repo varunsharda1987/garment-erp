@@ -25,6 +25,7 @@ import UnapproveImpactDialog, { getCostingInUseDetails } from '@/components/fabr
 import { fabricCostingService } from '../services/fabricCosting.service';
 import { customerService } from '../services/customer.service';
 import { styleService } from '../services/style.service';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
 import type {
   CostingOption,
   GroupedCostingByStyle,
@@ -34,7 +35,6 @@ import type {
   CostingPurpose,
   CostingInUseErrorDetails,
 } from '../types/fabricCosting.types';
-import type { Customer } from '../types/customer.types';
 import type { Style } from '../types/style.types';
 import { notify } from '../lib/notify';
 import { handleApiError } from '../lib/api-error-handler';
@@ -47,7 +47,6 @@ export default function FabricCostingOptionsPage() {
 
   // Data state
   const [groupedData, setGroupedData] = useState<Record<string, GroupedCostingByStyle>>({});
-  const [customers, setCustomers] = useState<Customer[]>([]);
   const [styles, setStyles] = useState<Style[]>([]);
   const [processors, setProcessors] = useState<ProcessorInfo[]>([]);
 
@@ -105,12 +104,7 @@ export default function FabricCostingOptionsPage() {
     const fetchFilterOptions = async () => {
       setIsLoadingFilters(true);
       try {
-        const [customersRes, processorsRes] = await Promise.all([
-          // Reduced from 1000 to 100 for performance
-          customerService.getAllCustomers({ page: 1, limit: 100 }),
-          fabricCostingService.getProcessors(),
-        ]);
-        setCustomers(customersRes.data);
+        const processorsRes = await fabricCostingService.getProcessors();
         setProcessors(processorsRes);
       } catch {
         notify.error('Failed to load filter options');
@@ -149,8 +143,8 @@ export default function FabricCostingOptionsPage() {
         return;
       }
       try {
-        // Find customer name from customerId to pass to getAllStyles
-        const customer = customers.find((c) => c.id === filters.customerId);
+        // Fetch customer by ID to get name for getAllStyles filter
+        const customer = await customerService.getCustomerById(filters.customerId);
         const customerName = customer?.name;
         const response = await styleService.getAllStyles(
           1, // page
@@ -167,7 +161,6 @@ export default function FabricCostingOptionsPage() {
       }
     };
     fetchStyles();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.customerId]);
 
   // Fetch costing options
@@ -412,23 +405,13 @@ export default function FabricCostingOptionsPage() {
           </div>
 
           {/* Customer Filter */}
-          <Select
-            value={filters.customerId || 'all'}
-            onValueChange={(val) => handleFilterChange('customerId', val)}
+          <CustomerCombobox
+            value={filters.customerId || ''}
+            onValueChange={(val) => handleFilterChange('customerId', val || undefined)}
+            placeholder="All Customers"
+            className="w-[180px]"
             disabled={isLoadingFilters}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="All Customers" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Customers</SelectItem>
-              {customers.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
 
           {/* Style Filter */}
           <Select

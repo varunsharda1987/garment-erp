@@ -28,8 +28,8 @@ import type { ComboboxOption } from '@/components/ui/combobox';
 import { ButtonSpinner } from '@/components/LoadingSpinner';
 import { PageHeader } from '@/components/PageHeader';
 import { challanService } from '../services/challan.service';
-import warehouseService from '../services/warehouse.service';
 import stockLevelService from '../services/stockLevel.service';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { getAllSuppliers } from '../services/supplier.service';
 import { fabricStockService } from '../services/fabricStock.service';
 import { greigeStockService } from '../services/greigeStock.service';
@@ -37,7 +37,7 @@ import type { GreigeStockEntry } from '../services/greigeStock.service';
 import { SupplierCategoryLabels, SupplierCategory } from '../types/supplier.types';
 import type { Supplier } from '../types/supplier.types';
 import type { CreateChallanInput, ChallanType } from '../types/challan.types';
-import type { Warehouse, StockLevel } from '../types/inventory-exports';
+import type { StockLevel } from '../types/inventory-exports';
 import { logError } from '../lib/logger';
 import {
   getAllowedMaterialTypes,
@@ -192,8 +192,6 @@ export default function StockOutForm() {
   const [challanType, setChallanType] = useState<ChallanType>('OUTWARD');
   const [challanDate, setChallanDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [warehouseId, setWarehouseId] = useState('');
-  const [warehouseName, setWarehouseName] = useState('');
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [remarks, setRemarks] = useState('');
 
   // Destination
@@ -360,9 +358,8 @@ export default function StockOutForm() {
     );
   };
 
-  // Load warehouses + fabric/greige stock on mount
+  // Load fabric/greige stock on mount
   useEffect(() => {
-    loadWarehouses();
     loadFabricStock();
     loadGreigeStock();
   }, []);
@@ -383,21 +380,6 @@ export default function StockOutForm() {
 
   // Note: Material type pre-selection is now handled in handleSupplierChange
   // based on supplier's categories, not just the filter category
-
-  const loadWarehouses = async () => {
-    try {
-      const data = await warehouseService.getAll({ isActive: true });
-      setWarehouses(data);
-      // Auto-select first RAW_MATERIAL warehouse, fallback to first active
-      const defaultWh = data.find((w: Warehouse) => w.warehouseType === 'RAW_MATERIAL') || data[0];
-      if (defaultWh && !warehouseId) {
-        setWarehouseId(defaultWh.id);
-        setWarehouseName(`${defaultWh.warehouseCode} - ${defaultWh.warehouseName}`);
-      }
-    } catch (err) {
-      logError('Failed to load warehouses:', err);
-    }
-  };
 
   const loadSuppliers = async () => {
     try {
@@ -581,7 +563,7 @@ export default function StockOutForm() {
       challanType,
       challanDate,
       fromType: 'WAREHOUSE',
-      fromName: warehouseName || 'Main Store',
+      fromName: 'Main Store', // Backend infers warehouse from stock items
       toType: getDestinationType(),
       toId: challanType === 'OUTWARD' ? supplierId : undefined,
       toName: destinationName,
@@ -711,25 +693,11 @@ export default function StockOutForm() {
                     <WarehouseIcon className="h-4 w-4 inline mr-1" />
                     Issue From Warehouse <span className="text-destructive">*</span>
                   </Label>
-                  <Select
+                  <WarehouseCombobox
                     value={warehouseId}
-                    onValueChange={(v) => {
-                      setWarehouseId(v);
-                      const wh = warehouses.find((w) => w.id === v);
-                      setWarehouseName(wh ? `${wh.warehouseCode} - ${wh.warehouseName}` : '');
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select warehouse" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {warehouses.map((wh) => (
-                        <SelectItem key={wh.id} value={wh.id}>
-                          {wh.warehouseCode} - {wh.warehouseName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onValueChange={setWarehouseId}
+                    placeholder="Select warehouse..."
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="challanDate">

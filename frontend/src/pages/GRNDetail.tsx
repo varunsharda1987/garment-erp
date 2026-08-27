@@ -7,15 +7,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { getGRNById, approveGRN, rejectGRN } from '@/services/grn.service';
 import { openPDF } from '@/lib/document-utils';
-import { warehouseService } from '@/services/warehouse.service';
 import type { GRN, GRNStatus, ProcessingQCData } from '@/types/grn.types';
 import { GRNStatusLabels } from '@/types/grn.types';
-import type { Warehouse } from '@/types/inventory.types';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -41,8 +40,7 @@ export default function GRNDetail() {
   // Pending cutting notification (shown after GRN approval)
   const [pendingCutting, setPendingCutting] = useState<PendingCuttingInfo[] | null>(null);
 
-  // Warehouse state
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  // Warehouse state for approval
   const [approveWarehouseId, setApproveWarehouseId] = useState('');
 
   // Dialog states
@@ -61,7 +59,6 @@ export default function GRNDetail() {
   useEffect(() => {
     if (id) {
       fetchGRN();
-      fetchWarehouses();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -72,15 +69,6 @@ export default function GRNDetail() {
       setApproveWarehouseId(grn.warehouseId as string);
     }
   }, [grn]);
-
-  const fetchWarehouses = async () => {
-    try {
-      const data = await warehouseService.getAll({ isActive: true });
-      setWarehouses(data);
-    } catch {
-      /* silent */
-    }
-  };
 
   const fetchGRN = async () => {
     try {
@@ -555,18 +543,11 @@ export default function GRNDetail() {
               </p>
               <div className="space-y-2">
                 <Label>Warehouse *</Label>
-                <Select value={approveWarehouseId} onValueChange={setApproveWarehouseId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select warehouse" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {warehouses.map((w) => (
-                      <SelectItem key={w.id} value={w.id}>
-                        {w.warehouseCode} - {w.warehouseName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <WarehouseCombobox
+                  value={approveWarehouseId}
+                  onValueChange={setApproveWarehouseId}
+                  placeholder="Select warehouse..."
+                />
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
@@ -610,18 +591,11 @@ export default function GRNDetail() {
               {!grn.warehouseId && (
                 <div className="space-y-2">
                   <Label>Warehouse *</Label>
-                  <Select value={approveWarehouseId} onValueChange={setApproveWarehouseId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select warehouse" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {warehouses.map((w) => (
-                        <SelectItem key={w.id} value={w.id}>
-                          {w.warehouseCode} - {w.warehouseName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <WarehouseCombobox
+                    value={approveWarehouseId}
+                    onValueChange={setApproveWarehouseId}
+                    placeholder="Select warehouse..."
+                  />
                 </div>
               )}
 

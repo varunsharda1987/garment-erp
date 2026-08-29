@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { AlertCircle, ChevronDown, ChevronUp, ExternalLink, CheckCircle, Clock } from 'lucide-react';
+import { BlockerResolutionPanel } from '@/components/BlockerResolutionPanel';
 
 interface BlockerInfo {
   type: string;
@@ -75,11 +76,20 @@ const getResolutionSteps = (blockerType: string): string[] => {
   );
 };
 
-const getActionButton = (blocker: BlockerInfo, navigate: ReturnType<typeof useNavigate>): React.ReactNode | null => {
+const getActionButton = (
+  blocker: BlockerInfo,
+  navigate: ReturnType<typeof useNavigate>,
+  onResolve?: () => void
+): React.ReactNode | null => {
   switch (blocker.type) {
     case 'FIT_SAMPLE_NOT_APPROVED':
     case 'PP_SAMPLE_NOT_APPROVED':
     case 'SIZE_SET_SAMPLE_NOT_APPROVED':
+      // If we have sampleId, show inline resolution panel
+      if (blocker.sampleId) {
+        return <BlockerResolutionPanel sampleId={blocker.sampleId} onResolved={onResolve} compact />;
+      }
+      // Fallback to navigate if no sampleId
       if (blocker.styleId) {
         return (
           <Button size="sm" variant="outline" onClick={() => navigate(`/styles/${blocker.styleId}`)} className="gap-1">
@@ -191,7 +201,7 @@ const EnhancedBlockerCard: React.FC<EnhancedBlockerCardProps> = ({ blocker }) =>
   const [isExpanded, setIsExpanded] = useState(false);
 
   const severityConfig = getSeverityConfig(blocker.severity);
-  const actionButton = getActionButton(blocker, navigate);
+  const actionButton = getActionButton(blocker, navigate, onResolve);
   const resolutionSteps = getResolutionSteps(blocker.type);
 
   return (

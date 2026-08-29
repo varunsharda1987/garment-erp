@@ -153,3 +153,31 @@ export const canDeactivateCustomer = async (req: Request, res: Response): Promis
     message,
   });
 };
+
+/**
+ * Get sample requirements for a customer
+ * GET /api/customers/:id/sample-requirements
+ */
+export const getSampleRequirements = async (req: Request, res: Response): Promise<void> => {
+  const { id: customerId } = req.params;
+  const requirements = await customerService.getSampleRequirements(customerId);
+
+  res.status(200).json({
+    data: requirements,
+  });
+};
+
+/**
+ * Upsert sample requirements for a customer (bulk)
+ * PUT /api/customers/:id/sample-requirements
+ */
+export const upsertSampleRequirements = async (req: Request, res: Response): Promise<void> => {
+  const { id: customerId } = req.params;
+  const { requirements } = req.body;
+  const updated = await customerService.upsertSampleRequirements(customerId, requirements);
+
+  res.status(200).json({
+    data: updated,
+    message: 'Sample requirements updated successfully',
+  });
+};

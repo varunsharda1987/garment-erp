@@ -28,6 +28,7 @@ import { ChevronRight, ChevronDown, Package, Info } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { CustomerAccessoryPresets } from '@/components/CustomerAccessoryPresets';
 import { CustomerSizeCategoryPresets } from '@/components/CustomerSizeCategoryPresets';
+import { CustomerSampleRequirements } from '@/components/CustomerSampleRequirements';
 import GSTNumberInput from '@/components/GSTNumberInput';
 import { AgentCombobox } from '@/components/AgentCombobox';
 import { AgencyCombobox } from '@/components/AgencyCombobox';
@@ -1304,6 +1305,13 @@ export default function CustomerForm({ mode = 'create' }: CustomerFormProps) {
                   </div>
                 )}
               </div>
+
+              {/* Sample Requirements Section - Only in Edit Mode */}
+              {!isNewCustomer && id && (
+                <div className="space-y-4">
+                  <CustomerSampleRequirements customerId={id} customerName={watch('name') || 'this customer'} />
+                </div>
+              )}
 
               {/* Accessory Presets Section - Only in Edit Mode */}
               <div className="space-y-4">

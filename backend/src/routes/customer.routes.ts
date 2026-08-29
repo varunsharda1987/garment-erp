@@ -11,6 +11,8 @@ import {
   createAccessoryPreset,
   updateAccessoryPreset,
   deleteAccessoryPreset,
+  getSampleRequirements,
+  upsertSampleRequirements,
 } from '../controllers/customer.controller';
 import { getDefaultAccessoryPreset } from '../controllers/customer-accessories.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
@@ -143,6 +145,25 @@ router.delete(
   authorize(UserRole.ADMIN),
   validateParams(customerIdParamSchema),
   asyncHandler(deleteAccessoryPreset)
+);
+
+/**
+ * @route   GET /api/customers/:id/sample-requirements
+ * @desc    Get sample requirements for a customer
+ * @access  Protected - All authenticated users
+ */
+router.get('/:id/sample-requirements', validateParams(customerIdParamSchema), asyncHandler(getSampleRequirements));
+
+/**
+ * @route   PUT /api/customers/:id/sample-requirements
+ * @desc    Upsert sample requirements for a customer
+ * @access  Protected - Admin, Sales, Merchandiser
+ */
+router.put(
+  '/:id/sample-requirements',
+  authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER),
+  validateParams(customerIdParamSchema),
+  asyncHandler(upsertSampleRequirements)
 );
 
 export default router;

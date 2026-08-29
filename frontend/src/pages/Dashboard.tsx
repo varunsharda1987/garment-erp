@@ -8,6 +8,23 @@ import type { DashboardSummary } from '@/types/style.types';
 import { ProductionStage } from '@/types/style.types';
 import { logError } from '@/lib/logger';
 import { notify } from '@/lib/notify';
+import api from '@/lib/api';
+
+// Sample summary type
+interface SampleSummary {
+  pendingSamples: number;
+  overdueSamples: number;
+  awaitingFeedback: number;
+  approachingDeadlines: Array<{
+    id: string;
+    sampleNumber: string;
+    sampleType: string;
+    requiredDate: string;
+    styleCode?: string;
+    buyerStyleRef?: string;
+    customerName?: string;
+  }>;
+}
 
 // ── Reusable stage card ────────────────────────────────────────────────────
 interface StageCardProps {
@@ -82,10 +99,12 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [sampleSummary, setSampleSummary] = useState<SampleSummary | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
+    fetchSampleSummary();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -99,6 +118,15 @@ export default function Dashboard() {
       notify.error('Failed to load dashboard data. Please refresh the page.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSampleSummary = async () => {
+    try {
+      const response = await api.get<{ data: SampleSummary }>('/dashboard/sample-summary');
+      setSampleSummary(response.data.data);
+    } catch (err) {
+      logError('Failed to fetch sample summary:', err);
     }
   };
 
@@ -244,6 +272,69 @@ export default function Dashboard() {
             accentClass="border-l-success"
             onClick={() => handleCardClick(ProductionStage.READY_TO_SHIP)}
           />
+        </div>
+      </div>
+
+      {/* ── Sample Tracking ─────────────────────────────────────── */}
+      <div className="mb-7">
+        <SectionHeading label="Sample Tracking" dotClass="bg-warning" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card
+            className="border-l-4 border-l-warning cursor-pointer transition-all duration-150 hover:shadow-md hover:-translate-y-px"
+            onClick={() => navigate('/samples?status=pending')}
+          >
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs text-muted-foreground">Pending Samples</CardDescription>
+              <CardTitle className="text-3xl font-display font-medium text-foreground">
+                {sampleSummary?.pendingSamples ?? '—'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Awaiting action</p>
+            </CardContent>
+          </Card>
+          <Card
+            className="border-l-4 border-l-destructive cursor-pointer transition-all duration-150 hover:shadow-md hover:-translate-y-px"
+            onClick={() => navigate('/samples?status=overdue')}
+          >
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs text-muted-foreground">Overdue</CardDescription>
+              <CardTitle className="text-3xl font-display font-medium text-destructive">
+                {sampleSummary?.overdueSamples ?? '—'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Past due date</p>
+            </CardContent>
+          </Card>
+          <Card
+            className="border-l-4 border-l-warning cursor-pointer transition-all duration-150 hover:shadow-md hover:-translate-y-px"
+            onClick={() => navigate('/samples?status=FEEDBACK_PENDING')}
+          >
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs text-muted-foreground">Awaiting Feedback</CardDescription>
+              <CardTitle className="text-3xl font-display font-medium text-foreground">
+                {sampleSummary?.awaitingFeedback ?? '—'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Sent to buyer</p>
+            </CardContent>
+          </Card>
+          <Card
+            className="border-l-4 border-l-accent cursor-pointer transition-all duration-150 hover:shadow-md hover:-translate-y-px"
+            onClick={() => navigate('/samples')}
+          >
+            <CardHeader className="pb-2">
+              <CardDescription className="text-xs text-muted-foreground">Due This Week</CardDescription>
+              <CardTitle className="text-3xl font-display font-medium text-foreground">
+                {sampleSummary?.approachingDeadlines?.length ?? '—'}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Approaching deadline</p>
+            </CardContent>
+          </Card>
         </div>
       </div>
 

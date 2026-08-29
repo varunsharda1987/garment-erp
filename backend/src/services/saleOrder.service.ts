@@ -7,7 +7,8 @@ import { orderService, OrderItemInput, OrderPriority } from './order.service';
 import { NotFoundError, ValidationError, ConflictError, BusinessError } from '../errors';
 import { recomputeSaleOrderStatus } from './helpers/sale-order-status.helper';
 import { processorRateValidationService } from './processor-rate-validation.service';
-import { logWarn } from '../utils/logger';
+import { logWarn, logInfo } from '../utils/logger';
+import { sampleService } from './sample.service';
 
 interface SOCreateInput {
   customerId: string;
@@ -344,7 +345,13 @@ export class SaleOrderService {
   async confirm(id: string, approvedById: string) {
     const so = await prisma.sale_orders.findUnique({
       where: { id },
-      select: { status: true },
+      select: {
+        status: true,
+        customerId: true,
+        expectedShipDate: true,
+        deliveryDate: true,
+        items: { select: { styleId: true } },
+      },
     });
 
     if (!so) throw new Error('Sale Order not found');
@@ -352,7 +359,8 @@ export class SaleOrderService {
       throw new Error('Can only confirm Sale Orders in DRAFT status');
     }
 
-    return prisma.sale_orders.update({
+    // Update status to CONFIRMED
+    const confirmed = await prisma.sale_orders.update({
       where: { id },
       data: {
         status: SaleOrderStatus.CONFIRMED, // allow-sale-order-status: commercial event (confirm)
@@ -360,6 +368,33 @@ export class SaleOrderService {
       },
       include: this.getDefaultIncludes(),
     });
+
+    // Auto-create samples based on customer requirements
+    const styleIds = [...new Set(so.items.map(i => i.styleId))];
+    if (styleIds.length > 0 && so.customerId) {
+      const shipDate = so.expectedShipDate || so.deliveryDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      try {
+        const sampleResult = await sampleService.autoCreateSamplesForOrder(
+          id,
+          so.customerId,
+          styleIds,
+          shipDate,
+          approvedById,
+          'SALE_ORDER'
+        );
+        logInfo('[confirm] Samples auto-created', {
+          orderId: id,
+          created: sampleResult.created.length,
+          skipped: sampleResult.skipped.length,
+        });
+        // Attach result to response for frontend notification
+        (confirmed as any).samplesCreated = sampleResult;
+      } catch (err) {
+        logWarn('[confirm] Sample auto-creation failed (non-blocking)', { orderId: id, error: err });
+      }
+    }
+
+    return confirmed;
   }
 
   /**

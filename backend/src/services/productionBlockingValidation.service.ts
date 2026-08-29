@@ -79,8 +79,18 @@ interface OverrideLogData {
 class ProductionBlockingValidationService {
   /**
    * RULE 1: FIT Sample blocks IN_PRINTING and IN_DYING stages
+   * @param customerFitBlocks - If false, skip validation (customer doesn't require FIT approval)
    */
-  async validateFitSampleForStage(styleId: string, targetStage: ProductionStage): Promise<ValidationResult> {
+  async validateFitSampleForStage(
+    styleId: string,
+    targetStage: ProductionStage,
+    customerFitBlocks = true
+  ): Promise<ValidationResult> {
+    // If customer doesn't require FIT blocking, skip validation
+    if (!customerFitBlocks) {
+      return { isBlocked: false, blockers: [] };
+    }
+
     const blockedStages: ProductionStage[] = ['IN_PRINTING', 'IN_DYING'];
 
     if (!blockedStages.includes(targetStage)) {
@@ -135,8 +145,18 @@ class ProductionBlockingValidationService {
 
   /**
    * RULE 2: Size Set Sample blocks cutting and all subsequent stages
+   * @param customerSizeSetBlocks - If false, skip validation (customer doesn't require SIZE_SET approval)
    */
-  async validateSizeSetSampleForStage(styleId: string, targetStage: ProductionStage): Promise<ValidationResult> {
+  async validateSizeSetSampleForStage(
+    styleId: string,
+    targetStage: ProductionStage,
+    customerSizeSetBlocks = true
+  ): Promise<ValidationResult> {
+    // If customer doesn't require SIZE_SET blocking, skip validation
+    if (!customerSizeSetBlocks) {
+      return { isBlocked: false, blockers: [] };
+    }
+
     const blockedStages: ProductionStage[] = [
       'IN_CUTTING',
       'IN_STITCHING',
@@ -513,7 +533,7 @@ class ProductionBlockingValidationService {
       return { isBlocked: false, blockers: [] };
     }
 
-    // Get work order with style and customer info
+    // Get work order with style and customer info (including sample requirements)
     const workOrder = await prisma.work_orders.findUnique({
       where: { id: workOrderId },
       select: {
@@ -527,6 +547,9 @@ class ProductionBlockingValidationService {
                   select: {
                     fptBlocksProduction: true,
                     gptBlocksShipment: true,
+                    customer_sample_requirements: {
+                      select: { sampleType: true, isRequired: true, blocksProduction: true },
+                    },
                   },
                 },
               },
@@ -546,10 +569,19 @@ class ProductionBlockingValidationService {
     const fptBlocksProduction = customer?.fptBlocksProduction ?? false;
     const gptBlocksShipment = customer?.gptBlocksShipment ?? true; // Default to true for safety
 
+    // Extract sample requirements from customer (default to blocking if no requirements defined)
+    type SampleReq = { sampleType: string; isRequired: boolean; blocksProduction: boolean };
+    const sampleRequirements: SampleReq[] = customer?.customer_sample_requirements || [];
+    const fitReq = sampleRequirements.find((r: SampleReq) => r.sampleType === 'FIT_SAMPLE');
+    const sizeSetReq = sampleRequirements.find((r: SampleReq) => r.sampleType === 'SIZE_SET_SAMPLE');
+    // Default: if no requirement defined, assume blocking is enabled (backward compatible)
+    const fitBlocks = fitReq?.blocksProduction ?? true;
+    const sizeSetBlocks = sizeSetReq?.blocksProduction ?? true;
+
     // Run all validations in parallel
     const [fitResult, sizeSetResult, fptResult, gptResult, materialResult, cadResult] = await Promise.all([
-      this.validateFitSampleForStage(workOrder.styleId, targetStage),
-      this.validateSizeSetSampleForStage(workOrder.styleId, targetStage),
+      this.validateFitSampleForStage(workOrder.styleId, targetStage, fitBlocks),
+      this.validateSizeSetSampleForStage(workOrder.styleId, targetStage, sizeSetBlocks),
       this.validateFPTForStage(workOrder.styleId, targetStage, fptBlocksProduction),
       this.validateGPTForStage(workOrderId, targetStage, gptBlocksShipment),
       this.validateMaterialAvailabilityForStage(workOrderId, targetStage),

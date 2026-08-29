@@ -54,6 +54,21 @@ export const styleService = {
   },
 
   /**
+   * Get styles with active orders or work orders ("running" styles)
+   * Used for sample tracking to auto-populate styles that are actively in production
+   */
+  getRunningStyles: async (
+    customerId?: string
+  ): Promise<{ id: string; styleCode: string; buyerStyleRef: string | null; styleName: string; customerName: string | null }[]> => {
+    let url = '/styles/running';
+    if (customerId) {
+      url += `?customerId=${encodeURIComponent(customerId)}`;
+    }
+    const response = await api.get<{ data: { id: string; styleCode: string; buyerStyleRef: string | null; styleName: string; customerName: string | null }[] }>(url);
+    return response.data.data;
+  },
+
+  /**
    * Get style by ID with all related data
    */
   getStyleById: async (id: string): Promise<Style> => {

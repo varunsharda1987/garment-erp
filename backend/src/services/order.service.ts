@@ -13,6 +13,7 @@ import workOrderService from './workOrder.service';
 import { generateAtomicOrderNumber } from '../utils/atomicCodeGenerator';
 import { validateTransition } from '../utils/stateMachine';
 import { multiplyCurrency, roundToCent, Decimal } from '../utils/currency';
+import { sampleService } from './sample.service';
 
 // ============================================
 // Types
@@ -263,6 +264,33 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
       logWarn('Cost-sheet snapshot failures during order creation', {
         orderId: order.id,
         failures: costingSnapshotResult.failures,
+      });
+    }
+
+    // 3.6 Auto-create samples for the styles in this production order (if not already created).
+    // Non-blocking — failure doesn't fail the order creation.
+    const styleIds = [...new Set(orderItemsData.map(i => i.styleId))];
+    let samplesCreated: Awaited<ReturnType<typeof sampleService.autoCreateSamplesForOrder>> | null = null;
+    try {
+      samplesCreated = await sampleService.autoCreateSamplesForOrder(
+        order.id,
+        data.customerId,
+        styleIds,
+        expectedDeliveryDate,
+        userId,
+        'PRODUCTION_ORDER'
+      );
+      if (samplesCreated.created.length > 0) {
+        logInfo('Samples auto-created for production order', {
+          orderId: order.id,
+          created: samplesCreated.created.length,
+          skipped: samplesCreated.skipped.length,
+        });
+      }
+    } catch (err) {
+      logWarn('Sample auto-creation failed for production order (non-blocking)', {
+        orderId: order.id,
+        error: err,
       });
     }
 

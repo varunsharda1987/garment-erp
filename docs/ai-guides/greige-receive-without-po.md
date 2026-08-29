@@ -70,7 +70,7 @@ Use this for opening stock, physical count adjustments, or backdated entries whe
 
 ### Steps
 
-1. Open **Inventory → Stock In** in the sidebar.
+1. Press **Ctrl+K** and search **Stock In**, or open **Inventory → Material Movements** and click **Stock In**.
 2. Select your **Supplier** first (choose a Greige Supplier).
 3. Pick the **Warehouse** where the greige is stored.
 4. Fill **Received Date** if backdating (leave blank for today).

@@ -689,6 +689,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           styleCode: code,
           styleName: data.styleName,
           buyerStyleRef: data.buyerStyleRef || null,
+          customerId: data.customerId || null,
           customerName: data.customerName || 'Draft',
           brandName: data.brandName || 'Draft',
           brandCategoryId: data.brandCategoryId || null,
@@ -846,6 +847,11 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
    */
   async findAllWithFilters(options: StyleQueryOptions): Promise<PaginatedResult<styles>> {
     const additionalFilters: AdditionalFilters = {};
+
+    // Filter by customerId (exact match) - WS1 added the FK to styles table
+    if (options.customerId) {
+      additionalFilters.customerId = options.customerId;
+    }
 
     if (options.customerName) {
       additionalFilters.customerName = { contains: options.customerName, mode: 'insensitive' };
@@ -1913,6 +1919,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         where: { id },
         data: {
           styleName: data.styleName,
+          customerId: data.customerId !== undefined ? data.customerId || null : undefined,
           customerName: data.customerName,
           brandName: data.brandName,
           // BUG-S7: the bare `|| null` pattern (without the !== undefined guard) wiped both
@@ -2596,6 +2603,45 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
     logInfo('CAD plan rejected', { styleId });
     return updatedStyle;
+  }
+
+  // ============================================
+  // Running Styles (Active Orders/Work Orders)
+  // ============================================
+
+  /**
+   * Get styles with active orders or work orders ("running" styles)
+   * Used for sample tracking to auto-populate styles that are actively in production
+   */
+  async getRunningStyles(customerId?: string): Promise<
+    {
+      id: string;
+      styleCode: string;
+      buyerStyleRef: string | null;
+      styleName: string;
+      customerName: string | null;
+    }[]
+  > {
+    return this.prisma.styles.findMany({
+      where: {
+        isActive: true,
+        ...(customerId && { customerId }),
+        OR: [
+          { order_items: { some: { orders: { status: { notIn: ['COMPLETED', 'CANCELLED', 'DISPATCHED'] } } } } },
+          { sale_order_items: { some: { saleOrder: { status: { notIn: ['DISPATCHED', 'DELIVERED', 'CANCELLED'] } } } } },
+          { work_orders: { some: { status: { in: ['PENDING', 'IN_PRODUCTION'] } } } },
+        ],
+      },
+      select: {
+        id: true,
+        styleCode: true,
+        buyerStyleRef: true,
+        styleName: true,
+        customerName: true,
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 100,
+    });
   }
 
   // ============================================

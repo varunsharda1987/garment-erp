@@ -1019,6 +1019,72 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
       logDebug(`Created ${gstNumberData.length} GST numbers for customer ${customerId}`);
     }
   }
+
+  /**
+   * Get sample requirements for a customer
+   */
+  async getSampleRequirements(customerId: string) {
+    return this.prisma.customer_sample_requirements.findMany({
+      where: { customerId },
+      orderBy: { sampleType: 'asc' },
+    });
+  }
+
+  /**
+   * Upsert sample requirements for a customer (bulk)
+   * @param requirements Array of { sampleType, isRequired, blocksProduction, targetDaysToSend?, targetDaysToFeedback? }
+   */
+  async upsertSampleRequirements(
+    customerId: string,
+    requirements: Array<{
+      sampleType: string;
+      isRequired: boolean;
+      blocksProduction?: boolean;
+      targetDaysToSend?: number | null;
+      targetDaysToFeedback?: number | null;
+    }>
+  ) {
+    // Validate customer exists
+    const customer = await this.prisma.customers.findUnique({ where: { id: customerId } });
+    if (!customer) {
+      throw new NotFoundError('Customer', customerId);
+    }
+
+    // Default blocksProduction based on sample type
+    // FIT/PP block production, SHIPMENT blocks dispatch
+    const getDefaultBlocks = (type: string) => ['FIT_SAMPLE', 'PP_SAMPLE', 'SHIPMENT_SAMPLE'].includes(type);
+
+    // Upsert each requirement
+    const results = await Promise.all(
+      requirements.map((req) =>
+        this.prisma.customer_sample_requirements.upsert({
+          where: {
+            customerId_sampleType: {
+              customerId,
+              sampleType: req.sampleType as any,
+            },
+          },
+          create: {
+            customerId,
+            sampleType: req.sampleType as any,
+            isRequired: req.isRequired,
+            blocksProduction: req.blocksProduction ?? getDefaultBlocks(req.sampleType),
+            targetDaysToSend: req.targetDaysToSend ?? null,
+            targetDaysToFeedback: req.targetDaysToFeedback ?? null,
+          },
+          update: {
+            isRequired: req.isRequired,
+            blocksProduction: req.blocksProduction ?? getDefaultBlocks(req.sampleType),
+            targetDaysToSend: req.targetDaysToSend ?? null,
+            targetDaysToFeedback: req.targetDaysToFeedback ?? null,
+          },
+        })
+      )
+    );
+
+    logInfo(`Updated ${results.length} sample requirements for customer ${customerId}`);
+    return results;
+  }
 }
 
 // Export singleton instance

@@ -165,6 +165,7 @@ export interface CreateStyleRequest {
   styleCode?: string; // Optional - auto-generated if not provided
   styleName: string;
   status?: 'DRAFT' | 'ACTIVE' | 'ARCHIVED';
+  customerId?: string | null;
   customerName?: string;
   brandName?: string;
   brandCategoryId?: string | null;
@@ -220,6 +221,7 @@ export interface StyleQueryOptions {
   limit?: number;
   search?: string;
   stage?: string;
+  customerId?: string;
   customerName?: string;
   brandName?: string;
   season?: string;

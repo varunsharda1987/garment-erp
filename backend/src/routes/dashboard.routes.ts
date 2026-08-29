@@ -7,6 +7,7 @@ import {
   getProductionDashboardStats,
   getAccountsDashboardStats,
   getSalesDashboardStats,
+  getSampleDashboardStats,
 } from '../controllers/dashboard.controller';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
@@ -35,5 +36,6 @@ router.get('/general-stats', asyncHandler(getGeneralDashboardStats));
 router.get('/production-stats', asyncHandler(getProductionDashboardStats));
 router.get('/accounts-stats', asyncHandler(getAccountsDashboardStats));
 router.get('/sales-stats', asyncHandler(getSalesDashboardStats));
+router.get('/sample-summary', asyncHandler(getSampleDashboardStats));
 
 export default router;

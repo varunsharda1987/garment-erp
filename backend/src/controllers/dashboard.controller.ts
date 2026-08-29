@@ -816,3 +816,74 @@ export const getSalesDashboardStats = async (req: Request, res: Response): Promi
     },
   });
 };
+
+/**
+ * Sample dashboard stats — pending samples, overdue, approaching deadlines
+ * GET /api/dashboard/sample-summary
+ */
+export const getSampleDashboardStats = async (req: Request, res: Response): Promise<void> => {
+  const now = new Date();
+  const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const pendingStatuses = ['REQUESTED' as const, 'IN_PROGRESS' as const, 'SUBMITTED' as const, 'SENT' as const, 'FEEDBACK_PENDING' as const];
+  const completedStatuses = ['APPROVED' as const, 'REJECTED' as const, 'APPROVED_WITH_COMMENTS' as const];
+
+  const [pendingSamples, overdueSamples, approachingDeadlines, awaitingFeedback] = await Promise.all([
+    // Total pending samples
+    prisma.samples.count({
+      where: { status: { in: pendingStatuses }, isActive: true },
+    }),
+
+    // Overdue samples (required date passed, not completed)
+    prisma.samples.count({
+      where: {
+        status: { notIn: completedStatuses },
+        requiredDate: { lt: now },
+        isActive: true,
+      },
+    }),
+
+    // Approaching deadlines (due within 7 days, not completed)
+    prisma.samples.findMany({
+      where: {
+        status: { notIn: completedStatuses },
+        requiredDate: { gte: now, lte: sevenDaysFromNow },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        sampleNumber: true,
+        sampleType: true,
+        requiredDate: true,
+        status: true,
+        styles: { select: { styleCode: true, buyerStyleRef: true } },
+        customers: { select: { name: true } },
+      },
+      orderBy: { requiredDate: 'asc' },
+      take: 10,
+    }),
+
+    // Awaiting buyer feedback (sent but no feedback yet)
+    prisma.samples.count({
+      where: { status: 'FEEDBACK_PENDING', isActive: true },
+    }),
+  ]);
+
+  res.json({
+    data: {
+      pendingSamples,
+      overdueSamples,
+      approachingDeadlines: approachingDeadlines.map((s: any) => ({
+        id: s.id,
+        sampleNumber: s.sampleNumber,
+        sampleType: s.sampleType,
+        requiredDate: s.requiredDate,
+        status: s.status,
+        styleCode: s.styles?.styleCode,
+        buyerStyleRef: s.styles?.buyerStyleRef,
+        customerName: s.customers?.name,
+      })),
+      awaitingFeedback,
+    },
+  });
+};

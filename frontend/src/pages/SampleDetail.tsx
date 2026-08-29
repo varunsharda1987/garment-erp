@@ -11,6 +11,7 @@ import { sampleService } from '@/services/sample.service';
 import { useWhatsappStatus } from '@/hooks/useWhatsapp';
 import type { Sample, SampleStatus, SampleType } from '@/types/sample.types';
 import { SampleTypeLabels, SampleStatusLabels, SampleStatusColors } from '@/types/sample.types';
+import { SampleVersionBadge } from '@/components/SampleVersionBadge';
 
 interface RelatedSample {
   id: string;
@@ -270,9 +271,14 @@ export default function SampleDetail() {
                   </Badge>
                 )}
               </div>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground flex items-center gap-1">
                 {SampleTypeLabels[sample.sampleType]}
-                {sample.sampleType === 'FIT_SAMPLE' && ` (Version ${sample.version})`}
+                {['FIT_SAMPLE', 'PP_SAMPLE', 'SIZE_SET_SAMPLE'].includes(sample.sampleType) && (
+                  <>
+                    <span className="ml-1">(Version {sample.version || 1})</span>
+                    <SampleVersionBadge version={sample.version} sampleType={sample.sampleType} />
+                  </>
+                )}
               </p>
             </div>
           </div>

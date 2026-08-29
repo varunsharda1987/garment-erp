@@ -3,6 +3,7 @@ import { Router, Request, Response } from 'express';
 import {
   createStyle,
   getAllStyles,
+  getRunningStyles,
   getStyleById,
   getStylesByCodes,
   updateStyle,
@@ -135,6 +136,14 @@ router.get('/', validateQuery(styleQuerySchema), asyncHandler(getAllStyles));
  * @query   codes - Comma-separated list of style codes
  */
 router.get('/by-codes', asyncHandler(getStylesByCodes));
+
+/**
+ * @route   GET /api/styles/running
+ * @desc    Get styles with active orders or work orders ("running" styles)
+ * @access  Protected - All authenticated users
+ * @query   customerId - Optional filter by customer
+ */
+router.get('/running', asyncHandler(getRunningStyles));
 
 /**
  * @route   GET /api/styles/:id

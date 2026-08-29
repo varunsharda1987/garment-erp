@@ -25,6 +25,67 @@ const serializeSample = (sample: any) => {
   };
 };
 
+// SLA status types
+type SLAStatus = 'ON_TIME' | 'APPROACHING' | 'DELAYED' | 'COMPLETED';
+
+// Helper to compute SLA metrics for a sample
+// Uses 75% elapsed rule for APPROACHING status
+const computeSampleSLA = (sample: {
+  requestDate: Date;
+  requiredDate: Date;
+  sentDate?: Date | null;
+  feedbackDate?: Date | null;
+  status: string;
+  createdAt?: Date;
+}): {
+  daysToSend: number | null;
+  daysToFeedback: number | null;
+  daysOpen: number;
+  daysUntilDue: number | null;
+  slaStatus: SLAStatus;
+  percentElapsed: number | null;
+} => {
+  const now = new Date();
+  const requestDate = new Date(sample.requestDate);
+  const requiredDate = new Date(sample.requiredDate);
+  const createdAt = sample.createdAt ? new Date(sample.createdAt) : requestDate;
+  const sentDate = sample.sentDate ? new Date(sample.sentDate) : null;
+  const feedbackDate = sample.feedbackDate ? new Date(sample.feedbackDate) : null;
+
+  // Days calculations (in whole days)
+  const diffDays = (a: Date, b: Date) => Math.floor((a.getTime() - b.getTime()) / (1000 * 60 * 60 * 24));
+
+  const daysToSend = sentDate ? diffDays(sentDate, requestDate) : null;
+  const daysToFeedback = sentDate && feedbackDate ? diffDays(feedbackDate, sentDate) : null;
+  const daysOpen = diffDays(now, requestDate);
+  const daysUntilDue = diffDays(requiredDate, now);
+
+  // Calculate percent of time elapsed (for 75% rule)
+  const totalDays = diffDays(requiredDate, createdAt);
+  const elapsedDays = diffDays(now, createdAt);
+  const percentElapsed = totalDays > 0 ? Math.round((elapsedDays / totalDays) * 100) : null;
+
+  // SLA status logic - uses 75% elapsed rule
+  const completedStatuses = ['APPROVED', 'REJECTED', 'APPROVED_WITH_COMMENTS'];
+  let slaStatus: SLAStatus;
+
+  if (completedStatuses.includes(sample.status)) {
+    slaStatus = 'COMPLETED';
+  } else if (daysUntilDue < 0) {
+    slaStatus = 'DELAYED';
+  } else if (percentElapsed !== null && percentElapsed >= 75) {
+    // 75% of allocated time has elapsed - approaching deadline
+    slaStatus = 'APPROACHING';
+  } else if (daysUntilDue <= 2) {
+    // Fallback: if less than 2 days remaining, also mark as approaching
+    slaStatus = 'APPROACHING';
+  } else {
+    slaStatus = 'ON_TIME';
+  }
+
+  return { daysToSend, daysToFeedback, daysOpen, daysUntilDue, slaStatus, percentElapsed };
+};
+
 /**
  * Generate sample number.
  * All types use an atomic per-type monthly sequence in the unified doc format,
@@ -129,27 +190,28 @@ export const createSample = async (req: Request, res: Response) => {
     }
   }
 
-  // Determine version for FIT samples — max(version)+1, not count+1, so a deleted
-  // intermediate version can never be re-minted (bug-hunt samples-embroidery-10)
-  let version = 1;
-  if (sampleType === 'FIT_SAMPLE' && styleId) {
-    const maxVersion = await prisma.samples.aggregate({
-      where: {
-        styleId,
-        sampleType: 'FIT_SAMPLE',
-      },
-      _max: { version: true },
-    });
-    version = (maxVersion._max.version || 0) + 1;
-  }
-
-  // Generate sample number
+  // Generate sample number (atomic sequence, safe outside transaction)
   const sampleNumber = await generateSampleNumber(sampleType);
 
-  // Create sample + override audit log atomically: previously logOverride ran after the
-  // create, outside any transaction, and threw — committing the sample while losing the
-  // mandatory audit record (bug-hunt samples-embroidery-11)
+  // Create sample + version computation + override audit log atomically
+  // Version must be inside transaction to prevent race condition where two concurrent
+  // requests read the same max version (bug-hunt samples-enhancement-01)
   const sample = await prisma.$transaction(async (txClient) => {
+    // Determine version for FIT/PP/SIZE_SET samples — max(version)+1, not count+1, so a deleted
+    // intermediate version can never be re-minted (bug-hunt samples-embroidery-10)
+    // Now inside transaction to prevent race condition (bug-hunt samples-enhancement-01)
+    let version = 1;
+    if (['FIT_SAMPLE', 'PP_SAMPLE', 'SIZE_SET_SAMPLE'].includes(sampleType) && styleId) {
+      const maxVersion = await txClient.samples.aggregate({
+        where: {
+          styleId,
+          sampleType,
+        },
+        _max: { version: true },
+      });
+      version = (maxVersion._max.version || 0) + 1;
+    }
+
     const created = await txClient.samples.create({
       data: {
         id: randomUUID(),
@@ -379,9 +441,16 @@ export const getAllSamples = async (req: Request, res: Response) => {
     orderBy: [{ createdAt: 'desc' }],
   });
 
-  // Transform response
+  // Transform response with SLA computation
   const data = samples.map((sample) => {
     const s = sample as any;
+    const sla = computeSampleSLA({
+      requestDate: s.requestDate,
+      requiredDate: s.requiredDate,
+      sentDate: s.sentDate,
+      feedbackDate: s.feedbackDate,
+      status: s.status,
+    });
     return {
       ...s,
       customer: s.customers,
@@ -395,6 +464,8 @@ export const getAllSamples = async (req: Request, res: Response) => {
       measurementCount: s._count?.measurements || 0,
       colorwayCount: s._count?.colorways || 0,
       sizeSetCount: s._count?.sizeSets || 0,
+      // SLA metrics
+      ...sla,
       customers: undefined,
       styles: undefined,
       users: undefined,
@@ -481,8 +552,15 @@ export const getSampleById = async (req: Request, res: Response) => {
     });
   }
 
-  // Transform response
+  // Transform response with SLA computation
   const s = sample as any;
+  const sla = computeSampleSLA({
+    requestDate: s.requestDate,
+    requiredDate: s.requiredDate,
+    sentDate: s.sentDate,
+    feedbackDate: s.feedbackDate,
+    status: s.status,
+  });
   const response = {
     ...serializeSample(s),
     customer: s.customers,
@@ -495,6 +573,8 @@ export const getSampleById = async (req: Request, res: Response) => {
         }
       : null,
     relatedSamples,
+    // SLA metrics
+    ...sla,
     customers: undefined,
     styles: undefined,
     users: undefined,
@@ -1007,7 +1087,7 @@ export const recordFeedback = async (req: Request, res: Response) => {
 };
 
 /**
- * Create a revision of rejected FIT sample
+ * Create a revision of a sample (FIT, PP, or SIZE_SET)
  */
 export const createRevision = async (req: Request, res: Response) => {
   const userId = req.user?.userId;
@@ -1031,21 +1111,23 @@ export const createRevision = async (req: Request, res: Response) => {
     throw new NotFoundError('Sample', id);
   }
 
-  if (original.sampleType !== 'FIT_SAMPLE') {
-    throw new ValidationError('Revisions are only for FIT samples');
+  // Version tracking applies to FIT, PP, and SIZE_SET samples only
+  const VERSIONED_TYPES = ['FIT_SAMPLE', 'PP_SAMPLE', 'SIZE_SET_SAMPLE'] as const;
+  if (!VERSIONED_TYPES.includes(original.sampleType as (typeof VERSIONED_TYPES)[number])) {
+    throw new ValidationError('Revisions are only for FIT, PP, or SIZE_SET samples');
   }
 
   // Get next version number — max(version)+1, not count+1 (bug-hunt samples-embroidery-10)
   const maxVersion = await prisma.samples.aggregate({
     where: {
       styleId: original.styleId,
-      sampleType: 'FIT_SAMPLE',
+      sampleType: original.sampleType,
     },
     _max: { version: true },
   });
 
   const newVersion = (maxVersion._max.version || 0) + 1;
-  const sampleNumber = await generateSampleNumber('FIT_SAMPLE');
+  const sampleNumber = await generateSampleNumber(original.sampleType);
 
   // Create new sample with copied measurements
   const revision = await prisma.samples.create({
@@ -1054,7 +1136,7 @@ export const createRevision = async (req: Request, res: Response) => {
       sampleNumber,
       customerId: original.customerId,
       styleId: original.styleId,
-      sampleType: 'FIT_SAMPLE',
+      sampleType: original.sampleType,
       requestDate: new Date(),
       requiredDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
       status: 'REQUESTED',
@@ -1062,7 +1144,7 @@ export const createRevision = async (req: Request, res: Response) => {
       nextAction: changesToMake || null,
       createdById: userId,
       version: newVersion,
-      // Copy measurements
+      // Copy measurements (relevant for FIT samples, harmless for others)
       measurements: {
         createMany: {
           data: original.measurements.map((m) => ({

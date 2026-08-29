@@ -180,6 +180,13 @@ export interface Sample {
   measurements?: SampleMeasurement[];
   colorways?: SampleColorway[];
   sizeSets?: SampleSizeSet[];
+
+  // SLA metrics (computed by backend)
+  daysToSend?: number | null;
+  daysToFeedback?: number | null;
+  daysOpen?: number;
+  daysUntilDue?: number | null;
+  slaStatus?: 'ON_TIME' | 'APPROACHING' | 'DELAYED' | 'COMPLETED';
 }
 
 // ============================================

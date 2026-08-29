@@ -1,8 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, useMemo, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { sampleService } from '@/services/sample.service';
 import type { Sample, SampleType, SampleStatus, SampleSummary } from '@/types/sample.types';
 import { SampleTypeLabels, SampleStatusLabels, SampleStatusColors } from '@/types/sample.types';
@@ -10,8 +13,15 @@ import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { TestTube, Plus, Eye, Pencil, Trash2, RefreshCcw, Filter, Clock, AlertCircle, CheckCircle } from 'lucide-react';
+import { TestTube, Plus, Eye, Pencil, Trash2, RefreshCcw, Filter, Clock, AlertCircle, CheckCircle, Layers } from 'lucide-react';
+import { SampleVersionBadge } from '@/components/SampleVersionBadge';
+import { SampleSLABadge } from '@/components/SampleSLABadge';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SampleQuickActionBar } from '@/components/samples/SampleQuickActionBar';
+import { SamplePipelineIndicator } from '@/components/samples/SamplePipelineIndicator';
+
+type GroupByMode = 'none' | 'type' | 'customer' | 'overdue';
 
 // Local type definition for DataTable
 type Column<T> = {
@@ -41,6 +51,67 @@ export default function SampleList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>(searchParams.get('type') || 'all');
   const [statusFilter, setStatusFilter] = useState<string>(searchParams.get('status') || 'all');
+  const [customerFilter, setCustomerFilter] = useState<string>(searchParams.get('customerId') || '');
+
+  // Grouping and view state
+  const [groupBy, setGroupBy] = useState<GroupByMode>('none');
+  const [runningStylesOnly, setRunningStylesOnly] = useState(false);
+
+  // Group samples based on groupBy mode
+  const groupedSamples = useMemo(() => {
+    if (groupBy === 'none') return null;
+
+    const groups: Record<string, { label: string; samples: Sample[]; order: number }> = {};
+
+    samples.forEach((sample) => {
+      let groupKey: string;
+      let groupLabel: string;
+      let order: number;
+
+      switch (groupBy) {
+        case 'type':
+          groupKey = sample.sampleType;
+          groupLabel = SampleTypeLabels[sample.sampleType] || sample.sampleType;
+          order = ['FIT_SAMPLE', 'PP_SAMPLE', 'SIZE_SET_SAMPLE', 'PHOTO_SAMPLE', 'PRODUCTION_SAMPLE', 'SHIPMENT_SAMPLE'].indexOf(sample.sampleType);
+          break;
+        case 'customer':
+          groupKey = sample.customer?.id || 'no-customer';
+          groupLabel = sample.customer?.name || 'No Customer';
+          order = 0;
+          break;
+        case 'overdue':
+          if (sample.slaStatus === 'DELAYED') {
+            groupKey = 'overdue';
+            groupLabel = 'Overdue';
+            order = 0;
+          } else if (sample.slaStatus === 'APPROACHING') {
+            groupKey = 'approaching';
+            groupLabel = 'Approaching Deadline';
+            order = 1;
+          } else if (sample.slaStatus === 'COMPLETED') {
+            groupKey = 'completed';
+            groupLabel = 'Completed';
+            order = 3;
+          } else {
+            groupKey = 'on-time';
+            groupLabel = 'On Time';
+            order = 2;
+          }
+          break;
+        default:
+          return;
+      }
+
+      if (!groups[groupKey]) {
+        groups[groupKey] = { label: groupLabel, samples: [], order };
+      }
+      groups[groupKey].samples.push(sample);
+    });
+
+    return Object.entries(groups)
+      .sort((a, b) => a[1].order - b[1].order)
+      .map(([key, group]) => ({ key, ...group }));
+  }, [samples, groupBy]);
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -50,7 +121,7 @@ export default function SampleList() {
     fetchSamples();
     fetchSummary();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage, pageSize, searchQuery, typeFilter, statusFilter]);
+  }, [currentPage, pageSize, searchQuery, typeFilter, statusFilter, customerFilter]);
 
   const fetchSamples = async () => {
     try {
@@ -62,6 +133,7 @@ export default function SampleList() {
         search: searchQuery || undefined,
         sampleType: typeFilter !== 'all' ? (typeFilter as SampleType) : undefined,
         status: statusFilter !== 'all' ? (statusFilter as SampleStatus) : undefined,
+        customerId: customerFilter || undefined,
       });
       setSamples(response.data);
       setTotalPages(response.pagination.totalPages);
@@ -152,6 +224,7 @@ export default function SampleList() {
           <Badge variant="outline" className="font-mono text-xs">
             {item.sampleNumber}
           </Badge>
+          <SampleVersionBadge version={item.version} sampleType={item.sampleType} />
           {isOverdue(item) && (
             <span title="Overdue">
               <AlertCircle className="h-4 w-4 text-destructive" />
@@ -214,13 +287,36 @@ export default function SampleList() {
     {
       key: 'version',
       header: 'Ver.',
+      render: (item) => {
+        const VERSIONED_TYPES = ['FIT_SAMPLE', 'PP_SAMPLE', 'SIZE_SET_SAMPLE'];
+        if (!VERSIONED_TYPES.includes(item.sampleType)) {
+          return <div className="text-sm text-muted-foreground">-</div>;
+        }
+        const version = item.version || 1;
+        return (
+          <div className={`text-sm ${version > 1 ? 'text-blue-600 font-medium' : 'text-foreground'}`}>
+            v{version}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'sla',
+      header: 'SLA',
+      render: (item) => <SampleSLABadge slaStatus={item.slaStatus} daysUntilDue={item.daysUntilDue} />,
+    },
+    {
+      key: 'quickAction',
+      header: 'Quick Action',
       render: (item) => (
-        <div className="text-sm text-foreground">{item.sampleType === 'FIT_SAMPLE' ? `v${item.version}` : '-'}</div>
+        <div onClick={(e) => e.stopPropagation()}>
+          <SampleQuickActionBar sample={item} onActionComplete={fetchSamples} compact />
+        </div>
       ),
     },
     {
       key: 'actions',
-      header: 'Actions',
+      header: '',
       render: (item) => (
         <div className="flex items-center gap-1">
           <Button
@@ -387,12 +483,46 @@ export default function SampleList() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="w-56">
+              <CustomerCombobox
+                value={customerFilter}
+                onValueChange={setCustomerFilter}
+                placeholder="All Customers"
+              />
+            </div>
+            <div className="w-48">
+              <Select value={groupBy} onValueChange={(v) => setGroupBy(v as GroupByMode)}>
+                <SelectTrigger>
+                  <Layers className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Group By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Grouping</SelectItem>
+                  <SelectItem value="type">By Sample Type</SelectItem>
+                  <SelectItem value="customer">By Customer</SelectItem>
+                  <SelectItem value="overdue">Overdue First</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2 px-2">
+              <Checkbox
+                id="runningStyles"
+                checked={runningStylesOnly}
+                onCheckedChange={(checked) => setRunningStylesOnly(checked === true)}
+              />
+              <Label htmlFor="runningStyles" className="text-sm cursor-pointer">
+                Running Styles Only
+              </Label>
+            </div>
             <Button
               variant="outline"
               onClick={() => {
                 setSearchQuery('');
                 setTypeFilter('all');
                 setStatusFilter('all');
+                setCustomerFilter('');
+                setGroupBy('none');
+                setRunningStylesOnly(false);
                 setSearchParams(new URLSearchParams());
               }}
             >
@@ -403,18 +533,53 @@ export default function SampleList() {
         </CardContent>
       </Card>
 
-      {/* Data Table */}
-      <Card>
-        <CardContent className="p-0">
-          {error ? (
-            <div className="p-8 text-center">
-              <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
-              <p className="text-destructive">{error}</p>
-              <Button variant="outline" onClick={fetchSamples} className="mt-4">
-                Try Again
-              </Button>
-            </div>
-          ) : (
+      {/* Data Display - Grouped or Table */}
+      {error ? (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <p className="text-destructive">{error}</p>
+            <Button variant="outline" onClick={fetchSamples} className="mt-4">
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
+      ) : groupBy !== 'none' && groupedSamples ? (
+        <div className="space-y-4">
+          {groupedSamples.map((group) => (
+            <Card key={group.key}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center justify-between">
+                  <span>{group.label}</span>
+                  <Badge variant="secondary">{group.samples.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <DataTable<Sample>
+                  columns={columns}
+                  data={group.samples}
+                  keyExtractor={(sample) => sample.id}
+                  loading={isLoading}
+                  onRowClick={(sample) => navigate(`/samples/${sample.id}`)}
+                  emptyState={{
+                    title: 'No samples in this group',
+                    description: '',
+                  }}
+                />
+              </CardContent>
+            </Card>
+          ))}
+          {groupedSamples.length === 0 && (
+            <Card>
+              <CardContent className="p-8 text-center text-muted-foreground">
+                No samples found
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
             <DataTable<Sample>
               columns={columns}
               data={samples}
@@ -434,9 +599,9 @@ export default function SampleList() {
                 onPageSizeChange: setPageSize,
               }}
             />
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDialog

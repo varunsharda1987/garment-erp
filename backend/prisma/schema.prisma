@@ -445,8 +445,10 @@ model customers {
   packaging                      packaging_master[]
   quotations                     quotations[]
   samples                        samples[]
+  styles                         styles[]
   credit_notes                   credit_notes[]
   sale_orders                    sale_orders[]
+  customer_sample_requirements   customer_sample_requirements[]
 
   @@index([code])
   @@index([name])
@@ -463,6 +465,25 @@ model customers {
   @@index([shippingStateId])
   @@index([agentId])
   @@index([agencyId])
+}
+
+/// Per-customer sample type requirements.
+/// Defines which sample types are required for each customer and their SLA targets.
+model customer_sample_requirements {
+  id                   String     @id @default(uuid())
+  customerId           String
+  sampleType           SampleType
+  isRequired           Boolean    @default(true)
+  blocksProduction     Boolean    @default(true)
+  targetDaysToSend     Int?
+  targetDaysToFeedback Int?
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+
+  customer customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, sampleType])
+  @@index([customerId])
 }
 
 model agencies {
@@ -2571,6 +2592,7 @@ model styles {
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
   brandName                   String?
+  customerId                  String?
   customerName                String?
   imageUrl                    String?
   season                      String?
@@ -2618,6 +2640,7 @@ model styles {
   style_value_additions       style_value_additions[]
   style_variants              style_variants[]
   brand_categories            brand_categories?            @relation(fields: [brandCategoryId], references: [id])
+  customer                    customers?                   @relation(fields: [customerId], references: [id])
   style_categories            style_categories?            @relation(fields: [categoryId], references: [id])
   users                       users                        @relation(fields: [createdById], references: [id])
   product_category            product_category_master?     @relation(fields: [productCategoryId], references: [id])
@@ -2646,6 +2669,7 @@ model styles {
   // Mini marker files for CAD planning
   cadPurposeFiles             cad_purpose_files[]
 
+  @@index([customerId])
   @@index([customerName])
   @@index([categoryId])
   @@index([productCategoryId])

@@ -46,6 +46,7 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
   const limit = parseInt(req.query.limit as string) || 10;
   const search = req.query.search as string;
   const stage = req.query.stage as string;
+  const customerId = req.query.customerId as string;
   const customerName = req.query.customerName as string;
   const brandName = req.query.brandName as string;
   const season = req.query.season as string;
@@ -57,6 +58,7 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
     limit,
     search,
     stage,
+    customerId,
     customerName,
     brandName,
     season,
@@ -77,6 +79,17 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
     data: stylesWithEffectiveStatus,
     pagination: result.pagination,
   });
+};
+
+/**
+ * Get styles with active orders or work orders ("running" styles)
+ * Used for sample tracking to auto-populate styles that are actively in production
+ * GET /api/styles/running
+ */
+export const getRunningStyles = async (req: Request, res: Response): Promise<void> => {
+  const customerId = req.query.customerId as string | undefined;
+  const styles = await styleService.getRunningStyles(customerId);
+  res.status(200).json({ data: styles });
 };
 
 /**

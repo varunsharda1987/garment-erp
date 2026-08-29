@@ -173,7 +173,7 @@ export const updateMeasurementsSchema = z.object({
 export const recordActualMeasurementsSchema = z.object({
   measurements: z.array(
     z.object({
-      measurementPointId: z.string().uuid('Invalid measurement point ID'),
+      id: z.string().uuid('Invalid sample_measurement record ID'),
       actualValue: z.number().positive(),
       remarks: z.string().max(500).optional(),
     })

@@ -1,5 +1,12 @@
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -42,7 +49,7 @@ export function RecordFeedbackDialog({
       setIsSubmitting(true);
       await sampleService.recordFeedback(sampleId, {
         status: form.status,
-        customerFeedback: form.feedback,
+        feedback: form.feedback,
         measurementComments: form.measurementComments,
       });
       handleApiSuccess('Feedback recorded', 'Buyer feedback has been saved.');
@@ -60,7 +67,7 @@ export function RecordFeedbackDialog({
       setIsSubmitting(true);
       await sampleService.recordFeedback(sampleId, {
         status: form.status,
-        customerFeedback: form.feedback,
+        feedback: form.feedback,
         measurementComments: form.measurementComments,
       });
       handleApiSuccess('Feedback recorded', 'Creating revision...');
@@ -83,10 +90,7 @@ export function RecordFeedbackDialog({
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Status</Label>
-            <Select
-              value={form.status}
-              onValueChange={(v) => setForm({ ...form, status: v as FeedbackStatus })}
-            >
+            <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as FeedbackStatus })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>

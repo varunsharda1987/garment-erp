@@ -53,11 +53,19 @@ import { OrderWorkflowTracker, buildWorkflowSteps } from '../components/OrderWor
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { logError } from '../lib/logger';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
+import { SizeBreakupDialog } from '@/components/orders/SizeBreakupDialog';
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // Sizes-later workflow: which order item is having its size breakdown entered
+  const [sizeBreakupItem, setSizeBreakupItem] = useState<{
+    orderItemId: string;
+    styleId: string;
+    currentTotal: number;
+  } | null>(null);
 
   // MRP-49: explicit production scheduling (was a hidden side effect of BOM approval).
   const createWorkOrdersMutation = useMutation({
@@ -969,18 +977,25 @@ export default function OrderDetail() {
                         <div className="flex-1">
                           <div className="font-medium text-info">Size breakdown not specified</div>
                           <p className="text-sm text-info mt-1">
-                            This order was created with total quantity only ({item.totalQuantity} pcs). Size breakdown
-                            can be added by editing the order.
+                            This order was created with total quantity only ({item.totalQuantity} pcs). Add the sizes
+                            here whenever they are confirmed.
                           </p>
                           <p className="text-xs text-info mt-2">
                             Note: Size-independent materials (fabric, greige, processing, most trims) can still be
-                            procured without size breakdown.
+                            procured without size breakdown. Size-wise labels are planned at their full quantity and
+                            become orderable once the sizes are entered.
                           </p>
                           <Button
                             variant="outline"
                             size="sm"
                             className="mt-3 text-info border-info/30 hover:bg-info-muted"
-                            onClick={() => navigate(`/orders/${order.id}/edit`)}
+                            onClick={() =>
+                              setSizeBreakupItem({
+                                orderItemId: item.id,
+                                styleId: item.styleId,
+                                currentTotal: item.totalQuantity,
+                              })
+                            }
                           >
                             Add Size Breakdown
                           </Button>
@@ -1235,6 +1250,23 @@ export default function OrderDetail() {
           }}
           workOrder={selectedWorkOrder}
           onSplitComplete={handleSplitComplete}
+        />
+      )}
+
+      {/* Sizes-later workflow: fill in the size split after the order was created without it */}
+      {sizeBreakupItem && order && (
+        <SizeBreakupDialog
+          open={!!sizeBreakupItem}
+          onOpenChange={(open) => !open && setSizeBreakupItem(null)}
+          orderId={order.id}
+          orderItemId={sizeBreakupItem.orderItemId}
+          styleId={sizeBreakupItem.styleId}
+          currentTotal={sizeBreakupItem.currentTotal}
+          onSaved={() => {
+            setSizeBreakupItem(null);
+            queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
+            queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+          }}
         />
       )}
     </div>

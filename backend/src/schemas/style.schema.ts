@@ -217,6 +217,8 @@ export const createStyleSchema = z.object({
   season: z.string().optional(),
   // seasonId accepts CUID (season_master uses @default(cuid()))
   seasonId: z.string().refine(isValidIdFormat, { message: 'Invalid season ID' }).optional().nullable(),
+  // colorId accepts CUID (color_master uses @default(cuid()))
+  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional().nullable(),
   gender: GenderEnum.optional().nullable(),
   ageGroup: AgeGroupEnum.optional().nullable(),
   specifications: z.string().optional().nullable(),
@@ -286,6 +288,8 @@ export const updateStyleSchema = z.object({
   season: z.string().optional(),
   // seasonId accepts CUID (season_master uses @default(cuid()))
   seasonId: z.string().refine(isValidIdFormat, { message: 'Invalid season ID' }).optional().nullable(),
+  // colorId accepts CUID (color_master uses @default(cuid()))
+  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional().nullable(),
   gender: GenderEnum.optional().nullable(),
   ageGroup: AgeGroupEnum.optional().nullable(),
   specifications: z.string().optional().nullable(),
@@ -632,6 +636,9 @@ export const addStyleMaterialBOMSchema = z.object({
   // real value and must survive. No .default() here on purpose — a Zod default fills in a
   // number the client never sent and cannot be overridden by Settings.
   extraPercentage: z.coerce.number().min(0).max(100).optional().nullable(),
+  // Style-specific price override. Omitted → the controller snapshots the master price;
+  // set → this rate wins (never written back to the master).
+  unitPrice: z.coerce.number().nonnegative('Unit price must be non-negative').optional().nullable(),
 });
 
 /**
@@ -649,6 +656,9 @@ export const updateStyleMaterialBOMSchema = z.object({
   // See addStyleMaterialBOMSchema — without this field the API silently stripped every
   // wastage the user typed, so trim wastage could not be changed at all.
   extraPercentage: z.coerce.number().min(0).max(100).optional().nullable(),
+  // Style-specific price. Editable so a BOM row can carry a rate even when its master has no
+  // price (masters are never written from here); totalCost is recomputed server-side.
+  unitPrice: z.coerce.number().nonnegative('Unit price must be non-negative').optional().nullable(),
 });
 
 // ============================================================================

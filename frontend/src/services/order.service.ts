@@ -127,3 +127,41 @@ export const createWorkOrdersForOrder = async (
   const { data } = await api.post(`/orders/${orderId}/work-orders`, {});
   return data.data;
 };
+
+export interface SizeBreakupLine {
+  colorId: string | null;
+  sizeId: string;
+  quantity: number;
+}
+
+export interface SizeBreakupResult {
+  orderItemId: string;
+  breakup: SizeBreakupLine[];
+  quantityChanged: boolean;
+  currentTotal: number;
+  newTotal: number;
+  requirements: { created: number; updated: number; sizePending: number } | null;
+  workOrders: { created: string[]; skipped: string[]; failed: { styleId: string; reason: string }[] } | null;
+}
+
+/**
+ * Sizes-later workflow: set one order item's size breakdown after the order was created without
+ * sizes (so greige/dyeing/printing could be procured first). Additive — unlike editing the order,
+ * it keeps the order item and everything linked to it, then recalculates MRP and catches
+ * production planning up.
+ *
+ * Pass confirmQuantityChange when the sizes deliberately sum to a different total than the order
+ * currently carries; without it the backend refuses with QUANTITY_CHANGE_REQUIRES_CONFIRMATION.
+ */
+export const setOrderItemSizeBreakup = async (
+  orderId: string,
+  orderItemId: string,
+  breakup: SizeBreakupLine[],
+  confirmQuantityChange = false
+): Promise<SizeBreakupResult> => {
+  const { data } = await api.put(`/orders/${orderId}/items/${orderItemId}/size-breakup`, {
+    breakup,
+    confirmQuantityChange,
+  });
+  return data.data;
+};

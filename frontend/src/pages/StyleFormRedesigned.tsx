@@ -63,6 +63,7 @@ import { AccessorySelector } from '../components/AccessorySelector';
 import type { StyleAccessory } from '../components/AccessorySelector';
 import { CADGroupPreview } from '../components/CADGroupPreview';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
+import { ColorCombobox } from '@/components/ColorCombobox';
 import type { EmbroiderySearchResult } from '../types/embroidery.types';
 import type { Customer, BrandCategory } from '../types/customer.types';
 // MaterialType and MaterialUsageCategory imports removed - using simplified data structures
@@ -347,6 +348,7 @@ export default function StyleFormRedesigned() {
   const [brandCategoryId, setBrandCategoryId] = useState('');
   const [season, setSeason] = useState('');
   const [seasonId, setSeasonId] = useState<string | null>(null);
+  const [colorId, setColorId] = useState<string | null>(null);
   const [description, setDescription] = useState('');
 
   // Product Category (global category master)
@@ -451,6 +453,7 @@ export default function StyleFormRedesigned() {
     brandCategoryId: string;
     season: string;
     seasonId: string | null;
+    colorId: string | null;
     description: string;
     selectedProductCategoryL1: string;
     selectedProductCategoryL2: string;
@@ -485,6 +488,7 @@ export default function StyleFormRedesigned() {
     brandCategoryId,
     season,
     seasonId,
+    colorId,
     description,
     selectedProductCategoryL1,
     selectedProductCategoryL2,
@@ -519,6 +523,7 @@ export default function StyleFormRedesigned() {
     setBrandCategoryId(data.brandCategoryId || '');
     setSeason(data.season || '');
     setSeasonId(data.seasonId || null);
+    setColorId(data.colorId || null);
     setDescription(data.description || '');
     setSelectedProductCategoryL1(data.selectedProductCategoryL1 || '');
     setSelectedProductCategoryL2(data.selectedProductCategoryL2 || '');
@@ -1012,6 +1017,7 @@ export default function StyleFormRedesigned() {
       // setBrandCategoryId is set after customer/brand matching to ensure availableCategories is populated first
       setSeason(style.season || '');
       setSeasonId(style.seasonId || null);
+      setColorId(style.colorId || null);
 
       // Product Category
       if (style.productCategoryId) {
@@ -2112,6 +2118,7 @@ export default function StyleFormRedesigned() {
         productCategoryId: productCategoryId || null, // Global product category
         season,
         seasonId: seasonId || null,
+        colorId: colorId || null,
         description,
         numberOfComponents,
         // BUG-S8: an empty components array made the backend delete-and-recreate wipe ALL
@@ -2606,8 +2613,8 @@ export default function StyleFormRedesigned() {
                     />
                   </div>
 
-                  {/* Row 4: Style Code (Auto-generated or from Buyer Ref for House Of Kasya) */}
-                  <div className="col-span-2">
+                  {/* Row 4: Style Code, Primary Color */}
+                  <div>
                     <Label>
                       Style Code {isEditMode ? '' : isHouseOfKasya ? '(From Buyer Reference)' : '(Auto-generated)'}
                     </Label>
@@ -2615,13 +2622,23 @@ export default function StyleFormRedesigned() {
                       value={styleCode}
                       placeholder={isHouseOfKasya ? 'Enter Buyer Reference above' : 'Select brand + category above'}
                       readOnly
-                      className="bg-muted max-w-md"
+                      className="bg-muted"
                     />
                     {!isEditMode && !isHouseOfKasya && (
                       <p className="text-xs text-muted-foreground mt-1">
                         Generated from brand prefix + category prefix
                       </p>
                     )}
+                  </div>
+                  <div>
+                    <Label>Primary Color</Label>
+                    <ColorCombobox
+                      value={colorId || ''}
+                      onValueChange={(newColorId) => {
+                        setColorId(newColorId || null);
+                      }}
+                      placeholder="Select a color"
+                    />
                   </div>
 
                   {/* Row 5: Season, Number of Components */}
@@ -2671,7 +2688,7 @@ export default function StyleFormRedesigned() {
                       )}
                   </div>
 
-                  {/* Row 5: Product Sub-Sub-Categories (L3 - conditional, for Kids Wear etc.) */}
+                  {/* Row 6: Product Sub-Sub-Categories (L3 - conditional, for Kids Wear etc.) */}
                   {selectedProductCategoryL2 && productSubSubCategories[selectedProductCategoryL2]?.length > 0 && (
                     <>
                       <div>

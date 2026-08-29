@@ -138,6 +138,56 @@ export async function autoMatchTallySuppliers(): Promise<AutoMatchResult> {
   return response.data.data;
 }
 
+// Supplier Detail Sync from Tally
+
+export interface SupplierSyncFieldChange {
+  field: string;
+  label: string;
+  currentValue: string | null;
+  tallyValue: string | null;
+  willUpdate: boolean;
+}
+
+export interface SupplierSyncPreviewItem {
+  supplierId: string;
+  supplierCode: string;
+  supplierName: string;
+  tallyLedgerName: string;
+  changes: SupplierSyncFieldChange[];
+}
+
+export interface SupplierSyncPreviewResult {
+  suppliers: SupplierSyncPreviewItem[];
+  stats: {
+    totalLinked: number;
+    foundInTally: number;
+    withChanges: number;
+  };
+}
+
+export interface SupplierSyncResult {
+  updated: number;
+  skipped: number;
+  details: Array<{
+    supplierId: string;
+    supplierName: string;
+    fieldsUpdated: string[];
+  }>;
+}
+
+export async function previewSupplierSyncFromTally(onlyBlanks: boolean = true): Promise<SupplierSyncPreviewResult> {
+  const response = await api.get('/tally/suppliers/sync-preview', { params: { onlyBlanks } });
+  return response.data.data;
+}
+
+export async function syncSupplierDetailsFromTally(
+  onlyBlanks: boolean = true,
+  supplierIds?: string[]
+): Promise<SupplierSyncResult> {
+  const response = await api.post('/tally/suppliers/sync', { onlyBlanks, supplierIds });
+  return response.data.data;
+}
+
 // Debit Note Push
 
 export async function getTallyDebitNotes(params: DebitNoteTallyQueryParams): Promise<DebitNoteTallyResult> {

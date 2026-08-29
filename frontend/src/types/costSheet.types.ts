@@ -195,7 +195,10 @@ export type CostSheet = {
   trimsDetails: TrimDetail[];
   trimsTotal: number;
 
-  // Lace Details
+  // Lace Details — saved rows come back as the relational `laceItems`
+  // (style_costing_lace_items; column names match LaceDetail 1:1). There is no
+  // laceDetails column on the sheet; the field below is legacy and never populated.
+  laceItems?: LaceDetail[];
   laceDetails: LaceDetail[];
   laceTotal: number;
 

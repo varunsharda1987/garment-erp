@@ -310,6 +310,8 @@ model color_master {
   style_fabrics             style_fabrics[]
   // Shade asked of a processor on a stock (style-less) job work order
   job_work_orders           job_work_orders[]
+  // Primary style color relation
+  styles                    styles[]                    @relation("StyleColor")
 
   @@index([colorFamily])
   @@index([colorName])
@@ -2129,6 +2131,10 @@ model style_costing_lace_items {
   overrideReason   String?
   notes            String?
 
+  // N/A rows are persisted (excluded from totals) so the flag survives the edit round-trip
+  // instead of the row reappearing as a live 0-cost lace on reload
+  isNotApplicable Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2597,6 +2603,7 @@ model styles {
   imageUrl                    String?
   season                      String?
   seasonId                    String?
+  colorId                     String?
   projectGroup                String?
   bulletPoints                String?
   accountingSKU               String?
@@ -2645,6 +2652,7 @@ model styles {
   users                       users                        @relation(fields: [createdById], references: [id])
   product_category            product_category_master?     @relation(fields: [productCategoryId], references: [id])
   season_master               season_master?               @relation(fields: [seasonId], references: [id])
+  color                       color_master?                @relation("StyleColor", fields: [colorId], references: [id])
   thread_style_associations   thread_style_associations[]
   zipper_style_associations   zipper_style_associations[] // BUG-MM6 FIX
   work_orders                 work_orders[]
@@ -2682,6 +2690,7 @@ model styles {
   @@index([isActive])
   @@index([projectGroup])
   @@index([seasonId])
+  @@index([colorId])
   // Performance indexes added for 900+ styles
   @@index([cadStatus]) // CAD planning list filters
   @@index([internalCode]) // Code generation with startsWith
@@ -9906,6 +9915,7 @@ enum RateType {
 
 enum MaterialRequirementStatus {
   PENDING
+  SIZE_PENDING // Total qty known, per-size split not yet given (size-wise labels). Visible, NOT orderable.
   FULFILLED_STOCK
   PARTIAL_STOCK
   PO_REQUIRED

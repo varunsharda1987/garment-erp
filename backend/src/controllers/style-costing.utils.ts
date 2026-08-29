@@ -269,29 +269,52 @@ export const CMTCostsSchema = z.object({
   smockingCost: z.number().nonnegative('Smocking cost must be non-negative').default(0),
 });
 
-// Lace Detail Schema - for lace items in cost sheet
-export const LaceDetailSchema = z.object({
-  laceName: z.string().min(1, 'Lace name is required'),
-  laceWidth: z.number().nonnegative('Lace width must be non-negative'),
-  laceAverage: z.number().nonnegative('Lace average must be non-negative'),
-  laceRate: z.number().nonnegative('Lace rate must be non-negative'),
-  laceTotal: z.number().nonnegative('Lace total must be non-negative'),
-  // The controller reads lace.wastagePercent; it was omitted here so validateBody stripped it and
-  // lace wastage was silently lost (bug-hunt F5).
-  wastagePercent: z.number().min(0).max(100).optional(),
-  isNotApplicable: z.boolean().optional().default(false),
-  // Master FK fields - needed for PO generation
-  laceId: z.string().uuid().optional().nullable(),
-  greigeLaceId: z.string().uuid().optional().nullable(),
-  processorId: z.string().uuid().optional().nullable(),
-  rateCardId: z.string().uuid().optional().nullable(),
-  // Canonical value is GREIGE_PROCESSED — matches the frontend (LaceCostingRow/Section) and
-  // the canonical LaceSourcingStrategyEnum.
-  sourcingStrategy: z.enum(['STOCK_REUSE', 'READY_LACE', 'GREIGE_PROCESSED']).optional(),
-  // Cost breakdown
-  greigeCost: z.number().optional(),
-  processingCost: z.number().optional(),
-});
+// Lace Detail Schema - for lace items in cost sheet.
+// Field names are the style_costing_lace_items COLUMN names, which the frontend LaceDetail type
+// (frontend/src/types/costSheet.types.ts) has always used. The original schema invented a parallel
+// lace* naming (laceWidth/laceAverage/laceRate/laceTotal) that no client ever sent, so every
+// lace-bearing cost sheet 400'd once route validation was enforced.
+export const LaceDetailSchema = z
+  .object({
+    id: z.string().optional(),
+    laceId: z.string().uuid('Lace master reference is required'),
+    laceName: z.string().min(1, 'Lace name is required'),
+    colorName: z.string().optional().nullable(),
+    // Display metadata from the lace master; the DB column is nullable and masters without a
+    // width send undefined.
+    width: z.number().nonnegative('Lace width must be non-negative').optional().nullable(),
+    quantityPerGarment: z.number().nonnegative('Lace quantity must be non-negative'),
+    // The controller reads lace.wastagePercent; it was omitted here so validateBody stripped it and
+    // lace wastage was silently lost (bug-hunt F5).
+    wastagePercent: z.number().min(0).max(100).optional(),
+    // Server recomputes effectiveQuantity from quantityPerGarment + wastagePercent; accepted so
+    // the round-trip payload validates, but not trusted.
+    effectiveQuantity: z.number().nonnegative().optional(),
+    // Canonical value is GREIGE_PROCESSED — matches the frontend (LaceCostingRow/Section) and
+    // the canonical LaceSourcingStrategyEnum.
+    sourcingStrategy: z.enum(['STOCK_REUSE', 'READY_LACE', 'GREIGE_PROCESSED']).optional(),
+    // Cost breakdown per sourcing strategy
+    greigeCost: z.number().optional().nullable(),
+    processingCost: z.number().optional().nullable(),
+    readyLaceCost: z.number().optional().nullable(),
+    stockCost: z.number().optional().nullable(),
+    costPerMeter: z.number().nonnegative('Lace rate must be non-negative'),
+    totalCost: z.number().nonnegative('Lace total must be non-negative'),
+    // Source references - needed for PO generation and stock/lab-dip linkage
+    greigeLaceId: z.string().uuid().optional().nullable(),
+    processorId: z.string().uuid().optional().nullable(),
+    rateCardId: z.string().uuid().optional().nullable(),
+    stockLotId: z.string().optional().nullable(),
+    procurementId: z.string().optional().nullable(),
+    labDipId: z.string().optional().nullable(),
+    isManualOverride: z.boolean().optional(),
+    overrideReason: z.string().optional().nullable(),
+    isNotApplicable: z.boolean().optional().default(false),
+  })
+  .refine((data) => data.isNotApplicable || (data.costPerMeter > 0 && data.quantityPerGarment > 0), {
+    message: 'Lace rate and quantity must be > 0 unless marked as Not Applicable (N/A)',
+    path: ['costPerMeter'],
+  });
 
 export const CreateCostSheetSchema = z.object({
   styleId: z.string().uuid('Invalid style ID'),

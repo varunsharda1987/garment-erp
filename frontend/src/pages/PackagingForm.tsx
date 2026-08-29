@@ -41,7 +41,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
     register,
     handleSubmit,
     setValue,
-    formState: { errors },
+    formState: { errors: _errors },
   } = useForm<PackagingFormData>();
 
   const isNewPackaging = mode === 'create' || !id;
@@ -171,12 +171,7 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
       setIsLoading(true);
       setError(null);
 
-      // Validate required fields
-      if (!data.packagingName || data.packagingName.trim() === '') {
-        setError('Packaging name is required');
-        setIsLoading(false);
-        return;
-      }
+      // Name is optional - backend auto-generates from attributes if empty
 
       // Validate suppliers have valid supplier IDs
       const validSuppliers = suppliers.filter((s) => s.supplierId);
@@ -249,17 +244,18 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
                   </div>
                 )}
 
-                {/* Packaging Name */}
+                {/* Packaging Name (optional - auto-generates if empty) */}
                 <div className="md:col-span-2">
-                  <Label htmlFor="packagingName">Packaging Name *</Label>
+                  <Label htmlFor="packagingName">Packaging Name</Label>
                   <Input
                     id="packagingName"
-                    {...register('packagingName', { required: 'Packaging name is required' })}
-                    placeholder="e.g., Poly Bag 12x18 inch Transparent"
+                    {...register('packagingName')}
+                    placeholder="Leave empty to auto-generate from attributes"
                   />
-                  {errors.packagingName && (
-                    <p className="text-sm text-destructive mt-1">{errors.packagingName.message}</p>
-                  )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    If left empty, name will be auto-generated from selected attributes (e.g., "Cardboard Box
+                    Packaging")
+                  </p>
                 </div>
 
                 {/* Customer */}

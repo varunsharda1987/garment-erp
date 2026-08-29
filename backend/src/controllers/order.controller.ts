@@ -1292,6 +1292,237 @@ export const createWorkOrdersForOrder = async (req: Request, res: Response): Pro
   const { orderId } = req.params;
   const { plannedStartDate, plannedEndDate, priority } = req.body ?? {};
 
+  const result = await createMissingWorkOrders(orderId, userId, { plannedStartDate, plannedEndDate, priority });
+
+  res.json({
+    success: true,
+    data: result,
+    message:
+      result.failed.length > 0
+        ? `${result.created.length} work order(s) created, ${result.failed.length} could not be created`
+        : `${result.created.length} work order(s) created`,
+  });
+};
+
+/**
+ * Set (or replace) the size/colour breakup of ONE order item, then let everything downstream
+ * catch up.
+ * PUT /api/orders/:orderId/items/:orderItemId/size-breakup
+ *
+ * Orders are deliberately created without a size split so long-lead greige/dyeing/printing
+ * procurement can start; the sizes arrive later. PUT /orders/:id cannot serve that flow — it
+ * refuses once a BOM is approved, and it destroys and recreates order_items, which would
+ * orphan material_requirements and cascade-delete costing/samples/inspections/label overrides.
+ *
+ * This endpoint is deliberately additive: it touches ONLY order_item_breakup for an existing
+ * order_items row, so every downstream link survives. It then syncs pending work-order
+ * breakups, recalculates MRP (which is PO-safe: rows already on a PO are preserved) and
+ * creates any work orders that were impossible while the order had no sizes.
+ */
+export const setOrderItemSizeBreakup = async (req: Request, res: Response): Promise<void> => {
+  const userId = req.user?.userId;
+  if (!userId) {
+    throw new UnauthorizedError('User not authenticated');
+  }
+  const { orderId, orderItemId } = req.params;
+  const { breakup, confirmQuantityChange } = req.body as {
+    breakup: OrderItemBreakup[];
+    confirmQuantityChange?: boolean;
+  };
+
+  const orderItem = await prisma.order_items.findFirst({
+    where: { id: orderItemId, orderId },
+    select: {
+      id: true,
+      styleId: true,
+      totalQuantity: true,
+      orders: { select: { id: true, orderNumber: true, status: true } },
+    },
+  });
+  if (!orderItem) {
+    throw new NotFoundError('Order item', orderItemId);
+  }
+  if (orderItem.orders.status === 'CANCELLED' || orderItem.orders.status === 'SPLIT') {
+    throw new BusinessError(`Cannot set a size breakdown on a ${orderItem.orders.status} order.`);
+  }
+
+  const cleaned = dedupeBreakup(breakup).filter((b) => b.quantity > 0);
+  if (cleaned.length === 0) {
+    throw new ValidationError('Provide at least one size with a quantity greater than zero.');
+  }
+
+  // Every size must belong to this style, or the breakup silently plans for sizes the style
+  // does not have (and the label size-variant match downstream would never resolve).
+  const sizeIds = [...new Set(cleaned.map((b) => b.sizeId))];
+  const validSizes = await prisma.size_options.findMany({
+    where: { id: { in: sizeIds }, styleId: orderItem.styleId },
+    select: { id: true },
+  });
+  if (validSizes.length !== sizeIds.length) {
+    const valid = new Set(validSizes.map((s) => s.id));
+    throw new ValidationError(
+      `${sizeIds.filter((id) => !valid.has(id)).length} size(s) do not belong to this order item's style.`
+    );
+  }
+
+  const newTotal = cleaned.reduce((sum, b) => sum + b.quantity, 0);
+  const currentTotal = orderItem.totalQuantity;
+  const quantityChanged = newTotal !== currentTotal;
+
+  // Changing the committed quantity is allowed, but never silently: greige/dyeing POs may
+  // already be placed against the current total, and the BOM was computed at it.
+  if (quantityChanged && !confirmQuantityChange) {
+    const [approvedBoms, poLinkedCount] = await Promise.all([
+      prisma.order_bom.count({ where: { orderId, status: { in: ['APPROVED', 'LOCKED'] }, isActive: true } }),
+      prisma.material_requirements.count({
+        where: { orderId, status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED', 'RECEIVED'] } },
+      }),
+    ]);
+    throw new BusinessError(
+      `These sizes add up to ${newTotal} pcs but the order item currently carries ${currentTotal} pcs. ` +
+        `Confirm to change the order quantity to ${newTotal}.` +
+        (approvedBoms > 0
+          ? ` The approved BOM was calculated at ${currentTotal} pcs and will need regenerating.`
+          : '') +
+        (poLinkedCount > 0
+          ? ` ${poLinkedCount} requirement(s) are already on a purchase order and will NOT be adjusted automatically.`
+          : ''),
+      {
+        code: 'QUANTITY_CHANGE_REQUIRES_CONFIRMATION',
+        currentTotal,
+        newTotal,
+        approvedBoms,
+        poLinkedRequirements: poLinkedCount,
+      }
+    );
+  }
+
+  // Replace this item's breakup only — the order_items row (and every FK pointing at it) stays.
+  await prisma.$transaction(async (tx) => {
+    await tx.order_item_breakup.deleteMany({ where: { orderItemId: orderItem.id } });
+    for (const b of cleaned) {
+      await tx.order_item_breakup.create({
+        data: {
+          id: randomUUID(),
+          orderItemId: orderItem.id,
+          colorId: b.colorId,
+          sizeId: b.sizeId,
+          quantity: b.quantity,
+        },
+      });
+    }
+
+    if (quantityChanged) {
+      await tx.order_items.update({ where: { id: orderItem.id }, data: { totalQuantity: newTotal } });
+      const itemTotals = await tx.order_items.aggregate({
+        where: { orderId },
+        _sum: { totalQuantity: true },
+      });
+      await tx.orders.update({
+        where: { id: orderId },
+        data: { totalQuantity: itemTotals._sum.totalQuantity ?? newTotal },
+      });
+    }
+
+    // Mirror the order-edit path: keep PENDING work orders' breakup in step.
+    const pendingWorkOrders = await tx.work_orders.findMany({
+      where: { orderId, styleId: orderItem.styleId, status: 'PENDING' },
+      select: { id: true },
+    });
+    for (const wo of pendingWorkOrders) {
+      await tx.work_order_breakup.deleteMany({ where: { workOrderId: wo.id } });
+      await tx.work_orders.update({
+        where: { id: wo.id },
+        data: { orderItemId: orderItem.id, totalQuantity: newTotal },
+      });
+      for (const b of cleaned) {
+        await tx.work_order_breakup.create({
+          data: {
+            id: randomUUID(),
+            workOrderId: wo.id,
+            colorId: b.colorId,
+            sizeId: b.sizeId,
+            plannedQuantity: b.quantity,
+          },
+        });
+      }
+    }
+  });
+
+  logInfo(
+    `[SizeBreakup] Order ${orderItem.orders.orderNumber} item ${orderItem.id}: ${cleaned.length} size line(s), ` +
+      `total ${currentTotal} → ${newTotal}`
+  );
+
+  // Recalculate requirements so SIZE_PENDING labels become per-size lines. PO'd rows are
+  // preserved by MRP itself; failures here must not lose the breakup we just saved.
+  let requirements: { created: number; updated: number; sizePending: number } | null = null;
+  let mrpError: string | null = null;
+  try {
+    const { calculateRequirementsFromOrder } = await import('../services/mrp.service');
+    const mrpResult = await calculateRequirementsFromOrder({ orderId, checkStock: true }, userId);
+    requirements = {
+      created: mrpResult.created,
+      updated: mrpResult.updated,
+      sizePending: (mrpResult.sizePending || []).length,
+    };
+  } catch (error) {
+    mrpError = error instanceof Error ? error.message : 'Unknown error';
+    logWarn(`[SizeBreakup] MRP recalculation failed for order ${orderId}: ${mrpError}`);
+  }
+
+  // Production planning was impossible without sizes — catch it up now.
+  let workOrders: { created: string[]; skipped: string[]; failed: { styleId: string; reason: string }[] } | null = null;
+  let workOrderError: string | null = null;
+  try {
+    workOrders = await createMissingWorkOrders(orderId, userId);
+  } catch (error) {
+    workOrderError = error instanceof Error ? error.message : 'Unknown error';
+    logWarn(`[SizeBreakup] Work order creation failed for order ${orderId}: ${workOrderError}`);
+  }
+
+  const messageParts = [`Size breakdown saved (${cleaned.length} size line(s), ${newTotal} pcs)`];
+  if (quantityChanged) messageParts.push(`order quantity changed ${currentTotal} → ${newTotal}`);
+  if (requirements) messageParts.push(`${requirements.created + requirements.updated} material requirements updated`);
+  if (mrpError) messageParts.push(`MRP recalculation failed: ${mrpError}`);
+  if (workOrders && workOrders.created.length > 0)
+    messageParts.push(`${workOrders.created.length} work order(s) created`);
+  if (workOrderError) messageParts.push(`Work order creation failed: ${workOrderError}`);
+
+  res.json({
+    success: true,
+    data: {
+      orderItemId: orderItem.id,
+      breakup: cleaned,
+      quantityChanged,
+      currentTotal,
+      newTotal,
+      requirements,
+      workOrders,
+    },
+    mrpError,
+    workOrderError,
+    message: messageParts.join('. '),
+  });
+};
+
+/**
+ * Idempotently create work orders for any order item that lacks one.
+ *
+ * Shared by POST /orders/:orderId/work-orders and the size-breakup endpoint — an order
+ * created without sizes cannot have work orders at all (createFromOrderItem requires the
+ * breakup sum to match the total), so entering the sizes is exactly the moment production
+ * planning becomes possible and should catch up.
+ */
+export async function createMissingWorkOrders(
+  orderId: string,
+  userId: string,
+  opts: {
+    plannedStartDate?: string | Date;
+    plannedEndDate?: string | Date;
+    priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  } = {}
+): Promise<{ created: string[]; skipped: string[]; failed: { styleId: string; reason: string }[] }> {
   const order = await prisma.orders.findUnique({
     where: { id: orderId },
     select: {
@@ -1318,9 +1549,9 @@ export const createWorkOrdersForOrder = async (req: Request, res: Response): Pro
     try {
       const wo = await workOrderService.createFromOrderItem(item.id, orderId, {
         // Default to the order's own delivery date rather than an invented +30 days.
-        plannedStartDate: plannedStartDate ? new Date(plannedStartDate) : new Date(),
-        plannedEndDate: plannedEndDate ? new Date(plannedEndDate) : order.expectedDeliveryDate,
-        priority: priority || 'MEDIUM',
+        plannedStartDate: opts.plannedStartDate ? new Date(opts.plannedStartDate) : new Date(),
+        plannedEndDate: opts.plannedEndDate ? new Date(opts.plannedEndDate) : order.expectedDeliveryDate,
+        priority: opts.priority || 'MEDIUM',
         createdById: userId,
       });
       created.push((wo as { workOrderNumber?: string })?.workOrderNumber ?? item.styleId);
@@ -1330,12 +1561,5 @@ export const createWorkOrdersForOrder = async (req: Request, res: Response): Pro
     }
   }
 
-  res.json({
-    success: true,
-    data: { created, skipped, failed },
-    message:
-      failed.length > 0
-        ? `${created.length} work order(s) created, ${failed.length} could not be created`
-        : `${created.length} work order(s) created`,
-  });
-};
+  return { created, skipped, failed };
+}

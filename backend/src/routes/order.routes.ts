@@ -13,6 +13,7 @@ import {
   cancelOrderWithOptions,
   getOrderLaceAllocations,
   createWorkOrdersForOrder,
+  setOrderItemSizeBreakup,
 } from '../controllers/order.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
 import { UserRole } from '@prisma/client';
@@ -25,6 +26,8 @@ import {
   cancelOrderSchema,
   orderQuerySchema,
   createWorkOrdersForOrderSchema,
+  setOrderItemSizeBreakupSchema,
+  orderItemSizeBreakupParamSchema,
 } from '../schemas/order.schema';
 import { idParamSchema } from '../schemas/common.schema';
 
@@ -94,6 +97,19 @@ router.post(
   '/:orderId/work-orders',
   validateBody(createWorkOrdersForOrderSchema),
   asyncHandler(createWorkOrdersForOrder)
+);
+
+/**
+ * Sizes-later workflow: set one order item's size/colour breakup after the order was created
+ * without sizes (so greige/dyeing/printing could be procured first), then recalculate MRP and
+ * catch production planning up. Additive — it never replaces order_items, unlike PUT /:id.
+ */
+router.put(
+  '/:orderId/items/:orderItemId/size-breakup',
+  authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER),
+  validateParams(orderItemSizeBreakupParamSchema),
+  validateBody(setOrderItemSizeBreakupSchema),
+  asyncHandler(setOrderItemSizeBreakup)
 );
 
 export default router;

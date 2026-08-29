@@ -384,13 +384,30 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
       { key: 'other_functional_master', nameField: 'otherFunctionalName', priceField: 'pricePerPiece' },
     ];
 
+    let masterFound = false;
     for (const ext of masterExtractors) {
       const master = (bom as any)[ext.key];
       if (master) {
+        masterFound = true;
         materialName = master[ext.nameField] || materialName;
         masterPrice = parseFloat(master[ext.priceField]?.toString() || '0');
         break;
       }
+    }
+
+    // Orphan BOM rows (no master relation and no unified materialId) carry no name or price
+    // to cost — emitting them created phantom ₹0 trim rows the user had to invent values for
+    // (mirrors the CAD no-data skip above)
+    if (!masterFound && !bom.materialId) {
+      logWarn(`BOM item "${materialName}" has no linked material master - skipping in cost sheet generation`);
+      continue;
+    }
+
+    // GARMENT_TRIM lace is represented by the dedicated Lace Costing section (the form extracts
+    // it from the BOM into laceDetails with sourcing strategies) — emitting it as a trim too
+    // double-counts the lace once laceTotal joined the sheet subtotal
+    if (bom.materialType === 'LACE' && bom.usageCategory === 'GARMENT_TRIM') {
+      continue;
     }
 
     // Use BOM unitPrice if set, otherwise fallback to master price

@@ -78,6 +78,8 @@ export interface JwoIssuePreviewLot {
   greigeName: string | null;
   greigeWidth: number | null;
   quantityAvailable: number;
+  /** For lots at processor: the JWO this lot was originally issued for (for reallocation prompt) */
+  originalJwo?: { id: string; jobWorkNumber: string } | null;
 }
 
 export interface JwoIssuePreview {
@@ -90,6 +92,17 @@ export interface JwoIssuePreview {
   requiredQty: number;
   uom: string;
   fabricType: string | null;
+  /** Processor name for display (e.g., "Mangal Textile") */
+  processorName: string | null;
+  /** Lots already at the target processor (virtual issuance — no dispatch needed) */
+  atProcessor: JwoIssuePreviewLot[];
+  /** Total quantity available at processor */
+  atProcessorTotal: number;
+  /** Lots at main warehouse (require outward challan) */
+  atMainWarehouse: JwoIssuePreviewLot[];
+  /** Total quantity available at main warehouse */
+  atMainWarehouseTotal: number;
+  /** Legacy: combined list of all available lots (backwards compatibility) */
   availableLots: JwoIssuePreviewLot[];
 }
 

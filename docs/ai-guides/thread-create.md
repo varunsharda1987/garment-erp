@@ -3,6 +3,7 @@ slug: thread-create
 title: Add a Thread (Thread Master)
 keywords:
   - thread
+  - THR
   - THD
   - thread master
   - sewing thread
@@ -26,6 +27,7 @@ sources:
   - frontend/src/pages/ThreadForm.tsx
   - backend/src/schemas/trimMasters.schema.ts
   - backend/src/controllers/thread.controller.ts
+  - backend/src/utils/code-generator.ts
 ---
 
 ## Before you start
@@ -36,7 +38,7 @@ Nothing is mandatory first. To link a supplier, that supplier must already exist
 2. Click **Add Trim** at the top right. Under **Threads & Tapes** choose **New Threads**.
    (Alternative: open the **Threads** card to reach **Thread Management**, then click **+ Add New Thread**.)
 3. The form opens with the heading **Create New Thread**.
-4. **Thread Code** is greyed out. Do not type it — the system assigns it on save (THD-000001, THD-000002 …).
+4. **Thread Code** is greyed out. Do not type it — the system assigns it on save (THR-0001, THR-0002 …).
 5. **Thread Name**: leave it empty. The name is built automatically from Buyer Code, Brand, Colour, Packaging Type and Meters. Type a name only if you want to override it.
 6. Fill **Brand** (the thread maker's name).
 7. Choose **Ply** — **2-Ply** or **3-Ply**.

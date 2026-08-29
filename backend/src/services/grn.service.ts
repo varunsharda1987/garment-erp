@@ -488,6 +488,9 @@ class GRNService {
           jobWorkOrder: {
             select: { id: true, jobWorkNumber: true, processType: true },
           },
+          warehouses: {
+            select: { id: true, warehouseCode: true, warehouseName: true },
+          },
           grn_items: true,
         },
       }),

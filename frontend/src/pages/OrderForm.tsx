@@ -1118,8 +1118,10 @@ export default function OrderForm() {
           <div className="flex items-center gap-3 p-4 bg-warning-muted border border-warning/20 rounded-lg text-warning">
             <AlertCircle className="h-5 w-5 flex-shrink-0" />
             <p className="text-sm">
-              This order has approved BOMs or active material requirements. Style, quantity, and size breakdown cannot
-              be changed. Cancel the BOM/MRP first to edit these fields.
+              This order has approved BOMs or active material requirements, so style and quantity cannot be changed
+              here. To fill in the <strong>size breakdown</strong> (for orders started without sizes), use{' '}
+              <strong>Add Size Breakdown</strong> on the order page — it keeps the order intact and refreshes
+              requirements and work orders.
             </p>
           </div>
         </div>
@@ -1418,6 +1420,7 @@ export default function OrderForm() {
                         <button
                           type="button"
                           onClick={() => handleModeChange('absolute')}
+                          disabled={hasDownstreamDeps}
                           className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                             quantityMode === 'absolute' ? 'bg-info text-white' : 'text-muted-foreground hover:bg-muted'
                           }`}
@@ -1427,6 +1430,7 @@ export default function OrderForm() {
                         <button
                           type="button"
                           onClick={() => handleModeChange('percentage')}
+                          disabled={hasDownstreamDeps}
                           className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                             quantityMode === 'percentage'
                               ? 'bg-info text-white'
@@ -1438,6 +1442,7 @@ export default function OrderForm() {
                         <button
                           type="button"
                           onClick={() => handleModeChange('ratio')}
+                          disabled={hasDownstreamDeps}
                           className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                             quantityMode === 'ratio' ? 'bg-info text-white' : 'text-muted-foreground hover:bg-muted'
                           }`}
@@ -1452,7 +1457,7 @@ export default function OrderForm() {
                           type="button"
                           size="sm"
                           onClick={quantityMode === 'percentage' ? applyPercentageDistribution : applyRatioDistribution}
-                          disabled={!totalForDistribution || enteredTotalQty === 0}
+                          disabled={hasDownstreamDeps || !totalForDistribution || enteredTotalQty === 0}
                           className="gap-2"
                         >
                           <Sparkles className="h-4 w-4" />
@@ -1468,6 +1473,7 @@ export default function OrderForm() {
                           size="sm"
                           onClick={handleSmartDistribute}
                           className="gap-2"
+                          disabled={hasDownstreamDeps}
                         >
                           <Sparkles className="h-4 w-4" />
                           Smart Distribute
@@ -1545,6 +1551,7 @@ export default function OrderForm() {
                                               updateBreakupQuantity(color.id, size.id, parseInt(e.target.value) || 0)
                                             }
                                             className="text-center h-9 text-sm"
+                                            disabled={hasDownstreamDeps}
                                           />
                                         ) : (
                                           <div className="space-y-0.5">
@@ -1569,6 +1576,7 @@ export default function OrderForm() {
                                               }}
                                               placeholder={quantityMode === 'percentage' ? '%' : '#'}
                                               className="text-center h-7 text-xs"
+                                              disabled={hasDownstreamDeps}
                                             />
                                             <div className="text-center text-xs font-medium text-success bg-success-muted rounded">
                                               = {breakupItem?.quantity || 0}
@@ -1624,6 +1632,7 @@ export default function OrderForm() {
                                     value={breakupItem?.quantity || 0}
                                     onChange={(e) => updateBreakupQuantity('', size.id, parseInt(e.target.value) || 0)}
                                     className="text-center h-10"
+                                    disabled={hasDownstreamDeps}
                                   />
                                 ) : (
                                   <div className="space-y-1">
@@ -1644,6 +1653,7 @@ export default function OrderForm() {
                                         }}
                                         placeholder={quantityMode === 'percentage' ? '%' : '#'}
                                         className="text-center h-8 text-sm"
+                                        disabled={hasDownstreamDeps}
                                       />
                                       <span className="text-xs text-muted-foreground">
                                         {quantityMode === 'percentage' ? '%' : ''}

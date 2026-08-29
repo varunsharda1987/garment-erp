@@ -287,6 +287,37 @@ class TallyController {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // Supplier Detail Sync from Tally
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  async previewSupplierSync(req: Request, res: Response) {
+    try {
+      const onlyBlanks = req.query.onlyBlanks !== 'false';
+      const result = await tallyService.previewSupplierSyncFromTally(onlyBlanks);
+      res.json({ data: result });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to preview supplier sync';
+      logError('Failed to preview supplier sync from Tally', error);
+      res.status(400).json({ message });
+    }
+  }
+
+  async syncSupplierDetails(req: Request, res: Response) {
+    try {
+      const { onlyBlanks = true, supplierIds } = req.body;
+      const result = await tallyService.syncSupplierDetailsFromTally(onlyBlanks, supplierIds);
+      res.json({
+        data: result,
+        message: `Updated ${result.updated} suppliers from Tally`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to sync supplier details';
+      logError('Failed to sync supplier details from Tally', error);
+      res.status(400).json({ message });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // Debit Note Push
   // ═══════════════════════════════════════════════════════════════════════════
 

@@ -16,6 +16,7 @@ import { lookupRate } from './processor-rate-v2.service';
 import type { ProcessingTypeV2, PrintingTypeV2 } from '../types/processor-rate-v2.types';
 import { systemSettingsService } from './system-settings.service';
 import { resolveShrinkagePercent } from './helpers/shrinkage-resolver.helper';
+import { getOrCreateDefaultThreadId } from './helpers/default-thread.helper';
 import { divideByShrinkage, toNumber, toCurrency, roundToCent } from '../utils/currency';
 import { SearchFilter } from '../types/prisma.types';
 import { v4 as uuidv4 } from 'uuid';
@@ -424,6 +425,41 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           if (!trim.trimName || trim.isNotApplicable) continue;
           const materialType = this.detectMaterialTypeFromName(trim.trimName, trim.materialType);
 
+          // Never persist an all-null-FK BOM row (the "Thread (Auto-added)" orphan class):
+          // a name-only THREAD trim resolves to the shared Default Thread master
+          let threadId = trim.threadId || undefined;
+          let materialId = trim.materialId || undefined;
+          const hasAnyFk = !!(
+            threadId ||
+            materialId ||
+            trim.buttonId ||
+            trim.zipperId ||
+            trim.elasticId ||
+            trim.labelId ||
+            trim.packagingId ||
+            trim.hookEyeId ||
+            trim.snapButtonId ||
+            trim.buckleId ||
+            trim.beltId ||
+            trim.velcroId ||
+            trim.drawstringId ||
+            trim.ribbonId ||
+            trim.sequinId ||
+            trim.beadId ||
+            trim.motifId ||
+            trim.interliningId ||
+            trim.paddingId ||
+            trim.otherFastenerId ||
+            trim.otherTapeId ||
+            trim.otherDecorativeId ||
+            trim.otherFunctionalId
+          );
+          if (!hasAnyFk && materialType === 'THREAD') {
+            const defaultThreadId = await getOrCreateDefaultThreadId();
+            threadId = defaultThreadId;
+            materialId = defaultThreadId;
+          }
+
           await this.prisma.style_material_bom.create({
             data: {
               styleId: input.styleId,
@@ -440,13 +476,13 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               // that is what put 5% on every trim of every BOM in the system.
               extraPercentage: await systemSettingsService.getNumberDefault('TRIM_DEFAULT_WASTAGE_PERCENT'),
               // Pass through master IDs from cost sheet
-              threadId: trim.threadId || undefined,
+              threadId,
               buttonId: trim.buttonId || undefined,
               zipperId: trim.zipperId || undefined,
               elasticId: trim.elasticId || undefined,
               labelId: trim.labelId || undefined,
               packagingId: trim.packagingId || undefined,
-              materialId: trim.materialId || undefined,
+              materialId,
               // Generic trim FK IDs
               hookEyeId: trim.hookEyeId || undefined,
               snapButtonId: trim.snapButtonId || undefined,

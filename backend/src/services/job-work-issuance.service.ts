@@ -70,7 +70,9 @@ export interface IssueJwoOptions {
 
 export interface IssueJwoResult {
   jwoId: string;
-  challanId: string;
+  /** Null for virtual issuance (stock already at processor, no dispatch needed) */
+  challanId: string | null;
+  /** 'VIRTUAL-ALLOCATION' for virtual issuance */
   challanNumber: string;
   warnings: string[];
 }
@@ -87,6 +89,7 @@ export const ISSUE_ERROR_CODES = {
   LOT_QTY_MISMATCH: 'LOT_QTY_MISMATCH',
   PURCHASED_ITEM_AS_COMPONENT: 'PURCHASED_ITEM_AS_COMPONENT',
   LOT_AT_PROCESSOR: 'LOT_AT_PROCESSOR',
+  LOT_AT_WRONG_PROCESSOR: 'LOT_AT_WRONG_PROCESSOR',
   INSUFFICIENT_GREIGE: 'INSUFFICIENT_GREIGE',
   INSUFFICIENT_FABRIC_STOCK: 'INSUFFICIENT_FABRIC_STOCK',
   CANCEL_RESTORE_FAILED: 'CANCEL_RESTORE_FAILED',
@@ -126,6 +129,8 @@ export interface ValidateIssueResult {
   lots: Array<{
     row: Prisma.greige_stockGetPayload<{ include: { greige: { select: { greigeCode: true; greigeName: true } } } }>;
     qty: number;
+    /** True if lot is already at target processor (virtual issuance — no challan needed) */
+    atProcessor?: boolean;
   }>;
   fabricLotRow: { id: string; quantityAvailable: Prisma.Decimal } | null;
   expectedGreigeId: string | null;
@@ -223,10 +228,20 @@ export async function validateIssue(
         });
         continue;
       }
-      if (row.processorId != null || row.sourceType === 'TRANSFER') {
+      // Stock at a DIFFERENT processor cannot be issued (it's not here).
+      // Stock at the SAME processor = "virtual issuance" — no physical movement needed.
+      if (row.processorId != null && row.processorId !== jwo.processorId) {
+        blockers.push({
+          code: ISSUE_ERROR_CODES.LOT_AT_WRONG_PROCESSOR,
+          message: `Lot ${row.greige?.greigeCode ?? row.id.slice(0, 8)} is at a different processor and cannot be issued from here.`,
+        });
+      }
+      // Transferred stock at main warehouse is blocked (it was meant for another processor).
+      // But transferred stock AT the target processor is fine — it's already there.
+      if (row.sourceType === 'TRANSFER' && row.processorId == null) {
         blockers.push({
           code: ISSUE_ERROR_CODES.LOT_AT_PROCESSOR,
-          message: `Lot ${row.greige?.greigeCode ?? row.id.slice(0, 8)} is at a processor and cannot be issued from here.`,
+          message: `Lot ${row.greige?.greigeCode ?? row.id.slice(0, 8)} is transferred stock at main warehouse — it was meant for another processor.`,
         });
       }
       // R6: the processor's own supplied material cannot be issued back to them as ours
@@ -264,7 +279,9 @@ export async function validateIssue(
           message: `Insufficient greige in lot ${row.greige?.greigeCode ?? ''}: ${Number(row.quantityAvailable)}m available, ${input.qty}m needed.`,
         });
       }
-      lots.push({ row, qty: input.qty });
+      // Track if lot is already at target processor (virtual issuance — no challan needed)
+      const atProcessor = row.processorId != null && row.processorId === jwo.processorId;
+      lots.push({ row, qty: input.qty, atProcessor });
     }
 
     // Two rows on one lot double-consume it and mint two components for one physical lot.
@@ -407,7 +424,7 @@ type IssuedChallan = {
 async function issueOneWithinTx(
   tx: Tx,
   v: ValidateIssueResult,
-  challan: IssuedChallan,
+  challan: IssuedChallan | null,
   opts: IssueOneOptions,
   issueDate: Date
 ): Promise<string[]> {
@@ -416,8 +433,20 @@ async function issueOneWithinTx(
   const warnings: string[] = [];
   // 3. CONSUME — guarded, per lot, ledgered against the challan
   // Skip if caller already did detail-level consumption (bale/than tracking)
+  // For processor lots (virtual issuance), skip consumption — stock is already at processor
   if (!opts.skipGreigeConsumption) {
-    for (const { row, qty } of lots) {
+    for (const { row, qty, atProcessor } of lots) {
+      // Skip consumption for lots already at processor (virtual issuance)
+      if (atProcessor) {
+        logInfo(
+          `[Issuance] Lot ${row.greige?.greigeCode ?? row.id.slice(0, 8)} already at processor — skipping consumption (virtual allocation)`
+        );
+        continue;
+      }
+      if (!challan) {
+        // This shouldn't happen — main warehouse lots should always have a challan
+        throw new JobWorkOrderError('INTERNAL', 'Challan required for main warehouse lot consumption');
+      }
       await greigeStockService.consumeGreigeStock(row.id, qty, opts.userId, tx, {
         referenceType: 'CHALLAN',
         referenceId: challan.id,
@@ -495,12 +524,15 @@ async function issueOneWithinTx(
       });
       // Match on the ORDER too: a consolidated dispatch puts several orders' lines on one
       // challan, and only the pair (order, lot) identifies a line there.
-      const challanItem = challan.items.find((it) => it.greigeStockId === row.id && it.jobWorkOrderId === jwo.id);
-      if (challanItem) {
-        await tx.challan_items.update({
-          where: { id: challanItem.id },
-          data: { jobWorkOrderComponentId: component.id },
-        });
+      // For virtual issuance (no challan), skip this linking.
+      if (challan) {
+        const challanItem = challan.items.find((it) => it.greigeStockId === row.id && it.jobWorkOrderId === jwo.id);
+        if (challanItem) {
+          await tx.challan_items.update({
+            where: { id: challanItem.id },
+            data: { jobWorkOrderComponentId: component.id },
+          });
+        }
       }
     }
   }
@@ -560,12 +592,14 @@ async function issueOneWithinTx(
     return cost != null ? addCurrency(acc, multiplyCurrency(qty, cost)) : acc;
   }, toCurrency(0));
   const declaredValue = toNumber(roundToCent(sumLotValue));
+  // For virtual issuance (all lots at processor), use 'VIRTUAL-ALLOCATION' as challan number
+  const isVirtualIssuance = lots.every((l) => l.atProcessor);
   await setJwoStatus(tx, jwoId, 'ISSUED', {
-    challanNumber: opts.challanNumber || challan.challanNumber,
+    challanNumber: opts.challanNumber || challan?.challanNumber || (isVirtualIssuance ? 'VIRTUAL-ALLOCATION' : ''),
     vehicleNumber: opts.vehicleNumber || null,
     greigeStockLotId: lots[0]?.row.id ?? null,
     fabricStockLotId: fabricLotRow?.id ?? jwo.fabricStockLotId,
-    outwardChallanId: challan.id,
+    outwardChallanId: challan?.id ?? null,
     finishedFabricId: opts.finishedFabricId ?? jwo.finishedFabricId,
     ...(declaredValue > 0 ? { declaredValue } : {}),
     // Actual lot width wins silence: fill only when creation didn't already set it
@@ -590,48 +624,74 @@ export async function issueJobWorkOrder(jwoId: string, opts: IssueJwoOptions): P
   const { jwo, lots } = v;
   const issueDate = opts.sentDate ?? new Date();
 
+  // Separate lots: mainWarehouseLots need challan + consumption, processorLots are virtual issuance
+  const mainWarehouseLots = lots.filter((l) => !l.atProcessor);
+  const processorLots = lots.filter((l) => l.atProcessor);
+  const isVirtualIssuance = mainWarehouseLots.length === 0 && processorLots.length > 0;
+
   const result = await prisma.$transaction(
     async (tx) => {
       // 1. MUTEX — claim the order before anything is created or consumed
       await acquireIssueMutex(tx, jwo, issueDate);
 
-      // 2. CHALLAN — Rule 55 movement document, created inside the tx (atomic with stock).
-      //    Header names the order, because on a single-order dispatch it is unambiguous.
-      const challan = await createChallan(
-        {
-          challanType: 'OUTWARD',
-          challanDate: issueDate,
-          fromType: 'WAREHOUSE',
-          fromName: 'Main Warehouse',
-          toType: 'VENDOR',
-          toId: jwo.processorId,
-          toName: jwo.processor?.name || 'Processor',
-          purchaseOrderId: jwo.purchaseOrderId || undefined,
-          jobWorkOrderId: jwo.id,
-          vehicleNumber: opts.vehicleNumber || undefined,
-          issuedById: opts.userId,
-          unit: jwo.uom === 'MTR' ? Unit.METER : Unit.PIECE,
-          remarks: opts.challanNumber ? `Manual challan ref: ${opts.challanNumber}` : undefined,
-          items: buildOutwardChallanItems(v),
-        },
-        tx
-      );
+      let challan: IssuedChallan | null = null;
 
-      // 3-9
+      // 2. CHALLAN — only needed if dispatching from main warehouse
+      if (mainWarehouseLots.length > 0) {
+        // Build challan items only for main warehouse lots
+        const challanV = { ...v, lots: mainWarehouseLots };
+        challan = await createChallan(
+          {
+            challanType: 'OUTWARD',
+            challanDate: issueDate,
+            fromType: 'WAREHOUSE',
+            fromName: 'Main Warehouse',
+            toType: 'VENDOR',
+            toId: jwo.processorId,
+            toName: jwo.processor?.name || 'Processor',
+            purchaseOrderId: jwo.purchaseOrderId || undefined,
+            jobWorkOrderId: jwo.id,
+            vehicleNumber: opts.vehicleNumber || undefined,
+            issuedById: opts.userId,
+            unit: jwo.uom === 'MTR' ? Unit.METER : Unit.PIECE,
+            remarks: opts.challanNumber ? `Manual challan ref: ${opts.challanNumber}` : undefined,
+            items: buildOutwardChallanItems(challanV),
+          },
+          tx
+        );
+      }
+
+      // 3-9: Issue with consumption for main warehouse lots, skip for processor lots
       const warnings = await issueOneWithinTx(tx, v, challan, opts, issueDate);
 
       // Challan → ISSUED (dispatch is real; also disarms the challan-page re-consume)
-      await tx.challans.update({ where: { id: challan.id }, data: { status: 'ISSUED', issuedDate: issueDate } });
+      if (challan) {
+        await tx.challans.update({ where: { id: challan.id }, data: { status: 'ISSUED', issuedDate: issueDate } });
+      }
 
-      return { jwoId, challanId: challan.id, challanNumber: challan.challanNumber, warnings };
+      return {
+        jwoId,
+        challanId: challan?.id ?? null,
+        challanNumber: challan?.challanNumber ?? (isVirtualIssuance ? 'VIRTUAL-ALLOCATION' : ''),
+        warnings,
+      };
     },
     { timeout: 15000, maxWait: 5000 }
   );
 
-  logInfo(
-    `[Issuance] Issued ${jwo.jobWorkNumber} — challan ${result.challanNumber}` +
-      (lots.length > 0 ? `, ${lots.length} greige lot(s) consumed (${Number(jwo.qtySentMeters)}${jwo.uom})` : '')
-  );
+  if (isVirtualIssuance) {
+    logInfo(
+      `[Issuance] Virtual issuance ${jwo.jobWorkNumber} — ${processorLots.length} lot(s) already at ${jwo.processor?.name}, no dispatch needed`
+    );
+  } else {
+    logInfo(
+      `[Issuance] Issued ${jwo.jobWorkNumber} — challan ${result.challanNumber}` +
+        (mainWarehouseLots.length > 0
+          ? `, ${mainWarehouseLots.length} greige lot(s) consumed (${Number(jwo.qtySentMeters)}${jwo.uom})`
+          : '') +
+        (processorLots.length > 0 ? `, ${processorLots.length} lot(s) already at processor (virtual)` : '')
+    );
+  }
   return result;
 }
 

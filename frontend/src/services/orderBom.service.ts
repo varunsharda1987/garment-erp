@@ -108,6 +108,8 @@ export async function approveAndCalculateMRP(
     updated: number;
     requirements: unknown[];
     skipped: Array<{ componentName: string; materialType: string; reason: string }>;
+    // Size-wise labels planned at full quantity, awaiting the order's size split (not skipped)
+    sizePending?: Array<{ componentName: string; materialType: string; reason: string }>;
   } | null;
   mrpCalculated: boolean;
   mrpError: string | null;
@@ -132,6 +134,8 @@ export async function approveAndCalculateMRP(
         updated: number;
         requirements: unknown[];
         skipped: Array<{ componentName: string; materialType: string; reason: string }>;
+        // Size-wise labels planned at full quantity, awaiting the order's size split (not skipped)
+        sizePending?: Array<{ componentName: string; materialType: string; reason: string }>;
       } | null;
       mrpCalculated: boolean;
       mrpError: string | null;
@@ -167,6 +171,8 @@ export async function calculateMRPStandalone(
   updated: number;
   requirements: unknown[];
   skipped: Array<{ componentName: string; materialType: string; reason: string }>;
+  // Size-wise labels planned at full quantity, awaiting the order's size split (not skipped)
+  sizePending?: Array<{ componentName: string; materialType: string; reason: string }>;
 }> {
   const response = await api.post<{
     success: boolean;
@@ -175,6 +181,8 @@ export async function calculateMRPStandalone(
       updated: number;
       requirements: unknown[];
       skipped: Array<{ componentName: string; materialType: string; reason: string }>;
+      // Size-wise labels planned at full quantity, awaiting the order's size split (not skipped)
+      sizePending?: Array<{ componentName: string; materialType: string; reason: string }>;
     };
     message: string;
   }>(`/orders/${orderId}/bom/calculate-mrp`, data);

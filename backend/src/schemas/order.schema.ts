@@ -116,3 +116,31 @@ export const createWorkOrdersForOrderSchema = z.object({
   plannedEndDate: z.coerce.date().optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
 });
+
+/**
+ * Set the size/colour breakup of ONE order item after the fact.
+ * PUT /api/orders/:orderId/items/:orderItemId/size-breakup
+ *
+ * The sizes-later workflow: orders start without a size split so long-lead greige/dyeing/
+ * printing can be procured, and the split is filled in once known. `confirmQuantityChange`
+ * acknowledges that the new sizes sum to a different total than the order currently carries.
+ */
+export const setOrderItemSizeBreakupSchema = z.object({
+  // colorId is nullable here (not just '' as on the order-create path): this endpoint exists for
+  // size-only breakups, and the controller normalises '' → null anyway.
+  breakup: z
+    .array(
+      z.object({
+        colorId: z.string().nullable().optional().default(null),
+        sizeId: z.string().min(1, 'Size is required'),
+        quantity: z.number().int().nonnegative('Quantity cannot be negative'),
+      })
+    )
+    .min(1, 'At least one size line is required'),
+  confirmQuantityChange: z.boolean().optional(),
+});
+
+export const orderItemSizeBreakupParamSchema = z.object({
+  orderId: z.string().uuid('Invalid order ID'),
+  orderItemId: z.string().uuid('Invalid order item ID'),
+});

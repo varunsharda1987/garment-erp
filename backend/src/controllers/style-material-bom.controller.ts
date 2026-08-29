@@ -693,7 +693,16 @@ export const getStyleBOM = async (req: Request, res: Response): Promise<void> =>
  */
 export const addMaterialToBOM = async (req: Request, res: Response): Promise<void> => {
   const { styleId } = req.params;
-  const { materialCode, usageCategory, componentName, quantityPerGarment, unit, notes, extraPercentage } = req.body;
+  const {
+    materialCode,
+    usageCategory,
+    componentName,
+    quantityPerGarment,
+    unit,
+    notes,
+    extraPercentage,
+    unitPrice: unitPriceOverride,
+  } = req.body;
 
   logDebug(`Adding material to BOM: style=${styleId}, material=${materialCode}`);
 
@@ -827,6 +836,12 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
     throw new NotFoundError('Material', materialCode);
   }
 
+  // Style-specific price override wins over the master-price snapshot (masters are never
+  // written from here). `!= null` so an explicit 0 override is honored.
+  if (unitPriceOverride != null) {
+    unitPrice = parseFloat(String(unitPriceOverride));
+  }
+
   // BUG-STY8 fix: Use decimal.js for precise total cost calculation
   const quantityDecimal = toCurrency(quantityPerGarment);
   const totalCost = toNumber(multiplyCurrency(quantityPerGarment, unitPrice));
@@ -888,7 +903,7 @@ export const addMaterialToBOM = async (req: Request, res: Response): Promise<voi
  */
 export const updateBOMItem = async (req: Request, res: Response): Promise<void> => {
   const { styleId, bomId } = req.params;
-  const { componentName, quantityPerGarment, unit, notes, isActive, extraPercentage } = req.body;
+  const { componentName, quantityPerGarment, unit, notes, isActive, extraPercentage, unitPrice } = req.body;
 
   logDebug(`Updating BOM item: ${bomId} for style ${styleId}`);
 
@@ -904,12 +919,17 @@ export const updateBOMItem = async (req: Request, res: Response): Promise<void> 
     throw new NotFoundError('BOM item', bomId);
   }
 
-  // BUG-STY8 fix: Recalculate total cost using decimal.js for precision
+  // BUG-STY8 fix: Recalculate total cost using decimal.js for precision.
+  // unitPrice is a style-specific rate (settable even when the master has no price — the
+  // master is never written from here); an explicit null clears the override back to
+  // master-price fallback.
+  const effectiveUnitPrice = unitPrice !== undefined ? unitPrice : existing.unitPrice;
   let totalCost = existing.totalCost;
-  if (quantityPerGarment !== undefined) {
+  if (quantityPerGarment !== undefined || unitPrice !== undefined) {
+    const qty = quantityPerGarment !== undefined ? quantityPerGarment : existing.quantityPerGarment;
     // Use multiplyCurrency for precise calculation, then convert to Prisma.Decimal for storage
-    const unitPriceStr = existing.unitPrice?.toString() || '0';
-    totalCost = new Prisma.Decimal(multiplyCurrency(quantityPerGarment, unitPriceStr).toFixed(4));
+    const unitPriceStr = effectiveUnitPrice?.toString() || '0';
+    totalCost = new Prisma.Decimal(multiplyCurrency(qty, unitPriceStr).toFixed(4));
   }
 
   // Update BOM item
@@ -921,6 +941,8 @@ export const updateBOMItem = async (req: Request, res: Response): Promise<void> 
       quantityPerGarment:
         quantityPerGarment !== undefined ? toNumber(toCurrency(quantityPerGarment)) : existing.quantityPerGarment,
       unit: unit !== undefined ? unit : existing.unit,
+      // `!== undefined` so an explicit null clears the price; `||` would discard it.
+      unitPrice: unitPrice !== undefined ? unitPrice : existing.unitPrice,
       totalCost,
       notes: notes !== undefined ? notes : existing.notes,
       isActive: isActive !== undefined ? isActive : existing.isActive,

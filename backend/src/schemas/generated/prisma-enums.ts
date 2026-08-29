@@ -571,6 +571,7 @@ export type RateType = z.infer<typeof RateTypeEnum>;
 
 export const MaterialRequirementStatusEnum = z.enum([
   'PENDING',
+  'SIZE_PENDING',
   'FULFILLED_STOCK',
   'PARTIAL_STOCK',
   'PO_REQUIRED',

@@ -167,6 +167,7 @@ export interface GRN {
   // Relations (post-serializer names — serializer outputs 'purchaseOrders' for this relation)
   purchaseOrders?: POSummary;
   supplier?: SupplierSummary;
+  warehouse?: WarehouseSummary;
   items?: GRNItem[];
   receivedBy?: UserSummary;
   approvedBy?: UserSummary | null;

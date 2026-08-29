@@ -83,13 +83,9 @@ export default function GenericTrimForm() {
     e.preventDefault();
     if (!trimType || !config) return;
 
-    // Validate required field (name)
+    // Name is optional - backend auto-generates from attributes if empty
     const rawName = formData[config.nameField];
     const name = typeof rawName === 'string' ? rawName.trim() : '';
-    if (!name) {
-      setError(`${config.label} name is required`);
-      return;
-    }
 
     setIsLoading(true);
     setError(null);
@@ -273,18 +269,19 @@ export default function GenericTrimForm() {
               </div>
             )}
 
-            {/* Name field (required) */}
+            {/* Name field (optional - auto-generates if empty) */}
             <div className="space-y-2">
-              <Label htmlFor={config.nameField}>
-                {config.label} Name <span className="text-destructive">*</span>
-              </Label>
+              <Label htmlFor={config.nameField}>{config.label} Name</Label>
               <Input
                 id={config.nameField}
                 value={asInputValue(formData[config.nameField])}
                 onChange={(e) => handleInputChange(config.nameField, e.target.value)}
-                placeholder={`Enter ${config.label.toLowerCase()} name`}
-                required
+                placeholder="Leave empty to auto-generate from attributes"
               />
+              <p className="text-xs text-muted-foreground">
+                If left empty, name will be auto-generated from selected attributes (e.g., "Red Plastic Round 10mm
+                Bead")
+              </p>
             </div>
 
             {/* Dynamic fields from config */}

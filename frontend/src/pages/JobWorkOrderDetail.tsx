@@ -294,7 +294,12 @@ export default function JobWorkOrderDetail() {
       setIssueRows([{ lotId: '', qty: '' }]);
       setIssueWidthAcknowledged(false);
       setIssueVehicle('');
-      toast.success(`Job work order issued — Challan ${result.challanNumber} created`);
+      // Virtual issuance (stock already at processor) vs physical dispatch
+      if (result.challanNumber === 'VIRTUAL-ALLOCATION') {
+        toast.success('Job work order issued — stock already at processor (no challan needed)');
+      } else {
+        toast.success(`Job work order issued — Challan ${result.challanNumber} created`);
+      }
       if (result.warning) toast.warning(result.warning);
       queryClient.invalidateQueries({ queryKey: ['job-work-order', id] });
       queryClient.invalidateQueries({ queryKey: ['job-work-order-reconciliation', id] });
@@ -431,6 +436,13 @@ export default function JobWorkOrderDetail() {
   const issuesGreige = jwo.fabricType === 'GREIGE';
   const issueRequiredQty = issuePreview?.requiredQty ?? jwo.qtySentMeters;
   const issueUom = issuePreview?.uom ?? jwo.uom;
+  // Two-section lots: processor stock (virtual issuance) + main warehouse (requires dispatch)
+  const issueAtProcessorLots = issuePreview?.atProcessor ?? [];
+  const issueAtProcessorTotal = issuePreview?.atProcessorTotal ?? 0;
+  const issueAtMainWarehouseLots = issuePreview?.atMainWarehouse ?? [];
+  const issueAtMainWarehouseTotal = issuePreview?.atMainWarehouseTotal ?? 0;
+  const issueProcessorName = issuePreview?.processorName ?? jwo.processor?.name ?? 'Processor';
+  // Legacy: combined list for backwards compatibility with GreigeLotRows
   const issueAvailableLots = issuePreview?.availableLots ?? [];
 
   // The preview is computed with NO lots supplied, so it validates whatever lot the order was
@@ -1154,7 +1166,7 @@ export default function JobWorkOrderDetail() {
                 </Alert>
               )
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {issuePreview && !issuePreview.greigeAnchored && (
                   <Alert>
                     <AlertDescription>
@@ -1163,6 +1175,23 @@ export default function JobWorkOrderDetail() {
                     </AlertDescription>
                   </Alert>
                 )}
+
+                {/* Two-section stock visibility */}
+                <div className="flex gap-4 text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">At {issueProcessorName}:</span>
+                    <Badge variant={issueAtProcessorTotal > 0 ? 'default' : 'secondary'}>
+                      {round2(issueAtProcessorTotal)}m ({issueAtProcessorLots.length} lots)
+                    </Badge>
+                    {issueAtProcessorTotal > 0 && <span className="text-xs text-green-600">(no dispatch needed)</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-muted-foreground">At Main Warehouse:</span>
+                    <Badge variant={issueAtMainWarehouseTotal > 0 ? 'outline' : 'secondary'}>
+                      {round2(issueAtMainWarehouseTotal)}m ({issueAtMainWarehouseLots.length} lots)
+                    </Badge>
+                  </div>
+                </div>
 
                 <GreigeLotRows
                   rows={issueRows}

@@ -174,6 +174,7 @@ export interface CreateStyleRequest {
   description?: string;
   season?: string;
   seasonId?: string | null;
+  colorId?: string | null;
   gender?: string | null;
   components?: StyleComponentInput[];
   processes?: StyleProcessInput[];

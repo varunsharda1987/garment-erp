@@ -17,6 +17,106 @@ import { Badge } from '@/components/ui/badge';
 import type { StyleActualConsumption } from '@/types/cutting.types';
 import api from '@/lib/api';
 import { MiniMarkerBadge } from '@/components/cad/MiniMarkerBadge';
+import { Input } from '@/components/ui/input';
+import { updateBOMItem } from '@/services/style-material-bom.service';
+import { notify } from '../lib/notify';
+import { Pencil } from 'lucide-react';
+
+/**
+ * Inline editor for a BOM row's style-specific rate. Lets a price be set even when the
+ * material master has no price (the master itself is never changed from here).
+ */
+function BomRateEditor({
+  styleId,
+  bomId,
+  unitPrice,
+  onSaved,
+}: {
+  styleId: string;
+  bomId: string;
+  unitPrice?: number | null;
+  onSaved: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(unitPrice != null ? String(unitPrice) : '');
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    const parsed = value.trim() === '' ? null : Number(value);
+    if (parsed !== null && (isNaN(parsed) || parsed < 0)) {
+      notify.error('Rate must be a non-negative number');
+      return;
+    }
+    try {
+      setSaving(true);
+      await updateBOMItem(styleId, bomId, { unitPrice: parsed });
+      notify.success('Rate saved');
+      setEditing(false);
+      onSaved();
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      notify.error(axiosError.response?.data?.message || 'Failed to save rate');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!editing) {
+    return (
+      <div>
+        <p className="font-medium text-muted-foreground">Rate</p>
+        <div className="flex items-center gap-1">
+          <p className="text-base font-semibold">
+            {unitPrice != null ? (
+              `₹${Number(unitPrice).toFixed(2)}`
+            ) : (
+              <span className="text-muted-foreground">Not set</span>
+            )}
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={() => {
+              setValue(unitPrice != null ? String(unitPrice) : '');
+              setEditing(true);
+            }}
+          >
+            <Pencil className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p className="font-medium text-muted-foreground">Rate</p>
+      <div className="flex items-center gap-1">
+        <Input
+          type="number"
+          min="0"
+          step="0.01"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') save();
+            if (e.key === 'Escape') setEditing(false);
+          }}
+          className="h-8 w-24"
+          autoFocus
+          disabled={saving}
+        />
+        <Button size="sm" className="h-8" onClick={save} disabled={saving}>
+          {saving ? '...' : 'Save'}
+        </Button>
+        <Button variant="ghost" size="sm" className="h-8" onClick={() => setEditing(false)} disabled={saving}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default function StyleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -551,6 +651,12 @@ export default function StyleDetail() {
                                         : `${trim.quantityPerGarment} ${trim.unit}`}
                                     </p>
                                   </div>
+                                  <BomRateEditor
+                                    styleId={style.id}
+                                    bomId={trim.id}
+                                    unitPrice={trim.unitPrice}
+                                    onSaved={() => loadStyleData(style.id)}
+                                  />
                                   {trim.componentName && (
                                     <div>
                                       <p className="font-medium text-muted-foreground">Component</p>
@@ -616,6 +722,12 @@ export default function StyleDetail() {
                                       {item.quantityPerGarment} {item.unit}
                                     </p>
                                   </div>
+                                  <BomRateEditor
+                                    styleId={style.id}
+                                    bomId={item.id}
+                                    unitPrice={item.unitPrice}
+                                    onSaved={() => loadStyleData(style.id)}
+                                  />
                                   {item.componentName && (
                                     <div>
                                       <p className="font-medium text-muted-foreground">Component</p>

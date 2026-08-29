@@ -95,6 +95,12 @@ router.delete('/suppliers/:supplierId/link', asyncHandler(tallyController.unlink
 // POST /api/tally/suppliers/auto-match — Auto-match suppliers to Tally ledgers (no-body)
 router.post('/suppliers/auto-match', asyncHandler(tallyController.autoMatchSuppliers.bind(tallyController)));
 
+// GET /api/tally/suppliers/sync-preview — Preview what supplier details would be updated from Tally
+router.get('/suppliers/sync-preview', asyncHandler(tallyController.previewSupplierSync.bind(tallyController)));
+
+// POST /api/tally/suppliers/sync — Apply supplier detail updates from Tally (no-body)
+router.post('/suppliers/sync', asyncHandler(tallyController.syncSupplierDetails.bind(tallyController)));
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Debit Note Push
 // ═══════════════════════════════════════════════════════════════════════════

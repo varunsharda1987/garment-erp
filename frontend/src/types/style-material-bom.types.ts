@@ -128,6 +128,8 @@ export interface UpdateBOMItemRequest {
   unit?: string;
   notes?: string;
   isActive?: boolean;
+  // Style-specific rate; null clears the override back to master-price fallback
+  unitPrice?: number | null;
 }
 
 export interface UpdateBOMItemResponse {

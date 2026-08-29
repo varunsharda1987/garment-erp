@@ -9,6 +9,9 @@
 
 export const MaterialRequirementStatus = {
   PENDING: 'PENDING',
+  // Size-wise label: total known, per-size split not entered yet. Visible but deliberately not
+  // orderable (every PO path allowlists PO_REQUIRED/PARTIAL_STOCK).
+  SIZE_PENDING: 'SIZE_PENDING',
   FULFILLED_STOCK: 'FULFILLED_STOCK',
   PARTIAL_STOCK: 'PARTIAL_STOCK',
   PO_REQUIRED: 'PO_REQUIRED',
@@ -24,6 +27,7 @@ export type MaterialRequirementStatus = (typeof MaterialRequirementStatus)[keyof
 
 export const MaterialRequirementStatusLabels: Record<MaterialRequirementStatus, string> = {
   PENDING: 'Pending',
+  SIZE_PENDING: 'Size Split Pending',
   FULFILLED_STOCK: 'Fulfilled from Stock',
   PARTIAL_STOCK: 'Partially from Stock',
   PO_REQUIRED: 'PO Required',
@@ -37,6 +41,7 @@ export const MaterialRequirementStatusLabels: Record<MaterialRequirementStatus, 
 
 export const MaterialRequirementStatusColors: Record<MaterialRequirementStatus, string> = {
   PENDING: 'bg-muted text-foreground',
+  SIZE_PENDING: 'bg-amber-100 text-amber-800',
   FULFILLED_STOCK: 'bg-success-muted text-success',
   PARTIAL_STOCK: 'bg-yellow-100 text-yellow-800',
   PO_REQUIRED: 'bg-orange-100 text-orange-800',

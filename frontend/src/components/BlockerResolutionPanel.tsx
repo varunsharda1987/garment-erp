@@ -53,10 +53,10 @@ export function BlockerResolutionPanel({ sampleId, onResolved, compact = false }
   const handleCreateRevision = async () => {
     if (!sample) return;
     try {
-      await sampleService.createRevision(sample.id, { remarks: 'Revision created from blocker resolution' });
+      await sampleService.createRevision(sample.id);
       handleSuccess();
     } catch (err) {
-      // Error handled by the service
+      // allow-silent-catch — createRevision throws toast on error via handleApiError
     }
   };
 
@@ -129,9 +129,7 @@ export function BlockerResolutionPanel({ sampleId, onResolved, compact = false }
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium">{sample.sampleNumber}</span>
           <SampleVersionBadge version={sample.version} sampleType={sample.sampleType} />
-          <Badge className={SampleStatusColors[sample.status]}>
-            {SampleStatusLabels[sample.status]}
-          </Badge>
+          <Badge className={SampleStatusColors[sample.status]}>{SampleStatusLabels[sample.status]}</Badge>
         </div>
         {getActionButton(sample.status)}
 
@@ -168,9 +166,7 @@ export function BlockerResolutionPanel({ sampleId, onResolved, compact = false }
             <div className="flex items-center gap-2">
               <span className="font-medium">{sample.sampleNumber}</span>
               <SampleVersionBadge version={sample.version} sampleType={sample.sampleType} />
-              <Badge className={SampleStatusColors[sample.status]}>
-                {SampleStatusLabels[sample.status]}
-              </Badge>
+              <Badge className={SampleStatusColors[sample.status]}>{SampleStatusLabels[sample.status]}</Badge>
               <SampleSLABadge slaStatus={sample.slaStatus} daysUntilDue={sample.daysUntilDue} />
             </div>
             {sample.style && (

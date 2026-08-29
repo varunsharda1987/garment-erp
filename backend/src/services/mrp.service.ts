@@ -954,11 +954,16 @@ export async function calculateRequirementsFromOrder(
   updated: number;
   requirements: MaterialRequirementResponse[];
   skipped: { componentName: string; materialType: string; reason: string }[];
+  sizePending: { componentName: string; materialType: string; reason: string }[];
 }> {
   const { orderId, orderItemId, requiredDate: requiredDateInput, checkStock = true } = input;
 
   // Track skipped BOM items with reasons for transparency
   const skippedItems: { componentName: string; materialType: string; reason: string }[] = [];
+  // Size-wise labels recorded at full quantity but awaiting the order's size split. These are
+  // NOT skipped — they produce a SIZE_PENDING requirement — so they are reported separately
+  // and must never be presented to the user as a missing-linkage failure.
+  const sizePendingItems: { componentName: string; materialType: string; reason: string }[] = [];
 
   // Get order with items and their styles
   const order = await prisma.orders.findUnique({
@@ -1650,6 +1655,7 @@ export async function calculateRequirementsFromOrder(
 
       // SIZE-BASED LABEL HANDLING: Check if label has size variants
       // If yes, create per-size requirements using order_item_breakup quantities
+      let sizeSplitPending = false;
       if (bomItem.labelId && !effectiveMaterialId) {
         const labelSizeVariants = await prisma.label_size_variants.findMany({
           where: { labelId: bomItem.labelId, isActive: true },
@@ -1731,21 +1737,34 @@ export async function calculateRequirementsFromOrder(
             }
             // If no size requirements were created (all sizes skipped), fall through to single requirement
           } else {
-            // SIZE-BASED LABEL BUT NO SIZE BREAKUP:
-            // Cannot create meaningful requirements - we don't know how many of each size to order
-            // Skip this item and warn the user
-            skippedItems.push({
+            // SIZE-BASED LABEL, SIZE BREAKUP NOT KNOWN YET.
+            // Orders are deliberately created without a size split so long-lead greige/dyeing/
+            // printing procurement can start, and the BOM must still carry everything the style
+            // consumes. The TOTAL is already known here — only the per-size distribution is not —
+            // so this is recorded as ONE requirement against the base label material in
+            // SIZE_PENDING: visible to planning, deliberately NOT orderable (you cannot print
+            // size labels without the sizes). Entering the breakup later cancels this row via the
+            // normal supersede pass and creates the per-size requirements in its place.
+            // Skipping it outright (the old behaviour) silently dropped the label from the plan.
+            sizeSplitPending = true;
+            sizePendingItems.push({
               componentName: bomItem.componentName || labelSizeVariants[0]?.label?.labelName || 'Size-based Label',
               materialType: bomItem.materialType,
-              reason: `Size-based label requires size breakup. Add size-wise quantity breakdown to the order to generate label requirements.`,
+              reason: `Size-wise label recorded at its full quantity, pending the size split. Add the size-wise breakdown to the order to generate per-size label requirements and enable ordering.`,
             });
             console.warn(
-              `[MRP] Skipped size-based label "${bomItem.componentName}" - no size breakup available for order item ${orderItem.id}`
+              `[MRP] Size-based label "${bomItem.componentName}" recorded as SIZE_PENDING - no size breakup yet for order item ${orderItem.id}`
             );
-            continue;
           }
         }
         // No size variants - fall through to existing single-requirement logic (non-size-based label)
+      }
+
+      // A size-wise label with no split yet keeps its real total but must not be orderable —
+      // the base-label materialId is resolved by the trim lookup below, exactly as it would be
+      // for a plain label.
+      if (sizeSplitPending) {
+        status = MaterialRequirementStatus.SIZE_PENDING;
       }
 
       // For other master types (thread, button, zipper, elastic, label, packaging),
@@ -2287,7 +2306,7 @@ export async function calculateRequirementsFromOrder(
     );
   }
 
-  return { created, updated, requirements: savedRequirements, skipped: skippedItems };
+  return { created, updated, requirements: savedRequirements, skipped: skippedItems, sizePending: sizePendingItems };
 }
 
 /**

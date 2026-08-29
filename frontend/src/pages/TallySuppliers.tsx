@@ -7,8 +7,29 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Loader2, Search, Link2, Link2Off, CheckCircle, XCircle, Wand2, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Loader2,
+  Search,
+  Link2,
+  Link2Off,
+  CheckCircle,
+  XCircle,
+  Wand2,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  ArrowRight,
+} from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import {
   getTallySuppliers,
@@ -16,6 +37,9 @@ import {
   linkSupplierToTally,
   unlinkSupplierFromTally,
   autoMatchTallySuppliers,
+  previewSupplierSyncFromTally,
+  syncSupplierDetailsFromTally,
+  type SupplierSyncPreviewResult,
 } from '@/services/tally.service';
 import type { SupplierTallyMatch } from '@/types/tally.types';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -28,6 +52,12 @@ export default function TallySuppliersPage() {
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierTallyMatch | null>(null);
   const [selectedLedger, setSelectedLedger] = useState('');
+
+  // Sync dialog state
+  const [syncDialogOpen, setSyncDialogOpen] = useState(false);
+  const [syncPreview, setSyncPreview] = useState<SupplierSyncPreviewResult | null>(null);
+  const [syncOnlyBlanks, setSyncOnlyBlanks] = useState(true);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   const debouncedSearch = useDebounce(search, 300);
 
@@ -49,10 +79,8 @@ export default function TallySuppliersPage() {
     enabled: linkDialogOpen,
   });
 
-  const creditorLedgers =
-    ledgersQuery.data?.filter(
-      (l) => l.parent.toLowerCase().includes('creditor') || l.parent.toLowerCase().includes('payable')
-    ) || [];
+  // Show all ledgers - let user pick the right one
+  const creditorLedgers = ledgersQuery.data || [];
 
   const linkMutation = useMutation({
     mutationFn: ({ supplierId, ledgerName }: { supplierId: string; ledgerName: string }) =>
@@ -85,6 +113,43 @@ export default function TallySuppliersPage() {
     onError: (error) => handleApiError(error, 'Auto-match failed'),
   });
 
+  const syncMutation = useMutation({
+    mutationFn: () => syncSupplierDetailsFromTally(syncOnlyBlanks),
+    onSuccess: (result) => {
+      handleApiSuccess('Sync complete', `Updated ${result.updated} suppliers from Tally`);
+      setSyncDialogOpen(false);
+      setSyncPreview(null);
+      queryClient.invalidateQueries({ queryKey: ['tally-suppliers'] });
+    },
+    onError: (error) => handleApiError(error, 'Sync failed'),
+  });
+
+  const openSyncDialog = async () => {
+    setSyncDialogOpen(true);
+    setLoadingPreview(true);
+    try {
+      const preview = await previewSupplierSyncFromTally(syncOnlyBlanks);
+      setSyncPreview(preview);
+    } catch (error) {
+      handleApiError(error, 'Failed to load preview');
+      setSyncDialogOpen(false);
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  const refreshPreview = async () => {
+    setLoadingPreview(true);
+    try {
+      const preview = await previewSupplierSyncFromTally(syncOnlyBlanks);
+      setSyncPreview(preview);
+    } catch (error) {
+      handleApiError(error, 'Failed to load preview');
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
   const openLinkDialog = (supplier: SupplierTallyMatch) => {
     setSelectedSupplier(supplier);
     setSelectedLedger(supplier.suggestion || '');
@@ -114,6 +179,10 @@ export default function TallySuppliersPage() {
         </Button>
         <Button variant="outline" size="sm" asChild>
           <Link to="/settings/tally/debit-notes">Debit Note Push</Link>
+        </Button>
+        <Button variant="default" size="sm" onClick={openSyncDialog} className="gap-2 ml-auto">
+          <Download className="h-4 w-4" />
+          Sync Details from Tally
         </Button>
       </div>
 
@@ -312,7 +381,19 @@ export default function TallySuppliersPage() {
               {ledgersQuery.isLoading ? (
                 <div className="flex items-center gap-2 py-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">Loading ledgers...</span>
+                  <span className="text-sm text-muted-foreground">Loading ledgers from Tally...</span>
+                </div>
+              ) : ledgersQuery.isError ? (
+                <div className="flex items-center gap-2 py-2 text-red-600">
+                  <XCircle className="h-4 w-4" />
+                  <span className="text-sm">Failed to connect to Tally. Make sure Tally is running.</span>
+                </div>
+              ) : creditorLedgers.length === 0 ? (
+                <div className="flex items-center gap-2 py-2 text-orange-600">
+                  <XCircle className="h-4 w-4" />
+                  <span className="text-sm">
+                    No supplier ledgers found. Total ledgers: {ledgersQuery.data?.length || 0}
+                  </span>
                 </div>
               ) : (
                 <Select value={selectedLedger} onValueChange={setSelectedLedger}>
@@ -322,7 +403,7 @@ export default function TallySuppliersPage() {
                   <SelectContent>
                     {creditorLedgers.map((ledger) => (
                       <SelectItem key={ledger.name} value={ledger.name}>
-                        {ledger.name}
+                        {ledger.name} <span className="text-muted-foreground text-xs ml-2">({ledger.parent})</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -337,6 +418,126 @@ export default function TallySuppliersPage() {
             <Button onClick={handleLink} disabled={!selectedLedger || linkMutation.isPending}>
               {linkMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Link
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sync from Tally Dialog */}
+      <Dialog open={syncDialogOpen} onOpenChange={setSyncDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[85vh]">
+          <DialogHeader>
+            <DialogTitle>Sync Supplier Details from Tally</DialogTitle>
+            <DialogDescription>
+              Pull GST, bank details, address, and other information from Tally into the ERP supplier master.
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingPreview ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <p className="mt-4 text-sm text-muted-foreground">Fetching data from Tally...</p>
+            </div>
+          ) : syncPreview ? (
+            <div className="space-y-4">
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-muted/50 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-semibold">{syncPreview.stats.totalLinked}</div>
+                  <div className="text-sm text-muted-foreground">Linked Suppliers</div>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-semibold">{syncPreview.stats.foundInTally}</div>
+                  <div className="text-sm text-muted-foreground">Found in Tally</div>
+                </div>
+                <div className="bg-green-50 dark:bg-green-950 rounded-lg p-3 text-center">
+                  <div className="text-2xl font-semibold text-green-700 dark:text-green-400">
+                    {syncPreview.stats.withChanges}
+                  </div>
+                  <div className="text-sm text-green-600 dark:text-green-500">Will Update</div>
+                </div>
+              </div>
+
+              {/* Option */}
+              <div className="flex items-center gap-2 p-3 bg-muted/30 rounded-lg">
+                <Checkbox
+                  id="onlyBlanks"
+                  checked={syncOnlyBlanks}
+                  onCheckedChange={(checked) => {
+                    setSyncOnlyBlanks(!!checked);
+                    refreshPreview();
+                  }}
+                />
+                <label htmlFor="onlyBlanks" className="text-sm cursor-pointer">
+                  Only fill blank fields (don't overwrite existing values)
+                </label>
+              </div>
+
+              {/* Preview Table */}
+              {syncPreview.suppliers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No suppliers have data available in Tally to sync.
+                </div>
+              ) : (
+                <ScrollArea className="h-[400px] border rounded-lg">
+                  <div className="p-4 space-y-4">
+                    {syncPreview.suppliers
+                      .filter((s) => s.changes.some((c) => c.willUpdate))
+                      .map((supplier) => (
+                        <div key={supplier.supplierId} className="border rounded-lg p-4">
+                          <div className="font-medium mb-3">
+                            {supplier.supplierName}
+                            <span className="text-muted-foreground font-normal ml-2">({supplier.supplierCode})</span>
+                            <span className="text-xs text-muted-foreground ml-2">→ {supplier.tallyLedgerName}</span>
+                          </div>
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-[140px]">Field</TableHead>
+                                <TableHead>Current Value</TableHead>
+                                <TableHead className="w-[40px]"></TableHead>
+                                <TableHead>From Tally</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {supplier.changes
+                                .filter((c) => c.willUpdate)
+                                .map((change) => (
+                                  <TableRow key={change.field}>
+                                    <TableCell className="font-medium">{change.label}</TableCell>
+                                    <TableCell className="text-muted-foreground">
+                                      {change.currentValue || (
+                                        <span className="italic text-muted-foreground/50">(empty)</span>
+                                      )}
+                                    </TableCell>
+                                    <TableCell>
+                                      <ArrowRight className="h-4 w-4 text-green-600" />
+                                    </TableCell>
+                                    <TableCell className="text-green-700 dark:text-green-400 font-medium">
+                                      {change.tallyValue}
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSyncDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending || !syncPreview || syncPreview.stats.withChanges === 0}
+            >
+              {syncMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Apply Changes ({syncPreview?.stats.withChanges || 0})
             </Button>
           </DialogFooter>
         </DialogContent>

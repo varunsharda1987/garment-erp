@@ -984,7 +984,41 @@ class JobWorkOrderController {
         : v.jwo.fabricType === 'GREIGE'
           ? {}
           : null;
-      const availableLots = greigeFilter
+
+      // Query 1: Stock already at the target processor (virtual issuance — no dispatch needed)
+      const atProcessorLots =
+        greigeFilter && v.jwo.processorId
+          ? await prisma.greige_stock.findMany({
+              where: {
+                ...greigeFilter,
+                status: 'AVAILABLE',
+                processorId: v.jwo.processorId,
+                quantityAvailable: { gt: 0 },
+              },
+              select: {
+                id: true,
+                greigeId: true,
+                greigeWidth: true,
+                quantityAvailable: true,
+                greige: { select: { greigeCode: true, greigeName: true } },
+                // Include original JWO info for reallocation prompt
+                stockDetails: {
+                  select: {
+                    issueDetails: {
+                      select: { jobWorkOrder: { select: { id: true, jobWorkNumber: true } } },
+                      orderBy: { issuedAt: 'desc' },
+                      take: 1,
+                    },
+                  },
+                  take: 1,
+                },
+              },
+              orderBy: { quantityAvailable: 'desc' },
+            })
+          : [];
+
+      // Query 2: Stock at main warehouse (requires outward challan)
+      const atMainWarehouseLots = greigeFilter
         ? await prisma.greige_stock.findMany({
             where: {
               ...greigeFilter,
@@ -1004,6 +1038,26 @@ class JobWorkOrderController {
             orderBy: { quantityAvailable: 'desc' },
           })
         : [];
+
+      // Extract original JWO info for processor lots
+      const mapLot = (l: (typeof atMainWarehouseLots)[0]) => ({
+        id: l.id,
+        greigeId: l.greigeId,
+        greigeCode: l.greige?.greigeCode ?? null,
+        greigeName: l.greige?.greigeName ?? null,
+        greigeWidth: l.greigeWidth != null ? Number(l.greigeWidth) : null,
+        quantityAvailable: Number(l.quantityAvailable),
+      });
+
+      const mapProcessorLot = (l: (typeof atProcessorLots)[0]) => ({
+        ...mapLot(l as (typeof atMainWarehouseLots)[0]),
+        // Original JWO this lot was issued for (for reallocation prompt)
+        originalJwo: l.stockDetails?.[0]?.issueDetails?.[0]?.jobWorkOrder ?? null,
+      });
+
+      const processorStockTotal = atProcessorLots.reduce((s, l) => s + Number(l.quantityAvailable), 0);
+      const mainWarehouseStockTotal = atMainWarehouseLots.reduce((s, l) => s + Number(l.quantityAvailable), 0);
+
       return res.json({
         success: true,
         data: {
@@ -1015,14 +1069,14 @@ class JobWorkOrderController {
           requiredQty: Number(v.jwo.qtySentMeters),
           uom: v.jwo.uom,
           fabricType: v.jwo.fabricType,
-          availableLots: availableLots.map((l) => ({
-            id: l.id,
-            greigeId: l.greigeId,
-            greigeCode: l.greige?.greigeCode ?? null,
-            greigeName: l.greige?.greigeName ?? null,
-            greigeWidth: l.greigeWidth != null ? Number(l.greigeWidth) : null,
-            quantityAvailable: Number(l.quantityAvailable),
-          })),
+          processorName: v.jwo.processor?.name ?? null,
+          // Two-section response for the issue dialog
+          atProcessor: atProcessorLots.map(mapProcessorLot),
+          atProcessorTotal: processorStockTotal,
+          atMainWarehouse: atMainWarehouseLots.map(mapLot),
+          atMainWarehouseTotal: mainWarehouseStockTotal,
+          // Legacy field for backwards compatibility
+          availableLots: [...atProcessorLots.map(mapProcessorLot), ...atMainWarehouseLots.map(mapLot)],
         },
       });
     } catch (error) {

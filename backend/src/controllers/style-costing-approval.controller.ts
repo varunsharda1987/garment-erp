@@ -282,6 +282,9 @@ export const createCostSheetVersion = async (req: Request, res: Response): Promi
         embroideryTotal: sourceCostSheet.embroideryTotal,
         accessoriesDetails: sourceCostSheet.accessoriesDetails || undefined,
         accessoriesTotal: sourceCostSheet.accessoriesTotal,
+        // Lace items are cloned relationally by copyCostSheetItemTables; without this the
+        // column stays at its 0 default while the copied subtotal already includes lace
+        laceTotal: sourceCostSheet.laceTotal,
         valueLossPercent: sourceCostSheet.valueLossPercent,
         valueLossAmount: sourceCostSheet.valueLossAmount,
         markupPercent: sourceCostSheet.markupPercent,
@@ -647,6 +650,8 @@ export const copyCostSheetForProcurement = async (req: Request, res: Response): 
         cmtTotal: sourceCostSheet.cmtTotal,
         embroideryTotal: sourceCostSheet.embroideryTotal,
         accessoriesTotal: sourceCostSheet.accessoriesTotal,
+        // Lace rows are cloned relationally below; keep the column in step
+        laceTotal: sourceCostSheet.laceTotal,
         totalProductCost: sourceCostSheet.totalProductCost,
 
         // Copy value loss and markup

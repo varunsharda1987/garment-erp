@@ -2,8 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Send, MessageSquare, Clock, CheckCircle, RefreshCcw, Play, CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
+import { Send, MessageSquare, CheckCircle, RefreshCcw, Play } from 'lucide-react';
 import { sampleService } from '@/services/sample.service';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import type { Sample, SampleStatus } from '@/types/sample.types';
@@ -44,7 +43,7 @@ export function SampleQuickActionBar({ sample, onActionComplete, compact = false
   const handleCreateRevision = async () => {
     try {
       setIsUpdating(true);
-      await sampleService.createRevision(sample.id, { remarks: 'Revision created from quick action' });
+      await sampleService.createRevision(sample.id);
       handleApiSuccess('Revision created', 'New sample version created');
       onActionComplete();
     } catch (err) {

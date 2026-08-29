@@ -1954,6 +1954,448 @@ export async function autoMatchSuppliers(): Promise<{ matched: number; total: nu
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// Supplier Detail Sync from Tally
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface TallyLedgerExtended {
+  name: string;
+  parent: string;
+  gstin: string;
+  regType: string;
+  address: string;
+  pincode: string;
+  state: string;
+  phone: string;
+  email: string;
+  bankName: string;
+  bankAccountNumber: string;
+  ifscCode: string;
+  creditDays: number | null;
+}
+
+/**
+ * Build XML to fetch extended ledger details including bank info, address, phone.
+ */
+export function buildExtendedLedgersXml(settings: TallySettings): string {
+  const company = settings.tallyCompanyName;
+  return `<ENVELOPE>
+<HEADER><VERSION>1</VERSION><TALLYREQUEST>Export</TALLYREQUEST><TYPE>Collection</TYPE><ID>KF Extended Ledgers</ID></HEADER>
+<BODY><DESC><STATICVARIABLES>
+<SVEXPORTFORMAT>$$SysName:XML</SVEXPORTFORMAT>
+${company ? `<SVCURRENTCOMPANY>${xe(company)}</SVCURRENTCOMPANY>` : ''}
+</STATICVARIABLES>
+<TDL><TDLMESSAGE><COLLECTION NAME="KF Extended Ledgers" ISMODIFY="No">
+<TYPE>Ledger</TYPE>
+<NATIVEMETHOD>Name</NATIVEMETHOD>
+<NATIVEMETHOD>Parent</NATIVEMETHOD>
+<NATIVEMETHOD>PartyGSTIN</NATIVEMETHOD>
+<NATIVEMETHOD>GSTRegistrationType</NATIVEMETHOD>
+<NATIVEMETHOD>Address</NATIVEMETHOD>
+<NATIVEMETHOD>LedgerPhone</NATIVEMETHOD>
+<NATIVEMETHOD>LedgerFax</NATIVEMETHOD>
+<NATIVEMETHOD>Email</NATIVEMETHOD>
+<NATIVEMETHOD>LedStateName</NATIVEMETHOD>
+<NATIVEMETHOD>PinCode</NATIVEMETHOD>
+<NATIVEMETHOD>BillCreditPeriod</NATIVEMETHOD>
+<NATIVEMETHOD>BankDetails</NATIVEMETHOD>
+<NATIVEMETHOD>BankName</NATIVEMETHOD>
+<NATIVEMETHOD>AccountNumber</NATIVEMETHOD>
+<NATIVEMETHOD>IFSCode</NATIVEMETHOD>
+</COLLECTION></TDLMESSAGE></TDL></DESC></BODY></ENVELOPE>`;
+}
+
+/**
+ * Parse extended ledger data from Tally XML response.
+ */
+export function parseExtendedLedgers(xml: string): TallyLedgerExtended[] {
+  const out: TallyLedgerExtended[] = [];
+  const opens = [...xml.matchAll(/<LEDGER\b([^>]*)>/gi)];
+
+  for (let i = 0; i < opens.length; i++) {
+    const attrs = opens[i][1];
+    const start = (opens[i].index ?? 0) + opens[i][0].length;
+    const end = i + 1 < opens.length ? (opens[i + 1].index ?? xml.length) : xml.length;
+    let body = xml.slice(start, end);
+    const close = body.indexOf('</LEDGER>');
+    if (close >= 0) body = body.slice(0, close);
+
+    const nameAttr = /\bNAME\s*=\s*"([^"]*)"/i.exec(attrs)?.[1];
+    const name = xmlUnescape((nameAttr ?? firstTag(body, 'NAME') ?? '').trim());
+    if (!name) continue;
+
+    const parent = firstTag(body, 'PARENT') ?? '';
+    const { gstin, regType } = parseLedgerGst(body);
+
+    // Address: Tally stores as ADDRESS.LIST with multiple ADDRESS lines
+    const addressLines: string[] = [];
+    const addressMatch = body.match(/<ADDRESS\.LIST[^>]*>([\s\S]*?)<\/ADDRESS\.LIST>/i);
+    if (addressMatch) {
+      const addrRe = /<ADDRESS>([^<]*)<\/ADDRESS>/gi;
+      let am;
+      while ((am = addrRe.exec(addressMatch[1]))) {
+        const line = xmlUnescape(am[1].trim());
+        if (line) addressLines.push(line);
+      }
+    }
+    const address = addressLines.join(', ');
+
+    const pincode = (firstTag(body, 'PINCODE') ?? '').trim();
+    const state = (firstTag(body, 'LEDSTATENAME') ?? '').trim();
+    const phone = (firstTag(body, 'LEDGERPHONE') ?? '').trim();
+    const email = (firstTag(body, 'EMAIL') ?? '').trim();
+
+    // Bank details: Tally may have BANKDETAILS.LIST or flat fields
+    let bankName = '';
+    let bankAccountNumber = '';
+    let ifscCode = '';
+
+    const bankMatch = body.match(/<BANKDETAILS\.LIST[^>]*>([\s\S]*?)<\/BANKDETAILS\.LIST>/i);
+    if (bankMatch) {
+      bankName = (firstTag(bankMatch[1], 'BANKNAME') ?? '').trim();
+      bankAccountNumber = (firstTag(bankMatch[1], 'ACCOUNTNUMBER') ?? '').trim();
+      ifscCode = (firstTag(bankMatch[1], 'IFSCODE') ?? '').trim();
+    }
+    // Fallback to flat fields if not in BANKDETAILS.LIST
+    if (!bankName) bankName = (firstTag(body, 'BANKNAME') ?? '').trim();
+    if (!bankAccountNumber) bankAccountNumber = (firstTag(body, 'ACCOUNTNUMBER') ?? '').trim();
+    if (!ifscCode) ifscCode = (firstTag(body, 'IFSCODE') ?? '').trim();
+
+    // Credit period
+    const creditPeriodRaw = firstTag(body, 'BILLCREDITPERIOD') ?? '';
+    const creditMatch = creditPeriodRaw.match(/\d+/);
+    const creditDays = creditMatch ? parseInt(creditMatch[0], 10) : null;
+
+    out.push({
+      name,
+      parent,
+      gstin,
+      regType,
+      address,
+      pincode,
+      state,
+      phone,
+      email,
+      bankName,
+      bankAccountNumber,
+      ifscCode,
+      creditDays,
+    });
+  }
+
+  return out;
+}
+
+export async function fetchExtendedLedgers(settings: TallySettings): Promise<TallyLedgerExtended[]> {
+  const xml = await post(settings, buildExtendedLedgersXml(settings), SLOW_READ_TIMEOUT_MS);
+  return parseExtendedLedgers(xml);
+}
+
+export interface SupplierSyncPreviewItem {
+  supplierId: string;
+  supplierCode: string;
+  supplierName: string;
+  tallyLedgerName: string;
+  changes: Array<{
+    field: string;
+    label: string;
+    currentValue: string | null;
+    tallyValue: string | null;
+    willUpdate: boolean;
+  }>;
+}
+
+export interface SupplierSyncPreviewResult {
+  suppliers: SupplierSyncPreviewItem[];
+  stats: {
+    totalLinked: number;
+    foundInTally: number;
+    withChanges: number;
+  };
+}
+
+/**
+ * Preview what supplier details would be updated from Tally.
+ * Only shows linked suppliers (those with tallyLedgerName set).
+ */
+export async function previewSupplierSyncFromTally(onlyBlanks: boolean = true): Promise<SupplierSyncPreviewResult> {
+  const settings = await tallySettingsService.get();
+  if (!settings.tallyEnabled) {
+    throw new Error('Tally integration is disabled');
+  }
+
+  // Get all linked suppliers
+  const linkedSuppliers = await prisma.suppliers.findMany({
+    where: {
+      isActive: true,
+      tallyLedgerName: { not: null },
+    },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      tallyLedgerName: true,
+      phone: true,
+      address: true,
+      billingPincode: true,
+      bankName: true,
+      bankAccountNumber: true,
+      ifscCode: true,
+      creditDays: true,
+      gst_numbers: {
+        where: { isPrimary: true },
+        select: { gstNumber: true },
+        take: 1,
+      },
+    },
+  });
+
+  if (linkedSuppliers.length === 0) {
+    return {
+      suppliers: [],
+      stats: { totalLinked: 0, foundInTally: 0, withChanges: 0 },
+    };
+  }
+
+  // Fetch extended ledgers from Tally
+  const tallyLedgers = await fetchExtendedLedgers(settings);
+  const ledgerMap = new Map<string, TallyLedgerExtended>();
+  for (const l of tallyLedgers) {
+    ledgerMap.set(normalize(l.name), l);
+  }
+
+  const results: SupplierSyncPreviewItem[] = [];
+  let foundInTally = 0;
+  let withChanges = 0;
+
+  for (const supplier of linkedSuppliers) {
+    const tallyLedger = ledgerMap.get(normalize(supplier.tallyLedgerName!));
+    if (!tallyLedger) continue;
+    foundInTally++;
+
+    const currentGst = supplier.gst_numbers[0]?.gstNumber ?? null;
+
+    const fields: SupplierSyncPreviewItem['changes'] = [];
+
+    const addField = (
+      field: string,
+      label: string,
+      current: string | number | null | undefined,
+      tally: string | number | null | undefined
+    ) => {
+      const currentStr = current?.toString() || null;
+      const tallyStr = tally?.toString() || null;
+      const hasValue = !!tallyStr;
+      const isDifferent = currentStr !== tallyStr;
+      const willUpdate = hasValue && isDifferent && (!onlyBlanks || !currentStr);
+
+      if (hasValue) {
+        fields.push({
+          field,
+          label,
+          currentValue: currentStr,
+          tallyValue: tallyStr,
+          willUpdate,
+        });
+      }
+    };
+
+    addField('gstin', 'GSTIN', currentGst, tallyLedger.gstin);
+    addField('phone', 'Phone', supplier.phone, tallyLedger.phone);
+    addField('address', 'Address', supplier.address, tallyLedger.address);
+    addField('billingPincode', 'Pincode', supplier.billingPincode, tallyLedger.pincode);
+    addField('bankName', 'Bank Name', supplier.bankName, tallyLedger.bankName);
+    addField('bankAccountNumber', 'Account No.', supplier.bankAccountNumber, tallyLedger.bankAccountNumber);
+    addField('ifscCode', 'IFSC Code', supplier.ifscCode, tallyLedger.ifscCode);
+    addField('creditDays', 'Credit Days', supplier.creditDays, tallyLedger.creditDays);
+
+    const hasUpdates = fields.some((f) => f.willUpdate);
+    if (hasUpdates) withChanges++;
+
+    // Only include suppliers with some Tally data available
+    if (fields.length > 0) {
+      results.push({
+        supplierId: supplier.id,
+        supplierCode: supplier.code,
+        supplierName: supplier.name,
+        tallyLedgerName: supplier.tallyLedgerName!,
+        changes: fields,
+      });
+    }
+  }
+
+  return {
+    suppliers: results,
+    stats: {
+      totalLinked: linkedSuppliers.length,
+      foundInTally,
+      withChanges,
+    },
+  };
+}
+
+export interface SupplierSyncResult {
+  updated: number;
+  skipped: number;
+  details: Array<{
+    supplierId: string;
+    supplierName: string;
+    fieldsUpdated: string[];
+  }>;
+}
+
+/**
+ * Apply supplier detail updates from Tally.
+ * @param onlyBlanks If true, only fill in blank fields. If false, overwrite existing values.
+ * @param supplierIds Optional list of supplier IDs to sync. If empty, syncs all linked suppliers.
+ */
+export async function syncSupplierDetailsFromTally(
+  onlyBlanks: boolean = true,
+  supplierIds?: string[]
+): Promise<SupplierSyncResult> {
+  const settings = await tallySettingsService.get();
+  if (!settings.tallyEnabled) {
+    throw new Error('Tally integration is disabled');
+  }
+
+  // Get linked suppliers
+  const where: any = {
+    isActive: true,
+    tallyLedgerName: { not: null },
+  };
+  if (supplierIds && supplierIds.length > 0) {
+    where.id = { in: supplierIds };
+  }
+
+  const linkedSuppliers = await prisma.suppliers.findMany({
+    where,
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      tallyLedgerName: true,
+      phone: true,
+      address: true,
+      billingPincode: true,
+      bankName: true,
+      bankAccountNumber: true,
+      ifscCode: true,
+      creditDays: true,
+      gst_numbers: {
+        where: { isPrimary: true },
+        select: { id: true, gstNumber: true },
+        take: 1,
+      },
+    },
+  });
+
+  if (linkedSuppliers.length === 0) {
+    return { updated: 0, skipped: 0, details: [] };
+  }
+
+  // Fetch extended ledgers from Tally
+  const tallyLedgers = await fetchExtendedLedgers(settings);
+  const ledgerMap = new Map<string, TallyLedgerExtended>();
+  for (const l of tallyLedgers) {
+    ledgerMap.set(normalize(l.name), l);
+  }
+
+  const result: SupplierSyncResult = { updated: 0, skipped: 0, details: [] };
+
+  for (const supplier of linkedSuppliers) {
+    const tallyLedger = ledgerMap.get(normalize(supplier.tallyLedgerName!));
+    if (!tallyLedger) {
+      result.skipped++;
+      continue;
+    }
+
+    const updates: Record<string, any> = {};
+    const fieldsUpdated: string[] = [];
+
+    const maybeUpdate = (field: string, current: any, tallyValue: any) => {
+      if (!tallyValue) return;
+      const shouldUpdate = onlyBlanks ? !current : current !== tallyValue;
+      if (shouldUpdate) {
+        updates[field] = tallyValue;
+        fieldsUpdated.push(field);
+      }
+    };
+
+    maybeUpdate('phone', supplier.phone, tallyLedger.phone);
+    maybeUpdate('address', supplier.address, tallyLedger.address);
+    maybeUpdate('billingPincode', supplier.billingPincode, tallyLedger.pincode);
+    maybeUpdate('bankName', supplier.bankName, tallyLedger.bankName);
+    maybeUpdate('bankAccountNumber', supplier.bankAccountNumber, tallyLedger.bankAccountNumber);
+    maybeUpdate('ifscCode', supplier.ifscCode, tallyLedger.ifscCode);
+    maybeUpdate('creditDays', supplier.creditDays, tallyLedger.creditDays);
+
+    if (Object.keys(updates).length > 0) {
+      await prisma.suppliers.update({
+        where: { id: supplier.id },
+        data: updates,
+      });
+      result.updated++;
+      result.details.push({
+        supplierId: supplier.id,
+        supplierName: supplier.name,
+        fieldsUpdated,
+      });
+    } else {
+      result.skipped++;
+    }
+
+    // Handle GST number - add to gst_numbers if not exists
+    if (tallyLedger.gstin) {
+      const currentGst = supplier.gst_numbers[0]?.gstNumber;
+      if (!currentGst || (!onlyBlanks && currentGst !== tallyLedger.gstin)) {
+        // Extract state code from GSTIN (first 2 digits)
+        const stateCode = tallyLedger.gstin.substring(0, 2);
+        const state = await prisma.indian_states.findFirst({
+          where: { stateCode },
+          select: { id: true, stateName: true, stateCode: true },
+        });
+
+        if (state) {
+          // Upsert GST number
+          await prisma.supplier_gst_numbers.upsert({
+            where: {
+              supplierId_gstNumber: {
+                supplierId: supplier.id,
+                gstNumber: tallyLedger.gstin,
+              },
+            },
+            create: {
+              supplierId: supplier.id,
+              gstNumber: tallyLedger.gstin,
+              stateId: state.id,
+              stateName: state.stateName,
+              stateCode: state.stateCode,
+              isPrimary: true,
+              billingAddress: tallyLedger.address || null,
+              billingPincode: tallyLedger.pincode || null,
+            },
+            update: {
+              billingAddress: tallyLedger.address || undefined,
+              billingPincode: tallyLedger.pincode || undefined,
+            },
+          });
+
+          // Mark other GST numbers as non-primary if this one is primary
+          await prisma.supplier_gst_numbers.updateMany({
+            where: {
+              supplierId: supplier.id,
+              gstNumber: { not: tallyLedger.gstin },
+            },
+            data: { isPrimary: false },
+          });
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Debit Note Push to Tally
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -2623,6 +3065,10 @@ export const tallyService = {
   linkSupplierToTallyLedger,
   unlinkSupplierFromTallyLedger,
   autoMatchSuppliers,
+  // Supplier detail sync from Tally
+  fetchExtendedLedgers,
+  previewSupplierSyncFromTally,
+  syncSupplierDetailsFromTally,
   // Invoice push
   pushInvoiceToTally,
   getInvoicesWithTallyStatus,

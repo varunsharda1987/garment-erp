@@ -22,6 +22,7 @@ sources:
   - frontend/src/pages/PurchaseOrderList.tsx
   - frontend/src/pages/PurchaseOrderForm.tsx
   - frontend/src/pages/PurchaseOrderDetail.tsx
+  - frontend/src/types/purchaseOrder.types.ts
   - backend/src/schemas/purchaseOrder.schema.ts
 ---
 
@@ -32,7 +33,7 @@ The supplier must already exist in **Materials & Masters → Suppliers**, and ev
 1. Open **Procurement → Purchase Orders** in the sidebar.
 2. Click **Create PO**. The page title reads **Create Purchase Order**.
 3. Optional but recommended: in the **Link to Style** card, pick a style, and link an order if this PO is for a specific order. Linking a style shows the **Materials Required** card so you can pull quantities from the style.
-4. In the **PO Details** card, choose **PO Category ***. Options are material categories only: Fabric, Greige, Trims, Thread, Lace, Greige Lace, General, Button, Zipper, Elastic, Label, Packaging, Machine Part, Other Material. The category cannot be changed later while editing.
+4. In the **PO Details** card, choose **PO Category ***. Options are material categories only: Fabric, Greige, Trims, Lace, Greige Lace, General. The category cannot be changed later while editing. If you add a material from the **Materials Required** card (for example with its **GREIGE PO** button), the category fills in on its own and shows a **Set by material** lock — click **Clear Style** to change it.
 5. Choose **Supplier ***. The supplier list is filtered by the category, so select the category first — the box stays disabled until you do.
 6. Optionally set **Delivery Location (Optional)** — the warehouse the goods should reach.
 7. Set **Expected Delivery Date *** (required).

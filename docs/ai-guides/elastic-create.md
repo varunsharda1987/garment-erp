@@ -32,7 +32,7 @@ To link a supplier, that supplier must already exist **with category "Trims Supp
 
 ## Steps
 1. Open **Materials & Masters → Trims Dashboard** in the sidebar. The page opens as **Trim Masters**.
-2. Click **Add Trim** at the top right. Under **Fasteners & Closures** choose **New Elastic**.
+2. Click **Add Trim** at the top right. Under **Threads & Tapes** choose **New Elastic**.
    (Alternative: open the Elastic list and click **+ Add New Elastic**.)
 3. The form opens with the heading **Create New Elastic**.
 4. **Elastic Code** is greyed out — the system assigns it on save (ELA-000001, ELA-000002 …). Ignore the sample text in the box; the real prefix is ELA.

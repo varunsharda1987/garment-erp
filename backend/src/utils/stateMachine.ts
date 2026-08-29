@@ -97,7 +97,11 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
   // RECEIVED requirement back to PO_REQUIRED (making it re-orderable after goods had arrived)
   // with nothing to stop it. Mirrors MaterialRequirementStatus in schema.prisma.
   materialRequirement: {
-    PENDING: ['PO_REQUIRED', 'PARTIAL_STOCK', 'FULFILLED_STOCK', 'CONVERTED', 'CANCELLED'],
+    PENDING: ['SIZE_PENDING', 'PO_REQUIRED', 'PARTIAL_STOCK', 'FULFILLED_STOCK', 'CONVERTED', 'CANCELLED'],
+    // Size-wise label whose per-size split is not known yet: the total is real and visible, but it
+    // must not be ordered until sizes arrive. Recalculation after the breakup is entered cancels
+    // this row and creates the per-size ones.
+    SIZE_PENDING: ['PO_REQUIRED', 'PARTIAL_STOCK', 'FULFILLED_STOCK', 'CANCELLED'],
     // Stock allocation can move either way while nothing has been ordered yet
     FULFILLED_STOCK: ['PARTIAL_STOCK', 'PO_REQUIRED', 'CONVERTED', 'CANCELLED'],
     PARTIAL_STOCK: ['PO_REQUIRED', 'FULFILLED_STOCK', 'PO_GENERATED', 'CONVERTED', 'CANCELLED'],

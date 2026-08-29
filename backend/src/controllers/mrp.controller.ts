@@ -52,6 +52,9 @@ export const calculateRequirements = async (req: Request, res: Response): Promis
   if (skipped.length > 0) {
     messageParts.push(`${skipped.length} BOM item(s) skipped — missing material linkages`);
   }
+  if ((result.sizePending || []).length > 0) {
+    messageParts.push(`${result.sizePending.length} size-wise label(s) awaiting the order's size breakdown`);
+  }
 
   res.json({
     success: true,

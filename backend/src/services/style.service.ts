@@ -25,6 +25,8 @@ import {
 } from '../types/style.types';
 import { generateSKU, checkMultipleSKUsExist, validateSKUFormat, getSizeOrder } from '../utils/sku-generator';
 import { recomputeStyleCadStatus } from './helpers/cad-status.helper';
+import { getOrCreateDefaultThreadId } from './helpers/default-thread.helper';
+import { multiplyCurrency, toNumber } from '../utils/currency';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { systemSettingsService } from './system-settings.service';
 
@@ -491,6 +493,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
       return bom.materialId && bom.materialId.trim() !== '';
     });
 
+    // Link placeholder THREAD rows to the real Default Thread master — never persist a
+    // BOM row without a master FK
+    await this.resolveDefaultThread(validMaterialBOM);
+
     logDebug(`Filtered BOM: ${combinedMaterialBOM.length} -> ${validMaterialBOM.length} valid items`);
 
     // BUG-S3 fix: Validate FK references BEFORE creating BOM records (matching UPDATE path behavior)
@@ -697,6 +703,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           description: data.description,
           season: data.season,
           seasonId: data.seasonId || null,
+          colorId: data.colorId || null,
           gender: (data.gender as Gender) || null,
           createdById: userId,
           specifications: data.specifications || data.category || null,
@@ -986,6 +993,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         brand_categories: true, // Include brand category for edit form
         product_category: true, // Include product category for edit form
         season_master: true, // Include season for edit form
+        color: true, // Include primary color for edit form
         style_components: {
           include: {
             style_fabrics: {
@@ -1716,6 +1724,24 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
       // Handle trims and accessories replacement if provided
       if (data.trims !== undefined || data.accessories !== undefined) {
+        // The style form sends trims WITHOUT prices/quantities (filled at BOM/costing level),
+        // and this block deletes + recreates every BOM row — so snapshot the user-set
+        // unitPrice/quantity per (materialType, materialId) first and merge them back into
+        // the recreated rows, or every re-save of the style would wipe BOM price edits.
+        const priorBomValues = new Map<string, { unitPrice: unknown; quantityPerGarment: unknown }>();
+        const priorRows = await tx.style_material_bom.findMany({
+          where: { styleId: id },
+          select: { materialType: true, materialId: true, unitPrice: true, quantityPerGarment: true },
+        });
+        for (const row of priorRows) {
+          if (row.materialId) {
+            priorBomValues.set(`${row.materialType}|${row.materialId}`, {
+              unitPrice: row.unitPrice,
+              quantityPerGarment: row.quantityPerGarment,
+            });
+          }
+        }
+
         // Delete existing style_material_bom records
         await tx.style_material_bom.deleteMany({
           where: { styleId: id },
@@ -1737,6 +1763,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           // All other types require a valid materialId
           return bom.materialId && bom.materialId.trim() !== '';
         });
+
+        // Link placeholder THREAD rows to the real Default Thread master — never persist a
+        // BOM row without a master FK
+        await this.resolveDefaultThread(validMaterialBOM, tx);
 
         logDebug(`[UPDATE] Filtered BOM: ${combinedMaterialBOM.length} -> ${validMaterialBOM.length} valid items`);
 
@@ -1852,6 +1882,31 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 ? resolvedPackagingIds.get(bom.materialId) || null
                 : null;
 
+            // Merge back BOM-level price/quantity edits the form payload does not carry.
+            // The simplified form hardcodes quantities (1 for LABEL/PACKAGING/THREAD, 0
+            // otherwise) — a payload qty equal to that default is not a user choice, so a
+            // previously saved BOM quantity outranks it; any other payload qty is a real
+            // edit (legacy materialBOM payloads carry real quantities) and wins.
+            const prior = bom.materialId ? priorBomValues.get(`${bom.materialType}|${bom.materialId}`) : undefined;
+            const typeDefaultQty =
+              bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING' || bom.materialType === 'THREAD' ? 1 : 0;
+            const incomingQty = Number(bom.quantityPerGarment || 0);
+            const priorQty = prior ? Number(prior.quantityPerGarment || 0) : 0;
+            const mergedQuantity =
+              incomingQty > 0 && incomingQty !== typeDefaultQty
+                ? parseFloat(String(bom.quantityPerGarment))
+                : priorQty > 0
+                  ? priorQty
+                  : incomingQty > 0
+                    ? incomingQty
+                    : typeDefaultQty;
+            const mergedUnitPrice =
+              bom.unitPrice != null && bom.unitPrice !== ''
+                ? parseFloat(String(bom.unitPrice))
+                : prior && prior.unitPrice != null
+                  ? Number(prior.unitPrice)
+                  : null;
+
             await tx.style_material_bom.create({
               data: {
                 id: randomUUID(),
@@ -1871,15 +1926,15 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
                 // Generic trim FK fields (DRAWSTRING, HOOK_EYE, SNAP_BUTTON, etc.)
                 ...buildGenericTrimFkFields(bom.materialType, bom.materialId || null),
                 componentName: bom.componentName || null,
-                quantityPerGarment:
-                  Number(bom.quantityPerGarment || 0) > 0
-                    ? parseFloat(String(bom.quantityPerGarment))
-                    : bom.materialType === 'LABEL' || bom.materialType === 'PACKAGING'
-                      ? 1
-                      : 0,
+                quantityPerGarment: mergedQuantity,
                 unit: bom.unit || Unit.PIECE,
-                unitPrice: bom.unitPrice ? parseFloat(String(bom.unitPrice)) : null,
-                totalCost: bom.totalCost ? parseFloat(String(bom.totalCost)) : null,
+                unitPrice: mergedUnitPrice,
+                totalCost:
+                  mergedUnitPrice != null
+                    ? toNumber(multiplyCurrency(mergedQuantity, mergedUnitPrice))
+                    : bom.totalCost
+                      ? parseFloat(String(bom.totalCost))
+                      : null,
                 notes: bom.notes || null,
                 sortOrder: idx,
                 // Explicit, so the DB column default cannot inject a wastage nobody chose.
@@ -1934,6 +1989,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           description: data.description,
           season: data.season,
           seasonId: data.seasonId !== undefined ? data.seasonId || null : undefined,
+          colorId: data.colorId !== undefined ? data.colorId || null : undefined,
           numberOfComponents:
             data.numberOfComponents !== undefined
               ? data.numberOfComponents
@@ -1974,6 +2030,7 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           brand_categories: true,
           product_category: true,
           season_master: true,
+          color: true,
           style_components: {
             include: {
               style_fabrics: true,
@@ -2628,7 +2685,9 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         ...(customerId && { customerId }),
         OR: [
           { order_items: { some: { orders: { status: { notIn: ['COMPLETED', 'CANCELLED', 'DISPATCHED'] } } } } },
-          { sale_order_items: { some: { saleOrder: { status: { notIn: ['DISPATCHED', 'DELIVERED', 'CANCELLED'] } } } } },
+          {
+            sale_order_items: { some: { saleOrder: { status: { notIn: ['DISPATCHED', 'DELIVERED', 'CANCELLED'] } } } },
+          },
           { work_orders: { some: { status: { in: ['PENDING', 'IN_PRODUCTION'] } } } },
         ],
       },
@@ -2830,19 +2889,43 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
 
     const combined: MaterialBOMInput[] = [...trimItems, ...accessoryItems, ...presetAccessories];
 
-    // Auto-add Thread if not present
+    // Auto-add Thread if not present. materialId is left unset here; resolveDefaultThread()
+    // links it to the real Default Thread master before persisting — a BOM row must never be
+    // saved without a master FK (103 orphan "Thread (Auto-added)" rows came from exactly that).
     const hasThread = combined.some((item) => item.materialType === 'THREAD');
     if (!hasThread) {
       combined.push({
         materialType: 'THREAD',
         usageCategory: 'GARMENT_TRIM',
         componentName: 'Default Thread',
-        quantityPerGarment: 0,
-        unit: 'cone',
+        quantityPerGarment: 1,
+        unit: 'lot',
       });
     }
 
     return combined;
+  }
+
+  /**
+   * Resolve THREAD BOM rows that carry no real master reference (the frontend's
+   * 'auto-thread' sentinel, or the backend auto-add above) to the shared "Default Thread"
+   * master (created with its same-ID materials record on first use). Mutates the rows in place.
+   */
+  private async resolveDefaultThread(bomRows: MaterialBOMInput[], tx?: Prisma.TransactionClient): Promise<void> {
+    const unresolved = bomRows.filter(
+      (b) =>
+        b.materialType === 'THREAD' && (!b.materialId || b.materialId.trim() === '' || b.materialId.startsWith('auto-'))
+    );
+    if (unresolved.length === 0) return;
+
+    const defaultThreadId = await getOrCreateDefaultThreadId(tx);
+
+    for (const row of unresolved) {
+      row.materialId = defaultThreadId;
+      if (!row.componentName || row.componentName === 'Thread (Auto-added)') {
+        row.componentName = 'Default Thread';
+      }
+    }
   }
 
   /**

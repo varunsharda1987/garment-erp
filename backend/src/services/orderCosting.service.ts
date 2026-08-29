@@ -165,6 +165,10 @@ class OrderCostingServiceClass {
 
       const accessoriesTotal = baseCosting ? Number(baseCosting.accessoriesTotal || 0) : 0;
 
+      // Lace lives in its own sheet column (style_costing_lace_items rollup) and is part of
+      // the sheet's subtotal — omitting it undercounted every lace-bearing order costing
+      const laceTotal = baseCosting ? Number(baseCosting.laceTotal || 0) : 0;
+
       const cmtTotal = baseCosting ? Number(baseCosting.cmtTotal || 0) : 0;
 
       const processingTotal = baseCosting
@@ -184,6 +188,7 @@ class OrderCostingServiceClass {
       const subtotalDec = addCurrency(
         fabricTotal,
         trimsTotal,
+        laceTotal,
         embroideryTotal,
         accessoriesTotal,
         cmtTotal,

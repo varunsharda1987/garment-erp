@@ -290,7 +290,7 @@ export const RELATION_MAPPINGS: Record<string, string> = {
   finishedGoodsStock: 'finishedGoodsStock',
 
   // Warehouse relations
-  warehouses: 'warehouses',
+  warehouses: 'warehouse', // Singular for single relation (used in GRN)
 
   // Delivery & Invoice relations
   deliveryNotes: 'deliveryNotes',

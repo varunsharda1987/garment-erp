@@ -25,6 +25,7 @@ sources:
   - frontend/src/pages/ZipperForm.tsx
   - backend/src/schemas/trimMasters.schema.ts
   - backend/src/controllers/zipper.controller.ts
+  - backend/src/utils/code-generator.ts
 ---
 
 ## Before you start
@@ -35,7 +36,7 @@ To link a supplier, that supplier must already exist **with category "Trims Supp
 2. Click **Add Trim** at the top right. Under **Fasteners & Closures** choose **New Zippers**.
    (Alternative: open the Zippers list and click **+ Add New Zipper**.)
 3. The form opens with the heading **Create New Zipper**.
-4. **Zipper Code** is greyed out — the system assigns it on save (ZIP-000001, ZIP-000002 …). Never type it.
+4. **Zipper Code** is greyed out — the system assigns it on save (ZIP-0001, ZIP-0002 …). Never type it.
 5. **Zipper Name**: leave it empty. It is built automatically from Colour, Teeth Type, Length and Brand. Type a name only to override.
 6. Fill the **Zipper Information** fields you know: **Buyer Code**, **Length (inches)**, **Teeth Type**, **Color**, **Brand**, **Slider Type**, **Tape Width (mm)**. All are optional.
 7. **Color** is chosen from the Color Master dropdown, not typed. If the shade is missing, use the **add a new color** link, create it, then return.

@@ -505,6 +505,72 @@ function checkB2bContract() {
 }
 
 /**
+ * Check: Frontend TypeScript compiles
+ */
+function checkFrontendTypeScript() {
+  console.log(`\n${c.cyan}Checking frontend TypeScript compilation...${c.reset}`);
+
+  try {
+    execSync('npx tsc -b', {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      cwd: path.join(process.cwd(), 'frontend'),
+      timeout: 180000, // 3 min timeout (frontend is larger)
+    });
+    console.log(`${c.green}  ✓ Frontend TypeScript compiles${c.reset}`);
+    return true;
+  } catch (error) {
+    const output = error.stdout || error.stderr || '';
+    const errorLines = output.split('\n').filter(line =>
+      line.includes('error TS') || line.includes('.ts(') || line.includes('.tsx(')
+    ).slice(0, 10);
+
+    console.log(`${c.red}  ✗ Frontend TypeScript compilation failed${c.reset}`);
+    if (errorLines.length > 0) {
+      errorLines.forEach(line => console.log(`${c.red}    ${line.trim()}${c.reset}`));
+    }
+    console.log(`${c.dim}    Run: cd frontend && npx tsc -b${c.reset}`);
+    return false;
+  }
+}
+
+/**
+ * Check: Backend TypeScript compiles (catches interface/type mismatches)
+ * This check was added after the colorId bug: field was in Zod schema + service,
+ * but missing from the TypeScript interface. Would have caught it in 10 seconds.
+ */
+function checkBackendTypeScript() {
+  console.log(`\n${c.cyan}Checking backend TypeScript compilation...${c.reset}`);
+
+  try {
+    execSync('npx tsc --noEmit', {
+      encoding: 'utf-8',
+      stdio: 'pipe',
+      cwd: path.join(process.cwd(), 'backend'),
+      timeout: 120000, // 2 min timeout
+    });
+    console.log(`${c.green}  ✓ Backend TypeScript compiles${c.reset}`);
+    return true;
+  } catch (error) {
+    const output = error.stdout || error.stderr || '';
+    // Extract just the error lines (not the full output)
+    const errorLines = output.split('\n').filter(line =>
+      line.includes('error TS') || line.includes('.ts(')
+    ).slice(0, 10); // Show first 10 errors max
+
+    console.log(`${c.red}  ✗ Backend TypeScript compilation failed${c.reset}`);
+    if (errorLines.length > 0) {
+      errorLines.forEach(line => console.log(`${c.red}    ${line.trim()}${c.reset}`));
+      if (output.split('\n').filter(l => l.includes('error TS')).length > 10) {
+        console.log(`${c.dim}    ... and more errors${c.reset}`);
+      }
+    }
+    console.log(`${c.dim}    Run: cd backend && npx tsc --noEmit${c.reset}`);
+    return false;
+  }
+}
+
+/**
  * Check: Stock services use material-sync helper
  */
 function checkStockServicePattern(backendFiles) {
@@ -1052,6 +1118,13 @@ function main() {
     if (!checkStockServicePattern(categories.backendTs)) allPassed = false;
   }
 
+  // Backend .ts changes → TypeScript must compile (catches missing interface fields)
+  // This check caught the colorId bug: field was in Zod schema but missing from TS interface
+  if (categories.backendTs.length) {
+    checksRun++;
+    if (!checkBackendTypeScript()) allPassed = false;
+  }
+
   // B2B contract surface touched → run the executable contract (blocks on failure).
   // The House of Kasya app is a LIVE external consumer; docs/B2B_INTEGRATION_GUIDE.md §5
   // froze these shapes after a July incident where a schema change silently 400'd every
@@ -1085,6 +1158,12 @@ function main() {
   if (categories.frontend.length) {
     checksRun++;
     checkFrontendSerializerMismatch(categories.frontend);
+  }
+
+  // Frontend .ts/.tsx changes → TypeScript must compile
+  if (categories.frontend.length) {
+    checksRun++;
+    if (!checkFrontendTypeScript()) allPassed = false;
   }
 
   // Controller changes → check response structure

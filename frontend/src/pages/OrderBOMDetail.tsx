@@ -118,20 +118,31 @@ const OrderBOMDetail = () => {
       setJustApprovedMsg(details.length > 0 ? details.join('. ') : 'BOM approved successfully');
       await fetchBOM();
 
-      // Show warnings for skipped items (most common issue)
+      // Show warnings for skipped items. Report the backend's OWN per-item reason — it knows
+      // exactly why each line was dropped, and the previous hardcoded "needs material master
+      // linkages" text sent people hunting for linkage bugs that did not exist.
       const skipped = result.mrp?.skipped || [];
       if (skipped.length > 0) {
-        const skippedNames = skipped
+        const detail = skipped
           .map(
             (s: { componentName: string; materialType: string; reason: string }) =>
-              `${s.componentName} (${s.materialType})`
+              `${s.componentName} (${s.materialType}): ${s.reason}`
           )
+          .join(' • ');
+        handleApiError(new Error(`${skipped.length} BOM item(s) skipped during MRP. ${detail}`), 'MRP Skipped Items');
+      }
+
+      // Size-wise labels are NOT skipped — they are planned at their full quantity and wait for
+      // the order's size split, so this is information, not an error.
+      const sizePending = result.mrp?.sizePending || [];
+      if (sizePending.length > 0) {
+        const names = sizePending
+          .map((s: { componentName: string; materialType: string }) => s.componentName)
           .join(', ');
-        handleApiError(
-          new Error(
-            `${skipped.length} BOM item(s) skipped during MRP: ${skippedNames}. These items need material master linkages (fabricId, laceId, etc.) to generate requirements.`
-          ),
-          'MRP Skipped Items'
+        handleApiSuccess(
+          'Size breakdown needed',
+          `${sizePending.length} size-wise label(s) planned at full quantity but not yet orderable: ${names}. ` +
+            `Add the order's size breakdown to generate per-size label requirements.`
         );
       }
       if (result.mrpWarning) {

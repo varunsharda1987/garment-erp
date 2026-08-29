@@ -50,4 +50,4 @@ sources:
 ## Notes
 
 - If you see "Supplier code already exists", go back to the list and open the form again to get a fresh code.
-- To change a supplier later, use **Edit** on its row. **Deactivate** is blocked while purchase orders or linked materials are still open.
+- To change a supplier later, use **Edit** on its row. **Deactivate** is blocked while the supplier still has open purchase orders or pending GRNs — the dialog lists the blocking items.

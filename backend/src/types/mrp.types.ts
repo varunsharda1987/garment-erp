@@ -11,6 +11,9 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 export const MaterialRequirementStatus = {
   PENDING: 'PENDING',
+  // Size-wise label: total known, per-size split not yet given. Visible, deliberately NOT
+  // orderable (PO paths allowlist PO_REQUIRED/PARTIAL_STOCK, so this is excluded by design).
+  SIZE_PENDING: 'SIZE_PENDING',
   FULFILLED_STOCK: 'FULFILLED_STOCK',
   PARTIAL_STOCK: 'PARTIAL_STOCK',
   PO_REQUIRED: 'PO_REQUIRED',

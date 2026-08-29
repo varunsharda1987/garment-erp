@@ -59,6 +59,13 @@ export interface Style {
     year: number;
     seasonType: string;
   } | null; // Season relation from backend (camelCase from serializer)
+  colorId?: string | null;
+  color?: {
+    id: string;
+    colorCode: string;
+    colorName: string;
+    hexCode?: string | null;
+  } | null; // Primary color relation from backend
   specifications?: string | null; // Old category field (for backward compatibility)
   numberOfComponents?: number | null; // Number of garment components (e.g., top, bottom, etc.)
   productCategoryId?: string | null; // Reference to product_category_master table
@@ -333,6 +340,7 @@ export interface CreateStyleFormData {
   description?: string | null;
   season?: string;
   seasonId?: string | null;
+  colorId?: string | null;
   gender?: 'MALE' | 'FEMALE' | 'UNISEX' | null;
   ageGroup?: 'INFANT' | 'KIDS' | 'TEEN' | 'ADULT' | null;
   specifications?: string | null;

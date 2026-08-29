@@ -397,9 +397,9 @@ async function updateCostSheetLaceTotal(
   costingId: string,
   tx: Prisma.TransactionClient | typeof prisma = prisma
 ): Promise<void> {
-  // Calculate total from all lace items
+  // Calculate total from all lace items (N/A rows are persisted but excluded from totals)
   const result = await tx.style_costing_lace_items.aggregate({
-    where: { costingId },
+    where: { costingId, isNotApplicable: false },
     _sum: { totalCost: true },
   });
 

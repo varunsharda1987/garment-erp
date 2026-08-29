@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { sampleService } from '@/services/sample.service';
 import type { Sample, SampleType, SampleStatus, SampleSummary } from '@/types/sample.types';
 import { SampleTypeLabels, SampleStatusLabels, SampleStatusColors } from '@/types/sample.types';
@@ -13,13 +12,24 @@ import SearchInput from '@/components/SearchInput';
 import DataTable from '@/components/DataTable';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
-import { TestTube, Plus, Eye, Pencil, Trash2, RefreshCcw, Filter, Clock, AlertCircle, CheckCircle, Layers } from 'lucide-react';
+import {
+  TestTube,
+  Plus,
+  Eye,
+  Pencil,
+  Trash2,
+  RefreshCcw,
+  Filter,
+  Clock,
+  AlertCircle,
+  CheckCircle,
+  Layers,
+} from 'lucide-react';
 import { SampleVersionBadge } from '@/components/SampleVersionBadge';
 import { SampleSLABadge } from '@/components/SampleSLABadge';
 import { CustomerCombobox } from '@/components/CustomerCombobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SampleQuickActionBar } from '@/components/samples/SampleQuickActionBar';
-import { SamplePipelineIndicator } from '@/components/samples/SamplePipelineIndicator';
 
 type GroupByMode = 'none' | 'type' | 'customer' | 'overdue';
 
@@ -72,7 +82,14 @@ export default function SampleList() {
         case 'type':
           groupKey = sample.sampleType;
           groupLabel = SampleTypeLabels[sample.sampleType] || sample.sampleType;
-          order = ['FIT_SAMPLE', 'PP_SAMPLE', 'SIZE_SET_SAMPLE', 'PHOTO_SAMPLE', 'PRODUCTION_SAMPLE', 'SHIPMENT_SAMPLE'].indexOf(sample.sampleType);
+          order = [
+            'FIT_SAMPLE',
+            'PP_SAMPLE',
+            'SIZE_SET_SAMPLE',
+            'PHOTO_SAMPLE',
+            'PRODUCTION_SAMPLE',
+            'SHIPMENT_SAMPLE',
+          ].indexOf(sample.sampleType);
           break;
         case 'customer':
           groupKey = sample.customer?.id || 'no-customer';
@@ -294,9 +311,7 @@ export default function SampleList() {
         }
         const version = item.version || 1;
         return (
-          <div className={`text-sm ${version > 1 ? 'text-blue-600 font-medium' : 'text-foreground'}`}>
-            v{version}
-          </div>
+          <div className={`text-sm ${version > 1 ? 'text-blue-600 font-medium' : 'text-foreground'}`}>v{version}</div>
         );
       },
     },
@@ -484,11 +499,7 @@ export default function SampleList() {
               </Select>
             </div>
             <div className="w-56">
-              <CustomerCombobox
-                value={customerFilter}
-                onValueChange={setCustomerFilter}
-                placeholder="All Customers"
-              />
+              <CustomerCombobox value={customerFilter} onValueChange={setCustomerFilter} placeholder="All Customers" />
             </div>
             <div className="w-48">
               <Select value={groupBy} onValueChange={(v) => setGroupBy(v as GroupByMode)}>
@@ -571,9 +582,7 @@ export default function SampleList() {
           ))}
           {groupedSamples.length === 0 && (
             <Card>
-              <CardContent className="p-8 text-center text-muted-foreground">
-                No samples found
-              </CardContent>
+              <CardContent className="p-8 text-center text-muted-foreground">No samples found</CardContent>
             </Card>
           )}
         </div>

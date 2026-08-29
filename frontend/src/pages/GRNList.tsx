@@ -153,6 +153,11 @@ export default function GRNList() {
       ),
     },
     {
+      key: 'warehouse',
+      header: 'Warehouse',
+      render: (grn) => <div className="text-sm text-foreground">{grn.warehouse?.warehouseName || '-'}</div>,
+    },
+    {
       key: 'invoiceNumber',
       header: 'Invoice #',
       render: (grn) => <div className="text-sm text-foreground">{grn.invoiceNumber || '-'}</div>,

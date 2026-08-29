@@ -315,6 +315,9 @@ export const approveAndCalculateMRP = async (req: Request, res: Response) => {
   // Build response message with skipped items awareness
   const messageParts: string[] = ['Order BOM approved'];
   const mrpSkipped = mrpResult?.skipped || [];
+  // Size-wise labels recorded at full quantity awaiting the order's size split — planned, not
+  // skipped, and not a linkage problem.
+  const mrpSizePending = mrpResult?.sizePending || [];
 
   if (mrpResult) {
     const totalCalc = mrpResult.created + mrpResult.updated;
@@ -323,6 +326,9 @@ export const approveAndCalculateMRP = async (req: Request, res: Response) => {
     }
     if (mrpSkipped.length > 0) {
       messageParts.push(`${mrpSkipped.length} BOM item(s) skipped — missing material linkages`);
+    }
+    if (mrpSizePending.length > 0) {
+      messageParts.push(`${mrpSizePending.length} size-wise label(s) awaiting the order's size breakdown`);
     }
     if (totalCalc === 0 && mrpSkipped.length > 0) {
       messageParts.push('No material requirements generated. Check BOM item material linkages.');
@@ -358,6 +364,7 @@ export const approveAndCalculateMRP = async (req: Request, res: Response) => {
             updated: mrpResult.updated,
             requirements: mrpResult.requirements,
             skipped: mrpSkipped,
+            sizePending: mrpSizePending,
           }
         : null,
       mrpCalculated: calculateMRP && mrpResult !== null && mrpResult.created + mrpResult.updated > 0,
@@ -438,6 +445,9 @@ export const calculateMRPStandalone = async (req: Request, res: Response) => {
   ];
   if (skipped.length > 0) {
     messageParts.push(`${skipped.length} BOM item(s) skipped — missing material linkages`);
+  }
+  if ((mrpResult.sizePending || []).length > 0) {
+    messageParts.push(`${mrpResult.sizePending.length} size-wise label(s) awaiting the order's size breakdown`);
   }
 
   res.json({

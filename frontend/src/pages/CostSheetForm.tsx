@@ -192,8 +192,27 @@ const CostSheetForm = () => {
         if (costSheet.trimsDetails && costSheet.trimsDetails.length > 0) {
           setTrimsDetails(costSheet.trimsDetails);
         }
-        if (costSheet.laceDetails && costSheet.laceDetails.length > 0) {
-          setLaceDetails(costSheet.laceDetails);
+        // Lace rows are stored relationally and returned as `laceItems` (column names match
+        // the LaceDetail type 1:1). `laceDetails` never existed on the response — checking it
+        // silently discarded saved lace and rebuilt from BOM defaults on every edit.
+        const savedLaceItems = (costSheet as { laceItems?: LaceDetail[] }).laceItems;
+        if (savedLaceItems && savedLaceItems.length > 0) {
+          setLaceDetails(
+            savedLaceItems.map((l) => ({
+              ...l,
+              // Decimal columns arrive as strings; the form expects numbers
+              width: l.width != null ? Number(l.width) : undefined,
+              quantityPerGarment: Number(l.quantityPerGarment || 0),
+              wastagePercent: Number(l.wastagePercent || 0),
+              effectiveQuantity: Number(l.effectiveQuantity || 0),
+              greigeCost: l.greigeCost != null ? Number(l.greigeCost) : undefined,
+              processingCost: l.processingCost != null ? Number(l.processingCost) : undefined,
+              readyLaceCost: l.readyLaceCost != null ? Number(l.readyLaceCost) : undefined,
+              stockCost: l.stockCost != null ? Number(l.stockCost) : undefined,
+              costPerMeter: Number(l.costPerMeter || 0),
+              totalCost: Number(l.totalCost || 0),
+            }))
+          );
         }
         setCmtCosts({
           cuttingCost: costSheet.cuttingCost || 0,
@@ -274,7 +293,9 @@ const CostSheetForm = () => {
               const extractedLaces: LaceDetail[] = [];
 
               // Capture existing lace IDs from loaded cost sheet to avoid duplicates
-              const existingLaceIds = new Set((costSheet.laceDetails || []).map((l: LaceDetail) => l.laceId));
+              // (saved lace rows come back as the relational `laceItems`)
+              const savedLaces = ((costSheet as { laceItems?: LaceDetail[] }).laceItems || []) as LaceDetail[];
+              const existingLaceIds = new Set(savedLaces.map((l: LaceDetail) => l.laceId));
 
               // Helper function to get unit based on material type
               const getUnitForMaterialType = (materialType: string): string => {
@@ -482,7 +503,7 @@ const CostSheetForm = () => {
               ) {
                 setEmbroideryDetails(extractedEmbroidery);
               }
-              if ((!costSheet.laceDetails || costSheet.laceDetails.length === 0) && extractedLaces.length > 0) {
+              if (savedLaces.length === 0 && extractedLaces.length > 0) {
                 setLaceDetails(extractedLaces);
               }
             }
@@ -1892,6 +1913,9 @@ const CostSheetForm = () => {
     const invalidAccessories = accessoriesDetails.filter(
       (a) => !a.isNotApplicable && (a.accessoryRate <= 0 || a.accessoryQuantity <= 0)
     );
+    const invalidLaces = laceDetails.filter(
+      (l) => !l.isNotApplicable && (l.costPerMeter <= 0 || l.quantityPerGarment <= 0)
+    );
 
     const emptyNameFabrics = fabricDetails.filter((f) => !f.isNotApplicable && !f.fabricName?.trim());
     if (emptyNameFabrics.length > 0) {
@@ -1922,6 +1946,11 @@ const CostSheetForm = () => {
       notify.error(
         `${invalidAccessories.length} accessory(s) have 0 values: ${names}. Enter values or mark as "N/A" to save.`
       );
+      return;
+    }
+    if (invalidLaces.length > 0) {
+      const names = invalidLaces.map((l) => l.laceName || 'Unnamed').join(', ');
+      notify.error(`${invalidLaces.length} lace(s) have 0 values: ${names}. Enter values or mark as "N/A" to save.`);
       return;
     }
 

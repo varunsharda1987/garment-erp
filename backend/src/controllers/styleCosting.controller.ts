@@ -138,9 +138,14 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
   const accessoriesTotal = validatedData.accessoriesDetails
     .filter((a) => !a.isNotApplicable)
     .reduce((sum, a) => sum + a.accessoryTotal, 0);
+  const laceTotal = (validatedData.laceDetails || [])
+    .filter((l) => !l.isNotApplicable)
+    .reduce((sum, l) => sum + l.totalCost, 0);
 
-  // Calculate subtotal (before value loss and markup)
-  const subtotal = fabricTotal + trimsTotal + cmtTotal + embroideryTotal + accessoriesTotal;
+  // Calculate subtotal (before value loss and markup) — lace included, matching the relational
+  // recompute in styleCostingLaceItems.service (PHASE3 finding: create/update previously
+  // excluded lace while the recompute included it, so the two totals drifted)
+  const subtotal = fabricTotal + trimsTotal + cmtTotal + embroideryTotal + accessoriesTotal + laceTotal;
 
   // Calculate value loss
   const valueLossAmount = (subtotal * validatedData.valueLossPercent) / 100;
@@ -151,7 +156,7 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
   const totalProductCost = totalAfterValueLoss + markupAmount;
 
   // Calculate derived cost fields for display
-  const totalMaterialCost = fabricTotal + trimsTotal + accessoriesTotal;
+  const totalMaterialCost = fabricTotal + trimsTotal + accessoriesTotal + laceTotal;
   const totalProcessingCost = embroideryTotal + cmtTotal;
   const totalCostPerPiece = totalProductCost; // Same as totalProductCost (per piece cost)
   const sellingPricePerPiece = totalProductCost; // Base selling price equals total cost
@@ -198,6 +203,9 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       // Accessories Details
       accessoriesDetails: JSON.parse(JSON.stringify(validatedData.accessoriesDetails)),
       accessoriesTotal,
+
+      // Lace total (items live in style_costing_lace_items, not a JSON column)
+      laceTotal,
 
       // Value Loss
       valueLossPercent: validatedData.valueLossPercent,
@@ -449,32 +457,35 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
     masterId: acc.masterId || null,
   }));
 
-  // style_costing_lace_items from laceDetails JSON (if provided via main form)
+  // style_costing_lace_items from laceDetails (if provided via main form).
+  // Field names match the frontend LaceDetail type AND the table columns 1:1; the server stays
+  // authoritative for effectiveQuantity (recomputed from quantity + wastage).
   const laceItemsToCreate = (validatedData.laceDetails || []).map((lace) => ({
     costingId: costSheetId,
-    laceId: lace.laceId || '', // Required field
+    laceId: lace.laceId,
     laceName: lace.laceName,
-    colorName: null,
-    width: lace.laceWidth || null,
-    quantityPerGarment: lace.laceAverage || 0,
+    colorName: lace.colorName ?? null,
+    width: lace.width ?? null,
+    quantityPerGarment: lace.quantityPerGarment || 0,
     wastagePercent: lace.wastagePercent ?? 0, // From input or rate card - no hardcoded default
-    effectiveQuantity: (lace.laceAverage || 0) * (1 + (lace.wastagePercent ?? 0) / 100),
+    effectiveQuantity: (lace.quantityPerGarment || 0) * (1 + (lace.wastagePercent ?? 0) / 100),
     sourcingStrategy: lace.sourcingStrategy || 'READY_LACE',
     greigeCost: lace.greigeCost ?? null,
     processingCost: lace.processingCost ?? null,
-    readyLaceCost: lace.laceRate ?? null,
-    stockCost: null,
-    costPerMeter: lace.laceRate || 0,
-    totalCost: lace.laceTotal || 0,
+    readyLaceCost: lace.readyLaceCost ?? null,
+    stockCost: lace.stockCost ?? null,
+    costPerMeter: lace.costPerMeter || 0,
+    totalCost: lace.totalCost || 0,
     greigeLaceId: lace.greigeLaceId || null,
     processorId: lace.processorId || null,
     rateCardId: lace.rateCardId || null,
-    stockLotId: null,
-    procurementId: null,
-    labDipId: null,
+    stockLotId: lace.stockLotId || null,
+    procurementId: lace.procurementId || null,
+    labDipId: lace.labDipId || null,
     labDipStatus: null,
-    isManualOverride: false,
-    overrideReason: null,
+    isManualOverride: lace.isManualOverride ?? false,
+    overrideReason: lace.overrideReason ?? null,
+    isNotApplicable: lace.isNotApplicable ?? false,
     notes: null,
   }));
 
@@ -661,6 +672,9 @@ export const getCostSheetById = async (req: Request, res: Response): Promise<voi
           email: true,
         },
       },
+      // Lace rows live ONLY relationally (no laceDetails JSON column) — without this include
+      // the edit form could never see saved lace and silently rebuilt it from BOM defaults
+      laceItems: { orderBy: { createdAt: 'asc' } },
     },
   });
 
@@ -739,6 +753,8 @@ export const getCostSheetByStyle = async (req: Request, res: Response): Promise<
           email: true,
         },
       },
+      // Lace rows live ONLY relationally (no laceDetails JSON column)
+      laceItems: { orderBy: { createdAt: 'asc' } },
     },
   });
 
@@ -908,15 +924,28 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
   const accessoriesTotal = accessoriesDetails
     .filter((a: AccessoryDetail) => !a.isNotApplicable)
     .reduce((sum: number, a: AccessoryDetail) => sum + (a.accessoryTotal || 0), 0);
+  // `laceDetails: []` is an explicit "cleared" (the form always sends the array) and must yield 0;
+  // only a truly-omitted field falls back to the stored relational rows (lace has no JSON column)
+  const laceTotal =
+    validatedData.laceDetails !== undefined
+      ? validatedData.laceDetails.filter((l) => !l.isNotApplicable).reduce((sum, l) => sum + (l.totalCost || 0), 0)
+      : (
+          await prisma.style_costing_lace_items.findMany({
+            where: { costingId: id, isNotApplicable: false },
+            select: { totalCost: true },
+          })
+        ).reduce((sum, l) => sum + Number(l.totalCost || 0), 0);
 
-  const subtotal = fabricTotal + trimsTotal + cmtTotal + embroideryTotal + accessoriesTotal;
+  // Lace included in subtotal, matching the relational recompute in styleCostingLaceItems.service
+  // (PHASE3 finding: create/update previously excluded lace while the recompute included it)
+  const subtotal = fabricTotal + trimsTotal + cmtTotal + embroideryTotal + accessoriesTotal + laceTotal;
   const valueLossAmount = (subtotal * valueLossPercent) / 100;
   const totalAfterValueLoss = subtotal + valueLossAmount;
   const markupAmount = (totalAfterValueLoss * markupPercent) / 100;
   const totalProductCost = totalAfterValueLoss + markupAmount;
 
   // Calculate derived cost fields for display
-  const totalMaterialCost = fabricTotal + trimsTotal + accessoriesTotal;
+  const totalMaterialCost = fabricTotal + trimsTotal + accessoriesTotal + laceTotal;
   const totalProcessingCost = embroideryTotal + cmtTotal;
   const totalCostPerPiece = totalProductCost;
   const sellingPricePerPiece = totalProductCost;
@@ -959,6 +988,8 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
       accessoriesDetails: JSON.parse(JSON.stringify(validatedData.accessoriesDetails)),
     }),
     accessoriesTotal,
+
+    laceTotal,
 
     ...(validatedData.valueLossPercent !== undefined && { valueLossPercent }),
     valueLossAmount,
@@ -1136,34 +1167,39 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     masterId: acc.masterId || null,
   }));
 
-  // style_costing_lace_items are only rebuilt when laceDetails is explicitly provided
+  // style_costing_lace_items are only rebuilt when laceDetails is explicitly provided — and an
+  // EMPTY array is an explicit "delete them all" (the form always sends the array; only a
+  // truly-omitted field preserves the stored rows). Field names match the frontend LaceDetail
+  // type AND the table columns 1:1; the server stays authoritative for effectiveQuantity
+  // (recomputed from quantity + wastage).
   const laceItemsToCreate =
-    validatedData.laceDetails && validatedData.laceDetails.length > 0
-      ? validatedData.laceDetails.map((lace: any) => ({
+    validatedData.laceDetails !== undefined
+      ? validatedData.laceDetails.map((lace) => ({
           costingId: id,
-          laceId: lace.laceId || '',
+          laceId: lace.laceId,
           laceName: lace.laceName,
-          colorName: null,
-          width: lace.laceWidth || null,
-          quantityPerGarment: lace.laceAverage || 0,
+          colorName: lace.colorName ?? null,
+          width: lace.width ?? null,
+          quantityPerGarment: lace.quantityPerGarment || 0,
           wastagePercent: lace.wastagePercent ?? 0, // From input or rate card - no hardcoded default
-          effectiveQuantity: (lace.laceAverage || 0) * (1 + (lace.wastagePercent ?? 0) / 100),
+          effectiveQuantity: (lace.quantityPerGarment || 0) * (1 + (lace.wastagePercent ?? 0) / 100),
           sourcingStrategy: lace.sourcingStrategy || 'READY_LACE',
           greigeCost: lace.greigeCost ?? null,
           processingCost: lace.processingCost ?? null,
-          readyLaceCost: lace.laceRate ?? null,
-          stockCost: null,
-          costPerMeter: lace.laceRate || 0,
-          totalCost: lace.laceTotal || 0,
+          readyLaceCost: lace.readyLaceCost ?? null,
+          stockCost: lace.stockCost ?? null,
+          costPerMeter: lace.costPerMeter || 0,
+          totalCost: lace.totalCost || 0,
           greigeLaceId: lace.greigeLaceId || null,
           processorId: lace.processorId || null,
           rateCardId: lace.rateCardId || null,
-          stockLotId: null,
-          procurementId: null,
-          labDipId: null,
+          stockLotId: lace.stockLotId || null,
+          procurementId: lace.procurementId || null,
+          labDipId: lace.labDipId || null,
           labDipStatus: null,
-          isManualOverride: false,
-          overrideReason: null,
+          isManualOverride: lace.isManualOverride ?? false,
+          overrideReason: lace.overrideReason ?? null,
+          isNotApplicable: lace.isNotApplicable ?? false,
           notes: null,
         }))
       : null;
@@ -1182,7 +1218,9 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     ...(laceItemsToCreate
       ? [
           prisma.style_costing_lace_items.deleteMany({ where: { costingId: id } }),
-          prisma.style_costing_lace_items.createMany({ data: laceItemsToCreate }),
+          ...(laceItemsToCreate.length > 0
+            ? [prisma.style_costing_lace_items.createMany({ data: laceItemsToCreate })]
+            : []),
         ]
       : []),
   ];

@@ -4,7 +4,18 @@ import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
 export class SaleOrderController {
   async getAll(req: Request, res: Response) {
-    const { page = '1', limit = '20', search, status, customerId, isActive, sortBy, sortOrder } = req.query;
+    const {
+      page = '1',
+      limit = '20',
+      search,
+      status,
+      customerId,
+      isActive,
+      sortBy,
+      sortOrder,
+      fromDate,
+      toDate,
+    } = req.query;
 
     const result = await saleOrderService.getAll({
       page: parseInt(page as string, 10),
@@ -13,6 +24,8 @@ export class SaleOrderController {
       status: status as any,
       customerId: customerId as string | undefined,
       isActive: isActive === 'true' ? true : isActive === 'false' ? false : undefined,
+      fromDate: fromDate as string | undefined,
+      toDate: toDate as string | undefined,
       sortBy: sortBy as string | undefined,
       sortOrder: sortOrder as 'asc' | 'desc' | undefined,
     });

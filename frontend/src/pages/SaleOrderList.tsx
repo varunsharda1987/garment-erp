@@ -1,14 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 import { queryKeys } from '@/lib/query-client'; // BUG-ORD14 fix: standardized query key
-import { Plus, Trash2, Search, ShoppingBag, Eye } from 'lucide-react';
+import { Plus, Trash2, ShoppingBag, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
@@ -21,9 +21,23 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import { CustomerCombobox } from '@/components/CustomerCombobox';
+import SearchInput from '@/components/SearchInput';
+import DataTable from '@/components/DataTable';
 import { SaleOrderForm } from '@/components/sale-order';
 import { getAllSaleOrders, createSaleOrder, deleteSaleOrder } from '@/services/saleOrder.service';
 import type { SaleOrder, SaleOrderStatus, CreateSORequest, UpdateSORequest } from '@/types/saleOrder.types';
+import { formatCurrency } from '@/lib/currency';
+
+// Local type definition to avoid import issues
+type Column<T> = {
+  key: string;
+  header: string;
+  render?: (item: T) => ReactNode;
+  className?: string;
+  headerClassName?: string;
+};
 
 const STATUS_COLORS: Record<SaleOrderStatus, string> = {
   DRAFT: 'bg-muted text-foreground',
@@ -36,25 +50,66 @@ const STATUS_COLORS: Record<SaleOrderStatus, string> = {
   CANCELLED: 'bg-destructive/10 text-destructive',
 };
 
+const STATUS_OPTIONS: Array<{ value: SaleOrderStatus; label: string }> = [
+  { value: 'DRAFT', label: 'Draft' },
+  { value: 'CONFIRMED', label: 'Confirmed' },
+  { value: 'PARTIALLY_ALLOCATED', label: 'Partially Allocated' },
+  { value: 'FULLY_ALLOCATED', label: 'Fully Allocated' },
+  { value: 'PARTIALLY_DISPATCHED', label: 'Partially Dispatched' },
+  { value: 'DISPATCHED', label: 'Dispatched' },
+  { value: 'DELIVERED', label: 'Delivered' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+];
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+};
+
 export default function SaleOrderList() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [customerFilter, setCustomerFilter] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [soToDelete, setSoToDelete] = useState<SaleOrder | null>(null);
   const [createSheetOpen, setCreateSheetOpen] = useState(false);
 
+  // Reset to page 1 when any filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, customerFilter, dateRange]);
+
+  const fromDate = dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined;
+  const toDate = dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined;
+
   // BUG-ORD14 fix: standardized query key
-  const { data, isLoading } = useQuery({
-    queryKey: queryKeys.saleOrders.list({ page, search, status: statusFilter }),
+  const { data, isLoading, isError } = useQuery({
+    queryKey: queryKeys.saleOrders.list({
+      page,
+      limit: pageSize,
+      search,
+      status: statusFilter,
+      customerId: customerFilter,
+      fromDate,
+      toDate,
+    }),
     queryFn: () =>
       getAllSaleOrders({
         page,
-        limit: 20,
+        limit: pageSize,
         search: search || undefined,
         status: statusFilter !== 'all' ? (statusFilter as SaleOrderStatus) : undefined,
+        customerId: customerFilter !== 'all' ? customerFilter : undefined,
+        fromDate,
+        toDate,
       }),
   });
 
@@ -90,9 +145,160 @@ export default function SaleOrderList() {
     createMutation.mutate(data as CreateSORequest);
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
-  };
+  const filtersActive = Boolean(search || statusFilter !== 'all' || customerFilter !== 'all' || dateRange);
+
+  const columns: Column<SaleOrder>[] = [
+    {
+      key: 'saleOrderNumber',
+      header: 'SO Number',
+      render: (so) => (
+        <div className="font-mono font-medium">
+          {so.saleOrderNumber}
+          {(so.buyerPos?.length ? so.buyerPos.length > 0 : so.buyerPoNumber) && (
+            <div className="text-xs text-muted-foreground font-normal">
+              {so.buyerPos?.length ? (
+                so.buyerPos.length === 1 ? (
+                  <>PO {so.buyerPos[0].buyerPoNumber}</>
+                ) : (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="cursor-help">
+                          PO {so.buyerPos.find((p) => p.isPrimary)?.buyerPoNumber || so.buyerPos[0].buyerPoNumber}
+                          <span className="ml-1 text-info">+{so.buyerPos.length - 1}</span>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <div className="space-y-1">
+                          {so.buyerPos.map((po) => (
+                            <div key={po.id}>
+                              {po.isPrimary ? '★ ' : ''}
+                              {po.buyerPoNumber}
+                            </div>
+                          ))}
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )
+              ) : (
+                <>PO {so.buyerPoNumber}</>
+              )}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'customer',
+      header: 'Customer',
+      render: (so) => (
+        <div>
+          <div className="font-medium">{so.customer?.name}</div>
+          <div className="text-xs text-muted-foreground">{so.customer?.code}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'styles',
+      header: 'Style(s)',
+      render: (so) => {
+        const uniqueByCode = new Map<string, { code: string; ref?: string | null }>();
+        for (const item of so.items || []) {
+          const code = item.style?.styleCode;
+          if (code && !uniqueByCode.has(code)) {
+            uniqueByCode.set(code, { code, ref: item.style?.buyerStyleRef });
+          }
+        }
+        const unique = [...uniqueByCode.values()];
+        if (unique.length === 0) return <span className="text-xs text-muted-foreground">-</span>;
+        return (
+          <div className="flex flex-wrap gap-1">
+            {unique.map(({ code, ref }) => (
+              <span key={code} className="text-xs bg-muted text-foreground px-1.5 py-0.5 rounded">
+                {code}
+                {ref && ref !== code ? ` (${ref})` : ''}
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'saleDate',
+      header: 'Sale Date',
+      render: (so) => (
+        <div className="text-sm">
+          {formatDate(so.saleDate)}
+          {so.expectedShipDate && (
+            <div className="text-xs text-muted-foreground">Ship {formatDate(so.expectedShipDate)}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'quantity',
+      header: 'Qty',
+      render: (so) => {
+        const items = so.items || [];
+        if (items.length === 0) return <span className="text-xs text-muted-foreground">-</span>;
+        const totalQty = items.reduce((sum, i) => sum + (i.quantity || 0), 0);
+        const allocated = items.reduce((sum, i) => sum + (i.allocatedQty || 0), 0);
+        const dispatched = items.reduce((sum, i) => sum + (i.dispatchedQty || 0), 0);
+        return (
+          <div className="text-sm font-medium">
+            {totalQty.toLocaleString()} pcs
+            {(allocated > 0 || dispatched > 0) && (
+              <div className="text-xs text-muted-foreground font-normal">
+                {allocated.toLocaleString()} alloc · {dispatched.toLocaleString()} disp
+              </div>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'totalAmount',
+      header: 'Amount',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (so) => <span className="font-medium">{formatCurrency(so.totalAmount)}</span>,
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (so) => (
+        <Badge className={STATUS_COLORS[so.status]} variant="secondary">
+          {so.status.replace(/_/g, ' ')}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (so) => (
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="icon" onClick={() => navigate(`/sale-orders/${so.id}`)}>
+            <Eye className="h-4 w-4" />
+          </Button>
+          {so.status === 'DRAFT' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                setSoToDelete(so);
+                setDeleteDialogOpen(true);
+              }}
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div className="p-6 space-y-6">
@@ -112,175 +318,65 @@ export default function SaleOrderList() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by SO number or customer..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-10"
+          <div className="space-y-4">
+            <SearchInput
+              placeholder="Search by SO number, buyer PO or customer..."
+              value={search}
+              onChange={setSearch}
+              className="max-w-md"
+            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <CustomerCombobox
+                value={customerFilter === 'all' ? '' : customerFilter}
+                onValueChange={(v) => setCustomerFilter(v || 'all')}
+                placeholder="All Customers"
               />
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  {STATUS_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <DateRangePicker value={dateRange} onChange={setDateRange} placeholder="Sale date range" />
             </div>
-            <Select
-              value={statusFilter}
-              onValueChange={(v) => {
-                setStatusFilter(v);
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="DRAFT">Draft</SelectItem>
-                <SelectItem value="CONFIRMED">Confirmed</SelectItem>
-                <SelectItem value="PARTIALLY_ALLOCATED">Partially Allocated</SelectItem>
-                <SelectItem value="FULLY_ALLOCATED">Fully Allocated</SelectItem>
-                <SelectItem value="DISPATCHED">Dispatched</SelectItem>
-                <SelectItem value="CANCELLED">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>SO Number</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Sale Date</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Items</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    Loading...
-                  </TableCell>
-                </TableRow>
-              ) : !data?.data?.length ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    No sale orders found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                data.data.map((so) => (
-                  <TableRow
-                    key={so.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => navigate(`/sale-orders/${so.id}`)}
-                  >
-                    <TableCell className="font-mono font-medium">
-                      {so.saleOrderNumber}
-                      {(so.buyerPos?.length ? so.buyerPos.length > 0 : so.buyerPoNumber) && (
-                        <div className="text-xs text-muted-foreground font-normal">
-                          {so.buyerPos?.length ? (
-                            so.buyerPos.length === 1 ? (
-                              <>PO {so.buyerPos[0].buyerPoNumber}</>
-                            ) : (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="cursor-help">
-                                      PO{' '}
-                                      {so.buyerPos.find((p) => p.isPrimary)?.buyerPoNumber ||
-                                        so.buyerPos[0].buyerPoNumber}
-                                      <span className="ml-1 text-info">+{so.buyerPos.length - 1}</span>
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <div className="space-y-1">
-                                      {so.buyerPos.map((po) => (
-                                        <div key={po.id}>
-                                          {po.isPrimary ? '★ ' : ''}
-                                          {po.buyerPoNumber}
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )
-                          ) : (
-                            <>PO {so.buyerPoNumber}</>
-                          )}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{so.customer?.name}</div>
-                        <div className="text-xs text-muted-foreground">{so.customer?.code}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{new Date(so.saleDate).toLocaleDateString()}</TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(Number(so.totalAmount))}</TableCell>
-                    <TableCell>
-                      <Badge className={STATUS_COLORS[so.status]} variant="secondary">
-                        {so.status.replace(/_/g, ' ')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{so._count?.items || 0}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                        <Button variant="ghost" size="icon" onClick={() => navigate(`/sale-orders/${so.id}`)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        {so.status === 'DRAFT' && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => {
-                              setSoToDelete(so);
-                              setDeleteDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-
-          {data?.pagination && data.pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-muted-foreground">
-                Page {data.pagination.page} of {data.pagination.totalPages} ({data.pagination.total} total)
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                >
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage((p) => p + 1)}
-                  disabled={page >= data.pagination.totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
+          <DataTable
+            data={data?.data}
+            columns={columns}
+            keyExtractor={(so) => so.id}
+            loading={isLoading}
+            error={isError ? 'Failed to load sale orders' : null}
+            emptyState={{
+              icon: <ShoppingBag className="h-16 w-16" />,
+              title: 'No sale orders found',
+              description: filtersActive
+                ? 'Try adjusting your search or filter criteria'
+                : 'Sale orders pushed from the B2B app will appear here',
+              actionLabel: 'New Sale Order',
+              onAction: () => setCreateSheetOpen(true),
+            }}
+            pagination={{
+              currentPage: page,
+              totalPages: data?.pagination?.totalPages ?? 1,
+              pageSize,
+              totalItems: data?.pagination?.total ?? 0,
+              onPageChange: setPage,
+              onPageSizeChange: (size) => {
+                setPageSize(size);
+                setPage(1);
+              },
+            }}
+            onRowClick={(so) => navigate(`/sale-orders/${so.id}`)}
+          />
         </CardContent>
       </Card>
 

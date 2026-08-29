@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { getStockPreview } from '@/services/saleOrder.service';
 import type { StockPreviewItem, StockStatus } from '@/types/saleOrder.types';
@@ -166,7 +165,7 @@ export function SmartConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[85vh]">
+      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Confirm Sale Order {saleOrderNumber}?</DialogTitle>
           <DialogDescription>
@@ -174,59 +173,61 @@ export function SmartConfirmDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">Checking stock availability...</span>
-          </div>
-        )}
-
-        {error && (
-          <div className="py-4 text-center text-destructive">Failed to check stock availability. Please try again.</div>
-        )}
-
-        {preview && (
-          <>
-            {/* Summary Banner */}
-            <div className="space-y-2 rounded-lg border p-4 bg-muted/30">
-              {preview.summary.itemsWithStock > 0 && (
-                <div className="flex items-center gap-2 text-success">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span className="font-medium">
-                    {preview.summary.itemsWithStock} item{preview.summary.itemsWithStock > 1 ? 's' : ''} ready
-                  </span>
-                  <span className="text-muted-foreground">
-                    ({preview.summary.quantityAvailable} pcs) - can allocate from stock
-                  </span>
-                </div>
-              )}
-              {preview.summary.itemsPartialStock > 0 && (
-                <div className="flex items-center gap-2 text-warning">
-                  <AlertCircle className="h-4 w-4" />
-                  <span className="font-medium">
-                    {preview.summary.itemsPartialStock} item{preview.summary.itemsPartialStock > 1 ? 's' : ''} partial
-                  </span>
-                  <span className="text-muted-foreground">- some stock available</span>
-                </div>
-              )}
-              {preview.summary.itemsNoStock > 0 && (
-                <div className="flex items-center gap-2 text-destructive">
-                  <XCircle className="h-4 w-4" />
-                  <span className="font-medium">
-                    {preview.summary.itemsNoStock} item{preview.summary.itemsNoStock > 1 ? 's' : ''} need production
-                  </span>
-                  <span className="text-muted-foreground">({preview.summary.quantityNeedsProduction} pcs)</span>
-                </div>
-              )}
+        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+          {isLoading && (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Checking stock availability...</span>
             </div>
+          )}
 
-            {/* Items needing attention (PARTIAL or NONE) */}
-            {(groupedItems.partial.length > 0 || groupedItems.none.length > 0) && (
-              <>
-                <Separator />
-                <div>
-                  <h4 className="text-sm font-medium mb-2">Items needing production:</h4>
-                  <ScrollArea className="max-h-[280px] pr-4">
+          {error && (
+            <div className="py-4 text-center text-destructive">
+              Failed to check stock availability. Please try again.
+            </div>
+          )}
+
+          {preview && (
+            <>
+              {/* Summary Banner */}
+              <div className="space-y-2 rounded-lg border p-4 bg-muted/30">
+                {preview.summary.itemsWithStock > 0 && (
+                  <div className="flex items-center gap-2 text-success">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span className="font-medium">
+                      {preview.summary.itemsWithStock} item{preview.summary.itemsWithStock > 1 ? 's' : ''} ready
+                    </span>
+                    <span className="text-muted-foreground">
+                      ({preview.summary.quantityAvailable} pcs) - can allocate from stock
+                    </span>
+                  </div>
+                )}
+                {preview.summary.itemsPartialStock > 0 && (
+                  <div className="flex items-center gap-2 text-warning">
+                    <AlertCircle className="h-4 w-4" />
+                    <span className="font-medium">
+                      {preview.summary.itemsPartialStock} item{preview.summary.itemsPartialStock > 1 ? 's' : ''} partial
+                    </span>
+                    <span className="text-muted-foreground">- some stock available</span>
+                  </div>
+                )}
+                {preview.summary.itemsNoStock > 0 && (
+                  <div className="flex items-center gap-2 text-destructive">
+                    <XCircle className="h-4 w-4" />
+                    <span className="font-medium">
+                      {preview.summary.itemsNoStock} item{preview.summary.itemsNoStock > 1 ? 's' : ''} need production
+                    </span>
+                    <span className="text-muted-foreground">({preview.summary.quantityNeedsProduction} pcs)</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Items needing attention (PARTIAL or NONE) */}
+              {(groupedItems.partial.length > 0 || groupedItems.none.length > 0) && (
+                <>
+                  <Separator />
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Items needing production:</h4>
                     <div className="space-y-3">
                       {[...groupedItems.partial, ...groupedItems.none].map((item) => {
                         // buyerStyleRef arrives with the saleOrder stock-preview fix;
@@ -266,30 +267,30 @@ export function SmartConfirmDialog({
                         );
                       })}
                     </div>
-                  </ScrollArea>
-                </div>
-              </>
-            )}
+                  </div>
+                </>
+              )}
 
-            {/* Items with full stock (collapsible/summary) */}
-            {groupedItems.full.length > 0 && (
-              <>
-                <Separator />
-                <div className="text-sm text-muted-foreground">
-                  <span className="text-success font-medium">
-                    {groupedItems.full.length} item{groupedItems.full.length > 1 ? 's' : ''}
-                  </span>{' '}
-                  fully available in stock and ready to allocate.
-                </div>
-              </>
-            )}
+              {/* Items with full stock (collapsible/summary) */}
+              {groupedItems.full.length > 0 && (
+                <>
+                  <Separator />
+                  <div className="text-sm text-muted-foreground">
+                    <span className="text-success font-medium">
+                      {groupedItems.full.length} item{groupedItems.full.length > 1 ? 's' : ''}
+                    </span>{' '}
+                    fully available in stock and ready to allocate.
+                  </div>
+                </>
+              )}
 
-            {/* Action Guidance */}
-            <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
-              <strong>Next steps:</strong> {getActionGuidance()}
-            </div>
-          </>
-        )}
+              {/* Action Guidance */}
+              <div className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
+                <strong>Next steps:</strong> {getActionGuidance()}
+              </div>
+            </>
+          )}
+        </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isConfirming}>

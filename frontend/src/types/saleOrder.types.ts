@@ -169,6 +169,10 @@ export interface SOQueryParams {
   search?: string;
   status?: SaleOrderStatus;
   customerId?: string;
+  /** yyyy-MM-dd — filters on saleDate, inclusive */
+  fromDate?: string;
+  /** yyyy-MM-dd — filters on saleDate, inclusive */
+  toDate?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }

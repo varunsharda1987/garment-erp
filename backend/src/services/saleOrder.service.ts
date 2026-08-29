@@ -60,6 +60,8 @@ interface SOQueryParams {
   status?: SaleOrderStatus;
   customerId?: string;
   isActive?: boolean;
+  fromDate?: string;
+  toDate?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -128,6 +130,8 @@ export class SaleOrderService {
       status,
       customerId,
       isActive,
+      fromDate,
+      toDate,
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = params;
@@ -149,6 +153,17 @@ export class SaleOrderService {
     if (customerId) where.customerId = customerId;
     if (isActive !== undefined) where.isActive = isActive;
 
+    if (fromDate || toDate) {
+      where.saleDate = {};
+      if (fromDate) where.saleDate.gte = new Date(fromDate);
+      if (toDate) {
+        // saleDate is a timestamp (@default(now())) — bump to next day so the whole toDate day is included
+        const end = new Date(toDate);
+        end.setDate(end.getDate() + 1);
+        where.saleDate.lt = end;
+      }
+    }
+
     const [data, total] = await Promise.all([
       prisma.sale_orders.findMany({
         where,
@@ -161,6 +176,20 @@ export class SaleOrderService {
           },
           createdBy: {
             select: { id: true, firstName: true, lastName: true },
+          },
+          // Lean item subset for list rows (style chips + qty sums); detail endpoint returns full items
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              allocatedQty: true,
+              dispatchedQty: true,
+              style: { select: { id: true, styleCode: true, styleName: true, buyerStyleRef: true } },
+            },
+          },
+          buyerPos: {
+            select: { id: true, buyerPoNumber: true, isPrimary: true },
+            orderBy: { isPrimary: 'desc' },
           },
           _count: {
             select: { items: true, delivery_notes: true, invoices: true },
@@ -370,7 +399,7 @@ export class SaleOrderService {
     });
 
     // Auto-create samples based on customer requirements
-    const styleIds = [...new Set(so.items.map(i => i.styleId))];
+    const styleIds = [...new Set(so.items.map((i) => i.styleId))];
     if (styleIds.length > 0 && so.customerId) {
       const shipDate = so.expectedShipDate || so.deliveryDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       try {

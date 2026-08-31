@@ -11,6 +11,7 @@ import stockLevelService from '../stockLevel.service';
 import prisma from '../../config/database';
 import { Decimal } from '@prisma/client/runtime/library';
 import { Unit } from '@prisma/client';
+import { only } from '../../utils/prisma-test-guard';
 
 describe('StockLevelService', () => {
   const testPrefix = `TEST_SLS_${Date.now()}`;
@@ -89,7 +90,7 @@ describe('StockLevelService', () => {
     try {
       await prisma.stock_levels.deleteMany({
         where: {
-          OR: [{ warehouseId: testWarehouseId }, { warehouseId: testWarehouse2Id }],
+          OR: [{ warehouseId: only(testWarehouseId) }, { warehouseId: only(testWarehouse2Id) }],
         },
       });
       await prisma.materials.deleteMany({
@@ -112,7 +113,7 @@ describe('StockLevelService', () => {
 
   beforeEach(async () => {
     await prisma.stock_levels.deleteMany({
-      where: { materialId: testMaterialId },
+      where: { materialId: only(testMaterialId) },
     });
   });
 
@@ -295,10 +296,10 @@ describe('StockLevelService', () => {
 
     afterAll(async () => {
       await prisma.stock_levels.deleteMany({
-        where: { materialId: testMaterial2Id },
+        where: { materialId: only(testMaterial2Id) },
       });
       await prisma.materials.delete({
-        where: { id: testMaterial2Id },
+        where: { id: only(testMaterial2Id) },
       });
     });
 
@@ -322,7 +323,7 @@ describe('StockLevelService', () => {
 
     it('should not return materials above reorder level', async () => {
       await prisma.stock_levels.updateMany({
-        where: { materialId: testMaterial2Id },
+        where: { materialId: only(testMaterial2Id) },
         data: { quantity: 100 }, // Above reorder level of 50
       });
 
@@ -334,7 +335,7 @@ describe('StockLevelService', () => {
 
     it('should filter by warehouse when provided', async () => {
       await prisma.stock_levels.updateMany({
-        where: { materialId: testMaterial2Id },
+        where: { materialId: only(testMaterial2Id) },
         data: { quantity: 25 },
       });
 
@@ -346,7 +347,7 @@ describe('StockLevelService', () => {
 
     it('should include materials at exactly reorder level', async () => {
       await prisma.stock_levels.updateMany({
-        where: { materialId: testMaterial2Id },
+        where: { materialId: only(testMaterial2Id) },
         data: { quantity: 50 }, // Equal to reorder level
       });
 

@@ -449,6 +449,17 @@ function checkItemWriteFieldDrift(tsFiles) {
   );
 }
 
+/** Check (E9): a private `new PrismaClient()` outside the sanctioned singleton — BLOCKING new + ratchet. */
+function checkSinglePrismaClient(tsFiles) {
+  console.log(`\n${c.cyan}Checking for private Prisma clients...${c.reset}`);
+  return runRatchetedCheck(
+    'private `new PrismaClient()` outside backend/src/config/database.ts (second connection pool; opts the file out of anything applied to the shared client)',
+    detectors.singlePrismaClient(tsFiles),
+    'single-prisma-client-baseline.json',
+    'Import the singleton instead: `import prisma from "../config/database"`. A private client opened a second pool in workOrder.controller.ts (production-26) and left the test helper asserting through a differently-configured client than the app. Mark a deliberate standalone client `// allow-own-prisma-client`. If intentional, add the key to scripts/hooks/single-prisma-client-baseline.json.'
+  );
+}
+
 /**
  * Check: Type synchronization between frontend and backend
  */
@@ -1091,6 +1102,7 @@ function runAllModeChecks() {
   if (!checkCadPurposeSingleWrite(tsFiles)) ok = false;
   if (!checkHardcodedDefault(tsFiles)) ok = false;
   if (!checkItemWriteFieldDrift(tsFiles)) ok = false;
+  if (!checkSinglePrismaClient(tsFiles)) ok = false;
   if (!checkSchemaServiceUpdateParity(schemaFiles)) ok = false;
   checkAiGuides(); // warn-only
 
@@ -1202,6 +1214,7 @@ function main() {
     if (!checkCadPurposeSingleWrite(categories.typescript)) allPassed = false;
     if (!checkHardcodedDefault(categories.typescript)) allPassed = false;
     if (!checkItemWriteFieldDrift(categories.typescript)) allPassed = false;
+    if (!checkSinglePrismaClient(categories.typescript)) allPassed = false;
   }
 
   // Type file changes → check type sync

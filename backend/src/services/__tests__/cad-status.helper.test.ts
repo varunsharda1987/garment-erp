@@ -10,6 +10,7 @@
 import { deriveCadStatus, recomputeStyleCadStatus, cadRowsOfStyle } from '../helpers/cad-status.helper';
 import prisma from '../../config/database';
 import { randomUUID } from 'crypto';
+import { only } from '../../utils/prisma-test-guard';
 
 describe('cad-status.helper', () => {
   const RUN = `TCDS${Date.now().toString(36).toUpperCase()}`;
@@ -42,8 +43,8 @@ describe('cad-status.helper', () => {
   });
 
   afterEach(async () => {
-    await prisma.fabric_width_cad.deleteMany({ where: { costingStyleId: styleId } });
-    await prisma.styles.deleteMany({ where: { id: styleId } });
+    await prisma.fabric_width_cad.deleteMany({ where: { costingStyleId: only(styleId) } });
+    await prisma.styles.deleteMany({ where: { id: only(styleId) } });
   });
 
   afterAll(async () => {

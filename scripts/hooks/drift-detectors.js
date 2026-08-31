@@ -1640,6 +1640,55 @@ function itemWriteFieldDrift(relFiles) {
   return out;
 }
 
+// Single Prisma client (2026-08-31).
+//
+// The app owns ONE configured client — backend/src/config/database.ts — carrying the connection
+// pool settings every request depends on. A private `new PrismaClient()` opens a SECOND pool
+// against the same database and, worse, silently opts that code out of anything applied to the
+// shared client.
+//
+// This has already bitten twice. `workOrder.controller.ts` (bug-hunt production-26) opened a
+// second pool; it was fixed in that one file with a warning comment, but no check was added, so
+// `__tests__/helpers/test-utils.ts` went on doing the same thing unnoticed — which is why the
+// integration suites asserted through a differently-configured client than the app under test,
+// and why a safety guard had to be installed in two places instead of one.
+//
+// Scope is application + test code. backend/src/scripts/** is exempt: those are standalone
+// maintenance processes run deliberately by a human, several of them intentionally destructive.
+// Opt-out: `// allow-own-prisma-client` on the line or within the 2 lines above.
+function singlePrismaClient(relFiles) {
+  const out = [];
+  const SANCTIONED = /^backend\/src\/config\/database\.ts$/;
+  const EXEMPT_DIR = /^backend\/src\/scripts\//;
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^backend\/src\/.*\.(ts|js)$/.test(norm)) continue;
+    if (SANCTIONED.test(norm) || EXEMPT_DIR.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const re = /new\s+PrismaClient\s*\(/g;
+    let m;
+    while ((m = re.exec(content))) {
+      const lineNo = lineOf(content, m.index);
+      const lines = content.split('\n');
+      const context = [lines[lineNo - 3] || '', lines[lineNo - 2] || '', lines[lineNo - 1] || ''].join('\n');
+      if (/allow-own-prisma-client/.test(context)) continue;
+      // Skip mentions inside comments (the existing warning comments reference the constructor).
+      const thisLine = (lines[lineNo - 1] || '').trim();
+      if (thisLine.startsWith('//') || thisLine.startsWith('*')) continue;
+      out.push({
+        key: `${rel} :: new PrismaClient`,
+        file: rel,
+        line: lineNo,
+        detail:
+          'private `new PrismaClient()` — opens a second connection pool and opts this file out of ' +
+          'anything applied to the shared client. Import the singleton: `import prisma from "../config/database"`.',
+      });
+    }
+  }
+  return out;
+}
+
 module.exports = {
   perRouteValidation,
   enumDrift,
@@ -1665,5 +1714,6 @@ module.exports = {
   numericOrFallback,
   hardcodedDefault,
   itemWriteFieldDrift,
+  singlePrismaClient,
   REPO_ROOT,
 };

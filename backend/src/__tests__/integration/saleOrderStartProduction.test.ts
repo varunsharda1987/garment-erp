@@ -14,6 +14,7 @@ import request from 'supertest';
 import { randomUUID } from 'crypto';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
+import { only } from '../../utils/prisma-test-guard';
 
 const RUN = `SOP${Date.now().toString(36).toUpperCase()}`;
 
@@ -123,11 +124,11 @@ afterAll(async () => {
     where: { saleOrderId: { in: [soId, so2Id].filter(Boolean) } },
   });
   await prisma.sale_orders.deleteMany({ where: { id: { in: [soId, so2Id].filter(Boolean) } } });
-  await prisma.style_costing.deleteMany({ where: { id: costingId } });
+  await prisma.style_costing.deleteMany({ where: { id: only(costingId) } });
   await prisma.size_options.deleteMany({ where: { id: { in: [sizeMId, sizeLId, sizeB1Id] } } });
   await prisma.styles.deleteMany({ where: { id: { in: [styleAId, styleBId] } } });
-  await prisma.customers.deleteMany({ where: { id: customerId } });
-  await prisma.users.deleteMany({ where: { id: testUserId } });
+  await prisma.customers.deleteMany({ where: { id: only(customerId) } });
+  await prisma.users.deleteMany({ where: { id: only(testUserId) } });
   await prisma.$disconnect();
 });
 

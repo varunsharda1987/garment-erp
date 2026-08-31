@@ -13,6 +13,7 @@
 import { invoiceService } from '../invoice.service';
 import prisma from '../../config/database';
 import { Decimal } from '@prisma/client/runtime/library';
+import { only } from '../../utils/prisma-test-guard';
 
 // Mock logger to avoid noise in tests
 jest.mock('../../utils/logger', () => ({
@@ -104,19 +105,19 @@ describe('InvoiceService', () => {
         where: {
           invoices: {
             invoiceNumber: { startsWith: 'INV-' },
-            customerId: testCustomerId,
+            customerId: only(testCustomerId),
           },
         },
       });
       await prisma.invoice_items.deleteMany({
         where: {
           invoice: {
-            customerId: testCustomerId,
+            customerId: only(testCustomerId),
           },
         },
       });
       await prisma.invoices.deleteMany({
-        where: { customerId: testCustomerId },
+        where: { customerId: only(testCustomerId) },
       });
       await prisma.orders.deleteMany({
         where: { orderNumber: { startsWith: testPrefix } },

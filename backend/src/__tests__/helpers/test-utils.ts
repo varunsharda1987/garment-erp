@@ -5,9 +5,19 @@
  */
 
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
 
-export const prisma = new PrismaClient();
+/**
+ * The application's own Prisma client — NOT a second one.
+ *
+ * This used to be a bare `new PrismaClient()`, which meant integration tests asserted through a
+ * different client (and a second connection pool, without the pooling configuration) than the app
+ * they were testing wrote through. It also meant every cross-cutting concern had to be applied
+ * twice; the destructive-filter guard added after the 2026-08-31 data loss is exactly that kind
+ * of concern, and missing either copy would leave the hole open.
+ */
+import prisma from '../../config/database';
+
+export { prisma };
 
 /**
  * Generate a valid JWT token for testing

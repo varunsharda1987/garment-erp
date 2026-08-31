@@ -21,6 +21,7 @@
 import request from 'supertest';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
+import { only } from '../../utils/prisma-test-guard';
 
 // Unique, short (fits 20-char code columns), per-run prefix.
 const RUN = `SMK${Date.now().toString(36).toUpperCase()}`;
@@ -142,7 +143,7 @@ afterAll(async () => {
   await prisma.color_master.deleteMany({ where: { colorName: { startsWith: RUN } } });
   // issue_reports reference the test user — delete them first or the user delete hits its FK
   await prisma.issue_reports.deleteMany({ where: { title: { startsWith: RUN } } });
-  await prisma.users.deleteMany({ where: { id: testUserId } });
+  await prisma.users.deleteMany({ where: { id: only(testUserId) } });
   await prisma.$disconnect();
 });
 
@@ -284,7 +285,7 @@ describe('customer accessory presets — round-trip with legacy mat-* material i
     await prisma.material_categories.deleteMany({ where: { id: { in: [`CAT-${RUN}`, `CAT-${RUN}-L`] } } });
     await prisma.packaging_master.deleteMany({ where: { packagingCode: `${RUN}-PKG` } });
     await prisma.label_master.deleteMany({ where: { labelCode: `${RUN}-LBL` } });
-    await prisma.customers.deleteMany({ where: { id: customerId } });
+    await prisma.customers.deleteMany({ where: { id: only(customerId) } });
   });
 });
 

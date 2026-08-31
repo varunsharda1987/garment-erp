@@ -17,6 +17,7 @@ import request from 'supertest';
 import { randomUUID } from 'crypto';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
+import { only } from '../../utils/prisma-test-guard';
 
 const RUN = `B2BC${Date.now().toString(36).toUpperCase()}`;
 
@@ -87,8 +88,8 @@ afterAll(async () => {
     });
     await prisma.style_variants.deleteMany({ where: { style: { styleCode: { startsWith: RUN } } } });
     await prisma.styles.deleteMany({ where: { styleCode: { startsWith: RUN } } });
-    await prisma.customers.deleteMany({ where: { id: customerId } });
-    await prisma.users.deleteMany({ where: { id: testUserId } });
+    await prisma.customers.deleteMany({ where: { id: only(customerId) } });
+    await prisma.users.deleteMany({ where: { id: only(testUserId) } });
   } catch {
     // ignore cleanup errors
   }
@@ -130,7 +131,7 @@ describe('§4 — what the B2B app reads back from GET /sale-orders/:id', () => 
   });
 
   afterAll(async () => {
-    await prisma.sale_orders.deleteMany({ where: { id: soId } });
+    await prisma.sale_orders.deleteMany({ where: { id: only(soId) } });
   });
 
   it('returns the UNWRAPPED order object with every field the B2B app reads', async () => {
@@ -220,7 +221,7 @@ describe('§5.5 — DRAFT-only updates', () => {
     expect(check.body.status).toBe('CONFIRMED');
     expect(check.body.items.length).toBe(2); // items untouched by the refused re-send
 
-    await prisma.sale_orders.deleteMany({ where: { id: soId } });
+    await prisma.sale_orders.deleteMany({ where: { id: only(soId) } });
   });
 });
 

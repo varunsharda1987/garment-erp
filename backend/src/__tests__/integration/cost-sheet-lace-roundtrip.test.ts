@@ -14,6 +14,7 @@ import request from 'supertest';
 import { randomUUID } from 'crypto';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
+import { only } from '../../utils/prisma-test-guard';
 
 const RUN = `CSL8${Date.now().toString(36).toUpperCase()}`;
 
@@ -91,9 +92,9 @@ afterAll(async () => {
   if (createdSheetIds.length > 0) {
     await prisma.style_costing.deleteMany({ where: { id: { in: createdSheetIds } } }); // cascades lace items
   }
-  await prisma.lace_master.deleteMany({ where: { id: laceMasterId } });
-  await prisma.styles.deleteMany({ where: { id: styleId } });
-  await prisma.users.deleteMany({ where: { id: testUserId } });
+  await prisma.lace_master.deleteMany({ where: { id: only(laceMasterId) } });
+  await prisma.styles.deleteMany({ where: { id: only(styleId) } });
+  await prisma.users.deleteMany({ where: { id: only(testUserId) } });
   await prisma.$disconnect();
 });
 

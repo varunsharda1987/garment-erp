@@ -15,6 +15,7 @@ import {
   JWO_RECEIVED_STATUSES,
 } from '../helpers/jwo-status.helper';
 import prisma from '../../config/database';
+import { only } from '../../utils/prisma-test-guard';
 
 describe('jwo-status.helper', () => {
   const RUN = `TJWS${Date.now().toString(36).toUpperCase()}`;
@@ -61,7 +62,7 @@ describe('jwo-status.helper', () => {
   });
 
   afterEach(async () => {
-    await prisma.job_work_orders.deleteMany({ where: { id: jwoId } });
+    await prisma.job_work_orders.deleteMany({ where: { id: only(jwoId) } });
   });
 
   afterAll(async () => {

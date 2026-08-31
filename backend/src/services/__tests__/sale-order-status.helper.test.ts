@@ -12,6 +12,7 @@ import { deriveSaleOrderProgress, recomputeSaleOrderStatus } from '../helpers/sa
 import { saleOrderService } from '../saleOrder.service';
 import prisma from '../../config/database';
 import { randomUUID } from 'crypto';
+import { only } from '../../utils/prisma-test-guard';
 
 describe('sale-order-status.helper', () => {
   const RUN = `TSOS${Date.now().toString(36).toUpperCase()}`;
@@ -74,15 +75,15 @@ describe('sale-order-status.helper', () => {
   });
 
   afterEach(async () => {
-    await prisma.sale_orders.deleteMany({ where: { id: saleOrderId } }); // items cascade
+    await prisma.sale_orders.deleteMany({ where: { id: only(saleOrderId) } }); // items cascade
   });
 
   afterAll(async () => {
     try {
       await prisma.sale_orders.deleteMany({ where: { saleOrderNumber: { startsWith: RUN } } });
-      await prisma.styles.deleteMany({ where: { id: styleId } });
-      await prisma.customers.deleteMany({ where: { id: customerId } });
-      await prisma.users.deleteMany({ where: { id: testUserId } });
+      await prisma.styles.deleteMany({ where: { id: only(styleId) } });
+      await prisma.customers.deleteMany({ where: { id: only(customerId) } });
+      await prisma.users.deleteMany({ where: { id: only(testUserId) } });
     } catch {
       // ignore cleanup errors
     }

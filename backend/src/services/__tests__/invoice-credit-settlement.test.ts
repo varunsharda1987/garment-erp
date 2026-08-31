@@ -15,6 +15,7 @@ import { invoiceService } from '../invoice.service';
 import { creditNoteService } from '../creditNote.service';
 import prisma from '../../config/database';
 import { randomUUID } from 'crypto';
+import { only } from '../../utils/prisma-test-guard';
 
 describe('invoice + credit-note settlement (landmine №5)', () => {
   const RUN = `TICS${Date.now().toString(36).toUpperCase()}`;
@@ -54,8 +55,8 @@ describe('invoice + credit-note settlement (landmine №5)', () => {
       await prisma.payments.deleteMany({ where: { invoices: { invoiceNumber: { startsWith: RUN } } } });
       await prisma.credit_notes.deleteMany({ where: { creditNoteNumber: { startsWith: RUN } } });
       await prisma.invoices.deleteMany({ where: { invoiceNumber: { startsWith: RUN } } });
-      await prisma.customers.deleteMany({ where: { id: customerId } });
-      await prisma.users.deleteMany({ where: { id: testUserId } });
+      await prisma.customers.deleteMany({ where: { id: only(customerId) } });
+      await prisma.users.deleteMany({ where: { id: only(testUserId) } });
     } catch {
       // ignore cleanup errors
     }

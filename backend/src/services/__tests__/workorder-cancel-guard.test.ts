@@ -10,6 +10,7 @@
 import workOrderService from '../workOrder.service';
 import prisma from '../../config/database';
 import { randomUUID } from 'crypto';
+import { only } from '../../utils/prisma-test-guard';
 
 describe('workOrder.addProductionTracking cancel guard', () => {
   const RUN = `TWOC${Date.now().toString(36).toUpperCase()}`;
@@ -46,8 +47,8 @@ describe('workOrder.addProductionTracking cancel guard', () => {
         where: { work_orders: { workOrderNumber: { startsWith: RUN } } },
       });
       await prisma.work_orders.deleteMany({ where: { workOrderNumber: { startsWith: RUN } } });
-      await prisma.styles.deleteMany({ where: { id: styleId } });
-      await prisma.users.deleteMany({ where: { id: testUserId } });
+      await prisma.styles.deleteMany({ where: { id: only(styleId) } });
+      await prisma.users.deleteMany({ where: { id: only(testUserId) } });
     } catch {
       // ignore cleanup errors
     }

@@ -12,6 +12,7 @@ import { echoShadowPoStatus } from '../helpers/shadow-po.helper';
 import { purchaseOrderService } from '../purchaseOrder.service';
 import prisma from '../../config/database';
 import { randomUUID } from 'crypto';
+import { only } from '../../utils/prisma-test-guard';
 
 describe('shadow-po.helper', () => {
   const RUN = `TSPO${Date.now().toString(36).toUpperCase()}`;
@@ -45,8 +46,8 @@ describe('shadow-po.helper', () => {
   afterAll(async () => {
     try {
       await prisma.purchase_orders.deleteMany({ where: { poNumber: { startsWith: RUN } } });
-      await prisma.suppliers.deleteMany({ where: { id: supplierId } });
-      await prisma.users.deleteMany({ where: { id: testUserId } });
+      await prisma.suppliers.deleteMany({ where: { id: only(supplierId) } });
+      await prisma.users.deleteMany({ where: { id: only(testUserId) } });
     } catch {
       // ignore cleanup errors
     }

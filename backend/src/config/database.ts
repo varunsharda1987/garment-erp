@@ -3,6 +3,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { logInfo, logError } from '../utils/logger';
+import { guardDestructiveFilters, shouldGuardPrismaFilters } from '../utils/prisma-test-guard';
 
 // Validate DATABASE_URL is set
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -26,7 +27,7 @@ const separator = DATABASE_URL.includes('?') ? '&' : '?';
 const pooledUrl = `${DATABASE_URL}${separator}${poolParams}`;
 
 // Create a single instance of Prisma Client with connection pooling
-const prisma = new PrismaClient({
+const baseClient = new PrismaClient({
   datasources: {
     db: {
       url: pooledUrl,
@@ -35,7 +36,13 @@ const prisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
 });
 
-logInfo('✅ Prisma Client created');
+// Under test ONLY, refuse destructive calls whose `where` contains an undefined value — Prisma
+// treats those as "no filter", so a teardown running after a failed setup empties the table
+// instead of removing one fixture row. Production keeps the plain client: an undefined filter
+// there is the idiomatic way to build an optional condition. See utils/prisma-test-guard.ts.
+const prisma = shouldGuardPrismaFilters() ? guardDestructiveFilters(baseClient) : baseClient;
+
+logInfo(`✅ Prisma Client created${shouldGuardPrismaFilters() ? ' (test-mode delete guard active)' : ''}`);
 
 // Note: Graceful shutdown is handled in server.ts
 // Do not disconnect here as it causes premature exit

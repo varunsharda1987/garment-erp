@@ -10,6 +10,7 @@
 import greigeStockService from '../greige-stock.service';
 import { ensureMaterialRecord } from '../helpers/material-sync.helper';
 import prisma from '../../config/database';
+import { only } from '../../utils/prisma-test-guard';
 
 describe('greigeStockService.returnGreigeStock', () => {
   const testPrefix = `TGRT${Date.now().toString(36).toUpperCase()}`;
@@ -77,14 +78,14 @@ describe('greigeStockService.returnGreigeStock', () => {
   });
 
   afterEach(async () => {
-    await prisma.greige_stock_transaction.deleteMany({ where: { stockId: testStockId } });
-    await prisma.greige_stock.deleteMany({ where: { id: testStockId } });
+    await prisma.greige_stock_transaction.deleteMany({ where: { stockId: only(testStockId) } });
+    await prisma.greige_stock.deleteMany({ where: { id: only(testStockId) } });
   });
 
   afterAll(async () => {
     try {
-      await prisma.stock_levels.deleteMany({ where: { warehouseId: testWarehouseId } });
-      await prisma.materials.deleteMany({ where: { id: testMaterialId } });
+      await prisma.stock_levels.deleteMany({ where: { warehouseId: only(testWarehouseId) } });
+      await prisma.materials.deleteMany({ where: { id: only(testMaterialId) } });
       await prisma.greige_master.deleteMany({ where: { greigeCode: { startsWith: testPrefix } } });
       await prisma.warehouses.deleteMany({ where: { warehouseCode: { startsWith: testPrefix } } });
       await prisma.users.deleteMany({ where: { email: `${testPrefix}@test.com` } });

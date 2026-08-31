@@ -12,6 +12,7 @@ import request from 'supertest';
 import { randomUUID } from 'crypto';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
+import { only } from '../../utils/prisma-test-guard';
 
 const RUN = `FCD${Date.now().toString(36).toUpperCase()}`;
 
@@ -98,8 +99,8 @@ afterAll(async () => {
   await prisma.cad_size_breakdown.deleteMany({ where: { cad: { componentName: { startsWith: RUN } } } });
   await prisma.fabric_width_cad.deleteMany({ where: { componentName: { startsWith: RUN } } });
   await prisma.fabric_costing_run.deleteMany({ where: { styleId } });
-  await prisma.styles.deleteMany({ where: { id: styleId } });
-  await prisma.users.deleteMany({ where: { id: testUserId } });
+  await prisma.styles.deleteMany({ where: { id: only(styleId) } });
+  await prisma.users.deleteMany({ where: { id: only(testUserId) } });
   await prisma.$disconnect();
 });
 

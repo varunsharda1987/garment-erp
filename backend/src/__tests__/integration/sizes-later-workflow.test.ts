@@ -19,6 +19,7 @@ import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { calculateRequirementsFromOrder, linkRequirementToPO } from '../../services/mrp.service';
 import { validateTransition } from '../../utils/stateMachine';
+import { only } from '../../utils/prisma-test-guard';
 
 const RUN = `SZL${Date.now().toString(36).toUpperCase()}`;
 
@@ -148,14 +149,14 @@ afterAll(async () => {
   await prisma.work_orders.deleteMany({ where: { orderId } });
   await prisma.order_bom_items.deleteMany({ where: { orderBomId } });
   await prisma.order_bom.deleteMany({ where: { orderId } });
-  await prisma.orders.deleteMany({ where: { id: orderId } }); // cascades items + breakup
+  await prisma.orders.deleteMany({ where: { id: only(orderId) } }); // cascades items + breakup
   await prisma.label_size_variants.deleteMany({ where: { labelId } });
   await prisma.materials.deleteMany({ where: { id: { in: [labelId, plainLabelId] } } });
   await prisma.label_master.deleteMany({ where: { id: { in: [labelId, plainLabelId] } } });
   await prisma.size_options.deleteMany({ where: { styleId } });
-  await prisma.customers.deleteMany({ where: { id: customerId } });
-  await prisma.styles.deleteMany({ where: { id: styleId } });
-  await prisma.users.deleteMany({ where: { id: userId } });
+  await prisma.customers.deleteMany({ where: { id: only(customerId) } });
+  await prisma.styles.deleteMany({ where: { id: only(styleId) } });
+  await prisma.users.deleteMany({ where: { id: only(userId) } });
   await prisma.$disconnect();
 });
 

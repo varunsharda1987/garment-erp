@@ -8,6 +8,7 @@
 
 import { ensureMaterialRecord, syncStockLevelQuantity } from '../helpers/material-sync.helper';
 import prisma from '../../config/database';
+import { only } from '../../utils/prisma-test-guard';
 
 describe('Material Sync Helper', () => {
   const testPrefix = `TEST_${Date.now()}`;
@@ -47,7 +48,7 @@ describe('Material Sync Helper', () => {
   afterAll(async () => {
     try {
       await prisma.stock_levels.deleteMany({
-        where: { warehouseId: testWarehouseId },
+        where: { warehouseId: only(testWarehouseId) },
       });
       await prisma.materials.deleteMany({
         where: { code: { startsWith: testPrefix } },

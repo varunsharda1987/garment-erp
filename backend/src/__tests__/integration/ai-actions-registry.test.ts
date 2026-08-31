@@ -17,6 +17,7 @@ import { UserRole } from '@prisma/client';
 import app from '../../app';
 import { aiActionsService } from '../../services/ai/ai-actions.service';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
+import { only } from '../../utils/prisma-test-guard';
 
 const RUN = `AIR${Date.now().toString(36).toUpperCase()}`;
 
@@ -35,7 +36,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await prisma.users.deleteMany({ where: { id: testUserId } });
+  await prisma.users.deleteMany({ where: { id: only(testUserId) } });
   await prisma.$disconnect();
 });
 

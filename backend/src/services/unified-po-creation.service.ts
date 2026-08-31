@@ -240,7 +240,16 @@ export async function validateUnifiedPOInput(input: UnifiedPOCreationInput): Pro
 
     const validStatuses = ['PO_REQUIRED', 'PARTIAL_STOCK'];
     for (const req of requirements) {
-      if (!validStatuses.includes(req.status)) {
+      if (req.status === 'SIZE_PENDING') {
+        // Hard error, not a warning: a size-wise label carries its sizes in print. Ordering the
+        // aggregate row buys labels whose sizes nobody has decided yet, and it permanently
+        // protects that row from the recalculation that should have replaced it with per-size
+        // lines — leaving the label planned twice.
+        errors.push({
+          field: 'sourceLinks.materialRequirementIds',
+          message: `Requirement ${req.id} is awaiting the order's size breakdown — enter the sizes before ordering this label.`,
+        });
+      } else if (!validStatuses.includes(req.status)) {
         warnings.push({
           field: 'sourceLinks.materialRequirementIds',
           message: `Requirement ${req.id} has status "${req.status}" (expected: ${validStatuses.join(', ')})`,

@@ -142,6 +142,9 @@ export interface SizeBreakupResult {
   newTotal: number;
   requirements: { created: number; updated: number; sizePending: number } | null;
   workOrders: { created: string[]; skipped: string[]; failed: { styleId: string; reason: string }[] } | null;
+  // The breakup is saved even if these follow-up steps fail — surface them, never swallow them
+  mrpError: string | null;
+  workOrderError: string | null;
 }
 
 /**

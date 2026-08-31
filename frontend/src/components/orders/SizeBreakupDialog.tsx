@@ -22,6 +22,11 @@ interface SizeOption {
   sizeName: string;
 }
 
+interface ColorOption {
+  id: string;
+  colorName: string;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -42,6 +47,7 @@ interface Props {
  */
 export function SizeBreakupDialog({ open, onOpenChange, orderId, orderItemId, styleId, currentTotal, onSaved }: Props) {
   const [sizes, setSizes] = useState<SizeOption[]>([]);
+  const [colorCount, setColorCount] = useState(0);
   const [quantities, setQuantities] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -54,8 +60,13 @@ export function SizeBreakupDialog({ open, onOpenChange, orderId, orderItemId, st
       try {
         setLoading(true);
         const style = await getStyleById(styleId);
-        const styleSizes = ((style as unknown as { sizeOptions?: SizeOption[] }).sizeOptions ?? []).filter((s) => s.id);
+        const styleAny = style as unknown as { sizeOptions?: SizeOption[]; colorOptions?: ColorOption[] };
+        const styleSizes = (styleAny.sizeOptions ?? []).filter((s) => s.id);
         setSizes(styleSizes);
+        // This dialog writes a size-only breakup (colorId null). That is valid and is what a
+        // sizeless order needs, but if the style has colours the split is not colour-wise —
+        // say so rather than letting the user assume otherwise.
+        setColorCount((styleAny.colorOptions ?? []).length);
         setQuantities(Object.fromEntries(styleSizes.map((s) => [s.id, ''])));
       } catch (err) {
         logError('Failed to load style sizes', err);
@@ -104,6 +115,15 @@ export function SizeBreakupDialog({ open, onOpenChange, orderId, orderItemId, st
         parts.push(`${result.workOrders.created.length} work order(s) created`);
       }
       notify.success(parts.join(' • '));
+      // The breakup itself is saved; these steps run after it and can fail independently.
+      if (result.mrpError) {
+        notify.error(
+          `Size breakdown saved, but recalculating requirements failed: ${result.mrpError}. Re-run MRP from the order BOM page.`
+        );
+      }
+      if (result.workOrderError) {
+        notify.error(`Size breakdown saved, but work order creation failed: ${result.workOrderError}`);
+      }
       if (result.workOrders && result.workOrders.failed.length > 0) {
         notify.error(`Some work orders could not be created: ${result.workOrders.failed[0].reason}`);
       }
@@ -178,6 +198,16 @@ export function SizeBreakupDialog({ open, onOpenChange, orderId, orderItemId, st
                 </div>
               ))}
             </div>
+
+            {colorCount > 1 && (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  This style has {colorCount} colours. These quantities are recorded per size only, not split by colour
+                  — use the order edit screen if you need a colour-wise split.
+                </AlertDescription>
+              </Alert>
+            )}
 
             {confirmMessage && (
               <Alert>

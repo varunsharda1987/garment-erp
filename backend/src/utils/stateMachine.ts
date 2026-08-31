@@ -99,9 +99,11 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
   materialRequirement: {
     PENDING: ['SIZE_PENDING', 'PO_REQUIRED', 'PARTIAL_STOCK', 'FULFILLED_STOCK', 'CONVERTED', 'CANCELLED'],
     // Size-wise label whose per-size split is not known yet: the total is real and visible, but it
-    // must not be ordered until sizes arrive. Recalculation after the breakup is entered cancels
-    // this row and creates the per-size ones.
-    SIZE_PENDING: ['PO_REQUIRED', 'PARTIAL_STOCK', 'FULFILLED_STOCK', 'CANCELLED'],
+    // must NOT become orderable by a manual status change — the only sanctioned exit is the
+    // recalculation that fires when the size breakup is entered, which CANCELS this row and
+    // creates the per-size ones in its place. Allowing SIZE_PENDING -> PO_REQUIRED here would
+    // reopen the double-planning hole by the back door (promote, then order the aggregate).
+    SIZE_PENDING: ['CANCELLED'],
     // Stock allocation can move either way while nothing has been ordered yet
     FULFILLED_STOCK: ['PARTIAL_STOCK', 'PO_REQUIRED', 'CONVERTED', 'CANCELLED'],
     PARTIAL_STOCK: ['PO_REQUIRED', 'FULFILLED_STOCK', 'PO_GENERATED', 'CONVERTED', 'CANCELLED'],

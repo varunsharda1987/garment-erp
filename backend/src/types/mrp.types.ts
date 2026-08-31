@@ -476,6 +476,8 @@ export interface OrderRequirementsSummary {
   }[];
   totalShortfall: number;
   requirementsNeedingPO: number;
+  /** SIZE_PENDING rows: planned, but not orderable until the order gets its size split. */
+  requirementsAwaitingSizes?: number;
   estimatedPOValue?: number;
 }
 
@@ -486,6 +488,8 @@ export interface MRPDashboardStats {
   totalPendingRequirements: number;
   totalShortfall: number;
   requirementsNeedingPO: number;
+  /** SIZE_PENDING rows: planned, but not orderable until the order gets its size split. */
+  requirementsAwaitingSizes?: number;
   poInProgress: number;
   awaitingReceipt: number;
   overdueRequirements: number;

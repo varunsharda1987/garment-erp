@@ -1336,6 +1336,7 @@ export const setOrderItemSizeBreakup = async (req: Request, res: Response): Prom
       id: true,
       styleId: true,
       totalQuantity: true,
+      unitPrice: true, // needed to recompute totalPrice when the quantity changes
       orders: { select: { id: true, orderNumber: true, status: true } },
     },
   });
@@ -1372,11 +1373,14 @@ export const setOrderItemSizeBreakup = async (req: Request, res: Response): Prom
   // Changing the committed quantity is allowed, but never silently: greige/dyeing POs may
   // already be placed against the current total, and the BOM was computed at it.
   if (quantityChanged && !confirmQuantityChange) {
-    const [approvedBoms, poLinkedCount] = await Promise.all([
+    const [approvedBoms, poLinkedCount, liveWorkOrders] = await Promise.all([
       prisma.order_bom.count({ where: { orderId, status: { in: ['APPROVED', 'LOCKED'] }, isActive: true } }),
       prisma.material_requirements.count({
         where: { orderId, status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED', 'RECEIVED'] } },
       }),
+      // Work orders past PENDING are being cut/stitched against the current quantity; the
+      // breakup sync below deliberately only touches PENDING ones, so say so plainly.
+      prisma.work_orders.count({ where: { orderId, status: { notIn: ['PENDING', 'CANCELLED'] } } }),
     ]);
     throw new BusinessError(
       `These sizes add up to ${newTotal} pcs but the order item currently carries ${currentTotal} pcs. ` +
@@ -1386,19 +1390,43 @@ export const setOrderItemSizeBreakup = async (req: Request, res: Response): Prom
           : '') +
         (poLinkedCount > 0
           ? ` ${poLinkedCount} requirement(s) are already on a purchase order and will NOT be adjusted automatically.`
-          : ''),
+          : '') +
+        (liveWorkOrders > 0
+          ? ` ${liveWorkOrders} work order(s) are already in production and will NOT be re-planned.`
+          : '') +
+        (orderItem.orders.status !== 'PENDING' ? ` This order is ${orderItem.orders.status}.` : ''),
       {
         code: 'QUANTITY_CHANGE_REQUIRES_CONFIRMATION',
         currentTotal,
         newTotal,
         approvedBoms,
         poLinkedRequirements: poLinkedCount,
+        liveWorkOrders,
+        orderStatus: orderItem.orders.status,
       }
     );
   }
 
   // Replace this item's breakup only — the order_items row (and every FK pointing at it) stays.
   await prisma.$transaction(async (tx) => {
+    // Lock the order item first. Two concurrent calls would otherwise each delete the rows
+    // visible in their own snapshot and then insert, merging both breakups into one item
+    // (Postgres READ COMMITTED). The loser blocks here and re-reads after the winner commits.
+    await tx.$queryRaw`SELECT id FROM order_items WHERE id = ${orderItem.id} FOR UPDATE`;
+
+    // Re-read the committed total inside the lock: the pre-flight quantity-change gate above
+    // ran on an unlocked snapshot that a concurrent write may have moved.
+    const locked = await tx.order_items.findUniqueOrThrow({
+      where: { id: orderItem.id },
+      select: { totalQuantity: true, unitPrice: true },
+    });
+    if (locked.totalQuantity !== currentTotal && newTotal !== locked.totalQuantity && !confirmQuantityChange) {
+      throw new BusinessError(
+        `This order item changed to ${locked.totalQuantity} pcs while you were entering sizes. Reload and try again.`,
+        { code: 'QUANTITY_CHANGE_REQUIRES_CONFIRMATION', currentTotal: locked.totalQuantity, newTotal }
+      );
+    }
+
     await tx.order_item_breakup.deleteMany({ where: { orderItemId: orderItem.id } });
     for (const b of cleaned) {
       await tx.order_item_breakup.create({
@@ -1412,29 +1440,37 @@ export const setOrderItemSizeBreakup = async (req: Request, res: Response): Prom
       });
     }
 
-    if (quantityChanged) {
-      await tx.order_items.update({ where: { id: orderItem.id }, data: { totalQuantity: newTotal } });
+    if (newTotal !== locked.totalQuantity) {
+      // Money is stored, not derived — updating quantity alone would leave totalPrice and the
+      // order's totalAmount stating the OLD quantity's value (the create path computes both).
+      const newItemTotal = roundToCent(multiplyCurrency(newTotal, Number(locked.unitPrice))).toNumber();
+      await tx.order_items.update({
+        where: { id: orderItem.id },
+        data: { totalQuantity: newTotal, totalPrice: newItemTotal },
+      });
       const itemTotals = await tx.order_items.aggregate({
         where: { orderId },
-        _sum: { totalQuantity: true },
+        _sum: { totalQuantity: true, totalPrice: true },
       });
       await tx.orders.update({
         where: { id: orderId },
-        data: { totalQuantity: itemTotals._sum.totalQuantity ?? newTotal },
+        data: {
+          totalQuantity: itemTotals._sum.totalQuantity ?? newTotal,
+          totalAmount: itemTotals._sum.totalPrice ?? newItemTotal,
+        },
       });
     }
 
-    // Mirror the order-edit path: keep PENDING work orders' breakup in step.
+    // Keep this item's PENDING work orders in step. Scoped by orderItemId (not styleId): an
+    // order can carry two items of the same style, and re-pointing by style would steal the
+    // sibling's work order and leave it with this item's breakup.
     const pendingWorkOrders = await tx.work_orders.findMany({
-      where: { orderId, styleId: orderItem.styleId, status: 'PENDING' },
+      where: { orderId, orderItemId: orderItem.id, status: 'PENDING' },
       select: { id: true },
     });
     for (const wo of pendingWorkOrders) {
       await tx.work_order_breakup.deleteMany({ where: { workOrderId: wo.id } });
-      await tx.work_orders.update({
-        where: { id: wo.id },
-        data: { orderItemId: orderItem.id, totalQuantity: newTotal },
-      });
+      await tx.work_orders.update({ where: { id: wo.id }, data: { totalQuantity: newTotal } });
       for (const b of cleaned) {
         await tx.work_order_breakup.create({
           data: {
@@ -1499,9 +1535,11 @@ export const setOrderItemSizeBreakup = async (req: Request, res: Response): Prom
       newTotal,
       requirements,
       workOrders,
+      // Inside `data` deliberately: clients read data.*, so top-level error fields were
+      // unreachable and a failed MRP recalc would have been reported to the user as success.
+      mrpError,
+      workOrderError,
     },
-    mrpError,
-    workOrderError,
     message: messageParts.join('. '),
   });
 };

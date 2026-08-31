@@ -1655,8 +1655,14 @@ export async function calculateRequirementsFromOrder(
 
       // SIZE-BASED LABEL HANDLING: Check if label has size variants
       // If yes, create per-size requirements using order_item_breakup quantities
+      //
+      // Gated on the resolved material NOT already being a size variant — NOT on
+      // `!effectiveMaterialId`. Under the dual-FK convention (materials.id === master.id) a BOM
+      // line normally carries BOTH materialId and labelId, so `material` is already resolved and
+      // the old `!effectiveMaterialId` guard skipped this block entirely — planning a size-wise
+      // label as ONE aggregate line instead of per-size, with no warning.
       let sizeSplitPending = false;
-      if (bomItem.labelId && !effectiveMaterialId) {
+      if (bomItem.labelId && material?.sizeVariantId == null) {
         const labelSizeVariants = await prisma.label_size_variants.findMany({
           where: { labelId: bomItem.labelId, isActive: true },
           include: {
@@ -2045,7 +2051,10 @@ export async function calculateRequirementsFromOrder(
             // second was skipped and silently never planned, and on recalculation the two fought
             // over the same revived row. orderBomItemId is the true line identity.
             orderBomItemId: req.orderBomItemId ?? null,
-            status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
+            // RECEIVED included: the supersede pass preserves terminal RECEIVED rows, so
+            // omitting it here made recalculation create a SECOND row alongside goods that
+            // had already arrived — double-counting the requirement.
+            status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED', 'RECEIVED'] },
           },
           select: { id: true },
         });
@@ -2185,7 +2194,10 @@ export async function calculateRequirementsFromOrder(
             requirementType: 'PROCESSING',
             colorName: req.colorName || null,
             orderBomItemId: req.orderBomItemId ?? null, // MRP-26: distinguish BOM lines
-            status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] },
+            // RECEIVED included: the supersede pass preserves terminal RECEIVED rows, so
+            // omitting it here made recalculation create a SECOND row alongside goods that
+            // had already arrived — double-counting the requirement.
+            status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED', 'RECEIVED'] },
           },
           select: { id: true },
         });
@@ -2537,6 +2549,11 @@ export async function getOrderRequirementsSummary(orderId: string): Promise<Orde
   const requirementsNeedingPO = requirements.filter(
     (r) => r.status === MaterialRequirementStatus.PO_REQUIRED || r.status === MaterialRequirementStatus.PARTIAL_STOCK
   ).length;
+  // Reported separately so callers do not read "0 need PO" as "procurement complete" while
+  // size-wise labels are still waiting for the order's size split.
+  const requirementsAwaitingSizes = requirements.filter(
+    (r) => r.status === MaterialRequirementStatus.SIZE_PENDING
+  ).length;
 
   return {
     orderId: order.id,
@@ -2545,6 +2562,7 @@ export async function getOrderRequirementsSummary(orderId: string): Promise<Orde
     byStatus,
     totalShortfall,
     requirementsNeedingPO,
+    requirementsAwaitingSizes,
   };
 }
 
@@ -4129,6 +4147,16 @@ export async function linkRequirementToPO(
   ];
   if (coveredStatuses.includes(requirement.status)) {
     throw new Error(`Requirement ${requirementId} is already ${requirement.status} — it is covered by an existing PO`);
+  }
+
+  // A size-wise label whose split is not known yet must not reach a supplier: the sizes are
+  // printed on it. Every other PO path allowlists PO_REQUIRED/PARTIAL_STOCK and so excludes
+  // this status implicitly, but THIS one is a denylist, so it needs the rule stated.
+  if (requirement.status === MaterialRequirementStatus.SIZE_PENDING) {
+    throw new Error(
+      `Requirement ${requirement.requirementNumber} is awaiting the order's size breakdown — ` +
+        `enter the sizes on the order before ordering this label.`
+    );
   }
 
   // Link + status flip atomically; the guarded updateMany re-checks status INSIDE the tx so a

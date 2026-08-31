@@ -17,7 +17,8 @@ import request from 'supertest';
 import { randomUUID } from 'crypto';
 import app from '../../app';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
-import { calculateRequirementsFromOrder } from '../../services/mrp.service';
+import { calculateRequirementsFromOrder, linkRequirementToPO } from '../../services/mrp.service';
+import { validateTransition } from '../../utils/stateMachine';
 
 const RUN = `SZL${Date.now().toString(36).toUpperCase()}`;
 
@@ -187,19 +188,28 @@ describe('sizes-later workflow', () => {
     const pending = await prisma.material_requirements.findFirstOrThrow({
       where: { orderId, status: 'SIZE_PENDING' },
     });
-    const res = await request(app)
-      .post('/api/mrp/validate-po-generation')
-      .set(authHeader)
-      .send({ requirementIds: [pending.id] });
 
-    // Either the endpoint reports it as ineligible, or it does not exist — what must never
-    // happen is the row silently becoming orderable.
-    if (res.status === 200) {
-      const body = JSON.stringify(res.body);
-      expect(body).toMatch(/not eligible|SIZE_PENDING/i);
-    }
+    // linkRequirementToPO is the one PO path built on a DENYLIST rather than an allowlist, so
+    // it is the one that could actually flip this row to PO_GENERATED — ordering labels whose
+    // sizes nobody has chosen, and permanently shielding the row from the recalculation that
+    // should replace it with per-size lines.
+    await expect(
+      linkRequirementToPO(
+        {
+          requirementId: pending.id,
+          purchaseOrderId: randomUUID(),
+          purchaseOrderItemId: randomUUID(),
+          allocatedQuantity: Number(pending.totalRequired),
+        },
+        userId
+      )
+    ).rejects.toThrow(/size breakdown/i);
+
     const stillPending = await prisma.material_requirements.findUnique({ where: { id: pending.id } });
     expect(stillPending!.status).toBe('SIZE_PENDING');
+
+    // And the state machine must not offer a manual promotion back into an orderable state
+    expect(validateTransition('materialRequirement', 'SIZE_PENDING', 'PO_REQUIRED').valid).toBe(false);
   });
 
   it('rejects a size breakdown whose total differs from the order, until confirmed', async () => {

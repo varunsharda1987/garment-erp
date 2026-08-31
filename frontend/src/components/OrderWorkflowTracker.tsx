@@ -168,6 +168,7 @@ export interface OrderWorkflowData {
   mrpSummary?: {
     totalRequirements: number;
     requirementsNeedingPO: number;
+    requirementsAwaitingSizes?: number;
     hasShortfall: boolean;
     // P5.1: GRN tracking
     receivedCount?: number;
@@ -327,6 +328,18 @@ export function buildWorkflowSteps(
       status: 'in_progress',
       action: handlers.onViewMRP,
       actionLabel: 'Generate',
+    };
+  } else if ((mrpSummary.requirementsAwaitingSizes ?? 0) > 0) {
+    // Nothing is orderable YET, but procurement is not finished either: size-wise labels are
+    // planned and waiting for the order's size split. Showing "completed" here would tell the
+    // user the buying is done while those labels are still unordered.
+    poStep = {
+      id: 'po',
+      label: 'PO',
+      description: `${mrpSummary.requirementsAwaitingSizes} awaiting size breakdown`,
+      status: 'in_progress',
+      action: handlers.onViewMRP,
+      actionLabel: 'View',
     };
   } else {
     poStep = {

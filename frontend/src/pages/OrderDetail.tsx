@@ -626,6 +626,7 @@ export default function OrderDetail() {
               ? {
                   totalRequirements: mrpSummary.totalRequirements,
                   requirementsNeedingPO: mrpSummary.requirementsNeedingPO,
+                  requirementsAwaitingSizes: mrpSummary.requirementsAwaitingSizes,
                   hasShortfall: mrpSummary.totalShortfall > 0,
                 }
               : null,
@@ -936,7 +937,24 @@ export default function OrderDetail() {
                   {/* Quantity Breakup */}
                   {item.breakup && item.breakup.length > 0 ? (
                     <div>
-                      <div className="text-sm font-medium text-foreground mb-2">Quantity Breakup</div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm font-medium text-foreground">Quantity Breakup</div>
+                        {/* Also reachable once a split EXISTS — otherwise a wrong split entered
+                            here could never be corrected without deleting the order. */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            setSizeBreakupItem({
+                              orderItemId: item.id,
+                              styleId: item.styleId,
+                              currentTotal: item.totalQuantity,
+                            })
+                          }
+                        >
+                          Edit Size Breakdown
+                        </Button>
+                      </div>
                       <div className="overflow-x-auto">
                         <table className="min-w-full border text-sm">
                           <thead className="bg-muted">
@@ -1264,8 +1282,11 @@ export default function OrderDetail() {
           currentTotal={sizeBreakupItem.currentTotal}
           onSaved={() => {
             setSizeBreakupItem(null);
+            // Saving the breakup also rewrites requirements and work orders server-side, so
+            // every dependent view must refetch — not just the order.
             queryClient.invalidateQueries({ queryKey: queryKeys.orders.all });
             queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+            queryClient.invalidateQueries({ queryKey: queryKeys.mrp.forOrder(order.id) });
           }}
         />
       )}

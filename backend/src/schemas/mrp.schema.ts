@@ -14,6 +14,9 @@ import { UnitEnum, flexMaterialId } from './common.schema';
 
 export const MaterialRequirementStatusEnum = z.enum([
   'PENDING',
+  // Size-wise label planned at full quantity while the order has no size split. Omitting it
+  // here would make the status unfilterable and unsettable through the API (see CONVERTED below).
+  'SIZE_PENDING',
   'FULFILLED_STOCK',
   'PARTIAL_STOCK',
   'PO_REQUIRED',

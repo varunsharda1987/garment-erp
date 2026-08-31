@@ -64,3 +64,4 @@ Cloth is received through a GRN, so the fabric stock lot gets created.
 - If the JWO does not appear in the GRN dropdown, it has not been issued yet, it has already been received, or it was cancelled or closed.
 - A cancelled job blocks receiving everywhere — even a GRN saved before the cancellation refuses approval. The error says the stock was already credited back; if the mill really returned material, ask the office to re-open the job first.
 - Receiving does not create stock on its own — the GRN must be approved.
+- If the order was cancelled after material was issued, a disposition dialog appears asking what happened to the material. Complete that step before trying to receive.

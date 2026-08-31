@@ -60,10 +60,10 @@ Use this for any greige you bought from a supplier, even if you forgot to make t
 6. In the **Order Items** card, use the **Add Greige Fabric** search box and pick the greige you received. You can add several greige types to one PO.
 7. In the items table, enter **Fold L (cm)** if the cloth is folded short, plus **Quantity** and **Unit Price**. GST and totals calculate automatically.
 8. Click **Save & Send** to create and send the PO in one step. Or click **Save as Draft** and later use **Send to Supplier** on the PO page.
-9. Now open **Procurement → GRN (Goods Receipt)**.
+9. Now open **Procurement → GRN (Goods Receipt)**. The page title is **Goods Receiving Notes**.
 10. Click **+ Create GRN**. Under **Purchase Order**, search and select your new PO.
 11. Fill the received quantities and click **Save GRN**.
-12. Open the saved GRN and click **Approve** — stock is added only after approval.
+12. Open the saved GRN from the list and click **Approve** — stock is added only after approval.
 
 ### Why this is better
 - Payment liability is tracked — you will see how much you owe the supplier.

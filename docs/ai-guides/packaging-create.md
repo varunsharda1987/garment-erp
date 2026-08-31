@@ -39,9 +39,9 @@ Nothing is mandatory first. To link a supplier, that supplier must already exist
 1. Open **Materials & Masters → All Masters** in the sidebar (under the **Configuration** heading — expand it if collapsed).
 2. In the **Packaging & Labels** section, click **Packaging**. The page opens as **Packaging Management**. (Ctrl+K and typing "Packaging" also opens it.)
 3. Click **+ Add New Packaging**. The form opens with the heading **Create New Packaging**.
-4. **Packaging Name** is the only field the form will not save without. If it is blank you get the red message "Packaging name is required". Write it so the store can identify the item, for example "Poly Bag 12x18 inch Transparent".
+4. **Packaging Name** is optional — leave it blank and the system auto-generates a name from the selected attributes (for example "Cardboard Box Packaging"). If you prefer a custom name, type it here so the store can identify the item, for example "Poly Bag 12x18 inch Transparent".
 5. There is no code box on the create form. The system assigns the code on save (PKG-0001, PKG-0002 …) and shows it when you re-open the item.
-6. **Customer (Optional)**: choose a customer only if this packing is made for that buyer. The **Brand (Optional)** dropdown appears after a customer is chosen, and stays empty if that customer has no brands set up.
+6. **Customer (Optional)**: choose a customer only if this packing is made for that buyer. Select **No Customer (Generic Packaging)** to leave it unlinked. The **Brand (Optional)** dropdown appears after a customer is chosen, and stays empty if that customer has no brands set up.
 7. **Packaging Type**: pick from the list — Poly Bag, Zip Lock Bag, Garment Cover, Dust Cover, Carton Box, Gift Box, Shoe Box, Inner Box, Plastic / Wooden / Velvet / Clip / Wire Hanger, Packing Tape, Barcode Sticker, Size Sticker, Tissue Paper, Silica Gel, Insert Card. Choose **Other** and a free-text box appears for a type not on the list.
 8. **Size** is free text for the dimensions, for example "12x18 inches".
 9. **Material** is what it is made of, for example LDPE or corrugated cardboard.

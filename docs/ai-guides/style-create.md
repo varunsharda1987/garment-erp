@@ -57,7 +57,7 @@ The customer must already exist in the Customers master, and the customer needs 
 14. For each fabric row, pick **Source**: **Greige / Process** (then fill the greige name) or **Ready Fabric** (then pick an existing fabric master).
 15. Choose **Fabric Finish Type**: Solid/Dyed, Printed, Yarn Dyed, or Raw/Unfinished.
 16. Tick **Has Embroidery** and click **Select Design** if the fabric is embroidered.
-17. Go to **3. Trims & Materials** and select trims. Use **Add New** to create a missing master without leaving the page. If you do not pick a thread, the system links the shared **Default Thread** (code THR-DEFAULT) into the BOM automatically.
+17. Go to **3. Trims & Materials** and select trims. Use **Add New** to create a missing master without leaving the page. If you do not pick a thread, the system links the shared **Default Thread** (code THR-DEFAULT) into the BOM automatically when the style is saved — you will see it appear in the cost sheet.
 18. Go to **4. Accessories** and select labels, polybags, hangtags and cartons.
 19. Click **Create Style**.
 

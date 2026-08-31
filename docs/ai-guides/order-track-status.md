@@ -56,11 +56,11 @@ Orders are often started with the total quantity only so long-lead greige, dyein
 
 1. Open the order and scroll to **Order Items**.
 2. On the item showing **Size breakdown not specified**, click **Add Size Breakdown**.
-3. In the **Add Size Breakdown** dialog, click **Distribute … evenly** (the button carries the item's total) or type the pieces into the box under each size name.
+3. In the **Add Size Breakdown** dialog, click **Distribute [N] evenly** (the button carries the item's total) or type the pieces into the box under each size name. The description explains that entering sizes generates per-size label requirements and lets production work orders be created.
 4. Check the **Entered: X / Y pcs** counter, then click **Save Size Breakdown**.
-5. If the sizes add up to a different total, the save is refused once and the button changes to **Confirm & change quantity to N**. Clicking it saves the sizes and updates the order quantity.
+5. If the sizes add up to a different total, the save is refused once and an alert explains the difference. The button then reads **Confirm & change quantity to [N]**. Clicking it saves the sizes and updates the order quantity.
 
-Saving refreshes the order's material requirements and creates the production work orders, which cannot exist while the order has no sizes.
+Saving refreshes the order's material requirements and creates the production work orders, which cannot exist while the order has no sizes. A success message summarises what happened.
 
 ## Factory-wide view
 For all running orders at once, open **Production Status** at the top of the sidebar. The **Production Status Dashboard** has a **By Order** / **By Style** toggle, search and filters, and a **Refresh** button showing when the data was last updated.

@@ -30,8 +30,8 @@ sources:
 The GRN must already exist and be in **Pending QC** status. Approve and Reject buttons do not appear on any other status. Approval is what actually creates stock, so check the physical goods first.
 
 ## Steps
-1. Open **Procurement → GRN (Goods Receipt)** in the sidebar.
-2. Set the status filter to **Pending QC** to see everything waiting, or search by GRN number, PO number or supplier.
+1. Open **Procurement → GRN (Goods Receipt)** in the sidebar. The page title is **Goods Receiving Notes**.
+2. Use the status dropdown to filter by **Pending QC** to see everything waiting, or search by GRN number, PO number or supplier. You can also filter by supplier using the supplier dropdown.
 3. Click the GRN number to open it.
 4. Check the summary tiles — **Total Items**, **Total Received**, **Total Accepted**, **Total Rejected** — and the **Received Items** table. Than, bale and roll breakdowns are shown under each material.
 5. Click **Approve**.

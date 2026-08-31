@@ -32,7 +32,7 @@ sources:
 A Purchase Order must already exist and be in **Sent**, **Acknowledged** or **Partially Received** status — Draft POs do not appear in the list. Goods coming back from a processor with no PO are received against a Job Work Order instead (same screen, separate box).
 
 ## Steps
-1. Open **Procurement → GRN (Goods Receipt)** in the sidebar.
+1. Open **Procurement → GRN (Goods Receipt)** in the sidebar. The page title is **Goods Receiving Notes**.
 2. Click **+ Create GRN**. The page title reads **Create Goods Receiving Note**. (Shortcut: from the PO page click **Receive Goods** and the PO is already selected.)
 3. Under **Purchase Order Selection**, search by PO number, supplier, material or style, or use the category chips, then pick the PO in **Purchase Order ***.
 4. To receive from a processor instead, use **Or receive against a Job Work Order (no PO)** and pick the JWO. Choose an **Entry Mode**: **Total Meters** (fill **Received Meters**, or **Than Count** plus **Fold Length (cm)**), **Than-wise** (click **Add Than** and type the meters of each than), or **Bale-wise** (click **Add Bale**, then **Than** inside each bale, and type the meters). The **Detail sum** shows the total as you type. Also fill **Fold Length (cm)**, **Width (inches)** and **Vendor Challan Ref**, then click the **Save GRN for ...** button in that box.

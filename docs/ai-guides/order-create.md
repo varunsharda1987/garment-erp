@@ -73,12 +73,12 @@ An order can be created with the total quantity only, so long-lead greige, dyein
 
 1. Open the order and scroll to **Order Items**.
 2. The item shows **Size breakdown not specified**. Click **Add Size Breakdown**.
-3. A dialog titled **Add Size Breakdown** opens. Click **Distribute … evenly** (the button carries the item's total, for example *Distribute 600 evenly*) to spread the pieces across every size, or type the pieces into the box under each size name.
+3. A dialog titled **Add Size Breakdown** opens. The description explains that entering sizes generates per-size label requirements and lets production work orders be created. Click **Distribute [N] evenly** (the button carries the item's total) to spread the pieces across every size, or type the pieces into the box under each size name.
 4. Check the **Entered: X / Y pcs** counter. X is what you typed, Y is what the order currently carries.
 5. Click **Save Size Breakdown**.
-6. If the sizes add up to a different total, the save is refused once and a message explains the difference. The button then reads **Confirm & change quantity to N**. Clicking it saves the sizes and changes the order quantity to N.
+6. If the sizes add up to a different total, the save is refused once and an alert explains the difference. The button then reads **Confirm & change quantity to [N]**. Clicking it saves the sizes and changes the order quantity to N.
 
-This works even when the order already has an approved BOM or material requirements. Saving refreshes the material requirements and creates the production work orders, which cannot exist while an order has no sizes.
+This works even when the order already has an approved BOM or material requirements. Saving refreshes the material requirements and creates the production work orders, which cannot exist while an order has no sizes. A success message summarises what happened: pieces saved, quantity updated if changed, requirements refreshed, and work orders created.
 
 Traps in this dialog:
 - **This style has no sizes defined** means you must add the sizes to the style first, then return.
@@ -86,3 +86,4 @@ Traps in this dialog:
 - Only sizes belonging to the order's style are accepted.
 - A **Cancelled** or **Split** order will not accept a size breakdown.
 - If the confirmation message mentions requirements already on a purchase order, those are not adjusted automatically — check them yourself afterwards.
+- If the style has multiple colours, a note explains that these quantities are per size only, not split by colour — use the order edit screen for a colour-wise split.

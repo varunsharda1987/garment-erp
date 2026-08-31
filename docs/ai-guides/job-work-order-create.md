@@ -61,5 +61,5 @@ The processor must exist as a supplier. To actually send greige, the greige must
 - Dyeing or Printing **with** a style shows a message pointing to **Go to Processing** — that flow is created on the Processing page instead. Clear the Style field to raise it here as a stock job.
 - **Expected Shrinkage** must be under 100.
 - All lot rows must be the same greige. One job work order sends one cloth.
-- A cancelled order is final for receiving — its issued material is credited back to stock, and the processor's return can no longer be booked against it. Cancel only when the material is really not coming back as this job.
+- A cancelled order shows a disposition dialog asking what happened to the material: **Returned to Stock** (credits it back), **At Processor** (keeps it there for future use), **Written Off**, **Transferred** (to another JWO), or **Returned to Supplier**. Complete this step to finish the cancellation.
 - Sending several orders to one processor on one truck? Use **Manufacturing → Dispatch to Processor** instead, and click **Send on one challan**.

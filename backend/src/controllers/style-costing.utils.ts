@@ -17,6 +17,14 @@ export interface FabricDetail {
   fabricTotal: number;
   isNotApplicable?: boolean;
   fabricId?: string;
+  /**
+   * The fabric_width_cad row this line was costed against.
+   *
+   * Written back by the cost-sheet save so subsequent saves pair by explicit id instead of
+   * inferring the pairing from names/widths. Optional because sheets saved before 2026-08-31
+   * (and payloads from older clients) do not carry it.
+   */
+  fabricCADId?: string;
   sourcingStrategy?: string;
   processorId?: string;
   greigeCost?: number;
@@ -98,6 +106,8 @@ export const FabricDetailSchema = z
     fabricRate: z.number().nonnegative('Fabric rate must be non-negative'),
     fabricTotal: z.number().nonnegative('Fabric total must be non-negative'),
     isNotApplicable: z.boolean().optional().default(false),
+    // Explicit link to the fabric_width_cad row this line was costed against (see FabricDetail)
+    fabricCADId: z.string().optional(),
     // Sourcing strategy fields (optional)
     fabricId: z.string().optional(),
     sourcingStrategy: z.enum(['STOCK_REUSE', 'READY_FABRIC', 'GREIGE_PROCESSED']).optional(),
@@ -393,3 +403,199 @@ export const UpdateCostSheetSchema = z
   )
   .partial()
   .omit({ styleId: true }) as typeof typedPartialForInference;
+
+// ============================================================================
+// CAD row ↔ fabricDetails pairing
+// ============================================================================
+
+/**
+ * The shape of a fabric_width_cad row this matcher needs. Deliberately structural so both the
+ * create and update queries in styleCosting.controller.ts satisfy it without extra selects.
+ */
+export interface CadRowForPairing {
+  id: string;
+  fabricId?: string | null;
+  greigeId?: string | null;
+  cutableWidth?: Prisma.Decimal | number | null;
+  fabric?: { fabricName?: string | null; greigeId?: string | null } | null;
+  greige?: { greigeName?: string | null } | null;
+}
+
+export type FabricPairingMethod = 'fabricCADId' | 'id+width' | 'name+width' | 'id' | 'width' | 'name' | 'positional';
+
+export interface FabricPairing<TCad extends CadRowForPairing> {
+  cad: TCad;
+  jsonFabric: FabricDetail;
+  jsonIndex: number;
+  method: FabricPairingMethod;
+}
+
+export interface FabricPairingResult<TCad extends CadRowForPairing> {
+  pairings: FabricPairing<TCad>[];
+  /** CAD rows left with no fabric line at all — these would silently vanish from the Order BOM. */
+  unmatchedCads: TCad[];
+  /** fabricDetails entries no CAD row claimed. */
+  unusedFabricIndexes: number[];
+  /** Human-readable problems for the API response; empty means every row paired unambiguously. */
+  warnings: string[];
+}
+
+function cadWidthOf(cad: CadRowForPairing): number | null {
+  if (cad.cutableWidth === null || cad.cutableWidth === undefined) return null;
+  const width = Number(cad.cutableWidth);
+  return Number.isFinite(width) ? width : null;
+}
+
+function cadNameOf(cad: CadRowForPairing): string {
+  return (cad.fabric?.fabricName || cad.greige?.greigeName || '').toLowerCase().trim();
+}
+
+function widthsMatch(cadWidth: number | null, jsonWidth: unknown): boolean {
+  if (cadWidth === null) return false;
+  const width = Number(jsonWidth);
+  return Number.isFinite(width) && Math.abs(width - cadWidth) < 0.01;
+}
+
+function namesMatch(cadName: string, jsonName: unknown): boolean {
+  const name = String(jsonName ?? '')
+    .toLowerCase()
+    .trim();
+  if (!name || !cadName) return false;
+  // Greige master names carry a construction suffix ("Viscose Staple 30x30 / 68x64 / 63\" (Super
+  // Dyeing)") while the sheet stores the short name, so equality never matches on real data.
+  return cadName === name || cadName.startsWith(name);
+}
+
+function idsMatch(cad: CadRowForPairing, jsonFabricId: unknown): boolean {
+  if (!jsonFabricId) return false;
+  return jsonFabricId === cad.fabricId || jsonFabricId === cad.greigeId;
+}
+
+/**
+ * Pair each deduplicated fabric_width_cad row with the fabricDetails entry it was costed from.
+ *
+ * Both cost-sheet endpoints MUST use this. They previously diverged — create matched by id/name
+ * while update joined the two lists by array position — and because fabric_width_cad is read
+ * `ORDER BY updatedAt DESC`, re-costing one width floated it to the front and the next save wrote
+ * one fabric's metreage and rate onto the other's line. style_costing_fabric_items is the only
+ * source Order-BOM trusts, so that swap reaches the greige PO while the sheet's own total (and
+ * therefore the screen the merchandiser checks) stays unchanged.
+ *
+ * Matching is CONSUMING — a fabricDetails entry is claimed by at most one CAD row — and runs
+ * strongest signal first: the explicit fabricCADId link, then identity+geometry, then
+ * name+geometry, then each alone. Position is the last resort and is always reported, because on
+ * live data (CAD fabricId NULL, short JSON names vs descriptive master names) an id/name-only
+ * matcher silently degrades back into the positional join this exists to eliminate.
+ */
+export function matchFabricDetailsToCadRows<TCad extends CadRowForPairing>(
+  cadRows: TCad[],
+  fabricDetails: FabricDetail[]
+): FabricPairingResult<TCad> {
+  const pairings: FabricPairing<TCad>[] = [];
+  const unmatchedCads: TCad[] = [];
+  const warnings: string[] = [];
+  const used = new Set<number>();
+
+  const meta = cadRows.map((cad) => ({ cad, width: cadWidthOf(cad), name: cadNameOf(cad) }));
+
+  /**
+   * A leg may only claim a line whose width does not CONTRADICT the CAD row's own width.
+   * Without this veto the identity-only legs cross widths: a 50" CAD row would claim the 52"
+   * line, produce a row whose width/rateCard come from one option and whose metreage and rate
+   * come from the other, and then stamp that pairing into fabricCADId permanently.
+   */
+  const widthCompatible = (width: number | null, jf: FabricDetail) =>
+    width === null || jf.fabricWidth == null || widthsMatch(width, jf.fabricWidth);
+
+  type Leg = { method: FabricPairingMethod; test: (m: (typeof meta)[number], jf: FabricDetail) => boolean };
+
+  // Strongest discriminator first. Legs are resolved GLOBALLY (every CAD row is offered a leg
+  // before any row is offered a weaker one) so a weak name-only claim can never pre-empt another
+  // row's exact name+width claim — that pre-emption is a positional join wearing a better label.
+  const LEGS: Leg[] = [
+    { method: 'fabricCADId', test: (m, jf) => !!jf.fabricCADId && jf.fabricCADId === m.cad.id },
+    { method: 'id+width', test: (m, jf) => idsMatch(m.cad, jf.fabricId) && widthsMatch(m.width, jf.fabricWidth) },
+    {
+      method: 'name+width',
+      test: (m, jf) => namesMatch(m.name, jf.fabricName) && widthsMatch(m.width, jf.fabricWidth),
+    },
+    { method: 'id', test: (m, jf) => idsMatch(m.cad, jf.fabricId) && widthCompatible(m.width, jf) },
+    { method: 'width', test: (m, jf) => widthsMatch(m.width, jf.fabricWidth) },
+    { method: 'name', test: (m, jf) => namesMatch(m.name, jf.fabricName) && widthCompatible(m.width, jf) },
+  ];
+
+  const remaining = new Set(meta.map((_, i) => i));
+
+  const describeCad = (m: (typeof meta)[number]) => `${m.name || 'Unnamed fabric'} @ ${m.width ?? '?'}"`;
+
+  for (const leg of LEGS) {
+    for (const cadIdx of [...remaining]) {
+      const m = meta[cadIdx];
+      const candidates: number[] = [];
+      for (let i = 0; i < fabricDetails.length; i++) {
+        if (!used.has(i) && leg.test(m, fabricDetails[i])) candidates.push(i);
+      }
+      if (candidates.length === 0) continue;
+
+      const index = candidates[0];
+      used.add(index);
+      remaining.delete(cadIdx);
+      pairings.push({ cad: m.cad, jsonFabric: fabricDetails[index], jsonIndex: index, method: leg.method });
+
+      // Two lines were equally good under this leg, so the winner was decided by array order —
+      // that is a guess, and a guess that gets frozen into fabricCADId. Say so.
+      if (candidates.length > 1) {
+        warnings.push(
+          `${describeCad(m)} matched ${candidates.length} fabric lines equally well ` +
+            `(${candidates.map((i) => `"${fabricDetails[i].fabricName}"`).join(', ')}); ` +
+            `"${fabricDetails[index].fabricName}" was used. Check this line's average and rate.`
+        );
+      }
+    }
+  }
+
+  // Last resort: the first unclaimed entry, in order. Never silent.
+  for (const cadIdx of [...remaining]) {
+    const m = meta[cadIdx];
+    let index = -1;
+    for (let i = 0; i < fabricDetails.length; i++) {
+      if (!used.has(i)) {
+        index = i;
+        break;
+      }
+    }
+    if (index >= 0) {
+      used.add(index);
+      remaining.delete(cadIdx);
+      pairings.push({ cad: m.cad, jsonFabric: fabricDetails[index], jsonIndex: index, method: 'positional' });
+      warnings.push(
+        `Fabric line "${fabricDetails[index].fabricName}" could not be matched to a CAD row by fabric or width ` +
+          `and was paired by position with the ${m.width ?? '?'}" option — verify its rate and average.`
+      );
+    } else {
+      unmatchedCads.push(m.cad);
+      remaining.delete(cadIdx);
+    }
+  }
+
+  // Preserve the caller's CAD ordering in the result regardless of the leg in which each matched.
+  const orderOf = new Map(cadRows.map((cad, i) => [cad, i]));
+  pairings.sort((a, b) => (orderOf.get(a.cad) ?? 0) - (orderOf.get(b.cad) ?? 0));
+
+  if (unmatchedCads.length > 0) {
+    const describe = unmatchedCads
+      .map((cad) => `${cadNameOf(cad) || 'Unnamed fabric'} @ ${cadWidthOf(cad) ?? '?'}"`)
+      .join(', ');
+    warnings.push(
+      `${unmatchedCads.length} costed CAD row(s) have no cost line and were left out of the cost sheet: ${describe}.`
+    );
+  }
+
+  const unusedFabricIndexes = fabricDetails.map((_, i) => i).filter((i) => !used.has(i));
+  if (unusedFabricIndexes.length > 0) {
+    const describe = unusedFabricIndexes.map((i) => `"${fabricDetails[i].fabricName}"`).join(', ');
+    warnings.push(`${unusedFabricIndexes.length} fabric line(s) matched no CAD row: ${describe}.`);
+  }
+
+  return { pairings, unmatchedCads, unusedFabricIndexes, warnings };
+}

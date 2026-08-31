@@ -242,6 +242,10 @@ const OrderBOMDetail = () => {
     async (itemId: string, newWastage: number) => {
       if (!bom) return;
       const clamped = Math.min(100, Math.max(0, newWastage));
+      // The input fires on every blur, so tabbing through without typing used to trigger a full
+      // destructive rebuild of every BOM row. No change, no write.
+      const current = (bom.items || []).find((item) => item.id === itemId);
+      if (current && clamped === Number(current.wastagePercent ?? 0)) return;
       // BUG-ORD12 fix: include IDs in update
       const items = (bom.items || []).map((item) => ({
         id: item.id, // Include ID for proper update identification
@@ -274,15 +278,10 @@ const OrderBOMDetail = () => {
       }));
       try {
         await updateOrderBOM(bom.orderId, { items }, bom.style?.id);
-        // Optimistic update: update local state instead of refetching
-        setBom((prev) =>
-          prev
-            ? {
-                ...prev,
-                items: prev.items?.map((item) => (item.id === itemId ? { ...item, wastagePercent: clamped } : item)),
-              }
-            : prev
-        );
+        // Refetch rather than patching local state: the server rebuilds these rows, so rendering
+        // an optimistic copy hid any server-side difference (and kept stale row ids in state,
+        // which the next edit would then send back).
+        await fetchBOM();
       } catch (err: unknown) {
         handleApiError(err, 'Failed to update wastage');
         // On error, refetch to restore correct state

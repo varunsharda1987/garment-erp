@@ -31,10 +31,55 @@ export const OrderBOMStatusEnum = PrismaOrderBOMStatusEnum;
 // BOM Item Schema
 // ============================================================================
 
+/**
+ * Generic-trim master FKs on order_bom_items.
+ *
+ * These 16 are the trim types with no dedicated column pair elsewhere in this schema (button,
+ * thread, zipper, lace, elastic, label, packaging each have their own field above). They were
+ * missing here until 2026-08-31, and because PUT /orders/:orderId/bom rebuilds every row from
+ * the validated body, Zod stripped them and the rebuild wrote them back NULL — an interlining
+ * line with no FK is dropped from MRP entirely. Keep this list in step with the same-named
+ * columns in prisma schema.prisma order_bom_items; order-bom.service.ts imports it so the
+ * schema and every rebuild mapping cannot drift apart again.
+ */
+export const GENERIC_TRIM_FK_FIELDS = [
+  'hookEyeId',
+  'snapButtonId',
+  'buckleId',
+  'beltId',
+  'velcroId',
+  'drawstringId',
+  'ribbonId',
+  'sequinId',
+  'beadId',
+  'motifId',
+  'interliningId',
+  'paddingId',
+  'otherFastenerId',
+  'otherTapeId',
+  'otherDecorativeId',
+  'otherFunctionalId',
+] as const;
+
+export type GenericTrimFkField = (typeof GENERIC_TRIM_FK_FIELDS)[number];
+
+/** CAD provenance columns carried on a fabric/greige BOM line. */
+export const CAD_PROVENANCE_FIELDS = ['selectedCadId', 'fabricWidthInches', 'cadAverageSnapshot'] as const;
+
+const genericTrimFkShape = Object.fromEntries(
+  GENERIC_TRIM_FK_FIELDS.map((field) => [field, z.string().uuid().optional().nullable()])
+) as Record<GenericTrimFkField, z.ZodNullable<z.ZodOptional<z.ZodString>>>;
+
 export const orderBOMItemSchema = z.object({
   // BUG-ORD12: Added optional id field for identifying existing items during updates
   id: z.string().uuid().optional(),
   materialType: MaterialTypeEnum,
+  ...genericTrimFkShape,
+  // CAD provenance — fabricWidthInches drives MRP's width-filtered stock netting, so losing it
+  // silently nets rolls of any width and under-raises the fabric PO.
+  selectedCadId: z.string().uuid().optional().nullable(),
+  fabricWidthInches: z.number().optional().nullable(),
+  cadAverageSnapshot: z.number().optional().nullable(),
   materialId: flexMaterialId('material ID').optional(),
   buttonId: z.string().uuid().optional(),
   threadId: z.string().uuid().optional(),

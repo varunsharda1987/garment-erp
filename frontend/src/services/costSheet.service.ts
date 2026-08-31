@@ -11,11 +11,21 @@ import type {
 const BASE_URL = '/style-costing';
 
 /**
+ * A saved cost sheet, plus any problems the server could not resolve on its own.
+ *
+ * `warnings` carries things like a fabric line the backend could only pair to a CAD row by
+ * position, or a costed CAD row that got no cost line at all. These MUST be shown — the rows they
+ * describe feed the Order BOM, MRP and the greige PO, and used to be discarded here so the user
+ * saw only "Cost sheet updated successfully".
+ */
+export type CostSheetSaveResult = CostSheet & { warnings?: string[] };
+
+/**
  * Create a new cost sheet
  */
-export const createCostSheet = async (data: CreateCostSheetInput): Promise<CostSheet> => {
+export const createCostSheet = async (data: CreateCostSheetInput): Promise<CostSheetSaveResult> => {
   const response = await api.post(BASE_URL, data);
-  return response.data.data;
+  return { ...response.data.data, warnings: response.data.warnings };
 };
 
 /**
@@ -95,9 +105,9 @@ export const createCostSheetVersion = async (
 /**
  * Update cost sheet (only if not approved)
  */
-export const updateCostSheet = async (id: string, data: UpdateCostSheetInput): Promise<CostSheet> => {
+export const updateCostSheet = async (id: string, data: UpdateCostSheetInput): Promise<CostSheetSaveResult> => {
   const response = await api.put(`${BASE_URL}/${id}`, data);
-  return response.data.data;
+  return { ...response.data.data, warnings: response.data.warnings };
 };
 
 /**

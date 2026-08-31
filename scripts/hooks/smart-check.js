@@ -438,6 +438,17 @@ function checkHardcodedDefault(tsFiles) {
   );
 }
 
+/** Check (E8): sibling *_items write paths in one file writing different column sets — BLOCKING new + ratchet. */
+function checkItemWriteFieldDrift(tsFiles) {
+  console.log(`\n${c.cyan}Checking *_items write-path column parity...${c.reset}`);
+  return runRatchetedCheck(
+    'item write path(s) omitting a column a sibling mapping in the same file writes (a rebuild NULLs it silently)',
+    detectors.itemWriteFieldDrift(tsFiles),
+    'item-field-drift-baseline.json',
+    'Carry the missing column(s) forward in the rebuild mapping — a delete+recreate that forgets one writes NULL with a 200 OK (this is how ORD2026080032 lost its interlining FK and CAD link). Mark a deliberately narrower row with `// allow-item-field-drift`. If intentional, add the key to scripts/hooks/item-field-drift-baseline.json.'
+  );
+}
+
 /**
  * Check: Type synchronization between frontend and backend
  */
@@ -1079,6 +1090,7 @@ function runAllModeChecks() {
   if (!checkSaleOrderStatusWrite(tsFiles)) ok = false;
   if (!checkCadPurposeSingleWrite(tsFiles)) ok = false;
   if (!checkHardcodedDefault(tsFiles)) ok = false;
+  if (!checkItemWriteFieldDrift(tsFiles)) ok = false;
   if (!checkSchemaServiceUpdateParity(schemaFiles)) ok = false;
   checkAiGuides(); // warn-only
 
@@ -1189,6 +1201,7 @@ function main() {
     if (!checkSaleOrderStatusWrite(categories.typescript)) allPassed = false;
     if (!checkCadPurposeSingleWrite(categories.typescript)) allPassed = false;
     if (!checkHardcodedDefault(categories.typescript)) allPassed = false;
+    if (!checkItemWriteFieldDrift(categories.typescript)) allPassed = false;
   }
 
   // Type file changes → check type sync

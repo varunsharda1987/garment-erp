@@ -26,6 +26,7 @@ import {
   CreateCostSheetSchema,
   UpdateCostSheetSchema,
   parseJsonArray,
+  matchFabricDetailsToCadRows,
 } from './style-costing.utils';
 
 // ============================================================================
@@ -164,6 +165,48 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
   // Generate unique ID for cost sheet
   const costSheetId = `CS-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 
+  // ---------------------------------------------------------------------------------------
+  // CAD row ↔ fabric line pairing (shared with updateCostSheet — see matchFabricDetailsToCadRows)
+  //
+  // Resolved before the sheet row is built so the persisted JSON already carries each line's
+  // fabricCADId, which is what lets every later save pair by explicit id instead of inferring it.
+  // ---------------------------------------------------------------------------------------
+  const cadRows = await prisma.fabric_width_cad.findMany({
+    where: { costingStyleId: validatedData.styleId },
+    include: {
+      fabric: { select: { id: true, fabricName: true, greigeId: true } },
+      greige: { select: { id: true, greigeName: true } },
+      batchGroupColor: { select: { colorName: true } },
+    },
+    // Ties on updatedAt are real (two CAD rows saved in the same millisecond) and an unstable
+    // sort would let consecutive saves pair identical input differently.
+    orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+  });
+
+  const seenComponents = new Set<string>();
+  const dedupedCadRows = cadRows.filter((cad) => {
+    // Include cutableWidth: the same component at 50" and 52" is two legitimate cost lines.
+    const key = `${cad.componentName || ''}|${cad.styleFabricId || ''}|${cad.cutableWidth || ''}`;
+    if (seenComponents.has(key)) return false;
+    seenComponents.add(key);
+    return true;
+  });
+
+  // The previous local matcher keyed its lookup maps on a bare fabricId/name, so one greige
+  // costed at two widths collapsed to a single JSON entry, and its exact-equality name leg never
+  // fired against descriptive greige master names — leaving the index fallback doing the real
+  // work. Both endpoints now run the same consuming, width-aware matcher so they cannot drift
+  // apart again (that drift is exactly how the update-path rate swap was born).
+  const fabricPairing = matchFabricDetailsToCadRows(dedupedCadRows, validatedData.fabricDetails);
+  const pairedFabricDetails: Record<string, unknown>[] = JSON.parse(
+    JSON.stringify(validatedData.fabricDetails)
+  ) as Record<string, unknown>[];
+  for (const { cad, jsonIndex } of fabricPairing.pairings) {
+    if (pairedFabricDetails[jsonIndex]) {
+      pairedFabricDetails[jsonIndex] = { ...pairedFabricDetails[jsonIndex], fabricCADId: cad.id };
+    }
+  }
+
   // Create cost sheet — executed atomically with the item-table populations in the
   // $transaction below, so a failed item population rolls back the whole save and
   // propagates instead of silently persisting a sheet with empty item tables (costing-19)
@@ -179,8 +222,8 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
       category: validatedData.category,
       subCategory: validatedData.subCategory,
 
-      // Fabric Details
-      fabricDetails: JSON.parse(JSON.stringify(validatedData.fabricDetails)),
+      // Fabric Details — the paired copy, so each line records the CAD row it was costed against
+      fabricDetails: pairedFabricDetails as unknown as Prisma.InputJsonValue,
       fabricTotal,
 
       // Trims Details
@@ -282,82 +325,10 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
   // inside swallowed try/catch blocks — a failure silently produced a cost sheet whose
   // item tables were empty).
 
-  // style_costing_fabric_items from fabric_width_cad (follows lace pattern)
-  const cadRows = await prisma.fabric_width_cad.findMany({
-    where: { costingStyleId: validatedData.styleId },
-    include: {
-      fabric: { select: { id: true, fabricName: true, greigeId: true } },
-      greige: { select: { id: true, greigeName: true } },
-      batchGroupColor: { select: { colorName: true } },
-    },
-    orderBy: { updatedAt: 'desc' },
-  });
-
-  const seenComponents = new Set<string>();
+  // style_costing_fabric_items from the CAD↔fabric pairing resolved above (follows lace pattern)
   const fabricItemsToCreate: any[] = [];
 
-  // P1.9: Build lookup maps for ID-based matching (fixes index-based mis-assignment when order differs)
-  const jsonFabricByFabricId = new Map<string, (typeof validatedData.fabricDetails)[0]>();
-  const jsonFabricByName = new Map<string, (typeof validatedData.fabricDetails)[0]>();
-  for (const jf of validatedData.fabricDetails) {
-    if (jf.fabricId) jsonFabricByFabricId.set(jf.fabricId, jf);
-    if (jf.fabricName) jsonFabricByName.set(jf.fabricName.toLowerCase().trim(), jf);
-  }
-  const usedJsonFabrics = new Set<number>(); // Track which JSON fabrics have been matched
-
-  for (const cad of cadRows) {
-    // BUG-FIX: Include cutableWidth in dedup key - different widths are valid distinct CAD rows
-    // (e.g., same componentName "Kurta" at 50" and 52" widths should create 2 fabric items)
-    const key = `${cad.componentName || ''}|${cad.styleFabricId || ''}|${cad.cutableWidth || ''}`;
-    if (seenComponents.has(key)) continue;
-    seenComponents.add(key);
-
-    // P1.9: ID-based matching — try fabricId first, then greigeId, then name, then index fallback
-    let jsonFabric: (typeof validatedData.fabricDetails)[0] | undefined;
-    let matchMethod = 'none';
-
-    // 1. Try fabricId
-    if (cad.fabricId && jsonFabricByFabricId.has(cad.fabricId)) {
-      jsonFabric = jsonFabricByFabricId.get(cad.fabricId);
-      matchMethod = 'fabricId';
-    }
-    // 2. Try greigeId (some JSON entries may have greigeId as fabricId)
-    else if (cad.greigeId && jsonFabricByFabricId.has(cad.greigeId)) {
-      jsonFabric = jsonFabricByFabricId.get(cad.greigeId);
-      matchMethod = 'greigeId';
-    }
-    // 3. Try fabricName
-    else {
-      const cadFabricName = (cad.fabric?.fabricName || cad.greige?.greigeName || '').toLowerCase().trim();
-      if (cadFabricName && jsonFabricByName.has(cadFabricName)) {
-        jsonFabric = jsonFabricByName.get(cadFabricName);
-        matchMethod = 'fabricName';
-      }
-    }
-    // 4. Index fallback with warning
-    if (!jsonFabric) {
-      const idx = fabricItemsToCreate.length;
-      // Find first unused JSON fabric
-      for (let i = 0; i < validatedData.fabricDetails.length; i++) {
-        if (!usedJsonFabrics.has(i)) {
-          jsonFabric = validatedData.fabricDetails[i];
-          usedJsonFabrics.add(i);
-          matchMethod = 'index-fallback';
-          console.warn(
-            `[P1.9] styleCosting: Index-based fallback for CAD ${cad.id} (fabricId=${cad.fabricId}, name=${cad.fabric?.fabricName}). ` +
-              `Matched to JSON fabric at index ${i}. Consider adding fabricId to JSON payload.`
-          );
-          break;
-        }
-      }
-    } else {
-      // Mark as used
-      const idx = validatedData.fabricDetails.indexOf(jsonFabric);
-      if (idx >= 0) usedJsonFabrics.add(idx);
-    }
-
-    if (!jsonFabric) continue;
-
+  for (const { cad, jsonFabric } of fabricPairing.pairings) {
     const cadAvg = jsonFabric.fabricAverage || 0;
     const cadRate = jsonFabric.fabricRate || 0;
     const wastage =
@@ -518,6 +489,9 @@ export const createCostSheet = async (req: Request, res: Response): Promise<void
     success: true,
     data: costSheet,
     message: 'Cost sheet created successfully',
+    // A guessed pairing or a dropped fabric line must never hide behind a success toast — these
+    // rows feed the Order BOM, MRP and the greige PO.
+    ...(fabricPairing.warnings.length > 0 && { warnings: fabricPairing.warnings }),
   });
 };
 
@@ -891,6 +865,54 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
   // Get current or updated values - use JSON parse/stringify for safe type conversion
   const fabricDetails =
     validatedData.fabricDetails || parseJsonArray(existingCostSheet.fabricDetails, FabricDetailSchema, 'fabricDetails');
+
+  // ---------------------------------------------------------------------------------------
+  // CAD row ↔ fabric line pairing
+  //
+  // Runs here, before updateData is assembled, so the paired JSON (with each line's fabricCADId
+  // stamped on) is what gets persisted. style_costing_fabric_items used to be rebuilt by pairing
+  // the Nth CAD row with fabricDetails[N]; since CAD rows are read newest-first, re-costing one
+  // width silently moved one fabric's metreage and rate onto the other's line — invisible,
+  // because the sheet total is unchanged and the screen renders this JSON, not the items.
+  // ---------------------------------------------------------------------------------------
+  const cadRowsForPairing = await prisma.fabric_width_cad.findMany({
+    where: { costingStyleId: existingCostSheet.styleId },
+    include: {
+      fabric: { select: { id: true, fabricName: true, greigeId: true } },
+      greige: { select: { id: true, greigeName: true } },
+      batchGroupColor: { select: { colorName: true } },
+    },
+    // Ties on updatedAt are real (two rows saved in the same millisecond) and an unstable sort
+    // would let consecutive saves pair identical input differently.
+    orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+  });
+
+  const seenCadKeys = new Set<string>();
+  const dedupedCadRows = cadRowsForPairing.filter((cad) => {
+    // Include cutableWidth: the same component at 50" and 52" is two legitimate cost lines.
+    const key = `${cad.componentName || ''}|${cad.styleFabricId || ''}|${cad.cutableWidth || ''}`;
+    if (seenCadKeys.has(key)) return false;
+    seenCadKeys.add(key);
+    return true;
+  });
+
+  const fabricPairing = matchFabricDetailsToCadRows(dedupedCadRows, fabricDetails);
+
+  // Stamp the resolved CAD id onto the JSON that will be saved, so later saves pair by explicit
+  // id rather than re-inferring it. Built from the RAW source, not the Zod-parsed copy, so any
+  // key the schema does not model survives the round-trip.
+  const pairedFabricDetails: Record<string, unknown>[] = (
+    Array.isArray(validatedData.fabricDetails)
+      ? JSON.parse(JSON.stringify(validatedData.fabricDetails))
+      : Array.isArray(existingCostSheet.fabricDetails)
+        ? JSON.parse(JSON.stringify(existingCostSheet.fabricDetails))
+        : []
+  ) as Record<string, unknown>[];
+  for (const { cad, jsonIndex } of fabricPairing.pairings) {
+    if (pairedFabricDetails[jsonIndex]) {
+      pairedFabricDetails[jsonIndex] = { ...pairedFabricDetails[jsonIndex], fabricCADId: cad.id };
+    }
+  }
   const trimsDetails =
     validatedData.trimsDetails || parseJsonArray(existingCostSheet.trimsDetails, TrimDetailSchema, 'trimsDetails');
   const cmtCosts = validatedData.cmtCosts || {
@@ -963,7 +985,11 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     ...(validatedData.category !== undefined && { category: validatedData.category }),
     ...(validatedData.subCategory !== undefined && { subCategory: validatedData.subCategory }),
 
-    ...(validatedData.fabricDetails && { fabricDetails: JSON.parse(JSON.stringify(validatedData.fabricDetails)) }),
+    // Always persist the paired copy: even a save that did not touch fabricDetails carries the
+    // newly-resolved fabricCADId stamps, which is what lets later saves pair by id.
+    ...((validatedData.fabricDetails || pairedFabricDetails.length > 0) && {
+      fabricDetails: pairedFabricDetails as unknown as Prisma.InputJsonValue,
+    }),
     fabricTotal,
 
     ...(validatedData.trimsDetails && { trimsDetails: JSON.parse(JSON.stringify(validatedData.trimsDetails)) }),
@@ -1044,31 +1070,10 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
   // fabricDetails / trimsDetails / accessoriesDetails computed above already carry the
   // "validatedData or existing sheet" fallback these blocks previously re-derived.
 
-  // style_costing_fabric_items are rebuilt from fabric_width_cad
-  const cadRows = await prisma.fabric_width_cad.findMany({
-    where: { costingStyleId: existingCostSheet.styleId },
-    include: {
-      fabric: { select: { id: true, fabricName: true, greigeId: true } },
-      greige: { select: { id: true, greigeName: true } },
-      batchGroupColor: { select: { colorName: true } },
-    },
-    orderBy: { updatedAt: 'desc' },
-  });
-
-  const seenComponents = new Set<string>();
+  // style_costing_fabric_items are rebuilt from the CAD↔fabric pairing resolved above
   const fabricItemsToCreate: any[] = [];
 
-  for (const cad of cadRows) {
-    // BUG-FIX: Include cutableWidth in dedup key - different widths are valid distinct CAD rows
-    // (e.g., same componentName "Kurta" at 50" and 52" widths should create 2 fabric items)
-    const key = `${cad.componentName || ''}|${cad.styleFabricId || ''}|${cad.cutableWidth || ''}`;
-    if (seenComponents.has(key)) continue;
-    seenComponents.add(key);
-
-    const idx = fabricItemsToCreate.length;
-    const jsonFabric = fabricDetails[idx];
-    if (!jsonFabric) continue;
-
+  for (const { cad, jsonFabric } of fabricPairing.pairings) {
     const cadAvg = jsonFabric.fabricAverage || 0;
     const cadRate = jsonFabric.fabricRate || 0;
     const wastage =
@@ -1240,6 +1245,9 @@ export const updateCostSheet = async (req: Request, res: Response): Promise<void
     success: true,
     data: updatedCostSheet,
     message: 'Cost sheet updated successfully',
+    // A guessed pairing or a dropped fabric line must never hide behind a success toast — these
+    // rows feed the Order BOM, MRP and the greige PO.
+    ...(fabricPairing.warnings.length > 0 && { warnings: fabricPairing.warnings }),
   });
 };
 

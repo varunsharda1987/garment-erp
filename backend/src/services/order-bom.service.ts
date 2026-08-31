@@ -19,6 +19,7 @@ import { resolveShrinkagePercent } from './helpers/shrinkage-resolver.helper';
 import { getOrCreateDefaultThreadId } from './helpers/default-thread.helper';
 import { divideByShrinkage, toNumber, toCurrency, roundToCent } from '../utils/currency';
 import { SearchFilter } from '../types/prisma.types';
+import { GENERIC_TRIM_FK_FIELDS } from '../schemas/orderBom.schema';
 import { v4 as uuidv4 } from 'uuid';
 import {
   CreateOrderBOMInput,
@@ -31,6 +32,62 @@ import {
   OrderBOMMaterialRequirement,
   OrderBOMCalculationSummary,
 } from '../types/order-bom.types';
+
+// ============================================
+// Preserved-column carry-forward
+// ============================================
+
+/**
+ * Columns of order_bom_items that a rebuild (delete + recreate) must not lose.
+ *
+ * The wastage-edit endpoint, copy-from-previous-order and change-width all recreate rows from a
+ * partial shape. Any column absent from that shape is written back NULL, which silently drops an
+ * interlining line out of MRP (no resolvable material) and detaches a fabric line from the CAD
+ * width it was planned against. GENERIC_TRIM_FK_FIELDS is imported from the Zod schema so the
+ * validator and every rebuild mapping share one list.
+ */
+const PRESERVED_STRING_FK_FIELDS = [...GENERIC_TRIM_FK_FIELDS, 'selectedCadId'] as const;
+const PRESERVED_DECIMAL_FIELDS = ['fabricWidthInches', 'cadAverageSnapshot'] as const;
+
+type PreservedFieldSource = object | null | undefined;
+
+function readPreservedField(source: PreservedFieldSource, field: string): unknown {
+  return source ? (source as Record<string, unknown>)[field] : undefined;
+}
+
+function toNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+/**
+ * Build the preserved-column slice for one rebuilt row.
+ *
+ * Precedence is payload-wins-when-present: a client that explicitly sends one of these fields
+ * (including an explicit null to clear it) is honoured — the schema now accepts them, so silently
+ * overriding the sender would just re-create the bug class in the opposite direction. When the
+ * payload omits the field, the previously stored value is kept.
+ */
+function carryForwardPreservedFields(
+  payload: PreservedFieldSource,
+  prev: PreservedFieldSource
+): Record<string, string | number | null> {
+  const result: Record<string, string | number | null> = {};
+
+  for (const field of PRESERVED_STRING_FK_FIELDS) {
+    const sent = readPreservedField(payload, field);
+    const kept = sent !== undefined ? sent : readPreservedField(prev, field);
+    result[field] = (kept as string | null | undefined) ?? null;
+  }
+
+  for (const field of PRESERVED_DECIMAL_FIELDS) {
+    const sent = readPreservedField(payload, field);
+    result[field] = toNullableNumber(sent !== undefined ? sent : readPreservedField(prev, field));
+  }
+
+  return result;
+}
 
 // ============================================
 // Types
@@ -1483,6 +1540,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         packagingId: item.packagingId,
         fabricId: item.fabricId,
         greigeId: item.greigeId,
+        // Same style, so the source row's CAD link and generic trim FKs stay valid on the copy.
+        // Omitting them here NULLed the interlining FK on every copied BOM.
+        ...carryForwardPreservedFields(undefined, item),
         sourcingStrategy: item.sourcingStrategy,
         processorId: item.processorId,
         greigeCost: item.greigeCost ? Number(item.greigeCost) : null,
@@ -1666,6 +1726,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           packagingId: item.packagingId,
           fabricId: item.fabricId,
           greigeId: item.greigeId,
+          // Generic trim FKs survive a width change untouched; the CAD trio below deliberately
+          // overrides this spread with the NEW width's values.
+          ...carryForwardPreservedFields(undefined, item),
           sourcingStrategy: item.sourcingStrategy,
           // Qty-rate audit 2026-08-24: the new width's CAD row carries its own processor
           // economics — copying the OLD item's rates while taking the NEW row's unitPrice mixed
@@ -1720,6 +1783,10 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           packagingId: item.packagingId,
           fabricId: item.fabricId,
           greigeId: item.greigeId,
+          // Untouched line: keep its CAD provenance AND its generic trim FKs. Only the CAD trio
+          // used to be carried here, so a width change on the fabric line stripped the
+          // interlining/hook-eye/etc FKs from every OTHER line of the new version.
+          ...carryForwardPreservedFields(undefined, item),
           sourcingStrategy: item.sourcingStrategy,
           processorId: item.processorId,
           greigeCost: item.greigeCost ? Number(item.greigeCost) : null,
@@ -1738,9 +1805,6 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           usageCategory: item.usageCategory,
           notes: item.notes,
           sortOrder: item.sortOrder,
-          selectedCadId: item.selectedCadId,
-          fabricWidthInches: item.fabricWidthInches ? Number(item.fabricWidthInches) : null,
-          cadAverageSnapshot: item.cadAverageSnapshot ? Number(item.cadAverageSnapshot) : null,
         };
       }
     });
@@ -2082,6 +2146,15 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
 
     // Update in transaction
     const updatedBOM = await this.prisma.$transaction(async (tx) => {
+      // Silent-data-loss fix 2026-08-31: this endpoint rebuilds every row from the request body,
+      // but the body cannot express the CAD provenance trio or the 16 generic trim FKs for lines
+      // the UI does not edit. Snapshot the rows first so the rebuild can carry them forward;
+      // without this a single wastage-% blur NULLed them (ORD2026080032 lost its interlining FK
+      // and its 52" CAD link that way).
+      const existingById = new Map(
+        (await tx.order_bom_items.findMany({ where: { orderBomId: id } })).map((row) => [row.id, row])
+      );
+
       // Delete existing items
       await tx.order_bom_items.deleteMany({
         where: { orderBomId: id },
@@ -2102,10 +2175,21 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
           const totalWithWastage = totalQuantity * (1 + (item.wastagePercent || 0) / 100);
           const totalCost = totalWithWastage * item.unitPrice;
 
+          // Only ids that belong to THIS BOM resolve — a foreign or stale id falls through to a
+          // fresh row rather than adopting another BOM's provenance.
+          const prev = item.id ? existingById.get(item.id) : undefined;
+
           return {
-            id: uuidv4(),
+            // Reuse the row id when it is one of ours. The page applies an optimistic local
+            // update instead of refetching, so it re-sends the ids it already had; minting new
+            // uuids here made the carry-forward above miss on every subsequent edit in the same
+            // page session — the exact usage pattern that stripped ORD2026080032.
+            id: prev ? prev.id : uuidv4(),
             orderBomId: id,
             materialType: item.materialType,
+            // Carry forward what the payload cannot express. Payload wins when it explicitly
+            // sends a value (including an explicit null to clear); otherwise keep the stored one.
+            ...carryForwardPreservedFields(item, prev),
             materialId: item.materialId,
             buttonId: item.buttonId,
             threadId: item.threadId,

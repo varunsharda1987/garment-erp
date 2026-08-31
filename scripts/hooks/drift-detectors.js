@@ -1410,6 +1410,170 @@ function hardcodedDefault(relFiles) {
   return out;
 }
 
+// Silent-data-loss guardrail (2026-08-31, findings #1/#3/#5).
+//
+// A "rebuild" write path (delete + recreate, or copy-into-new-version) that enumerates its
+// columns by hand will silently NULL any column it forgot — the row still saves, the API still
+// returns 200, and nobody is told. That is how order_bom_items lost selectedCadId,
+// fabricWidthInches, cadAverageSnapshot and all 16 generic trim FKs on ORD2026080032: the
+// wastage-edit rebuild wrote 27 columns where the generation path in the SAME FILE wrote 46.
+//
+// The check: within one file, all create/createMany mappings targeting the same `*_items` table
+// should write the same column set. A mapping missing a column its siblings write is flagged.
+// This is the inverse of schemaServiceUpdateParity (schema vs service); here it is service vs
+// service, which is the gap that let this class through.
+//
+// Opt-out: `// allow-item-field-drift` on, or within 2 lines above, the create/createMany call
+// (for a mapping that intentionally writes a narrower row).
+function itemWriteFieldDrift(relFiles) {
+  const out = [];
+  const CALL = /\b(?:prisma|tx|this\.prisma)\.(\w*_items)\.(create|createMany)\s*\(/g;
+
+  // Keys assigned from a per-row computation rather than carried from a source row. Their absence
+  // from a sibling mapping is a modelling difference, not a dropped column.
+  const COMPUTED = new Set(['id', 'createdAt', 'updatedAt']);
+
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/^backend\/src\/(services|controllers)\/.*\.ts$/.test(norm)) continue;
+    if (/\.test\.ts$|__tests__/.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const lines = content.split('\n');
+
+    // Property names written by an object literal: `key: value`, ES6 shorthand `key,` and
+    // computed-name entries are ignored. Splits on depth-1 commas so an identifier appearing
+    // INSIDE a value (`unit: item.unit`) is never mistaken for a shorthand key.
+    const keysOf = (literal) => {
+      const keys = new Set();
+      const chunks = [];
+      let depth = 0;
+      let str = null;
+      let start = -1;
+      for (let i = 0; i < literal.length; i++) {
+        const ch = literal[i];
+        if (str) {
+          if (ch === '\\') i++;
+          else if (ch === str) str = null;
+          continue;
+        }
+        if (ch === '"' || ch === "'" || ch === '`') { str = ch; continue; }
+        if (ch === '{' || ch === '[' || ch === '(') {
+          depth++;
+          if (depth === 1) start = i + 1;
+          continue;
+        }
+        if (ch === '}' || ch === ']' || ch === ')') {
+          if (depth === 1 && start !== -1) { chunks.push(literal.slice(start, i)); start = -1; }
+          depth--;
+          continue;
+        }
+        if (depth === 1 && ch === ',' && start !== -1) {
+          chunks.push(literal.slice(start, i));
+          start = i + 1;
+        }
+      }
+      for (const raw of chunks) {
+        // Strip line/block comments so a commented-out key is not counted.
+        const chunk = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').trim();
+        if (!chunk || chunk.startsWith('...')) continue;
+        const named = /^([A-Za-z_$][\w$]*)\s*:/.exec(chunk);
+        if (named) { keys.add(named[1]); continue; }
+        const shorthand = /^([A-Za-z_$][\w$]*)$/.exec(chunk);
+        if (shorthand) keys.add(shorthand[1]);
+      }
+      return keys;
+    };
+
+    // The row literal of a `.map(...)` body: `=> ({...})` or `=> { ... return {...} }`.
+    // Returns the LAST `return {` literal when present, else the first object literal.
+    const rowLiteralIn = (slice) => {
+      const open = slice.indexOf('{');
+      if (open === -1) return null;
+      let literal = sliceBalancedBraces(slice, open);
+      let lastReturn = -1;
+      const RET = /\breturn\s*\{/g;
+      let r;
+      while ((r = RET.exec(literal))) lastReturn = r.index;
+      if (lastReturn !== -1) {
+        literal = sliceBalancedBraces(literal, literal.indexOf('{', lastReturn));
+      }
+      return literal;
+    };
+
+    // table -> [{ keys:Set, line:number, optedOut:boolean }]
+    const byTable = new Map();
+    CALL.lastIndex = 0;
+    let m;
+    while ((m = CALL.exec(content))) {
+      const table = m[1];
+      const openIdx = content.indexOf('{', m.index + m[0].length - 1);
+      if (openIdx === -1) continue;
+      const args = sliceBalancedBraces(content, openIdx);
+
+      const dataIdx = args.search(/\bdata\s*:/);
+      if (dataIdx === -1) continue;
+      const dataExpr = args.slice(dataIdx);
+
+      let rowLiteral = rowLiteralIn(dataExpr);
+      let keys = rowLiteral ? keysOf(rowLiteral) : new Set();
+
+      // The dominant shape in this codebase is `data: rows.map(r => ({ ...r, fkId: x }))`, where
+      // the real column list lives in the variable's OWN definition. Follow one level of
+      // indirection so those paths are compared instead of silently skipped — missing this is
+      // precisely how the order_bom_items rebuild drifted 19 columns from its sibling.
+      const varRef = /\bdata\s*:\s*([A-Za-z_$][\w$]*)\b/.exec(args.slice(dataIdx));
+      const spreadsSource = rowLiteral ? /\.\.\.\s*[A-Za-z_$][\w$]*/.test(rowLiteral) : false;
+      if (varRef && (keys.size < 5 || spreadsSource)) {
+        const varName = varRef[1];
+        const defRe = new RegExp(`\\b(?:const|let|var)\\s+${varName}\\s*(?::[^=]+)?=`, 'g');
+        let def;
+        let defLiteral = null;
+        while ((def = defRe.exec(content))) {
+          const candidate = rowLiteralIn(content.slice(def.index));
+          if (candidate && keysOf(candidate).size >= 5) defLiteral = candidate;
+        }
+        if (defLiteral) {
+          const defKeys = keysOf(defLiteral);
+          for (const k of keys) defKeys.add(k); // the call site's own additions (e.g. the FK)
+          keys = defKeys;
+          rowLiteral = defLiteral;
+        }
+      }
+
+      if (keys.size < 5) continue; // not a full row mapping (e.g. a link/status stub)
+
+      const lineNo = lineOf(content, m.index);
+      const context = `${lines[lineNo - 3] || ''}\n${lines[lineNo - 2] || ''}\n${lines[lineNo - 1] || ''}`;
+      const optedOut = /allow-item-field-drift/.test(context) || /allow-item-field-drift/.test(rowLiteral || '');
+
+      if (!byTable.has(table)) byTable.set(table, []);
+      byTable.get(table).push({ keys, line: lineNo, optedOut });
+    }
+
+    for (const [table, mappings] of byTable) {
+      if (mappings.length < 2) continue;
+      const union = new Set();
+      for (const mp of mappings) for (const k of mp.keys) if (!COMPUTED.has(k)) union.add(k);
+      for (const mp of mappings) {
+        if (mp.optedOut) continue;
+        const missing = [...union].filter((k) => !mp.keys.has(k)).sort();
+        if (missing.length === 0) continue;
+        out.push({
+          key: `${rel} :: ${table} :: missing[${missing.join(',')}]`,
+          file: rel,
+          line: mp.line,
+          detail:
+            `${table} write omits ${missing.length} column(s) that another mapping in this file writes: ` +
+            `${missing.join(', ')}. A rebuild that forgets a column NULLs it silently — carry it forward ` +
+            `or mark the call // allow-item-field-drift.`,
+        });
+      }
+    }
+  }
+  return out;
+}
+
 module.exports = {
   perRouteValidation,
   enumDrift,
@@ -1434,5 +1598,6 @@ module.exports = {
   silentCatchFrontend,
   numericOrFallback,
   hardcodedDefault,
+  itemWriteFieldDrift,
   REPO_ROOT,
 };

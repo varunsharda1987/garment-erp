@@ -1992,12 +1992,14 @@ const CostSheetForm = () => {
         }),
       };
 
-      if (isEditMode && id) {
-        await updateCostSheet(id, data);
-        notify.success('Cost sheet updated successfully');
-      } else {
-        await createCostSheet(data);
-        notify.success('Cost sheet created successfully');
+      const saved = isEditMode && id ? await updateCostSheet(id, data) : await createCostSheet(data);
+      notify.success(`Cost sheet ${isEditMode && id ? 'updated' : 'created'} successfully`);
+
+      // The save can succeed while leaving a fabric line paired only by position, or a costed CAD
+      // row with no cost line at all. Those rows drive the Order BOM and the greige PO, so they
+      // get their own toast rather than disappearing behind the success one.
+      for (const warning of saved.warnings ?? []) {
+        notify.warning(warning, { duration: 10000 });
       }
 
       navigate('/cost-sheets');

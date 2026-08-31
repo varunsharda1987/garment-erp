@@ -14,8 +14,9 @@
  * usage that corrupted ORD2026080032 (every item there carries wastagePercent = 5, i.e. a run of
  * consecutive PUTs). Hence the two-consecutive-edits test.
  *
- * Sibling rebuild paths that dropped the same columns are covered too: copy-from-previous-order
- * and the unchanged-item branch of change-width.
+ * Sibling rebuild paths that dropped the same columns are covered too: copy-from-previous-order,
+ * and change-width for BOTH its branches (the changed line must take the new CAD; every other
+ * line must keep its generic trim FKs).
  */
 
 import request from 'supertest';
@@ -351,6 +352,40 @@ describe('Order BOM wastage edit preserves CAD link and generic trim FKs', () =>
 });
 
 describe('Sibling rebuild paths preserve the same columns', () => {
+  it('change-width keeps trim FKs on untouched lines and applies the NEW CAD to the changed one', async () => {
+    // Both branches of createVersionWithWidthChange were rewritten to use the shared carry-forward
+    // helper. The changed branch spreads it and then overrides the CAD trio with the new width, so
+    // this asserts the override wins (key order) rather than the old CAD being carried through —
+    // exactly the ordering mistake the rest of this work exists to prevent.
+    const bom = await prisma.order_bom.findFirstOrThrow({
+      where: { orderId, styleId, isActive: true },
+      include: { items: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    const greigeItem = bom.items.find((i) => i.materialType === 'GREIGE')!;
+
+    const res = await request(app)
+      .post(`/api/order-bom/${bom.id}/change-width`)
+      .set(authHeader)
+      .send({ fabricItemChanges: [{ bomItemId: greigeItem.id, newCadId: altCadId }] });
+
+    expect([200, 201]).toContain(res.status);
+
+    const newBom = await prisma.order_bom.findFirstOrThrow({
+      where: { orderId, styleId, isActive: true },
+      include: { items: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const changed = newBom.items.find((i) => i.materialType === 'GREIGE')!;
+    expect(changed.selectedCadId).toBe(altCadId);
+    expect(Number(changed.fabricWidthInches)).toBe(50);
+
+    // ...while every OTHER line keeps its generic trim FK, which the unchanged branch used to drop
+    const untouched = newBom.items.find((i) => i.materialType === 'INTERLINING')!;
+    expect(untouched.interliningId).toBe(interliningId);
+  });
+
   it('copy-from-previous-order carries the generic trim FK and CAD provenance', async () => {
     const res = await request(app)
       .post(`/api/orders/${orderId}/bom/copy/${sourceOrderId}`)

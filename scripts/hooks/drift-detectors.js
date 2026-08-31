@@ -1423,6 +1423,15 @@ function hardcodedDefault(relFiles) {
 // This is the inverse of schemaServiceUpdateParity (schema vs service); here it is service vs
 // service, which is the gap that let this class through.
 //
+// KNOWN LIMITS — do not read a clean run as proof the columns are safe:
+//   - It compares mappings to EACH OTHER, so a column that EVERY mapping in the file omits is
+//     invisible. It catches drift, not universal omission.
+//   - It resolves a `...spread` only one level, and only to UPPER_SNAKE string-literal arrays in
+//     the same file. A helper that builds its column list any other way reads as contributing
+//     nothing.
+// The integration suites (order-bom-field-preservation, cost-sheet-cad-pairing) are the real
+// net for those cases; this check is the cheap early warning.
+//
 // Opt-out: `// allow-item-field-drift` on, or within 2 lines above, the create/createMany call
 // (for a mapping that intentionally writes a narrower row).
 function itemWriteFieldDrift(relFiles) {
@@ -1440,6 +1449,48 @@ function itemWriteFieldDrift(relFiles) {
     const content = readCode(rel);
     if (!content) continue;
     const lines = content.split('\n');
+
+    // String-literal arrays declared in this file: `const NAME = ['a','b'] as const`.
+    // Carry-forward helpers enumerate their columns in exactly this shape.
+    const literalArrays = new Map();
+    {
+      const ARR = /\b(?:const|let|var)\s+([A-Z][A-Z0-9_]*)\s*(?::[^=]+)?=\s*\[([^\]]*)\]/g;
+      let a;
+      while ((a = ARR.exec(content))) {
+        const names = [...a[2].matchAll(/['"]([A-Za-z_$][\w$]*)['"]/g)].map((m) => m[1]);
+        if (names.length) literalArrays.set(a[1], names);
+      }
+    }
+
+    /**
+     * Columns contributed by a `...spread` chunk, resolved one level.
+     *
+     * `...someHelper(a, b)` or `...someVar` — find that identifier's definition in this file and
+     * collect the column names from any UPPER_SNAKE string-literal array it references. This is
+     * what keeps the check alive when a mapping delegates its columns to a helper instead of
+     * naming them inline.
+     */
+    const spreadKeys = (chunk) => {
+      const out = new Set();
+      const ref = /^\.\.\.\s*([A-Za-z_$][\w$]*)/.exec(chunk);
+      if (!ref) return out;
+      const name = ref[1];
+      // Direct spread of a known constant array is unusual for row shapes, but cheap to support.
+      if (literalArrays.has(name)) {
+        for (const k of literalArrays.get(name)) out.add(k);
+        return out;
+      }
+      const defRe = new RegExp(`\\b(?:function\\s+${name}\\s*\\(|(?:const|let|var)\\s+${name}\\s*(?::[^=]+)?=)`, 'g');
+      const def = defRe.exec(content);
+      if (!def) return out;
+      const bodyOpen = content.indexOf('{', def.index);
+      if (bodyOpen === -1) return out;
+      const body = sliceBalancedBraces(content, bodyOpen);
+      for (const [arrName, names] of literalArrays) {
+        if (new RegExp(`\\b${arrName}\\b`).test(body)) for (const k of names) out.add(k);
+      }
+      return out;
+    };
 
     // Property names written by an object literal: `key: value`, ES6 shorthand `key,` and
     // computed-name entries are ignored. Splits on depth-1 commas so an identifier appearing
@@ -1476,9 +1527,24 @@ function itemWriteFieldDrift(relFiles) {
       for (const raw of chunks) {
         // Strip line/block comments so a commented-out key is not counted.
         const chunk = raw.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').trim();
-        if (!chunk || chunk.startsWith('...')) continue;
+        if (!chunk) continue;
+        if (chunk.startsWith('...')) {
+          // A spread hides the columns it writes. Resolve it one level so a carry-forward helper
+          // still contributes its column names — otherwise refactoring the last literal mapping
+          // into a spread silently empties the comparison set and the check goes quiet on exactly
+          // the regression it exists to catch.
+          for (const k of spreadKeys(chunk)) keys.add(k);
+          continue;
+        }
         const named = /^([A-Za-z_$][\w$]*)\s*:/.exec(chunk);
-        if (named) { keys.add(named[1]); continue; }
+        if (named) {
+          // `order: { connect: { id } }` is a RELATION write, not a column. Counting it would
+          // report the relation name as a "missing column" against a sibling that writes the
+          // scalar FK instead — a false positive whose suggested fix makes no sense.
+          if (/^[A-Za-z_$][\w$]*\s*:\s*\{[\s\S]*\b(connect|connectOrCreate|create|createMany)\s*:/.test(chunk)) continue;
+          keys.add(named[1]);
+          continue;
+        }
         const shorthand = /^([A-Za-z_$][\w$]*)$/.exec(chunk);
         if (shorthand) keys.add(shorthand[1]);
       }

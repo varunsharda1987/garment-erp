@@ -233,6 +233,14 @@ describe('Cost-sheet update pairs each CAD row with its OWN fabric line', () => 
   });
 
   it('writes fabricCADId back into the stored JSON so later saves pair by id', async () => {
+    // Issue our own save rather than inspecting residue from an earlier test, so this passes or
+    // fails on its own when run with -t.
+    const res = await request(app)
+      .put(`/api/style-costing/${costSheetId}`)
+      .set(authHeader)
+      .send({ fabricDetails: fabricDetailsPayload() });
+    expect(res.status).toBe(200);
+
     const sheet = await prisma.style_costing.findUniqueOrThrow({ where: { id: costSheetId } });
     const stored = sheet.fabricDetails as Array<Record<string, unknown>>;
 

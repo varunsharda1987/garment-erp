@@ -417,6 +417,7 @@ export interface CadRowForPairing {
   fabricId?: string | null;
   greigeId?: string | null;
   cutableWidth?: Prisma.Decimal | number | null;
+  totalCostPerMeter?: Prisma.Decimal | number | null;
   fabric?: { fabricName?: string | null; greigeId?: string | null } | null;
   greige?: { greigeName?: string | null } | null;
 }
@@ -582,12 +583,18 @@ export function matchFabricDetailsToCadRows<TCad extends CadRowForPairing>(
   const orderOf = new Map(cadRows.map((cad, i) => [cad, i]));
   pairings.sort((a, b) => (orderOf.get(a.cad) ?? 0) - (orderOf.get(b.cad) ?? 0));
 
-  if (unmatchedCads.length > 0) {
-    const describe = unmatchedCads
+  // Only a row that could actually BE a cost line is worth reporting as missing one. A style's
+  // CAD set also holds planning placeholders with no fabric identity and no price; warning about
+  // those trains people to ignore the warning that matters.
+  const reportableUnmatched = unmatchedCads.filter(
+    (cad) => !!cad.fabricId || !!cad.greigeId || cad.totalCostPerMeter != null
+  );
+  if (reportableUnmatched.length > 0) {
+    const describe = reportableUnmatched
       .map((cad) => `${cadNameOf(cad) || 'Unnamed fabric'} @ ${cadWidthOf(cad) ?? '?'}"`)
       .join(', ');
     warnings.push(
-      `${unmatchedCads.length} costed CAD row(s) have no cost line and were left out of the cost sheet: ${describe}.`
+      `${reportableUnmatched.length} costed CAD row(s) have no cost line and were left out of the cost sheet: ${describe}.`
     );
   }
 

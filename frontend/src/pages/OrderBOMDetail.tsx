@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -67,6 +67,18 @@ const OrderBOMDetail = () => {
   const [cadLoading, setCadLoading] = useState(false);
   const [widthChanging, setWidthChanging] = useState(false);
 
+  // Inline wastage edits PUT the WHOLE items array, rebuilt from the BOM in state. Two blurs
+  // inside one save round-trip would therefore both build from the pre-first snapshot, and the
+  // second would quietly write the first row's OLD wastage back — losing an edit the user watched
+  // themselves make. The ref keeps the freshest server state, and the queue makes each save wait
+  // for the previous one (and its refetch) before reading it.
+  const bomRef = useRef<OrderBOM | null>(null);
+  const wastageSaveQueue = useRef<Promise<unknown>>(Promise.resolve());
+
+  useEffect(() => {
+    bomRef.current = bom;
+  }, [bom]);
+
   useEffect(() => {
     if (!id) {
       navigate('/order-bom');
@@ -76,9 +88,15 @@ const OrderBOMDetail = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, navigate]);
 
-  const fetchBOM = async () => {
+  /**
+   * @param silent re-read without flipping the page-level `loading` flag. The loading branch
+   * replaces the whole page with a spinner, so a refresh after an inline edit would unmount the
+   * table mid-interaction — dropping focus and any keystrokes already typed into the next row.
+   * Initial loads want the spinner; post-save refreshes do not.
+   */
+  const fetchBOM = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setError(null);
       const data = await getById(id!);
       setBom(data);
@@ -86,7 +104,7 @@ const OrderBOMDetail = () => {
       const errorMessage = handleApiError(err, 'Failed to fetch Order BOM', false);
       setError(errorMessage);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -238,59 +256,65 @@ const OrderBOMDetail = () => {
     }
   };
 
-  const handleWastageChange = useCallback(
-    async (itemId: string, newWastage: number) => {
-      if (!bom) return;
-      const clamped = Math.min(100, Math.max(0, newWastage));
-      // The input fires on every blur, so tabbing through without typing used to trigger a full
-      // destructive rebuild of every BOM row. No change, no write.
-      const current = (bom.items || []).find((item) => item.id === itemId);
-      if (current && clamped === Number(current.wastagePercent ?? 0)) return;
-      // BUG-ORD12 fix: include IDs in update
-      const items = (bom.items || []).map((item) => ({
-        id: item.id, // Include ID for proper update identification
-        materialType: item.materialType,
-        materialId: item.materialId || undefined,
-        buttonId: item.buttonId || undefined,
-        threadId: item.threadId || undefined,
-        zipperId: item.zipperId || undefined,
-        laceId: item.laceId || undefined,
-        elasticId: item.elasticId || undefined,
-        labelId: item.labelId || undefined,
-        packagingId: item.packagingId || undefined,
-        fabricId: item.fabricId || undefined,
-        greigeId: item.greigeId || undefined,
-        sourcingStrategy: item.sourcingStrategy || undefined,
-        processorId: item.processorId || undefined,
-        greigeCost: item.greigeCost ? Number(item.greigeCost) : undefined,
-        processingCost: item.processingCost ? Number(item.processingCost) : undefined,
-        rateCardId: item.rateCardId || undefined,
-        colorName: item.colorName || undefined,
-        quantityPerGarment: Number(item.quantityPerGarment),
-        orderQuantity: Number(item.orderQuantity),
-        wastagePercent: item.id === itemId ? clamped : Number(item.wastagePercent ?? 0),
-        unit: item.unit,
-        unitPrice: Number(item.unitPrice),
-        componentName: item.componentName || undefined,
-        usageCategory: item.usageCategory || undefined,
-        notes: item.notes || undefined,
-        sortOrder: item.sortOrder,
-      }));
-      try {
-        await updateOrderBOM(bom.orderId, { items }, bom.style?.id);
-        // Refetch rather than patching local state: the server rebuilds these rows, so rendering
-        // an optimistic copy hid any server-side difference (and kept stale row ids in state,
-        // which the next edit would then send back).
-        await fetchBOM();
-      } catch (err: unknown) {
-        handleApiError(err, 'Failed to update wastage');
-        // On error, refetch to restore correct state
-        fetchBOM();
-      }
-    },
+  const handleWastageChange = useCallback(async (itemId: string, newWastage: number) => {
+    // Serialize: the next edit reads state only after this one has saved AND refetched.
+    const run = wastageSaveQueue.current
+      .catch(() => undefined)
+      .then(async () => {
+        const bom = bomRef.current;
+        if (!bom) return;
+        const clamped = Math.min(100, Math.max(0, newWastage));
+        // The input fires on every blur, so tabbing through without typing used to trigger a full
+        // destructive rebuild of every BOM row. No change, no write.
+        const current = (bom.items || []).find((item) => item.id === itemId);
+        if (current && clamped === Number(current.wastagePercent ?? 0)) return;
+        // BUG-ORD12 fix: include IDs in update
+        const items = (bom.items || []).map((item) => ({
+          id: item.id, // Include ID for proper update identification
+          materialType: item.materialType,
+          materialId: item.materialId || undefined,
+          buttonId: item.buttonId || undefined,
+          threadId: item.threadId || undefined,
+          zipperId: item.zipperId || undefined,
+          laceId: item.laceId || undefined,
+          elasticId: item.elasticId || undefined,
+          labelId: item.labelId || undefined,
+          packagingId: item.packagingId || undefined,
+          fabricId: item.fabricId || undefined,
+          greigeId: item.greigeId || undefined,
+          sourcingStrategy: item.sourcingStrategy || undefined,
+          processorId: item.processorId || undefined,
+          greigeCost: item.greigeCost ? Number(item.greigeCost) : undefined,
+          processingCost: item.processingCost ? Number(item.processingCost) : undefined,
+          rateCardId: item.rateCardId || undefined,
+          colorName: item.colorName || undefined,
+          quantityPerGarment: Number(item.quantityPerGarment),
+          orderQuantity: Number(item.orderQuantity),
+          wastagePercent: item.id === itemId ? clamped : Number(item.wastagePercent ?? 0),
+          unit: item.unit,
+          unitPrice: Number(item.unitPrice),
+          componentName: item.componentName || undefined,
+          usageCategory: item.usageCategory || undefined,
+          notes: item.notes || undefined,
+          sortOrder: item.sortOrder,
+        }));
+        try {
+          await updateOrderBOM(bom.orderId, { items }, bom.style?.id);
+          // Refetch rather than patching local state: the server rebuilds these rows, so rendering
+          // an optimistic copy hid any server-side difference (and kept stale row ids in state,
+          // which the next edit would then send back). Silent, so the table is not torn down while
+          // the user is still typing in it.
+          await fetchBOM(true);
+        } catch (err: unknown) {
+          handleApiError(err, 'Failed to update wastage');
+          // On error, refetch to restore correct state
+          await fetchBOM(true);
+        }
+      });
+    wastageSaveQueue.current = run;
+    await run;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bom]
-  );
+  }, []);
 
   if (loading) {
     return (
@@ -695,7 +719,10 @@ const OrderBOMDetail = () => {
                             step={0.1}
                             defaultValue={Number(item.wastagePercent ?? 0)}
                             onBlur={(e) => handleWastageChange(item.id, Number(e.target.value))}
-                            key={item.id}
+                            // Row ids are now stable across a save, so keying on the id alone
+                            // would never remount this uncontrolled input and a server-adjusted
+                            // value (e.g. a clamp) would never appear. Key on the value too.
+                            key={`${item.id}:${item.wastagePercent ?? 0}`}
                           />
                         ) : item.wastagePercent != null ? (
                           `${Number(item.wastagePercent).toFixed(1)}%`

@@ -150,7 +150,9 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
       fabric: { select: { fabricName: true } },
       greige: { select: { greigeName: true } },
     },
-    orderBy: { updatedAt: 'desc' },
+    // Millisecond-tied updatedAt is real on live rows; an unstable sort would let two runs
+    // of the same preview pick different winners. id breaks the tie deterministically.
+    orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
   });
 
   // Fallback to RAW_MATERIAL_CALCULATION if no COSTING CAD exists
@@ -168,7 +170,9 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
         fabric: { select: { fabricName: true } },
         greige: { select: { greigeName: true } },
       },
-      orderBy: { updatedAt: 'desc' },
+      // Millisecond-tied updatedAt is real on live rows; an unstable sort would let two runs
+      // of the same preview pick different winners. id breaks the tie deterministically.
+      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
     });
     if (costingCadRows.length > 0) {
       logInfo(`Using RAW_MATERIAL_CALCULATION CAD as fallback for cost sheet (styleId: ${styleId})`);
@@ -180,17 +184,41 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
   let totalFabricCostDec = new Decimal(0);
   const fabricDetails: FabricDetail[] = [];
 
-  // Group by componentName to avoid duplicates (take latest per component)
+  // Dedupe on the same option tuple the cost-sheet save paths use. This used to key on
+  // `componentName || 'default'` — a free-text label that is NULL on most live rows — so two
+  // fully-costed rows of one component collapsed to a single key and the second was silently
+  // dropped: EBWW-007's preview kept ₹31.34/pc and lost ₹61.94/pc with no line and no warning
+  // (silent-data-loss finding #2). componentName|styleFabricId|width separates every legitimate
+  // option (a fabric costed at two widths is TWO cost lines) while still collapsing re-costings
+  // of the same option, latest first.
+  // Material identity is included here even though the save-path key omits it: in the save paths
+  // the tuple only pairs rows, but HERE it decides which rows become money lines — two different
+  // greiges that both lost their componentName and styleFabricId must never collapse into one.
+  const cadOptionKey = (row: {
+    componentName: string | null;
+    styleFabricId: string | null;
+    cutableWidth: unknown;
+    fabricId: string | null;
+    greigeId: string | null;
+  }) =>
+    `${row.componentName || ''}|${row.styleFabricId || ''}|${row.cutableWidth || ''}|${row.fabricId || row.greigeId || ''}`;
   const processedComponents = new Set<string>();
+  // Component NAMES that produced at least one line — the uncosted-rows warning filters on this.
+  const pricedComponentNames = new Set<string>();
+  // Costed rows collapsed as true duplicates. Legitimate, but never invisible: the old warnings
+  // query only covered UNcosted rows, so a costed-but-dropped row structurally could not appear.
+  const collapsedCosted: string[] = [];
 
   for (const cadRow of costingCadRows) {
-    const componentKey = cadRow.componentName || 'default';
+    const componentKey = cadOptionKey(cadRow);
 
-    // Skip if we already processed this component (we have latest first)
+    // Skip if we already processed this option (we have latest first)
     if (processedComponents.has(componentKey)) {
+      collapsedCosted.push(
+        `${cadRow.fabric?.fabricName || cadRow.greige?.greigeName || cadRow.componentName || 'Unnamed fabric'} @ ${cadRow.cutableWidth || '?'}"`
+      );
       continue;
     }
-    processedComponents.add(componentKey);
 
     const fabricWidth = parseFloat(cadRow.cutableWidth?.toString() || '0');
     // Calculate CAD average (per-piece consumption) - NO fallback to cadMeters (layer length is useless for costing)
@@ -212,6 +240,11 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
       logWarn(`CAD row ${cadRow.id} has no consumption or cost data - skipping`);
       continue;
     }
+
+    // A row only claims its option tuple once it PRODUCES a line. Claiming before the skip let a
+    // zero-value row suppress a valid sibling and stamp its component "priced" with nothing priced.
+    processedComponents.add(componentKey);
+    pricedComponentNames.add(cadRow.componentName || 'default');
 
     // BUG-SMP5 fix: use decimal.js for precision
     const fabricCostDec = multiplyCurrency(fabricAverage, fabricRate);
@@ -251,17 +284,22 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
         fabric: { select: { fabricName: true } },
         greige: { select: { greigeName: true } },
       },
-      orderBy: { updatedAt: 'desc' },
+      // Millisecond-tied updatedAt is real on live rows; an unstable sort would let two runs
+      // of the same preview pick different winners. id breaks the tie deterministically.
+      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
     });
 
     for (const cadRow of rmcCadRows) {
-      const componentKey = cadRow.componentName || 'default';
+      // Same identity tuple as the primary loop — see cadOptionKey above.
+      const componentKey = cadOptionKey(cadRow);
 
-      // Skip if we already processed this component (we have latest first)
+      // Skip if we already processed this option (we have latest first)
       if (processedComponents.has(componentKey)) {
+        collapsedCosted.push(
+          `${cadRow.fabric?.fabricName || cadRow.greige?.greigeName || cadRow.componentName || 'Unnamed fabric'} @ ${cadRow.cutableWidth || '?'}"`
+        );
         continue;
       }
-      processedComponents.add(componentKey);
 
       const fabricWidth = parseFloat(cadRow.cutableWidth?.toString() || '0');
       // Calculate CAD average (per-piece consumption) - NO fallback to cadMeters (layer length is useless for costing)
@@ -283,6 +321,10 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
         logWarn(`RAW_MATERIAL_CALCULATION CAD row ${cadRow.id} has no consumption or cost data - skipping`);
         continue;
       }
+
+      // Claim the tuple only once a line is produced — see the primary loop.
+      processedComponents.add(componentKey);
+      pricedComponentNames.add(cadRow.componentName || 'default');
 
       // BUG-SMP5 fix: use decimal.js for precision
       const fabricCostDec = multiplyCurrency(fabricAverage, fabricRate);
@@ -577,17 +619,24 @@ export const generateCostSheetFromStyle = async (req: Request, res: Response): P
   const skippedUncosted = [
     ...new Set(
       uncostedRows
-        // same key convention as the pricing loops above ('default' for unnamed)
-        .filter((r) => !processedComponents.has(r.componentName || 'default'))
+        // a component that produced at least one PRICED line needs no uncosted warning
+        .filter((r) => !pricedComponentNames.has(r.componentName || 'default'))
         .map((r) => r.componentName || 'Unnamed component')
     ),
   ];
-  const warnings =
-    skippedUncosted.length > 0
-      ? [
-          `${skippedUncosted.length} component(s) have CAD data but no costing and were left out: ${skippedUncosted.join(', ')}. Save a fabric costing for them first.`,
-        ]
-      : [];
+  const warnings: string[] = [];
+  if (skippedUncosted.length > 0) {
+    warnings.push(
+      `${skippedUncosted.length} component(s) have CAD data but no costing and were left out: ${skippedUncosted.join(', ')}. Save a fabric costing for them first.`
+    );
+  }
+  // Second, separate source: fully-COSTED rows collapsed as duplicates of another costing of the
+  // same option. Latest-wins is intended, but the drop must be visible — these lines carry money.
+  if (collapsedCosted.length > 0) {
+    warnings.push(
+      `${collapsedCosted.length} costed fabric row(s) were collapsed as duplicates and left out: ${[...new Set(collapsedCosted)].join(', ')}. The most recently updated costing of each option was used.`
+    );
+  }
 
   // Return preview data WITHOUT creating in database
   // The frontend will use this to pre-fill the form, then user submits to actually create

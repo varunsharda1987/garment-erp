@@ -59,12 +59,22 @@ export const styleService = {
    */
   getRunningStyles: async (
     customerId?: string
-  ): Promise<{ id: string; styleCode: string; buyerStyleRef: string | null; styleName: string; customerName: string | null }[]> => {
+  ): Promise<
+    { id: string; styleCode: string; buyerStyleRef: string | null; styleName: string; customerName: string | null }[]
+  > => {
     let url = '/styles/running';
     if (customerId) {
       url += `?customerId=${encodeURIComponent(customerId)}`;
     }
-    const response = await api.get<{ data: { id: string; styleCode: string; buyerStyleRef: string | null; styleName: string; customerName: string | null }[] }>(url);
+    const response = await api.get<{
+      data: {
+        id: string;
+        styleCode: string;
+        buyerStyleRef: string | null;
+        styleName: string;
+        customerName: string | null;
+      }[];
+    }>(url);
     return response.data.data;
   },
 
@@ -372,13 +382,10 @@ export const styleService = {
     return response.data.data;
   },
 
-  /**
-   * Auto-generate cost sheet from approved CAD data
-   */
-  calculateCosting: async (styleId: string) => {
-    const response = await api.post(`/style-costing/generate/${styleId}`);
-    return response.data.data;
-  },
+  // calculateCosting was removed 2026-08-31: it duplicated
+  // costSheet.service.generateCostSheetFromStyle but returned only response.data.data, silently
+  // dropping the warnings envelope (dropped fabric lines, collapsed costings). It had no callers.
+  // Use generateCostSheetFromStyle from services/costSheet.service — it preserves the warnings.
 
   // ============================================
   // DASHBOARD OPERATIONS

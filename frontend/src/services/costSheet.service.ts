@@ -138,9 +138,11 @@ export const deleteCostSheet = async (id: string): Promise<void> => {
 /**
  * Auto-generate cost sheet from approved CAD data
  */
-export const generateCostSheetFromStyle = async (styleId: string): Promise<CostSheet> => {
+export const generateCostSheetFromStyle = async (styleId: string): Promise<CostSheetSaveResult> => {
   const response = await api.post(`${BASE_URL}/generate/${styleId}`);
-  return response.data.data;
+  // warnings ride on the envelope, not on data — dropping them here is how a fabric row silently
+  // vanished from Auto-Generate previews (a costed row collapsed by dedupe was never mentioned)
+  return { ...response.data.data, warnings: response.data.warnings };
 };
 
 /**

@@ -1884,6 +1884,13 @@ const CostSheetForm = () => {
         `Cost sheet auto-generated! Pre-filled: ${preFilled.length > 0 ? preFilled.join(', ') : 'No materials found'}. Please add CMT costs and finalize.`,
         { duration: 6000 }
       );
+
+      // Anything the generator left OUT of the preview — an uncosted component, or a costed row
+      // collapsed as a duplicate — must not hide behind the success toast: these lines are money,
+      // and the preview becomes the sheet becomes the Order BOM.
+      for (const warning of generatedCostSheet.warnings ?? []) {
+        notify.warning(warning, { duration: 10000 });
+      }
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: { error?: string; message?: string } } };
       const errorMsg =

@@ -1611,12 +1611,15 @@ export async function getAllServiceRequirements(
   if (filters?.source) where.source = filters.source;
 
   // Handle status (single or array)
+  // Default: exclude CANCELLED (audit trail exists on JWO/PO pages)
   if (filters?.status) {
     if (Array.isArray(filters.status)) {
       where.status = { in: filters.status };
     } else {
       where.status = filters.status;
     }
+  } else {
+    where.status = { not: 'CANCELLED' };
   }
 
   // Handle serviceType (single or array)

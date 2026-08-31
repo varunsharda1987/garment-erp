@@ -2393,12 +2393,15 @@ export async function getRequirements(
   if (source) where.source = source;
   if (requirementType) where.requirementType = requirementType;
 
+  // Handle status filter - default: exclude CANCELLED (audit trail on JWO/PO pages)
   if (status) {
     if (Array.isArray(status)) {
       where.status = { in: status };
     } else {
       where.status = status;
     }
+  } else {
+    where.status = { not: 'CANCELLED' };
   }
 
   if (requiredDateFrom || requiredDateTo) {

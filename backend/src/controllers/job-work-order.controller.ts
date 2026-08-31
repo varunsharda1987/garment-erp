@@ -1297,7 +1297,7 @@ class JobWorkOrderController {
         const revertableMrp = mrpLinks.filter((l) => Number(l.receivedQuantity) === 0).map((l) => l.requirementId);
         if (revertableMrp.length > 0) {
           await txClient.material_requirements.updateMany({
-            where: { id: { in: revertableMrp }, status: 'PO_GENERATED' },
+            where: { id: { in: revertableMrp }, status: { in: ['PO_GENERATED', 'PO_SENT'] } },
             data: { status: 'PO_REQUIRED' },
           });
           await txClient.requirement_jwo_links.deleteMany({

@@ -65,6 +65,7 @@ function categorizeFiles(files) {
   return {
     schemas: files.filter(f => f.endsWith('.schema.ts')),
     controllers: files.filter(f => f.endsWith('.controller.ts')),
+    services: files.filter(f => f.endsWith('.service.ts')),
     types: files.filter(f => f.endsWith('.types.ts')),
     stockServices: files.filter(f => f.includes('stock') && f.endsWith('.service.ts')),
     backendTs: files.filter(f => f.startsWith('backend/') && f.endsWith('.ts') && !f.endsWith('.test.ts')),
@@ -823,6 +824,96 @@ function checkResponseStructure(controllerFiles) {
 }
 
 /**
+ * Show: Impact analysis for modified services/controllers (non-blocking)
+ * Shows what tables/fields are touched and what to verify after committing.
+ */
+function showImpactAnalysis(files) {
+  console.log(`\n${c.cyan}Impact Analysis (verify after commit):${c.reset}`);
+
+  const backendSrc = path.join(process.cwd(), 'backend/src');
+  const highImpactFiles = [];
+
+  for (const file of files) {
+    const fullPath = path.join(process.cwd(), file);
+    if (!fs.existsSync(fullPath)) continue;
+
+    try {
+      const content = fs.readFileSync(fullPath, 'utf-8');
+
+      // Find Prisma tables touched
+      const tables = new Set();
+      const prismaPattern = /(?:prisma|txClient)\.(\w+)\.(findMany|findFirst|findUnique|create|update|updateMany|delete|deleteMany|upsert)/g;
+      let match;
+      while ((match = prismaPattern.exec(content)) !== null) {
+        tables.add(match[1]);
+      }
+
+      // Find fields written (in data: { ... } blocks)
+      const fields = new Set();
+      const dataBlockPattern = /data:\s*{([^}]+)}/g;
+      while ((match = dataBlockPattern.exec(content)) !== null) {
+        const block = match[1];
+        const fieldPattern = /(\w+)\s*:/g;
+        let fieldMatch;
+        while ((fieldMatch = fieldPattern.exec(block)) !== null) {
+          const field = fieldMatch[1];
+          if (!['where', 'data', 'include', 'select', 'orderBy', 'take', 'skip', 'AND', 'OR', 'NOT'].includes(field)) {
+            fields.add(field);
+          }
+        }
+      }
+
+      if (tables.size > 0) {
+        highImpactFiles.push({
+          file: path.basename(file),
+          tables: Array.from(tables),
+          fields: Array.from(fields).slice(0, 5),
+          hasStatus: fields.has('status'),
+        });
+      }
+    } catch (e) {
+      // Skip unreadable files
+    }
+  }
+
+  if (highImpactFiles.length === 0) {
+    console.log(`${c.dim}  (no Prisma operations in changed files)${c.reset}`);
+    return;
+  }
+
+  // Show summary
+  for (const { file, tables, fields, hasStatus } of highImpactFiles) {
+    console.log(`\n  ${c.bright}${file}${c.reset}`);
+    console.log(`    Tables: ${tables.slice(0, 5).join(', ')}${tables.length > 5 ? ` (+${tables.length - 5} more)` : ''}`);
+    if (fields.length > 0) {
+      console.log(`    Fields written: ${fields.join(', ')}`);
+    }
+  }
+
+  // Verification checklist
+  console.log(`\n  ${c.yellow}${c.bright}Verify after commit:${c.reset}`);
+  console.log(`    □ cd backend && npx tsc -b`);
+
+  const allTables = new Set(highImpactFiles.flatMap(f => f.tables));
+  const stockTables = ['greige_stock', 'fabric_stock', 'thread_stock', 'lace_stock', 'stock_levels'];
+  const orderTables = ['orders', 'order_items', 'order_bom_items', 'sale_orders'];
+  const mrpTables = ['material_requirements', 'requirement_jwo_links', 'requirement_po_links'];
+
+  if ([...allTables].some(t => stockTables.includes(t))) {
+    console.log(`    □ Check mrp.service.ts, stock-levels.controller.ts`);
+  }
+  if ([...allTables].some(t => orderTables.includes(t))) {
+    console.log(`    □ Check orderCosting.service.ts, order-bom.service.ts`);
+  }
+  if ([...allTables].some(t => mrpTables.includes(t))) {
+    console.log(`    □ Check job-work-order.controller.ts`);
+  }
+  if (highImpactFiles.some(f => f.hasStatus)) {
+    console.log(`    □ Check stateMachine.ts (status transitions)`);
+  }
+}
+
+/**
  * Check: Prisma schema safety
  */
 function checkPrismaSafety() {
@@ -1036,6 +1127,7 @@ function main() {
   console.log(`\n${c.bright}Detected changes in:${c.reset}`);
   if (categories.schemas.length) console.log(`  ${c.cyan}•${c.reset} ${categories.schemas.length} schema file(s)`);
   if (categories.controllers.length) console.log(`  ${c.cyan}•${c.reset} ${categories.controllers.length} controller file(s)`);
+  if (categories.services.length) console.log(`  ${c.cyan}•${c.reset} ${categories.services.length} service file(s)`);
   if (categories.types.length) console.log(`  ${c.cyan}•${c.reset} ${categories.types.length} type file(s)`);
   if (categories.stockServices.length) console.log(`  ${c.cyan}•${c.reset} ${categories.stockServices.length} stock service file(s)`);
   if (categories.docs.length) console.log(`  ${c.cyan}•${c.reset} ${categories.docs.length} documentation file(s)`);
@@ -1170,6 +1262,13 @@ function main() {
   if (categories.controllers.length) {
     checksRun++;
     checkResponseStructure(categories.controllers);
+  }
+
+  // Service or Controller changes → show impact analysis (non-blocking)
+  // Helps verify changes don't break dependent code
+  if (categories.services.length || categories.controllers.length) {
+    const impactFiles = [...categories.services, ...categories.controllers];
+    showImpactAnalysis(impactFiles);
   }
 
   // Summary

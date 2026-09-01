@@ -846,6 +846,9 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
     }
   }
 
+  // Styles that could not be costed during an item replacement — surfaced in the response below.
+  const resnapshotFailures: Array<{ orderItemId: string; styleId: string; reason: string }> = [];
+
   // If items are provided, recalculate totals and replace order items
   if (items && Array.isArray(items) && items.length > 0) {
     let calcTotalQuantity = 0;
@@ -885,6 +888,21 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
     updateData.totalQuantity = calcTotalQuantity;
     updateData.totalAmount = roundToCent(calcTotalAmountDec).toNumber();
 
+    // The costing baseline this order was PLACED against, before its items are replaced.
+    //
+    // order_item_costing is `onDelete: Cascade` off order_items, so replacing the items destroys
+    // it. Re-snapshotting afterwards reads whatever cost sheet is approved NOW, which silently
+    // rebases the order onto a price agreed after it was sold (finding #12: ORD2026080030 frozen
+    // at ESSKY091LS v1 Rs225.42 while an approved v2 Rs224.00 supersedes it). originalCostSheetVersion
+    // means "the version this order was placed against" — an item-quantity edit must not move it.
+    const priorCosting = await prisma.order_item_costing.findMany({
+      where: { order_item: { orderId: id } },
+      include: { order_item: { select: { styleId: true } } },
+    });
+    const priorByStyle = new Map(priorCosting.map((row) => [row.order_item.styleId, row]));
+    // Items whose style is new to this order — snapshotted after the transaction (see below).
+    const freshSnapshotQueue: Array<{ id: string; styleId: string }> = [];
+
     // Delete + recreate + work-order sync + header totals in ONE transaction. These ran as loose
     // top-level writes before, so a mid-loop failure left the order with zero/partial items and
     // stale header totals, and the dependency check above raced concurrent BOM/MRP writes.
@@ -906,6 +924,59 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
           } as any,
         });
       }
+
+      // Re-attach the ORIGINAL baseline to the recreated items, inside this transaction so the
+      // preserved snapshot commits or rolls back together with the items it belongs to. This is
+      // the part that must be atomic: it is the only copy of the rates the order was sold on.
+      //
+      // Styles with NO prior baseline (genuinely new on this order) are snapshotted AFTER the
+      // transaction instead — deliberately. createCostingSnapshots swallows per-item failures by
+      // design (a style with no approved sheet is a reportable gap, not a reason to refuse the
+      // edit — createOrder behaves the same way), and a swallowed DB error inside a Postgres
+      // transaction would leave it aborted, turning that non-fatal gap into a failed order edit
+      // with a confusing error.
+      const needFreshSnapshot: Array<{ id: string; styleId: string }> = [];
+      for (const itemData of orderItemsData) {
+        const prior = priorByStyle.get(itemData.styleId);
+        if (!prior) {
+          needFreshSnapshot.push({ id: itemData.id, styleId: itemData.styleId });
+          continue;
+        }
+        await tx.order_item_costing.create({
+          data: {
+            orderItemId: itemData.id,
+            baseCostingId: prior.baseCostingId,
+            selectedCadId: prior.selectedCadId,
+            cadMeters: prior.cadMeters,
+            cadWidth: prior.cadWidth,
+            fabricTotal: prior.fabricTotal,
+            trimsTotal: prior.trimsTotal,
+            cmtTotal: prior.cmtTotal,
+            embroideryTotal: prior.embroideryTotal,
+            accessoriesTotal: prior.accessoriesTotal,
+            processingTotal: prior.processingTotal,
+            overheadsTotal: prior.overheadsTotal,
+            totalCostPerPiece: prior.totalCostPerPiece,
+            profitMargin: prior.profitMargin,
+            sellingPricePerPiece: prior.sellingPricePerPiece,
+            estimatedCostPerPiece: prior.estimatedCostPerPiece,
+            actualCostPerPiece: prior.actualCostPerPiece,
+            costVarianceAmount: prior.costVarianceAmount,
+            costVariancePercent: prior.costVariancePercent,
+            // The only record of the rates this order was sold on — carried verbatim.
+            // DbNull, not JsonNull: the column is nullable, and a prior row with SQL NULL must
+            // come back as SQL NULL. JsonNull would store the JSON value `null` instead, which
+            // reads back as present-but-null and is a different thing to every consumer.
+            costingSnapshot: prior.costingSnapshot ?? Prisma.DbNull,
+            snapshotCreatedAt: prior.snapshotCreatedAt,
+            originalCostSheetVersion: prior.originalCostSheetVersion,
+            recalculatedAt: prior.recalculatedAt,
+            varianceCalculatedAt: prior.varianceCalculatedAt,
+          },
+        });
+      }
+
+      freshSnapshotQueue.push(...needFreshSnapshot);
 
       // Auto-sync PENDING work orders with updated order items
       const pendingWorkOrders = await tx.work_orders.findMany({
@@ -955,16 +1026,19 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
       });
     });
 
-    // Qty-rate audit 2026-08-24: replacing the items CASCADE-deleted order_item_costing and
-    // nothing ever recreated it — after any edit the order permanently lost its costing
-    // baseline (variance anchor, version badge). Re-snapshot at the new quantities.
-    const resnapshot = await orderService.createCostingSnapshots(
-      orderItemsData.map((item) => ({ id: item.id, styleId: item.styleId }))
-    );
-    if (resnapshot.failures.length > 0) {
-      logWarn('[updateOrder] Cost-sheet re-snapshot failures after item replacement', {
+    // Existing baselines were preserved inside the transaction above. Styles new to this order
+    // get their first snapshot here, outside it, because a failure is reportable rather than
+    // fatal (see the comment at the queue). Anything that could not be snapshotted is returned
+    // to the caller below — createOrder already does this, and not doing it here is why an order
+    // could end up with no costing and nobody was told.
+    if (freshSnapshotQueue.length > 0) {
+      const fresh = await orderService.createCostingSnapshots(freshSnapshotQueue);
+      resnapshotFailures.push(...fresh.failures);
+    }
+    if (resnapshotFailures.length > 0) {
+      logWarn('[updateOrder] Cost-sheet snapshot failures for styles new to this order', {
         orderId: id,
-        failures: resnapshot.failures,
+        failures: resnapshotFailures,
       });
     }
   } else {
@@ -1013,6 +1087,8 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
   res.json({
     data: order,
     message: 'Order updated successfully',
+    // Mirrors createOrder: a style that could not be costed must reach the user, not just the log.
+    ...(resnapshotFailures.length > 0 && { costingInfo: { failures: resnapshotFailures } }),
   });
 };
 

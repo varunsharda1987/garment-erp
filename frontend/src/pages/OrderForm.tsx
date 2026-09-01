@@ -1046,7 +1046,12 @@ export default function OrderForm() {
       }
 
       if (isEditMode && id) {
-        await updateOrder(id, orderData as any);
+        const updated = await updateOrder(id, orderData as any);
+        // A style the server could not attach a costing baseline to has no variance anchor and
+        // no agreed price. That must reach the user rather than only the server log.
+        for (const failure of updated.costingInfo?.failures ?? []) {
+          toast.warning(`No costing baseline for a style on this order: ${failure.reason}`, { duration: 10000 });
+        }
         navigate('/orders');
       } else {
         // New orders always include items

@@ -68,9 +68,16 @@ export const createOrder = async (orderData: CreateOrderRequest): Promise<Order>
 /**
  * Update order
  */
-export const updateOrder = async (id: string, orderData: UpdateOrderRequest): Promise<Order> => {
+/** An updated order, plus any style the server could not attach a costing baseline to. */
+export type OrderUpdateResult = Order & {
+  costingInfo?: { failures?: Array<{ orderItemId: string; styleId: string; reason: string }> };
+};
+
+export const updateOrder = async (id: string, orderData: UpdateOrderRequest): Promise<OrderUpdateResult> => {
   const { data } = await api.put(`/orders/${id}`, orderData);
-  return data.data;
+  // costingInfo rides on the envelope, not on data — dropping it here is why an order could end
+  // up with no costing baseline and nothing said.
+  return { ...data.data, costingInfo: data.costingInfo };
 };
 
 /**

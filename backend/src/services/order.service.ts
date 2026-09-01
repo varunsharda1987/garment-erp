@@ -269,7 +269,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
 
     // 3.6 Auto-create samples for the styles in this production order (if not already created).
     // Non-blocking — failure doesn't fail the order creation.
-    const styleIds = [...new Set(orderItemsData.map(i => i.styleId))];
+    const styleIds = [...new Set(orderItemsData.map((i) => i.styleId))];
     let samplesCreated: Awaited<ReturnType<typeof sampleService.autoCreateSamplesForOrder>> | null = null;
     try {
       samplesCreated = await sampleService.autoCreateSamplesForOrder(
@@ -361,16 +361,24 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
    * 2026-08-24 only the controller wrote it, so SO-originated orders had no baseline at all.
    * Failures are collected per item, never thrown: a missing snapshot must not kill the order.
    */
+  /**
+   * Deliberately NOT transaction-aware. Per-item failures are swallowed into `failures` by
+   * design (a style with no approved sheet is a reportable gap, not a reason to refuse the
+   * write), and in Postgres a statement that errors inside a transaction aborts it — so running
+   * this inside one would turn a non-fatal gap into a failed order with a confusing error.
+   * Callers that must be atomic write their costing rows directly on their own `tx`.
+   */
   async createCostingSnapshots(
     orderItems: Array<{ id: string; styleId: string }>
   ): Promise<{ created: string[]; failures: { orderItemId: string; styleId: string; reason: string }[] }> {
     const created: string[] = [];
     const failures: { orderItemId: string; styleId: string; reason: string }[] = [];
+    const db = this.prisma;
 
     for (const orderItem of orderItems) {
       try {
         // Latest approved, non-superseded cost sheet for the style
-        const costSheet = await this.prisma.style_costing.findFirst({
+        const costSheet = await db.style_costing.findFirst({
           where: {
             styleId: orderItem.styleId,
             isApproved: true,
@@ -415,7 +423,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
           profitMargin: costSheet.profitMargin,
         };
 
-        await this.prisma.order_item_costing.create({
+        await db.order_item_costing.create({
           data: {
             orderItemId: orderItem.id,
             baseCostingId: costSheet.id,

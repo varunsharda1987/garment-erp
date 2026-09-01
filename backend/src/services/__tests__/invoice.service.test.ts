@@ -101,13 +101,13 @@ describe('InvoiceService', () => {
   afterAll(async () => {
     try {
       // Clean up in reverse order of dependencies
+      // The `invoiceNumber: { startsWith: 'INV-' }` filter that used to be here NEVER matched:
+      // generateAtomicInvoiceNumber mints `INV{YYMM}-{seq}` (e.g. INV2609-0001), so no payment was
+      // ever deleted, the FK then blocked the invoices delete below, the throw was swallowed by the
+      // catch, and orders/customers/users were never cleaned either. Every run leaked a full fixture
+      // set into the shared dev database. Scope on the customer alone — it is this suite's own row.
       await prisma.payments.deleteMany({
-        where: {
-          invoices: {
-            invoiceNumber: { startsWith: 'INV-' },
-            customerId: only(testCustomerId),
-          },
-        },
+        where: { invoices: { customerId: only(testCustomerId) } },
       });
       await prisma.invoice_items.deleteMany({
         where: {
@@ -129,7 +129,12 @@ describe('InvoiceService', () => {
         where: { email: `${testPrefix}@test.com` },
       });
     } catch (error) {
-      // Ignore cleanup errors
+      // Do NOT swallow. A silent cleanup failure is exactly how this suite leaked fixtures into the
+      // shared dev database unnoticed for days.
+      // eslint-disable-next-line no-console
+      console.error('[invoice.service.test] CLEANUP FAILED — fixtures may be leaked:', error);
+      await prisma.$disconnect();
+      throw error;
     }
     await prisma.$disconnect();
   });

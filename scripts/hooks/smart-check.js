@@ -460,6 +460,18 @@ function checkSinglePrismaClient(tsFiles) {
   );
 }
 
+/** Check (E10): deleting link-parent rows without handing the demand behind them back — BLOCKING new + ratchet. */
+function checkOrphanedDemandLinks(tsFiles) {
+  console.log(`
+${c.cyan}Checking demand links survive PO-item deletes...${c.reset}`);
+  return runRatchetedCheck(
+    'delete(s) of link-parent rows with no demand hand-back (the requirement behind them can never be re-ordered)',
+    detectors.orphanedDemandLinks(tsFiles),
+    'orphaned-demand-links-baseline.json',
+    'Call releasePurchaseOrderItemLinks(tx, itemIds, poNumber) in the SAME transaction before the delete. requirement_po_links / service_requirement_po_links / po_source_links all cascade, so the link disappears while material_requirements stays PO_GENERATED — invisible to every re-order path, so the material is simply never bought (silent-data-loss #17, and #13 before it). Mark a genuinely link-free delete `// allow-orphan-links`. If intentional, add the key to scripts/hooks/orphaned-demand-links-baseline.json.'
+  );
+}
+
 /**
  * Check: Type synchronization between frontend and backend
  */
@@ -1103,6 +1115,7 @@ function runAllModeChecks() {
   if (!checkHardcodedDefault(tsFiles)) ok = false;
   if (!checkItemWriteFieldDrift(tsFiles)) ok = false;
   if (!checkSinglePrismaClient(tsFiles)) ok = false;
+  if (!checkOrphanedDemandLinks(tsFiles)) ok = false;
   if (!checkSchemaServiceUpdateParity(schemaFiles)) ok = false;
   checkAiGuides(); // warn-only
 
@@ -1215,6 +1228,7 @@ function main() {
     if (!checkHardcodedDefault(categories.typescript)) allPassed = false;
     if (!checkItemWriteFieldDrift(categories.typescript)) allPassed = false;
     if (!checkSinglePrismaClient(categories.typescript)) allPassed = false;
+    if (!checkOrphanedDemandLinks(categories.typescript)) allPassed = false;
   }
 
   // Type file changes → check type sync

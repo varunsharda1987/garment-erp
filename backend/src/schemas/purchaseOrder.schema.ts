@@ -111,7 +111,13 @@ export const updatePurchaseOrderSchema = z.object({
   expectedDeliveryDate: z.string().or(z.date()).optional(),
   paymentTerms: z.string().max(100).nullish(),
   remarks: z.string().max(1000).nullish(),
-  items: z.array(purchaseOrderItemSchema).min(1).optional(),
+  // Items carry their OWN id on update so the server can update the line in place instead of
+  // rebuilding it. Rebuilding mints a new uuid, and every link table pointing at PO items is
+  // onDelete: Cascade — so a rebuild silently strands the material requirement behind the line.
+  items: z
+    .array(purchaseOrderItemSchema.extend({ id: z.string().uuid().optional() }))
+    .min(1)
+    .optional(),
   // Optional traceability links (for Manual POs)
   styleId: z.string().uuid('Invalid style ID').nullish(),
   orderId: z.string().uuid('Invalid order ID').nullish(),

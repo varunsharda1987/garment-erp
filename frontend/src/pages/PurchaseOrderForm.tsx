@@ -149,6 +149,8 @@ interface Material {
 
 interface POItemForm {
   tempId: string;
+  /** Server id for a line loaded from an existing PO. Absent on lines added in this session. */
+  id?: string;
   // Material fields (for material POs)
   materialId?: string;
   materialCode?: string;
@@ -607,6 +609,9 @@ export default function PurchaseOrderForm() {
       if (po.items && po.items.length > 0) {
         const loadedItems: POItemForm[] = po.items.map((item, index) => ({
           tempId: `existing-${item.id}-${index}`,
+          // The server needs the real id to recognise this as the SAME line; without it the line is
+          // rebuilt and its MRP link is destroyed.
+          id: item.id,
           materialId: item.materialId || undefined,
           materialCode: item.materials?.code || '',
           materialName: item.materials?.name || '',
@@ -617,6 +622,8 @@ export default function PurchaseOrderForm() {
           unitPrice: String(item.unitPrice),
           totalPrice: item.totalPrice,
           remarks: item.remarks || '',
+          // Was absent, so every save rewrote the roll fold length to NULL on every line.
+          foldLengthCm: item.foldLengthCm != null ? String(item.foldLengthCm) : '',
         }));
         setItems(loadedItems);
       }
@@ -955,6 +962,7 @@ export default function PurchaseOrderForm() {
     setIsSaving(true);
     try {
       const itemsData: CreatePurchaseOrderItemRequest[] = items.map((item) => ({
+        id: item.id,
         materialId: item.materialId || undefined,
         serviceType: item.serviceType || undefined,
         serviceDescription: item.serviceDescription || undefined,

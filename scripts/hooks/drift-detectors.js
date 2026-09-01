@@ -1689,6 +1689,58 @@ function singlePrismaClient(relFiles) {
   return out;
 }
 
+// E10 — deleting rows whose children CASCADE a demand link, without handing that demand back.
+//
+// purchase_order_items has four onDelete: Cascade children (requirement_po_links,
+// service_requirement_po_links, po_source_links, grn_items) plus order_thread_requirements.poItemId
+// SET NULL. Delete the item and the LINK disappears while the demand row keeps its "already
+// ordered" status — and a material_requirement at PO_GENERATED with no link is invisible to every
+// re-order path, so the material is never bought and nothing says so (silent-data-loss #17; the
+// same shape stranded requirements on PO cancel, #13).
+//
+// Flags a delete/deleteMany on one of the link-parent tables when the enclosing function never
+// mentions a demand table. Opt-out: `// allow-orphan-links` on the call's line or the line above.
+const LINK_PARENT_TABLES = ['purchase_order_items', 'purchase_orders'];
+const DEMAND_TABLES = [
+  'material_requirements',
+  'work_order_service_requirements',
+  'order_thread_requirements',
+  'releasePurchaseOrderItemLinks',
+];
+function orphanedDemandLinks(relFiles) {
+  const out = [];
+  const callRe = /\b(?:tx|prisma|this\.prisma)\.(\w+)\.(delete|deleteMany)\s*\(/g;
+  for (const rel of relFiles) {
+    const norm = rel.replace(/\\/g, '/');
+    if (!/backend\/src\/.*\.ts$/.test(norm) || /\.test\.ts$/.test(norm)) continue;
+    // Scripts are one-off repairs run by a human who can see the outcome.
+    if (/backend\/src\/scripts\//.test(norm)) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    callRe.lastIndex = 0;
+    let m;
+    while ((m = callRe.exec(content))) {
+      if (!LINK_PARENT_TABLES.includes(m[1])) continue;
+      const lineStart = content.lastIndexOf('\n', m.index) + 1;
+      let lineEnd = content.indexOf('\n', m.index);
+      if (lineEnd === -1) lineEnd = content.length;
+      const prevLineStart = content.lastIndexOf('\n', Math.max(0, lineStart - 2)) + 1;
+      if (/allow-orphan-links/.test(content.slice(prevLineStart, lineEnd))) continue;
+      // Scope: the enclosing function, approximated as the surrounding +/- 4000 chars. Cheap, and
+      // the demand hand-back always lives immediately beside the delete when it is done right.
+      const scope = content.slice(Math.max(0, m.index - 4000), Math.min(content.length, m.index + 2000));
+      if (DEMAND_TABLES.some((t) => scope.includes(t))) continue;
+      out.push({
+        key: `${rel} :: ${m[1]}.${m[2]} :: ${lineOf(content, m.index)}`,
+        file: rel,
+        line: lineOf(content, m.index),
+        detail: `${m[1]}.${m[2]} deletes rows whose link children CASCADE, with no demand hand-back nearby — the material_requirement behind them is left "already ordered" with nothing to point at, and can never be re-ordered`,
+      });
+    }
+  }
+  return out;
+}
+
 module.exports = {
   perRouteValidation,
   enumDrift,
@@ -1715,5 +1767,6 @@ module.exports = {
   hardcodedDefault,
   itemWriteFieldDrift,
   singlePrismaClient,
+  orphanedDemandLinks,
   REPO_ROOT,
 };

@@ -48,6 +48,7 @@ The supplier must already exist in **Materials & Masters → Suppliers**, and ev
 - If any material is already on another open PO, a duplicate warning appears. Read it, then either cancel or confirm to continue.
 
 ## After saving
+- Editing a Draft PO keeps everything you already entered on each line, including **Fold L (cm)**. Removing a line from the PO puts that material back on the material plan so it can be ordered again on another PO.
 - A Draft PO can be edited. From the PO page use **Send to Supplier**, then the supplier side can be marked with **Acknowledge**.
 - Goods can only be received once the PO is Sent, Acknowledged or Partially Received. From the PO page click **Receive Goods** to start the GRN.
 - If the supplier delivers part of the order and tells you the rest is not coming, do NOT cancel it — use **Close Short** on the PO page. Cancel is no longer offered on a Partially Received PO because it would claim the delivery never happened.

@@ -274,6 +274,8 @@ export interface PurchaseOrderItem {
   unitPrice: number;
   totalPrice: number;
   remarks: string | null;
+  /** "L" — roll fold length in cm, set on greige/fabric lines and read by GRN than/roll receipt. */
+  foldLengthCm?: number | null;
   printingType?: string | null;
   // Service PO fields
   serviceType?: string | null;
@@ -384,6 +386,12 @@ export interface PurchaseOrder {
 // ============================================
 
 export interface CreatePurchaseOrderItemRequest {
+  /**
+   * Existing PO item id — send it on UPDATE so the server edits the line in place. Omit it and the
+   * server rebuilds the line with a new id, destroying every link that pointed at it (the MRP
+   * requirement behind it is then stranded and the material is never bought).
+   */
+  id?: string;
   materialId?: string; // Required for material POs
   serviceType?: string; // Required for service/processing POs
   serviceDescription?: string; // Optional description for service POs

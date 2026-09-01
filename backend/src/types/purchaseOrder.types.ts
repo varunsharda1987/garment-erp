@@ -31,6 +31,13 @@ export const MATERIAL_PO_CATEGORIES: POCategory[] = [
  * DTO for creating a purchase order item
  */
 export interface PurchaseOrderItemDTO {
+  /**
+   * Existing PO item id, sent ONLY on update. It is how the server recognises a line as the same
+   * line and updates it in place; without it the line is rebuilt with a new uuid and every
+   * cascading link (requirement_po_links, service_requirement_po_links, po_source_links,
+   * order_thread_requirements.poItemId) is destroyed with it.
+   */
+  id?: string;
   materialId?: string; // Required for material POs
   serviceType?: string; // Required for service/processing POs (ServiceType enum)
   serviceDescription?: string; // Optional description for service POs

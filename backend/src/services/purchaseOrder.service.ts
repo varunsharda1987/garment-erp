@@ -29,6 +29,7 @@ import { addCurrency, roundToCent, subtractCurrency, toNumber } from '../utils/c
 import { validateTransition } from '../utils/stateMachine';
 import { BusinessError, NotFoundError } from '../errors';
 import { checkProcessingPOReadiness } from './po-status-manager.service';
+import { releasePurchaseOrderItemLinks } from './helpers/po-item-link-release.helper';
 
 class PurchaseOrderService {
   /**
@@ -423,29 +424,67 @@ class PurchaseOrderService {
         },
       });
 
-      // If items are provided, delete existing and create new ones
+      // If items are provided, reconcile them against what is already on the PO.
+      //
+      // This used to delete every item and recreate it with a fresh uuid. All four child tables
+      // (requirement_po_links, service_requirement_po_links, po_source_links, grn_items) are
+      // onDelete: Cascade, so the links vanished while the demand rows they pointed at kept their
+      // "already ordered" status — and a requirement in that state is invisible to every re-order
+      // path. Editing only the delivery date on an MRP-generated PO was enough: the material was
+      // then never bought and nothing said so.
+      //
+      // So: keep the item ids. A line the client names by id is UPDATED in place, which leaves every
+      // link untouched. Only genuinely removed lines are deleted, and their demand is handed back
+      // first.
       if (data.items) {
-        // Clean up linked records before deleting items
         const existingItems = await tx.purchase_order_items.findMany({
           where: { poId: id },
-          select: { id: true },
+          select: { id: true, materialId: true, serviceType: true, receivedQuantity: true },
         });
-        const itemIds = existingItems.map((i) => i.id);
-        if (itemIds.length > 0) {
-          await tx.requirement_po_links.deleteMany({
-            where: { purchaseOrderItemId: { in: itemIds } },
-          });
-          await tx.grn_items.deleteMany({
-            where: { poItemId: { in: itemIds } },
-          });
+        const existingById = new Map(existingItems.map((i) => [i.id, i]));
+
+        // Resolve each incoming line to an existing row. Explicit id wins. Failing that — older
+        // clients send no ids — fall back to materialId, but ONLY when that material appears exactly
+        // once on each side, so the match is a fact rather than a guess. Positional pairing is what
+        // crossed the cost-sheet rates; it is not repeated here.
+        const countBy = <T>(xs: T[], key: (x: T) => string | null | undefined) => {
+          const m = new Map<string, number>();
+          for (const x of xs) {
+            const k = key(x);
+            if (k) m.set(k, (m.get(k) ?? 0) + 1);
+          }
+          return m;
+        };
+        const existingByMaterial = countBy(existingItems, (i) => i.materialId);
+        const incomingByMaterial = countBy(data.items, (i) => i.materialId);
+        const claimed = new Set<string>();
+
+        const resolved = data.items.map((item) => {
+          const declared = item.id && existingById.has(item.id) && !claimed.has(item.id) ? item.id : undefined;
+          if (declared) {
+            claimed.add(declared);
+            return { item, existingId: declared };
+          }
+          const mid = item.materialId;
+          if (mid && existingByMaterial.get(mid) === 1 && incomingByMaterial.get(mid) === 1) {
+            const match = existingItems.find((e) => e.materialId === mid && !claimed.has(e.id));
+            if (match) {
+              claimed.add(match.id);
+              return { item, existingId: match.id };
+            }
+          }
+          return { item, existingId: undefined as string | undefined };
+        });
+
+        const removedIds = existingItems.map((i) => i.id).filter((iid) => !claimed.has(iid));
+        if (removedIds.length > 0) {
+          // Hand the demand back BEFORE the cascade takes the links with it. Throws if any of these
+          // lines has already received goods.
+          await releasePurchaseOrderItemLinks(tx, removedIds, existingPO.poNumber);
+          await tx.purchase_order_items.deleteMany({ where: { id: { in: removedIds } } });
         }
 
-        // Delete all existing items
-        await tx.purchase_order_items.deleteMany({
-          where: { poId: id },
-        });
-
-        // Create new items with GST
+        // Write the kept and new lines with GST
         if (data.items.length > 0) {
           const supplierId = data.supplierId || existingPO.supplierId;
           const { isInterstate } = await gstService.isInterstatePO(supplierId);
@@ -455,7 +494,7 @@ class PurchaseOrderService {
           let poTotalSgst = 0;
           let poTotalIgst = 0;
 
-          for (const item of data.items) {
+          for (const { item, existingId } of resolved) {
             const totalPrice = this.calculateItemTotal(item.orderedQuantity, item.unitPrice);
             subtotal += totalPrice;
 
@@ -474,31 +513,37 @@ class PurchaseOrderService {
             poTotalSgst += gst.sgstAmount;
             poTotalIgst += gst.igstAmount;
 
-            await tx.purchase_order_items.create({
-              data: {
-                id: randomUUID(),
-                poId: id,
-                materialId: item.materialId || null,
-                serviceType: (item.serviceType as ServiceType) || null,
-                serviceDescription: item.serviceDescription || null,
-                orderedQuantity: item.orderedQuantity,
-                receivedQuantity: 0,
-                unit: item.unit,
-                unitPrice: item.unitPrice,
-                totalPrice,
-                hsnCode: gst.hsnCode,
-                gstRate: gst.gstRate,
-                cgstRate: gst.cgstRate,
-                cgstAmount: gst.cgstAmount,
-                sgstRate: gst.sgstRate,
-                sgstAmount: gst.sgstAmount,
-                igstRate: gst.igstRate,
-                igstAmount: gst.igstAmount,
-                taxAmount: gst.taxAmount,
-                remarks: item.remarks || null,
-                foldLengthCm: item.foldLengthCm ?? null,
-              },
-            });
+            const lineData = {
+              materialId: item.materialId || null,
+              serviceType: (item.serviceType as ServiceType) || null,
+              serviceDescription: item.serviceDescription || null,
+              orderedQuantity: item.orderedQuantity,
+              unit: item.unit,
+              unitPrice: item.unitPrice,
+              totalPrice,
+              hsnCode: gst.hsnCode,
+              gstRate: gst.gstRate,
+              cgstRate: gst.cgstRate,
+              cgstAmount: gst.cgstAmount,
+              sgstRate: gst.sgstRate,
+              sgstAmount: gst.sgstAmount,
+              igstRate: gst.igstRate,
+              igstAmount: gst.igstAmount,
+              taxAmount: gst.taxAmount,
+              remarks: item.remarks || null,
+              foldLengthCm: item.foldLengthCm ?? null,
+            };
+
+            if (existingId) {
+              // In place — the id survives, so every link pointing at this line survives with it.
+              // receivedQuantity is deliberately NOT written: it is the receipt ledger's column,
+              // and resetting it here is what made the old rebuild lose delivery history.
+              await tx.purchase_order_items.update({ where: { id: existingId }, data: lineData });
+            } else {
+              await tx.purchase_order_items.create({
+                data: { id: randomUUID(), poId: id, receivedQuantity: 0, ...lineData },
+              });
+            }
           }
 
           // Update PO header with GST totals, rounded to 2dp like the create path
@@ -553,7 +598,18 @@ class PurchaseOrderService {
 
     // Use transaction to handle linked records
     await prisma.$transaction(async (tx) => {
-      // Delete requirement_po_links that reference this PO
+      // Hand the demand back to the plan before the PO (and its cascading item links) disappear.
+      // Deleting the links alone left every linked requirement sitting at PO_GENERATED with nothing
+      // to point at — unbuyable for ever, the same strand that PO editing suffered.
+      const items = await tx.purchase_order_items.findMany({ where: { poId: id }, select: { id: true } });
+      await releasePurchaseOrderItemLinks(
+        tx,
+        items.map((i) => i.id),
+        existingPO.poNumber
+      );
+
+      // Any links keyed on the PO rather than on one of its items (belt and braces — the helper
+      // already removed the item-keyed ones).
       if (existingPO.requirement_po_links?.length > 0) {
         await tx.requirement_po_links.deleteMany({
           where: { purchaseOrderId: id },
@@ -792,6 +848,12 @@ class PurchaseOrderService {
 
     // Item delete + header recompute atomically (bug-hunt procurement-19)
     await prisma.$transaction(async (tx) => {
+      // Hand the demand back first. This delete cascades requirement_po_links,
+      // service_requirement_po_links and po_source_links away, and without the revert the
+      // requirement behind the line stays "already ordered" pointing at nothing — unbuyable, and
+      // silent. Same strand as the PO edit and delete paths (silent-data-loss #17).
+      await releasePurchaseOrderItemLinks(tx, [itemId], existingPO.poNumber);
+
       await tx.purchase_order_items.delete({
         where: { id: itemId },
       });

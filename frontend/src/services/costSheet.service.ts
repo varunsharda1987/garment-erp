@@ -135,15 +135,9 @@ export const deleteCostSheet = async (id: string): Promise<void> => {
   await api.delete(`${BASE_URL}/${id}`);
 };
 
-/**
- * Auto-generate cost sheet from approved CAD data
- */
-export const generateCostSheetFromStyle = async (styleId: string): Promise<CostSheetSaveResult> => {
-  const response = await api.post(`${BASE_URL}/generate/${styleId}`);
-  // warnings ride on the envelope, not on data — dropping them here is how a fabric row silently
-  // vanished from Auto-Generate previews (a costed row collapsed by dedupe was never mentioned)
-  return { ...response.data.data, warnings: response.data.warnings };
-};
+// generateCostSheetFromStyle was retired 2026-09-01 with the Auto-Generate button: it
+// re-derived fabrics/trims/embroidery/accessories that selecting a style already populates,
+// by a different dedupe rule — the divergence silently understated fabric cost on 8 styles.
 
 /**
  * Get budget suggestions for direct procurement
@@ -167,6 +161,5 @@ export default {
   approveCostSheet,
   rejectCostSheet,
   deleteCostSheet,
-  generateCostSheetFromStyle,
   getBudgetSuggestions,
 };

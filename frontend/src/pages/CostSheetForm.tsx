@@ -7,7 +7,6 @@ import {
   createCostSheet,
   getCostSheetById,
   updateCostSheet,
-  generateCostSheetFromStyle,
   getBudgetSuggestions,
 } from '../services/costSheet.service';
 import type { BudgetSuggestions } from '../types/costSheet.types';
@@ -1766,21 +1765,33 @@ const CostSheetForm = () => {
   // and prices are entered directly in Cost Sheet or from Fabric Costing
 
   // Auto-generate cost sheet from approved CAD or selected costing run
-  const handleAutoGenerate = async () => {
+  /**
+   * Load the fabric lines of a SELECTED costing run into the form.
+   *
+   * This was previously half of an "Auto-Generate from CAD" button whose other half re-derived
+   * fabrics/trims/embroidery/accessories from CAD — a duplicate of what selecting a style already
+   * does automatically, by different dedupe rules. That divergence is what silently understated
+   * fabric cost on 8 styles, so the CAD-generate half (and its endpoint) was retired on
+   * 2026-09-01. Applying a costing run is a genuinely distinct action and is kept, under a name
+   * that says what it does.
+   */
+  const handleLoadFromCostingRun = async () => {
     if (!selectedStyleId) {
       notify.error('Please select a style first');
+      return;
+    }
+    if (!selectedRunId) {
+      notify.error('Select a costing run first');
       return;
     }
 
     try {
       setLoading(true);
 
-      // Fetch style details to check CAD status
       const styleDetails = await styleService.getStyleById(selectedStyleId);
       setSelectedStyle(styleDetails);
 
-      // Check if a costing run is selected - if so, populate from run
-      if (selectedRunId) {
+      {
         // Fetch full run details with fabric data
         const run = await getRunById(selectedRunId);
 
@@ -1830,71 +1841,13 @@ const CostSheetForm = () => {
           );
           return;
         }
-      }
 
-      // Fallback: Use original auto-generate logic (no run selected)
-      // Note: Backend handles full CAD validation including alternative path
-      // (CAD Costing approved OR CAD Raw Material approved + Fabric Costing complete)
-
-      // Generate cost sheet from style
-      const generatedCostSheet = await generateCostSheetFromStyle(selectedStyleId);
-
-      // Pre-fill fabric details from generated data
-      if (generatedCostSheet.fabricDetails && generatedCostSheet.fabricDetails.length > 0) {
-        setFabricDetails(generatedCostSheet.fabricDetails);
-      }
-
-      // Pre-fill trims details from generated data
-      if (generatedCostSheet.trimsDetails && generatedCostSheet.trimsDetails.length > 0) {
-        setTrimsDetails(generatedCostSheet.trimsDetails);
-      }
-
-      // Pre-fill embroidery details from generated data (VALUE_ADDITION materials)
-      if (generatedCostSheet.embroideryDetails && generatedCostSheet.embroideryDetails.length > 0) {
-        setEmbroideryDetails(generatedCostSheet.embroideryDetails);
-      }
-
-      // Pre-fill accessories details from generated data (PACKAGING materials)
-      if (generatedCostSheet.accessoriesDetails && generatedCostSheet.accessoriesDetails.length > 0) {
-        setAccessoriesDetails(generatedCostSheet.accessoriesDetails);
-      }
-
-      // Pre-fill basic information
-      if (generatedCostSheet.numberOfComponents) {
-        setNumberOfComponents(generatedCostSheet.numberOfComponents);
-      }
-      if (generatedCostSheet.category) {
-        setCategory(generatedCostSheet.category);
-      }
-      if (generatedCostSheet.subCategory) {
-        setSubCategory(generatedCostSheet.subCategory);
-      }
-
-      // Show success message with what was pre-filled
-      const preFilled: string[] = [];
-      if (generatedCostSheet.fabricDetails?.length)
-        preFilled.push(`${generatedCostSheet.fabricDetails.length} fabrics`);
-      if (generatedCostSheet.trimsDetails?.length) preFilled.push(`${generatedCostSheet.trimsDetails.length} trims`);
-      if (generatedCostSheet.embroideryDetails?.length)
-        preFilled.push(`${generatedCostSheet.embroideryDetails.length} embroidery items`);
-      if (generatedCostSheet.accessoriesDetails?.length)
-        preFilled.push(`${generatedCostSheet.accessoriesDetails.length} accessories`);
-
-      notify.success(
-        `Cost sheet auto-generated! Pre-filled: ${preFilled.length > 0 ? preFilled.join(', ') : 'No materials found'}. Please add CMT costs and finalize.`,
-        { duration: 6000 }
-      );
-
-      // Anything the generator left OUT of the preview — an uncosted component, or a costed row
-      // collapsed as a duplicate — must not hide behind the success toast: these lines are money,
-      // and the preview becomes the sheet becomes the Order BOM.
-      for (const warning of generatedCostSheet.warnings ?? []) {
-        notify.warning(warning, { duration: 10000 });
+        notify.warning(`${run.runName} has no costed fabrics to load.`, { duration: 6000 });
       }
     } catch (error: unknown) {
       const axiosError = error as { response?: { data?: { error?: string; message?: string } } };
       const errorMsg =
-        axiosError.response?.data?.error || axiosError.response?.data?.message || 'Failed to auto-generate cost sheet';
+        axiosError.response?.data?.error || axiosError.response?.data?.message || 'Failed to load the costing run';
       notify.error(errorMsg, { duration: 5000 });
     } finally {
       setLoading(false);
@@ -2078,18 +2031,22 @@ const CostSheetForm = () => {
                   <RefreshCw className="h-4 w-4" />
                   Reload from Style
                 </Button>
-                <Button
-                  type="button"
-                  variant="default"
-                  size="sm"
-                  onClick={handleAutoGenerate}
-                  disabled={loading || !selectedStyle || isApprovedCostSheet}
-                  className="flex items-center gap-2 bg-gradient-to-r from-accent to-info hover:from-accent hover:to-info disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Generate cost sheet from CAD data (requires CAD Costing approved OR CAD Raw Material approved with Fabric Costing complete)"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Auto-Generate from CAD
-                </Button>
+                {/* Only meaningful with a run selected — fabrics, trims and the rest already
+                    populate from the style itself the moment one is chosen. */}
+                {selectedRunId && (
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    onClick={handleLoadFromCostingRun}
+                    disabled={loading || !selectedStyle || isApprovedCostSheet}
+                    className="flex items-center gap-2 bg-gradient-to-r from-accent to-info hover:from-accent hover:to-info disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Replace the fabric rows with the fabrics costed in the selected costing run"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Load from Costing Run
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -2196,7 +2153,7 @@ const CostSheetForm = () => {
                   )}
                 </button>
               ))}
-              {selectedRunId && <span className="text-xs text-info ml-2">→ Click Auto-Generate to use</span>}
+              {selectedRunId && <span className="text-xs text-info ml-2">→ Click Load from Costing Run to use</span>}
             </div>
           )}
 

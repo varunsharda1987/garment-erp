@@ -9,7 +9,6 @@ import {
   updateCostSheet,
   approveCostSheet,
   deleteCostSheet,
-  generateCostSheetFromStyle,
   createCostSheetVersion,
   getCostSheetVersions,
   compareCostSheetVersions,
@@ -44,7 +43,6 @@ import {
 // validateBody stripped fabricDetails/trimsDetails/cmtCosts and every UI create failed with 400.
 import { UpdateCostSheetSchema, CreateCostSheetSchema } from '../controllers/style-costing.utils';
 import {
-  generateCostSheetSchema,
   approveCostSheetSchema,
   createCostSheetVersionSchema,
   copyCostSheetSchema,
@@ -74,20 +72,6 @@ router.post(
   authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
   validateBody(CreateCostSheetSchema),
   asyncHandler(createCostSheet)
-);
-
-/**
- * @route   POST /api/style-costing/generate/:styleId
- * @desc    Auto-generate cost sheet from approved CAD data
- * @access  Private (ADMIN, PRODUCTION_MANAGER, MERCHANDISER)
- */
-router.post(
-  '/generate/:styleId',
-  authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
-  validateParams(styleIdParamSchema),
-  validateBody(generateCostSheetSchema),
-  asyncHandler(generateCostSheetFromStyle)
 );
 
 /**

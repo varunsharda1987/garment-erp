@@ -38,14 +38,8 @@ export const VarianceStatusEnum = z.enum(['NONE', 'PENDING_APPROVAL', 'APPROVED'
  * endpoint silently discarded all edits while returning success. Do NOT re-add a second schema here.
  */
 
-/**
- * Generate Cost Sheet from Style
- * POST /api/style-costing/generate/:styleId
- */
-export const generateCostSheetSchema = z.object({
-  purpose: CostSheetPurposeEnum.optional().default('COSTING'),
-  widthCombination: z.string().max(100).optional(),
-});
+// generateCostSheetSchema removed 2026-09-01 with POST /style-costing/generate/:styleId — see
+// style-costing-calc.controller.ts for why that endpoint was retired.
 
 /**
  * Approve Cost Sheet
@@ -228,7 +222,6 @@ export const calculateLaceOptionsSchema = z.object({
 
 // CreateCostSheetInput / UpdateCostSheetInput: infer from CreateCostSheetSchema / UpdateCostSheetSchema
 // in controllers/style-costing.utils.ts (the ONE create/update schema pair — see notes above)
-export type GenerateCostSheetInput = z.infer<typeof generateCostSheetSchema>;
 export type ApproveCostSheetInput = z.infer<typeof approveCostSheetSchema>;
 export type CreateCostSheetVersionInput = z.infer<typeof createCostSheetVersionSchema>;
 export type CopyCostSheetInput = z.infer<typeof copyCostSheetSchema>;

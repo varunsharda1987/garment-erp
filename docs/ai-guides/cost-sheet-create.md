@@ -7,7 +7,8 @@ keywords:
   - style costing
   - CMT
   - CAD approved
-  - auto generate from cad
+  - load from costing run
+  - costing run
   - cost sheet kaise banaye
   - costing banana
   - लागत
@@ -34,37 +35,36 @@ sources:
 
 ## Before you start
 
-The style must exist, and **Auto-Generate from CAD** needs a fabric row with **both approvals**: the CAD approved in **CAD Planning** (quantity) AND the costing approved with a real price on the **Fabric Costing Options** page. This works through either mode: a fully-approved **Costing** row, or a fully-approved **Raw Material** row with fabric costing completed. A row that is only CAD-approved but has no saved costing does not count — save and approve its costing first. There is no shortcut around this: a style whose CAD was approved as a whole but has no fully-approved priced row is still refused. Rows without a costing are left out of the preview (a warning lists the skipped components).
+The style must exist and its fabrics must be costed: the CAD approved in **CAD Planning** (quantity) AND the costing approved with a real price on the **Fabric Costing Options** page. A row that is only CAD-approved but has no saved costing contributes no rate — save and approve its costing first.
 
 ## Steps
 
 1. Open **Pre-Production → Cost Sheets** in the sidebar.
 2. Click **+ New Cost Sheet**. The page **Create Cost Sheet** opens.
 3. In **Search Style**, type the style code and pick the style. It is required. **Customer** fills itself and stays read-only.
-4. Choose **Fabric Costing Mode**: **Costing (Buyer Quotation)**, **Raw Material Calculation** or **Production**. Only approved costing options from that mode are used for fabric rates. The system remembers your last choice.
-5. If **Costing Run** chips appear, click one to use those fabrics. A green tick means all costs are complete; a warning sign means some are missing.
-6. Click **Auto-Generate from CAD**. This only **previews** numbers into the form. Nothing is saved yet.
-7. Check the messages. A green one says the preview is generated and that you must review it and fill in CMT costs, then save. Yellow warning messages, if any, list what was left out of the preview — read them before continuing.
-8. Review the **Fabric Details** table. A fabric costed at more than one width appears as **one row per width** — both belong in the sheet, so do not delete one as a duplicate. Every row needs a name, a CAD average and a rate, or it must be marked **N/A**. Each fabric row is linked to its specific CAD width row for accurate rate pairing.
-9. If the style's BOM has lace, a **Lace Details** section appears with those laces pre-filled. For each row set **Qty/Garment** and **Wastage**, then pick the **Sourcing**: **Stock Reuse** (use existing inventory), **Ready Lace** (purchase finished lace, the default) or **Greige + Dyeing** (buy raw lace and process). To add another lace, pick it in **Select lace to add...** and click **Add Lace**. A lace that does not apply gets its **N/A** box ticked.
-10. Review **Trims Details**, **Embroidery Details** and **Accessories Details** the same way.
-11. Fill the **CMT Costs**: **Cutting**, **Stitching**, **Finishing**, **Button Attachment**, **Handwork** and **Smocking**. These are never auto-filled from CAD.
-12. Set **Value Loss & Markup** percentages. Both must be between 0 and 100.
-13. Optionally enter the **Closed Cost** agreed with the customer and its **Notes**. A comparison card then shows Calculated Cost, Closed Cost and Variance.
-14. Click **Create Cost Sheet** to save. Only now does the sheet exist.
-15. Back on the **Cost Sheets** list, use the row actions to send the sheet for approval or to approve or reject it.
+4. Picking the style fills the form by itself — fabrics come from the approved fabric costings, and trims, lace, embroidery and accessories come from the style's BOM. There is no button to press for this. Nothing is saved yet.
+5. Choose **Fabric Costing Mode**: **Costing (Buyer Quotation)**, **Raw Material Calculation** or **Production**. Only approved costing options from that mode are used for fabric rates, and changing the mode refills the fabric rows. The system remembers your last choice.
+6. If **Costing Run** chips appear and you want that specific run's fabrics instead, click the chip and then click **Load from Costing Run**. A green tick on the chip means all costs are complete; a warning sign means some are missing. This replaces the fabric rows only.
+7. Review the **Fabric Details** table. A fabric costed at more than one width appears as **one row per width** — both belong in the sheet, so do not delete one as a duplicate. Every row needs a name, a CAD average and a rate, or it must be marked **N/A**.
+8. If the style's BOM has lace, a **Lace Details** section appears with those laces pre-filled. For each row set **Qty/Garment** and **Wastage**, then pick the **Sourcing**: **Stock Reuse** (use existing inventory), **Ready Lace** (purchase finished lace, the default) or **Greige + Dyeing** (buy raw lace and process). To add another lace, pick it in **Select lace to add...** and click **Add Lace**. A lace that does not apply gets its **N/A** box ticked.
+9. Review **Trims Details**, **Embroidery Details** and **Accessories Details** the same way.
+10. Fill the **CMT Costs**: **Cutting**, **Stitching**, **Finishing**, **Button Attachment**, **Handwork** and **Smocking**. These are never auto-filled from CAD.
+11. Set **Value Loss & Markup** percentages. Both must be between 0 and 100.
+12. Optionally enter the **Closed Cost** agreed with the customer and its **Notes**. A comparison card then shows Calculated Cost, Closed Cost and Variance.
+13. Click **Create Cost Sheet** to save. Only now does the sheet exist.
+14. Back on the **Cost Sheets** list, use the row actions to send the sheet for approval or to approve or reject it.
 
 ## Traps
 
-- Generating is not saving. If you leave the page after **Auto-Generate from CAD**, everything is lost.
+- Filling the form is not saving. If you leave the page before clicking **Create Cost Sheet**, everything is lost.
 - The save is rejected unless there is **at least one fabric row and at least one trim row**.
 - Any row with a zero rate or zero quantity blocks the save with a toast. This applies to fabric, trim, lace, embroidery and accessory rows alike. Either type real values or tick **N/A** on that row. A lace row needs both a **Qty/Garment** and a cost above zero.
 - A fabric row with a blank name blocks the save. Re-select the style or type the name.
 - If a warning banner shows the CAD is not approved, use **Go to CAD Planning** on that banner and finish CAD first.
-- If the error says the row needs to be **costing-approved with a price**, open **Fabric Costing Options** for the style, approve the costing there, then generate again.
-- Components with CAD data but **no saved costing** are skipped from the preview and listed in a warning — they no longer appear as ₹0 fabric lines. Save a fabric costing for them first if they belong in the sheet.
-- If a fabric option was **costed more than once**, only the most recent costing is used and a warning names the older one that was set aside. If the warning surprises you, check the style's Fabric Costing Options before saving.
+- If a fabric row has no rate, open **Fabric Costing Options** for the style, approve the costing there, then re-pick the style (or switch mode and back) to refill.
+- Components with CAD data but **no saved costing** produce no fabric row. Save a fabric costing for them first if they belong in the sheet.
+- If a fabric option was **costed more than once**, the most recent costing is the one used. Check the style's Fabric Costing Options if a rate looks unfamiliar.
 - An approved cost sheet is read-only. To change it, create a new version from the list; a version reason is compulsory.
 - **Reload from Style** refreshes fabric and trim rows from the style. It overwrites what you typed in those tables.
-- If the style already has a cost sheet, the preview still runs but warns you. Check the list before making a duplicate.
+- If the style already has a cost sheet, check the list before making a duplicate.
 - Trim items can carry only one master link at a time. If you see an error about multiple FK fields, only one of the master IDs should be set.

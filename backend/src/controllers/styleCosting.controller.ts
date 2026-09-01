@@ -32,7 +32,7 @@ import {
 // ============================================================================
 // Re-export from sub-controllers for backward compatibility
 // ============================================================================
-export { generateCostSheetFromStyle, getBudgetSuggestions } from './style-costing-calc.controller';
+export { getBudgetSuggestions } from './style-costing-calc.controller';
 export {
   approveCostSheet,
   createCostSheetVersion,

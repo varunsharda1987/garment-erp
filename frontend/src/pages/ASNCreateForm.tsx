@@ -18,6 +18,7 @@ import { getAllOrders, getOrderById } from '@/services/order.service';
 import type { Order, OrderItem, OrderItemBreakup } from '@/types/order.types';
 import type { CreateASNRequest } from '@/types/dispatch.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { queryKeys } from '@/lib/query-client';
 
@@ -33,6 +34,13 @@ interface SKULine {
   sizeName: string;
   orderQty: number;
   plannedQty: number;
+  /**
+   * Can this line actually be STORED as an asn_sku? Its colorId and sizeId are NOT NULL columns, so
+   * a line built from an order item with no size/colour breakup cannot be. Such lines used to be
+   * rendered as editable and then silently filtered out of the payload while their quantity still
+   * counted toward the header total.
+   */
+  persistable: boolean;
 }
 
 export default function ASNCreateForm() {
@@ -94,6 +102,7 @@ export default function ASNCreateForm() {
               sizeName: b.sizeOptions?.sizeName || 'N/A',
               orderQty: b.quantity,
               plannedQty: b.quantity, // Default to full order qty
+              persistable: !!b.colorOptions?.id && !!b.sizeOptions?.id,
             });
           });
         } else {
@@ -109,6 +118,8 @@ export default function ASNCreateForm() {
             sizeName: 'N/A',
             orderQty: item.totalQuantity,
             plannedQty: item.totalQuantity,
+            // No breakup on the order item, so there is no SKU to record — only the header total.
+            persistable: false,
           });
         }
       });
@@ -158,16 +169,29 @@ export default function ASNCreateForm() {
     }
 
     const skus = skuLines
-      .filter((line) => line.plannedQty > 0 && line.colorId && line.sizeId)
+      .filter((line) => line.persistable && line.plannedQty > 0)
       .map((line) => ({
         colorId: line.colorId,
         sizeId: line.sizeId,
         plannedQty: line.plannedQty,
       }));
 
+    // Refuse a mixed submission rather than quietly dropping half of it: if some lines can be
+    // planned per SKU and others cannot, the header total would no longer describe the lines.
+    if (skus.length > 0 && skuLines.some((l) => !l.persistable && l.plannedQty > 0)) {
+      handleApiError(
+        new Error('Mixed breakdown'),
+        'Some lines have no size breakup and cannot be planned per SKU. Set their planned quantity to 0, or add sizes to the order first.'
+      );
+      return;
+    }
+
+    const skuTotal = skus.reduce((sum, x) => sum + x.plannedQty, 0);
+
     const request: CreateASNRequest = {
       orderId: selectedOrderId,
-      plannedDispatchQty: totalPlannedQty,
+      // The header must describe the lines it is filed with.
+      plannedDispatchQty: skus.length > 0 ? skuTotal : totalPlannedQty,
       cartonsPlanned: cartonsPlanned || 0,
       requestedShipDate,
       remarks: remarks || undefined,
@@ -301,6 +325,14 @@ export default function ASNCreateForm() {
             <CardDescription>Enter the planned quantity for each SKU to dispatch</CardDescription>
           </CardHeader>
           <CardContent>
+            {skuLines.some((l) => !l.persistable) && (
+              <Alert className="mb-4">
+                <AlertDescription>
+                  This order has no size/colour breakup yet, so the ASN can only record the total quantity — not a
+                  per-SKU plan. Add sizes to the order first if the buyer needs SKU-level detail.
+                </AlertDescription>
+              </Alert>
+            )}
             {orderLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -342,34 +374,44 @@ export default function ASNCreateForm() {
                         <TableCell>{line.sizeName}</TableCell>
                         <TableCell className="text-right font-mono">{line.orderQty}</TableCell>
                         <TableCell className="text-right">
-                          <Input
-                            type="number"
-                            min={0}
-                            max={line.orderQty}
-                            value={line.plannedQty}
-                            onChange={(e) => updatePlannedQty(index, parseInt(e.target.value) || 0)}
-                            className="w-24 text-right font-mono"
-                          />
+                          {line.persistable ? (
+                            <Input
+                              type="number"
+                              min={0}
+                              max={line.orderQty}
+                              value={line.plannedQty}
+                              onChange={(e) => updatePlannedQty(index, parseInt(e.target.value) || 0)}
+                              className="w-24 text-right font-mono"
+                            />
+                          ) : (
+                            // Read-only on purpose: this line has no colour/size to file against, so
+                            // any number typed here could never be saved.
+                            <span className="font-mono">{line.plannedQty}</span>
+                          )}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => updatePlannedQty(index, line.plannedQty - 1)}
-                              disabled={line.plannedQty <= 0}
-                            >
-                              <Minus className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => updatePlannedQty(index, line.plannedQty + 1)}
-                              disabled={line.plannedQty >= line.orderQty} // allow-decimal-compare: both are plain JS numbers
-                            >
-                              <Plus className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          {!line.persistable ? (
+                            <span className="text-xs text-muted-foreground">no size breakup</span>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => updatePlannedQty(index, line.plannedQty - 1)}
+                                disabled={line.plannedQty <= 0}
+                              >
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => updatePlannedQty(index, line.plannedQty + 1)}
+                                disabled={line.plannedQty >= line.orderQty} // allow-decimal-compare: both are plain JS numbers
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}

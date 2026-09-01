@@ -151,12 +151,16 @@ const asnItemSchema = z.object({
 /**
  * ASN SKU (simple dispatch application)
  */
+// asn_skus.colorId, .sizeId and .plannedQty are all NOT NULL. Declaring them optional here meant a
+// malformed line reached Prisma and died as a 500 instead of being rejected as a 400 — and it let
+// the frontend believe an id-less line was a legal thing to send. A header-only ASN is still legal
+// (`skus` itself stays optional); what is not legal is a SKU line that cannot be stored.
 const asnSkuSchema = z.object({
-  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional(),
-  sizeId: z.string().uuid('Invalid size ID').optional(),
+  colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }),
+  sizeId: z.string().uuid('Invalid size ID'),
   // The controller reads sku.plannedQty (not `quantity`); mismatched name meant it was stripped and
   // ASN creation threw (bug-hunt F5).
-  plannedQty: z.number().int().nonnegative().optional(),
+  plannedQty: z.number().int().positive('SKU planned quantity must be greater than zero'),
 });
 
 /**

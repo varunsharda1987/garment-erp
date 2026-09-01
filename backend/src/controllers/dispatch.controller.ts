@@ -3,7 +3,7 @@ import logger, { logWarn } from '../utils/logger';
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import crypto from 'crypto';
-import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
+import { NotFoundError, ValidationError, UnauthorizedError, BusinessError } from '../errors';
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { toCurrency, toNumber, Decimal } from '../utils/currency'; // BUG-POD5 fix
 import { recomputeSaleOrderStatus } from '../services/helpers/sale-order-status.helper';
@@ -1114,11 +1114,47 @@ export const createASN = async (req: Request, res: Response) => {
   // Get order to generate ASN number
   const order = await prisma.orders.findUnique({
     where: { id: orderId },
-    select: { orderNumber: true },
+    select: {
+      orderNumber: true,
+      order_items: { select: { _count: { select: { order_item_breakup: true } } } },
+    },
   });
 
   if (!order) {
     throw new ValidationError('Order not found');
+  }
+
+  // The form used to build a SKU table, let the user edit it, then FILTER OUT every line whose
+  // colour/size id was blank — while still sending the full header quantity. The ASN was filed with
+  // the buyer promising the whole lot and containing no SKU lines at all, and the success toast and
+  // redirect looked identical to a correct save. These three guards make each of those cases a
+  // visible error instead.
+  const skuLines: Array<{ colorId: string; sizeId: string; plannedQty: number }> = skus ?? [];
+
+  // A — the order HAS a breakup, so a per-SKU plan is available and must not be omitted.
+  const hasBreakup = order.order_items.some((i) => i._count.order_item_breakup > 0);
+  if (hasBreakup && skuLines.length === 0) {
+    throw new BusinessError('This order has a size/colour breakup — the ASN must list the planned quantity per SKU.');
+  }
+
+  // B — duplicate tuples would hit the @@unique as a raw Prisma 500.
+  const seenSku = new Set<string>();
+  for (const sku of skuLines) {
+    const key = `${sku.colorId}|${sku.sizeId}`;
+    if (seenSku.has(key)) {
+      throw new ValidationError('Duplicate SKU line in ASN breakdown');
+    }
+    seenSku.add(key);
+  }
+
+  // C — the header quantity must be the sum of the lines it claims to describe.
+  if (skuLines.length > 0) {
+    const skuTotal = skuLines.reduce((sum, x) => sum + Number(x.plannedQty), 0);
+    if (skuTotal !== Number(plannedDispatchQty)) {
+      throw new ValidationError(
+        `SKU quantities (${skuTotal}) do not add up to the planned dispatch quantity (${plannedDispatchQty})`
+      );
+    }
   }
 
   const asnNumber = await generateASNNumber(order.orderNumber);
@@ -1134,9 +1170,9 @@ export const createASN = async (req: Request, res: Response) => {
       remarks,
       createdById: userId,
       skuBreakdown:
-        skus?.length > 0
+        skuLines.length > 0
           ? {
-              create: skus.map((sku: any) => ({
+              create: skuLines.map((sku) => ({
                 colorId: sku.colorId,
                 sizeId: sku.sizeId,
                 plannedQty: sku.plannedQty,

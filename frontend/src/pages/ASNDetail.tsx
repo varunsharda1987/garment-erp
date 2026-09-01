@@ -336,15 +336,21 @@ export default function ASNDetail() {
       )}
 
       {/* SKU Breakdown */}
-      {asn.skus && asn.skus.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Hash className="h-5 w-5" />
-              SKU Breakdown
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+      {/* Always rendered: hiding this card when the breakdown was empty is what made a
+          SKU-less ASN look identical to a correct one right after saving. */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Hash className="h-5 w-5" />
+            SKU Breakdown
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!asn.skus || asn.skus.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No SKU breakdown — this ASN records the total quantity only.
+            </p>
+          ) : (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -370,9 +376,9 @@ export default function ASNDetail() {
                 ))}
               </TableBody>
             </Table>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       {/* Remarks */}
       {asn.remarks && (

@@ -751,6 +751,98 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
    */
   async updateInvoice(id: string, data: UpdateInvoiceDTO): Promise<invoices> {
     try {
+      // ---- Line items: rebuild them from the client's rows, priced server-side. ----------------
+      //
+      // The edit form renders invoice_items in an editable table and derives `subtotal` from it, but
+      // the edit request used to send subtotal ALONE. Nothing wrote invoice_items, so every quantity,
+      // price, HSN and added/removed line was silently discarded — while the recomputed header WAS
+      // saved. The result was a GST invoice whose printed lines did not add up to its own printed
+      // total, feeding the IRN and Tally pushes.
+      //
+      // This block is deliberately OUTSIDE the transaction: gstService queries the module-level
+      // prisma client, never `tx`, so awaiting it inside would hold the transaction open across
+      // queries on a different pooled connection. createInvoice builds its rows before opening its
+      // transaction for exactly this reason.
+      let itemRows: Prisma.invoice_itemsCreateManyInput[] | undefined;
+      let itemTotals: ReturnType<typeof gstService.calculateTotals> | undefined;
+
+      if (Array.isArray(data.items)) {
+        const head = await this.prisma.invoices.findUnique({
+          where: { id },
+          select: { isInterstate: true, eInvoiceIrn: true },
+        });
+        if (!head) {
+          throw new NotFoundError(this.entityName);
+        }
+        // Fail fast, before spending GST queries on a document that cannot legally change.
+        if (head.eInvoiceIrn) {
+          throw new ValidationError(
+            'Invoice is locked: an e-Invoice IRN has been generated for it. Cancel the IRN (within 24 hours) or issue a credit note instead.'
+          );
+        }
+
+        // Reuse the invoice's OWN interstate flag. Re-deriving it from the customer would silently
+        // flip an issued invoice between CGST/SGST and IGST if the state master were corrected later.
+        const isInterstate = head.isInterstate;
+        const rows: Prisma.invoice_itemsCreateManyInput[] = [];
+
+        for (const item of data.items) {
+          const totalPrice = roundToCent(multiplyCurrency(item.quantity, item.unitPrice)).toNumber();
+
+          let hsnCode = item.hsnCode || null;
+          if (!hsnCode && item.styleId) {
+            const style = await this.prisma.styles.findUnique({
+              where: { id: item.styleId },
+              select: { hsnCode: true },
+            });
+            hsnCode = style?.hsnCode || null;
+          }
+
+          const gst = await gstService.calculateLineItemGST({
+            lineTotal: totalPrice,
+            hsnSacCode: hsnCode,
+            isInterstate,
+            unitPrice: item.unitPrice,
+          });
+
+          rows.push({
+            id: randomUUID(),
+            invoiceId: id,
+            styleId: item.styleId || null,
+            description: item.description,
+            hsnCode: gst.hsnCode,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            totalPrice,
+            gstRate: gst.gstRate,
+            cgstRate: gst.cgstRate,
+            cgstAmount: gst.cgstAmount,
+            sgstRate: gst.sgstRate,
+            sgstAmount: gst.sgstAmount,
+            igstRate: gst.igstRate,
+            igstAmount: gst.igstAmount,
+            taxAmount: gst.taxAmount,
+            remarks: item.remarks || null,
+          });
+        }
+
+        itemRows = rows;
+        itemTotals = gstService.calculateTotals(
+          rows.map((r) => ({
+            lineTotal: r.totalPrice as number,
+            hsnCode: r.hsnCode as string | null,
+            gstRate: r.gstRate as number,
+            cgstRate: r.cgstRate as number,
+            cgstAmount: r.cgstAmount as number,
+            sgstRate: r.sgstRate as number,
+            sgstAmount: r.sgstAmount as number,
+            igstRate: r.igstRate as number,
+            igstAmount: r.igstAmount as number,
+            taxAmount: r.taxAmount as number,
+          }))
+        );
+      }
+
       // One transaction: read + recompute + write, so balance derives from the row read INSIDE the tx
       // (the old pre-read/compute/write raced with concurrent payments — the exact pattern recordPayment
       // was hardened against). All money columns are recomputed SERVER-SIDE from subtotal so the header
@@ -759,7 +851,9 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
       const invoice = await this.prisma.$transaction(async (tx) => {
         const existing = await tx.invoices.findUnique({ where: { id } });
         if (!existing) {
-          throw new NotFoundError(`${this.entityName} not found`);
+          // NotFoundError composes "<resource> not found" itself — passing the full sentence made
+          // this 404 read "Invoice not found not found".
+          throw new NotFoundError(this.entityName);
         }
 
         // e-Invoice freeze: an IRN-registered document is legally immutable (the IRP only allows
@@ -771,11 +865,70 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
           );
         }
 
-        const updateData: any = { ...data };
+        // Destructure rather than spread-and-delete: `invoices` has NO `items` relation field (it is
+        // `invoice_items`) and NO `taxRate` column, yet UpdateInvoiceDTO types both. Spreading either
+        // into tx.invoices.update({ data }) throws PrismaClientValidationError "Unknown argument"
+        // → a 500. Doing it this way lets the compiler enforce the exclusion.
+        const {
+          items: _itemsInput,
+          taxRate: _unusedTaxRate,
+          ...scalarData
+        } = data as UpdateInvoiceDTO & {
+          taxRate?: unknown;
+        };
+        const updateData: any = { ...scalarData };
         const moneyTouched =
           data.subtotal !== undefined || data.taxAmount !== undefined || data.totalAmount !== undefined;
 
-        if (moneyTouched) {
+        if (itemRows && itemTotals) {
+          // A credit note references invoice_items by a soft, non-FK column, so a delete+recreate
+          // would silently orphan it. Refuse rather than quietly break the credit trail.
+          const activeCredits = await tx.credit_notes.count({
+            where: { invoiceId: id, status: { not: 'CANCELLED' } },
+          });
+          if (activeCredits > 0) {
+            throw new BusinessError(
+              `Cannot change line items: this invoice has ${activeCredits} active credit note(s) referencing its lines. ` +
+                `Cancel them first, or raise a credit note instead.`
+            );
+          }
+          // Shrinking the lines below what has already been collected drives the balance negative,
+          // and deriveInvoiceStatus then labels an over-collected invoice PAID.
+          if (Number(existing.paidAmount) > 0) {
+            throw new BusinessError(
+              'Cannot change line items on an invoice with recorded payments. Raise a credit note instead.'
+            );
+          }
+
+          await tx.invoice_items.deleteMany({ where: { invoiceId: id } });
+          await tx.invoice_items.createMany({ data: itemRows });
+
+          // Server-derived, OVERRIDING anything the client sent: with items present there must be
+          // exactly one source of truth for the money, and it is the lines.
+          const newTotal = roundToCent(addCurrency(itemTotals.subtotal, itemTotals.totalTax)).toNumber();
+          updateData.subtotal = itemTotals.subtotal;
+          updateData.taxAmount = itemTotals.totalTax;
+          updateData.totalAmount = newTotal;
+          updateData.cgstAmount = itemTotals.totalCgst;
+          updateData.sgstAmount = itemTotals.totalSgst;
+          updateData.igstAmount = itemTotals.totalIgst;
+
+          const paid = toCurrency(Number(existing.paidAmount));
+          // Landmine №5: balance is total − paid − APPROVED credits, never total − paid.
+          const creditAgg = await tx.credit_notes.aggregate({
+            where: { invoiceId: id, status: 'APPROVED' },
+            _sum: { totalAmount: true },
+          });
+          const creditApplied = toCurrency((creditAgg._sum.totalAmount ?? 0).toString());
+          const newBalance = roundToCent(toCurrency(newTotal).minus(paid).minus(creditApplied)).toNumber();
+          updateData.balanceAmount = newBalance;
+          updateData.status = deriveInvoiceStatus(
+            newTotal,
+            paid.toNumber(),
+            newBalance,
+            data.dueDate || existing.dueDate
+          );
+        } else if (moneyTouched) {
           // BUG-FIN7 fix: use decimal.js for all intermediate calculations to avoid floating point precision loss
           // Convert Prisma Decimals to numbers first for type compatibility
           const oldSubtotalNum = Number(existing.subtotal);

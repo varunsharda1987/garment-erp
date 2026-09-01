@@ -180,9 +180,23 @@ export default function InvoiceForm() {
       return;
     }
 
-    const validItems = items.filter((i) => i.description && i.quantity > 0 && i.unitPrice > 0);
-    if (validItems.length === 0) {
-      handleApiError(new Error('All line items must have description, quantity, and unit price'), 'Validation Error');
+    // Ignore a completely blank row (the trailing one a stray "Add Item" leaves behind), but never
+    // silently DROP a half-filled one: the old filter discarded incomplete rows without a word while
+    // the subtotal they contributed to was still sent.
+    const isBlank = (i: (typeof items)[number]) => !i.description?.trim() && !i.quantity && !i.unitPrice;
+    const present = items.filter((i) => !isBlank(i));
+    if (present.length === 0) {
+      handleApiError(new Error('Please add at least one line item'), 'Validation Error');
+      return;
+    }
+    const validItems = present.filter((i) => i.description && i.quantity > 0 && i.unitPrice > 0);
+    if (validItems.length !== present.length) {
+      handleApiError(
+        new Error(
+          `${present.length - validItems.length} line item(s) are incomplete — every row needs a description, a quantity and a unit price.`
+        ),
+        'Validation Error'
+      );
       return;
     }
 
@@ -201,11 +215,15 @@ export default function InvoiceForm() {
       setIsLoading(true);
 
       if (isEditMode && id) {
+        // `items` goes with it now — without it the server kept the old lines while saving the
+        // recomputed header, so the invoice's own lines stopped adding up to its total. `subtotal`
+        // is deliberately NOT sent: with items present the server derives it, and sending both puts
+        // two competing sources of truth in one request.
         await updateInvoice(id, {
           invoiceDate: data.invoiceDate,
           dueDate: data.dueDate,
-          subtotal: data.subtotal,
           remarks: data.remarks,
+          items: data.items,
         });
         handleApiSuccess('Invoice updated', 'Invoice has been successfully updated.');
       } else {

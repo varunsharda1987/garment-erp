@@ -9,6 +9,29 @@ import { z } from 'zod';
  * Create invoice request schema
  * POST /api/invoices
  */
+/**
+ * One invoice line. Shared by create AND update so the two can never drift: `items` was absent from
+ * the update schema, so Zod stripped it and every line-item edit was silently discarded while the
+ * client-computed subtotal was saved — a GST invoice whose printed lines did not add up to its own
+ * printed total.
+ */
+const invoiceItemSchema = z.object({
+  styleId: z.string().uuid('Invalid style ID format').optional(),
+  description: z.string().min(1, 'Item description is required'),
+  hsnCode: z.string().optional(),
+  quantity: z
+    .number()
+    .positive('Quantity must be positive')
+    .max(1000000, 'Quantity cannot exceed 10 lakh units')
+    .or(z.string().transform((val) => parseFloat(val))),
+  unitPrice: z
+    .number()
+    .nonnegative('Unit price must be non-negative')
+    .max(10000000, 'Unit price cannot exceed 1 crore')
+    .or(z.string().transform((val) => parseFloat(val))),
+  remarks: z.string().optional(),
+});
+
 export const createInvoiceSchema = z.object({
   orderId: z.string().uuid('Invalid order ID format'),
 
@@ -48,26 +71,7 @@ export const createInvoiceSchema = z.object({
 
   placeOfSupplyId: z.string().uuid('Invalid place of supply ID format').optional(),
 
-  items: z
-    .array(
-      z.object({
-        styleId: z.string().uuid('Invalid style ID format').optional(),
-        description: z.string().min(1, 'Item description is required'),
-        hsnCode: z.string().optional(),
-        quantity: z
-          .number()
-          .positive('Quantity must be positive')
-          .max(1000000, 'Quantity cannot exceed 10 lakh units')
-          .or(z.string().transform((val) => parseFloat(val))),
-        unitPrice: z
-          .number()
-          .nonnegative('Unit price must be non-negative')
-          .max(10000000, 'Unit price cannot exceed 1 crore')
-          .or(z.string().transform((val) => parseFloat(val))),
-        remarks: z.string().optional(),
-      })
-    )
-    .optional(),
+  items: z.array(invoiceItemSchema).optional(),
 
   remarks: z.string().max(500, 'Remarks must be less than 500 characters').trim().optional(),
 });
@@ -77,6 +81,12 @@ export const createInvoiceSchema = z.object({
  * PUT /api/invoices/:id
  */
 export const updateInvoiceSchema = z.object({
+  // `.min(1)` is load-bearing: `items: []` must be a 400 at this boundary, NEVER an instruction to
+  // wipe every line and zero the invoice.
+  // `.min(1)` is load-bearing: `items: []` must be a 400 at this boundary, NEVER an instruction to
+  // wipe every line and zero the invoice.
+  items: z.array(invoiceItemSchema).min(1, 'An invoice must have at least one line item').optional(),
+
   invoiceDate: z.coerce.date().optional(),
 
   dueDate: z.coerce.date().optional(),

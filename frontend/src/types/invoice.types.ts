@@ -200,6 +200,12 @@ export interface UpdateInvoiceRequest {
   taxAmount?: number;
   totalAmount?: number;
   remarks?: string;
+  /**
+   * Line items. When present the server REBUILDS the lines and derives every money column from
+   * them, ignoring any subtotal/taxAmount/totalAmount sent alongside — send one or the other, never
+   * both. Omitting this leaves the existing lines untouched (the header-only edit path).
+   */
+  items?: InvoiceItemInput[];
 }
 
 export interface RecordPaymentRequest {

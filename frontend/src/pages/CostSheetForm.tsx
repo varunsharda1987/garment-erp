@@ -1775,13 +1775,16 @@ const CostSheetForm = () => {
    * 2026-09-01. Applying a costing run is a genuinely distinct action and is kept, under a name
    * that says what it does.
    */
-  const handleLoadFromCostingRun = async () => {
+  /**
+   * Apply a costing run's fabric lines. Called straight from the chip: choosing a run IS the
+   * instruction to use it, so there is no second button to press.
+   *
+   * runId is a PARAMETER, not read from state — the chip sets the selection in the same tick, and
+   * reading it back here would use the previous value.
+   */
+  const handleLoadFromCostingRun = async (runId: string) => {
     if (!selectedStyleId) {
       notify.error('Please select a style first');
-      return;
-    }
-    if (!selectedRunId) {
-      notify.error('Select a costing run first');
       return;
     }
 
@@ -1793,7 +1796,7 @@ const CostSheetForm = () => {
 
       {
         // Fetch full run details with fabric data
-        const run = await getRunById(selectedRunId);
+        const run = await getRunById(runId);
 
         if (run.fabrics && run.fabrics.length > 0) {
           // Transform run fabrics to cost sheet fabric details
@@ -2031,22 +2034,6 @@ const CostSheetForm = () => {
                   <RefreshCw className="h-4 w-4" />
                   Reload from Style
                 </Button>
-                {/* Only meaningful with a run selected — fabrics, trims and the rest already
-                    populate from the style itself the moment one is chosen. */}
-                {selectedRunId && (
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="sm"
-                    onClick={handleLoadFromCostingRun}
-                    disabled={loading || !selectedStyle || isApprovedCostSheet}
-                    className="flex items-center gap-2 bg-gradient-to-r from-accent to-info hover:from-accent hover:to-info disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Replace the fabric rows with the fabrics costed in the selected costing run"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Load from Costing Run
-                  </Button>
-                )}
               </div>
             )}
           </div>
@@ -2117,8 +2104,17 @@ const CostSheetForm = () => {
                 <button
                   key={run.id}
                   type="button"
-                  onClick={() => setSelectedRunId(selectedRunId === run.id ? null : run.id)}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 border rounded-full text-sm transition-all ${
+                  // Choosing a run applies it. Re-clicking the active chip is a no-op rather than
+                  // a deselect: deselecting would clear the highlight while its fabric rows stayed
+                  // in the form, so the chips would stop showing which run is actually loaded.
+                  onClick={() => {
+                    if (selectedRunId === run.id || loading || isApprovedCostSheet) return;
+                    setSelectedRunId(run.id);
+                    handleLoadFromCostingRun(run.id);
+                  }}
+                  disabled={loading || isApprovedCostSheet}
+                  title="Use this run's costed fabrics for the fabric rows"
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 border rounded-full text-sm transition-all disabled:opacity-60 ${
                     selectedRunId === run.id
                       ? 'border-info bg-info/10 text-info font-medium'
                       : 'border-border bg-card hover:border-info/50 text-foreground'
@@ -2153,7 +2149,7 @@ const CostSheetForm = () => {
                   )}
                 </button>
               ))}
-              {selectedRunId && <span className="text-xs text-info ml-2">→ Click Load from Costing Run to use</span>}
+              {selectedRunId && <span className="text-xs text-info ml-2">✓ fabric rows loaded from this run</span>}
             </div>
           )}
 

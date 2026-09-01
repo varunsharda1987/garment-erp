@@ -13,6 +13,7 @@ import { AdminOverrideModal } from '@/components/AdminOverrideModal';
 import type {
   SampleType,
   CreateSampleRequest,
+  UpdateSampleRequest,
   SampleMeasurementInput,
   SampleColorwayInput,
   SampleSizeSetInput,
@@ -296,14 +297,25 @@ export default function SampleForm() {
     overrideReason: string | null
   ) => {
     if (isEditing) {
-      await sampleService.updateSample(id!, {
+      // The four type-specific inputs below are rendered EDITABLE in edit mode, so they have to be
+      // sent. They were omitted here and undeclared in the update schema, so a corrected "Sent To"
+      // reverted on the next load while the toast reported success.
+      const payload: UpdateSampleRequest = {
         requiredDate: requestData.requiredDate,
-        remarks: requestData.remarks || undefined,
-      });
-      // Update nested data separately if needed
-      if (measurements.length > 0) {
-        await sampleService.updateMeasurements(id!, measurements);
+        remarks: formData.remarks, // raw, so '' can clear it
+      };
+      if (formData.sampleType === 'SHIPMENT_SAMPLE') {
+        payload.productionLot = formData.productionLot;
+        payload.linkedDispatchId = formData.linkedDispatchId;
       }
+      if (formData.sampleType === 'PHOTO_SAMPLE') {
+        payload.sentTo = formData.sentTo;
+        payload.purpose = formData.purpose;
+      }
+      await sampleService.updateSample(id!, payload);
+      // No length guard: deleting every measurement row must reach the backend, which handles an
+      // empty array correctly. Guarding on length made the deletions silently vanish.
+      await sampleService.updateMeasurements(id!, measurements);
       handleApiSuccess('Sample updated', 'Sample has been updated successfully.');
     } else {
       const sample = await sampleService.createSample({

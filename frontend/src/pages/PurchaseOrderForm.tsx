@@ -35,6 +35,7 @@ import {
   getPurchaseOrderById,
   updatePurchaseOrder,
   sendPurchaseOrder,
+  amendDeliveryLocation,
   checkForDuplicates,
   type DuplicateCheckResult,
 } from '@/services/purchaseOrder.service';
@@ -291,6 +292,9 @@ export default function PurchaseOrderForm() {
   const [items, setItems] = useState<POItemForm[]>([]);
   // Delivery location state (warehouse ID - can be any warehouse including processor locations)
   const [deliveryLocationId, setDeliveryLocationId] = useState('');
+  // What the server had when this PO was loaded. Needed to tell "unchanged" from "changed": without
+  // it we would stamp an amendment (and its audit trail) on every save.
+  const [loadedDeliveryLocationId, setLoadedDeliveryLocationId] = useState('');
   const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null);
 
   // For material PO item adding
@@ -601,6 +605,10 @@ export default function PurchaseOrderForm() {
       }
       setExpectedDeliveryDate(po.expectedDeliveryDate.split('T')[0]);
       setRemarks(po.remarks || '');
+      // Was never prefilled, so the field rendered EMPTY on a PO that already had a location —
+      // inviting the user to re-pick it, and then dropping the value on save.
+      setDeliveryLocationId(po.deliveryLocationId || '');
+      setLoadedDeliveryLocationId(po.deliveryLocationId || '');
 
       // Load traceability links
       if (po.styleId) setStyleId(po.styleId);
@@ -954,6 +962,16 @@ export default function PurchaseOrderForm() {
         return false;
       }
     }
+    // The amend endpoint takes a warehouse id, so "no location" is inexpressible — clearing the box
+    // could only ever be silently dropped. Say so instead.
+    if (isEditMode && loadedDeliveryLocationId && !deliveryLocationId) {
+      handleApiError(
+        new Error('Delivery location cannot be removed once set. Pick a different warehouse instead.'),
+        'Validation Error'
+      );
+      return false;
+    }
+
     return true;
   };
 
@@ -999,6 +1017,21 @@ export default function PurchaseOrderForm() {
           styleId: styleId || null,
           orderId: orderId || null,
         });
+
+        // Delivery location goes through its OWN audited endpoint, never the PUT body: the generic
+        // update cannot derive deliveryLocationType and does not stamp originalDeliveryLocationId /
+        // deliveryLocationAmendedBy/At. Ordering matters — the amend must land BEFORE any send,
+        // because sending produces the supplier PDF whose "Deliver To" block reads the warehouse.
+        if (deliveryLocationId && deliveryLocationId !== loadedDeliveryLocationId) {
+          try {
+            await amendDeliveryLocation(id, { deliveryLocationId });
+            setLoadedDeliveryLocationId(deliveryLocationId);
+          } catch (err) {
+            handleApiError(err, 'Purchase order saved, but the delivery location was not changed');
+            return; // stay on the page: no success toast, no send, no navigate
+          }
+        }
+
         handleApiSuccess('Purchase order updated', `PO ${savedPO.poNumber} has been updated.`);
       } else {
         savedPO = await createPurchaseOrder(data);

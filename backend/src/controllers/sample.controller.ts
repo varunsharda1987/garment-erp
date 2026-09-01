@@ -602,6 +602,13 @@ export const updateSample = async (req: Request, res: Response) => {
     measurementComments,
     revisionRequired,
     nextAction,
+    // Type-specific fields. The edit form renders all four as editable, but they were neither
+    // destructured here nor declared in the update schema — so Zod stripped them and the toast said
+    // "updated successfully" while the value reverted on the next page load.
+    linkedDispatchId,
+    productionLot,
+    sentTo,
+    purpose,
   } = req.body;
 
   // Check if sample exists
@@ -629,6 +636,12 @@ export const updateSample = async (req: Request, res: Response) => {
   if (measurementComments !== undefined) updateData.measurementComments = measurementComments || null;
   if (revisionRequired !== undefined) updateData.revisionRequired = revisionRequired;
   if (nextAction !== undefined) updateData.nextAction = nextAction || null;
+  // The `!== undefined` gate is load-bearing here: a PHOTO_SAMPLE edit sends only its own two
+  // fields, and must not null out a SHIPMENT_SAMPLE's — and vice versa.
+  if (linkedDispatchId !== undefined) updateData.linkedDispatchId = linkedDispatchId || null;
+  if (productionLot !== undefined) updateData.productionLot = productionLot || null;
+  if (sentTo !== undefined) updateData.sentTo = sentTo || null;
+  if (purpose !== undefined) updateData.purpose = purpose || null;
 
   const updated = await prisma.samples.update({
     where: { id },

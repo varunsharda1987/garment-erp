@@ -63,7 +63,8 @@ export const createSampleSchema = z
     sampleSizeId: z.string().uuid('Invalid sample size ID').optional(),
     fitSampleReference: z.string().max(200).optional(),
     ppSampleReference: z.string().max(200).optional(),
-    linkedDispatchId: z.string().uuid('Invalid dispatch ID').optional(),
+    // Free-text reference, not an FK — a uuid rule here guaranteed a 400 on anything a human typed.
+    linkedDispatchId: z.string().max(100).optional(),
     productionLot: z.string().max(100).optional(),
     sentTo: z.string().max(200).optional(),
     purpose: z.string().max(500).optional(),
@@ -112,6 +113,7 @@ export const createSampleSchema = z
  * - requiredDate, completionDate, status, customerFeedback, remarks
  * - sentDate, courierMode, trackingNumber, receivedDate, feedbackDate
  * - measurementComments, revisionRequired, nextAction
+ * - linkedDispatchId, productionLot, sentTo, purpose (type-specific; the form edits all four)
  */
 // Nullable dates use union([null, coerce.date]) — a bare z.coerce.date() would silently turn null into 1970-01-01.
 const nullableDate = z.union([z.null(), z.coerce.date()]);
@@ -131,6 +133,13 @@ export const updateSampleSchema = z
     measurementComments: z.string().max(1000).optional().nullable(),
     revisionRequired: z.boolean().optional(),
     nextAction: z.string().max(500).optional().nullable(),
+    // Declared explicitly, not left to .passthrough(): the schema-alignment ratchet cannot see
+    // through passthrough, so an undeclared field the controller reads is exactly the silent-strip
+    // shape it exists to catch.
+    linkedDispatchId: z.string().max(100).optional().nullable(),
+    productionLot: z.string().max(100).optional().nullable(),
+    sentTo: z.string().max(200).optional().nullable(),
+    purpose: z.string().max(500).optional().nullable(),
   })
   .passthrough();
 

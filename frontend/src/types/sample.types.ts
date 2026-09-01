@@ -244,6 +244,13 @@ export interface UpdateSampleRequest {
   revisionRequired?: boolean;
   nextAction?: string;
 
+  // Type-specific. Send the RAW string, including '' — that is how a value is cleared. Omitting a
+  // field leaves it untouched, which is what keeps a PHOTO edit from nulling a SHIPMENT field.
+  linkedDispatchId?: string | null;
+  productionLot?: string | null;
+  sentTo?: string | null;
+  purpose?: string | null;
+
   // Nested data updates
   measurements?: SampleMeasurementInput[];
   colorways?: SampleColorwayInput[];

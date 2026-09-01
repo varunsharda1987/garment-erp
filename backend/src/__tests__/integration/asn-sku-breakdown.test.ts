@@ -96,9 +96,17 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (asnIds.length > 0) {
-    await prisma.asn_skus.deleteMany({ where: { asnId: { in: asnIds } } });
-    await prisma.asn_applications.deleteMany({ where: { id: { in: asnIds } } });
+  // Sweep by ORDER, not just by the ids this run happened to capture: a run whose teardown was cut
+  // short leaves ASNs behind, and their FK then blocks the order/customer/style deletes below —
+  // turning one interrupted run into a permanent fixture leak.
+  const strandedAsns = await prisma.asn_applications.findMany({
+    where: { orderId: only(orderId) },
+    select: { id: true },
+  });
+  const allAsnIds = [...new Set([...asnIds, ...strandedAsns.map((a) => a.id)])];
+  if (allAsnIds.length > 0) {
+    await prisma.asn_skus.deleteMany({ where: { asnId: { in: allAsnIds } } });
+    await prisma.asn_applications.deleteMany({ where: { id: { in: allAsnIds } } });
   }
   await prisma.order_items.deleteMany({ where: { orderId: only(orderId) } });
   await prisma.color_options.deleteMany({ where: { styleId: only(styleId) } });

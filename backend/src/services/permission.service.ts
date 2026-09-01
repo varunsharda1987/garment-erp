@@ -72,34 +72,7 @@ class PermissionServiceClass {
     const permissionKeys = Object.keys(PERMISSIONS) as PermissionKey[];
 
     // First, seed permission definitions
-    for (const [groupKey, groupPermissions] of Object.entries(PERMISSION_GROUPS)) {
-      let sortOrder = 0;
-
-      for (const permKey of groupPermissions) {
-        try {
-          await prisma.permission_definitions.upsert({
-            where: { permissionKey: permKey },
-            create: {
-              permissionKey: permKey,
-              displayName: this.formatDisplayName(permKey),
-              description: `Access to ${permKey} module`,
-              moduleGroup: groupKey,
-              sortOrder: sortOrder++,
-              isActive: true,
-            },
-            update: {
-              moduleGroup: groupKey,
-              sortOrder: sortOrder,
-            },
-          });
-        } catch (err) {
-          if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
-            throw err;
-          }
-          // P2002: definition already exists (concurrent seed) — safe to ignore
-        }
-      }
-    }
+    await this.seedPermissionDefinitions();
 
     // Then seed role_permissions
     for (const role of roles) {
@@ -141,6 +114,44 @@ class PermissionServiceClass {
 
     logInfo(`Permission seeding complete: ${created} created, ${skipped} skipped`);
     return { created, skipped };
+  }
+
+  /**
+   * Upsert the permission CATALOGUE (permission_definitions) from config.
+   *
+   * Purely additive: it never removes a definition and never touches role_permissions, so it is
+   * safe to run on its own. Extracted from seedFromConfig so resetToDefaults can refresh the
+   * catalogue without going near the grants.
+   */
+  private async seedPermissionDefinitions(): Promise<void> {
+    for (const [groupKey, groupPermissions] of Object.entries(PERMISSION_GROUPS)) {
+      let sortOrder = 0;
+
+      for (const permKey of groupPermissions) {
+        try {
+          await prisma.permission_definitions.upsert({
+            where: { permissionKey: permKey },
+            create: {
+              permissionKey: permKey,
+              displayName: this.formatDisplayName(permKey),
+              description: `Access to ${permKey} module`,
+              moduleGroup: groupKey,
+              sortOrder: sortOrder++,
+              isActive: true,
+            },
+            update: {
+              moduleGroup: groupKey,
+              sortOrder: sortOrder,
+            },
+          });
+        } catch (err) {
+          if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
+            throw err;
+          }
+          // P2002: definition already exists (concurrent seed) — safe to ignore
+        }
+      }
+    }
   }
 
   /**
@@ -445,25 +456,101 @@ class PermissionServiceClass {
   async resetToDefaults(req: Request): Promise<{ success: boolean; reset: number }> {
     logInfo('Resetting permissions to defaults');
 
-    // Delete all role_permissions
-    const deleted = await prisma.role_permissions.deleteMany();
-
-    // Re-seed from config
-    const { created } = await this.seedFromConfig();
-
-    // Audit log
     const { userId, ipAddress } = getAuditContext(req);
+    // getAuditContext falls back to the string 'SYSTEM', which is fine for an audit row but is
+    // NOT a users.id — writing it to role_permissions.updatedById (a real FK) fails the
+    // constraint. Stamp the actual authenticated user, or nobody.
+    const actorId = req.user?.userId ?? null;
+
+    // CONVERGE to the config, never wipe-and-rebuild.
+    //
+    // This used to be `role_permissions.deleteMany()` (every row, no filter) followed by
+    // seedFromConfig(), with NO transaction around the pair. A re-seed that threw — or a process
+    // that died between the two — left the table EMPTY: every role with no permissions at all,
+    // from one admin button, with nothing to say it had happened. Same shape as the 2026-08-31
+    // cost-sheet wipe: a destructive delete followed by a non-atomic rebuild.
+    //
+    // Converging removes the failure window entirely rather than narrowing it: the table is
+    // never empty at any instant, and only the rows that actually deviate are written. If
+    // anything throws, the transaction rolls back to the permissions that were already in force.
+    const roles = Object.values(UserRole);
+    const permissionKeys = Object.keys(PERMISSIONS) as PermissionKey[];
+
+    const desired = new Map<string, { role: UserRole; permissionKey: string; allowed: boolean }>();
+    for (const role of roles) {
+      for (const permissionKey of permissionKeys) {
+        const allowedRoles = PERMISSIONS[permissionKey] as readonly UserRole[];
+        desired.set(`${role}|${permissionKey}`, { role, permissionKey, allowed: allowedRoles.includes(role) });
+      }
+    }
+
+    const outcome = await prisma.$transaction(async (tx) => {
+      const existing = await tx.role_permissions.findMany({
+        select: { id: true, role: true, permissionKey: true, allowed: true },
+      });
+      const existingByKey = new Map(existing.map((row) => [`${row.role}|${row.permissionKey}`, row]));
+
+      const toCreate: Array<{ role: UserRole; permissionKey: string; allowed: boolean }> = [];
+      const flipTo: Record<'true' | 'false', string[]> = { true: [], false: [] };
+
+      for (const [key, want] of desired) {
+        const row = existingByKey.get(key);
+        if (!row) {
+          toCreate.push(want);
+        } else if (row.allowed !== want.allowed) {
+          flipTo[want.allowed ? 'true' : 'false'].push(row.id);
+        }
+      }
+
+      // Rows for permission keys the config no longer defines (a key was renamed or removed).
+      const staleIds = existing.filter((row) => !desired.has(`${row.role}|${row.permissionKey}`)).map((row) => row.id);
+
+      if (toCreate.length > 0) {
+        await tx.role_permissions.createMany({ data: toCreate });
+      }
+      for (const value of [true, false] as const) {
+        const ids = flipTo[value ? 'true' : 'false'];
+        if (ids.length > 0) {
+          await tx.role_permissions.updateMany({
+            where: { id: { in: ids } },
+            data: { allowed: value, updatedById: actorId },
+          });
+        }
+      }
+      if (staleIds.length > 0) {
+        await tx.role_permissions.deleteMany({ where: { id: { in: staleIds } } });
+      }
+
+      return {
+        created: toCreate.length,
+        updated: flipTo.true.length + flipTo.false.length,
+        removed: staleIds.length,
+        total: desired.size,
+      };
+    });
+
+    // Definitions are the permission CATALOGUE, not the grants — seeding them is additive and
+    // idempotent, so it stays outside the transaction above and cannot take grants down with it.
+    await this.seedPermissionDefinitions();
+
+    await this.invalidateAllCache();
+
     await createAuditLog({
       userId,
       action: 'UPDATE',
       entityType: 'ROLE_PERMISSION',
       entityId: 'ALL',
       oldValues: { action: 'reset' },
-      newValues: { deleted: deleted.count, created },
+      newValues: outcome,
       ipAddress,
     });
 
-    return { success: true, reset: created };
+    logInfo(
+      `Permissions reset to defaults: ${outcome.created} created, ${outcome.updated} corrected, ` +
+        `${outcome.removed} stale removed (${outcome.total} total)`
+    );
+
+    return { success: true, reset: outcome.total };
   }
 
   /**

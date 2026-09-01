@@ -5127,6 +5127,15 @@ model fabric_stock_allocation {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   productionCadId   String?           @map("production_cad_id")
+  // Which cutting batch reserved this fabric. Nullable: pre-existing rows have none, and a batch
+  // whose CAD average or piece count was zero legitimately reserves nothing.
+  //
+  // Completion used to key its consumption write on (stockId, orderId, styleId, RESERVED), which
+  // matched EVERY batch's reservation on that roll — so batch 1's figures were stamped onto batch
+  // 2's untouched row, and batch 2 then found nothing RESERVED and recorded no consumption at all.
+  // SetNull, not Cascade: the ledger keeps its history when a batch is deleted.
+  cuttingBatchId    String?
+  cuttingBatch      cutting_batches?  @relation("allocation_cutting_batch", fields: [cuttingBatchId], references: [id], onDelete: SetNull)
   createdBy         users             @relation("fabric_stock_allocation_createdBy", fields: [createdById], references: [id])
   order             orders            @relation("AllocationOrder", fields: [orderId], references: [id])
   originalStyle     styles?           @relation("OriginalStyle", fields: [originalStyleId], references: [id])
@@ -5134,6 +5143,8 @@ model fabric_stock_allocation {
   fabricStock       fabric_stock      @relation(fields: [stockId], references: [id])
   style             styles            @relation("AllocationStyle", fields: [styleId], references: [id])
 
+  @@unique([cuttingBatchId, stockId])
+  @@index([cuttingBatchId])
   @@index([stockId])
   @@index([productionCadId])
   @@index([orderId])
@@ -6257,6 +6268,7 @@ model cutting_batches {
   additionalFabrics          cutting_batch_fabrics[]
   external_process_send_outs external_process_send_outs[] @relation("ExternalProcessCuttingBatch")
   rejectDispositions         reject_dispositions[]        @relation("reject_disposition_cutting")
+  stockAllocations           fabric_stock_allocation[]    @relation("allocation_cutting_batch")
 
   @@index([workOrderId])
   @@index([componentId])

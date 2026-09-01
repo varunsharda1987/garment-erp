@@ -13,6 +13,7 @@ export const PurchaseOrderStatus = {
   ACKNOWLEDGED: 'ACKNOWLEDGED',
   PARTIALLY_RECEIVED: 'PARTIALLY_RECEIVED',
   RECEIVED: 'RECEIVED',
+  SHORT_CLOSED: 'SHORT_CLOSED',
   CANCELLED: 'CANCELLED',
   PENDING_GREIGE: 'PENDING_GREIGE',
   READY_FOR_PROCESSING: 'READY_FOR_PROCESSING',
@@ -26,6 +27,7 @@ export const PurchaseOrderStatusLabels: Record<PurchaseOrderStatus, string> = {
   ACKNOWLEDGED: 'Acknowledged',
   PARTIALLY_RECEIVED: 'Partially Received',
   RECEIVED: 'Received',
+  SHORT_CLOSED: 'Closed Short',
   CANCELLED: 'Cancelled',
   PENDING_GREIGE: 'Pending Greige',
   READY_FOR_PROCESSING: 'Ready for Processing',
@@ -37,6 +39,7 @@ export const PurchaseOrderStatusColors: Record<PurchaseOrderStatus, string> = {
   ACKNOWLEDGED: 'bg-primary/10 text-primary',
   PARTIALLY_RECEIVED: 'bg-yellow-100 text-yellow-800',
   RECEIVED: 'bg-success-muted text-success',
+  SHORT_CLOSED: 'bg-amber-100 text-amber-900',
   CANCELLED: 'bg-destructive/10 text-destructive',
   PENDING_GREIGE: 'bg-orange-100 text-orange-800',
   READY_FOR_PROCESSING: 'bg-cyan-100 text-cyan-800',
@@ -435,6 +438,12 @@ export interface UpdatePurchaseOrderItemRequest {
 
 export interface CancelPurchaseOrderRequest {
   reason: string;
+}
+
+export interface ShortClosePurchaseOrderRequest {
+  reason: string;
+  /** Carry the undelivered balance forward as a fresh, orderable requirement. Default false. */
+  reorderBalance?: boolean;
 }
 
 export interface AmendDeliveryLocationRequest {

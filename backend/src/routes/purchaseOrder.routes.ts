@@ -19,6 +19,7 @@ import {
   sendPurchaseOrder,
   acknowledgePurchaseOrder,
   cancelPurchaseOrder,
+  shortClosePurchaseOrder,
   amendDeliveryLocation,
 } from '../controllers/purchaseOrder.controller';
 import { authenticateToken, authorize } from '../middleware/auth.middleware';
@@ -30,6 +31,7 @@ import {
   addPurchaseOrderItemSchema,
   updatePurchaseOrderItemSchema,
   cancelPurchaseOrderSchema,
+  shortClosePurchaseOrderSchema,
   purchaseOrderQuerySchema,
   amendDeliveryLocationSchema,
 } from '../schemas/purchaseOrder.schema';
@@ -201,6 +203,18 @@ router.patch(
   validateParams(idParamSchema),
   validateBody(cancelPurchaseOrderSchema),
   asyncHandler(cancelPurchaseOrder)
+);
+
+/**
+ * @route   PATCH /api/purchase-orders/:id/short-close
+ * @desc    Close a partially-received PO at the delivered quantity (supplier short-supplied)
+ * @access  Private (PURCHASE, ADMIN)
+ */
+router.patch(
+  '/:id/short-close',
+  validateParams(idParamSchema),
+  validateBody(shortClosePurchaseOrderSchema),
+  asyncHandler(shortClosePurchaseOrder)
 );
 
 /**

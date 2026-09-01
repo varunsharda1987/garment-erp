@@ -365,6 +365,35 @@ export const cancelPurchaseOrder = async (req: Request, res: Response) => {
 };
 
 /**
+ * @route PATCH /api/purchase-orders/:id/short-close
+ * @desc Close a partially-received purchase order at the quantity actually delivered
+ * @access Private (PURCHASE, ADMIN)
+ */
+export const shortClosePurchaseOrder = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { reason, reorderBalance } = req.body;
+
+  const purchaseOrder = await purchaseOrderService.shortClosePurchaseOrder(
+    id,
+    reason,
+    req.user?.role,
+    req.user?.userId,
+    reorderBalance
+  );
+
+  logInfo(`Purchase order short-closed: ${purchaseOrder.poNumber}${reorderBalance ? ' (balance re-ordered)' : ''}`);
+
+  res.json({
+    success: true,
+    data: purchaseOrder,
+    warnings: purchaseOrder.warnings,
+    message: reorderBalance
+      ? 'Purchase order closed short; the undelivered balance was carried forward for re-ordering'
+      : 'Purchase order closed short',
+  });
+};
+
+/**
  * @route PATCH /api/purchase-orders/:id/delivery-location
  * @desc Amend delivery location for a purchase order
  * @access Private (PURCHASE, ADMIN)

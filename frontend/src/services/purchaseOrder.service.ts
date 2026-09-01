@@ -15,6 +15,7 @@ import type {
   CreatePurchaseOrderItemRequest,
   UpdatePurchaseOrderItemRequest,
   CancelPurchaseOrderRequest,
+  ShortClosePurchaseOrderRequest,
   AmendDeliveryLocationRequest,
   PendingItemsResponse,
   PurchaseOrderItem,
@@ -191,6 +192,23 @@ export const cancelPurchaseOrder = async (id: string, request: CancelPurchaseOrd
 };
 
 /**
+ * Close a partially-received purchase order at the quantity actually delivered.
+ * The undelivered balance is dropped unless reorderBalance is set.
+ */
+export const shortClosePurchaseOrder = async (
+  id: string,
+  request: ShortClosePurchaseOrderRequest
+): Promise<{ purchaseOrder: PurchaseOrder; warnings: string[] }> => {
+  const { data } = await api.patch<PurchaseOrderResponse & { warnings?: string[] }>(
+    `${BASE_URL}/${id}/short-close`,
+    request
+  );
+  // The close itself always succeeds once it returns 200; warnings report follow-on reconciliation
+  // that did NOT complete (a stranded processing PO), which the operator has to act on.
+  return { purchaseOrder: data.data, warnings: data.warnings ?? [] };
+};
+
+/**
  * Amend delivery location for a purchase order
  */
 export const amendDeliveryLocation = async (
@@ -260,6 +278,7 @@ export default {
   sendPurchaseOrder,
   acknowledgePurchaseOrder,
   cancelPurchaseOrder,
+  shortClosePurchaseOrder,
   amendDeliveryLocation,
   checkForDuplicates,
 };

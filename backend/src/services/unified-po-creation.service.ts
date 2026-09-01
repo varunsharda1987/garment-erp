@@ -361,10 +361,13 @@ export async function checkForDuplicatePOs(
     return { hasDuplicates: false, duplicates: [] };
   }
 
-  // Build purchase_orders filter
+  // Build purchase_orders filter — TERMINAL statuses are not duplicates. SHORT_CLOSED belongs here
+  // with CANCELLED and RECEIVED: that order is finished, and the balance it did not deliver is
+  // exactly what the replacement PO exists to buy. Counting it as open would raise a permanent
+  // "duplicate PO" warning on the re-order the short-close itself offered.
   const poFilter: Prisma.purchase_ordersWhereInput = {
     status: {
-      notIn: ['CANCELLED', 'RECEIVED'],
+      notIn: ['CANCELLED', 'RECEIVED', 'SHORT_CLOSED'],
     },
   };
 
@@ -491,7 +494,10 @@ export async function createUnifiedPO(
         select: { status: true },
       });
 
-      if (greigePO?.status !== 'RECEIVED') {
+      // A greige PO that is DONE — fully received or deliberately closed short — has delivered all
+      // the cloth it ever will. Gating on RECEIVED alone left a processing PO created after a
+      // short-close stranded in PENDING_GREIGE for ever, waiting on a receipt that cannot happen.
+      if (greigePO?.status !== 'RECEIVED' && greigePO?.status !== 'SHORT_CLOSED') {
         initialStatus = 'PENDING_GREIGE';
       }
     }

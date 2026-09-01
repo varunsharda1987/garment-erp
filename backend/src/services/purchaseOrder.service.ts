@@ -27,6 +27,8 @@ import {
 import { generateAtomicPONumber, generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { addCurrency, roundToCent, subtractCurrency, toNumber } from '../utils/currency';
 import { validateTransition } from '../utils/stateMachine';
+import { BusinessError, NotFoundError } from '../errors';
+import { checkProcessingPOReadiness } from './po-status-manager.service';
 
 class PurchaseOrderService {
   /**
@@ -882,6 +884,18 @@ class PurchaseOrderService {
       throw new Error('Purchase order not found');
     }
 
+    // Hard precondition, NOT subject to the ADMIN override: a short-closed PO has already been
+    // settled at the delivered quantity, and its requirements carry shortQuantity + shortCloseReason.
+    // Cancelling on top would claim nothing was delivered while that evidence is still on the books,
+    // and cancel's own repair logic is a no-op there (the zero-received links are already gone and
+    // the kept link has no remainder), so the contradiction would simply persist.
+    if (existingPO.status === PurchaseOrderStatus.SHORT_CLOSED) {
+      throw new BusinessError(
+        `${existingPO.poNumber} is closed short — it cannot also be cancelled. Goods were delivered ` +
+          `against it and the shortfall is already recorded.`
+      );
+    }
+
     // State machine validation (strict + admin override)
     const transition = validateTransition('purchaseOrder', existingPO.status, 'CANCELLED', userRole);
     if (!transition.valid) {
@@ -1031,6 +1045,253 @@ class PurchaseOrderService {
   }
 
   /**
+   * Short-close a partially-received purchase order.
+   *
+   * The supplier delivered less than ordered and we are ending the PO rather than chasing the
+   * balance. CANCELLED would claim nothing happened (goods were delivered, invoiced, likely paid);
+   * RECEIVED would claim it all arrived and corrupt any three-way match. SHORT_CLOSED is the
+   * honest terminal state, and it ends the procurement DEMAND only — it moves no stock, and it is
+   * not a way to erase goods. Material short-returned by a processor remains abnormal loss
+   * recovered by debit note, which the JWO guard below protects.
+   *
+   * The undelivered balance is NOT re-planned by default; that is the point of the verb. Pass
+   * reorderBalance when the balance genuinely is still needed.
+   */
+  async shortClosePurchaseOrder(
+    id: string,
+    reason: string,
+    userRole?: string,
+    shortClosedById?: string,
+    reorderBalance = false
+  ) {
+    const existingPO = await prisma.purchase_orders.findUnique({ where: { id } });
+    if (!existingPO) {
+      throw new NotFoundError('Purchase order not found');
+    }
+
+    // Hard precondition, NOT subject to the ADMIN override that validateTransition applies. Every
+    // other PO transition is a judgement call an admin may force; this one is a statement of fact.
+    // Short-closing anything but a part-delivered order fabricates history: on DRAFT/SENT nothing
+    // was delivered (that is a cancellation), and on RECEIVED everything was. Either way the
+    // shortQuantity written onto the requirements below would be a lie no admin can make true.
+    if (existingPO.status !== PurchaseOrderStatus.PARTIALLY_RECEIVED) {
+      throw new BusinessError(
+        `Only a partially-received purchase order can be closed short (${existingPO.poNumber} is ${existingPO.status}).`
+      );
+    }
+
+    const transition = validateTransition('purchaseOrder', existingPO.status, 'SHORT_CLOSED', userRole);
+    if (!transition.valid) {
+      throw new BusinessError(transition.message || `${existingPO.poNumber} cannot be closed short.`);
+    }
+
+    // A GRN still awaiting QC means the delivered quantity is NOT settled: counters are
+    // incremented gross at GRN creation, and the verdict can land days later. Closing over it
+    // would freeze shortQuantity from provisional numbers and let the later verdict mutate the
+    // requirements this close just finalised.
+    const pendingGrn = await prisma.goods_receiving_notes.findFirst({
+      where: { poId: id, status: 'PENDING_QC' },
+      select: { grnNumber: true },
+    });
+    if (pendingGrn) {
+      throw new BusinessError(
+        `Cannot short-close ${existingPO.poNumber}: GRN ${pendingGrn.grnNumber} is still awaiting QC. ` +
+          `Complete or reject it first so the delivered quantity is final.`
+      );
+    }
+
+    // Short-close must never become a side door around the JWO debit-note gate: greige short-returned
+    // by a processor is abnormal loss to be recovered, not demand to be closed.
+    const openJwo = await prisma.job_work_orders.findFirst({
+      where: { purchaseOrderId: id, jwoStatus: { notIn: ['CLOSED', 'CANCELLED'] } },
+      select: { jobWorkNumber: true },
+    });
+    if (openJwo) {
+      throw new BusinessError(
+        `Cannot short-close ${existingPO.poNumber}: job work order ${openJwo.jobWorkNumber} is still open against it. ` +
+          `Close that first — any short-returned material must be settled there.`
+      );
+    }
+
+    const purchaseOrder = await prisma.$transaction(async (tx) => {
+      // Claim the close with the precondition IN the WHERE. The guards above ran outside this
+      // transaction, so two operators double-clicking (or a retry) would otherwise both pass them
+      // and both run the body — minting two balance requirements for one shortfall. Whoever loses
+      // the race matches zero rows and is told the order is already closed.
+      const claimed = await tx.purchase_orders.updateMany({
+        where: { id, status: PurchaseOrderStatus.PARTIALLY_RECEIVED },
+        data: {
+          status: PurchaseOrderStatus.SHORT_CLOSED,
+          shortClosedById: shortClosedById ?? null,
+          shortClosedAt: new Date(),
+          shortCloseReason: reason,
+          remarks: `${existingPO.remarks || ''}\n\nShort-closed: ${reason}`.trim(),
+        },
+      });
+      if (claimed.count === 0) {
+        throw new BusinessError(`${existingPO.poNumber} is no longer partially received — it may already be closed.`);
+      }
+
+      const po = await tx.purchase_orders.findUniqueOrThrow({
+        where: { id },
+        include: this.getMinimalInclude(),
+      });
+
+      const rawLinks = await tx.requirement_po_links.findMany({
+        where: { purchaseOrderId: id },
+        select: { requirementId: true, allocatedQuantity: true, receivedQuantity: true },
+      });
+
+      // A requirement can hold SEVERAL links to the same PO (one per PO line it was allocated
+      // across). Aggregate them first — handling each link separately would let the last one
+      // overwrite the earlier ones' shortfall and shortQuantity, silently losing part of the
+      // delivery. A negative receivedQuantity (an over-shot reversal) is floored at zero so a link
+      // can never fall between the two branches below and strand its requirement on a closed PO.
+      const byRequirement = new Map<string, { allocated: number; received: number }>();
+      for (const l of rawLinks) {
+        const agg = byRequirement.get(l.requirementId) ?? { allocated: 0, received: 0 };
+        agg.allocated += Number(l.allocatedQuantity);
+        agg.received += Math.max(0, Number(l.receivedQuantity));
+        byRequirement.set(l.requirementId, agg);
+      }
+      const links = [...byRequirement.entries()].map(([requirementId, agg]) => ({ requirementId, ...agg }));
+
+      // Nothing delivered on this line — the material is still genuinely needed, so free it
+      // exactly as cancellation does (revert AND drop the link, or MRP's duplicate guard keeps
+      // skipping it).
+      const untouched = links.filter((l) => l.received === 0);
+      if (untouched.length > 0) {
+        const ids = untouched.map((l) => l.requirementId);
+        const reverted = await tx.material_requirements.updateMany({
+          where: { id: { in: ids }, status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] } },
+          data: { status: 'PO_REQUIRED' },
+        });
+        if (reverted.count !== ids.length) {
+          logWarn(
+            `[PO ${existingPO.poNumber}] short-close reverted ${reverted.count} of ${ids.length} undelivered ` +
+              `requirement(s) — the rest were in an unexpected status and may need manual re-planning`
+          );
+        }
+        await tx.requirement_po_links.deleteMany({ where: { purchaseOrderId: id, requirementId: { in: ids } } });
+      }
+
+      // Part-delivered — close at what actually arrived and RECORD the short rather than leaving
+      // it to arithmetic. The link is kept: it is the record of what this PO did deliver.
+      for (const link of links.filter((l) => l.received > 0)) {
+        const requirement = await tx.material_requirements.findUnique({ where: { id: link.requirementId } });
+        if (!requirement) continue;
+
+        // Link basis, not the PO item's: one consolidated PO line can serve several requirements.
+        const received = link.received;
+        const short = toNumber(subtractCurrency(link.allocated, received));
+
+        await tx.material_requirements.update({
+          where: { id: requirement.id },
+          data: {
+            status: MaterialRequirementStatus.RECEIVED,
+            shortfall: received,
+            // Same 0.01 threshold the re-order branch uses below: an allocation-split rounding
+            // sliver is not a short supply, and recording it would show a phantom balance.
+            shortQuantity: short > 0.01 ? short : null,
+            shortCloseReason: short > 0.01 ? reason : null,
+          },
+        });
+
+        if (reorderBalance && short > 0.01) {
+          const childNumber = await generateAtomicDocNumber('MR', tx);
+          await tx.material_requirements.create({
+            data: {
+              requirementNumber: childNumber,
+              source: requirement.source,
+              orderId: requirement.orderId,
+              orderItemId: requirement.orderItemId,
+              materialId: requirement.materialId,
+              orderBomId: requirement.orderBomId,
+              orderBomItemId: requirement.orderBomItemId,
+              orderQuantity: requirement.orderQuantity,
+              quantityPerUnit: requirement.quantityPerUnit,
+              wastagePercent: requirement.wastagePercent,
+              totalRequired: short,
+              unit: requirement.unit,
+              availableStock: 0,
+              allocatedFromStock: 0,
+              shortfall: short,
+              preferredSupplierId: requirement.preferredSupplierId,
+              status: MaterialRequirementStatus.PO_REQUIRED,
+              requirementType: requirement.requirementType,
+              processorId: requirement.processorId,
+              processingCost: requirement.processingCost,
+              printingType: requirement.printingType,
+              linkedRequirementId: requirement.linkedRequirementId,
+              shrinkagePercentUsed: requirement.shrinkagePercentUsed,
+              shrinkageSource: requirement.shrinkageSource,
+              colorName: requirement.colorName,
+              componentName: requirement.componentName,
+              requiredDate: requirement.requiredDate,
+              createdById: shortClosedById ?? requirement.createdById,
+              unitPrice: requirement.unitPrice,
+              rateSource: requirement.rateSource,
+              splitFromId: requirement.id,
+            },
+          });
+          logWarn(
+            `[PO ${existingPO.poNumber}] short-closed ${short} short on ${requirement.requirementNumber}; ` +
+              `re-order requested, carried forward as ${childNumber}`
+          );
+        }
+      }
+
+      // Service requirements: same widened filter as cancellation — PO_GENERATED alone left an
+      // in-progress service pinned to a closed PO.
+      const serviceLinks = await tx.service_requirement_po_links.findMany({
+        where: { purchaseOrderItem: { poId: id } },
+        select: { serviceRequirementId: true },
+      });
+      if (serviceLinks.length > 0) {
+        const ids = serviceLinks.map((l) => l.serviceRequirementId);
+        const revertedServices = await tx.work_order_service_requirements.updateMany({
+          where: { id: { in: ids }, status: { in: ['PO_GENERATED', 'IN_PROGRESS'] } },
+          data: { status: 'PENDING', purchaseOrderId: null },
+        });
+        if (revertedServices.count !== ids.length) {
+          logWarn(
+            `[PO ${existingPO.poNumber}] short-close reverted ${revertedServices.count} of ${ids.length} service ` +
+              `requirement(s) — the rest were in an unexpected status and may need manual re-planning`
+          );
+        }
+      }
+
+      return po;
+    });
+
+    // A greige PO that is done — short or full — must release its downstream processing POs,
+    // reconciled to the greige that actually arrived. Outside the transaction: it is a follow-on
+    // reconciliation, and its failure must not undo a legitimate close.
+    const warnings: string[] = [];
+    if (existingPO.poCategory === 'GREIGE' || existingPO.poCategory === 'GREIGE_LACE') {
+      try {
+        const readied = await checkProcessingPOReadiness(id);
+        if (readied.length > 0) {
+          logWarn(`[PO ${existingPO.poNumber}] short-close released ${readied.length} processing PO(s)`);
+        }
+      } catch (err) {
+        // The order IS closed — a reconciliation hiccup must not undo that. But it cannot be
+        // retried either: no GRN can ever reach approveGRN on a SHORT_CLOSED PO, and this routine
+        // has no other caller. A log line alone would leave the operator unaware that a processing
+        // PO is now stranded, so the failure travels back with the response the way grn.service
+        // does with its post-commit warnings.
+        logWarn(`[PO ${existingPO.poNumber}] short-close: processing-PO readiness check failed`, err);
+        warnings.push(
+          `${existingPO.poNumber} is closed short, but reconciling its linked processing purchase order(s) ` +
+            `failed. Check them — one may still be waiting on greige that is no longer coming.`
+        );
+      }
+    }
+
+    return { ...purchaseOrder, warnings };
+  }
+
+  /**
    * Update PO status based on receiving (called from GRN service)
    */
   async updateReceivingStatus(poId: string) {
@@ -1062,8 +1323,24 @@ class PurchaseOrderService {
       return;
     }
 
-    await prisma.purchase_orders.update({
-      where: { id: poId },
+    // Guarded like the downgrade branch above, and for the same reason one level stronger: this
+    // runs after EVERY GRN event (create/approve/reject/reverse), and a GRN's QC verdict can land
+    // days after the goods did. A raw update here silently resurrected a TERMINAL purchase order —
+    // short-close or cancel a PO with a GRN still awaiting QC, and the verdict flipped it back to
+    // PARTIALLY_RECEIVED/RECEIVED, erasing the audit answer and re-admitting new receipts. The
+    // state machine cannot help: this path never consults it.
+    await prisma.purchase_orders.updateMany({
+      where: {
+        id: poId,
+        status: {
+          in: [
+            PurchaseOrderStatus.SENT,
+            PurchaseOrderStatus.ACKNOWLEDGED,
+            PurchaseOrderStatus.PARTIALLY_RECEIVED,
+            PurchaseOrderStatus.RECEIVED,
+          ],
+        },
+      },
       data: { status: newStatus },
     });
   }
@@ -1445,9 +1722,16 @@ class PurchaseOrderService {
       throw new Error('Purchase order not found');
     }
 
-    // Cannot amend cancelled or received POs
-    if (existingPO.status === PurchaseOrderStatus.CANCELLED || existingPO.status === PurchaseOrderStatus.RECEIVED) {
-      throw new Error('Cannot amend delivery location for cancelled or fully received POs');
+    // Cannot amend a PO that is finished — there is nothing left to deliver anywhere.
+    const TERMINAL: PurchaseOrderStatus[] = [
+      PurchaseOrderStatus.CANCELLED,
+      PurchaseOrderStatus.RECEIVED,
+      PurchaseOrderStatus.SHORT_CLOSED,
+    ];
+    if (TERMINAL.includes(existingPO.status)) {
+      throw new BusinessError(
+        `Cannot change the delivery location of ${existingPO.poNumber} — it is ${existingPO.status}.`
+      );
     }
 
     // Validate the warehouse exists

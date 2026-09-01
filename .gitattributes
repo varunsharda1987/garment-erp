@@ -1,0 +1,6 @@
+# `prisma format` writes LF and `prisma format --check` (run by the pre-commit smart-check)
+# rejects anything else. With core.autocrlf=true and no rule here, git restored schema.prisma
+# as CRLF on every checkout — including the one lint-staged performs inside the pre-commit hook —
+# so the schema flip-flopped and the format check failed on a file that had just been formatted.
+# Pin it to LF so both tools agree.
+*.prisma text eol=lf

@@ -61,9 +61,10 @@ export async function validateSourceMismatchOverride(
   });
   const linkedProcessingPOIds = processingPOs.map((po) => po.id);
 
-  // Check if any Processing PO is already SENT or beyond
+  // Check if any Processing PO is already SENT or beyond (SHORT_CLOSED included: the material
+  // went to the processor and the PO was deliberately closed on what came back)
   const sentPO = processingPOs.find((po) =>
-    ['SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED', 'RECEIVED'].includes(po.status)
+    ['SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'SHORT_CLOSED'].includes(po.status)
   );
   if (sentPO) {
     blockReason = `Cannot override: Processing PO ${sentPO.poNumber} already sent to processor (status: ${sentPO.status})`;

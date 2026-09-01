@@ -4589,6 +4589,11 @@ function mapToResponse(req: any): MaterialRequirementResponse {
       ? Number(req.materials.greige_master.greigeWidth)
       : null,
 
+    // Short-close provenance: when a PO was closed short, `shortfall` is rewritten to the qty that
+    // actually ARRIVED, so without these two the missing quantity is invisible on every screen.
+    shortQuantity: req.shortQuantity != null ? Number(req.shortQuantity) : null,
+    shortCloseReason: req.shortCloseReason || null,
+
     // P5.3 Provenance fields
     unitPrice: req.unitPrice ? Number(req.unitPrice) : null,
     rateSource: req.rateSource || null,

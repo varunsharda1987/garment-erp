@@ -409,12 +409,13 @@ class SupplierServiceClass extends BaseService<suppliers, CreateSupplierDTO, Upd
   }> {
     const blockers: { type: string; count: number }[] = [];
 
-    // 1. Open Purchase Orders (not fully received or cancelled)
+    // 1. Open Purchase Orders — anything not in a terminal state. SHORT_CLOSED is terminal:
+    // the PO is deliberately finished short, so it must not block deactivating the supplier.
     const openPOs = await this.prisma.purchase_orders.count({
       where: {
         supplierId,
         isActive: true,
-        status: { notIn: ['RECEIVED', 'CANCELLED'] },
+        status: { notIn: ['RECEIVED', 'SHORT_CLOSED', 'CANCELLED'] },
       },
     });
     if (openPOs > 0) {

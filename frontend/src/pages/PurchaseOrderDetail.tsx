@@ -9,6 +9,7 @@ import {
   sendPurchaseOrder,
   acknowledgePurchaseOrder,
   cancelPurchaseOrder,
+  shortClosePurchaseOrder,
   amendDeliveryLocation,
 } from '@/services/purchaseOrder.service';
 import type { PurchaseOrder, PurchaseOrderStatus } from '@/types/purchaseOrder.types';
@@ -22,8 +23,20 @@ import { Badge } from '@/components/ui/badge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { StatusBadge } from '@/components/StatusBadge';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { notify } from '@/lib/notify';
 import { formatCurrency } from '@/lib/currency';
-import { ArrowLeft, Edit, Send, CheckCircle, XCircle, PackageOpen, Building2, MapPin, PenLine } from 'lucide-react';
+import {
+  ArrowLeft,
+  Edit,
+  Send,
+  CheckCircle,
+  XCircle,
+  PackageOpen,
+  Building2,
+  MapPin,
+  PenLine,
+  FileMinus,
+} from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -33,6 +46,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { WarehouseCombobox } from '@/components/WarehouseCombobox';
 import { DocumentShareMenu } from '@/components/DocumentShareMenu';
 import { COMPANY_CONFIG, getCompanyFullAddress } from '@/config/company.config';
@@ -112,6 +127,10 @@ export default function PurchaseOrderDetail() {
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [acknowledgeDialogOpen, setAcknowledgeDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [shortCloseDialogOpen, setShortCloseDialogOpen] = useState(false);
+  const [shortCloseReason, setShortCloseReason] = useState('');
+  const [shortCloseReorder, setShortCloseReorder] = useState(false);
+  const [isShortClosing, setIsShortClosing] = useState(false);
   const [amendLocationDialogOpen, setAmendLocationDialogOpen] = useState(false);
   const [amendLocationId, setAmendLocationId] = useState<string>('');
   const [isAmending, setIsAmending] = useState(false);
@@ -172,6 +191,37 @@ export default function PurchaseOrderDetail() {
     }
   };
 
+  const handleShortClose = async () => {
+    if (!shortCloseReason.trim()) {
+      handleApiError(new Error('Please say why this order is being closed short'), 'Reason required');
+      return;
+    }
+    try {
+      setIsShortClosing(true);
+      const { warnings } = await shortClosePurchaseOrder(id!, {
+        reason: shortCloseReason.trim(),
+        reorderBalance: shortCloseReorder,
+      });
+      handleApiSuccess(
+        'Purchase order closed short',
+        shortCloseReorder
+          ? 'The order is closed at the delivered quantity and the balance was carried forward for re-ordering.'
+          : 'The order is closed at the delivered quantity. The balance will not be re-ordered.'
+      );
+      // Never silent: the order is closed either way, but a failed downstream reconciliation needs
+      // a human to look at the linked processing PO.
+      for (const w of warnings) notify.warning(w);
+      setShortCloseDialogOpen(false);
+      setShortCloseReason('');
+      setShortCloseReorder(false);
+      fetchPurchaseOrder();
+    } catch (err) {
+      handleApiError(err, 'Failed to close purchase order short');
+    } finally {
+      setIsShortClosing(false);
+    }
+  };
+
   const handleAmendLocation = async () => {
     if (!amendLocationId) {
       handleApiError(new Error('Please select a delivery location'), 'Validation Error');
@@ -199,7 +249,7 @@ export default function PurchaseOrderDetail() {
     purchaseOrder.originalDeliveryLocationId !== purchaseOrder.deliveryLocationId;
 
   // Check if PO can have its delivery location amended (not received/cancelled)
-  const canAmendLocation = purchaseOrder?.status !== 'RECEIVED' && purchaseOrder?.status !== 'CANCELLED';
+  const canAmendLocation = !['RECEIVED', 'SHORT_CLOSED', 'CANCELLED'].includes(purchaseOrder?.status ?? '');
 
   const getStatusVariant = (status: PurchaseOrderStatus) => {
     switch (status) {
@@ -213,6 +263,8 @@ export default function PurchaseOrderDetail() {
         return 'warning';
       case 'RECEIVED':
         return 'success';
+      case 'SHORT_CLOSED':
+        return 'warning';
       case 'CANCELLED':
         return 'destructive';
       default:
@@ -289,7 +341,23 @@ export default function PurchaseOrderDetail() {
   const canSend = purchaseOrder.status === 'DRAFT' || purchaseOrder.status === 'READY_FOR_PROCESSING';
   const canAcknowledge = purchaseOrder.status === 'SENT';
   const canReceive = ['SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED'].includes(purchaseOrder.status);
-  const canCancel = !['RECEIVED', 'CANCELLED'].includes(purchaseOrder.status);
+  // PARTIALLY_RECEIVED is deliberately excluded: once goods have been delivered, cancel
+  // misrepresents history (supplier ledger, payments and GST all saw a real receipt). The honest
+  // exit for a part-delivered order is Close Short.
+  const canCancel = !['PARTIALLY_RECEIVED', 'RECEIVED', 'SHORT_CLOSED', 'CANCELLED'].includes(purchaseOrder.status);
+  // Only a part-delivered order can be closed short — there is nothing to close short about an
+  // order the supplier never delivered against (that one is cancelled) or delivered in full.
+  const canShortClose = purchaseOrder.status === 'PARTIALLY_RECEIVED';
+  // Per line, with its unit. A single summed number is meaningless the moment a PO mixes units
+  // (60 metres of fabric + 200 pieces of buttons is not "260"), and this decision is irreversible.
+  const shortCloseLines = (purchaseOrder.items ?? []).map((item) => ({
+    id: item.id,
+    label: item.materials ? `${item.materials.code} — ${item.materials.name}` : item.serviceDescription || 'Item',
+    ordered: Number(item.orderedQuantity),
+    received: Number(item.receivedQuantity),
+    balance: Math.max(0, Number(item.orderedQuantity) - Number(item.receivedQuantity)),
+    unit: item.unit,
+  }));
 
   return (
     <div className="space-y-6">
@@ -332,6 +400,12 @@ export default function PurchaseOrderDetail() {
             <Button onClick={() => navigate(`/procurement/grn/new?poId=${id}`)}>
               <PackageOpen className="h-4 w-4 mr-2" />
               Receive Goods
+            </Button>
+          )}
+          {canShortClose && (
+            <Button variant="outline" onClick={() => setShortCloseDialogOpen(true)}>
+              <FileMinus className="h-4 w-4 mr-2" />
+              Close Short
             </Button>
           )}
           {canCancel && (
@@ -801,6 +875,98 @@ export default function PurchaseOrderDetail() {
         onConfirm={handleCancel}
         variant="destructive"
       />
+
+      {/* Close Short Dialog */}
+      <Dialog
+        open={shortCloseDialogOpen}
+        onOpenChange={(open) => {
+          setShortCloseDialogOpen(open);
+          if (!open) {
+            setShortCloseReason('');
+            setShortCloseReorder(false);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Close {purchaseOrder.poNumber} Short</DialogTitle>
+            <DialogDescription>
+              Close this order at the quantity actually delivered. What was received stays booked, and no stock is
+              moved. Lines the supplier delivered <strong>nothing</strong> against go back to the material plan on their
+              own. For lines that were <strong>part-delivered</strong>, the balance is dropped unless you tick the box
+              below.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="max-h-52 overflow-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Item</TableHead>
+                    <TableHead className="text-right">Ordered</TableHead>
+                    <TableHead className="text-right">Received</TableHead>
+                    <TableHead className="text-right">Balance</TableHead>
+                    <TableHead>Then</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {shortCloseLines.map((line) => (
+                    <TableRow key={line.id}>
+                      <TableCell className="text-sm">{line.label}</TableCell>
+                      <TableCell className="text-right text-sm tabular-nums">
+                        {line.ordered.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {line.unit}
+                      </TableCell>
+                      <TableCell className="text-right text-sm tabular-nums">
+                        {line.received.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {line.unit}
+                      </TableCell>
+                      <TableCell className="text-right text-sm font-medium tabular-nums">
+                        {line.balance.toLocaleString('en-IN', { maximumFractionDigits: 3 })} {line.unit}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {line.received <= 0
+                          ? 'Returns to plan'
+                          : shortCloseReorder
+                            ? 'Balance carried forward'
+                            : 'Balance dropped'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="short-close-reason">Reason</Label>
+              <Textarea
+                id="short-close-reason"
+                value={shortCloseReason}
+                onChange={(e) => setShortCloseReason(e.target.value)}
+                placeholder="e.g. Supplier could not supply the balance; season closed"
+                maxLength={500}
+                rows={3}
+              />
+            </div>
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="short-close-reorder"
+                checked={shortCloseReorder}
+                onCheckedChange={(checked) => setShortCloseReorder(checked === true)}
+              />
+              <Label htmlFor="short-close-reorder" className="font-normal leading-snug">
+                Still need the balance on the part-delivered lines — carry it forward as a new requirement so it can be
+                ordered again
+              </Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShortCloseDialogOpen(false)} disabled={isShortClosing}>
+              Keep Order Open
+            </Button>
+            <Button onClick={handleShortClose} disabled={isShortClosing || !shortCloseReason.trim()}>
+              {isShortClosing ? 'Closing...' : 'Close Short'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Amend Delivery Location Dialog */}
       <Dialog open={amendLocationDialogOpen} onOpenChange={setAmendLocationDialogOpen}>

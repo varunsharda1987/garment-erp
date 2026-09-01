@@ -194,6 +194,7 @@ export const PurchaseOrderStatusEnum = z.enum([
   'CANCELLED',
   'PENDING_GREIGE',
   'READY_FOR_PROCESSING',
+  'SHORT_CLOSED',
 ]);
 export type PurchaseOrderStatus = z.infer<typeof PurchaseOrderStatusEnum>;
 

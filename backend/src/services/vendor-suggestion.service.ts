@@ -247,8 +247,10 @@ export async function suggestVendorForMaterial(materialId: string): Promise<Vend
     where: {
       materialId,
       purchase_orders: {
+        // SHORT_CLOSED counts as history: the supplier really did deliver against that order.
+        // Only CANCELLED (nothing happened) is excluded.
         status: {
-          in: ['DRAFT', 'SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED', 'RECEIVED'],
+          in: ['DRAFT', 'SENT', 'ACKNOWLEDGED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'SHORT_CLOSED'],
         },
       },
     },

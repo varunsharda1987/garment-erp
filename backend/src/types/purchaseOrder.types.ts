@@ -268,16 +268,18 @@ export interface ReceivingSummaryByWarehouse {
 // ============================================
 
 /**
- * Valid status transitions for purchase orders
- * Note: The schema has DRAFT, SENT, ACKNOWLEDGED, PARTIALLY_RECEIVED, RECEIVED, CANCELLED
- * Plus new statuses: PENDING_GREIGE (Processing PO waiting for greige) and READY_FOR_PROCESSING
+ * Reference copy of the PO transition table. `utils/stateMachine.ts` is the AUTHORITY — it is what
+ * validateTransition consults, and it carries the ADMIN override. Keep this list identical to
+ * stateMachine.purchaseOrder; nothing may branch on this one alone.
  */
 export const PO_STATUS_TRANSITIONS: Record<PurchaseOrderStatus, PurchaseOrderStatus[]> = {
   DRAFT: ['SENT', 'CANCELLED'],
-  SENT: ['ACKNOWLEDGED', 'CANCELLED'],
+  SENT: ['ACKNOWLEDGED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'],
   ACKNOWLEDGED: ['PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'],
-  PARTIALLY_RECEIVED: ['RECEIVED', 'CANCELLED'],
+  // CANCELLED deliberately absent once goods have been delivered — the honest exit is SHORT_CLOSED.
+  PARTIALLY_RECEIVED: ['RECEIVED', 'SHORT_CLOSED'],
   RECEIVED: [], // Terminal state
+  SHORT_CLOSED: [], // Terminal state — delivered less than ordered, closed on purpose
   CANCELLED: [], // Terminal state
   PENDING_GREIGE: ['READY_FOR_PROCESSING', 'CANCELLED'], // Processing PO waiting for greige
   READY_FOR_PROCESSING: ['SENT', 'CANCELLED'], // Greige received, ready to send to processor

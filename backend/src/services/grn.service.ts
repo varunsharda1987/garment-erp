@@ -42,6 +42,7 @@ import {
   stampStyleFabricLink,
 } from './helpers/fabric-identity.helper';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { BusinessError } from '../errors';
 import {
   addCurrency,
   applyShrinkageLoss,
@@ -2441,7 +2442,7 @@ class GRNService {
           },
         },
         purchase_orders: {
-          select: { id: true, poCategory: true, supplierId: true },
+          select: { id: true, poNumber: true, poCategory: true, supplierId: true, status: true },
         },
       },
     });
@@ -2465,6 +2466,17 @@ class GRNService {
     }
 
     const po = grn.purchase_orders;
+
+    // A short-closed PO is a settled answer: "this is all that ever arrived". Reversing a receipt
+    // under it would re-open receipt history and contradict the shortQuantity already recorded on
+    // its requirements. Re-opening the PO is a deliberate decision, never a side effect.
+    if (po?.status === 'SHORT_CLOSED') {
+      throw new BusinessError(
+        `Cannot reverse GRN ${grn.grnNumber}: purchase order ${po.poNumber} is closed short, so its ` +
+          `delivered quantity is already settled and the shortfall recorded against the requirements. ` +
+          `Undoing this receipt is an administrator correction, not a screen action.`
+      );
+    }
 
     // Execute reversal in a transaction
     const reversedGRN = await prisma.$transaction(

@@ -21,6 +21,7 @@ export const PurchaseOrderStatusEnum = z.enum([
   'ACKNOWLEDGED',
   'PARTIALLY_RECEIVED',
   'RECEIVED',
+  'SHORT_CLOSED',
   'CANCELLED',
   'PENDING_GREIGE',
   'READY_FOR_PROCESSING',
@@ -134,6 +135,20 @@ export const cancelPurchaseOrderSchema = z.object({
 });
 
 /**
+ * Short-close PO
+ * PATCH /api/purchase-orders/:id/short-close
+ *
+ * The supplier delivered less than ordered and the balance is not being chased. Distinct from
+ * cancel (which claims nothing was delivered) and from RECEIVED (which claims it all arrived).
+ * reorderBalance defaults to FALSE — short-closing means the demand ends here unless the buyer
+ * explicitly says the balance is still needed.
+ */
+export const shortClosePurchaseOrderSchema = z.object({
+  reason: z.string().min(1, 'A reason for closing short is required').max(500),
+  reorderBalance: z.boolean().default(false),
+});
+
+/**
  * Acknowledge PO (optional fields)
  * PATCH /api/purchase-orders/:id/acknowledge
  */
@@ -186,6 +201,7 @@ export type UpdatePurchaseOrderItemInput = z.infer<typeof updatePurchaseOrderIte
 export type CreatePurchaseOrderInput = z.infer<typeof createPurchaseOrderSchema>;
 export type UpdatePurchaseOrderInput = z.infer<typeof updatePurchaseOrderSchema>;
 export type CancelPurchaseOrderInput = z.infer<typeof cancelPurchaseOrderSchema>;
+export type ShortClosePurchaseOrderInput = z.infer<typeof shortClosePurchaseOrderSchema>;
 export type PurchaseOrderQueryInput = z.infer<typeof purchaseOrderQuerySchema>;
 
 // ============================================================================

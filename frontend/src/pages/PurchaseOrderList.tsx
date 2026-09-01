@@ -66,6 +66,7 @@ import {
   Edit,
   Trash2,
   XCircle,
+  FileMinus,
   MoreHorizontal,
   RefreshCw,
   Plus,
@@ -268,6 +269,8 @@ export default function PurchaseOrderList() {
         return 'warning';
       case 'RECEIVED':
         return 'success';
+      case 'SHORT_CLOSED':
+        return 'warning';
       case 'CANCELLED':
         return 'destructive';
       case 'PENDING_GREIGE':
@@ -412,6 +415,7 @@ export default function PurchaseOrderList() {
                     <SelectItem value="ACKNOWLEDGED">Acknowledged</SelectItem>
                     <SelectItem value="PARTIALLY_RECEIVED">Partially Received</SelectItem>
                     <SelectItem value="RECEIVED">Received</SelectItem>
+                    <SelectItem value="SHORT_CLOSED">Closed Short</SelectItem>
                     <SelectItem value="CANCELLED">Cancelled</SelectItem>
                     <SelectItem value="PENDING_GREIGE">Pending Greige</SelectItem>
                     <SelectItem value="READY_FOR_PROCESSING">Ready for Processing</SelectItem>
@@ -645,7 +649,26 @@ export default function PurchaseOrderList() {
                                 </>
                               )}
 
-                              {po.status !== 'DRAFT' && po.status !== 'RECEIVED' && po.status !== 'CANCELLED' && (
+                              {po.status === 'PARTIALLY_RECEIVED' && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(`/procurement/purchase-orders/${po.id}`);
+                                    }}
+                                  >
+                                    <FileMinus className="h-4 w-4 mr-2" />
+                                    Close Short
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+
+                              {/* PARTIALLY_RECEIVED excluded: goods were delivered, so the honest
+                                  exit is Close Short, not Cancel. */}
+                              {!['DRAFT', 'PARTIALLY_RECEIVED', 'RECEIVED', 'SHORT_CLOSED', 'CANCELLED'].includes(
+                                po.status
+                              ) && (
                                 <>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem

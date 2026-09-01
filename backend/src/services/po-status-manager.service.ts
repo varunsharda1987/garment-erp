@@ -11,8 +11,10 @@
  * + utils/stateMachine.ts — new PO status logic belongs THERE, never here.
  */
 
-import { PurchaseOrderStatus } from '@prisma/client';
+import { PurchaseOrderStatus, Prisma } from '@prisma/client';
 import prisma from '../config/database';
+import { logWarn } from '../utils/logger';
+import { roundToCent } from '../utils/currency';
 import { MATERIAL_PO_CATEGORIES } from '../types/purchaseOrder.types';
 
 // ============================================
@@ -104,16 +106,23 @@ export async function checkProcessingPOReadiness(greigePOId: string): Promise<st
     return readiedPOs;
   }
 
-  // Only trigger when fully received
-  if (greigePO.status !== 'RECEIVED') {
+  // Trigger when the greige PO is DONE — fully received, or deliberately closed short.
+  // SHORT_CLOSED counts: the greige that arrived is all that is ever going to arrive, so the
+  // downstream processing PO must be reconciled to it and released. Gating on RECEIVED alone
+  // left those processing POs waiting in PENDING_GREIGE forever for cloth that is not coming.
+  if (greigePO.status !== 'RECEIVED' && greigePO.status !== 'SHORT_CLOSED') {
     return readiedPOs;
   }
 
-  // Build a map of received qty per material for reconciliation
+  // Build a map of received qty per material for reconciliation.
+  // ACCUMULATE, never overwrite: a greige PO routinely carries several lines for the SAME greige
+  // (different colour/component). Last-wins would let a zero-receipt line erase the meters that
+  // physically arrived on its sibling, and the processing PO would be trimmed to nothing.
   const receivedByMaterial = new Map<string, number>();
   for (const item of greigePO.purchase_order_items) {
     if (item.materialId) {
-      receivedByMaterial.set(item.materialId, Number(item.receivedQuantity));
+      const prev = receivedByMaterial.get(item.materialId) ?? 0;
+      receivedByMaterial.set(item.materialId, prev + Number(item.receivedQuantity));
     }
   }
 
@@ -130,6 +139,10 @@ export async function checkProcessingPOReadiness(greigePOId: string): Promise<st
           orderedQuantity: true,
           unitPrice: true,
           materialId: true,
+          cgstAmount: true,
+          sgstAmount: true,
+          igstAmount: true,
+          taxAmount: true,
         },
       },
     },
@@ -140,21 +153,52 @@ export async function checkProcessingPOReadiness(greigePOId: string): Promise<st
     // P2.6: Reconcile item quantities to received greige qty
     // Note: Processing PO items typically reference the same materialId as greige
     // or have a linked reference. For now, we match by materialId.
+    let trimmedToZero = 0;
+    let reconciled = false;
     for (const item of po.purchase_order_items) {
       if (!item.materialId) continue;
       const receivedQty = receivedByMaterial.get(item.materialId);
       if (receivedQty !== undefined && receivedQty < Number(item.orderedQuantity)) {
-        // Update orderedQuantity to match received greige
-        // Note: Full GST recalc is deferred to a follow-up
+        if (receivedQty <= 0) trimmedToZero++;
+        reconciled = true;
+        // GST is ad-valorem at an unchanged rate, so every tax amount scales with the line base.
+        // Leaving them at the ORIGINAL ordered value (as this did before short-close made the
+        // trim routinely large) sends the processor a PO whose tax does not match its own lines.
+        const ratio = Number(item.orderedQuantity) > 0 ? receivedQty / Number(item.orderedQuantity) : 0;
+        const scale = (v: Prisma.Decimal | null) => (v == null ? null : roundToCent(Number(v) * ratio));
         await prisma.purchase_order_items.update({
           where: { id: item.id },
           data: {
             orderedQuantity: receivedQty,
             // Recalc line total with same rate
-            totalPrice: receivedQty * Number(item.unitPrice),
+            totalPrice: roundToCent(receivedQty * Number(item.unitPrice)),
+            cgstAmount: scale(item.cgstAmount),
+            sgstAmount: scale(item.sgstAmount),
+            igstAmount: scale(item.igstAmount),
+            taxAmount: scale(item.taxAmount),
           },
         });
       }
+    }
+
+    // The header carried the ORIGINAL ordered value. Once a line is trimmed it is simply wrong,
+    // and the PO page, approvals and any spend report read it.
+    if (reconciled) {
+      await recalculatePOHeaderFromItems(po.id);
+    }
+
+    // Every line trimmed to nothing means no greige arrived for anything this PO was to process.
+    // Releasing it would send the processor a zero-quantity order. Leave it PENDING_GREIGE and say
+    // so — a human decides whether to cancel it or wait for a replacement greige PO.
+    if (trimmedToZero > 0 && trimmedToZero === po.purchase_order_items.filter((i) => i.materialId).length) {
+      logWarn(
+        `[PO ${po.poNumber}] not released: every line reconciled to zero because no greige arrived ` +
+          `for its material(s). Cancel it or link it to a replacement greige PO.`
+      );
+      continue;
+    }
+    if (trimmedToZero > 0) {
+      logWarn(`[PO ${po.poNumber}] released with ${trimmedToZero} zero-quantity line(s) — review before sending.`);
     }
 
     // Update PO status
@@ -166,6 +210,37 @@ export async function checkProcessingPOReadiness(greigePOId: string): Promise<st
   }
 
   return readiedPOs;
+}
+
+/**
+ * Re-sum a PO header from its own item rows. Local to this file on purpose: importing
+ * purchaseOrder.service here would close an import cycle (that service imports this one).
+ */
+async function recalculatePOHeaderFromItems(poId: string): Promise<void> {
+  const agg = await prisma.purchase_order_items.aggregate({
+    where: { poId },
+    _sum: { totalPrice: true, cgstAmount: true, sgstAmount: true, igstAmount: true },
+  });
+  const subtotal = Number(agg._sum.totalPrice ?? 0);
+  const totalCgst = Number(agg._sum.cgstAmount ?? 0);
+  const totalSgst = Number(agg._sum.sgstAmount ?? 0);
+  const totalIgst = Number(agg._sum.igstAmount ?? 0);
+  const totalTax = totalCgst + totalSgst + totalIgst;
+
+  await prisma.purchase_orders.update({
+    where: { id: poId },
+    data: {
+      subtotal: roundToCent(subtotal),
+      totalCgst: roundToCent(totalCgst),
+      totalSgst: roundToCent(totalSgst),
+      totalIgst: roundToCent(totalIgst),
+      totalTax: roundToCent(totalTax),
+      // A DERIVED total re-summed from the PO's own item rows immediately above, not a
+      // read-modify-write of the header. `increment` would be actively wrong: it would add the
+      // whole recomputed total to whatever the header already held.
+      totalAmount: roundToCent(subtotal + totalTax), // allow-assign
+    },
+  });
 }
 
 /*

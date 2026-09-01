@@ -323,6 +323,10 @@ export interface MaterialRequirementResponse {
   linkedRequirementId?: string | null;
   /** MRP-12: set when this row is the uncovered balance of a partially-ordered requirement. */
   splitFromId?: string | null;
+  /** Quantity the supplier never delivered on a PO that was closed short (null when not short-closed). */
+  shortQuantity?: number | null;
+  /** Why the buyer closed that PO short. */
+  shortCloseReason?: string | null;
   /** MRP-48f: shrinkage applied to this requirement and where it was resolved from. */
   shrinkagePercentUsed?: number | null;
   shrinkageSource?: string | null;

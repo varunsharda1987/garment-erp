@@ -46,8 +46,13 @@ const TRANSITIONS: Record<string, Record<string, string[]>> = {
     DRAFT: ['SENT', 'CANCELLED'],
     SENT: ['ACKNOWLEDGED', 'PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'],
     ACKNOWLEDGED: ['PARTIALLY_RECEIVED', 'RECEIVED', 'CANCELLED'],
-    PARTIALLY_RECEIVED: ['RECEIVED', 'CANCELLED'],
+    // CANCELLED deliberately absent: once goods have been delivered, cancelling misrepresents
+    // history (the supplier ledger, payments and GST all saw a real receipt). Ending a
+    // part-delivered PO is SHORT_CLOSED. An ADMIN can still force a cancel via the override for
+    // genuine corrections.
+    PARTIALLY_RECEIVED: ['RECEIVED', 'SHORT_CLOSED'],
     RECEIVED: [], // Terminal
+    SHORT_CLOSED: [], // Terminal — delivered less than ordered, closed on purpose
     CANCELLED: [], // Terminal
     PENDING_GREIGE: ['READY_FOR_PROCESSING', 'CANCELLED'],
     READY_FOR_PROCESSING: ['SENT', 'CANCELLED'],

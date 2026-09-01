@@ -7,6 +7,7 @@ import { syncMasterToMaterials } from '../services/helpers/material-sync.helper'
 import { materialService } from '../services/material.service';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
 import { deleteLaceImageFile } from '../middleware/upload.middleware';
+import { logInfo } from '../utils/logger';
 
 // Type for supplier input
 interface LaceSupplierInput {
@@ -54,23 +55,57 @@ async function generateLaceName(lace: {
   } else if (lace.sourceGreigeLaceCode) {
     // Processed lace
     parts.push(lace.color || 'Unspecified');
-    let styleCodeDisplay = lace.processedForStyleCode || '?';
     if (lace.processedForStyleCode) {
       const style = await prisma.styles.findFirst({
         where: { styleCode: lace.processedForStyleCode },
         select: { buyerStyleRef: true },
       });
-      if (style) {
-        styleCodeDisplay = formatStyleCodeWithRef(lace.processedForStyleCode, style.buyerStyleRef);
-      }
+      const styleCodeDisplay = style
+        ? formatStyleCodeWithRef(lace.processedForStyleCode, style.buyerStyleRef)
+        : lace.processedForStyleCode;
+      parts.push(`${lace.sourceGreigeLaceCode} → ${styleCodeDisplay}`);
+    } else {
+      // No style yet (e.g. a dyed variant created from the cost sheet). Printing "→ ?" here
+      // baked a dangling placeholder into the stored name forever.
+      parts.push(`from ${lace.sourceGreigeLaceCode}`);
     }
-    parts.push(`${lace.sourceGreigeLaceCode} → ${styleCodeDisplay}`);
   } else {
     // Ready lace
     parts.push(lace.color || 'Unspecified');
   }
 
   return parts.join(' | ');
+}
+
+/**
+ * Refuse a second finished lace for the same (greige, colour).
+ *
+ * Twins split the dyed stock pool: lace_stock is keyed by laceId, and STOCK_REUSE / MRP netting
+ * / lot allocation all filter by laceId alone, so half the navy stock becomes invisible on the
+ * next order. One variant per greige+colour keeps that identity single.
+ */
+async function assertNoDuplicateDyedVariant(
+  sourceGreigeLaceId: string,
+  color: string,
+  excludeLaceId?: string
+): Promise<void> {
+  const twin = await prisma.lace_master.findFirst({
+    where: {
+      sourceGreigeLaceId,
+      isGreige: false,
+      color: { equals: color.trim(), mode: 'insensitive' },
+      ...(excludeLaceId ? { id: { not: excludeLaceId } } : {}),
+    },
+    select: { id: true, laceCode: true, laceName: true },
+  });
+
+  if (twin) {
+    throw new ValidationError(
+      `A dyed variant of this greige in "${color.trim()}" already exists (${twin.laceCode} — ${twin.laceName}). ` +
+        `Use that one instead: two masters for the same greige and colour split the dyed stock pool.`,
+      { existingLaceId: twin.id, existingLaceCode: twin.laceCode }
+    );
+  }
 }
 
 /**
@@ -155,6 +190,10 @@ export const createLace = async (req: Request, res: Response) => {
     });
     if (!sourceGreige || !sourceGreige.isGreige) {
       throw new ValidationError('Invalid sourceGreigeLaceId: Source lace must be a greige lace (isGreige=true)');
+    }
+    // One finished variant per (greige, colour) — see assertNoDuplicateDyedVariant.
+    if (finalColor) {
+      await assertNoDuplicateDyedVariant(sourceGreigeLaceId, finalColor);
     }
   }
 
@@ -253,6 +292,156 @@ export const createLace = async (req: Request, res: Response) => {
     },
     material,
     message: 'Lace created successfully',
+  });
+};
+
+/**
+ * Create (or reuse) the DYED VARIANT of a greige lace.
+ * POST /api/materials/lace/dyed-variant
+ *
+ * Why a finished master exists at all for a dyed lace: lace_stock is keyed by laceId and has no
+ * colour column, and STOCK_REUSE / MRP netting / lot allocation all filter by laceId alone. If a
+ * dyed lace were costed against the greige master itself, dyed and undyed meters would share one
+ * fungible pool — so "greige X dyed navy" needs its own master to be a distinct stock identity.
+ *
+ * This endpoint just removes the friction of creating it: the cost sheet can mint the variant
+ * inline instead of sending the user to the full lace form.
+ *
+ * DEDUPE: one variant per (greige, colour). Re-running returns the existing row rather than
+ * minting a twin — twins would split the dyed stock pool and hide half of it from STOCK_REUSE.
+ */
+export const createDyedLaceVariant = async (req: Request, res: Response) => {
+  const { greigeLaceId, color, processorId, labDipId, styleCode, pricePerMeter } = req.body;
+
+  const greige = await prisma.lace_master.findUnique({
+    where: { id: greigeLaceId },
+    select: {
+      id: true,
+      laceCode: true,
+      isGreige: true,
+      laceType: true,
+      width: true,
+      composition: true,
+      design: true,
+      buyerCode: true,
+      expectedShrinkagePercent: true,
+    },
+  });
+
+  if (!greige) {
+    throw new NotFoundError('Greige lace', greigeLaceId);
+  }
+  if (!greige.isGreige) {
+    throw new ValidationError('Source lace must be a greige lace (isGreige=true)');
+  }
+
+  const normalisedColor = String(color).trim();
+
+  // Dedupe on (sourceGreigeLaceId, colour) case-insensitively.
+  const existing = await prisma.lace_master.findFirst({
+    where: {
+      sourceGreigeLaceId: greigeLaceId,
+      isGreige: false,
+      color: { equals: normalisedColor, mode: 'insensitive' },
+    },
+    include: {
+      sourceGreigeLace: {
+        select: { id: true, laceCode: true, laceName: true, expectedShrinkagePercent: true, costPerMeterGreige: true },
+      },
+    },
+  });
+
+  if (existing) {
+    res.status(200).json({
+      lace: existing,
+      created: false,
+      message: `Reusing existing dyed variant "${existing.laceName}"`,
+    });
+    return;
+  }
+
+  // Validate the optional lab dip actually belongs to this greige — a dip from another greige
+  // would snapshot the wrong colour recipe and processor onto the costing row.
+  if (labDipId) {
+    const dip = await prisma.lace_lab_dip.findUnique({
+      where: { id: labDipId },
+      select: { id: true, greigeLaceId: true },
+    });
+    if (!dip) throw new NotFoundError('Lab dip', labDipId);
+    if (dip.greigeLaceId !== greigeLaceId) {
+      throw new ValidationError('Lab dip belongs to a different greige lace');
+    }
+  }
+
+  const laceCode = await generateCode('LACE', 'lace_master', 'laceCode');
+
+  // Inherit the physical attributes from the greige: dyeing changes colour, not the lace itself.
+  // Keeping laceType/width aligned also preserves the type+width auto-match that the costing
+  // calculator falls back on when sourceGreigeLaceId is absent.
+  const finalLaceName = await generateLaceName({
+    laceCode,
+    laceType: greige.laceType,
+    composition: greige.composition,
+    width: greige.width ? Number(greige.width) : null,
+    color: normalisedColor,
+    isGreige: false,
+    sourceGreigeLaceCode: greige.laceCode,
+    processedForStyleCode: styleCode || null,
+  });
+
+  const { laceRecord, material } = await prisma.$transaction(async (tx) => {
+    const created = await tx.lace_master.create({
+      data: {
+        laceCode,
+        laceName: finalLaceName,
+        buyerCode: greige.buyerCode,
+        width: greige.width,
+        design: greige.design,
+        color: normalisedColor,
+        composition: greige.composition,
+        laceType: greige.laceType,
+        isActive: true,
+        isGreige: false,
+        sourceGreigeLaceId: greigeLaceId,
+        processedForStyleCode: styleCode || null,
+        pricePerMeter: pricePerMeter != null ? Number(pricePerMeter) : null,
+      },
+      include: {
+        sourceGreigeLace: {
+          select: {
+            id: true,
+            laceCode: true,
+            laceName: true,
+            expectedShrinkagePercent: true,
+            costPerMeterGreige: true,
+          },
+        },
+      },
+    });
+
+    // Material-identity invariant: materials.id === master.id
+    const materialEntry = await materialService.createFromMaster(
+      { id: created.id, code: laceCode, name: finalLaceName },
+      'LACE',
+      tx
+    );
+
+    return { laceRecord: created, material: materialEntry };
+  });
+
+  logInfo('Created dyed lace variant', {
+    laceId: laceRecord.id,
+    greigeLaceId,
+    color: normalisedColor,
+    processorId: processorId || null,
+    labDipId: labDipId || null,
+  });
+
+  res.status(201).json({
+    lace: laceRecord,
+    material,
+    created: true,
+    message: `Created dyed variant "${finalLaceName}"`,
   });
 };
 
@@ -591,6 +780,14 @@ export const updateLace = async (req: Request, res: Response) => {
     if (!sourceGreige || !sourceGreige.isGreige) {
       throw new ValidationError('Invalid sourceGreigeLaceId: Source lace must be a greige lace (isGreige=true)');
     }
+  }
+
+  // One finished variant per (greige, colour) — an edit can create a twin just as easily as a
+  // create can (e.g. re-pointing this lace at another greige, or renaming its colour).
+  const effectiveGreigeSource = sourceGreigeLaceId !== undefined ? sourceGreigeLaceId : existing.sourceGreigeLaceId;
+  const effectiveColor = color !== undefined ? color : existing.color;
+  if (!existing.isGreige && effectiveGreigeSource && effectiveColor) {
+    await assertNoDuplicateDyedVariant(effectiveGreigeSource, String(effectiveColor), id);
   }
 
   // Validate styleCodes if provided
@@ -1162,8 +1359,10 @@ export const getLaceForCosting = async (req: Request, res: Response) => {
       color: lace.color,
       width: lace.width,
       isGreige: lace.isGreige,
-      // Cost options
-      readyLaceCost: !lace.isGreige ? lace.pricePerMeter : null,
+      // Cost options. A greige lace bought and used AS-IS (undyed) is a legitimate ready
+      // purchase — price it from costPerMeterGreige rather than returning null, which used to
+      // make every greige lace look unpurchasable in costing.
+      readyLaceCost: lace.isGreige ? lace.costPerMeterGreige : lace.pricePerMeter,
       greigeCost: lace.isGreige ? lace.costPerMeterGreige : (lace.sourceGreigeLace?.costPerMeterGreige ?? null),
       expectedShrinkagePercent: lace.isGreige
         ? lace.expectedShrinkagePercent

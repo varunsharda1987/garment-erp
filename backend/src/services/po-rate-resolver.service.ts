@@ -414,10 +414,16 @@ async function resolveLaceRate(ctx: RateResolutionContext): Promise<RateResoluti
 
   // Fallback: Cost Sheet
   if (ctx.costSheetId && ctx.laceId) {
+    // A GREIGE_LACE PO buys the GREIGE, but the costing row that priced it is stored against
+    // the finished (dyed) variant — its laceId is the variant, and the greige is in
+    // greigeLaceId. Matching on laceId alone therefore missed every dyed-variant row and fell
+    // through to "Manual entry required".
     const costingItem = await prisma.style_costing_lace_items.findFirst({
       where: {
         costingId: ctx.costSheetId,
-        laceId: ctx.laceId,
+        ...(ctx.poCategory === 'GREIGE_LACE'
+          ? { OR: [{ laceId: ctx.laceId }, { greigeLaceId: ctx.laceId }] }
+          : { laceId: ctx.laceId }),
       },
       select: { readyLaceCost: true, greigeCost: true },
     });

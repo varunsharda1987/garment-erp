@@ -166,6 +166,7 @@ export interface ReceiveProcessedLaceDTO {
   shadeNote?: string;
   qualityGrade?: string;
   warehouseLocation?: string;
+  warehouseId?: string;
   rackNumber?: string;
   finishedLaceId?: string;
   originStyleId?: string;

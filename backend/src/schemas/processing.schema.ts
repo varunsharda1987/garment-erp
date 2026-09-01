@@ -299,6 +299,28 @@ export const updateProcessingBatchSchema = z
     message: 'At least one field must be provided for update',
   });
 
+/**
+ * Receive dyed lace back from a processor.
+ * POST /api/processing-batches/:id/receive-lace
+ *
+ * finishedLaceId is optional ONLY because the service derives it from the batch's greige +
+ * colour and validates it; it never falls back to the greige master, which would merge dyed and
+ * undyed stock under one id.
+ */
+export const receiveProcessedLaceSchema = z.object({
+  actualQuantityReceived: z.number().positive('Received quantity must be greater than zero'),
+  dyeLotNumber: z.string().min(1, 'Dye lot number is required').max(50),
+  shadeNote: z.string().max(500).optional(),
+  qualityGrade: z.string().max(10).optional(),
+  warehouseLocation: z.string().max(100).optional(),
+  warehouseId: z.string().uuid('Invalid warehouse ID').optional(),
+  rackNumber: z.string().max(50).optional(),
+  finishedLaceId: z.string().uuid('Invalid finished lace ID').optional(),
+  originStyleId: z.string().uuid().optional(),
+  originOrderId: z.string().uuid().optional(),
+  originStyleCode: z.string().max(50).optional(),
+});
+
 // ============================================================================
 // Param Validation Schemas
 // ============================================================================
@@ -360,3 +382,4 @@ export type ProcessingDeliveryQueryInput = z.infer<typeof processingDeliveryQuer
 // Batch types
 export type CreateProcessingBatchInput = z.infer<typeof createProcessingBatchSchema>;
 export type UpdateProcessingBatchInput = z.infer<typeof updateProcessingBatchSchema>;
+export type ReceiveProcessedLaceInput = z.infer<typeof receiveProcessedLaceSchema>;

@@ -29,6 +29,10 @@ export interface LaceCostOptions {
   wastagePercent?: number; // Required at runtime — calculateLaceCost throws if omitted (see guard below)
   styleId?: string;
   costSheetId?: string;
+  // Pin the dyeing processor instead of letting the calculator pick the cheapest. Set when the
+  // user chose a processor explicitly (e.g. while creating a dyed variant) — otherwise their
+  // choice would be silently overridden by the cheapest-rate scan.
+  processorId?: string;
 }
 
 export interface LaceStockOption {
@@ -53,7 +57,9 @@ export interface ReadyLaceOption {
   supplierName: string | null;
   totalCost: number | null;
   details: string;
-  rateSource: 'LACE_MASTER' | 'SUPPLIER_PRICE' | null;
+  // GREIGE_LACE_MASTER = a greige lace purchased and used as-is (undyed), priced from
+  // costPerMeterGreige.
+  rateSource: 'LACE_MASTER' | 'SUPPLIER_PRICE' | 'GREIGE_LACE_MASTER' | null;
   lastUpdated: string | null;
 }
 
@@ -61,8 +67,13 @@ export interface GreigeLaceProcessingOption {
   available: boolean;
   greigeLaceId: string | null;
   greigeLaceName: string | null;
-  greigeCost: number | null; // Cost per meter
-  processingCost: number | null; // Dyeing cost per meter
+  // ⚠ These two are ORDER TOTALS (rate × greigeQuantityNeeded), NOT rates — they are what the
+  // comparison UI shows. The comment here used to say "cost per meter", which sent an order
+  // total into the ₹/m columns style_costing_lace_items.greigeCost / order_bom_items.greigeCost,
+  // where MRP and the PO rate resolver read them as rates.
+  // For a PER-METRE rate use costBreakdown.greigeCostPerMeter / processingCostPerMeter.
+  greigeCost: number | null; // TOTAL for the order (₹), not ₹/m
+  processingCost: number | null; // TOTAL for the order (₹), not ₹/m
   processorId: string | null;
   processorName: string | null;
   slabLabel: string | null;
@@ -90,6 +101,8 @@ export interface GreigeLaceProcessingOption {
 export interface LaceCostCalculationResult {
   laceId: string;
   laceName: string;
+  /** True when this lace master is greige (raw/undyed) — drives the "create dyed variant" flow. */
+  isGreige: boolean;
   quantityPerGarment: number;
   wastagePercent: number;
   effectiveQuantity: number; // With wastage
@@ -120,7 +133,15 @@ export interface LaceCostCalculationResult {
  * Calculate lace cost with all sourcing options
  */
 export async function calculateLaceCost(options: LaceCostOptions): Promise<LaceCostCalculationResult> {
-  const { laceId, quantityPerGarment, orderQuantity = 1, wastagePercent, styleId, costSheetId } = options;
+  const {
+    laceId,
+    quantityPerGarment,
+    orderQuantity = 1,
+    wastagePercent,
+    styleId,
+    costSheetId,
+    processorId: preferredProcessorId,
+  } = options;
 
   // Wastage percent is required - no hardcoded defaults
   if (wastagePercent === undefined || wastagePercent === null) {
@@ -187,7 +208,8 @@ export async function calculateLaceCost(options: LaceCostOptions): Promise<LaceC
     laceId,
     totalQuantityNeeded,
     lace,
-    costSheetId
+    costSheetId,
+    preferredProcessorId
   );
 
   // Build comparison table
@@ -258,6 +280,7 @@ export async function calculateLaceCost(options: LaceCostOptions): Promise<LaceC
   return {
     laceId,
     laceName: lace.laceName,
+    isGreige: Boolean(lace.isGreige),
     quantityPerGarment,
     wastagePercent,
     effectiveQuantity,
@@ -379,6 +402,12 @@ async function getReadyLaceCost(laceId: string, quantityNeeded: number, lace: an
     cost = Number(lace.pricePerMeter);
     rateSource = 'LACE_MASTER';
     lastUpdated = lace.updatedAt ? new Date(lace.updatedAt).toISOString() : null;
+  } else if (lace.isGreige && lace.costPerMeterGreige) {
+    // Greige used AS-IS (undyed): its purchase price lives in costPerMeterGreige, not
+    // pricePerMeter. Without this a greige lace reports "no ready price" and prices at 0.
+    cost = Number(lace.costPerMeterGreige);
+    rateSource = 'GREIGE_LACE_MASTER';
+    lastUpdated = lace.updatedAt ? new Date(lace.updatedAt).toISOString() : null;
   }
 
   if (!cost) {
@@ -401,7 +430,11 @@ async function getReadyLaceCost(laceId: string, quantityNeeded: number, lace: an
     supplierName,
     // BUG-FAB12 fix: use decimal.js for precision
     totalCost: toNumber(multiplyCurrency(cost, quantityNeeded)),
-    details: supplierName ? `₹${cost.toFixed(2)}/m from ${supplierName}` : `₹${cost.toFixed(2)}/m (Lace Master rate)`,
+    details: supplierName
+      ? `₹${cost.toFixed(2)}/m from ${supplierName}`
+      : rateSource === 'GREIGE_LACE_MASTER'
+        ? `₹${cost.toFixed(2)}/m (greige rate — used as-is, undyed)`
+        : `₹${cost.toFixed(2)}/m (Lace Master rate)`,
     rateSource,
     lastUpdated,
   };
@@ -414,7 +447,8 @@ async function calculateGreigeLaceProcessingCost(
   laceId: string,
   quantityNeeded: number,
   lace: any,
-  costSheetId?: string
+  costSheetId?: string,
+  preferredProcessorId?: string
 ): Promise<GreigeLaceProcessingOption> {
   // Get greige lace reference
   // If lace itself is greige, use its own ID
@@ -551,8 +585,10 @@ async function calculateGreigeLaceProcessingCost(
   let shrinkageFactor = 1; // Default: no shrinkage for initial quantity estimate
   let greigeQuantityNeeded = quantityNeeded; // Will be recalculated after getting shrinkage from rate card
 
-  // Check for approved lab dip
-  const approvedLabDips = await getApprovedLabDipsForLace(greigeLaceId);
+  // Check for an approved lab dip FOR THIS COLOUR. `lace` here is the finished variant being
+  // costed, so its colour is the colour actually being dyed; passing it stops a different
+  // colour's approved dip from being snapshotted onto this line.
+  const approvedLabDips = await getApprovedLabDipsForLace(greigeLaceId, lace.color ?? null);
   let labDipId: string | null = null;
   let labDipStatus: string | null = null;
   let labDipApproved = false;
@@ -567,6 +603,20 @@ async function calculateGreigeLaceProcessingCost(
     labDipApproved = labDip.status === 'APPROVED';
     processorId = labDip.processorId;
     processorName = labDip.processor?.name || null;
+  }
+
+  // An explicitly chosen processor outranks the cheapest-rate scan below. Without this the
+  // user's pick was decorative — the scan silently replaced it with whoever was cheapest.
+  // An approved dip for this colour still wins: that processor is the one the buyer signed off.
+  if (preferredProcessorId && !labDipApproved) {
+    const chosen = await prisma.suppliers.findUnique({
+      where: { id: preferredProcessorId },
+      select: { id: true, name: true },
+    });
+    if (chosen) {
+      processorId = chosen.id;
+      processorName = chosen.name;
+    }
   }
 
   // Try to find processing rate and shrinkage from processor rate card
@@ -602,8 +652,12 @@ async function calculateGreigeLaceProcessingCost(
     }
   }
 
-  // If no processor from lab dip, find best rate from all processors
-  if (!processingCostPerMeter) {
+  // If no processor from lab dip, find best rate from all processors.
+  // Skipped when the caller pinned a processor: swapping in a cheaper one would override an
+  // explicit choice. If the pinned processor has no rate card the option reports unavailable
+  // below, which is the truthful answer — silently costing a different dyer is not.
+  const processorWasPinned = Boolean(preferredProcessorId) && processorId === preferredProcessorId;
+  if (!processingCostPerMeter && !processorWasPinned) {
     const dyeingProcessors = await prisma.suppliers.findMany({
       where: {
         supplierCategories: { has: 'DYEING_PRINTING' },
@@ -776,6 +830,8 @@ export async function calculateBatchLaceCost(items: LaceCostOptions[]): Promise<
       results.push({
         laceId: item.laceId,
         laceName: item.laceName || 'Unknown',
+        // Unknown on the error path — the lace was never loaded.
+        isGreige: false,
         quantityPerGarment: item.quantityPerGarment,
         wastagePercent: item.wastagePercent ?? 0, // No hardcoded default - 0 indicates not configured
         effectiveQuantity: 0,

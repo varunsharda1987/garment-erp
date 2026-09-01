@@ -8,9 +8,10 @@ import { Plus } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import LaceCostingRow from './LaceCostingRow';
+import { type LaceStrategySelection } from './LaceSourcingStrategySelector';
 import type { LaceDetail } from '../../types/costSheet.types';
-import type { Lace } from '../../types/lace.types';
-import { getFinishedLace } from '../../services/lace.service';
+import type { LaceCostingOption } from '../../types/lace.types';
+import { getLaceForCosting } from '../../services/lace.service';
 import { useDefaultSettings } from '../../hooks/useDefaultSettings';
 
 interface LaceCostingSectionProps {
@@ -29,16 +30,17 @@ export default function LaceCostingSection({
   disabled = false,
 }: LaceCostingSectionProps) {
   const { laceWastagePercent } = useDefaultSettings();
-  const [availableLaces, setAvailableLaces] = useState<Lace[]>([]);
+  const [availableLaces, setAvailableLaces] = useState<LaceCostingOption[]>([]);
   const [selectedLaceId, setSelectedLaceId] = useState<string>('');
   const [isLoadingLaces, setIsLoadingLaces] = useState(false);
 
-  // Load available finished laces for selection
+  // Load laces for selection. Uses the costing endpoint (NOT /finished) so GREIGE laces are
+  // selectable too — a greige can be used as-is (undyed) or dyed via a variant.
   useEffect(() => {
     const fetchLaces = async () => {
       setIsLoadingLaces(true);
       try {
-        const response = await getFinishedLace({ limit: 100 });
+        const response = await getLaceForCosting();
         setAvailableLaces(response.data);
       } catch (err) {
         console.error('Failed to fetch laces:', err);
@@ -61,6 +63,11 @@ export default function LaceCostingSection({
       return;
     }
 
+    // Seed the rate from the master (for greige this is its as-is/undyed rate) so a priced
+    // lace costs correctly the moment a quantity is typed, instead of sitting at ₹0 until the
+    // sourcing modal is opened.
+    const seededRate = Number(lace.readyLaceCost) || 0;
+
     const newLaceDetail: LaceDetail = {
       laceId: lace.id,
       laceName: lace.laceName,
@@ -70,7 +77,10 @@ export default function LaceCostingSection({
       wastagePercent: laceWastagePercent ?? 0,
       effectiveQuantity: 0,
       sourcingStrategy: 'READY_LACE',
-      costPerMeter: 0,
+      costPerMeter: seededRate,
+      // Only record a READY_LACE component when there is a real rate; 0 means "not priced yet",
+      // not "free". An explicit check keeps a genuine 0 from being confused with absent.
+      readyLaceCost: seededRate > 0 ? seededRate : undefined,
       totalCost: 0,
     };
 
@@ -95,29 +105,22 @@ export default function LaceCostingSection({
     onLaceDetailsChange(updatedDetails);
   };
 
-  const handleStrategyChange = (
-    index: number,
-    strategy: {
-      sourcingStrategy: 'STOCK_REUSE' | 'READY_LACE' | 'GREIGE_PROCESSED';
-      cost: number;
-      costPerMeter: number;
-      stockLotId?: string;
-      processorId?: string;
-      rateCardId?: string;
-      procurementId?: string;
-      greigeCost?: number;
-      processingCost?: number;
-      readyLaceCost?: number;
-      stockCost?: number;
-      greigeLaceId?: string;
-      labDipId?: string;
-      isManualOverride?: boolean;
-      overrideReason?: string;
-    }
-  ) => {
+  const handleStrategyChange = (index: number, strategy: LaceStrategySelection) => {
     const updatedDetails = [...laceDetails];
+    const current = updatedDetails[index];
+
+    // A greige row costed as a dyed variant re-points at the newly created finished master —
+    // that master is the dyed lace's stock identity. The greige it came from is kept in
+    // greigeLaceId, which is also what stops the style BOM's greige from re-appearing as a
+    // duplicate row on the next load.
+    const flippedLaceId = strategy.newLaceId ?? current.laceId;
+    const flippedLaceName = strategy.newLaceName ?? current.laceName;
+
     updatedDetails[index] = {
-      ...updatedDetails[index],
+      ...current,
+      laceId: flippedLaceId,
+      laceName: flippedLaceName,
+      colorName: strategy.colorName ?? current.colorName,
       sourcingStrategy: strategy.sourcingStrategy,
       costPerMeter: strategy.costPerMeter,
       totalCost: strategy.cost,
@@ -171,6 +174,7 @@ export default function LaceCostingSection({
               {availableLaces.map((lace) => (
                 <SelectItem key={lace.id} value={lace.id}>
                   {lace.laceName} {lace.color ? `(${lace.color})` : ''}
+                  {lace.isGreige ? ' — Greige' : ''}
                 </SelectItem>
               ))}
             </SelectContent>

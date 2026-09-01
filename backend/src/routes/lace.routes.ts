@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   createLace,
+  createDyedLaceVariant,
   getAllLace,
   getLaceById,
   updateLace,
@@ -18,6 +19,7 @@ import { validateBody, validateQuery, validateParams } from '../middleware/valid
 import { uploadLaceImage } from '../middleware/upload.middleware';
 import {
   createLaceSchema,
+  createDyedLaceVariantSchema,
   updateLaceSchema,
   bulkImportLaceSchema,
   trimMasterQuerySchema,
@@ -37,6 +39,16 @@ router.use(authenticateToken);
  * @file    image (optional) - JPG/PNG/WEBP, max 5MB
  */
 router.post('/', uploadLaceImage, validateBody(createLaceSchema), asyncHandler(createLace));
+
+/**
+ * @route   POST /api/materials/lace/dyed-variant
+ * @desc    Create (or reuse) the finished dyed variant of a greige lace, so a cost sheet can
+ *          mint it inline instead of sending the user to the full lace form.
+ * @access  Private
+ * @body    greigeLaceId, color (required); processorId, labDipId, styleCode, pricePerMeter
+ * @note    Deduped on (greige, colour) — returns 200 with created:false when one already exists.
+ */
+router.post('/dyed-variant', validateBody(createDyedLaceVariantSchema), asyncHandler(createDyedLaceVariant));
 
 /**
  * @route   GET /api/materials/lace

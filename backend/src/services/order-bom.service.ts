@@ -46,7 +46,10 @@ import {
  * width it was planned against. GENERIC_TRIM_FK_FIELDS is imported from the Zod schema so the
  * validator and every rebuild mapping share one list.
  */
-const PRESERVED_STRING_FK_FIELDS = [...GENERIC_TRIM_FK_FIELDS, 'selectedCadId'] as const;
+// greigeLaceId is here (not in GENERIC_TRIM_FK_FIELDS) because it is not a trim master FK: it is
+// the greige lace a dyed lace line is processed from, and dropping it on a rebuild would detach the
+// line from its greige source for MRP/PO purposes.
+const PRESERVED_STRING_FK_FIELDS = [...GENERIC_TRIM_FK_FIELDS, 'selectedCadId', 'greigeLaceId'] as const;
 const PRESERVED_DECIMAL_FIELDS = ['fabricWidthInches', 'cadAverageSnapshot'] as const;
 
 type PreservedFieldSource = object | null | undefined;
@@ -1258,8 +1261,9 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         sortOrder: costSheet.fabricItems.length + i,
         // Pass sourcing info for later reference
         sourcingStrategy: laceItem.sourcingStrategy,
-        // Lace uses greigeId field for greige lace reference (same pattern as fabric)
-        greigeId: laceItem.greigeLaceId, // For lace, greigeLaceId maps to greigeId
+        // Lace greige source goes in greigeLaceId (FK to lace_master). It must NOT go in
+        // greigeId, which FKs greige_master (fabric) — writing a lace id there is a P2003.
+        greigeLaceId: laceItem.greigeLaceId,
         processorId: laceItem.processorId,
         greigeCost: laceItem.greigeCost ? Number(laceItem.greigeCost) : null,
         processingCost: laceItem.processingCost ? Number(laceItem.processingCost) : null,
@@ -1540,8 +1544,8 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
         packagingId: item.packagingId,
         fabricId: item.fabricId,
         greigeId: item.greigeId,
-        // Same style, so the source row's CAD link and generic trim FKs stay valid on the copy.
-        // Omitting them here NULLed the interlining FK on every copied BOM.
+        // Same style, so the source row's CAD link, greige-lace source and generic trim FKs stay
+        // valid on the copy. Omitting them here NULLed the interlining FK on every copied BOM.
         ...carryForwardPreservedFields(undefined, item),
         sourcingStrategy: item.sourcingStrategy,
         processorId: item.processorId,
@@ -2521,6 +2525,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     bomItems: Array<{
       fabricId?: string | null;
       greigeId?: string | null;
+      greigeLaceId?: string | null;
       laceId?: string | null;
       buttonId?: string | null;
       threadId?: string | null;
@@ -2536,6 +2541,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     // Collect unique IDs for each FK type
     const fabricIds = new Set<string>();
     const greigeIds = new Set<string>();
+    const greigeLaceIds = new Set<string>();
     const laceIds = new Set<string>();
     const buttonIds = new Set<string>();
     const threadIds = new Set<string>();
@@ -2548,6 +2554,7 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
     for (const item of bomItems) {
       if (item.fabricId) fabricIds.add(item.fabricId);
       if (item.greigeId) greigeIds.add(item.greigeId);
+      if (item.greigeLaceId) greigeLaceIds.add(item.greigeLaceId);
       if (item.laceId) laceIds.add(item.laceId);
       if (item.buttonId) buttonIds.add(item.buttonId);
       if (item.threadId) threadIds.add(item.threadId);
@@ -2589,6 +2596,19 @@ class OrderBOMServiceClass extends BaseService<order_bom, CreateOrderBOMInput, U
               const foundIds = new Set(found.map((f) => f.id));
               for (const id of laceIds) {
                 if (!foundIds.has(id)) invalidIds.push(`laceId: ${id}`);
+              }
+            })
+        : Promise.resolve(),
+      // greigeLaceId FKs lace_master (NOT greige_master) — the greige lace a dyed variant
+      // is processed from. Validated separately so a mixed-up id fails loud here rather
+      // than as an opaque P2003 at createMany.
+      greigeLaceIds.size > 0
+        ? this.prisma.lace_master
+            .findMany({ where: { id: { in: [...greigeLaceIds] } }, select: { id: true } })
+            .then((found) => {
+              const foundIds = new Set(found.map((f) => f.id));
+              for (const id of greigeLaceIds) {
+                if (!foundIds.has(id)) invalidIds.push(`greigeLaceId: ${id}`);
               }
             })
         : Promise.resolve(),

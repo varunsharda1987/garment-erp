@@ -10,6 +10,7 @@ import {
   processorIdParamSchema,
   createProcessingBatchSchema,
   updateProcessingBatchSchema,
+  receiveProcessedLaceSchema,
 } from '../schemas/processing.schema';
 
 const router = Router();
@@ -47,6 +48,15 @@ router.post(
   '/:id/complete',
   validateParams(processingBatchIdParamSchema),
   asyncHandler(processingBatchController.completeBatch)
+);
+
+// Receive dyed lace back from the processor — books it into stock under the DYED master and
+// syncs stock_levels. Closes the greige→dyed loop for lace.
+router.post(
+  '/:id/receive-lace',
+  validateParams(processingBatchIdParamSchema),
+  validateBody(receiveProcessedLaceSchema),
+  asyncHandler(processingBatchController.receiveLace)
 );
 
 export default router;

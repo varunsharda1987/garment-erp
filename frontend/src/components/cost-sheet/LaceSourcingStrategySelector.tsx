@@ -5,28 +5,43 @@
 
 import { useState } from 'react';
 import type { LaceCostCalculationResult } from '../../types/laceCosting.types';
+import { createDyedLaceVariant, calculateLaceCost } from '../../services/lace.service';
+import ColorPicker from '../ColorPicker';
+import { SupplierCombobox } from '../SupplierCombobox';
+
+export interface LaceStrategySelection {
+  sourcingStrategy: 'STOCK_REUSE' | 'READY_LACE' | 'GREIGE_PROCESSED';
+  cost: number;
+  costPerMeter: number;
+  stockLotId?: string;
+  processorId?: string;
+  rateCardId?: string;
+  procurementId?: string;
+  greigeCost?: number;
+  processingCost?: number;
+  readyLaceCost?: number;
+  stockCost?: number;
+  greigeLaceId?: string;
+  labDipId?: string;
+  isManualOverride?: boolean;
+  overrideReason?: string;
+  /**
+   * Set when a greige row was costed as a DYED VARIANT: the row must re-point at the newly
+   * created finished master, which is the dyed lace's stock identity.
+   */
+  newLaceId?: string;
+  newLaceName?: string;
+  colorName?: string;
+}
 
 interface LaceSourcingStrategySelectorProps {
   isOpen: boolean;
   onClose: () => void;
   laceCostData: LaceCostCalculationResult;
-  onSelectStrategy: (strategy: {
-    sourcingStrategy: 'STOCK_REUSE' | 'READY_LACE' | 'GREIGE_PROCESSED';
-    cost: number;
-    costPerMeter: number;
-    stockLotId?: string;
-    processorId?: string;
-    rateCardId?: string;
-    procurementId?: string;
-    greigeCost?: number;
-    processingCost?: number;
-    readyLaceCost?: number;
-    stockCost?: number;
-    greigeLaceId?: string;
-    labDipId?: string;
-    isManualOverride?: boolean;
-    overrideReason?: string;
-  }) => void;
+  /** Garment count, needed to re-cost after a dyed variant is created. */
+  orderQuantity?: number;
+  styleId?: string;
+  onSelectStrategy: (strategy: LaceStrategySelection) => void;
 }
 
 type TabType = 'stock' | 'ready' | 'greige';
@@ -35,6 +50,8 @@ export default function LaceSourcingStrategySelector({
   isOpen,
   onClose,
   laceCostData,
+  orderQuantity,
+  styleId,
   onSelectStrategy,
 }: LaceSourcingStrategySelectorProps) {
   const [activeTab, setActiveTab] = useState<TabType>(() => {
@@ -47,6 +64,17 @@ export default function LaceSourcingStrategySelector({
   const [manualGreigeCost, setManualGreigeCost] = useState<string>('');
   const [overrideReason, setOverrideReason] = useState('');
   const [useManualOverride, setUseManualOverride] = useState(false);
+
+  // Manual override for READY_LACE when master price is missing
+  const [manualReadyLaceCost, setManualReadyLaceCost] = useState<string>('');
+  const [readyLaceOverrideReason, setReadyLaceOverrideReason] = useState('');
+
+  // "Dye this greige" flow — only reachable when the selected lace is itself greige
+  const [dyeColorId, setDyeColorId] = useState<string | null>(null);
+  const [dyeColorName, setDyeColorName] = useState<string>('');
+  const [dyeProcessorId, setDyeProcessorId] = useState<string>('');
+  const [isCreatingVariant, setIsCreatingVariant] = useState(false);
+  const [variantError, setVariantError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -75,6 +103,91 @@ export default function LaceSourcingStrategySelector({
     onClose();
   };
 
+  // Handle manual ready lace price entry (when master price is missing)
+  const handleSelectReadyManual = () => {
+    const manualCost = parseFloat(manualReadyLaceCost);
+    if (!manualCost || manualCost <= 0 || !readyLaceOverrideReason.trim()) return;
+    const totalCost = manualCost * totalQuantityNeeded;
+    onSelectStrategy({
+      sourcingStrategy: 'READY_LACE',
+      cost: totalCost,
+      costPerMeter: manualCost,
+      readyLaceCost: manualCost,
+      isManualOverride: true,
+      overrideReason: readyLaceOverrideReason,
+    });
+    onClose();
+  };
+
+  /**
+   * Dye this greige: create (or reuse) its finished variant for the chosen colour, then re-cost
+   * against that variant and apply the resulting GREIGE_PROCESSED option.
+   *
+   * The row's laceId re-points at the finished master because that master is the dyed lace's
+   * stock identity — lace_stock is keyed by laceId and has no colour column, so costing a dyed
+   * lace against the greige itself would pool dyed and undyed meters together.
+   */
+  const handleCreateDyedVariant = async () => {
+    const color = dyeColorName.trim();
+    if (!color) return;
+
+    setIsCreatingVariant(true);
+    setVariantError(null);
+
+    try {
+      const variant = await createDyedLaceVariant({
+        greigeLaceId: laceCostData.laceId,
+        color,
+        processorId: dyeProcessorId || undefined,
+      });
+
+      // Re-cost against the finished variant. The processor choice is passed through so the
+      // server prices the dyer the user picked rather than the cheapest one.
+      const recosted = await calculateLaceCost({
+        laceId: variant.lace.id,
+        laceName: variant.lace.laceName,
+        quantityPerGarment: laceCostData.quantityPerGarment,
+        orderQuantity,
+        wastagePercent: laceCostData.wastagePercent,
+        styleId,
+        processorId: dyeProcessorId || undefined,
+      });
+
+      const gp = recosted.greigeProcessing;
+      if (!gp.available || gp.totalCost == null) {
+        setVariantError(
+          `${variant.message}, but it cannot be costed yet: ${gp.details}. Set up the processor rate card (including shrinkage %) for this lace, then try again.`
+        );
+        return;
+      }
+
+      onSelectStrategy({
+        sourcingStrategy: 'GREIGE_PROCESSED',
+        cost: gp.totalCost,
+        costPerMeter: gp.costBreakdown.effectiveCostPerMeter || 0,
+        processorId: gp.processorId || undefined,
+        // PER METRE, not the order total. greigeCost/processingCost are stored in
+        // style_costing_lace_items -> order_bom_items, where MRP and the PO rate resolver read
+        // them as ₹/m rates. The calculation service's top-level greigeCost/processingCost are
+        // ORDER TOTALS despite their "cost per meter" comment, so take the rates from
+        // costBreakdown — the same shape the fabric selector sends.
+        greigeCost: gp.costBreakdown.greigeCostPerMeter ?? undefined,
+        processingCost: gp.costBreakdown.processingCostPerMeter ?? undefined,
+        greigeLaceId: gp.greigeLaceId ?? laceCostData.laceId,
+        labDipId: gp.labDipId ?? undefined,
+        newLaceId: variant.lace.id,
+        newLaceName: variant.lace.laceName,
+        colorName: color,
+      });
+      onClose();
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string; error?: string } } };
+      setVariantError(e.response?.data?.message || e.response?.data?.error || 'Failed to create the dyed variant');
+    } finally {
+      setIsCreatingVariant(false);
+    }
+  };
+
   const handleSelectGreige = () => {
     if (!greigeProcessing.available || greigeProcessing.totalCost == null) return;
 
@@ -90,8 +203,10 @@ export default function LaceSourcingStrategySelector({
         cost: totalCost,
         costPerMeter: effectiveCostPerMeter,
         processorId: greigeProcessing.processorId || undefined,
-        greigeCost: manualGreige * (greigeProcessing.greigeQuantityNeeded || totalQuantityNeeded),
-        processingCost: greigeProcessing.processingCost ?? undefined,
+        // PER METRE — see the note in handleCreateDyedVariant. This used to multiply by the
+        // greige quantity, storing an order TOTAL in a ₹/m column.
+        greigeCost: manualGreige,
+        processingCost: greigeProcessing.costBreakdown.processingCostPerMeter ?? undefined,
         greigeLaceId: greigeProcessing.greigeLaceId ?? undefined,
         labDipId: greigeProcessing.labDipId ?? undefined,
         isManualOverride: true,
@@ -103,8 +218,9 @@ export default function LaceSourcingStrategySelector({
         cost: greigeProcessing.totalCost,
         costPerMeter: greigeProcessing.costBreakdown.effectiveCostPerMeter || 0,
         processorId: greigeProcessing.processorId || undefined,
-        greigeCost: greigeProcessing.greigeCost ?? undefined,
-        processingCost: greigeProcessing.processingCost ?? undefined,
+        // PER METRE — see the note in handleCreateDyedVariant.
+        greigeCost: greigeProcessing.costBreakdown.greigeCostPerMeter ?? undefined,
+        processingCost: greigeProcessing.costBreakdown.processingCostPerMeter ?? undefined,
         greigeLaceId: greigeProcessing.greigeLaceId ?? undefined,
         labDipId: greigeProcessing.labDipId ?? undefined,
       });
@@ -421,17 +537,82 @@ export default function LaceSourcingStrategySelector({
                     </button>
                   </div>
                 ) : (
-                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-6 text-center">
-                    <svg
-                      className="h-12 w-12 text-destructive mx-auto mb-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+                  <div className="space-y-4">
+                    {/* No master price - allow manual entry */}
+                    <div className="bg-warning-muted border border-warning/20 rounded-lg p-4">
+                      <div className="flex items-center text-warning mb-2">
+                        <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path
+                            fillRule="evenodd"
+                            d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        <span className="font-medium">No Master Price Set</span>
+                      </div>
+                      <p className="text-sm text-warning">{readyLace.details}</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Enter a custom price below to use this lace in the cost sheet.
+                      </p>
+                    </div>
+
+                    {/* Manual price entry form */}
+                    <div className="bg-muted p-4 rounded-lg space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-1">
+                          Ready Lace Price (₹/m) <span className="text-destructive">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={manualReadyLaceCost}
+                          onChange={(e) => setManualReadyLaceCost(e.target.value)}
+                          placeholder="Enter price per meter"
+                          className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-info"
+                        />
+                      </div>
+
+                      {manualReadyLaceCost && parseFloat(manualReadyLaceCost) > 0 && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="bg-background p-3 rounded-lg border">
+                            <div className="text-sm text-muted-foreground">Cost per Meter</div>
+                            <div className="text-xl font-bold text-foreground">
+                              ₹{parseFloat(manualReadyLaceCost).toFixed(2)}
+                            </div>
+                          </div>
+                          <div className="bg-background p-3 rounded-lg border">
+                            <div className="text-sm text-muted-foreground">Total Cost</div>
+                            <div className="text-xl font-bold text-foreground">
+                              ₹{(parseFloat(manualReadyLaceCost) * totalQuantityNeeded).toFixed(2)}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-1">
+                          Reason for Custom Price <span className="text-destructive">*</span>
+                        </label>
+                        <textarea
+                          value={readyLaceOverrideReason}
+                          onChange={(e) => setReadyLaceOverrideReason(e.target.value)}
+                          placeholder="e.g., Quoted price from supplier XYZ, negotiated rate, etc."
+                          rows={2}
+                          className="w-full px-3 py-2 border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-info"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleSelectReadyManual}
+                      disabled={
+                        !manualReadyLaceCost || parseFloat(manualReadyLaceCost) <= 0 || !readyLaceOverrideReason.trim()
+                      }
+                      className="w-full bg-info hover:bg-info/90 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                    <h3 className="text-lg font-medium text-destructive mb-1">Ready Lace Not Available</h3>
-                    <p className="text-sm text-destructive">{readyLace.details}</p>
+                      Use Custom Price
+                    </button>
                   </div>
                 )}
               </div>
@@ -625,6 +806,65 @@ export default function LaceSourcingStrategySelector({
                       className="w-full bg-info hover:bg-info/90 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
                       {useManualOverride ? 'Select Greige + Dyeing (Manual Override)' : 'Select Greige + Dyeing'}
+                    </button>
+                  </div>
+                ) : laceCostData.isGreige ? (
+                  /* This lace IS greige: offer to dye it rather than dead-ending. Creating the
+                     finished variant is what gives the dyed lace its own stock identity, so the
+                     same greige can stay as-is in one style and be dyed in another. */
+                  <div className="space-y-4">
+                    <div className="bg-accent/10 border border-accent/20 rounded-lg p-4">
+                      <p className="font-medium text-accent">Dye this greige lace</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Pick the colour to dye it to. A finished lace is created for that colour (reused if it already
+                        exists) and this line is costed as Greige + Dyeing against it. The greige itself stays available
+                        for styles that use it undyed.
+                      </p>
+                    </div>
+
+                    <div className="bg-muted p-4 rounded-lg space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-1">
+                          Dye to Colour <span className="text-destructive">*</span>
+                        </label>
+                        <ColorPicker
+                          value={dyeColorId}
+                          onChange={(colorId, color) => {
+                            setDyeColorId(colorId);
+                            setDyeColorName(color?.colorName || '');
+                          }}
+                          showFamilyFilter={true}
+                          placeholder="Select colour from master..."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-1">Processor (optional)</label>
+                        <SupplierCombobox
+                          value={dyeProcessorId}
+                          onValueChange={setDyeProcessorId}
+                          placeholder="Let the system pick the cheapest rate..."
+                          categoryFilter="DYEING_PRINTING"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Choose a dyer to price their rate card specifically. Leave empty to use the cheapest available
+                          rate. An approved lab dip for this colour always wins.
+                        </p>
+                      </div>
+                    </div>
+
+                    {variantError && (
+                      <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 text-sm text-destructive">
+                        {variantError}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={handleCreateDyedVariant}
+                      disabled={!dyeColorName.trim() || isCreatingVariant}
+                      className="w-full bg-info hover:bg-info/90 text-white font-medium py-3 px-4 rounded-lg transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {isCreatingVariant ? 'Creating and costing...' : 'Create Dyed Variant & Cost'}
                     </button>
                   </div>
                 ) : (

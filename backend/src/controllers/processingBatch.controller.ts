@@ -131,3 +131,29 @@ export const completeBatch = async (req: Request, res: Response) => {
     data: batch,
   });
 };
+
+/**
+ * Receive dyed lace back from the processor and book it into stock.
+ * POST /api/processing-batches/:id/receive-lace
+ *
+ * This closes the greige→dyed loop: the greige was bought on a GREIGE_LACE PO, sent out on this
+ * batch, and comes back as a DIFFERENT material (the dyed variant) which is what production
+ * consumes. The service resolves/validates that dyed master so the lot cannot land under the
+ * greige id, and syncs stock_levels so it shows on the Stock Levels page.
+ */
+export const receiveLace = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const userId = req.user?.userId;
+  if (!userId) throw new UnauthorizedError('User not authenticated');
+
+  const result = await processingBatchService.receiveProcessedLace(id, {
+    ...req.body,
+    receivedById: userId,
+  });
+
+  res.status(201).json({
+    success: true,
+    message: 'Dyed lace received into stock',
+    data: result,
+  });
+};

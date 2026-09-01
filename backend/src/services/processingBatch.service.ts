@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { divideCurrency, roundToCent, toNumber } from '../utils/currency';
+import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 
 export interface CreateProcessingBatchDTO {
   materialType: 'GREIGE' | 'FABRIC' | 'LACE';
@@ -521,8 +522,19 @@ class ProcessingBatchService {
       shadeNote?: string;
       qualityGrade?: string;
       warehouseLocation?: string;
+      /** Warehouse the dyed lot lands in — also what stock_levels is synced against. */
+      warehouseId?: string;
       rackNumber?: string;
-      finishedLaceId?: string; // If an existing finished lace entry to use
+      /**
+       * The finished (dyed) lace master the output is booked against.
+       *
+       * Resolved automatically from the batch's greige + colour when omitted, and validated to
+       * belong to this greige. It must NOT silently fall back to the greige master: lace_stock
+       * is keyed by laceId with no colour column, so booking dyed meters under the greige id
+       * merges them with undyed greige stock and every consumer (STOCK_REUSE, MRP netting, lot
+       * allocation) then treats them as the same fungible material.
+       */
+      finishedLaceId?: string;
       receivedById: string;
       originStyleId?: string;
       originOrderId?: string;
@@ -567,6 +579,57 @@ class ProcessingBatchService {
       throw new Error('Received quantity must be greater than zero');
     }
 
+    // ------------------------------------------------------------------
+    // Resolve the dyed lace's identity BEFORE any stock is written.
+    // ------------------------------------------------------------------
+    let resolvedFinishedLaceId = data.finishedLaceId;
+
+    if (resolvedFinishedLaceId) {
+      const finished = await prisma.lace_master.findUnique({
+        where: { id: resolvedFinishedLaceId },
+        select: { id: true, isGreige: true, sourceGreigeLaceId: true, laceName: true },
+      });
+      if (!finished) {
+        throw new Error(`Finished lace not found: ${resolvedFinishedLaceId}`);
+      }
+      if (finished.isGreige) {
+        throw new Error(
+          `"${finished.laceName}" is a greige lace. Dyed output must be received against a finished (dyed) lace.`
+        );
+      }
+      if (finished.sourceGreigeLaceId && finished.sourceGreigeLaceId !== batch.laceId) {
+        throw new Error(
+          `"${finished.laceName}" is not a dyed variant of this batch's greige lace — receiving against it would ` +
+            `book this dye lot under the wrong material.`
+        );
+      }
+    } else {
+      // Derive it from the batch's greige + the colour actually applied, so a missed field
+      // cannot quietly dump dyed meters into the greige pool.
+      const colorToApply = batch.colorToApply?.trim();
+      if (!colorToApply) {
+        throw new Error(
+          'Cannot determine which dyed lace to receive against: the batch has no colour recorded. ' +
+            'Pass finishedLaceId explicitly.'
+        );
+      }
+      const variant = await prisma.lace_master.findFirst({
+        where: {
+          sourceGreigeLaceId: batch.laceId!,
+          isGreige: false,
+          color: { equals: colorToApply, mode: 'insensitive' },
+        },
+        select: { id: true },
+      });
+      if (!variant) {
+        throw new Error(
+          `No dyed lace exists for this greige in "${colorToApply}". Create the dyed variant first, ` +
+            `then receive against it.`
+        );
+      }
+      resolvedFinishedLaceId = variant.id;
+    }
+
     // Calculate actual shrinkage
     const sentQty = Number(batch.totalQuantitySent);
     const receivedQty = data.actualQuantityReceived;
@@ -590,7 +653,7 @@ class ProcessingBatchService {
       // Create lace stock entry
       const laceStock = await tx.lace_stock.create({
         data: {
-          laceId: data.finishedLaceId || batch.laceId!, // Use finished lace if provided
+          laceId: resolvedFinishedLaceId!, // Always the DYED master — never the greige (see above)
           lotNumber: `LOT-${batchId.slice(0, 8)}`,
           dyeLotNumber: data.dyeLotNumber,
           shadeNote: data.shadeNote,
@@ -599,6 +662,7 @@ class ProcessingBatchService {
           originOrderId: data.originOrderId,
           originStyleCode: data.originStyleCode,
           warehouseLocation: data.warehouseLocation,
+          warehouseId: data.warehouseId,
           rackNumber: data.rackNumber,
           quantityAvailable: data.actualQuantityReceived,
           weightedAvgCost: finishedCostPerMeter,
@@ -633,7 +697,7 @@ class ProcessingBatchService {
           quantityInProcess: 0,
           dyeLotNumber: data.dyeLotNumber,
           shadeNote: data.shadeNote,
-          finishedLaceId: data.finishedLaceId,
+          finishedLaceId: resolvedFinishedLaceId,
           overallStatus: 'COMPLETED',
         },
         include: {
@@ -646,6 +710,19 @@ class ProcessingBatchService {
           },
         },
       });
+
+      // MANDATORY stock pattern: guarantee the materials row exists and keep stock_levels in
+      // step with the specialised table. Without this the dyed lot exists in lace_stock but is
+      // invisible on the Stock Levels page. (This file is not named *stock*.service.ts, so the
+      // pre-commit hook does not enforce the import here — it has to be done deliberately.)
+      await ensureMaterialRecord(resolvedFinishedLaceId!, 'LACE', tx);
+      await syncStockLevelQuantity(
+        resolvedFinishedLaceId!,
+        Number(data.actualQuantityReceived),
+        data.warehouseId,
+        'METER',
+        tx
+      );
 
       return {
         batch: updatedBatch,

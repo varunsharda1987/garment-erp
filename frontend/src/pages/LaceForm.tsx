@@ -84,6 +84,9 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
           setValue('color', lace.color || '');
           setValue('composition', lace.composition || '');
           setValue('description', lace.description || '');
+          if (lace.pricePerMeter != null) {
+            setValue('pricePerMeter', lace.pricePerMeter.toString());
+          }
 
           // Set lace type
           if (lace.laceType) {
@@ -191,6 +194,8 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
           isGreige && data.expectedShrinkagePercent ? Number(data.expectedShrinkagePercent) : undefined,
         costPerMeterGreige: isGreige && data.costPerMeterGreige ? Number(data.costPerMeterGreige) : undefined,
         sourceGreigeLaceId: !isGreige && sourceGreigeLaceId ? sourceGreigeLaceId : undefined,
+        // Ready-lace price applies to finished lace only (greige cost is costPerMeterGreige)
+        pricePerMeter: !isGreige && data.pricePerMeter ? Number(data.pricePerMeter) : undefined,
         // Clear color for greige lace (greige has no color)
         color: isGreige ? undefined : data.color,
         // Image file
@@ -375,6 +380,23 @@ export default function LaceForm({ mode = 'create' }: LaceFormProps) {
                       <a href="/colors/new" target="_blank" className="text-info hover:underline">
                         add a new color
                       </a>
+                    </p>
+                  </div>
+                )}
+
+                {/* Price per Meter - Only for finished lace (greige cost is entered below) */}
+                {!isGreige && (
+                  <div>
+                    <Label htmlFor="pricePerMeter">Price per Meter (₹)</Label>
+                    <Input
+                      id="pricePerMeter"
+                      type="number"
+                      step="0.01"
+                      {...register('pricePerMeter')}
+                      placeholder="e.g., 15.50"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Used as the Ready Lace rate in cost sheets (a preferred supplier's price takes priority)
                     </p>
                   </div>
                 )}

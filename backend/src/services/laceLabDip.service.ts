@@ -339,13 +339,26 @@ export async function isLabDipApproved(labDipId: string): Promise<boolean> {
 }
 
 /**
- * Get approved lab dips for a greige lace (for processor selection in costing)
+ * Get approved lab dips for a greige lace (for processor selection in costing).
+ *
+ * `targetColor` MUST be passed when costing a specific colour. One greige is routinely dyed to
+ * several colours, and every one of those has its own approved dip, processor and rate. Taking
+ * the newest dip regardless of colour cross-wired them: a navy line could snapshot a red dip's
+ * processor and labDipId, and validateGreigeProcessingForPO — which only checks that the stored
+ * dip is APPROVED — would then wave the navy PO through on a red approval.
+ *
+ * When a colour is given and no dip matches it, this returns EMPTY rather than falling back to a
+ * different colour's dip. The caller then costs with no dip (labDipId null, approval still
+ * pending), which is the honest state for a colour whose dip has not been approved yet.
  */
-export async function getApprovedLabDipsForLace(greigeLaceId: string) {
+export async function getApprovedLabDipsForLace(greigeLaceId: string, targetColor?: string | null) {
   const labDips = await prisma.lace_lab_dip.findMany({
     where: {
       greigeLaceId,
       status: 'APPROVED',
+      // targetColor is free text (plain input on the lab-dip form) while the lace master's
+      // colour comes from the Color Master, so compare case/whitespace-insensitively.
+      ...(targetColor ? { targetColor: { equals: targetColor.trim(), mode: 'insensitive' as const } } : {}),
     },
     include: {
       processor: {

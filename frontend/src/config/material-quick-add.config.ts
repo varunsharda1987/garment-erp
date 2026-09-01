@@ -218,7 +218,10 @@ const LACE_CONFIG: MaterialTypeConfig = {
       type: 'text',
       required: false,
       showWhen: { field: 'isGreige', value: true, inverse: true },
-      helpText: 'Color is not applicable for greige lace - it will be applied during dyeing',
+      helpText:
+        'Color is not applicable for greige lace - it will be applied during dyeing. ' +
+        'To record a lace dyed FROM a greige, use "Create Dyed Variant" in the cost sheet sourcing window ' +
+        'so it is linked to its greige source.',
     },
     // Price per meter - shown for finished lace only
     {

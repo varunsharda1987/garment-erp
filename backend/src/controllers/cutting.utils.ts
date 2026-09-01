@@ -370,3 +370,119 @@ export function buildBatchFabricRows(
   for (const e of extras || []) push(e);
   return rows;
 }
+
+/** One row of the cutting chart's fabric list, before lot/stock enrichment. */
+export interface ChartFabricEntry {
+  part: string;
+  fabricId: string | null;
+  fabricName: string;
+  fabricCode: string;
+  costingWidth: number | null;
+  costingAverage: number | null;
+  rawMatCalcWidth: number | null;
+  rawMatCalcAverage: number | null;
+  productionWidth: number | null;
+  productionAverage: number | null;
+  fabricColor: string | null;
+  /** The style_fabric this row came from; null for rows enriched from BOM/style data. */
+  styleFabricId: string | null;
+  rank: Partial<Record<'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION', number>>;
+}
+
+/**
+ * Collapse chart rows that describe the SAME fabric usage, and keep apart the ones that do not.
+ *
+ * The rule that matters: two entries originating from DIFFERENT `style_fabrics` are two distinct
+ * fabric requirements and must never merge, whatever they are called. Before this, rows with no
+ * fabricId were deduped on fabric NAME alone — and 334 of 346 style_fabrics have a null fabricId
+ * because they are greige-sourced. So one component legitimately using two different fabrics
+ * collapsed into a single chart row, the second row's CAD average silently replacing the first's.
+ * Production then planned and reserved against the wrong figure, with nothing missing on screen.
+ *
+ * Rows enriched from BOM/style data carry a null styleFabricId and still attach by name — that is
+ * what the enrichment path is for, and keeping it is why the rule is written on provenance rather
+ * than on "does this row have CAD data".
+ */
+export function dedupeChartEntries(allEntries: ChartFabricEntry[]): {
+  fabrics: ChartFabricEntry[];
+  warnings: string[];
+} {
+  const warnings: string[] = [];
+  const seenFabricIds = new Map<string, ChartFabricEntry>();
+  const seenFabricNames = new Map<string, ChartFabricEntry>();
+  const fabrics: ChartFabricEntry[] = [];
+
+  const differentStyleFabrics = (a: ChartFabricEntry, b: ChartFabricEntry) =>
+    !!a.styleFabricId && !!b.styleFabricId && a.styleFabricId !== b.styleFabricId;
+
+  const mergeCadFields = (target: ChartFabricEntry, source: ChartFabricEntry) => {
+    // Non-lossy: a real disagreement is reported, not quietly resolved in favour of whoever
+    // happened to arrive first.
+    const clash = (t: number | null, sv: number | null) => t !== null && sv !== null && Math.abs(t - sv) > 1e-4;
+    if (clash(target.costingAverage, source.costingAverage)) {
+      warnings.push(
+        `${target.part}: two COSTING CAD rows were combined (${target.costingAverage} m and ${source.costingAverage} m per piece). Using ${target.costingAverage} m.`
+      );
+    }
+    if (clash(target.productionAverage, source.productionAverage)) {
+      warnings.push(
+        `${target.part}: two PRODUCTION CAD rows were combined (${target.productionAverage} m and ${source.productionAverage} m per piece). Using ${target.productionAverage} m.`
+      );
+    }
+    if (!target.fabricName && source.fabricName) target.fabricName = source.fabricName;
+    if (!target.fabricCode && source.fabricCode) target.fabricCode = source.fabricCode;
+    if (!target.fabricColor && source.fabricColor) target.fabricColor = source.fabricColor;
+    // Fill width and average INDEPENDENTLY. Gating the average on the width meant a source row with
+    // a real average but no width contributed nothing — and a width of 0.00 reads as null here
+    // (`cutableWidth ? Number(..) : null`), which is exactly the shape of the live COS009 rows. The
+    // average is the number production plans against; it must never be dropped because a width is
+    // missing.
+    const fill = <K extends keyof ChartFabricEntry>(k: K) => {
+      if (target[k] === null && source[k] !== null) target[k] = source[k];
+    };
+    fill('costingWidth');
+    fill('costingAverage');
+    fill('rawMatCalcWidth');
+    fill('rawMatCalcAverage');
+    fill('productionWidth');
+    fill('productionAverage');
+  };
+
+  for (const f of allEntries) {
+    if (f.fabricId) {
+      const existing = seenFabricIds.get(f.fabricId);
+      if (existing) {
+        mergeCadFields(existing, f);
+        continue;
+      }
+      if (f.fabricName) {
+        const byName = seenFabricNames.get(f.fabricName);
+        if (byName && !byName.fabricId && !differentStyleFabrics(byName, f)) {
+          byName.fabricId = f.fabricId;
+          mergeCadFields(byName, f);
+          seenFabricIds.set(f.fabricId, byName);
+          continue;
+        }
+      }
+      seenFabricIds.set(f.fabricId, f);
+    } else if (f.fabricName) {
+      const byName = seenFabricNames.get(f.fabricName);
+      if (byName && !differentStyleFabrics(byName, f)) {
+        mergeCadFields(byName, f);
+        continue;
+      }
+      const byId = Array.from(seenFabricIds.values()).find(
+        (e) => e.fabricName === f.fabricName && !differentStyleFabrics(e, f)
+      );
+      if (byId) {
+        mergeCadFields(byId, f);
+        continue;
+      }
+    }
+
+    if (f.fabricName) seenFabricNames.set(f.fabricName, f);
+    fabrics.push(f);
+  }
+
+  return { fabrics, warnings };
+}

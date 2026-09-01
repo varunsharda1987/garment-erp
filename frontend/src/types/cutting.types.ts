@@ -375,6 +375,11 @@ export interface CuttingChartLot {
 }
 
 export interface CuttingChartFabric {
+  /**
+   * Stable identity for this row — the style_fabric it came from, else its fabricId, else the label.
+   * Key UI state on THIS, never on `part`: two rows may legitimately share a component name.
+   */
+  partKey: string;
   part: string;
   fabricId: string | null;
   fabricName: string;
@@ -397,6 +402,12 @@ export interface CuttingChartExistingBatch {
 }
 
 export interface CuttingChartData {
+  /**
+   * CAD collisions the server had to resolve to build this chart (always present, empty when clean).
+   * Surface them: silently picking a winner is how one fabric's average came to stand in for
+   * another's.
+   */
+  warnings: string[];
   // Header
   buyer: string;
   brand: string;

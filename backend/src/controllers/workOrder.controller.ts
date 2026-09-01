@@ -535,6 +535,9 @@ export const getFabricIssuanceData = async (req: Request, res: Response) => {
       maxCuttablePcs: chartData.maxCuttablePcs,
       bottleneckFabric: chartData.bottleneckFabric,
       totalOrderQty: chartData.totalOrderQty,
+      // This screen builds its own envelope rather than spreading chartData, so the CAD-collision
+      // warnings have to be carried across explicitly or the issuance screen loses them silently.
+      warnings: chartData.warnings,
       issuedChallans: issuedChallans.map((c) => ({
         id: c.id,
         challanNumber: c.challanNumber,

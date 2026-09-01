@@ -10,6 +10,7 @@ import {
   batchIncludeOptions,
   dedupeSkuRows,
   buildBatchFabricRows,
+  dedupeChartEntries,
 } from './cutting.utils';
 import { syncBomFabricId } from '../services/order-bom.service';
 import { calculateCadAverage } from './cad-planning.utils';
@@ -1592,11 +1593,21 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
         { styleCosting: { styleId: workOrder.styleId } },
       ],
     },
+    // Deterministic: without it the iteration order below is Postgres heap order, so WHICH CAD
+    // average won a collision changed between identical requests.
+    orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
     select: {
       id: true,
+      styleFabricId: true,
       componentName: true,
       purpose: true,
       purposeEnum: true,
+      // allow-cad-approval — cutting consumes CAD GEOMETRY, so this is the right approval to prefer.
+      // Never filter on costingApprovalStatus here: that is the PRICE approval and it is NULL on
+      // every PRODUCTION row, so filtering on it would empty the cutting chart.
+      approvalStatus: true,
+      isPreferred: true,
+      updatedAt: true,
       cutableWidth: true,
       cadMeters: true,
       cadAverage: true,
@@ -1709,8 +1720,15 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
       productionWidth: number | null;
       productionAverage: number | null;
       fabricColor: string | null;
+      /** Which style_fabric this row came from — null for rows enriched from BOM/style data. */
+      styleFabricId: string | null;
+      /** Best rank seen so far per purpose, so a weaker CAD row can never displace a stronger one. */
+      rank: Partial<Record<'COSTING' | 'RAW_MATERIAL_CALCULATION' | 'PRODUCTION', number>>;
     }
   >();
+
+  // Collisions are reported, never resolved in silence.
+  const warnings: string[] = [];
 
   for (const cad of cadRows) {
     // Resolve fabricId: direct -> styleFabric fallback
@@ -1719,7 +1737,12 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     const displayName = cad.styleFabric?.style_components?.componentName || cad.componentName;
     if (!displayName) continue; // Skip orphan CAD rows with no component linkage
     // Key by fabricId to prevent collision when two fabrics share the same componentName
-    const partKey = resolvedFabricId || displayName;
+    // Identity, not name. `resolvedFabricId || displayName` degraded to the COMPONENT NAME for
+    // every greige-sourced style (fabricId is NULL on the great majority of style_fabrics), so two
+    // CAD rows belonging to two DIFFERENT style_fabrics on the same component shared one entry and
+    // the second silently overwrote the first — the chart then planned one average where two
+    // different fabrics were needed. One style_fabric is one distinct fabric usage, so key on it.
+    const partKey = cad.styleFabricId ?? resolvedFabricId ?? `cad:${cad.id}`;
     const resolvedFabricName = cad.fabric?.fabricName || cad.styleFabric?.fabricName || '';
     const resolvedFabricCode = cad.fabric?.fabricCode || '';
     // Color priority: batch group color -> costing item color -> style fabric color
@@ -1739,6 +1762,8 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
         productionWidth: null,
         productionAverage: null,
         fabricColor: resolvedColor,
+        styleFabricId: cad.styleFabricId ?? null,
+        rank: {},
       });
     }
 
@@ -1747,19 +1772,39 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     const avg = cad.cadAverage ? Number(cad.cadAverage) : null;
 
     const cadPurpose = cad.purposeEnum || cad.purpose;
-    switch (cadPurpose) {
-      case 'COSTING':
-        entry.costingWidth = width;
-        entry.costingAverage = avg;
-        break;
-      case 'RAW_MATERIAL_CALCULATION':
-        entry.rawMatCalcWidth = width;
-        entry.rawMatCalcAverage = avg;
-        break;
-      case 'PRODUCTION':
-        entry.productionWidth = width;
-        entry.productionAverage = avg;
-        break;
+    if (cadPurpose === 'COSTING' || cadPurpose === 'RAW_MATERIAL_CALCULATION' || cadPurpose === 'PRODUCTION') {
+      // Rank the candidate rather than letting the last one seen win. Higher is better:
+      // a row that HAS an average always beats one that does not (a value-less row may never erase
+      // a real one), then an approved row, then the preferred row. Ties fall to the deterministic
+      // query order above.
+      const candidateRank =
+        (avg !== null ? 4 : 0) + (cad.approvalStatus === 'APPROVED' ? 2 : 0) + (cad.isPreferred ? 1 : 0);
+      const currentRank = entry.rank[cadPurpose];
+      const field = (
+        {
+          COSTING: ['costingWidth', 'costingAverage'],
+          RAW_MATERIAL_CALCULATION: ['rawMatCalcWidth', 'rawMatCalcAverage'],
+          PRODUCTION: ['productionWidth', 'productionAverage'],
+        } as const
+      )[cadPurpose];
+
+      if (currentRank === undefined || candidateRank > currentRank) {
+        const previous = entry[field[1]] as number | null;
+        if (previous !== null && avg !== null && Math.abs(previous - avg) > 1e-4) {
+          warnings.push(
+            `${displayName}${resolvedFabricName ? ` (${resolvedFabricName})` : ''}: ${cadPurpose} has more than one CAD option ` +
+              `(${previous} m and ${avg} m per piece). Using ${avg} m. Resolve it in CAD Planning.`
+          );
+        }
+        (entry[field[0]] as number | null) = width;
+        (entry[field[1]] as number | null) = avg;
+        entry.rank[cadPurpose] = candidateRank;
+      } else if (avg !== null && entry[field[1]] !== null && Math.abs((entry[field[1]] as number) - avg) > 1e-4) {
+        warnings.push(
+          `${displayName}${resolvedFabricName ? ` (${resolvedFabricName})` : ''}: ${cadPurpose} has more than one CAD option ` +
+            `(${entry[field[1]]} m and ${avg} m per piece). Using ${entry[field[1]]} m. Resolve it in CAD Planning.`
+        );
+      }
     }
 
     // Update fabricId if not set
@@ -1834,6 +1879,10 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
               productionWidth: null,
               productionAverage: null,
               fabricColor: null,
+              // Enrichment row, not CAD-derived: null provenance lets it still attach by name to a
+              // real CAD entry, which is exactly what this branch exists to do.
+              styleFabricId: null,
+              rank: {},
             });
           }
         }
@@ -1887,73 +1936,19 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
             productionWidth: null,
             productionAverage: null,
             fabricColor: sf.fabricColor || null,
+            // Enrichment row, not CAD-derived — see the 3b note above.
+            styleFabricId: null,
+            rank: {},
           });
         }
       }
     }
   }
 
-  // --- Deduplicate entries that share the same fabric (by fabricId OR fabricName) ---
-  const allEntries = Array.from(partMap.values());
-  const seenFabricIds = new Map<string, (typeof allEntries)[0]>();
-  const seenFabricNames = new Map<string, (typeof allEntries)[0]>();
-  const fabrics: typeof allEntries = [];
-
-  const mergeCadFields = (target: (typeof allEntries)[0], source: (typeof allEntries)[0]) => {
-    if (!target.fabricName && source.fabricName) target.fabricName = source.fabricName;
-    if (!target.fabricCode && source.fabricCode) target.fabricCode = source.fabricCode;
-    if (!target.fabricColor && source.fabricColor) target.fabricColor = source.fabricColor;
-    if (source.costingWidth !== null && target.costingWidth === null) {
-      target.costingWidth = source.costingWidth;
-      target.costingAverage = source.costingAverage;
-    }
-    if (source.rawMatCalcWidth !== null && target.rawMatCalcWidth === null) {
-      target.rawMatCalcWidth = source.rawMatCalcWidth;
-      target.rawMatCalcAverage = source.rawMatCalcAverage;
-    }
-    if (source.productionWidth !== null && target.productionWidth === null) {
-      target.productionWidth = source.productionWidth;
-      target.productionAverage = source.productionAverage;
-    }
-  };
-
-  for (const f of allEntries) {
-    if (f.fabricId) {
-      // Dedup by fabricId
-      const existing = seenFabricIds.get(f.fabricId);
-      if (existing) {
-        mergeCadFields(existing, f);
-        continue;
-      }
-      // Check if a null-fabricId entry with same fabricName already exists — merge into it
-      if (f.fabricName) {
-        const byName = seenFabricNames.get(f.fabricName);
-        if (byName && !byName.fabricId) {
-          byName.fabricId = f.fabricId;
-          mergeCadFields(byName, f);
-          seenFabricIds.set(f.fabricId, byName);
-          continue;
-        }
-      }
-      seenFabricIds.set(f.fabricId, f);
-    } else if (f.fabricName) {
-      // No fabricId — dedup by fabricName
-      const byName = seenFabricNames.get(f.fabricName);
-      if (byName) {
-        mergeCadFields(byName, f);
-        continue;
-      }
-      // Check if any fabricId entry already has this name
-      const byId = Array.from(seenFabricIds.values()).find((e) => e.fabricName === f.fabricName);
-      if (byId) {
-        mergeCadFields(byId, f);
-        continue;
-      }
-    }
-
-    if (f.fabricName) seenFabricNames.set(f.fabricName, f);
-    fabrics.push(f);
-  }
+  // --- Deduplicate entries that share the same fabric ---
+  // Extracted to cutting.utils so the rule can be tested without standing up a work order.
+  const { fabrics, warnings: dedupeWarnings } = dedupeChartEntries(Array.from(partMap.values()));
+  warnings.push(...dedupeWarnings);
 
   // 4. For each unique fabricId, get PO ordered qty, GRN received qty, and fabric stock lots
   const uniqueFabricIds = [...new Set(fabrics.map((f) => f.fabricId).filter(Boolean))] as string[];
@@ -2049,6 +2044,24 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     fabricStockMap.get(fs.fabricId)!.push(fs);
   }
 
+  // Two surviving rows can now legitimately share a component name (that is the whole point of the
+  // provenance rule). Give each a distinct label, or FabricIssuanceSection's `new Set(part)` and the
+  // bare-string bottleneckFabric quietly collapse them back into one.
+  const nameCounts = new Map<string, number>();
+  for (const f of fabrics) nameCounts.set(f.part, (nameCounts.get(f.part) ?? 0) + 1);
+  const nameSeen = new Map<string, number>();
+  for (const f of fabrics) {
+    if ((nameCounts.get(f.part) ?? 0) < 2) continue;
+    const n = (nameSeen.get(f.part) ?? 0) + 1;
+    nameSeen.set(f.part, n);
+    const width = f.productionWidth ?? f.rawMatCalcWidth ?? f.costingWidth;
+    f.part = width ? `${f.part} (${width}")` : f.fabricName ? `${f.part} — ${f.fabricName}` : `${f.part} #${n}`;
+  }
+
+  // A stable per-row identity for the UI to key on. `fabricId || part` collided for exactly the
+  // rows this fix separates.
+  const partKeyOf = (f: (typeof fabrics)[0]) => f.styleFabricId ?? f.fabricId ?? f.part;
+
   // 5. Build fabric details array (per part)
   const fabricDetails = fabrics.map((f) => {
     const ordered = f.fabricId ? fabricOrderedMap.get(f.fabricId) || 0 : 0;
@@ -2073,6 +2086,7 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     const stocks = f.fabricId ? fabricStockMap.get(f.fabricId) || [] : [];
     return {
       ...f,
+      partKey: partKeyOf(f),
       lots: stocks.map((s, idx) => ({
         lotId: s.id,
         lotNumber: idx + 1,
@@ -2178,6 +2192,10 @@ export async function buildCuttingChartData(workOrderId: string, colorId?: strin
     maxCuttablePcs,
     bottleneckFabric,
     pendingCutQty,
+
+    // Collisions the builder had to resolve. ALWAYS an array; empty when the CAD data is clean.
+    // Silently picking a winner is what let one fabric's average stand in for another's.
+    warnings,
 
     // Existing batches
     existingBatches,

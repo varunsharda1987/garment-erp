@@ -149,7 +149,10 @@ export default function CuttingChart() {
     if (!chartData) return;
 
     const fabricsWithLots = chartData.fabrics.filter((f) => f.lots.length > 0);
-    const getFabricKey = (f: CuttingChartFabric) => f.fabricId || f.part;
+    // Server-supplied identity. `fabricId || part` collided for exactly the rows the server now
+    // keeps separate: greige-sourced fabrics have no fabricId, so two parts sharing a component name
+    // shared one lot-selection bucket.
+    const getFabricKey = (f: CuttingChartFabric) => f.partKey;
 
     // Validate all fabrics with lots have at least one selection
     const missing = fabricsWithLots.filter((f) => !selectedLots[getFabricKey(f)]?.length);
@@ -288,6 +291,9 @@ export default function CuttingChart() {
               <FileText className="h-4 w-4 mr-2" />
               Export PDF
             </Button>
+          )}
+          {chartData && chartData.warnings?.length > 0 && (
+            <span className="text-xs text-warning max-w-[360px] text-right">{chartData.warnings.join(' ')}</span>
           )}
           {chartData && !hasProductionCAD && (
             <span className="text-xs text-destructive max-w-[300px] text-right">
@@ -773,7 +779,7 @@ export default function CuttingChart() {
                 {chartData.fabrics
                   .filter((f) => f.lots.length > 0)
                   .map((fabric, fIdx) => {
-                    const fabricKey = fabric.fabricId || fabric.part;
+                    const fabricKey = fabric.partKey;
                     return (
                       <div key={fIdx} className={fIdx > 0 ? 'mt-6' : ''}>
                         {chartData.fabrics.filter((f) => f.lots.length > 0).length > 1 && (

@@ -3,7 +3,15 @@
  * Business logic for purchase order operations
  */
 
-import { PurchaseOrderStatus, Prisma, POSource, ServiceType, POCategory, DeliveryLocationType } from '@prisma/client';
+import {
+  PurchaseOrderStatus,
+  Prisma,
+  POSource,
+  ServiceType,
+  POCategory,
+  DeliveryLocationType,
+  MaterialRequirementStatus,
+} from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { randomUUID } from 'crypto';
 import prisma from '../config/database';
@@ -16,8 +24,8 @@ import {
   UpdatePurchaseOrderItemDTO,
   PurchaseOrderFilters,
 } from '../types/purchaseOrder.types';
-import { generateAtomicPONumber } from '../utils/atomicCodeGenerator';
-import { addCurrency, roundToCent } from '../utils/currency';
+import { generateAtomicPONumber, generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
+import { addCurrency, roundToCent, subtractCurrency, toNumber } from '../utils/currency';
 import { validateTransition } from '../utils/stateMachine';
 
 class PurchaseOrderService {
@@ -894,34 +902,126 @@ class PurchaseOrderService {
         include: this.getMinimalInclude(),
       });
 
-      // 2. Revert linked MRP material requirements → PO_REQUIRED
+      // 2. Free the linked MRP material requirements so the unfulfilled material can be re-ordered.
+      //
+      // This used to filter on `status: 'PO_GENERATED'` alone, which matched ZERO rows once the
+      // PO had been sent (PO_SENT) or part-delivered (PARTIALLY_RECEIVED) — the two states a
+      // cancellation actually happens in. Those requirements stayed pinned to the cancelled PO
+      // forever: PO generation only accepts PO_REQUIRED/PARTIAL_STOCK, the duplicate guard skips
+      // anything still linked, and the MRP "needing PO" tile counts neither — so the shortfall
+      // silently vanished from the plan and surfaced as a stock-out at production.
+      //
+      // Split by what actually arrived, mirroring the job-work-order cancel path:
+      //   nothing received → revert the requirement outright and drop the link;
+      //   part received    → leave the delivered part booked and carry the balance forward as its
+      //                      own orderable requirement (the MRP-12 split-remainder shape).
       const mrpLinks = await tx.requirement_po_links.findMany({
         where: { purchaseOrderId: id },
-        select: { requirementId: true },
+        select: { requirementId: true, allocatedQuantity: true, receivedQuantity: true },
       });
-      if (mrpLinks.length > 0) {
-        await tx.material_requirements.updateMany({
-          where: {
-            id: { in: mrpLinks.map((l) => l.requirementId) },
-            status: 'PO_GENERATED',
-          },
+
+      const untouched = mrpLinks.filter((l) => Number(l.receivedQuantity) === 0);
+      const partiallyReceived = mrpLinks.filter((l) => Number(l.receivedQuantity) > 0);
+
+      if (untouched.length > 0) {
+        const ids = untouched.map((l) => l.requirementId);
+        const reverted = await tx.material_requirements.updateMany({
+          where: { id: { in: ids }, status: { in: ['PO_GENERATED', 'PO_SENT', 'PARTIALLY_RECEIVED'] } },
           data: { status: 'PO_REQUIRED' },
+        });
+        // A silent count:0 is exactly how this bug hid. Say so rather than assume success.
+        if (reverted.count !== ids.length) {
+          logWarn(
+            `[PO ${existingPO.poNumber}] cancel reverted ${reverted.count} of ${ids.length} undelivered ` +
+              `requirement(s) — the rest were in an unexpected status and may need manual re-planning`
+          );
+        }
+        // Drop the links too: MRP's duplicate guard skips a requirement that still carries one,
+        // so leaving them would keep the requirement un-orderable even in PO_REQUIRED.
+        await tx.requirement_po_links.deleteMany({
+          where: { purchaseOrderId: id, requirementId: { in: ids } },
         });
       }
 
-      // 3. Revert linked service requirements → PENDING
+      for (const link of partiallyReceived) {
+        const requirement = await tx.material_requirements.findUnique({ where: { id: link.requirementId } });
+        if (!requirement) continue;
+
+        const received = Number(link.receivedQuantity);
+        const remainder = toNumber(subtractCurrency(Number(requirement.shortfall), received));
+
+        // Below a paise of dust there is nothing worth re-ordering (same threshold and reasoning
+        // as the MRP split-remainder path).
+        if (remainder > 0.01) {
+          const childNumber = await generateAtomicDocNumber('MR', tx);
+          await tx.material_requirements.create({
+            data: {
+              requirementNumber: childNumber,
+              source: requirement.source,
+              orderId: requirement.orderId,
+              orderItemId: requirement.orderItemId,
+              materialId: requirement.materialId,
+              orderBomId: requirement.orderBomId,
+              orderBomItemId: requirement.orderBomItemId,
+              orderQuantity: requirement.orderQuantity,
+              quantityPerUnit: requirement.quantityPerUnit,
+              wastagePercent: requirement.wastagePercent,
+              totalRequired: remainder,
+              unit: requirement.unit,
+              availableStock: 0,
+              allocatedFromStock: 0,
+              shortfall: remainder,
+              preferredSupplierId: requirement.preferredSupplierId,
+              status: MaterialRequirementStatus.PO_REQUIRED,
+              requirementType: requirement.requirementType,
+              processorId: requirement.processorId,
+              processingCost: requirement.processingCost,
+              printingType: requirement.printingType,
+              linkedRequirementId: requirement.linkedRequirementId,
+              // Shrinkage provenance must survive the split or the child silently re-derives 0%.
+              shrinkagePercentUsed: requirement.shrinkagePercentUsed,
+              shrinkageSource: requirement.shrinkageSource,
+              colorName: requirement.colorName,
+              componentName: requirement.componentName,
+              requiredDate: requirement.requiredDate,
+              createdById: cancelledById ?? requirement.createdById,
+              unitPrice: requirement.unitPrice,
+              rateSource: requirement.rateSource,
+              splitFromId: requirement.id,
+            },
+          });
+          // The original now represents only what was actually delivered.
+          await tx.material_requirements.update({
+            where: { id: requirement.id },
+            data: { shortfall: received },
+          });
+          logWarn(
+            `[PO ${existingPO.poNumber}] cancelled after ${received} of ${Number(requirement.shortfall)} received ` +
+              `for ${requirement.requirementNumber}; balance ${remainder} carried forward as ${childNumber}`
+          );
+        }
+        // The link is deliberately KEPT: it is the record of what this PO actually delivered.
+      }
+
+      // 3. Revert linked service requirements → PENDING.
+      // IN_PROGRESS included for the same reason as above: filtering on PO_GENERATED alone left
+      // an in-progress service pinned to a cancelled PO (job-work-order cancel already does this).
       const serviceLinks = await tx.service_requirement_po_links.findMany({
         where: { purchaseOrderItem: { poId: id } },
         select: { serviceRequirementId: true },
       });
       if (serviceLinks.length > 0) {
-        await tx.work_order_service_requirements.updateMany({
-          where: {
-            id: { in: serviceLinks.map((l) => l.serviceRequirementId) },
-            status: 'PO_GENERATED',
-          },
+        const ids = serviceLinks.map((l) => l.serviceRequirementId);
+        const revertedServices = await tx.work_order_service_requirements.updateMany({
+          where: { id: { in: ids }, status: { in: ['PO_GENERATED', 'IN_PROGRESS'] } },
           data: { status: 'PENDING', purchaseOrderId: null },
         });
+        if (revertedServices.count !== ids.length) {
+          logWarn(
+            `[PO ${existingPO.poNumber}] cancel reverted ${revertedServices.count} of ${ids.length} service ` +
+              `requirement(s) — the rest were in an unexpected status and may need manual re-planning`
+          );
+        }
       }
 
       return po;

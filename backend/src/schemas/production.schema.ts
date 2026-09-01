@@ -44,7 +44,6 @@ export const skuOutputSchema = z.object({
   maxCuttable: z.number().int().nonnegative().optional(),
   toCut: z.number().int().nonnegative().optional(),
   plannedQty: z.number().int().nonnegative().optional(),
-  cutQuantity: z.number().int().nonnegative().optional(),
 });
 
 /**

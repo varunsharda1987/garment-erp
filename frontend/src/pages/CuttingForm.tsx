@@ -11,6 +11,7 @@ import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.s
 import { stageValidationService } from '@/services/stageValidation.service';
 import type { CreateCuttingBatchRequest } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { notify } from '@/lib/notify';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { Scissors, ArrowLeft, Save, Loader2, AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -383,8 +384,9 @@ export default function CuttingForm() {
         handleApiSuccess('Batch updated', 'Cutting batch has been updated successfully.');
         navigate(`/manufacturing/cutting/${id}`);
       } else {
-        const batch = await cuttingBatchService.create(requestData);
+        const { batch, warning } = await cuttingBatchService.create(requestData);
         handleApiSuccess('Batch created', `Cutting batch ${batch.batchNumber} has been created.`);
+        if (warning) notify.warning(warning);
         navigate(`/manufacturing/cutting/${batch.id}`);
       }
     } catch (err) {

@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cuttingBatchService, cuttingSummaryService } from '@/services/cutting.service';
 import type { CuttingChartData, CuttingChartFabric, CreateCuttingBatchRequest } from '@/types/cutting.types';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { notify } from '@/lib/notify';
 import { formatStyleCodeWithRef } from '@/utils/style-ref-format';
 import { getUploadUrl } from '@/config/api.config';
 import api from '@/lib/api';
@@ -208,9 +209,12 @@ export default function CuttingChart() {
         }),
       };
 
-      const batch = await cuttingBatchService.create(requestData);
+      const { batch, warning } = await cuttingBatchService.create(requestData);
 
       handleApiSuccess('Batch Created', 'Cutting batch created successfully.');
+      // Fabric is not issued automatically — say so, or the cutter only finds out when completion
+      // is blocked.
+      if (warning) notify.warning(warning);
       navigate(`/manufacturing/cutting/${batch.id}`);
     } catch (err) {
       handleApiError(err, 'Failed to create cutting batch');

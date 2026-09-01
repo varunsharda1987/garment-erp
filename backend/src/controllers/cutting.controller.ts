@@ -9,6 +9,7 @@ import {
   generateTransferSlipNumber,
   batchIncludeOptions,
   dedupeSkuRows,
+  buildBatchFabricRows,
 } from './cutting.utils';
 import { syncBomFabricId } from '../services/order-bom.service';
 import { calculateCadAverage } from './cad-planning.utils';
@@ -286,18 +287,21 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     include: batchIncludeOptions,
   });
 
-  // Create junction records for additional fabrics
-  if (fabricStocks && fabricStocks.length > 0) {
-    await prisma.cutting_batch_fabrics.createMany({
-      data: fabricStocks.map((fs: any) => ({
-        batchId: batch.id,
-        fabricStockId: fs.fabricStockId,
-        cadAvgUsed: fs.cadAvgUsed ?? null,
-        cadWidthUsed: fs.cadWidthUsed ?? null,
-        actualWidth: fs.actualWidth ?? null,
-      })),
-      skipDuplicates: true,
-    });
+  // Record every fabric lot this batch will consume — the PRIMARY one included.
+  //
+  // Completion sums fabric issued by walking cutting_batch_fabrics and looking each lot up in the
+  // challan-derived issuedMap. A lot that has no row here is invisible to that sum, so its issued
+  // metres are never counted. CuttingForm sends no `fabricStocks`, so its batches had no rows at
+  // all: even a correctly issued fabric challan left totalFabricIssued at 0 and the completion
+  // guard blocked the batch for ever. Seeding the primary lot is what makes manual issuance work.
+  const batchFabricRows = buildBatchFabricRows(
+    batch.id,
+    { fabricStockId, cadAvgUsed: cadAverageUsed, cadWidthUsed, actualWidth: actualFabricWidth },
+    fabricStocks
+  );
+  if (batchFabricRows.length > 0) {
+    // @@unique([batchId, fabricStockId]) + skipDuplicates makes the primary/extra overlap harmless.
+    await prisma.cutting_batch_fabrics.createMany({ data: batchFabricRows, skipDuplicates: true });
   }
 
   // P6.1.2: Reserve fabric stock for this cutting batch (prevents double-booking across WOs)
@@ -374,91 +378,30 @@ export const createCuttingBatch = async (req: Request, res: Response) => {
     );
   }
 
-  // Auto-issue fabric: create INTERNAL challan for fabric lots used in this batch
-  try {
-    const allStockIds: Array<{ stockId: string; cadAvg: number | null }> = [];
-    if (fabricStockId) {
-      allStockIds.push({ stockId: fabricStockId, cadAvg: cadAverageUsed ? Number(cadAverageUsed) : null });
-    }
-    if (fabricStocks?.length > 0) {
-      for (const fs of fabricStocks as Array<{ fabricStockId: string; cadAvgUsed?: number }>) {
-        if (fs.fabricStockId && fs.fabricStockId !== fabricStockId) {
-          allStockIds.push({ stockId: fs.fabricStockId, cadAvg: fs.cadAvgUsed ? Number(fs.cadAvgUsed) : null });
-        }
-      }
-    }
-
-    const totalPieces = (skuOutputs as Array<{ cutQuantity?: number }>).reduce(
-      (sum, s) => sum + (Number(s.cutQuantity) || 0),
-      0
-    );
-
-    const challanItems = [];
-    for (const { stockId, cadAvg } of allStockIds) {
-      const stock = await prisma.fabric_stock.findUnique({
-        where: { id: stockId },
-        select: {
-          id: true,
-          fabricId: true,
-          quantityAvailable: true,
-          fabricMaster: { select: { fabricCode: true, fabricName: true } },
-        },
-      });
-      if (stock && Number(stock.quantityAvailable) > 0) {
-        // BUG-MFG2 fix: Never default to issuing entire stock. Skip if we can't calculate need.
-        if (!cadAvg || totalPieces <= 0) {
-          logInfo(
-            `Skipping fabric ${stock.fabricMaster?.fabricCode}: no CAD average (${cadAvg}) or totalPieces (${totalPieces})`
-          );
-          continue;
-        }
-        const fabricNeeded = totalPieces * cadAvg;
-        const issueQty = Math.min(fabricNeeded, Number(stock.quantityAvailable));
-        const desc =
-          `${stock.fabricMaster?.fabricCode || ''} ${stock.fabricMaster?.fabricName || ''} - Batch ${batch.batchNumber}`.trim();
-
-        challanItems.push({
-          itemType: 'FABRIC',
-          fabricStockId: stock.id,
-          fabricId: stock.fabricId,
-          quantity: Math.round(issueQty * 100) / 100, // Round to 2 decimals
-          unit: Unit.METER,
-          description: desc,
-        });
-      }
-    }
-
-    if (challanItems.length > 0) {
-      const challan = await createChallan({
-        challanType: 'INTERNAL',
-        challanDate: new Date(),
-        orderId: workOrder.orderId || undefined,
-        productionRunId: workOrderId,
-        fromType: 'DEPARTMENT',
-        fromName: 'Fabric Store',
-        toType: 'DEPARTMENT',
-        toName: 'Cutting',
-        remarks: `Auto-issued for cutting batch ${batch.batchNumber}`,
-        issuedById: userId,
-        items: challanItems,
-      });
-      await issueChallan(challan.id, userId);
-      logInfo(`Auto-issued fabric challan ${challan.challanNumber} for cutting batch ${batch.batchNumber}`);
-    }
-  } catch (challanError) {
-    // P6.1.3: Surface the error instead of silently swallowing
-    // The batch is created but fabric wasn't issued — the user needs to know
-    const challanErrorMsg = (challanError as Error).message;
-    logInfo(`Warning: Auto-issue challan failed for batch ${batch.batchNumber}: ${challanErrorMsg}`);
-
-    return res.status(201).json({
-      data: transformCuttingBatch(batch),
-      message: 'Cutting batch created successfully',
-      warning: `Fabric issue failed: ${challanErrorMsg}. Please issue fabric manually via Challans.`,
-    });
-  }
-
-  res.status(201).json({ data: transformCuttingBatch(batch), message: 'Cutting batch created successfully' });
+  // Fabric is NOT auto-issued (owner decision, 2026-09-01). Stock moves only when a human issues a
+  // challan.
+  //
+  // The auto-issue that used to sit here never actually ran: it sized the requirement from
+  // `cutQuantity`, a field no screen has ever sent, so the piece count was always 0, every lot hit
+  // the "cannot calculate need" skip, and the batch reported plain success. Fabric was cut while the
+  // books still showed it in the store.
+  //
+  // Repairing only the count would have switched on a stock movement that has never executed in this
+  // installation, and it carried two live hazards: the requirement was computed PER LOT with no
+  // running remainder, so two rolls of one fabric would each be issued the full amount; and deleting
+  // such a batch restores nothing, so the metres would simply vanish. Manual challan issuance is an
+  // existing, audited path, and it is already what the completion guard tells the user to do.
+  //
+  // The batch records which fabric lots it expects (cutting_batch_fabrics above), so a manually
+  // issued challan is matched and counted at completion.
+  res.status(201).json({
+    data: transformCuttingBatch(batch),
+    message: 'Cutting batch created successfully',
+    warning:
+      batchFabricRows.length > 0
+        ? 'Fabric was NOT issued automatically. Issue it from Procurement → Challans before completing this batch, or completion will be blocked.'
+        : undefined,
+  });
 };
 
 // ============================================

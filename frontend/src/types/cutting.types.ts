@@ -282,6 +282,8 @@ export interface CuttingBatchListResponse {
 
 export interface CuttingBatchResponse {
   data: CuttingBatch;
+  /** Success-with-warning: the batch was created, but something needs the user's attention. */
+  warning?: string;
 }
 
 export interface CuttingSummary {

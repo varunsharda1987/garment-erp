@@ -46,7 +46,7 @@ A cutting entry has two parts: first create a **batch** from the Cutting Chart, 
 5. In **Size Breakup**, set **Extra %**. The **Cut Qty** row fills automatically. You can type over any size's Cut Qty.
 6. If stock is short, click **Fill to Max** to spread the cuttable quantity across sizes by ratio.
 7. In **Lot Details**, tick at least one lot for every fabric listed.
-8. Click **Create Batch**. The batch page opens.
+8. Click **Create Batch**. The batch page opens, with a reminder that fabric is **not** issued automatically — issue it from **Procurement → Challans** (or **Fabric Issuance** on the production run) if you have not already.
 
 ## Record the lays
 9. Click **Start Cutting** on the batch page.
@@ -60,5 +60,6 @@ A cutting entry has two parts: first create a **batch** from the Cutting Chart, 
 - You must tick at least one size and enter pieces per layer, or the lay will not save.
 - A total Cut Qty above **Max Cuttable** turns red. That is the stock limit, shown with the bottleneck fabric.
 - **Complete** is greyed out until something has been cut.
+- **Creating a batch does not issue fabric.** Nothing leaves the fabric store until someone issues a challan for it, so stock and the cutting plan stay in step. If no fabric was issued, **Complete** refuses with "No fabric issue recorded" — issue the challan, then complete.
 - A batch can only be deleted while it has no lays.
 - Use **Hold** to pause and **Resume** to continue. After completion, use the transfer slip icon on the list.

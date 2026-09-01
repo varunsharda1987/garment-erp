@@ -37,10 +37,12 @@ export const cuttingBatchService = {
     return response.data.data;
   },
 
-  // Create new cutting batch
-  create: async (data: CreateCuttingBatchRequest): Promise<CuttingBatch> => {
+  // Create new cutting batch.
+  // Returns the warning alongside the batch: fabric is not auto-issued, and dropping that message
+  // here is exactly how the old silent no-issue stayed invisible.
+  create: async (data: CreateCuttingBatchRequest): Promise<{ batch: CuttingBatch; warning?: string }> => {
     const response = await api.post<CuttingBatchResponse>(`${BASE_URL}/batches`, data);
-    return response.data.data;
+    return { batch: response.data.data, warning: response.data.warning };
   },
 
   // Update cutting batch

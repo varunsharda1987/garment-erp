@@ -310,3 +310,63 @@ export async function recalculateBatchTotals(tx: any, batchId: string) {
     });
   }
 }
+
+/**
+ * The fabric lots a cutting batch expects to consume, as `cutting_batch_fabrics` rows.
+ *
+ * Completion sums issued fabric by walking these rows and looking each lot up in the challan-derived
+ * issuedMap. A lot with no row here is invisible to that sum, so its issued metres never count and
+ * the "No fabric issue recorded" guard blocks the batch for ever.
+ *
+ * That is why the PRIMARY lot must always be included. CuttingChart sends its lots in `fabricStocks`,
+ * but CuttingForm sends none at all — so before this, a CuttingForm batch had no rows whatsoever and
+ * could never be completed no matter how the fabric was issued.
+ *
+ * The primary may also appear in `extras`; the caller relies on
+ * `@@unique([batchId, fabricStockId])` + `skipDuplicates` to collapse that.
+ */
+export function buildBatchFabricRows(
+  batchId: string,
+  primary: {
+    fabricStockId?: string | null;
+    cadAvgUsed?: number | null;
+    cadWidthUsed?: number | null;
+    actualWidth?: number | null;
+  },
+  extras:
+    | Array<{
+        fabricStockId?: string | null;
+        cadAvgUsed?: number | null;
+        cadWidthUsed?: number | null;
+        actualWidth?: number | null;
+      }>
+    | null
+    | undefined
+): Array<{
+  batchId: string;
+  fabricStockId: string;
+  cadAvgUsed: number | null;
+  cadWidthUsed: number | null;
+  actualWidth: number | null;
+}> {
+  const rows: Array<{
+    batchId: string;
+    fabricStockId: string;
+    cadAvgUsed: number | null;
+    cadWidthUsed: number | null;
+    actualWidth: number | null;
+  }> = [];
+  const push = (src: typeof primary) => {
+    if (!src?.fabricStockId) return;
+    rows.push({
+      batchId,
+      fabricStockId: src.fabricStockId,
+      cadAvgUsed: src.cadAvgUsed != null ? Number(src.cadAvgUsed) : null,
+      cadWidthUsed: src.cadWidthUsed != null ? Number(src.cadWidthUsed) : null,
+      actualWidth: src.actualWidth != null ? Number(src.actualWidth) : null,
+    });
+  };
+  push(primary);
+  for (const e of extras || []) push(e);
+  return rows;
+}

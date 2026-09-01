@@ -6,8 +6,15 @@
 
 import { z } from 'zod';
 
-// Order status enum - matches Prisma OrderStatus
+// WRITABLE order statuses. Deliberately EXCLUDES SPLIT: that state is stamped by the split flow on
+// a parent production run, never chosen by a client, so widening this would let a PATCH fabricate it.
 export const OrderStatus = z.enum(['PENDING', 'IN_PRODUCTION', 'COMPLETED', 'DISPATCHED', 'CANCELLED']);
+
+// FILTERABLE order statuses — the full Prisma enum, generated from schema.prisma. Reading and
+// writing need different sets: the query filter previously reused the writable list, so it was
+// missing SPLIT and any client filtering on it got a silent 400 rendered as "no results".
+import { OrderStatusEnum as OrderStatusFilter } from './generated/prisma-enums';
+export { OrderStatusFilter };
 
 // Size/colour breakdown line (colorId may be an empty string for size-only orders — backend nulls it)
 const orderItemBreakupSchema = z.object({
@@ -83,7 +90,7 @@ export const cancelOrderSchema = z.preprocess(
 // Order query params schema
 export const orderQuerySchema = z.object({
   customerId: z.string().uuid().optional(),
-  status: OrderStatus.optional(),
+  status: OrderStatusFilter.optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
   // fromDate/toDate are what the controller and frontend actually use; the schema previously validated
   // startDate/endDate that nobody sends, letting raw fromDate/toDate bypass validation (bug-hunt orders-12)

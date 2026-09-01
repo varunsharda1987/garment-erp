@@ -41,7 +41,7 @@ sources:
 
 ## Steps
 1. Open **Orders & Sales → Orders** in the sidebar.
-2. Search by order number or customer name in the search box, or narrow the list with the **All Customers**, **All Status** and **All Priorities** dropdowns. Status values are Pending, In Production, Completed, Dispatched and Cancelled.
+2. Search by order number or customer name in the search box, or narrow the list with the **All Customers**, **All Status** and **All Priorities** dropdowns. Status values are Pending, In Production, Completed, Dispatched, Cancelled and Split. **Split** means the order was divided into child production runs — open the children to follow the work.
 3. Click the order number (or the **View** button) to open **Order Details**.
 4. The top card shows the status and priority badges, Customer, Order Date, Expected Delivery, Total Quantity, Total Amount and Payment Terms. "Pricing Pending" means no unit price was entered yet.
 5. Below it is the pipeline strip: **Order → BOM → MRP → PO → GRN → Processing → Production → Dispatch**. Each step is marked done, in progress or blocked, and carries a button that takes you to that stage (for example **Create BOM** or **View MRP**).

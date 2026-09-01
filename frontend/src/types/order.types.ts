@@ -10,6 +10,10 @@ export const OrderStatus = {
   COMPLETED: 'COMPLETED',
   DISPATCHED: 'DISPATCHED',
   CANCELLED: 'CANCELLED',
+  // A parent production run that has been split into children. Read-only: the split flow stamps it,
+  // no screen sets it. It was missing here while the API can return it, so any UI branching on order
+  // status silently failed to account for a split parent.
+  SPLIT: 'SPLIT',
 } as const;
 
 export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus];
@@ -20,6 +24,7 @@ export const OrderStatusLabels: Record<OrderStatus, string> = {
   COMPLETED: 'Completed',
   DISPATCHED: 'Dispatched',
   CANCELLED: 'Cancelled',
+  SPLIT: 'Split',
 };
 
 export const Priority = {

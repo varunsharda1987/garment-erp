@@ -52,9 +52,18 @@ export default function ASNCreateForm() {
   const [skuLines, setSkuLines] = useState<SKULine[]>([]);
 
   // Fetch orders for search
-  const { data: ordersData, isLoading: ordersLoading } = useQuery({
+  // No status filter. 'CONFIRMED' used to be passed here, which is a SaleOrderStatus — it is not in
+  // the OrderStatus enum at any layer, so every request 400'd and the popover rendered the failure
+  // as "No orders found.". Substituting a real status is not the fix either: every live order is
+  // PENDING, so a single-status filter would leave the picker just as empty. Orders that must never
+  // receive an ASN are excluded below instead.
+  const {
+    data: ordersData,
+    isLoading: ordersLoading,
+    isError: ordersError,
+  } = useQuery({
     queryKey: queryKeys.orders.search(orderSearch),
-    queryFn: () => getAllOrders({ search: orderSearch, limit: 20, status: 'CONFIRMED' }),
+    queryFn: () => getAllOrders({ search: orderSearch, limit: 20 }),
     enabled: orderSearchOpen || !!orderSearch,
   });
 
@@ -168,7 +177,7 @@ export default function ASNCreateForm() {
     createMutation.mutate(request);
   };
 
-  const orders = ordersData?.data || [];
+  const orders = (ordersData?.data || []).filter((o: Order) => o.status !== 'CANCELLED' && o.status !== 'SPLIT');
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -194,7 +203,7 @@ export default function ASNCreateForm() {
             <ShoppingCart className="h-5 w-5" />
             Select Order
           </CardTitle>
-          <CardDescription>Choose a confirmed order to create an ASN for</CardDescription>
+          <CardDescription>Choose the order this shipment is for</CardDescription>
         </CardHeader>
         <CardContent>
           <Popover open={orderSearchOpen} onOpenChange={setOrderSearchOpen}>
@@ -223,7 +232,13 @@ export default function ASNCreateForm() {
                   onValueChange={setOrderSearch}
                 />
                 <CommandList>
-                  <CommandEmpty>{ordersLoading ? 'Searching...' : 'No orders found.'}</CommandEmpty>
+                  <CommandEmpty>
+                    {ordersLoading
+                      ? 'Searching...'
+                      : ordersError
+                        ? 'Could not load orders — please retry.'
+                        : 'No orders found.'}
+                  </CommandEmpty>
                   <CommandGroup>
                     {orders.map((order: Order) => (
                       <CommandItem

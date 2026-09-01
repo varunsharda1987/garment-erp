@@ -66,17 +66,71 @@ if [ "$FRONTEND_CHANGED" = true ]; then
   BUILD_EXIT=$?
 
   if [ $BUILD_EXIT -eq 0 ] && [ -f dist.staging/index.html ]; then
-    # Swap. The window where dist is absent is milliseconds, versus the ~2 minutes
-    # the old in-place build left it empty.
-    rm -rf dist && mv dist.staging dist
-    echo "✅ Frontend rebuilt and swapped in"
+    # Swap without ever deleting the live app first.
+    #
+    # 2026-09-01 — this took the web app down. The swap used to be
+    # `rm -rf dist && mv dist.staging dist`, which destroys the running app BEFORE the
+    # replacement is in place. On Windows the serving process holds files in dist open, so the
+    # rm partially fails, `&&` then blocks the mv, and the result is NO dist at all with the
+    # only good build stranded in dist.staging: every page 404s while PM2 still reports the
+    # process healthy. The staging build protected against a bad BUILD but not against a
+    # failed SWAP.
+    #
+    # Now: rename the live dist aside (never delete it), move the new one in, and only then
+    # discard the old. Any failure rolls back to the app that was already working. If the
+    # rename is blocked because the server holds the directory, stop it for the swap and start
+    # it again — a few seconds of deliberate downtime instead of an accidental outage.
+    SWAPPED=false
+    rm -rf dist.old 2>/dev/null
+    if [ ! -d dist ]; then
+      # Nothing live to preserve (first deploy, or a previous failure already lost it).
+      mv dist.staging dist && SWAPPED=true
+    elif mv dist dist.old 2>/dev/null; then
+      if mv dist.staging dist 2>/dev/null; then
+        rm -rf dist.old 2>/dev/null
+        SWAPPED=true
+      else
+        # Put the working app back exactly as it was.
+        mv dist.old dist
+        echo "⚠  Could not move the new build into place — rolled back to the previous one"
+      fi
+    else
+      # Windows file locks: the web server is holding dist. Take it down for the swap.
+      echo "ℹ  dist is locked by the running web app — stopping it for the swap"
+      pm2 stop garment-erp-web >/dev/null 2>&1
+      sleep 2
+      rm -rf dist 2>/dev/null
+      if mv dist.staging dist 2>/dev/null; then SWAPPED=true; fi
+      pm2 start garment-erp-web >/dev/null 2>&1
+      sleep 2
+    fi
+
+    if [ "$SWAPPED" = true ]; then
+      echo "✅ Frontend rebuilt and swapped in"
+    else
+      FAILED=true
+      echo "❌ Frontend swap FAILED — the new build is still in frontend/dist.staging"
+      echo "   Recover with: pm2 stop garment-erp-web && rm -rf frontend/dist &&"
+      echo "                 mv frontend/dist.staging frontend/dist && pm2 start garment-erp-web"
+    fi
     cd ..
     # Confirm the swap actually serves. The whole point of automating the deploy is
     # that nobody is watching it — so it has to check its own result rather than
     # assume. Today's outage was precisely "web app not serving" going unnoticed.
     if ! wait_for_http "http://localhost:3000/" 5 "web app"; then
-      FAILED=true
-      echo "❌ Frontend swapped but http://localhost:3000/ is NOT serving — check: pm2 logs garment-erp-web"
+      # Don't just report a dead app — try to bring it back. A stale serving process that
+      # still points at the directory we replaced is the likeliest cause, and restarting it
+      # is safe and targeted (never `pm2 restart all` — the daemon is shared with three other
+      # businesses).
+      echo "⚠  Web app not responding after the swap — restarting garment-erp-web once"
+      pm2 restart garment-erp-web >/dev/null 2>&1
+      if wait_for_http "http://localhost:3000/" 8 "web app (after restart)"; then
+        echo "✅ Web app responding after restart"
+      else
+        FAILED=true
+        echo "❌ Web app STILL not serving — check: pm2 logs garment-erp-web"
+        echo "   frontend/dist present? ls frontend/dist/index.html"
+      fi
     else
       echo "✅ Web app responding"
     fi

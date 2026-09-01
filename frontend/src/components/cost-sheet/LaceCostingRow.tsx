@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { Trash2, Info, RefreshCw } from 'lucide-react';
-import LaceSourcingStrategySelector from './LaceSourcingStrategySelector';
+import LaceSourcingStrategySelector, { type LaceStrategySelection } from './LaceSourcingStrategySelector';
 import type { LaceCostCalculationResult } from '../../types/laceCosting.types';
 
 interface LaceCostingRowProps {
@@ -19,23 +19,7 @@ interface LaceCostingRowProps {
   styleId?: string;
   currentStrategy?: 'STOCK_REUSE' | 'READY_LACE' | 'GREIGE_PROCESSED';
   currentCost?: number;
-  onStrategyChange: (strategy: {
-    sourcingStrategy: 'STOCK_REUSE' | 'READY_LACE' | 'GREIGE_PROCESSED';
-    cost: number;
-    costPerMeter: number;
-    stockLotId?: string;
-    processorId?: string;
-    rateCardId?: string;
-    procurementId?: string;
-    greigeCost?: number;
-    processingCost?: number;
-    readyLaceCost?: number;
-    stockCost?: number;
-    greigeLaceId?: string;
-    labDipId?: string;
-    isManualOverride?: boolean;
-    overrideReason?: string;
-  }) => void;
+  onStrategyChange: (strategy: LaceStrategySelection) => void;
   onRemove?: () => void;
   onQuantityChange?: (quantity: number) => void;
   onWastageChange?: (wastage: number) => void;
@@ -98,7 +82,7 @@ export default function LaceCostingRow({
     }
   };
 
-  const handleSelectStrategy = (strategy: Parameters<LaceCostingRowProps['onStrategyChange']>[0]) => {
+  const handleSelectStrategy = (strategy: LaceStrategySelection) => {
     onStrategyChange(strategy);
     setIsModalOpen(false);
   };
@@ -293,6 +277,8 @@ export default function LaceCostingRow({
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           laceCostData={laceCostData}
+          orderQuantity={orderQuantity}
+          styleId={styleId}
           onSelectStrategy={handleSelectStrategy}
         />
       )}

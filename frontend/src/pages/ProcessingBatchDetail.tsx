@@ -2,9 +2,20 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 import processingBatchService from '../services/processingBatch.service';
 import type { ProcessingBatch, BatchStatus } from '../types/processing.types';
-import { handleApiError } from '@/lib/api-error-handler';
+import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 
 const STATUS_COLORS: Record<BatchStatus, string> = {
   ACTIVE: 'bg-info-muted text-info border-info/20',
@@ -25,22 +36,66 @@ export default function ProcessingBatchDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Receive-dyed-lace dialog
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveQty, setReceiveQty] = useState('');
+  const [receiveDyeLot, setReceiveDyeLot] = useState('');
+  const [receiveShadeNote, setReceiveShadeNote] = useState('');
+  const [receiveGrade, setReceiveGrade] = useState('A');
+  const [receiveLocation, setReceiveLocation] = useState('');
+  const [receiveSubmitting, setReceiveSubmitting] = useState(false);
+  const [receiveError, setReceiveError] = useState<string | null>(null);
+
+  const loadBatch = async (batchId: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await processingBatchService.getById(batchId);
+      setBatch(data);
+    } catch (err) {
+      setError(handleApiError(err, 'Failed to load batch details', false));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!id) return;
-    const load = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await processingBatchService.getById(id);
-        setBatch(data);
-      } catch (err) {
-        setError(handleApiError(err, 'Failed to load batch details', false));
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
+    loadBatch(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  const handleReceiveLace = async () => {
+    if (!id) return;
+    const qty = parseFloat(receiveQty);
+    if (!(qty > 0) || !receiveDyeLot.trim()) return;
+
+    setReceiveSubmitting(true);
+    setReceiveError(null);
+    try {
+      const result = await processingBatchService.receiveProcessedLace(id, {
+        actualQuantityReceived: qty,
+        dyeLotNumber: receiveDyeLot.trim(),
+        shadeNote: receiveShadeNote.trim() || undefined,
+        qualityGrade: receiveGrade || undefined,
+        warehouseLocation: receiveLocation.trim() || undefined,
+      });
+      handleApiSuccess(
+        'Dyed lace received',
+        `${qty}m booked into stock (actual shrinkage ${result.actualShrinkagePercent?.toFixed(2)}%).`
+      );
+      setReceiveOpen(false);
+      setReceiveQty('');
+      setReceiveDyeLot('');
+      setReceiveShadeNote('');
+      setReceiveLocation('');
+      await loadBatch(id);
+    } catch (err) {
+      setReceiveError(handleApiError(err, 'Failed to receive dyed lace', false));
+    } finally {
+      setReceiveSubmitting(false);
+    }
+  };
 
   const formatDate = (value: string | Date | undefined) => {
     if (!value) return '-';
@@ -124,6 +179,14 @@ export default function ProcessingBatchDetail() {
                 )}
               </div>
             </div>
+
+            {/* Receiving the dyed lace is what closes the greige→dyed loop: the output is a
+                DIFFERENT material (the dyed variant) from the greige that was sent out. */}
+            {batch.materialType === 'LACE' && batch.overallStatus === 'ACTIVE' && (
+              <div className="flex justify-end mb-4">
+                <Button onClick={() => setReceiveOpen(true)}>Receive Dyed Lace</Button>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 md:grid-cols-6 gap-4 border-t pt-4">
               <div>
@@ -347,6 +410,98 @@ export default function ProcessingBatchDetail() {
           </div>
         </div>
       )}
+
+      {/* Receive dyed lace into stock */}
+      <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Receive Dyed Lace</DialogTitle>
+            <DialogDescription>
+              Books the dyed lace into stock against its finished (dyed) master
+              {batch?.colorToApply ? ` for "${batch.colorToApply}"` : ''}. The dyed lace is tracked separately from the
+              greige that was sent out, so undyed stock is never mixed with it.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="receiveQty">
+                  Quantity Received (m) <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="receiveQty"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={receiveQty}
+                  onChange={(e) => setReceiveQty(e.target.value)}
+                  placeholder={batch ? String(batch.totalQuantitySent ?? '') : ''}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Sent: {formatQty(batch?.totalQuantitySent)}m — shrinkage is derived from the difference.
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="receiveDyeLot">
+                  Dye Lot Number <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="receiveDyeLot"
+                  value={receiveDyeLot}
+                  onChange={(e) => setReceiveDyeLot(e.target.value)}
+                  placeholder="e.g., DL-2026-014"
+                />
+              </div>
+              <div>
+                <Label htmlFor="receiveGrade">Quality Grade</Label>
+                <Input
+                  id="receiveGrade"
+                  value={receiveGrade}
+                  onChange={(e) => setReceiveGrade(e.target.value)}
+                  placeholder="A"
+                />
+              </div>
+              <div>
+                <Label htmlFor="receiveLocation">Warehouse Location</Label>
+                <Input
+                  id="receiveLocation"
+                  value={receiveLocation}
+                  onChange={(e) => setReceiveLocation(e.target.value)}
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="receiveShadeNote">Shade Note</Label>
+              <Input
+                id="receiveShadeNote"
+                value={receiveShadeNote}
+                onChange={(e) => setReceiveShadeNote(e.target.value)}
+                placeholder="Optional — e.g. slightly darker than approved dip"
+              />
+            </div>
+
+            {receiveError && (
+              <div className="bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2 rounded text-sm">
+                {receiveError}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReceiveOpen(false)} disabled={receiveSubmitting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleReceiveLace}
+              disabled={receiveSubmitting || !(parseFloat(receiveQty) > 0) || !receiveDyeLot.trim()}
+            >
+              {receiveSubmitting ? 'Receiving...' : 'Receive into Stock'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

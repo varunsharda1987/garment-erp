@@ -69,6 +69,8 @@ export interface LaceComparisonTableRow {
 export interface LaceCostCalculationResult {
   laceId: string;
   laceName: string;
+  /** True when this master is greige (raw/undyed) — drives the "create dyed variant" flow. */
+  isGreige: boolean;
   quantityPerGarment: number;
   wastagePercent: number;
   effectiveQuantity: number;
@@ -92,6 +94,8 @@ export interface LaceCostingRequest {
   wastagePercent?: number;
   styleId?: string;
   costSheetId?: string;
+  /** Pins the dyeing processor instead of letting the server pick the cheapest rate. */
+  processorId?: string;
 }
 
 export interface BatchLaceCostingRequest {

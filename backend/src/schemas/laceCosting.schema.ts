@@ -26,7 +26,9 @@ export const calculateSingleLaceCostSchema = z
     laceId: z.string().uuid('Invalid lace ID'),
     quantityPerGarment: z.number().positive('Quantity per garment must be positive'),
     orderQuantity: z.number().int().positive().optional(),
-    wastagePercent: z.number().min(0).max(100).optional(),
+    // Required: the service refuses to assume a default wastage, so an omitted value used to
+    // surface as a 500 instead of a validation error. 0 is a legal value.
+    wastagePercent: z.number().min(0).max(100),
     styleId: z.string().uuid('Invalid style ID').optional(),
     costSheetId: z.string().uuid('Invalid cost sheet ID').optional(),
     sourcingType: LaceSourcingTypeEnum.optional(),
@@ -47,7 +49,8 @@ export const calculateBatchLaceCostSchema = z
             laceId: z.string().uuid('Invalid lace ID'),
             laceName: z.string().optional(),
             quantityPerGarment: z.number().positive('Quantity per garment must be positive'),
-            wastagePercent: z.number().min(0).max(100).optional(),
+            // Required for the same reason as the single-calculate schema above.
+            wastagePercent: z.number().min(0).max(100),
             sourcingType: LaceSourcingTypeEnum.optional(),
             processorId: z.string().uuid('Invalid processor ID').optional(),
           })

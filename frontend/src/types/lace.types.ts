@@ -61,6 +61,7 @@ export interface Lace {
   laceType?: string | null;
   image?: string | null;
   description?: string | null;
+  pricePerMeter?: number | null; // Ready-lace price (finished lace); greige cost lives in costPerMeterGreige
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -132,6 +133,7 @@ export interface LaceFormData {
   composition?: string;
   laceType?: string;
   description?: string;
+  pricePerMeter?: number | string; // Ready-lace price (finished lace only)
   styleCodes?: string[]; // Style code associations
   suppliers?: LaceSupplierInput[]; // Multi-supplier support
 
@@ -181,6 +183,50 @@ export interface LaceListResponse {
     total: number;
     totalPages: number;
   };
+}
+
+/**
+ * One row of GET /materials/lace/for-costing.
+ *
+ * Unlike /finished this includes GREIGE laces (isGreige=true) so a greige can be costed
+ * as-is (undyed). The endpoint is NOT paginated — it returns { data, total }.
+ */
+export interface LaceCostingOption {
+  id: string;
+  laceCode: string;
+  laceName: string;
+  color?: string | null;
+  width?: number | null;
+  isGreige: boolean;
+  /** For greige rows this is the as-is (undyed) purchase rate from costPerMeterGreige. */
+  readyLaceCost?: number | null;
+  greigeCost?: number | null;
+  expectedShrinkagePercent?: number | null;
+  stockAvailable?: number | null;
+  stockCost?: number | null;
+  sourceGreigeLace?: { id: string; laceCode: string; laceName: string } | null;
+}
+
+export interface LaceCostingOptionsResponse {
+  data: LaceCostingOption[];
+  total: number;
+}
+
+/** Request to create (or reuse) the dyed variant of a greige lace. */
+export interface CreateDyedLaceVariantRequest {
+  greigeLaceId: string;
+  color: string;
+  processorId?: string | null;
+  labDipId?: string | null;
+  styleCode?: string | null;
+  pricePerMeter?: number | null;
+}
+
+export interface CreateDyedLaceVariantResponse {
+  lace: Lace;
+  /** false when an existing variant for this greige+colour was reused instead of created. */
+  created: boolean;
+  message: string;
 }
 
 export interface MaterialEntry {

@@ -292,9 +292,15 @@ const CostSheetForm = () => {
               const extractedLaces: LaceDetail[] = [];
 
               // Capture existing lace IDs from loaded cost sheet to avoid duplicates
-              // (saved lace rows come back as the relational `laceItems`)
+              // (saved lace rows come back as the relational `laceItems`).
+              // greigeLaceId is included on purpose: when a row was costed as a DYED VARIANT of a
+              // greige, its laceId is the finished variant while the style BOM still holds the
+              // GREIGE. Matching on laceId alone re-added that greige as a second row on every
+              // load, double-counting the lace in the sheet total.
               const savedLaces = ((costSheet as { laceItems?: LaceDetail[] }).laceItems || []) as LaceDetail[];
-              const existingLaceIds = new Set(savedLaces.map((l: LaceDetail) => l.laceId));
+              const existingLaceIds = new Set(
+                savedLaces.flatMap((l: LaceDetail) => [l.laceId, l.greigeLaceId].filter(Boolean) as string[])
+              );
 
               // Helper function to get unit based on material type
               const getUnitForMaterialType = (materialType: string): string => {
@@ -398,7 +404,14 @@ const CostSheetForm = () => {
                   const quantityPerGarment = bom.quantityPerGarment || 0;
                   const wastagePercent = laceWastagePercentDefault;
                   const effectiveQuantity = quantityPerGarment * (1 + wastagePercent / 100);
-                  const costPerMeter = Number(laceMaster.pricePerMeter) || 0;
+                  // Rate precedence: the BOM line's own (editable) price, then the master's
+                  // ready price, then the greige as-is rate for a greige lace. Reading only
+                  // pricePerMeter left every greige — and every unpriced master — at ₹0.
+                  const costPerMeter =
+                    Number(bom.unitPrice) ||
+                    Number(laceMaster.pricePerMeter) ||
+                    Number(laceMaster.costPerMeterGreige) ||
+                    0;
                   const totalCost = effectiveQuantity * costPerMeter;
 
                   extractedLaces.push({
@@ -1096,8 +1109,12 @@ const CostSheetForm = () => {
             const extractedEmbroidery: EmbroideryDetail[] = [];
             const extractedLaces: LaceDetail[] = [];
 
-            // Capture existing lace IDs to avoid duplicates with manually added laces
-            const existingLaceIds = new Set(laceDetails.map((l) => l.laceId));
+            // Capture existing lace IDs to avoid duplicates with manually added laces.
+            // greigeLaceId is included so a row costed as a dyed variant also suppresses its
+            // source greige from the BOM (otherwise the greige returns as a duplicate row).
+            const existingLaceIds = new Set(
+              laceDetails.flatMap((l) => [l.laceId, l.greigeLaceId].filter(Boolean) as string[])
+            );
 
             // Helper function to get unit based on material type
             const getUnitForMaterialType = (materialType: string): string => {
@@ -1196,7 +1213,13 @@ const CostSheetForm = () => {
                 const quantityPerGarment = bom.quantityPerGarment || 0;
                 const wastagePercent = laceWastagePercentDefault;
                 const effectiveQuantity = quantityPerGarment * (1 + wastagePercent / 100);
-                const costPerMeter = Number(laceMaster.pricePerMeter) || 0;
+                // Rate precedence: the BOM line's own (editable) price, then the master's ready
+                // price, then the greige as-is rate. See the matching block in the load path.
+                const costPerMeter =
+                  Number(bom.unitPrice) ||
+                  Number(laceMaster.pricePerMeter) ||
+                  Number(laceMaster.costPerMeterGreige) ||
+                  0;
                 const totalCost = effectiveQuantity * costPerMeter;
 
                 extractedLaces.push({

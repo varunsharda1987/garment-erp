@@ -90,6 +90,9 @@ export const orderBOMItemSchema = z.object({
   packagingId: z.string().uuid().optional(),
   fabricId: z.string().uuid().optional(),
   greigeId: z.string().uuid().optional(),
+  // Greige LACE source (FK to lace_master). Distinct from greigeId, which FKs greige_master
+  // (fabric) — a lace id written into greigeId is a guaranteed FK violation.
+  greigeLaceId: z.string().uuid().optional().nullable(),
   sourcingStrategy: z.string().optional(),
   processorId: z.string().uuid().optional(),
   greigeCost: z.number().optional(),

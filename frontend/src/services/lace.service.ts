@@ -4,6 +4,9 @@ import type {
   Lace,
   LaceFormData,
   LaceListResponse,
+  LaceCostingOptionsResponse,
+  CreateDyedLaceVariantRequest,
+  CreateDyedLaceVariantResponse,
   LaceResponse,
   BulkImportResponse,
   BulkImportRow,
@@ -52,6 +55,7 @@ const buildLacePayload = (laceData: LaceFormData): FormData | Record<string, unk
     composition: laceData.composition,
     laceType: laceData.laceType,
     description: laceData.description,
+    pricePerMeter: laceData.pricePerMeter ? Number(laceData.pricePerMeter) : undefined,
     styleCodes: laceData.styleCodes || [],
     suppliers:
       laceData.suppliers?.map((s) => ({
@@ -115,6 +119,19 @@ export const updateLace = async (id: string, laceData: LaceFormData): Promise<La
 };
 
 /**
+ * Create (or reuse) the dyed variant of a greige lace.
+ *
+ * The finished variant is the dyed lace's stock identity, so this is what lets one greige be
+ * used as-is in one style and dyed in another. Deduped server-side on (greige, colour).
+ */
+export const createDyedLaceVariant = async (
+  payload: CreateDyedLaceVariantRequest
+): Promise<CreateDyedLaceVariantResponse> => {
+  const { data } = await api.post<CreateDyedLaceVariantResponse>('/materials/lace/dyed-variant', payload);
+  return data;
+};
+
+/**
  * Delete image from lace (without deleting the lace itself)
  */
 export const deleteLaceImage = async (id: string): Promise<void> => {
@@ -174,10 +191,13 @@ export const getFinishedLace = async (params?: {
 };
 
 /**
- * Get lace items formatted for cost sheet selection
+ * Get lace items for cost sheet selection.
+ *
+ * Includes GREIGE laces as well as finished ones, so a greige can be costed as-is (undyed)
+ * or picked as the base for a dyed variant. Not paginated — returns { data, total }.
  */
-export const getLaceForCosting = async (params?: { search?: string }): Promise<LaceListResponse> => {
-  const { data } = await api.get<LaceListResponse>('/materials/lace/for-costing', {
+export const getLaceForCosting = async (params?: { search?: string }): Promise<LaceCostingOptionsResponse> => {
+  const { data } = await api.get<LaceCostingOptionsResponse>('/materials/lace/for-costing', {
     params,
   });
   return data;

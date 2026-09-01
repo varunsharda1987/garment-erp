@@ -238,7 +238,11 @@ model order_bom_items {
   otherFunctionalId  String?
 
   // NEW: Sourcing Strategy fields for GREIGE_PROCESSED workflow
-  greigeId       String? // FK to greige_master (for greige variant)
+  greigeId       String? // FK to greige_master (for greige FABRIC variant) — never a lace id
+  // Lace greige source. Separate from greigeId on purpose: greigeId FKs greige_master (fabric),
+  // so writing a lace_master id there is a guaranteed P2003 (order-BOM generation used to do
+  // exactly that for GREIGE_PROCESSED lace rows).
+  greigeLaceId   String? // FK to lace_master (the greige lace a dyed variant is processed from)
   processorId    String? // FK to suppliers (for processor)
   greigeCost     Decimal? @db.Decimal(12, 2) // Breakdown: greige ₹/m as the weaver bills it — what MRP prices greige POs at
   processingCost Decimal? @db.Decimal(12, 2) // Breakdown: processing ₹/m — what MRP prices the PROCESSING requirement at
@@ -249,7 +253,7 @@ model order_bom_items {
   elastic_master          elastic_master?          @relation(fields: [elasticId], references: [id])
   fabric_master           fabric_master?           @relation(fields: [fabricId], references: [id])
   label_master            label_master?            @relation(fields: [labelId], references: [id])
-  lace_master             lace_master?             @relation(fields: [laceId], references: [id])
+  lace_master             lace_master?             @relation("bom_item_lace", fields: [laceId], references: [id])
   material                materials?               @relation(fields: [materialId], references: [id])
   orderBom                order_bom                @relation(fields: [orderBomId], references: [id], onDelete: Cascade)
   packaging_master        packaging_master?        @relation(fields: [packagingId], references: [id])
@@ -275,9 +279,10 @@ model order_bom_items {
   other_functional_master other_functional_master? @relation(fields: [otherFunctionalId], references: [id])
 
   // NEW: Relations for sourcing strategy fields
-  greige    greige_master?       @relation("bom_item_greige", fields: [greigeId], references: [id])
-  processor suppliers?           @relation("bom_item_processor", fields: [processorId], references: [id])
-  rateCard  processor_rate_card? @relation("bom_item_rate_card", fields: [rateCardId], references: [id])
+  greige     greige_master?       @relation("bom_item_greige", fields: [greigeId], references: [id])
+  greigeLace lace_master?         @relation("bom_item_greige_lace", fields: [greigeLaceId], references: [id])
+  processor  suppliers?           @relation("bom_item_processor", fields: [processorId], references: [id])
+  rateCard   processor_rate_card? @relation("bom_item_rate_card", fields: [rateCardId], references: [id])
 
   // Back-relation: requirements whose price was snapshotted from this BOM line
   snapshotRequirements material_requirements[] @relation("mrp_requirement_bom_item")
@@ -285,6 +290,7 @@ model order_bom_items {
   @@index([orderBomId])
   @@index([materialType])
   @@index([greigeId])
+  @@index([greigeLaceId])
   @@index([processorId])
 }
 
@@ -5294,7 +5300,8 @@ model lace_master {
   lace_style_associations lace_style_associations[]
   lace_suppliers          lace_suppliers[]
   materials               materials[]
-  order_bom_items         order_bom_items[]
+  order_bom_items         order_bom_items[]           @relation("bom_item_lace")
+  greigeLaceBomItems      order_bom_items[]           @relation("bom_item_greige_lace")
   style_material_bom      style_material_bom[]
   costingItems            style_costing_lace_items[]  @relation("costing_lace")
   greigeCostingItems      style_costing_lace_items[]  @relation("costing_greige_lace")

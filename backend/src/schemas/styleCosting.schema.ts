@@ -186,17 +186,37 @@ export const updateLaceItemSchema = z.object({
  * Bulk Add Lace Items
  * POST /api/style-costing/:costingId/lace-items/bulk
  */
+// Mirrors addLaceItemSchema — the service reads quantityPerGarment/costPerMeter/sourcingStrategy.
+// The previous {quantity, unit, rate, costOption:['STOCK','READY','GREIGE_PROCESSING']} shape
+// named nothing the service or the table actually uses, so every field of every bulk-added row
+// was stripped by validation.
 export const bulkAddLaceItemsSchema = z.object({
   items: z
     .array(
       z.object({
         laceId: z.string().uuid('Invalid lace ID'),
-        quantity: z.number().positive('Quantity must be positive'),
-        unit: z.string().max(20).optional().default('METER'),
-        rate: z.number().nonnegative('Rate cannot be negative'),
-        costOption: z.enum(['STOCK', 'READY', 'GREIGE_PROCESSING']).optional(),
+        laceName: z.string().max(200),
+        colorName: z.string().max(100).optional(),
+        width: z.number().positive().optional(),
+        quantityPerGarment: z.number().nonnegative(),
+        // Required: the service refuses to assume a default wastage.
+        wastagePercent: z.number().min(0).max(100),
+        sourcingStrategy: LaceSourcingStrategyEnum,
+        greigeCost: z.number().nonnegative().optional(),
         processingCost: z.number().nonnegative().optional(),
-        remarks: z.string().max(500).optional(),
+        readyLaceCost: z.number().nonnegative().optional(),
+        stockCost: z.number().nonnegative().optional(),
+        costPerMeter: z.number().nonnegative(),
+        greigeLaceId: z.string().uuid().optional(),
+        processorId: z.string().uuid().optional(),
+        rateCardId: z.string().uuid().optional(),
+        stockLotId: z.string().uuid().optional(),
+        procurementId: z.string().uuid().optional(),
+        labDipId: z.string().uuid().optional(),
+        labDipStatus: z.string().max(50).optional(),
+        isManualOverride: z.boolean().optional(),
+        overrideReason: z.string().max(500).optional(),
+        notes: z.string().max(500).optional(),
       })
     )
     .min(1, 'At least one item is required'),

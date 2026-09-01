@@ -17,7 +17,7 @@ import { ValidationError } from '../errors';
  * Calculate lace cost with all sourcing options
  */
 export async function calculateSingleLaceCost(req: Request, res: Response) {
-  const { laceId, quantityPerGarment, orderQuantity, wastagePercent, styleId, costSheetId } = req.body;
+  const { laceId, quantityPerGarment, orderQuantity, wastagePercent, styleId, costSheetId, processorId } = req.body;
 
   // Validation
   if (!laceId || quantityPerGarment === undefined) {
@@ -32,6 +32,8 @@ export async function calculateSingleLaceCost(req: Request, res: Response) {
     wastagePercent: wastagePercent != null ? parseFloat(wastagePercent) : undefined,
     styleId,
     costSheetId,
+    // Pins the dyeing processor when the user chose one explicitly.
+    processorId: processorId || undefined,
   });
 
   res.json(

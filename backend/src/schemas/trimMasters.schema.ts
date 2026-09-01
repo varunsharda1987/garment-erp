@@ -506,6 +506,25 @@ export const updateLaceSchema = createLaceSchema
   .passthrough();
 
 /**
+ * Create (or reuse) the DYED VARIANT of a greige lace.
+ * POST /api/materials/lace/dyed-variant
+ *
+ * Lets a greige lace be dyed to a colour without a detour to the full lace form. The finished
+ * variant is what carries the dyed stock identity (lace_stock is keyed by laceId and has no
+ * colour column), so one variant per greige+colour is the unit of identity — hence the dedupe.
+ */
+export const createDyedLaceVariantSchema = z.object({
+  greigeLaceId: z.string().uuid('A source greige lace is required'),
+  color: z.string().min(1, 'Target colour is required').max(50),
+  // Optional provenance captured at creation; all are nullable because a cost sheet is often
+  // drafted before the processor is chosen or the lab dip is raised.
+  processorId: z.string().uuid().optional().nullable(),
+  labDipId: z.string().uuid().optional().nullable(),
+  styleCode: z.string().max(50).optional().nullable(),
+  pricePerMeter: z.coerce.number().nonnegative().optional().nullable(),
+});
+
+/**
  * Bulk Import Lace
  * POST /api/materials/lace/bulk-import
  */
@@ -589,6 +608,7 @@ export type CreateLabelInput = z.infer<typeof createLabelSchema>;
 export type UpdateLabelInput = z.infer<typeof updateLabelSchema>;
 export type CreateLaceInput = z.infer<typeof createLaceSchema>;
 export type UpdateLaceInput = z.infer<typeof updateLaceSchema>;
+export type CreateDyedLaceVariantInput = z.infer<typeof createDyedLaceVariantSchema>;
 export type CreatePackagingInput = z.infer<typeof createPackagingSchema>;
 export type UpdatePackagingInput = z.infer<typeof updatePackagingSchema>;
 export type TrimMasterQueryInput = z.infer<typeof trimMasterQuerySchema>;

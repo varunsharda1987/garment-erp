@@ -53,6 +53,8 @@ export interface OrderBOMItemInput {
   packagingId?: string;
   fabricId?: string;
   greigeId?: string;
+  /** Greige LACE source (FK to lace_master) — NOT greigeId, which FKs greige_master (fabric). */
+  greigeLaceId?: string | null;
   sourcingStrategy?: string;
   processorId?: string;
   greigeCost?: number;

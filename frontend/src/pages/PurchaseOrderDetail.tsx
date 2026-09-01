@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -118,6 +118,7 @@ interface GRNItem {
 
 export default function PurchaseOrderDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -141,6 +142,19 @@ export default function PurchaseOrderDetail() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // The list page's "Close Short" menu item arrives with ?action=short-close. Open the dialog for
+  // it — otherwise that menu item is indistinguishable from "View Details". Only once the order is
+  // loaded, and only when the action is actually available on it.
+  useEffect(() => {
+    if (searchParams.get('action') !== 'short-close' || !purchaseOrder) return;
+    if (purchaseOrder.status === 'PARTIALLY_RECEIVED') {
+      setShortCloseDialogOpen(true);
+    }
+    searchParams.delete('action');
+    setSearchParams(searchParams, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purchaseOrder]);
 
   const fetchPurchaseOrder = async () => {
     try {

@@ -655,7 +655,9 @@ export default function PurchaseOrderList() {
                                   <DropdownMenuItem
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      navigate(`/procurement/purchase-orders/${po.id}`);
+                                      // Carry the intent: without it this item is identical to
+                                      // "View Details" and simply lands the user on the page.
+                                      navigate(`/procurement/purchase-orders/${po.id}?action=short-close`);
                                     }}
                                   >
                                     <FileMinus className="h-4 w-4 mr-2" />

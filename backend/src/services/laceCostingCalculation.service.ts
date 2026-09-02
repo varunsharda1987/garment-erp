@@ -440,6 +440,78 @@ async function getReadyLaceCost(laceId: string, quantityNeeded: number, lace: an
   };
 }
 
+/** One dyer's rate, resolved at the greige quantity they will actually process. */
+interface ResolvedLaceRate {
+  ratePerMeter: number;
+  slabLabel: string;
+  shrinkagePercent: number | null;
+  greigeQuantity: number;
+}
+
+/**
+ * Price a dyeing job on the GREIGE metres the dyer actually processes.
+ *
+ * Rate cards are banded by quantity, but the quantity that selects the band is only known after
+ * the card's shrinkage is read: the dyer handles greige metres (finished ÷ (1 − shrinkage)), not
+ * the finished metres the garment needs. Looking the rate up once at the finished quantity — as
+ * this used to — can land a whole band too cheap (e.g. 900 finished metres picks the 500–1000
+ * band while 1000 greige metres are actually processed), and that under-priced rate is then
+ * frozen onto the cost sheet and every PO derived from it.
+ *
+ * So: look up once to learn the shrinkage, gross up, then look up again at the greige quantity.
+ * A second pass is enough — the re-priced band is the one the dyer bills against, and its own
+ * shrinkage is used for the final quantity so the two always agree.
+ */
+async function resolveLaceRateAtGreigeQuantity(
+  processorId: string,
+  greigeLaceId: string,
+  finishedQuantity: number
+): Promise<ResolvedLaceRate | null> {
+  const assertUsableShrinkage = (percent: number): void => {
+    // 100% (or more) makes the shrinkage divisor zero/negative — Infinity downstream.
+    if (1 - percent / 100 <= 0) {
+      throw new Error(
+        `Invalid shrinkage ${percent}% on the processor rate card: must be below 100% (it is a divisor in costing).`
+      );
+    }
+  };
+
+  const first = await lookupLaceRate({ processorId, laceId: greigeLaceId, quantityMeters: finishedQuantity });
+  if (!first) return null;
+
+  if (first.shrinkagePercent === null) {
+    // No shrinkage on the card: greige == finished, so the first band is already the right one.
+    return {
+      ratePerMeter: first.ratePerMeter,
+      slabLabel: first.slab.label,
+      shrinkagePercent: null,
+      greigeQuantity: finishedQuantity,
+    };
+  }
+
+  assertUsableShrinkage(first.shrinkagePercent);
+  const greigeQuantity = toNumber(divideCurrency(finishedQuantity, 1 - first.shrinkagePercent / 100));
+
+  const second = await lookupLaceRate({ processorId, laceId: greigeLaceId, quantityMeters: greigeQuantity });
+  if (!second) {
+    return {
+      ratePerMeter: first.ratePerMeter,
+      slabLabel: first.slab.label,
+      shrinkagePercent: first.shrinkagePercent,
+      greigeQuantity,
+    };
+  }
+
+  const finalShrinkage = second.shrinkagePercent ?? first.shrinkagePercent;
+  assertUsableShrinkage(finalShrinkage);
+  return {
+    ratePerMeter: second.ratePerMeter,
+    slabLabel: second.slab.label,
+    shrinkagePercent: finalShrinkage,
+    greigeQuantity: toNumber(divideCurrency(finishedQuantity, 1 - finalShrinkage / 100)),
+  };
+}
+
 /**
  * Calculate greige lace + processing cost
  */
@@ -624,40 +696,32 @@ async function calculateGreigeLaceProcessingCost(
   let slabLabel: string | null = null;
 
   if (processorId) {
-    // Look up rate from approved lab dip's processor
-    const rate = await lookupLaceRate({
-      processorId,
-      laceId: greigeLaceId,
-      quantityMeters: greigeQuantityNeeded,
-    });
+    // Rate from the chosen processor (approved lab dip, or explicitly pinned), priced on the
+    // greige metres they actually process.
+    const resolved = await resolveLaceRateAtGreigeQuantity(processorId, greigeLaceId, quantityNeeded);
 
-    if (rate) {
-      processingCostPerMeter = rate.ratePerMeter;
-      slabLabel = rate.slab.label;
-      // Get shrinkage from processor rate card (ONLY source)
-      if (rate.shrinkagePercent !== null) {
-        shrinkagePercent = rate.shrinkagePercent;
+    if (resolved) {
+      processingCostPerMeter = resolved.ratePerMeter;
+      slabLabel = resolved.slabLabel;
+      // Shrinkage comes from the processor rate card (ONLY source)
+      if (resolved.shrinkagePercent !== null) {
+        shrinkagePercent = resolved.shrinkagePercent;
         shrinkageFactor = 1 - shrinkagePercent / 100;
-        // A shrinkage of 100% (or more) makes this factor 0/negative and is used as a divisor
-        // below and in effectiveCostPerMeter — it would produce Infinity/garbage. Fail loud on
-        // bad data instead (bug-hunt BH-0366/BH-0364).
-        if (shrinkageFactor <= 0) {
-          throw new Error(
-            `Invalid shrinkage ${shrinkagePercent}% on the processor rate card: must be below 100% (it is a divisor in costing).`
-          );
-        }
-        // BUG-FAB12 fix: use decimal.js for precision
-        greigeQuantityNeeded = toNumber(divideCurrency(quantityNeeded, shrinkageFactor));
+        greigeQuantityNeeded = resolved.greigeQuantity;
       }
     }
   }
 
-  // If no processor from lab dip, find best rate from all processors.
-  // Skipped when the caller pinned a processor: swapping in a cheaper one would override an
-  // explicit choice. If the pinned processor has no rate card the option reports unavailable
-  // below, which is the truthful answer — silently costing a different dyer is not.
-  const processorWasPinned = Boolean(preferredProcessorId) && processorId === preferredProcessorId;
-  if (!processingCostPerMeter && !processorWasPinned) {
+  // No rate yet: shop around for the cheapest dyer.
+  //
+  // Only runs when the processor is still OURS TO CHOOSE. If the dyer is already fixed — by an
+  // approved lab dip for this colour, or by an explicit pick — this scan must not run at all:
+  // it used to take the cheapest dyer's rate AND shrinkage while leaving processorId on the
+  // fixed dyer, quoting (and later purchasing) dyer A's work at dyer B's price, with dyer B's
+  // shrinkage deciding how much greige to buy. A fixed dyer with no rate card is reported
+  // unavailable below, which is the truthful answer.
+  const processorIsFixed = labDipApproved || (Boolean(preferredProcessorId) && processorId === preferredProcessorId);
+  if (!processingCostPerMeter && !processorIsFixed) {
     const dyeingProcessors = await prisma.suppliers.findMany({
       where: {
         supplierCategories: { has: 'DYEING_PRINTING' },
@@ -667,38 +731,29 @@ async function calculateGreigeLaceProcessingCost(
     });
 
     for (const processor of dyeingProcessors) {
-      const rate = await lookupLaceRate({
-        processorId: processor.id,
-        laceId: greigeLaceId,
-        quantityMeters: greigeQuantityNeeded,
-      });
+      const resolved = await resolveLaceRateAtGreigeQuantity(processor.id, greigeLaceId, quantityNeeded);
 
-      if (rate && (!processingCostPerMeter || rate.ratePerMeter < processingCostPerMeter)) {
-        processingCostPerMeter = rate.ratePerMeter;
-        slabLabel = rate.slab.label;
-        // Get shrinkage from processor rate card (ONLY source)
-        if (rate.shrinkagePercent !== null) {
-          shrinkagePercent = rate.shrinkagePercent;
+      if (resolved && (!processingCostPerMeter || resolved.ratePerMeter < processingCostPerMeter)) {
+        processingCostPerMeter = resolved.ratePerMeter;
+        slabLabel = resolved.slabLabel;
+        if (resolved.shrinkagePercent !== null) {
+          shrinkagePercent = resolved.shrinkagePercent;
           shrinkageFactor = 1 - shrinkagePercent / 100;
-          if (shrinkageFactor <= 0) {
-            throw new Error(
-              `Invalid shrinkage ${shrinkagePercent}% on the processor rate card: must be below 100% (it is a divisor in costing).`
-            );
-          }
-          // BUG-FAB12 fix: use decimal.js for precision
-          greigeQuantityNeeded = toNumber(divideCurrency(quantityNeeded, shrinkageFactor));
+          greigeQuantityNeeded = resolved.greigeQuantity;
         }
-        if (!labDipApproved) {
-          // Only override processor if no approved lab dip
-          processorId = processor.id;
-          processorName = processor.name;
-        }
+        // The scan only runs when the processor is ours to choose, so the winner always takes
+        // the job — rate, shrinkage and dyer now always come from the same card.
+        processorId = processor.id;
+        processorName = processor.name;
       }
     }
   }
 
-  // Shrinkage MUST be configured in processor rate card
-  if (shrinkagePercent === null) {
+  // Shrinkage MUST be configured in processor rate card.
+  // Checked AFTER the no-rate case below, because shrinkage lives ON the rate card: when no card
+  // resolved at all, "configure shrinkage" is a misleading instruction — the card is the thing
+  // that is missing.
+  if (shrinkagePercent === null && processingCostPerMeter) {
     return {
       available: false,
       greigeLaceId,
@@ -747,7 +802,11 @@ async function calculateGreigeLaceProcessingCost(
         shrinkageFactor,
         effectiveCostPerMeter: null,
       },
-      details: 'No dyeing processor rate found for this greige lace',
+      details: processorIsFixed
+        ? `No rate card for ${processorName || 'the selected processor'} on this greige lace. ` +
+          `${labDipApproved ? 'That dyer is fixed by the approved lab dip for this colour' : 'That dyer was chosen explicitly'}, ` +
+          `so another dyer's rate cannot be used — add their rate card (with shrinkage %) to cost this option.`
+        : 'No dyeing processor rate found for this greige lace',
       labDipRequired: true,
       labDipId,
       labDipStatus,

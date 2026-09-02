@@ -385,17 +385,19 @@ export default function StyleFormRedesigned() {
   const [openComponentPopovers, setOpenComponentPopovers] = useState<Record<number, boolean>>({});
   const [categoryComponentIds, setCategoryComponentIds] = useState<Set<string>>(new Set()); // Components allowed for selected category
 
-  // House Of Kasya: use buyer reference as style code
+  // In-house brands: buyer style code = style code (no auto-generation)
   const HOUSE_OF_KASYA_ID = 'c4a5436d-0ae3-40ca-be18-2cfd553f89ea';
-  const isHouseOfKasya =
-    selectedCustomerId === HOUSE_OF_KASYA_ID || customerName?.toLowerCase().includes('house of kasya');
+  const usesBuyerCodeAsStyleCode =
+    selectedCustomerId === HOUSE_OF_KASYA_ID ||
+    customerName?.toLowerCase().includes('kasya') ||
+    customerName?.toLowerCase().includes('nihsamah');
 
-  // Auto-copy buyerStyleRef to styleCode for House Of Kasya
+  // Auto-copy buyerStyleRef to styleCode for in-house brands
   useEffect(() => {
-    if (isHouseOfKasya && buyerStyleRef.trim() && !isEditMode) {
+    if (usesBuyerCodeAsStyleCode && buyerStyleRef.trim() && !isEditMode) {
       setStyleCode(buyerStyleRef.trim());
     }
-  }, [buyerStyleRef, isHouseOfKasya, isEditMode]);
+  }, [buyerStyleRef, usesBuyerCodeAsStyleCode, isEditMode]);
 
   // Ensure selectedComponents array has enough elements when numberOfComponents changes
   useEffect(() => {
@@ -2601,7 +2603,9 @@ export default function StyleFormRedesigned() {
                       placeholder="Buyer's style code"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      {isHouseOfKasya ? 'Will be used as Style Code' : "Buyer's own code (shows on documents)"}
+                      {usesBuyerCodeAsStyleCode
+                        ? 'Will be used as Style Code'
+                        : "Buyer's own code (shows on documents)"}
                     </p>
                   </div>
                   <div>
@@ -2616,15 +2620,18 @@ export default function StyleFormRedesigned() {
                   {/* Row 4: Style Code, Primary Color */}
                   <div>
                     <Label>
-                      Style Code {isEditMode ? '' : isHouseOfKasya ? '(From Buyer Reference)' : '(Auto-generated)'}
+                      Style Code{' '}
+                      {isEditMode ? '' : usesBuyerCodeAsStyleCode ? '(From Buyer Reference)' : '(Auto-generated)'}
                     </Label>
                     <Input
                       value={styleCode}
-                      placeholder={isHouseOfKasya ? 'Enter Buyer Reference above' : 'Select brand + category above'}
+                      placeholder={
+                        usesBuyerCodeAsStyleCode ? 'Enter Buyer Reference above' : 'Select brand + category above'
+                      }
                       readOnly
                       className="bg-muted"
                     />
-                    {!isEditMode && !isHouseOfKasya && (
+                    {!isEditMode && !usesBuyerCodeAsStyleCode && (
                       <p className="text-xs text-muted-foreground mt-1">
                         Generated from brand prefix + category prefix
                       </p>

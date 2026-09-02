@@ -627,8 +627,12 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false, styleC
       description: null,
     };
 
-    // Update the appropriate state based on active tab
-    switch (activeTab) {
+    // BUG FIX: Use the actual type that was created, not the current active tab
+    // User might be on BUTTON tab but create a LACE - we must use the created type
+    const createdType = (newMaterial.materialType as TrimType) || activeTab;
+
+    // Update the appropriate state based on the ACTUAL created type
+    switch (createdType) {
       case 'BUTTON':
         setButtons((prev) => [...prev, trimItem]);
         break;
@@ -695,9 +699,9 @@ export function TrimSelector({ selectedTrims, onChange, disabled = false, styleC
         break;
     }
 
-    // Auto-select the newly created item
+    // Auto-select the newly created item with the CORRECT type
     const newTrim: StyleTrim = {
-      trimType: activeTab,
+      trimType: createdType,
       masterId: newMaterial.id,
       masterCode: newMaterial.code,
       masterName: newMaterial.name,

@@ -76,5 +76,7 @@ export interface CreatedMaterial {
   code: string;
   name: string;
   color?: string | null;
+  /** The material type that was actually created (e.g., 'BUTTON', 'LACE') */
+  materialType?: string;
   [key: string]: unknown;
 }

@@ -92,6 +92,8 @@ export const MaterialQuickAddDialog: React.FC<MaterialQuickAddDialogProps> = ({
         code: typeof rawCode === 'string' ? rawCode : String(rawCode ?? ''),
         name: typeof rawName === 'string' ? rawName : String(rawName ?? ''),
         color: formData.color || null,
+        // Include the actual type that was created (fixes bug where activeTab was used instead)
+        materialType: selectedType || undefined,
       };
 
       // Callback to parent component

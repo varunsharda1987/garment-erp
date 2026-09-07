@@ -243,7 +243,17 @@ export async function issueChallan(id: string, userId?: string) {
 
           // Consume from source warehouse — pass the outer tx so the consumption rolls back with the
           // challan if issuance later fails (was on the global client → stock deducted with no challan; F4).
-          await greigeStockService.consumeGreigeStock(item.greigeStockId, qty, effectiveUserId, tx);
+          // The challan reference is passed so this ONE ledger row fully describes the movement. It
+          // used to be omitted, leaving referenceId null and forcing a second, duplicate row below.
+          const isProcessorTransfer =
+            existing.challanType === 'OUTWARD' && existing.toType === 'SUPPLIER' && !!existing.toId;
+          await greigeStockService.consumeGreigeStock(item.greigeStockId, qty, effectiveUserId, tx, {
+            referenceType: 'CHALLAN',
+            referenceId: existing.id,
+            notes: isProcessorTransfer
+              ? `Transferred to processor ${existing.toName} via challan ${existing.challanNumber}`
+              : `Consumed via challan ${existing.challanNumber}`,
+          });
 
           // If OUTWARD to a processor, create stock at processor's warehouse
           if (existing.challanType === 'OUTWARD' && existing.toType === 'SUPPLIER' && existing.toId && originalStock) {
@@ -288,20 +298,15 @@ export async function issueChallan(id: string, userId?: string) {
               // != 'TRANSFER'. So the source consumption's ledger debit is the whole story:
               // issued greige leaves on-hand and returns as fabric via GRN. Do NOT credit the
               // ledger here — that would recreate ledger↔derived drift on every transfer.
-
-              // Create audit trail for the transfer
-              await tx.greige_stock_transaction.create({
-                data: {
-                  stockId: item.greigeStockId,
-                  transactionType: 'TRANSFER_OUT',
-                  quantity: new Prisma.Decimal(-qty),
-                  balanceAfter: new Prisma.Decimal(0), // Will be updated by consumeGreigeStock
-                  referenceType: 'CHALLAN',
-                  referenceId: existing.id,
-                  notes: `Transferred to processor ${existing.toName} via challan ${existing.challanNumber}`,
-                  performedById: effectiveUserId,
-                },
-              });
+              //
+              // A second TRANSFER_OUT row used to be written here against the SOURCE lot. It was
+              // wrong twice over: the lot already had a CONSUMPTION row for the same metres (so
+              // the lot read as if double the quantity had left), and its balanceAfter was
+              // hard-coded to 0 with a comment claiming consumeGreigeStock would correct it —
+              // which never happened, because that runs first and writes its own row. The only
+              // thing it added was the challan reference, which the consumption row now carries
+              // itself. Live example: GRG-0006 showed CONSUMPTION −500 (balance 4883.14) AND
+              // TRANSFER_OUT −500 (balance 0) for a single 500 m challan.
             }
           }
         }

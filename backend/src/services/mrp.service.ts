@@ -999,6 +999,11 @@ export async function calculateRequirementsFromOrder(
               fabric_master: true,
               greige: true, // P3: for shrinkage percent in greige qty formula
               lace_master: true,
+              // The GREIGE lace a dyed lace line is processed from. supplierId is what gives the
+              // greige-lace purchase requirement a real, buyable preferred supplier.
+              greigeLace: {
+                select: { id: true, laceCode: true, laceName: true, isGreige: true, supplierId: true },
+              },
               button_master: true,
               thread_master: true,
               zipper_master: true,
@@ -1190,6 +1195,13 @@ export async function calculateRequirementsFromOrder(
       const hasGreigeProcessing = bomItem.sourcingStrategy === 'GREIGE_PROCESSED' && bomItem.greigeId;
       // LANDED GREIGE: buying greige fabric at a landed price (no processing) — single procurement requirement
       const hasLandedGreige = !hasGreigeProcessing && !!bomItem.greigeId && !bomItem.fabricId;
+      // The LACE equivalent of hasGreigeProcessing. Keyed on greigeLaceId (FK to lace_master),
+      // never greigeId — that column FKs greige_master (fabric) and is null on a lace line, which
+      // is exactly why hasGreigeProcessing above is false here and a dyed lace used to fall
+      // through to the single all-in requirement below.
+      const hasGreigeProcessedLace = !!(
+        bomItem.sourcingStrategy === 'GREIGE_PROCESSED' && (bomItem as any).greigeLaceId
+      );
       // Other master types - check all trim FK fields defined in TRIM_FK_FIELDS constant
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const hasSpecificMaster = TRIM_FK_FIELDS.some((field) => (bomItem as any)[field]);
@@ -1399,6 +1411,52 @@ export async function calculateRequirementsFromOrder(
           for (const warn of greigeResult.warnings) {
             logger.warn(`[MRP] ${bomItem.componentName}: ${warn}`);
           }
+        }
+      } else if (hasGreigeProcessedLace) {
+        // Lace shrinkage is DERIVED from the frozen price, not looked up.
+        //
+        // resolveShrinkagePercent cannot serve lace: step 1 needs rateCardId, which nothing ever
+        // writes for lace (lookupLaceRate returns a rate but no card id, and no selector payload
+        // sets it); steps 2 and 3 are keyed on greigeId/greige_master, both null on a lace line.
+        // It would return 0% every time and we would silently buy short by the shrinkage.
+        //
+        // But the costing service built unitPrice as (greige + processing) / (1 - s), and all
+        // three are frozen on this row, so s is exactly recoverable:
+        //     s = 1 - (greigeCost + processingCost) / unitPrice
+        // That is better than any lookup: it is guaranteed to agree with the price the order was
+        // quoted at, even if the rate card has changed since.
+        const g = bomItem.greigeCost != null ? Number(bomItem.greigeCost) : null;
+        const p = bomItem.processingCost != null ? Number(bomItem.processingCost) : null;
+        const allIn = bomItem.unitPrice != null ? Number(bomItem.unitPrice) : null;
+
+        if (g != null && p != null && allIn && allIn > 0) {
+          const derived = (1 - (g + p) / allIn) * 100;
+          // Guard against rounding noise and against a row whose components do not reconcile
+          // (e.g. a hand-edited price): only trust a sane, positive shrinkage.
+          if (derived > 0.01 && derived < 100) {
+            shrinkagePercentUsed = Number(derived.toFixed(2));
+            shrinkageSourceUsed = 'LACE_PRICE_DERIVED';
+            const greigeResult = calculateGreigeQuantity({
+              need: totalRequired,
+              wastagePercent: 0,
+              shrinkagePercent: shrinkagePercentUsed,
+            });
+            totalRequired = greigeResult.quantity;
+            for (const warn of greigeResult.warnings) {
+              logger.warn(`[MRP] ${bomItem.componentName}: ${warn}`);
+            }
+          } else {
+            shrinkagePercentUsed = 0;
+            shrinkageSourceUsed = 'NONE';
+          }
+        } else {
+          shrinkagePercentUsed = 0;
+          shrinkageSourceUsed = 'NONE';
+          logWarn(
+            `[MRP] ${bomItem.componentName || 'lace'}: cannot derive dyeing shrinkage — the BOM line is ` +
+              `missing greigeCost, processingCost or unitPrice. Planning with NO shrinkage allowance; ` +
+              `the greige lace purchased will be short if it shrinks in dyeing.`
+          );
         }
       }
 
@@ -1610,6 +1668,25 @@ export async function calculateRequirementsFromOrder(
             );
             continue;
           }
+        }
+      }
+
+      // For a dyed lace, both requirements are raised against the GREIGE LACE's material — that is
+      // the thing actually bought and actually sent to the dyer. The dyed variant is what comes
+      // BACK, and it is procured by nobody.
+      let greigeLaceMaterialId: string | null = null;
+      if (hasGreigeProcessedLace) {
+        const greigeLaceId = (bomItem as any).greigeLaceId as string;
+        const created = await ensureMaterialForLace(greigeLaceId);
+        if (created) {
+          greigeLaceMaterialId = created.id;
+        } else {
+          skippedItems.push({
+            componentName: bomItem.componentName || 'Unknown Greige Lace',
+            materialType: bomItem.materialType,
+            reason: `Failed to resolve material record for greige lace ${greigeLaceId}.`,
+          });
+          continue;
         }
       }
 
@@ -1834,7 +1911,83 @@ export async function calculateRequirementsFromOrder(
       }
 
       // For GREIGE_PROCESSED sourcing, create TWO requirements: GREIGE + PROCESSING
-      if (hasGreigeProcessing && greigeMaterialId) {
+      if (hasGreigeProcessedLace && greigeLaceMaterialId) {
+        // A dyed lace splits exactly like a dyed fabric: buy the greige, then pay someone to dye
+        // it. Both rows sit on the GREIGE LACE's material and both carry GREIGE metres
+        // (totalRequired was grossed up above), because that is what the weaver sells and what
+        // the dyer processes.
+        //
+        // Deliberately NOT netted against stock. lace_stock has no rows today, so netting would
+        // subtract zero, and "free lace stock" is not yet a well-defined number — quantityReserved
+        // has two contradictory meanings across its writers. Planning the full quantity is the
+        // safe direction (over-buy, never under-buy) until that is settled.
+        const greigeLacePrice = bomItem.greigeCost != null ? Number(bomItem.greigeCost) : null;
+        const dyeingPrice = bomItem.processingCost != null ? Number(bomItem.processingCost) : null;
+        const greigeLaceSupplierId = (bomItem as any).greigeLace?.supplierId || null;
+
+        // Requirement 1: buy the GREIGE LACE
+        calculatedRequirements.push({
+          orderId,
+          orderItemId: orderItem.id,
+          materialId: greigeLaceMaterialId,
+          orderBomId: bom.id,
+          orderQuantity,
+          quantityPerUnit,
+          wastagePercent,
+          totalRequired,
+          unit: normalizeUnit(bomItem.unit),
+          availableStock: 0,
+          allocatedFromStock: 0,
+          shortfall: totalRequired,
+          preferredSupplierId: greigeLaceSupplierId,
+          status: MaterialRequirementStatus.PO_REQUIRED,
+          requirementType: 'MATERIAL',
+          isGreigeRequirement: true, // links the PROCESSING row to this one in the persist pass
+          shrinkagePercentUsed,
+          shrinkageSourceUsed,
+          processorId: bomItem.processorId || null,
+          processingCost: dyeingPrice,
+          colorName: (bomItem as any).colorName || null,
+          componentName: bomItem.componentName || null,
+          // Frozen ₹/greige-metre from the cost sheet. Never bomItem.unitPrice — that is the
+          // all-in dyed rate and would overpay the weaver by the whole dyeing margin.
+          unitPrice: greigeLacePrice,
+          rateSource: greigeLacePrice != null ? 'ORDER_BOM' : null,
+          orderBomItemId: bomItem.id,
+        });
+
+        // Requirement 2: pay the dyer
+        calculatedRequirements.push({
+          orderId,
+          orderItemId: orderItem.id,
+          materialId: greigeLaceMaterialId, // same material — requirementType is what separates them
+          orderBomId: bom.id,
+          orderQuantity,
+          quantityPerUnit,
+          wastagePercent,
+          // Lace dyeing is billed per GREIGE metre (the costing service multiplies the rate by the
+          // greige quantity), so this is the same figure as the purchase row — NOT reduced by
+          // shrinkage the way fabric processing is.
+          totalRequired,
+          unit: normalizeUnit(bomItem.unit),
+          availableStock: 0,
+          allocatedFromStock: 0,
+          shortfall: totalRequired,
+          preferredSupplierId: bomItem.processorId || null,
+          status: MaterialRequirementStatus.PO_REQUIRED,
+          requirementType: 'PROCESSING',
+          processorId: bomItem.processorId || null,
+          processingCost: dyeingPrice,
+          colorName: (bomItem as any).colorName || null,
+          componentName: bomItem.componentName || null,
+          shrinkagePercentUsed,
+          shrinkageSourceUsed,
+          linkedGreigeMaterialId: greigeLaceMaterialId,
+          unitPrice: dyeingPrice,
+          rateSource: dyeingPrice != null ? 'ORDER_BOM' : null,
+          orderBomItemId: bomItem.id,
+        });
+      } else if (hasGreigeProcessing && greigeMaterialId) {
         // Price snapshot: GREIGE uses greigeCost (the landed greige price from cost sheet).
         // The unitPrice fallback is allowed ONLY when the line has no processing rate either —
         // then unitPrice plausibly IS a bare greige rate (legacy rows). When processingCost is
@@ -3204,6 +3357,8 @@ export async function generatePOFromRequirements(
           id: true,
           rateCardId: true,
           greigeId: true,
+          // Identifies a LACE dyeing requirement, which must not be built into a fabric-shaped JWO.
+          greigeLaceId: true,
           fabricId: true,
           fabricWidthInches: true,
           sourcingStrategy: true,
@@ -3521,6 +3676,26 @@ export async function generatePOFromRequirements(
 
   // Check if these are PROCESSING requirements
   const isProcessingRequirements = requirements.every((req) => req.requirementType === 'PROCESSING');
+
+  // LACE dyeing must not be discharged down the fabric job-work path below. That path builds a
+  // JWO whose header is fabric-shaped — job_work_orders has no lace column, buildJwoDataForProcessingPO
+  // stamps fabricType 'GREIGE' with a null fabricId, and createGRNFromJWO then THROWS on a null
+  // fabricId, so the document could never be received. Lace dyeing is tracked as a processing
+  // batch instead (challan out → dye → receive-lace back in), which is already built.
+  if (isProcessingRequirements) {
+    const laceProcessing = requirements.filter((req) => !!(req as any).orderBomItem?.greigeLaceId);
+    if (laceProcessing.length > 0) {
+      if (laceProcessing.length !== requirements.length) {
+        throw new Error(
+          'Selected PROCESSING requirements mix lace dyeing with fabric processing — generate them separately.'
+        );
+      }
+      throw new Error(
+        'Lace dyeing is not raised as a job work order. Send the greige lace to the dyer on an outward ' +
+          'challan, then record the dyed lace back with Receive Dyed Lace on the processing batch.'
+      );
+    }
+  }
 
   // JWC bridge (BUG-JWC1): derive the process type per requirement — the rate card is
   // authoritative, else printingType implies PRINTING, else DYEING. One JWO per PO

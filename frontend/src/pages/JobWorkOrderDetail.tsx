@@ -260,9 +260,9 @@ export default function JobWorkOrderDetail() {
     if (!issuePreview) return;
     setIssueRows((rows) => {
       if (rows.length !== 1 || rows[0].lotId || rows[0].qty) return rows;
-      // A non-greige (service) order consumes nothing by default — preselecting a lot for it would
-      // quietly send material that nobody asked to send.
-      if (issuePreview.fabricType !== 'GREIGE') return rows;
+      // A service order consumes nothing by default — preselecting a lot for it would quietly
+      // send material that nobody asked to send. Greige and lace jobs both do consume.
+      if (issuePreview.fabricType !== 'GREIGE' && issuePreview.fabricType !== 'LACE') return rows;
       const required = issuePreview.requiredQty;
       const singleCoveringLot = issuePreview.availableLots.find((lot) => lot.quantityAvailable >= required);
       return [{ lotId: singleCoveringLot?.id ?? '', qty: required > 0 ? String(round2(required)) : '' }];
@@ -276,10 +276,18 @@ export default function JobWorkOrderDetail() {
         vehicleNumber: issueVehicle || undefined,
         acknowledgeWidthMismatch: issueWidthAcknowledged || undefined,
       };
+      // A lace job always sends lots[], single row included: the order header has no lace-lot
+      // pointer to fall back on, so the row IS the only statement of which lot leaves.
+      if (issuePreview?.fabricType === 'LACE') {
+        payload.lots = filledRows.map((row) => ({
+          laceStockLotId: row.lotId,
+          qty: round2(parseFloat(row.qty)),
+        }));
+      }
       // One lot goes on the wire exactly as it always has. The server then consumes the order's
       // own qtySentMeters, so the issued quantity cannot drift from a re-typed number; lots[] is
       // reserved for a genuine split, where only the operator knows how it divides.
-      if (filledRows.length === 1) {
+      else if (filledRows.length === 1) {
         payload.greigeStockLotId = filledRows[0].lotId;
       } else if (filledRows.length > 1) {
         payload.lots = filledRows.map((row) => ({
@@ -434,6 +442,8 @@ export default function JobWorkOrderDetail() {
   // no way to issue it at all — so nothing here filters the options by quantity.
   const issuesFromFabricRoll = !!jwo.fabricStockLotId;
   const issuesGreige = jwo.fabricType === 'GREIGE';
+  /** A dyeing job whose material is lace: consumes lace_stock lots, mints no fabric. */
+  const issuesLace = jwo.fabricType === 'LACE';
   const issueRequiredQty = issuePreview?.requiredQty ?? jwo.qtySentMeters;
   const issueUom = issuePreview?.uom ?? jwo.uom;
   // Two-section lots: processor stock (virtual issuance) + main warehouse (requires dispatch)
@@ -473,7 +483,8 @@ export default function JobWorkOrderDetail() {
 
   // Non-greige service work legitimately consumes nothing, so leaving every row blank is a valid
   // answer there — but a greige order that issues no material is the bug this dialog was built for.
-  const issueAllowsNoLot = !issuesGreige && !issuesFromFabricRoll;
+  // A lace job is in the same boat as a greige one: it exists to send material out.
+  const issueAllowsNoLot = !issuesGreige && !issuesLace && !issuesFromFabricRoll;
   const issueSelectionValid = issuesFromFabricRoll
     ? true
     : issueAllowsNoLot && issueNoLotChosen
@@ -1200,7 +1211,7 @@ export default function JobWorkOrderDetail() {
                   requiredQty={issueRequiredQty}
                   uom={issueUom}
                   evaluation={issueEval}
-                  required={issuesGreige}
+                  required={issuesGreige || issuesLace}
                   allowNoLot={issueAllowsNoLot}
                   disabled={issueMutation.isPending}
                 />

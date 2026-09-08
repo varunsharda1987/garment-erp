@@ -15,9 +15,10 @@ import type {
 
 const BASE_URL = '/job-work-orders';
 
-/** One line of a multi-lot greige issue. */
+/** One source lot on an issue: a greige lot on a cloth job, a lace lot on a lace job. */
 export interface IssueLotInput {
-  greigeStockLotId: string;
+  greigeStockLotId?: string;
+  laceStockLotId?: string;
   qty: number;
 }
 
@@ -60,6 +61,9 @@ export interface IssueWithDetailsPayload {
  * drift by a paisa from a number that went through an input box and back. `lots` exists for
  * genuine multi-lot issues, where only the operator knows the split — there the server checks
  * the quantities sum to the order quantity (within 0.01) before touching stock.
+ *
+ * A LACE job is the exception: it has no header lot pointer to consume verbatim, so even a
+ * single lace lot travels as a one-element `lots` array.
  */
 export interface IssueJwoPayload {
   sentDate?: string;

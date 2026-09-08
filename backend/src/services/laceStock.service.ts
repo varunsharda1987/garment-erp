@@ -881,8 +881,160 @@ export async function getStockTransactionHistory(stockId: string) {
   return transactions;
 }
 
+// ============================================================================
+// LOT-LEVEL MOVEMENT (job work issuance)
+// ============================================================================
+
+type LaceStockClient = Prisma.TransactionClient | typeof prisma;
+
+interface LaceMovementOptions {
+  referenceType?: 'CHALLAN' | 'JOB_WORK_ORDER' | 'PROCESSING_BATCH';
+  referenceId?: string;
+  notes?: string;
+}
+
+/**
+ * Consume lace stock off ONE lot — the lace twin of consumeGreigeStock.
+ *
+ * This is the writer for sending lace out of the building (job work issuance). It differs from
+ * `consumeStock` above, which draws down an ALLOCATION and leaves quantityAvailable alone: goods
+ * physically leaving must come out of available, or the same metres remain issuable to a second job.
+ *
+ * SEMANTICS: consumes AVAILABLE only — quantityReserved is never touched, so a consume can never
+ * silently spend another order's reservation. The availability check and the decrement are ONE
+ * guarded statement, so two concurrent issues cannot both pass a stale check.
+ */
+export async function consumeLaceStock(
+  stockId: string,
+  quantity: number,
+  userId: string,
+  tx?: LaceStockClient,
+  options?: LaceMovementOptions
+) {
+  const client = (tx || prisma) as typeof prisma;
+
+  // Guarded atomic consume — the check IS the write.
+  const consumed = await client.lace_stock.updateMany({
+    where: { id: stockId, quantityAvailable: { gte: quantity } },
+    data: {
+      quantityAvailable: { decrement: quantity },
+      quantityConsumed: { increment: quantity },
+      lastConsumedDate: new Date(),
+    },
+  });
+  if (consumed.count === 0) {
+    const row = await client.lace_stock.findUnique({ where: { id: stockId } });
+    if (!row) throw new Error(`Lace stock lot ${stockId} not found`);
+    const available = Number(row.quantityAvailable);
+    const reserved = Number(row.quantityReserved);
+    throw new Error(
+      `Insufficient lace stock. Available: ${available}, Requested: ${quantity}` +
+        (reserved > 0 ? ` (${reserved} is reserved and cannot be consumed here)` : '')
+    );
+  }
+
+  // Exhausted only when nothing remains in EITHER bucket. Reserved metres are physically present
+  // (allocateStock moves them out of available into reserved), so a lot with a live reservation
+  // must stay visible — releasing it later puts the metres back.
+  await client.lace_stock.updateMany({
+    where: { id: stockId, quantityAvailable: { lte: 0 }, quantityReserved: { lte: 0 } },
+    data: { status: 'EXHAUSTED' },
+  });
+
+  const lot = await client.lace_stock.findUnique({ where: { id: stockId } });
+  if (!lot) throw new Error(`Lace stock lot ${stockId} not found after consumption`);
+
+  const costPerUnit = lot.purchaseCost ? Number(lot.purchaseCost) : Number(lot.weightedAvgCost);
+  await client.lace_stock_transaction.create({
+    data: {
+      stockId,
+      transactionType: 'CONSUMPTION',
+      quantity: new Prisma.Decimal(-quantity),
+      balanceAfter: lot.quantityAvailable,
+      referenceType: options?.referenceType ?? 'JOB_WORK_ORDER',
+      referenceId: options?.referenceId ?? null,
+      notes: options?.notes ?? `Issued to job work (₹${costPerUnit}/m)`,
+      performedById: userId,
+    },
+  });
+
+  // materials.id === lace_master.id by the same-ID convention, but resolve it rather than assume:
+  // a lace with no shim row must not silently skip the central ledger.
+  const material = await client.materials.findFirst({ where: { laceId: lot.laceId }, select: { id: true } });
+  if (material) {
+    await syncStockLevelQuantity(material.id, -quantity, lot.warehouseId || undefined, 'METER', client);
+  } else {
+    await ensureMaterialRecord(lot.laceId, 'LACE');
+    await syncStockLevelQuantity(lot.laceId, -quantity, lot.warehouseId || undefined, 'METER', client);
+  }
+
+  return lot;
+}
+
+/**
+ * Put consumed lace back on its lot — the exact inverse of consumeLaceStock, for a cancelled
+ * issuance or lace returned unprocessed.
+ *
+ * The guarded predicate (quantityConsumed >= quantity) refuses to over-credit, so a replayed
+ * cancel cannot mint stock that was never issued.
+ */
+export async function restoreLaceStock(
+  stockId: string,
+  quantity: number,
+  userId: string,
+  tx?: LaceStockClient,
+  options?: LaceMovementOptions
+) {
+  const client = (tx || prisma) as typeof prisma;
+
+  const restored = await client.lace_stock.updateMany({
+    where: { id: stockId, quantityConsumed: { gte: quantity } },
+    data: {
+      quantityAvailable: { increment: quantity },
+      quantityConsumed: { decrement: quantity },
+      // Metres are back on the shelf, so the lot is usable again whatever it was marked before.
+      status: 'AVAILABLE',
+    },
+  });
+  if (restored.count === 0) {
+    const row = await client.lace_stock.findUnique({ where: { id: stockId } });
+    if (!row) throw new Error(`Lace stock lot ${stockId} not found`);
+    throw new Error(
+      `Cannot return ${quantity}m: only ${Number(row.quantityConsumed)}m of this lot is recorded as consumed`
+    );
+  }
+
+  const lot = await client.lace_stock.findUnique({ where: { id: stockId } });
+  if (!lot) throw new Error(`Lace stock lot ${stockId} not found after return`);
+
+  await client.lace_stock_transaction.create({
+    data: {
+      stockId,
+      transactionType: 'RETURN',
+      quantity: new Prisma.Decimal(quantity),
+      balanceAfter: lot.quantityAvailable,
+      referenceType: options?.referenceType ?? 'JOB_WORK_ORDER',
+      referenceId: options?.referenceId ?? null,
+      notes: options?.notes ?? 'Returned unissued',
+      performedById: userId,
+    },
+  });
+
+  const material = await client.materials.findFirst({ where: { laceId: lot.laceId }, select: { id: true } });
+  if (material) {
+    await syncStockLevelQuantity(material.id, quantity, lot.warehouseId || undefined, 'METER', client);
+  } else {
+    await ensureMaterialRecord(lot.laceId, 'LACE');
+    await syncStockLevelQuantity(lot.laceId, quantity, lot.warehouseId || undefined, 'METER', client);
+  }
+
+  return lot;
+}
+
 export default {
   createLaceStock,
+  consumeLaceStock,
+  restoreLaceStock,
   getLaceStockById,
   getAllLaceStock,
   getAvailableStockForLace,

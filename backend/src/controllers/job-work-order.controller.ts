@@ -1098,6 +1098,35 @@ class JobWorkOrderController {
           })
         : [];
 
+      // Lace jobs draw from lace_stock instead. There are no at-processor lace lots (lace_stock
+      // has no processorId), so every lace lot is a main-warehouse lot and travels on a challan.
+      const laceLots =
+        v.jwo.fabricType === 'LACE' && v.jwo.greigeLaceId
+          ? await prisma.lace_stock.findMany({
+              where: { laceId: v.jwo.greigeLaceId, status: 'AVAILABLE', quantityAvailable: { gt: 0 } },
+              select: {
+                id: true,
+                laceId: true,
+                quantityAvailable: true,
+                lotNumber: true,
+                laceMaster: { select: { laceCode: true, laceName: true } },
+              },
+              orderBy: { quantityAvailable: 'desc' },
+            })
+          : [];
+      // Same DTO shape as a greige lot, so the issue dialog's lot rows render either kind: the
+      // page only has to send back laceStockLotId instead of greigeStockLotId.
+      const mapLaceLot = (l: (typeof laceLots)[0]) => ({
+        id: l.id,
+        greigeId: l.laceId,
+        greigeCode: l.laceMaster?.laceCode ?? null,
+        greigeName: l.lotNumber
+          ? `${l.laceMaster?.laceName ?? ''} (lot ${l.lotNumber})`
+          : (l.laceMaster?.laceName ?? null),
+        greigeWidth: null,
+        quantityAvailable: Number(l.quantityAvailable),
+      });
+
       // Extract original JWO info for processor lots
       const mapLot = (l: (typeof atMainWarehouseLots)[0]) => ({
         id: l.id,
@@ -1115,16 +1144,28 @@ class JobWorkOrderController {
       });
 
       const processorStockTotal = atProcessorLots.reduce((s, l) => s + Number(l.quantityAvailable), 0);
-      const mainWarehouseStockTotal = atMainWarehouseLots.reduce((s, l) => s + Number(l.quantityAvailable), 0);
+      const mainWarehouseStockTotal = [...atMainWarehouseLots, ...laceLots].reduce(
+        (s, l) => s + Number(l.quantityAvailable),
+        0
+      );
+      const mainWarehouseRows = [...atMainWarehouseLots.map(mapLot), ...laceLots.map(mapLaceLot)];
 
       return res.json({
         success: true,
         data: {
           canIssue: v.blockers.length === 0,
           blockers: v.blockers,
-          expectedGreige: v.expectedGreige,
+          // On a lace job this names the greige LACE being sent — same slot, same meaning.
+          expectedGreige:
+            v.jwo.fabricType === 'LACE' && v.jwo.greigeLace
+              ? {
+                  id: v.jwo.greigeLace.id,
+                  greigeCode: v.jwo.greigeLace.laceCode,
+                  greigeName: v.jwo.greigeLace.laceName,
+                }
+              : v.expectedGreige,
           // false ⇒ the list below spans many greiges; the UI must hold the same-greige rule itself
-          greigeAnchored: v.expectedGreigeId != null,
+          greigeAnchored: v.expectedGreigeId != null || (v.jwo.fabricType === 'LACE' && v.jwo.greigeLaceId != null),
           requiredQty: Number(v.jwo.qtySentMeters),
           uom: v.jwo.uom,
           fabricType: v.jwo.fabricType,
@@ -1132,10 +1173,10 @@ class JobWorkOrderController {
           // Two-section response for the issue dialog
           atProcessor: atProcessorLots.map(mapProcessorLot),
           atProcessorTotal: processorStockTotal,
-          atMainWarehouse: atMainWarehouseLots.map(mapLot),
+          atMainWarehouse: mainWarehouseRows,
           atMainWarehouseTotal: mainWarehouseStockTotal,
           // Legacy field for backwards compatibility
-          availableLots: [...atProcessorLots.map(mapProcessorLot), ...atMainWarehouseLots.map(mapLot)],
+          availableLots: [...atProcessorLots.map(mapProcessorLot), ...mainWarehouseRows],
         },
       });
     } catch (error) {

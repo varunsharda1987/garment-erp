@@ -23,6 +23,7 @@ import { Prisma, Unit } from '@prisma/client';
 import prisma from '../config/database';
 import { createChallan, type CreateChallanItemInput } from './challan.service';
 import greigeStockService from './greige-stock.service';
+import { consumeLaceStock, restoreLaceStock } from './laceStock.service';
 import { jobWorkOrderService, JobWorkOrderError, JWO_ERROR_CODES } from './job-work-order.service';
 import { ensureMaterialRecord, syncStockLevelQuantity } from './helpers/material-sync.helper';
 import { setJwoStatus } from './helpers/jwo-status.helper';
@@ -31,8 +32,14 @@ import { logInfo, logWarn, logError } from '../utils/logger';
 
 type Tx = Prisma.TransactionClient;
 
+/**
+ * One source lot on an issue. Exactly one id is set: a job is either a cloth job consuming greige
+ * lots or a lace job consuming lace lots — `fabricType` decides which, and the validator refuses
+ * the other kind rather than guessing.
+ */
 export interface IssueLotInput {
-  greigeStockLotId: string;
+  greigeStockLotId?: string;
+  laceStockLotId?: string;
   qty: number;
 }
 
@@ -81,7 +88,10 @@ export const ISSUE_ERROR_CODES = {
   ALREADY_ISSUED: 'ALREADY_ISSUED',
   ORDER_CANCELLED: 'ORDER_CANCELLED',
   NO_GREIGE_LOT: 'NO_GREIGE_LOT',
+  NO_LACE_LOT: 'NO_LACE_LOT',
   LOT_NOT_FOUND: 'LOT_NOT_FOUND',
+  LOT_LACE_MISMATCH: 'LOT_LACE_MISMATCH',
+  INSUFFICIENT_LACE: 'INSUFFICIENT_LACE',
   LOT_GREIGE_MISMATCH: 'LOT_GREIGE_MISMATCH',
   LOT_GREIGE_MIXED: 'LOT_GREIGE_MIXED',
   LOT_DUPLICATE: 'LOT_DUPLICATE',
@@ -106,6 +116,8 @@ const JWO_ISSUE_INCLUDE = {
   processor: { select: { id: true, name: true } },
   style: { select: { styleCode: true, buyerStyleRef: true } },
   fabric: { select: { id: true, greigeId: true } },
+  greigeLace: { select: { id: true, laceCode: true, laceName: true } },
+  finishedLace: { select: { id: true, laceCode: true, laceName: true, color: true } },
   labDip: { select: { fabric: { select: { greigeId: true } } } },
   requirementLinks: {
     select: {
@@ -131,6 +143,11 @@ export interface ValidateIssueResult {
     qty: number;
     /** True if lot is already at target processor (virtual issuance — no challan needed) */
     atProcessor?: boolean;
+  }>;
+  /** Resolved GREIGE LACE lots (fabricType 'LACE'). Empty on every cloth job. */
+  laceLots: Array<{
+    row: Prisma.lace_stockGetPayload<{ include: { laceMaster: { select: { laceCode: true; laceName: true } } } }>;
+    qty: number;
   }>;
   fabricLotRow: { id: string; quantityAvailable: Prisma.Decimal } | null;
   expectedGreigeId: string | null;
@@ -165,21 +182,98 @@ export async function validateIssue(
     });
   }
 
+  // A lace job consumes lace lots and nothing else — there is no header lot pointer to fall back
+  // on, because the greige lace is chosen at issue time from whatever lots are on the shelf.
+  const isLaceJob = jwo.fabricType === 'LACE';
+
   // Resolve the source: explicit lots → caller's single lot → the JWO's own lot → fabric roll
-  const singleLotId = opts.greigeStockLotId ?? jwo.greigeStockLotId ?? null;
+  const singleLotId = isLaceJob ? null : (opts.greigeStockLotId ?? jwo.greigeStockLotId ?? null);
   const lotInputs: IssueLotInput[] =
     opts.lots && opts.lots.length > 0
       ? opts.lots
       : singleLotId
         ? [{ greigeStockLotId: singleLotId, qty: Number(jwo.qtySentMeters) }]
         : [];
-  const fabricLotId = lotInputs.length === 0 ? (opts.fabricStockLotId ?? jwo.fabricStockLotId ?? null) : null;
+  const greigeLotInputs = isLaceJob
+    ? []
+    : lotInputs.filter((l): l is IssueLotInput & { greigeStockLotId: string } => !!l.greigeStockLotId);
+  const laceLotInputs = isLaceJob
+    ? lotInputs.filter((l): l is IssueLotInput & { laceStockLotId: string } => !!l.laceStockLotId)
+    : [];
+  const fabricLotId =
+    isLaceJob || lotInputs.length > 0 ? null : (opts.fabricStockLotId ?? jwo.fabricStockLotId ?? null);
 
-  if (jwo.fabricType === 'GREIGE' && lotInputs.length === 0 && !fabricLotId) {
+  if (jwo.fabricType === 'GREIGE' && greigeLotInputs.length === 0 && !fabricLotId) {
     blockers.push({
       code: ISSUE_ERROR_CODES.NO_GREIGE_LOT,
       message: `${jwo.jobWorkNumber} issues greige — pick the greige lot(s) to consume before sending.`,
     });
+  }
+  if (isLaceJob && laceLotInputs.length === 0) {
+    blockers.push({
+      code: ISSUE_ERROR_CODES.NO_LACE_LOT,
+      message: `${jwo.jobWorkNumber} issues lace — pick the greige lace lot(s) to consume before sending.`,
+    });
+  }
+
+  // ---- LACE lots ----------------------------------------------------------------------------
+  // Deliberately shorter than the greige checks below: lace_stock has no processorId (there are no
+  // at-processor lace lots), no supplierId (so no R6 free-issue-back check) and no width.
+  const laceLots: ValidateIssueResult['laceLots'] = [];
+  if (laceLotInputs.length > 0) {
+    const sum = laceLotInputs.reduce((acc, l) => addCurrency(acc, l.qty), toCurrency(0));
+    if (laceLotInputs.some((l) => !(l.qty > 0))) {
+      blockers.push({
+        code: ISSUE_ERROR_CODES.LOT_QTY_MISMATCH,
+        message: 'Every lot quantity must be greater than 0.',
+      });
+    } else if (toNumber(sum.minus(toCurrency(jwo.qtySentMeters)).abs()) > 0.01) {
+      blockers.push({
+        code: ISSUE_ERROR_CODES.LOT_QTY_MISMATCH,
+        message: `Lot quantities total ${toNumber(sum)} but the order issues ${Number(jwo.qtySentMeters)} ${jwo.uom}.`,
+      });
+    }
+
+    for (const input of laceLotInputs) {
+      const row = await prisma.lace_stock.findUnique({
+        where: { id: input.laceStockLotId },
+        include: { laceMaster: { select: { laceCode: true, laceName: true } } },
+      });
+      if (!row) {
+        blockers.push({
+          code: ISSUE_ERROR_CODES.LOT_NOT_FOUND,
+          message: `Lace stock lot ${input.laceStockLotId} not found.`,
+        });
+        continue;
+      }
+      // The dyer is paid to turn ONE greige into ONE dyed variant. A lot of anything else would
+      // come back as a colour of a lace that was never sent.
+      if (jwo.greigeLaceId && row.laceId !== jwo.greigeLaceId) {
+        blockers.push({
+          code: ISSUE_ERROR_CODES.LOT_LACE_MISMATCH,
+          message:
+            `Lot ${row.laceMaster?.laceCode ?? row.id.slice(0, 8)} is ${row.laceMaster?.laceName ?? 'a different lace'}, ` +
+            `but this order sends ${jwo.greigeLace?.laceCode ?? jwo.greigeLaceId}.`,
+        });
+      }
+      // Friendly pre-check; the guarded consume inside the tx is the authority
+      if (Number(row.quantityAvailable) < input.qty) {
+        blockers.push({
+          code: ISSUE_ERROR_CODES.INSUFFICIENT_LACE,
+          message: `Insufficient lace in lot ${row.laceMaster?.laceCode ?? row.id.slice(0, 8)}: ${Number(row.quantityAvailable)}m available, ${input.qty}m needed.`,
+        });
+      }
+      laceLots.push({ row, qty: input.qty });
+    }
+
+    const laceLotIds = laceLotInputs.map((l) => l.laceStockLotId);
+    if (new Set(laceLotIds).size !== laceLotIds.length) {
+      blockers.push({
+        code: ISSUE_ERROR_CODES.LOT_DUPLICATE,
+        message: 'The same lace lot is listed twice — combine the quantities into one row.',
+      });
+    }
+    laceLots.sort((a, b) => b.qty - a.qty);
   }
 
   // The cloth this order's requirement chain calls for
@@ -194,17 +288,17 @@ export async function validateIssue(
         select: { id: true, greigeCode: true, greigeName: true },
       })
     : null;
-  if (lotInputs.length > 0 && !expectedGreigeId) {
+  if (greigeLotInputs.length > 0 && !expectedGreigeId) {
     logWarn(`[Issuance] ${jwo.jobWorkNumber}: greige identity unresolvable — lot identity check skipped`, {
       jwoId,
     });
   }
 
   const lots: ValidateIssueResult['lots'] = [];
-  if (lotInputs.length > 0) {
+  if (greigeLotInputs.length > 0) {
     // Quantities must add up to what the order says leaves the building
-    const sum = lotInputs.reduce((acc, l) => addCurrency(acc, l.qty), toCurrency(0));
-    if (lotInputs.some((l) => !(l.qty > 0))) {
+    const sum = greigeLotInputs.reduce((acc, l) => addCurrency(acc, l.qty), toCurrency(0));
+    if (greigeLotInputs.some((l) => !(l.qty > 0))) {
       blockers.push({
         code: ISSUE_ERROR_CODES.LOT_QTY_MISMATCH,
         message: 'Every lot quantity must be greater than 0.',
@@ -216,7 +310,7 @@ export async function validateIssue(
       });
     }
 
-    for (const input of lotInputs) {
+    for (const input of greigeLotInputs) {
       const row = await prisma.greige_stock.findUnique({
         where: { id: input.greigeStockLotId },
         include: { greige: { select: { greigeCode: true, greigeName: true } } },
@@ -285,7 +379,7 @@ export async function validateIssue(
     }
 
     // Two rows on one lot double-consume it and mint two components for one physical lot.
-    const lotIds = lotInputs.map((l) => l.greigeStockLotId);
+    const lotIds = greigeLotInputs.map((l) => l.greigeStockLotId);
     if (new Set(lotIds).size !== lotIds.length) {
       blockers.push({
         code: ISSUE_ERROR_CODES.LOT_DUPLICATE,
@@ -297,7 +391,7 @@ export async function validateIssue(
     // Redundant wherever expectedGreigeId resolved — LOT_GREIGE_MISMATCH already forces every
     // lot equal to it — this is the ONLY guard on style-less stock orders, where identity is
     // unresolvable and nothing else compares the lots to each other.
-    if (lotInputs.length > 1 && new Set(lots.map((l) => l.row.greigeId)).size > 1) {
+    if (greigeLotInputs.length > 1 && new Set(lots.map((l) => l.row.greigeId)).size > 1) {
       blockers.push({
         code: ISSUE_ERROR_CODES.LOT_GREIGE_MIXED,
         message: 'All lots in one issue must be the same greige — issue them as separate job work orders.',
@@ -324,7 +418,7 @@ export async function validateIssue(
     }
   }
 
-  return { jwo, lots, fabricLotRow, expectedGreigeId, expectedGreige, blockers };
+  return { jwo, lots, laceLots, fabricLotRow, expectedGreigeId, expectedGreige, blockers };
 }
 
 /**
@@ -334,10 +428,26 @@ export async function validateIssue(
  * correct under a shared header.
  */
 function buildOutwardChallanItems(v: ValidateIssueResult): CreateChallanItemInput[] {
-  const { jwo, lots, fabricLotRow } = v;
+  const { jwo, lots, laceLots, fabricLotRow } = v;
   const isMeters = jwo.uom === 'MTR';
   const unit = isMeters ? Unit.METER : Unit.PIECE;
   const description = `${jwo.processType} job work — ${jwo.jobWorkNumber}${jwo.style?.styleCode ? ` (${jwo.style.styleCode})` : ''}`;
+
+  if (laceLots.length > 0) {
+    // laceStockId is set for the trail, NOT for deduction: the challan is created DRAFT and
+    // flipped to ISSUED here, so the challan page's own lace deduction never runs on it. The
+    // consume below is the one and only writer.
+    return laceLots.map(({ row, qty }) => ({
+      itemType: 'LACE',
+      laceStockId: row.id,
+      quantity: qty,
+      unit,
+      // MATERIAL value (movement declaration), never the job-work rate
+      rate: row.purchaseCost != null ? Number(row.purchaseCost) : undefined,
+      description: `${description} — ${row.laceMaster?.laceName ?? 'greige lace'}`,
+      jobWorkOrderId: jwo.id,
+    }));
+  }
 
   if (lots.length > 0) {
     return lots.map(({ row, qty }) => ({
@@ -410,7 +520,12 @@ interface IssueOneOptions {
 type IssuedChallan = {
   id: string;
   challanNumber: string;
-  items: Array<{ id: string; greigeStockId: string | null; jobWorkOrderId: string | null }>;
+  items: Array<{
+    id: string;
+    greigeStockId: string | null;
+    laceStockId: string | null;
+    jobWorkOrderId: string | null;
+  }>;
 };
 
 /**
@@ -428,9 +543,23 @@ async function issueOneWithinTx(
   opts: IssueOneOptions,
   issueDate: Date
 ): Promise<string[]> {
-  const { jwo, lots, fabricLotRow } = v;
+  const { jwo, lots, laceLots, fabricLotRow } = v;
   const jwoId = jwo.id;
   const warnings: string[] = [];
+
+  // 3a. CONSUME LACE — guarded, per lot, ledgered against the challan. Lace never sits at a
+  // processor (lace_stock has no processorId), so there is no virtual-issuance case here.
+  for (const { row, qty } of laceLots) {
+    if (!challan) {
+      throw new JobWorkOrderError('INTERNAL', 'Challan required for lace lot consumption');
+    }
+    await consumeLaceStock(row.id, qty, opts.userId, tx, {
+      referenceType: 'CHALLAN',
+      referenceId: challan.id,
+      notes: `Issued to ${jwo.processor?.name ?? 'processor'} — ${jwo.jobWorkNumber} / ${challan.challanNumber}`,
+    });
+  }
+
   // 3. CONSUME — guarded, per lot, ledgered against the challan
   // Skip if caller already did detail-level consumption (bale/than tracking)
   // For processor lots (virtual issuance), skip consumption — stock is already at processor
@@ -492,6 +621,40 @@ async function issueOneWithinTx(
     if (lotRow?.fabricId) {
       const materialId = await ensureMaterialRecord(lotRow.fabricId, 'FABRIC', tx);
       await syncStockLevelQuantity(materialId, -qty, lotRow.warehouseId ?? undefined, 'METER', tx);
+    }
+  }
+
+  // 4a. LACE COMPONENTS — written for EVERY lace lot, even a single one. Unlike greige, the
+  // header has no lot pointer to fall back on, so the component IS the record of which lot went
+  // out and at what cost; cancel-restore and the receipt's cost build both read it.
+  for (let i = 0; i < laceLots.length; i++) {
+    const { row, qty } = laceLots[i];
+    const cost = row.purchaseCost != null ? Number(row.purchaseCost) : Number(row.weightedAvgCost);
+    const component = await tx.job_work_order_components.create({
+      data: {
+        jobWorkOrderId: jwo.id,
+        materialType: 'LACE',
+        laceId: row.laceId,
+        laceStockId: row.id,
+        qtySent: new Prisma.Decimal(qty),
+        unit: jwo.uom,
+        rate: new Prisma.Decimal(cost),
+        rateAtIssue: new Prisma.Decimal(cost),
+        declaredValue: new Prisma.Decimal(toNumber(roundToCent(multiplyCurrency(qty, cost)))),
+        isChargeable: false, // principal's free-issue material
+        isReturnable: true,
+        componentName: `Greige lace lot ${i + 1} — ${row.laceMaster?.laceCode ?? row.id.slice(0, 8)}`,
+        sortOrder: i,
+      },
+    });
+    if (challan) {
+      const challanItem = challan.items.find((it) => it.laceStockId === row.id && it.jobWorkOrderId === jwo.id);
+      if (challanItem) {
+        await tx.challan_items.update({
+          where: { id: challanItem.id },
+          data: { jobWorkOrderComponentId: component.id },
+        });
+      }
     }
   }
 
@@ -558,6 +721,16 @@ async function issueOneWithinTx(
           });
         }
       }
+      for (const { row, qty } of laceLots) {
+        const fresh = await tx.lace_stock.findUnique({ where: { id: row.id }, select: { quantityReserved: true } });
+        const dec = Math.min(Number(fresh?.quantityReserved ?? 0), qty);
+        if (dec > 0) {
+          await tx.lace_stock.updateMany({
+            where: { id: row.id, quantityReserved: { gte: dec } },
+            data: { quantityReserved: { decrement: dec } },
+          });
+        }
+      }
       logInfo(`[Issuance] Released ${released.count} MRP reservation(s) fulfilled by ${jwo.jobWorkNumber}`);
     }
   }
@@ -582,7 +755,7 @@ async function issueOneWithinTx(
   }
 
   // 9. STAMP
-  const sumLotValue = lots.reduce((acc, { row, qty }) => {
+  const sumGreigeValue = lots.reduce((acc, { row, qty }) => {
     const cost =
       row.purchaseCost != null
         ? Number(row.purchaseCost)
@@ -591,6 +764,10 @@ async function issueOneWithinTx(
           : null;
     return cost != null ? addCurrency(acc, multiplyCurrency(qty, cost)) : acc;
   }, toCurrency(0));
+  const sumLotValue = laceLots.reduce((acc, { row, qty }) => {
+    const cost = row.purchaseCost != null ? Number(row.purchaseCost) : Number(row.weightedAvgCost);
+    return addCurrency(acc, multiplyCurrency(qty, cost));
+  }, sumGreigeValue);
   const declaredValue = toNumber(roundToCent(sumLotValue));
   // For virtual issuance (all lots at processor), use 'VIRTUAL-ALLOCATION' as challan number
   const isVirtualIssuance = lots.every((l) => l.atProcessor);
@@ -621,13 +798,15 @@ export async function issueJobWorkOrder(jwoId: string, opts: IssueJwoOptions): P
   if (v.blockers.length > 0) {
     throw new JobWorkOrderError(v.blockers[0].code, v.blockers[0].message);
   }
-  const { jwo, lots } = v;
+  const { jwo, lots, laceLots } = v;
   const issueDate = opts.sentDate ?? new Date();
 
   // Separate lots: mainWarehouseLots need challan + consumption, processorLots are virtual issuance
   const mainWarehouseLots = lots.filter((l) => !l.atProcessor);
   const processorLots = lots.filter((l) => l.atProcessor);
   const isVirtualIssuance = mainWarehouseLots.length === 0 && processorLots.length > 0;
+  // Lace always travels: every lace lot is in our own warehouse, so a lace issue is never virtual.
+  const needsChallan = mainWarehouseLots.length > 0 || laceLots.length > 0;
 
   const result = await prisma.$transaction(
     async (tx) => {
@@ -637,7 +816,7 @@ export async function issueJobWorkOrder(jwoId: string, opts: IssueJwoOptions): P
       let challan: IssuedChallan | null = null;
 
       // 2. CHALLAN — only needed if dispatching from main warehouse
-      if (mainWarehouseLots.length > 0) {
+      if (needsChallan) {
         // Build challan items only for main warehouse lots
         const challanV = { ...v, lots: mainWarehouseLots };
         challan = await createChallan(
@@ -686,6 +865,9 @@ export async function issueJobWorkOrder(jwoId: string, opts: IssueJwoOptions): P
   } else {
     logInfo(
       `[Issuance] Issued ${jwo.jobWorkNumber} — challan ${result.challanNumber}` +
+        (laceLots.length > 0
+          ? `, ${laceLots.length} lace lot(s) consumed (${Number(jwo.qtySentMeters)}${jwo.uom})`
+          : '') +
         (mainWarehouseLots.length > 0
           ? `, ${mainWarehouseLots.length} greige lot(s) consumed (${Number(jwo.qtySentMeters)}${jwo.uom})`
           : '') +
@@ -928,6 +1110,28 @@ export async function unissueForCancel(
   userId: string
 ): Promise<void> {
   const totalQty = Number(jwo.qtySentMeters);
+
+  // Lace lots are always recorded as components (the header carries no lace lot pointer), so the
+  // components ARE the restore list. Keyed off materialType, so no fabricType is needed here.
+  const laceComponents = await tx.job_work_order_components.findMany({
+    where: { jobWorkOrderId: jwo.id, materialType: 'LACE', laceStockId: { not: null } },
+    select: { laceStockId: true, qtySent: true },
+  });
+  for (const c of laceComponents) {
+    try {
+      await restoreLaceStock(c.laceStockId as string, Number(c.qtySent), userId, tx, {
+        referenceType: 'JOB_WORK_ORDER',
+        referenceId: jwo.id,
+        notes: `Job work cancelled — ${jwo.jobWorkNumber}`,
+      });
+    } catch (error) {
+      throw new JobWorkOrderError(
+        ISSUE_ERROR_CODES.CANCEL_RESTORE_FAILED,
+        `Cannot credit ${Number(c.qtySent)}m back to lace lot ${c.laceStockId} — ` +
+          `${error instanceof Error ? error.message : 'restore failed'}. Reconcile the lot manually before cancelling.`
+      );
+    }
+  }
 
   // Multi-lot issues recorded their split on components; single-lot uses the JWO pointer
   const components = await tx.job_work_order_components.findMany({

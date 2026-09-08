@@ -138,12 +138,25 @@ export type CloseJwoInput = z.infer<typeof closeJwoSchema>;
  * POST /api/job-work-orders/:id/issue — Phase 4c operational issue.
  * greigeStockLotId consumes that lot; challanNumber is the manual/vendor challan ref.
  */
+/** One source lot on an issue: a greige lot OR a lace lot, plus the quantity leaving. */
+const issueLotItemSchema = z
+  .object({
+    greigeStockLotId: z.string().optional(),
+    laceStockLotId: z.string().optional(),
+    qty: z.number().positive(),
+  })
+  .refine((l) => !!l.greigeStockLotId !== !!l.laceStockLotId, {
+    message: 'Each lot row needs exactly one of greigeStockLotId or laceStockLotId',
+  });
+
 export const issueJwoSchema = z.object({
   sentDate: z.coerce.date().optional(),
   greigeStockLotId: z.string().optional().nullable(),
   // Multi-lot issue (consolidated issuance service): quantities must total qtySentMeters.
   // Single-lot callers may keep sending greigeStockLotId instead.
-  lots: z.array(z.object({ greigeStockLotId: z.string(), qty: z.number().positive() })).optional(),
+  // A lace job sends laceStockLotId instead — one id per row, never both: the two are different
+  // stock tables, and a row naming both could not say which one leaves the building.
+  lots: z.array(issueLotItemSchema).optional(),
   // Phase 5b: fabric-roll issue source (EMBROIDERY) — consumes a fabric_stock lot instead of greige
   fabricStockLotId: z.string().optional().nullable(),
   challanNumber: z.string().max(100).trim().optional(),
@@ -171,7 +184,7 @@ export const dispatchJwoSchema = z.object({
     .array(
       z.object({
         jwoId: z.string().min(1),
-        lots: z.array(z.object({ greigeStockLotId: z.string(), qty: z.number().positive() })).optional(),
+        lots: z.array(issueLotItemSchema).optional(),
         greigeStockLotId: z.string().optional().nullable(),
         fabricStockLotId: z.string().optional().nullable(),
       })

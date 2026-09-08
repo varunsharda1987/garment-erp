@@ -211,6 +211,9 @@ export const jobWorkOrderService = {
       processor?: { id: string; name: string };
       style?: { id: string; styleCode: string };
       fabric?: { id: string; fabricCode: string; fabricName: string };
+      /** 'LACE' ⇒ the dyed variant below is what comes back, and there is no fabric. */
+      fabricType?: string | null;
+      finishedLace?: { id: string; laceCode: string; laceName: string; color?: string | null } | null;
     }>
   > {
     const response = await api.get(`${BASE_URL}/receivable`);

@@ -801,6 +801,9 @@ class JobWorkOrderController {
           processor: { select: { id: true, name: true } },
           style: { select: { id: true, styleCode: true } },
           fabric: { select: { id: true, fabricCode: true, fabricName: true } },
+          // A lace job has no fabric — what is coming back is the dyed variant.
+          fabricType: true,
+          finishedLace: { select: { id: true, laceCode: true, laceName: true, color: true } },
         },
         orderBy: { sentDate: 'desc' },
       });
@@ -1639,6 +1642,7 @@ class JobWorkOrderController {
         where: { id },
         select: {
           uom: true,
+          fabricType: true,
           greigeStockLotId: true,
           _count: { select: { requirementLinks: true } },
         },
@@ -1646,11 +1650,17 @@ class JobWorkOrderController {
       if (!existing) {
         return res.status(404).json({ success: false, message: 'Job work order not found' });
       }
-      if (existing.uom === 'MTR' && (existing.greigeStockLotId || existing._count.requirementLinks > 0)) {
+      // A lace job has neither a greige lot pointer nor (when raised by hand) a requirement link,
+      // so it is named explicitly — otherwise it would terminate here and the dyed lace would
+      // never reach stock.
+      if (
+        existing.uom === 'MTR' &&
+        (existing.fabricType === 'LACE' || existing.greigeStockLotId || existing._count.requirementLinks > 0)
+      ) {
         return res.status(422).json({
           success: false,
           code: 'RECEIVE_VIA_GRN',
-          message: 'Fabric job work is received through a GRN (Receive against Job Work Order) so stock gets created.',
+          message: `${existing.fabricType === 'LACE' ? 'Lace' : 'Fabric'} job work is received through a GRN (Receive against Job Work Order) so stock gets created.`,
         });
       }
 

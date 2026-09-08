@@ -2691,11 +2691,21 @@ class GRNService {
     }
 
     // grn_items.materialId is required — use the source fabric's materials record
-    // (materials.id === master.id invariant; ensureMaterialRecord creates if missing)
-    if (!jwo.fabricId) {
-      throw new Error(`${jwo.jobWorkNumber} has no fabric reference — cannot create a GRN item`);
+    // (materials.id === master.id invariant; ensureMaterialRecord creates if missing).
+    // A lace job books against the DYED VARIANT: that is the material actually arriving, and
+    // the greige it was made from has already left stock at issue.
+    let materialId: string;
+    if (jwo.fabricType === 'LACE') {
+      if (!jwo.finishedLaceId) {
+        throw new Error(`${jwo.jobWorkNumber} has no dyed lace variant — cannot create a GRN item`);
+      }
+      materialId = await ensureMaterialRecord(jwo.finishedLaceId, 'LACE');
+    } else {
+      if (!jwo.fabricId) {
+        throw new Error(`${jwo.jobWorkNumber} has no fabric reference — cannot create a GRN item`);
+      }
+      materialId = await ensureMaterialRecord(jwo.fabricId, 'FABRIC');
     }
-    const materialId = await ensureMaterialRecord(jwo.fabricId, 'FABRIC');
 
     const grnNumber = await this.generateGRNNumber();
     const grn = await prisma.goods_receiving_notes.create({
@@ -2859,6 +2869,12 @@ class GRNService {
       });
       return;
     }
+    // ---- LACE: the dyed variant arrives as lace_stock, and no fabric is minted -----------------
+    if (jobWorkOrder.fabricType === 'LACE') {
+      await this.approveLaceJwoGrnInTx(tx, jobWorkOrder, processingQC, targetWarehouseId, userId, grnId, qtyReceived);
+      return;
+    }
+
     const receivedWidth = await resolveStockWidthInches(jobWorkOrder, receivedWidthProvided, tx);
 
     // Phase 5b: fabric-lot JWOs (embroidery on a finished roll) keep the SAME fabric master —
@@ -3028,6 +3044,138 @@ class GRNService {
       fabricId: finishedFabricId,
       qtyReceived,
       costPerMeter: totalCostPerMeter,
+    });
+  }
+
+  /**
+   * Dyed lace coming back from the dyer (2026-09-08).
+   *
+   * The lace twin of the fabric branch above, and deliberately much shorter: there is no width to
+   * resolve, no finished master to mint or name (the dyed variant was chosen when the job was
+   * raised), and no CAD/pattern-part chain. What is left is the cost of the goods and the lot.
+   *
+   * COST differs from the fabric path on purpose. Fabric adds processing rate to the greige rate
+   * per metre, which quietly under-values cloth that shrank: you paid for every greige metre sent
+   * but only got the shrunk quantity back. Lace values the lot the way the cost sheet quotes it —
+   * all the greige money plus all the dyeing money, spread over what actually arrived:
+   *
+   *     (greige metres issued x greige cost/m + metres received x dyeing rate) / metres received
+   *
+   * On the canonical numbers (1,000 m greige at ₹40 dyed at ₹20, 900 m back) that is ₹64.44/m,
+   * which is exactly the cost sheet's all-in — greige/(1−s) + dyeing.
+   */
+  private async approveLaceJwoGrnInTx(
+    tx: Prisma.TransactionClient,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    jobWorkOrder: any,
+    processingQC: ProcessingQCData | undefined,
+    targetWarehouseId: string | null,
+    userId: string,
+    grnId: string,
+    qtyReceived: number
+  ): Promise<void> {
+    if (!jobWorkOrder.finishedLaceId) {
+      throw new Error(
+        `${jobWorkOrder.jobWorkNumber} is a lace job with no dyed variant — nothing to receive into stock`
+      );
+    }
+
+    const processingRate = Number(
+      processingQC?.actualRate ?? jobWorkOrder.actualRate ?? jobWorkOrder.agreedRatePerMeter ?? 0
+    );
+
+    // The LACE components are the record of what was issued and at what cost — a lace job always
+    // writes them, single lot included.
+    const laceComponents = await tx.job_work_order_components.findMany({
+      where: { jobWorkOrderId: jobWorkOrder.id, materialType: 'LACE', laceStockId: { not: null } },
+      select: { qtySent: true, rateAtIssue: true, rate: true },
+    });
+    let issuedValue = toCurrency(0);
+    let issuedQty = toCurrency(0);
+    for (const c of laceComponents) {
+      const rate = c.rateAtIssue ?? c.rate;
+      if (rate == null) continue;
+      issuedValue = addCurrency(issuedValue, multiplyCurrency(Number(c.qtySent), Number(rate)));
+      issuedQty = addCurrency(issuedQty, Number(c.qtySent));
+    }
+    // No priced components (a job issued outside this flow) leaves the dyeing rate as the whole
+    // cost — understated, but honest about what we actually know.
+    const costPerMeter = toNumber(roundToCent(addCurrency(divideCurrency(issuedValue, qtyReceived), processingRate)));
+
+    // Shared timestamp: GRN reversal matches the lot by exact receivedDate equality
+    const receivedAt = new Date();
+    const lot = await tx.lace_stock.create({
+      data: {
+        laceId: jobWorkOrder.finishedLaceId,
+        originStyleId: jobWorkOrder.styleId ?? null,
+        originStyleCode: jobWorkOrder.style?.styleCode ?? null,
+        quantityAvailable: new Prisma.Decimal(qtyReceived),
+        quantityReserved: 0,
+        quantityConsumed: 0,
+        unit: 'meters',
+        weightedAvgCost: new Prisma.Decimal(costPerMeter),
+        purchaseCost: new Prisma.Decimal(costPerMeter),
+        qualityGrade: processingQC?.qualityGrade || DEFAULT_QUALITY_GRADE,
+        status: 'AVAILABLE',
+        stockType: 'PLANNED_STOCK',
+        shadeNote: jobWorkOrder.colorName ?? null,
+        receivedDate: receivedAt,
+        warehouseId: targetWarehouseId,
+        createdById: userId,
+      },
+    });
+    await tx.lace_stock_transaction.create({
+      data: {
+        stockId: lot.id,
+        transactionType: 'STOCK_IN',
+        quantity: new Prisma.Decimal(qtyReceived),
+        balanceAfter: new Prisma.Decimal(qtyReceived),
+        referenceType: 'GRN',
+        referenceId: grnId,
+        notes: `Dyed lace received — ${jobWorkOrder.jobWorkNumber}`,
+        performedById: userId,
+      },
+    });
+    await ensureMaterialRecord(jobWorkOrder.finishedLaceId, 'LACE', tx);
+    await syncStockLevelQuantity(jobWorkOrder.finishedLaceId, qtyReceived, targetWarehouseId ?? undefined, 'METER', tx);
+
+    // No finishedFabricId: a lace job mints no fabric master, and writing one would put a
+    // phantom cloth on the order.
+    await setJwoStatus(tx, jobWorkOrder.id, 'STOCK_UPDATED', {
+      qtyReceivedMeters: qtyReceived,
+      receivedDate: jobWorkOrder.receivedDate ?? receivedAt,
+      grnId,
+      ...(processingQC
+        ? {
+            qualityGrade: processingQC.qualityGrade,
+            colorMatchStatus: processingQC.colorMatchStatus || null,
+            defectMeters: processingQC.defectMeters ?? null,
+            defectType: processingQC.defectType || null,
+            actualRate: processingQC.actualRate ?? null,
+          }
+        : {}),
+    });
+
+    try {
+      await jobWorkOrderService.applyLossSplit(jobWorkOrder.id, qtyReceived, tx);
+    } catch (lossSplitError) {
+      logWarn('[GRN] Loss split failed for lace JWO receive', {
+        jobWorkOrderId: jobWorkOrder.id,
+        error: lossSplitError instanceof Error ? lossSplitError.message : lossSplitError,
+      });
+    }
+
+    await mrpService.updateJwoReceivedQuantity(jobWorkOrder.id, qtyReceived, tx);
+    await updateWosrReceivedQuantity(jobWorkOrder.id, qtyReceived, tx);
+
+    logInfo('Lace JWO GRN approved — lace_stock created', {
+      grnId,
+      jobWorkOrderId: jobWorkOrder.id,
+      jobWorkNumber: jobWorkOrder.jobWorkNumber,
+      laceId: jobWorkOrder.finishedLaceId,
+      issuedQty: toNumber(issuedQty),
+      qtyReceived,
+      costPerMeter,
     });
   }
 
@@ -3522,6 +3670,37 @@ class GRNService {
     }
 
     const receivedMeters = Number(jobWorkOrder.qtyReceivedMeters || 0);
+
+    // 0. Reverse the dyed-lace lot this receipt minted. Matched the same way as fabric — the
+    // material plus the receipt's exact timestamp — so an earlier lot of the same dyed lace is
+    // never taken back.
+    if (jobWorkOrder.fabricType === 'LACE' && jobWorkOrder.finishedLaceId) {
+      const laceLots = await tx.lace_stock.findMany({
+        where: {
+          laceId: jobWorkOrder.finishedLaceId,
+          ...(jobWorkOrder.receivedDate ? { receivedDate: jobWorkOrder.receivedDate } : {}),
+        },
+      });
+      for (const lot of laceLots) {
+        const qty = Number(lot.quantityAvailable);
+        // Consumed metres cannot be un-received — the lace has already gone into a garment.
+        if (Number(lot.quantityConsumed) > 0 || Number(lot.quantityReserved) > 0) {
+          throw new Error(
+            `Cannot reverse GRN ${grn.grnNumber}: dyed lace lot ${lot.id.slice(0, 8)} has already been used ` +
+              `(${Number(lot.quantityConsumed)}m consumed, ${Number(lot.quantityReserved)}m reserved).`
+          );
+        }
+        await tx.lace_stock_transaction.deleteMany({ where: { stockId: lot.id } });
+        await tx.lace_stock.delete({ where: { id: lot.id } });
+        await syncStockLevelQuantity(jobWorkOrder.finishedLaceId, -qty, lot.warehouseId ?? undefined, 'METER', tx);
+
+        logInfo(`Reversed dyed lace_stock: ${qty}m`, {
+          grnId: grn.id,
+          laceStockId: lot.id,
+          laceId: jobWorkOrder.finishedLaceId,
+        });
+      }
+    }
 
     // 1. Reverse fabric_stock created from this job
     if (jobWorkOrder.finishedFabricId) {

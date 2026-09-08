@@ -1042,7 +1042,7 @@ export default function GRNForm() {
               {selectedJwo && (
                 <div className="space-y-3">
                   <p className="text-xs text-muted-foreground">
-                    Expected fabric:{' '}
+                    {selectedJwo.fabricType === 'LACE' ? 'Expected dyed lace' : 'Expected fabric'}:{' '}
                     <span className="font-medium text-foreground">
                       {(
                         selectedJwo.qtyBillable ??
@@ -1050,8 +1050,11 @@ export default function GRNForm() {
                       ).toFixed(2)}{' '}
                       {selectedJwo.uom}
                     </span>
+                    {selectedJwo.fabricType === 'LACE' && selectedJwo.finishedLace
+                      ? ` of ${selectedJwo.finishedLace.laceName}`
+                      : ''}
                     {selectedJwo.expectedShrinkage != null && Number(selectedJwo.expectedShrinkage) > 0
-                      ? ` (${Number(selectedJwo.qtySentMeters).toFixed(2)} greige − ${Number(selectedJwo.expectedShrinkage)}% shrinkage)`
+                      ? ` (${Number(selectedJwo.qtySentMeters).toFixed(2)} ${selectedJwo.fabricType === 'LACE' ? 'greige lace' : 'greige'} − ${Number(selectedJwo.expectedShrinkage)}% shrinkage)`
                       : ''}
                   </p>
 

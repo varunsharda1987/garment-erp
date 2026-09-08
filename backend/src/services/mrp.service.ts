@@ -3039,6 +3039,13 @@ export interface ProcessingJwoSeed {
   processType: 'DYEING' | 'PRINTING';
   styleId: string | null;
   fabricId: string | null;
+  /**
+   * Lace dyeing: the greige lace sent and the dyed variant expected back. Supplied together,
+   * and never alongside a fabric — fabricType is one column, and the receipt has to know which
+   * material to stock.
+   */
+  greigeLaceId?: string | null;
+  finishedLaceId?: string | null;
   qtyMeters: number;
   /**
    * Billing qty = expected finished output (qtyMeters × (1 − shrinkage)). The processor
@@ -3130,9 +3137,12 @@ export function buildJwoDataForProcessingPO(seed: ProcessingJwoSeed, jobWorkNumb
     processorId: seed.processorId,
     purchaseOrderId: seed.poId ?? null,
     styleId: seed.styleId,
-    fabricId: seed.fabricId,
-    finishedFabricId: seed.finishedFabricId ?? null,
-    fabricType: 'GREIGE',
+    fabricId: seed.greigeLaceId ? null : seed.fabricId,
+    finishedFabricId: seed.greigeLaceId ? null : (seed.finishedFabricId ?? null),
+    greigeLaceId: seed.greigeLaceId ?? null,
+    finishedLaceId: seed.finishedLaceId ?? null,
+    // The MATERIAL the job handles, which is what issue, receipt and the detail page branch on.
+    fabricType: seed.greigeLaceId ? 'LACE' : 'GREIGE',
     qtySentMeters: seed.qtyMeters,
     qtyBillable: seed.qtyBillable ?? null,
     greigeWidthInches: seed.greigeWidthInches ?? null,
@@ -3364,8 +3374,10 @@ export async function generatePOFromRequirements(
           id: true,
           rateCardId: true,
           greigeId: true,
-          // Identifies a LACE dyeing requirement, which must not be built into a fabric-shaped JWO.
+          // A LACE dyeing requirement: the greige sent, and (in laceId) the dyed variant the
+          // cost sheet already created for this shade — the job work order carries both.
           greigeLaceId: true,
+          laceId: true,
           fabricId: true,
           fabricWidthInches: true,
           sourcingStrategy: true,
@@ -3684,11 +3696,11 @@ export async function generatePOFromRequirements(
   // Check if these are PROCESSING requirements
   const isProcessingRequirements = requirements.every((req) => req.requirementType === 'PROCESSING');
 
-  // LACE dyeing must not be discharged down the fabric job-work path below. That path builds a
-  // JWO whose header is fabric-shaped — job_work_orders has no lace column, buildJwoDataForProcessingPO
-  // stamps fabricType 'GREIGE' with a null fabricId, and createGRNFromJWO then THROWS on a null
-  // fabricId, so the document could never be received. Lace dyeing is tracked as a processing
-  // batch instead (challan out → dye → receive-lace back in), which is already built.
+  // LACE dyeing takes the same job-work path as cloth dyeing — it is the same trade, billed the
+  // same way (per metre returned) — but on a different material end to end: lace lots out, a dyed
+  // lace lot back, and no fabric master minted. The two cannot share one document, because
+  // fabricType is a single column and the receipt has to know which stock table to write.
+  let isLaceJob = false;
   if (isProcessingRequirements) {
     const laceProcessing = requirements.filter((req) => !!(req as any).orderBomItem?.greigeLaceId);
     if (laceProcessing.length > 0) {
@@ -3697,10 +3709,19 @@ export async function generatePOFromRequirements(
           'Selected PROCESSING requirements mix lace dyeing with fabric processing — generate them separately.'
         );
       }
-      throw new Error(
-        'Lace dyeing is not raised as a job work order. Send the greige lace to the dyer on an outward ' +
-          'challan, then record the dyed lace back with Receive Dyed Lace on the processing batch.'
-      );
+      const greigeLaceIds = new Set(laceProcessing.map((req) => (req as any).orderBomItem.greigeLaceId as string));
+      if (greigeLaceIds.size > 1) {
+        throw new Error(
+          'Selected lace dyeing requirements span different greige laces — generate one job work order per lace.'
+        );
+      }
+      const dyedLaceIds = new Set(laceProcessing.map((req) => (req as any).orderBomItem?.laceId as string | null));
+      if (dyedLaceIds.size > 1) {
+        throw new Error(
+          'Selected lace dyeing requirements ask for different shades — generate one job work order per shade.'
+        );
+      }
+      isLaceJob = true;
     }
   }
 
@@ -3811,7 +3832,9 @@ export async function generatePOFromRequirements(
     const widthDeduction = await systemSettingsService.getCutableWidthDeductionInches();
     const askedFinishedWidthInches = cutableWidth != null ? cutableWidth + widthDeduction : null;
     let greigeWidthInches: number | null = null;
-    if (primary.orderBomItem?.greigeId) {
+    // Lace has no loom width to reconcile and no stenter target — the width lives on the master
+    // and never changes in dyeing.
+    if (!isLaceJob && primary.orderBomItem?.greigeId) {
       const greigeMaster = await prisma.greige_master.findUnique({
         where: { id: primary.orderBomItem.greigeId },
         select: { greigeCode: true, greigeWidth: true, expectedFinishedWidthMin: true, expectedFinishedWidthMax: true },
@@ -3858,24 +3881,30 @@ export async function generatePOFromRequirements(
       // Fabric-naming: mint the finished fabric master NOW — the requirement chain carries
       // the full identity (colour, CAD pattern part, style, greige) — so the JWO PDF's
       // "Expected Output" names the real fabric before receipt. Never blocks JWO creation.
+      // A lace job mints nothing: the dyed variant already exists (the cost sheet created it
+      // when the shade was chosen), and it is carried on the BOM line as laceId.
       let finishedFabricId: string | null = null;
-      try {
-        const identity = await resolveFinishedFabricIdentity({
-          requirement: primary,
-          jwo: { sentWidthInches: askedFinishedWidthInches },
-          finishType: processingProcessType === 'PRINTING' ? 'PRINTED' : 'DYED',
-          tx,
-        });
-        if (identity) {
-          const minted = await getOrCreateFinishedFabricV2(identity, userId, 'AUTO_FROM_MRP_JWO', tx);
-          finishedFabricId = minted.fabricId;
-        } else {
-          logWarn(`[MRP] JWO ${jobWorkNumber}: no greige lineage on requirement — finished fabric deferred to receipt`);
+      if (!isLaceJob) {
+        try {
+          const identity = await resolveFinishedFabricIdentity({
+            requirement: primary,
+            jwo: { sentWidthInches: askedFinishedWidthInches },
+            finishType: processingProcessType === 'PRINTING' ? 'PRINTED' : 'DYED',
+            tx,
+          });
+          if (identity) {
+            const minted = await getOrCreateFinishedFabricV2(identity, userId, 'AUTO_FROM_MRP_JWO', tx);
+            finishedFabricId = minted.fabricId;
+          } else {
+            logWarn(
+              `[MRP] JWO ${jobWorkNumber}: no greige lineage on requirement — finished fabric deferred to receipt`
+            );
+          }
+        } catch (error) {
+          logWarn(
+            `[MRP] JWO ${jobWorkNumber}: finished fabric mint failed — deferred to receipt: ${error instanceof Error ? error.message : error}`
+          );
         }
-      } catch (error) {
-        logWarn(
-          `[MRP] JWO ${jobWorkNumber}: finished fabric mint failed — deferred to receipt: ${error instanceof Error ? error.message : error}`
-        );
       }
 
       const jwo = await tx.job_work_orders.create({
@@ -3888,6 +3917,9 @@ export async function generatePOFromRequirements(
               styleId: primary.order_items?.styleId ?? null,
               fabricId: primary.orderBomItem?.fabricId ?? null,
               finishedFabricId,
+              // Lace: the greige sent, and the dyed variant the BOM line already names.
+              greigeLaceId: isLaceJob ? (primary.orderBomItem?.greigeLaceId ?? null) : null,
+              finishedLaceId: isLaceJob ? (primary.orderBomItem?.laceId ?? null) : null,
               qtyMeters: toNumber(roundToCent(toCurrency(totalGreigeMeters))), // greige to issue
               qtyBillable: toNumber(roundToCent(toCurrency(totalBillableMeters))), // fabric the processor bills for
               greigeWidthInches,

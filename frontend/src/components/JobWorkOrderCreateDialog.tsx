@@ -33,6 +33,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 import { jobWorkOrderService } from '@/services/jobWorkOrder.service';
 import { styleService } from '@/services/style.service';
+import { getGreigeLace, getFinishedLace, createDyedLaceVariant } from '@/services/lace.service';
 import { SupplierCombobox } from '@/components/SupplierCombobox';
 import ColorPicker from '@/components/ColorPicker';
 import { billableFromGreige } from '@/utils/shrinkage';
@@ -110,15 +111,30 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
   const [colorMasterId, setColorMasterId] = useState<string>('');
   const [sentWidthInches, setSentWidthInches] = useState<string>('');
   const [expectedShrinkage, setExpectedShrinkage] = useState<string>('');
+  // Lace dyeing: greige out, dyed variant back
+  const [material, setMaterial] = useState<'FABRIC' | 'LACE'>('FABRIC');
+  const [greigeLaceId, setGreigeLaceId] = useState<string>('');
+  const [finishedLaceId, setFinishedLaceId] = useState<string>('');
+  const [newVariantColor, setNewVariantColor] = useState<string>('');
+  const [creatingVariant, setCreatingVariant] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const selected = PROCESS_OPTIONS.find((p) => p.value === processType);
   const isKaaj = processType === 'KAAJ_BUTTON';
   const isEmbroidery = processType === 'EMBROIDERY';
-  /** Dyeing/Printing FOR A STYLE belongs to the Processing page's PO+JWO flow, not here. */
-  const isProcessRedirect = !!selected?.existingFlow && !!styleId;
+  /**
+   * Lace dyeing. Only DYEING: printing and finishing lace are not processes this system costs,
+   * and the server refuses lace on any other type.
+   */
+  const isLaceJob = processType === 'DYEING' && material === 'LACE';
+  /**
+   * Dyeing/Printing FOR A STYLE belongs to the Processing page's PO+JWO flow, not here.
+   * A lace job is exempt — that flow issues greige CLOTH and mints a fabric master, so it has
+   * no door for lace even when the job is for a style.
+   */
+  const isProcessRedirect = !!selected?.existingFlow && !!styleId && !isLaceJob;
   /** Cloth process with no style: dye/print to stock now, allocate to a style later. */
-  const isStockFabricJob = FABRIC_PROCESS_TYPES.includes(processType) && !styleId;
+  const isStockFabricJob = FABRIC_PROCESS_TYPES.includes(processType) && !styleId && !isLaceJob;
   const shadeRequired = isStockFabricJob && SHADE_REQUIRED_PROCESS_TYPES.includes(processType);
 
   const expectedBack = useMemo(() => {
@@ -160,6 +176,45 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
   const styles =
     (stylesResponse as { data?: Array<{ id: string; styleCode: string; styleName?: string }> })?.data || [];
 
+  const { data: greigeLaceResponse } = useQuery({
+    queryKey: ['greige-lace-for-jwo'],
+    queryFn: () => getGreigeLace({ limit: 200 }),
+    enabled: open && isLaceJob,
+    staleTime: 5 * 60 * 1000,
+  });
+  const greigeLaces = greigeLaceResponse?.data || [];
+  const selectedGreigeLace = greigeLaces.find((l) => l.id === greigeLaceId);
+
+  // Only the dyed variants OF THE CHOSEN GREIGE — the server refuses any other lace, because a
+  // variant that did not come from this greige is a different material coming back.
+  const { data: variantsResponse, refetch: refetchVariants } = useQuery({
+    queryKey: ['dyed-lace-variants-for-jwo', greigeLaceId],
+    queryFn: () => getFinishedLace({ limit: 200, sourceGreigeLaceId: greigeLaceId }),
+    enabled: open && isLaceJob && !!greigeLaceId,
+    staleTime: 60 * 1000,
+  });
+  const variants = variantsResponse?.data || [];
+
+  const handleCreateVariant = async () => {
+    const color = newVariantColor.trim();
+    if (!greigeLaceId || !color) return;
+    setCreatingVariant(true);
+    try {
+      // Deduped on (greige, colour) by the server, so re-typing an existing shade reuses it
+      // instead of minting a twin that would split the dyed lace's stock in two.
+      const result = await createDyedLaceVariant({ greigeLaceId, color });
+      setFinishedLaceId(result.lace.id);
+      setNewVariantColor('');
+      await refetchVariants();
+      toast.success(result.created ? `Created ${result.lace.laceName}` : `Using existing ${result.lace.laceName}`);
+    } catch (error) {
+      const err = error as { response?: { data?: { message?: string } } };
+      toast.error(err.response?.data?.message || 'Failed to create the dyed variant');
+    } finally {
+      setCreatingVariant(false);
+    }
+  };
+
   const kaajTotal = useMemo(() => {
     if (!isKaaj) return 0;
     return (
@@ -186,6 +241,10 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
     setColorMasterId('');
     setSentWidthInches('');
     setExpectedShrinkage('');
+    setMaterial('FABRIC');
+    setGreigeLaceId('');
+    setFinishedLaceId('');
+    setNewVariantColor('');
   };
 
   const canSubmit =
@@ -194,6 +253,7 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
     !!processorId &&
     (parseFloat(quantity) || 0) > 0 &&
     (!shadeRequired || !!colorMasterId) &&
+    (!isLaceJob || (!!greigeLaceId && !!finishedLaceId)) &&
     (isKaaj
       ? (parseInt(buttonholeCount) || 0) > 0 || (parseInt(buttonCount) || 0) > 0
       : (parseFloat(agreedRate) || 0) > 0);
@@ -231,12 +291,22 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
               expectedShrinkage: parseFloat(expectedShrinkage) || null,
             }
           : {}),
+        ...(isLaceJob
+          ? {
+              greigeLaceId: greigeLaceId || null,
+              finishedLaceId: finishedLaceId || null,
+              // Left blank, the server falls back to the greige lace master's expected loss.
+              expectedShrinkage: parseFloat(expectedShrinkage) || null,
+            }
+          : {}),
       };
       const result = await jobWorkOrderService.create(payload);
       toast.success(
-        isStockFabricJob
-          ? `Stock job ${result.data.jobWorkNumber} created as Draft — approve it, then issue the greige.`
-          : `Job Work Order ${result.data.jobWorkNumber} created`
+        isLaceJob
+          ? `Lace job ${result.data.jobWorkNumber} created as Draft — approve it, then issue the greige lace.`
+          : isStockFabricJob
+            ? `Stock job ${result.data.jobWorkNumber} created as Draft — approve it, then issue the greige.`
+            : `Job Work Order ${result.data.jobWorkNumber} created`
       );
       if (result.warning) toast.warning(result.warning);
       reset();
@@ -287,6 +357,34 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
               </SelectContent>
             </Select>
           </div>
+
+          {/*
+            Lace dyeing is the same trade as cloth dyeing but a different material end to end:
+            different stock table, different masters, and no fabric is minted on receipt. The
+            choice sits above Style because it decides whether this dialog handles the job at all.
+          */}
+          {processType === 'DYEING' && (
+            <div className="space-y-2">
+              <Label>Material *</Label>
+              <Select
+                value={material}
+                onValueChange={(val) => {
+                  setMaterial(val as 'FABRIC' | 'LACE');
+                  setGreigeLaceId('');
+                  setFinishedLaceId('');
+                  setNewVariantColor('');
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FABRIC">Fabric (cloth)</SelectItem>
+                  <SelectItem value="LACE">Lace</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {processType && (
             <div className="space-y-2">
@@ -364,6 +462,113 @@ export function JobWorkOrderCreateDialog({ open, onOpenChange, onCreated }: Prop
                   categoryFilter={PROCESS_TO_CATEGORY[processType]}
                 />
               </div>
+
+              {isLaceJob && (
+                <div className="border rounded-md p-3 space-y-3">
+                  <div className="space-y-2">
+                    <Label>Greige Lace *</Label>
+                    <Select
+                      value={greigeLaceId}
+                      onValueChange={(val) => {
+                        setGreigeLaceId(val);
+                        setFinishedLaceId('');
+                        const lace = greigeLaces.find((l) => l.id === val);
+                        // The master's own expected loss is the starting figure; the operator
+                        // can still overwrite it with what this dyer has actually contracted.
+                        if (lace?.expectedShrinkagePercent != null) {
+                          setExpectedShrinkage(String(lace.expectedShrinkagePercent));
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={greigeLaces.length ? 'Select greige lace' : 'No greige lace found'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {greigeLaces.map((l) => (
+                          <SelectItem key={l.id} value={l.id}>
+                            {l.laceCode} — {l.laceName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">This is what goes out on the challan.</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Dyed Variant Expected Back *</Label>
+                    <Select value={finishedLaceId} onValueChange={setFinishedLaceId} disabled={!greigeLaceId}>
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={
+                            !greigeLaceId
+                              ? 'Pick the greige lace first'
+                              : variants.length
+                                ? 'Select the shade coming back'
+                                : 'No dyed variants yet — create one below'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {variants.map((l) => (
+                          <SelectItem key={l.id} value={l.id}>
+                            {l.color || l.laceName} ({l.laceCode})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {greigeLaceId && (
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Or type a new shade, e.g. Navy"
+                          value={newVariantColor}
+                          onChange={(e) => setNewVariantColor(e.target.value)}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={!newVariantColor.trim() || creatingVariant}
+                          onClick={handleCreateVariant}
+                        >
+                          {creatingVariant ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create'}
+                        </Button>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Each shade is its own lace, so dyed stock never pools with the greige or with another colour.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Expected Shrinkage (%)</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={99.99}
+                      step={0.1}
+                      value={expectedShrinkage}
+                      onChange={(e) => setExpectedShrinkage(e.target.value)}
+                    />
+                    {expectedBack !== null ? (
+                      <p className="text-sm text-muted-foreground">
+                        Dyed lace expected back:{' '}
+                        <span className="font-semibold text-foreground">
+                          {expectedBack.toLocaleString('en-IN', {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}{' '}
+                          m
+                        </span>{' '}
+                        — the dyer bills on the metres returned, so this is also what the rate is charged on.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Left blank, {selectedGreigeLace?.laceName || 'the greige lace'}&apos;s own expected loss is
+                        used. With no figure at all the dyer bills on every metre sent.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {isStockFabricJob && (
                 <div className="border rounded-md p-3 space-y-3">

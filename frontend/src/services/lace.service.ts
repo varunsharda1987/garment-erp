@@ -183,6 +183,8 @@ export const getFinishedLace = async (params?: {
   limit?: number;
   search?: string;
   color?: string;
+  /** Only the dyed variants of this greige lace. */
+  sourceGreigeLaceId?: string;
 }): Promise<LaceListResponse> => {
   const { data } = await api.get<LaceListResponse>('/materials/lace/finished', {
     params,

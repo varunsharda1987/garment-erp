@@ -70,7 +70,7 @@ router.get('/greige', asyncHandler(getGreigeLace));
  * @route   GET /api/materials/lace/finished
  * @desc    Get finished (ready-to-use) lace items only
  * @access  Private
- * @query   page, limit, search, color
+ * @query   page, limit, search, color, sourceGreigeLaceId (dyed variants of one greige)
  */
 router.get('/finished', asyncHandler(getFinishedLace));
 

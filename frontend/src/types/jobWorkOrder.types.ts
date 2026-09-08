@@ -68,7 +68,11 @@ export interface JobWorkOrder {
   fabricId?: string;
   processorId: string;
   fabricStockLotId?: string;
+  /** 'GREIGE' | 'FINISHED' | 'LACE' — the material the job handles, not the process category. */
   fabricType?: string;
+  /** Lace dyeing: the greige lace sent and the dyed variant expected back. */
+  greigeLaceId?: string | null;
+  finishedLaceId?: string | null;
   reprocessReason?: string;
   qtySentMeters: number;
   /** Greige (loom-state) width of the material issued, e.g. 63". */
@@ -158,6 +162,13 @@ export interface JobWorkOrder {
   colorName?: string | null;
   colorMasterId?: string | null;
   fabric?: { id: string; fabricCode: string; fabricName: string };
+  greigeLace?: {
+    id: string;
+    laceCode: string;
+    laceName: string;
+    expectedShrinkagePercent?: number | null;
+  } | null;
+  finishedLace?: { id: string; laceCode: string; laceName: string; color?: string | null } | null;
   processTypeMaster?: {
     id: string;
     code: string;
@@ -213,6 +224,13 @@ export interface CreateJobWorkOrderRequest {
   sentWidthInches?: number | null;
   /** Rate-card shrinkage; the server derives qtyBillable (expected fabric back) from it. */
   expectedShrinkage?: number | null;
+  /**
+   * Lace dyeing (DYEING only, and never with a fabric): the greige lace sent and the dyed
+   * variant expected back. Supplied together or not at all. When expectedShrinkage is omitted
+   * the server falls back to the greige lace master's own expected loss.
+   */
+  greigeLaceId?: string | null;
+  finishedLaceId?: string | null;
 }
 
 export interface JobWorkOrderDashboard {

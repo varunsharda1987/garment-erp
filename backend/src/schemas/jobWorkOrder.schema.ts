@@ -50,6 +50,10 @@ export const createJobWorkOrderSchema = z
     sentWidthInches: z.number().positive().max(200).optional().nullable(),
     /// Must stay under 100: applyShrinkageLoss() throws at 100, where expected output is zero.
     expectedShrinkage: z.number().min(0).max(99.99).optional().nullable(),
+    // Lace dyeing: the greige lace SENT and the dyed variant expected BACK. Both are
+    // lace_master rows — the variant is minted by POST /materials/lace/dyed-variant.
+    greigeLaceId: z.string().uuid('Invalid greige lace ID').optional().nullable(),
+    finishedLaceId: z.string().uuid('Invalid finished lace ID').optional().nullable(),
     // KAAJ_BUTTON-specific
     buttonholeCount: z.number().int().nonnegative().optional(),
     buttonCount: z.number().int().nonnegative().optional(),
@@ -73,7 +77,20 @@ export const createJobWorkOrderSchema = z
     (data) =>
       (!data.colorMasterId && !data.colorName) || FABRIC_PROCESS_TYPES.includes(data.processType as FabricProcessType),
     { message: `Colour is only valid for fabric processes (${FABRIC_PROCESS_TYPES.join(', ')})` }
-  );
+  )
+  // A lace job needs BOTH ends of the transformation: what goes out and what must come back.
+  // With only one, issue has no lot to consume or receipt has no material to stock.
+  .refine((data) => !!data.greigeLaceId === !!data.finishedLaceId, {
+    message: 'greigeLaceId and finishedLaceId must be supplied together',
+  })
+  .refine((data) => !data.greigeLaceId || data.processType === 'DYEING', {
+    message: 'Lace job work orders are DYEING only',
+  })
+  // fabricType is a single column: a job is a lace job or a cloth job, never both. Letting a
+  // fabric id ride along would leave the receipt path a choice of two materials to stock.
+  .refine((data) => !data.greigeLaceId || (!data.fabricId && !data.fabricStockLotId), {
+    message: 'A lace job work order cannot also carry a fabric or a fabric stock lot',
+  });
 
 export type CreateJobWorkOrderInput = z.infer<typeof createJobWorkOrderSchema>;
 

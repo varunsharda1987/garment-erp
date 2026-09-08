@@ -17,8 +17,12 @@ process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'test-jwt-secret-for-testing-only';
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || process.env.DATABASE_URL;
 
-// Mock logger to avoid console output during tests
+// Mock logger to avoid console output during tests.
+// __esModule is required: without it esModuleInterop hands `import logger from '../utils/logger'`
+// the whole mock object instead of its `default`, so every `logger.info(...)` in a controller
+// throws "logger.info is not a function" and the suite sees a 500 that production never returns.
 jest.mock('../utils/logger', () => ({
+  __esModule: true,
   logInfo: jest.fn(),
   logError: jest.fn(),
   logWarn: jest.fn(),

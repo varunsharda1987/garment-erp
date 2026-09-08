@@ -1224,7 +1224,7 @@ export const getGreigeLace = async (req: Request, res: Response) => {
  * Convenience endpoint - filters isGreige=false
  */
 export const getFinishedLace = async (req: Request, res: Response) => {
-  const { page = 1, limit = 50, search = '', color = '' } = req.query;
+  const { page = 1, limit = 50, search = '', color = '', sourceGreigeLaceId = '' } = req.query;
 
   const pageNum = Number(page);
   const limitNum = Number(limit);
@@ -1245,6 +1245,11 @@ export const getFinishedLace = async (req: Request, res: Response) => {
 
   if (color) {
     where.color = { contains: String(color), mode: 'insensitive' };
+  }
+
+  // The dyed variants of one greige — what a lace dyeing job can legitimately ask back.
+  if (sourceGreigeLaceId) {
+    where.sourceGreigeLaceId = String(sourceGreigeLaceId);
   }
 
   const total = await prisma.lace_master.count({ where });

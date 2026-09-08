@@ -5321,6 +5321,8 @@ model lace_master {
   laceLabDips             lace_lab_dip[]
   processingBatches       processing_batch[]          @relation("lace_processing_batch")
   jwoComponents           job_work_order_components[]
+  greigeLaceJwos          job_work_orders[]           @relation("jwo_greige_lace")
+  finishedLaceJwos        job_work_orders[]           @relation("jwo_finished_lace")
 
   @@index([supplierId])
   @@index([isGreige])
@@ -6963,6 +6965,10 @@ model job_work_orders {
   inwardChallanId        String? // FK to new challans table (inbound)
   purchaseOrderId        String?   @unique @db.VarChar(50) // FK to purchase_orders (Process PO link)
   greigeStockLotId       String?   @db.VarChar(50) // FK to greige_stock (source greige)
+  // Lace dyeing jobs (fabricType = 'LACE'). Held on the header rather than derived from the
+  // requirement chain, because a lace JWO can also be raised by hand with no order behind it.
+  greigeLaceId           String? // FK to lace_master — the greige lace SENT
+  finishedLaceId         String? // FK to lace_master — the dyed variant expected BACK
   grnId                  String?   @db.VarChar(50) // FK to GRN if received via GRN path
 
   // ===== Phase 2: Commercial fields (absorbed from Service PO) =====
@@ -7013,6 +7019,8 @@ model job_work_orders {
   fabric                  fabric_master?                    @relation(fields: [fabricId], references: [id])
   finishedFabric          fabric_master?                    @relation("JobWorkFinishedFabric", fields: [finishedFabricId], references: [id])
   fabricStockLot          fabric_stock?                     @relation(fields: [fabricStockLotId], references: [id])
+  greigeLace              lace_master?                      @relation("jwo_greige_lace", fields: [greigeLaceId], references: [id])
+  finishedLace            lace_master?                      @relation("jwo_finished_lace", fields: [finishedLaceId], references: [id])
   labDip                  lab_dips?                         @relation(fields: [labDipId], references: [id])
   processor               suppliers                         @relation("JobWorkProcessor", fields: [processorId], references: [id])
   rateCard                processor_rate_card?              @relation("jwo_rate_card", fields: [rateCardId], references: [id])
@@ -7065,6 +7073,8 @@ model job_work_orders {
   @@index([outwardChallanId])
   @@index([inwardChallanId])
   @@index([finishedFabricId])
+  @@index([greigeLaceId])
+  @@index([finishedLaceId])
   @@index([purchaseOrderId])
   @@index([greigeStockLotId])
   @@index([grnId])

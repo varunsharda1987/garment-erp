@@ -61,6 +61,13 @@ const jwoInclude = {
   fabric: {
     select: { id: true, fabricCode: true, fabricName: true },
   },
+  // Lace jobs: what was sent (greige) and what is expected back (the dyed variant).
+  greigeLace: {
+    select: { id: true, laceCode: true, laceName: true, expectedShrinkagePercent: true },
+  },
+  finishedLace: {
+    select: { id: true, laceCode: true, laceName: true, color: true },
+  },
   processTypeMaster: {
     select: { id: true, code: true, name: true, sacCode: true, gstRate: true, tolerancePercent: true },
   },
@@ -174,6 +181,44 @@ class JobWorkOrderController {
         }
       }
 
+      // Lace dyeing: greige goes out, the dyed variant comes back. The pair is validated here
+      // because nothing downstream can recover from a mismatch — issue would consume lots of a
+      // lace the dyer was never sent, and receipt would stock a colour nobody ordered.
+      let greigeLace: { id: string; laceName: string; expectedShrinkagePercent: unknown } | null = null;
+      let finishedLace: { id: string; laceName: string; color: string | null } | null = null;
+      if (body.greigeLaceId && body.finishedLaceId) {
+        const [g, f] = await Promise.all([
+          prisma.lace_master.findUnique({
+            where: { id: body.greigeLaceId },
+            select: { id: true, laceName: true, isGreige: true, expectedShrinkagePercent: true },
+          }),
+          prisma.lace_master.findUnique({
+            where: { id: body.finishedLaceId },
+            select: { id: true, laceName: true, color: true, isGreige: true, sourceGreigeLaceId: true },
+          }),
+        ]);
+        if (!g) {
+          return res.status(404).json({ success: false, message: 'Greige lace not found' });
+        }
+        if (!g.isGreige) {
+          return res.status(422).json({
+            success: false,
+            message: `${g.laceName} is not a greige lace — only greige lace can be sent for dyeing`,
+          });
+        }
+        if (!f) {
+          return res.status(404).json({ success: false, message: 'Dyed lace variant not found' });
+        }
+        if (f.isGreige || f.sourceGreigeLaceId !== g.id) {
+          return res.status(422).json({
+            success: false,
+            message: `${f.laceName} is not a dyed variant of ${g.laceName}. Create the variant from this greige first.`,
+          });
+        }
+        greigeLace = { id: g.id, laceName: g.laceName, expectedShrinkagePercent: g.expectedShrinkagePercent };
+        finishedLace = { id: f.id, laceName: f.laceName, color: f.color };
+      }
+
       // KAAJ_BUTTON: resolve rates (explicit > system settings defaults)
       const isKaaj = body.processType === 'KAAJ_BUTTON';
       const buttonholeRate = isKaaj
@@ -193,8 +238,13 @@ class JobWorkOrderController {
       // receipt measures against a number that was agreed before the goods left.
       // Piece and service jobs have no shrinkage: qtyBillable stays null and billing falls
       // back to qtySentMeters, exactly as before.
+      // A lace job's shrinkage has a master value to fall back on (the greige lace's own
+      // expected loss), so an operator who leaves it blank still gets a contracted output
+      // rather than a job that bills on the metres sent.
+      const laceShrinkage =
+        greigeLace?.expectedShrinkagePercent != null ? Number(greigeLace.expectedShrinkagePercent) : null;
       const isFabricProcess = processTypeMaster.processCategory === 'FABRIC';
-      const expectedShrinkage = isFabricProcess ? (body.expectedShrinkage ?? null) : null;
+      const expectedShrinkage = isFabricProcess ? (body.expectedShrinkage ?? laceShrinkage ?? null) : null;
       const qtyBillable =
         expectedShrinkage === null
           ? null
@@ -210,15 +260,24 @@ class JobWorkOrderController {
           processorId: body.processorId,
           styleId: body.styleId ?? null,
           fabricId: body.fabricId ?? fabricLot?.fabricId ?? null,
-          fabricType: body.fabricStockLotId
-            ? 'FINISHED'
-            : processTypeMaster.processCategory === 'FABRIC'
-              ? 'GREIGE'
-              : null,
+          // fabricType names the MATERIAL a job handles, which is what the issue, receipt and
+          // detail paths branch on. LACE is checked first: a lace job is in the FABRIC process
+          // category (dyeing is dyeing) but consumes lace lots, not greige cloth.
+          fabricType: greigeLace
+            ? 'LACE'
+            : body.fabricStockLotId
+              ? 'FINISHED'
+              : processTypeMaster.processCategory === 'FABRIC'
+                ? 'GREIGE'
+                : null,
+          greigeLaceId: greigeLace?.id ?? null,
+          finishedLaceId: finishedLace?.id ?? null,
           fabricStockLotId: body.fabricStockLotId ?? null,
           embroideryId: body.embroideryId ?? null,
           colorMasterId: colorMaster?.id ?? null,
-          colorName: body.colorName?.trim() || colorMaster?.colorName || null,
+          // The dyed variant already carries the shade it was created for — printing it on the
+          // challan is the instruction to the dyer, so it fills in when nothing was typed.
+          colorName: body.colorName?.trim() || colorMaster?.colorName || finishedLace?.color || null,
           // A fabric lot's own finished width wins: it is a measurement of the very roll going
           // out, and a process like embroidery does not change it. The typed value only fills
           // the case where no lot exists (a greige job, where the width is a target, not a fact).

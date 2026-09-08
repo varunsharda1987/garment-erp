@@ -649,7 +649,29 @@ export default function JobWorkOrderDetail() {
                     </p>
                   </div>
                 )}
-                {jwo.fabricType === 'GREIGE' ? (
+                {issuesLace ? (
+                  <>
+                    <div>
+                      {/* Both ends are known up front on a lace job: the variant was chosen when
+                          the job was raised, so nothing has to be named at receipt. */}
+                      <Label className="text-muted-foreground">Greige Lace</Label>
+                      <p className="font-medium">{jwo.greigeLace?.laceName ?? '-'}</p>
+                      {jwo.greigeLace?.laceCode && (
+                        <p className="text-xs text-muted-foreground">{jwo.greigeLace.laceCode}</p>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Dyed Variant</Label>
+                      <p className="font-medium">{jwo.finishedLace?.laceName ?? '-'}</p>
+                      {jwo.finishedLace?.laceCode && (
+                        <p className="text-xs text-muted-foreground">
+                          {jwo.finishedLace.laceCode}
+                          {jwo.finishedLace.color ? ` — ${jwo.finishedLace.color}` : ''}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ) : jwo.fabricType === 'GREIGE' ? (
                   <div>
                     {/* We ISSUE greige — the finished fabric gets its identity on receipt */}
                     <Label className="text-muted-foreground">Greige</Label>
@@ -705,14 +727,16 @@ export default function JobWorkOrderDetail() {
                   Non-greige jobs (embroidery pieces etc.) keep the neutral labels. */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
-                  <Label className="text-muted-foreground">{jwo.fabricType === 'GREIGE' ? 'Greige' : 'Qty Sent'}</Label>
+                  <Label className="text-muted-foreground">
+                    {issuesLace ? 'Greige Lace Sent' : jwo.fabricType === 'GREIGE' ? 'Greige' : 'Qty Sent'}
+                  </Label>
                   <p className="text-xl font-bold">
                     {jwo.qtySentMeters.toFixed(2)} {jwo.uom}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">
-                    {jwo.fabricType === 'GREIGE' ? 'Fabric' : 'Expected Back'}
+                    {issuesLace ? 'Dyed Lace Expected Back' : jwo.fabricType === 'GREIGE' ? 'Fabric' : 'Expected Back'}
                   </Label>
                   <p className="text-xl font-bold">
                     {jwo.qtyBillable != null ? `${jwo.qtyBillable.toFixed(2)} ${jwo.uom}` : '-'}
@@ -732,12 +756,13 @@ export default function JobWorkOrderDetail() {
                 </div>
               </div>
 
-              <Separator className="my-4" />
-
               {/* Widths (industry model 2026-08-18): greige loom width in; the processor is asked
                   for a FINISHED (stenter) width = cutable + selvedge deduction; received is measured.
-                  received < asked ⟺ the cutable target is missed. */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  received < asked ⟺ the cutable target is missed.
+                  A lace job has none of this: the width lives on the lace master and dyeing does
+                  not change it, so four empty width boxes would only invite someone to fill them. */}
+              {!issuesLace && <Separator className="my-4" />}
+              <div className={`grid grid-cols-2 md:grid-cols-4 gap-4${issuesLace ? ' hidden' : ''}`}>
                 <div>
                   <Label className="text-muted-foreground">Greige Width</Label>
                   <p className="font-medium">
@@ -1166,19 +1191,20 @@ export default function JobWorkOrderDetail() {
               ) : (
                 <Alert className="border-amber-300 bg-amber-50 text-amber-900">
                   <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>No greige available to issue</AlertTitle>
+                  <AlertTitle>No {issuesLace ? 'greige lace' : 'greige'} available to issue</AlertTitle>
                   <AlertDescription>
                     {issuePreview?.expectedGreige
-                      ? `No available greige lots for ${issuePreview.expectedGreige.greigeCode} — ${issuePreview.expectedGreige.greigeName}. `
-                      : 'No available greige lots for this order. '}
-                    Receive the greige purchase order into stock first. Lots already sitting at a processor, and lots
-                    created by a transfer, are deliberately excluded from this list.
+                      ? `No available ${issuesLace ? 'greige lace' : 'greige'} lots for ${issuePreview.expectedGreige.greigeCode} — ${issuePreview.expectedGreige.greigeName}. `
+                      : `No available ${issuesLace ? 'greige lace' : 'greige'} lots for this order. `}
+                    {issuesLace
+                      ? 'Receive the greige lace purchase into stock first.'
+                      : 'Receive the greige purchase order into stock first. Lots already sitting at a processor, and lots created by a transfer, are deliberately excluded from this list.'}
                   </AlertDescription>
                 </Alert>
               )
             ) : (
               <div className="space-y-4">
-                {issuePreview && !issuePreview.greigeAnchored && (
+                {issuePreview && !issuePreview.greigeAnchored && !issuesLace && (
                   <Alert>
                     <AlertDescription>
                       This order has no requirement chain naming its cloth, so any greige may be issued — but every row
@@ -1187,9 +1213,10 @@ export default function JobWorkOrderDetail() {
                   </Alert>
                 )}
 
-                {/* Two-section stock visibility */}
+                {/* Two-section stock visibility. Lace never sits at a processor (lace_stock has
+                    no processor column), so only the warehouse line means anything there. */}
                 <div className="flex gap-4 text-sm">
-                  <div className="flex items-center gap-2">
+                  <div className={`flex items-center gap-2${issuesLace ? ' hidden' : ''}`}>
                     <span className="text-muted-foreground">At {issueProcessorName}:</span>
                     <Badge variant={issueAtProcessorTotal > 0 ? 'default' : 'secondary'}>
                       {round2(issueAtProcessorTotal)}m ({issueAtProcessorLots.length} lots)

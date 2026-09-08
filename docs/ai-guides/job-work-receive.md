@@ -13,6 +13,9 @@ keywords:
   - close order
   - greige
   - greage
+  - dyed lace
+  - lace receive
+  - लेस वापस
   - माल वापस
   - रिसीव
   - प्रोसेसर
@@ -34,12 +37,12 @@ sources:
 ## Before you start
 The job work order must already be issued to the processor (status **Issued**, **In Transit**, **At Processor** or **Partial Receipt**). A **Cancelled** or **Closed** order cannot be received at all — its material was already credited back to stock. There are two different receive paths — pick the right one or you get an error.
 
-## Fabric coming back in meters (dyeing, printing, finishing)
-Cloth is received through a GRN, so the fabric stock lot gets created.
+## Fabric or dyed lace coming back in meters (dyeing, printing, finishing)
+Anything measured in metres is received through a GRN, so the stock lot gets created — cloth into fabric stock, dyed lace into lace stock.
 
 1. Open **Procurement → GRN (Goods Receipt)** in the sidebar.
 2. Click **+ Create GRN**.
-3. Find the box **Or receive against a Job Work Order (no PO)** and select the JWO. The list shows the JWO number, processor, quantity due back and quantity sent.
+3. Find the box **Or receive against a Job Work Order (no PO)** and select the JWO. The list shows the JWO number, processor, quantity due back and quantity sent. On a lace job the line under it reads **Expected dyed lace** and names the shade that must come back.
 4. Choose the **Entry Mode**: **Total Meters**, **Than-wise** or **Bale-wise**.
 5. In **Total Meters** mode, fill **Received Meters**. If you only have than and fold, leave meters blank and fill **Than Count** and **Fold Length (cm)** instead — one or the other is required.
 6. In **Than-wise** mode, click **Add Than** for every than that came back and type its meters. In **Bale-wise** mode, click **Add Bale** for each bale, then **Than** inside the bale, and type the meters of each than. The green **Detail sum** shows the running total.
@@ -60,7 +63,9 @@ Cloth is received through a GRN, so the fabric stock lot gets created.
 - Click **Close Order** and enter **Processor Invoice Number *** to finish the order. Closing is refused while abnormal loss has no debit note.
 
 ## Traps
-- Trying to use **Receive Material** on a meter-based fabric job gives "Fabric job work is received through a GRN". Use the GRN path above.
+- Trying to use **Receive Material** on a meter-based fabric or lace job gives "Fabric job work is received through a GRN" (or "Lace job work…"). Use the GRN path above.
+- A dyed lace receipt lands on the **dyed variant**, not on the greige — the greige left stock when it was issued. Its cost per metre is all the greige money plus all the dyeing money, spread over the metres that actually came back.
+- Reversing an approved lace receipt removes the lot it created, and is refused once any of that lace has been used or reserved.
 - If the JWO does not appear in the GRN dropdown, it has not been issued yet, it has already been received, or it was cancelled or closed.
 - A cancelled job blocks receiving everywhere — even a GRN saved before the cancellation refuses approval. The error says the stock was already credited back; if the mill really returned material, ask the office to re-open the job first.
 - Receiving does not create stock on its own — the GRN must be approved.

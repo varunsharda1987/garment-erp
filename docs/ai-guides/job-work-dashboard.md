@@ -11,9 +11,12 @@ keywords:
   - ITC-04
   - ageing
   - processing batches
+  - lace dyeing
+  - dyed lace
   - जॉब वर्क
   - ट्रैक
   - डैशबोर्ड
+  - लेस
   - प्रोसेसर
   - बकाया
   - माल कहाँ है
@@ -42,7 +45,7 @@ sources:
 6. Click any row to open the order, or use the **⋯** menu for **View Details**, **Print JWO** and **Send via WhatsApp**.
 
 ## Inside one order
-The detail page shows **Order Details**, **Quantities** (Greige, Fabric, Qty Received, Abnormal Loss), the four width figures, **Sent Date**, **Need By**, **Received Date**, **Days Outstanding**, and a **Reconciliation** table with **Sent Out**, **Received Back**, **With Processor** and **Abnormal Loss** per material. From this page you can **Approve**, **Issue to Processor**, **Receive Material**, **Compute Totals**, **Close Order**, or **Cancel**.
+The detail page shows **Order Details**, **Quantities** (Greige, Fabric, Qty Received, Abnormal Loss), the four width figures, **Sent Date**, **Need By**, **Received Date**, **Days Outstanding**, and a **Reconciliation** table with **Sent Out**, **Received Back**, **With Processor** and **Abnormal Loss** per material. A lace dyeing order reads differently: **Greige Lace** and **Dyed Variant** in place of Greige/Fabric, quantities labelled **Greige Lace Sent** and **Dyed Lace Expected Back**, and no width figures — lace width lives on the master and dyeing does not change it. From this page you can **Approve**, **Issue to Processor**, **Receive Material**, **Compute Totals**, **Close Order**, or **Cancel**.
 
 ## Statutory reports
 On the Job Work Dashboard, click **Ageing PDF**, **ITC-04 PDF** or **Vendor PDF** to open the statutory report as a PDF. ITC-04 and Vendor cover the last three months.

@@ -54,6 +54,9 @@ const jwoDocInclude = {
   style: { select: { styleCode: true, buyerStyleRef: true, styleName: true } },
   fabric: { select: { fabricName: true } },
   finishedFabric: { select: { fabricName: true } },
+  // Lace dyeing: what is sent, and the dyed variant the dyer is contracted to return.
+  greigeLace: { select: { laceCode: true, laceName: true } },
+  finishedLace: { select: { laceCode: true, laceName: true, color: true } },
   greigeStockLot: {
     select: {
       purchaseCost: true,
@@ -237,6 +240,8 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     reqLink?.orderBomItem?.colorName ??
     jwo.colorMaster?.colorName ??
     jwo.colorName ??
+    // A lace job's shade is the variant's own — it is the instruction to the dyer.
+    jwo.finishedLace?.color ??
     null;
 
   // ── 02 — material issued ─────────────────────────────────────────────────
@@ -295,6 +300,21 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
       value: fmtMoney(value),
     });
     materialTotal = toCurrency(value);
+  } else if (jwo.greigeLace) {
+    // Pre-issue lace job — the lots are picked at despatch, but the lace itself is known, so the
+    // challan can already state what is going and (from the BOM) what it is worth.
+    const bomLaceRate = reqLink?.orderBomItem?.greigeCost != null ? Number(reqLink.orderBomItem.greigeCost) : null;
+    const value = bomLaceRate != null ? roundToCent(multiplyCurrency(jwo.qtySentMeters, bomLaceRate)).toNumber() : null;
+    materialRows.push({
+      sn: 1,
+      item: jwo.greigeLace.laceName,
+      subline: [jwo.greigeLace.laceCode, 'lot assigned on despatch challan'].filter(Boolean).join(' · '),
+      uom: jwo.uom,
+      qty: fmtQty(Number(jwo.qtySentMeters), jwo.uom),
+      rate: bomLaceRate != null ? fmtMoney(bomLaceRate) : EM_DASH,
+      value: value != null ? fmtMoney(value) : EM_DASH,
+    });
+    materialTotal = value != null ? toCurrency(value) : null;
   } else if (reqLink) {
     // Pre-issue MRP JWO — no lot attached yet, but the requirement chain knows the greige.
     // User rule (2026-08-18): the processor sees the material AND its value (he holds the
@@ -352,9 +372,14 @@ export async function buildJobWorkOrderDocData(jobWorkOrderId: string): Promise<
     jwo.style?.styleCode ??
     EM_DASH;
 
+  // On a lace job the output is named before the goods leave: the dyed variant was chosen when
+  // the job was raised, so the challan can print exactly what must come back.
   const outputItem =
+    jwo.finishedLace?.laceName ??
     jwo.finishedFabric?.fabricName ??
-    [processName, jwo.fabric?.fabricName ?? jwo.style?.styleName ?? null].filter(Boolean).join(' — ');
+    [processName, jwo.greigeLace?.laceName ?? jwo.fabric?.fabricName ?? jwo.style?.styleName ?? null]
+      .filter(Boolean)
+      .join(' — ');
 
   const chargeRows: JwoChargeRow[] = [];
   let chargesValue: number | null = null; // taxable value of the job work service

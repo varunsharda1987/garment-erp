@@ -1,5 +1,4 @@
 {
-  "enabledMcpjsonServers": ["playwright"],
   "permissions": {
     "allow": [
       "Bash(npm run dev:*)",
@@ -350,7 +349,23 @@
       "Bash(find /c/Users/NEW/garment-erp/backend/src -type f \\\\\\(-name *fabric-stock* -o -name *greige* -o -name *laceStock* -o -name *stock* -o -name *WeightedAverage* -o -name *fabric-cost* -o -name *laceCostingCalculation* -o -name *processingBatch* -o -name *quality* -o -name *testing* -o -name *fpt* -o -name *gpt* \\\\\\))",
       "Read(//c/Users/NEW/AppData/Local/Temp/claude/c--Users-NEW-garment-erp/99f268da-4008-4c58-a6e4-2f490fd5b80c/tasks/**)",
       "Bash(NODE_OPTIONS=\"--max-old-space-size=4096\" npx tsc --noEmit src/controllers/cutting.controller.ts)",
-      "Bash(CI=false npx prisma migrate dev --name add_greige_stock_source_tracking)"
+      "Bash(CI=false npx prisma migrate dev --name add_greige_stock_source_tracking)",
+      "Bash(awk 'NR>=960 && NR<=1010' src/pages/CostSheetForm.tsx)",
+      "Bash(awk -F: '$1>940 && $1<1340')",
+      "Bash(awk 'NR>=440 && NR<=520' src/pages/CostSheetForm.tsx)",
+      "Bash(awk 'NR<=1330 && /useEffect\\\\\\(/ {n=NR} END{}' src/pages/CostSheetForm.tsx)",
+      "PowerShell(foreach \\($p in @\\('/api/style-costing','/api/style-costing/generate/abc','/api/style-costing/budget-suggestions/abc','/health'\\)\\) { try { $r = Invoke-WebRequest -Uri \\(\"http://localhost:5000\" + $p\\) -Method POST -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop; Write-Output \\(\"{0,-45} {1}\" -f $p, $r.StatusCode\\) } catch { $c = $_.Exception.Response.StatusCode.value__; $note = switch \\($c\\) { 401 {'route EXISTS \\(auth\\) - good'} 404 {'GONE \\(expected for /generate\\)'} 405 {'method not allowed'} default {''} }; Write-Output \\(\"{0,-45} {1}  {2}\" -f $p, $c, $note\\) } })",
+      "PowerShell(foreach \\($p in @\\('/api/style-costing/budget-suggestions/abc','/health'\\)\\) { try { $r = Invoke-WebRequest -Uri \\(\"http://localhost:5000\" + $p\\) -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop; Write-Output \\(\"GET {0,-45} {1}\" -f $p, $r.StatusCode\\) } catch { $c = $_.Exception.Response.StatusCode.value__; Write-Output \\(\"GET {0,-45} {1}  {2}\" -f $p, $c, $\\(if\\($c -eq 401\\){'route EXISTS \\(auth\\) - good'}elseif\\($c -eq 404\\){'MISSING - investigate'}else{''}\\)\\) } })",
+      "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:3000\" -UseBasicParsing -TimeoutSec 15; Write-Output \\(\"web root: \" + $r.StatusCode + \"  length=\" + $r.Content.Length\\) } catch { Write-Output \\(\"web root FAILED: \" + $_.Exception.Message\\) }; Write-Output \"--- dist contents ---\"; if \\(Test-Path \"C:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\dist\"\\) { \\(Get-ChildItem \"C:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\dist\" | Measure-Object\\).Count } else { Write-Output \"frontend\\\\dist MISSING\" }; if \\(Test-Path \"C:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\\\\dist.staging\\\\index.html\"\\) { Write-Output \"dist.staging HAS index.html \\(good build\\)\" } else { Write-Output \"dist.staging missing index.html\" })",
+      "PowerShell(pm2 stop garment-erp-web 2>&1 | Select-Object -Last 1; Start-Sleep -Seconds 2; $d=\"C:\\\\Users\\\\NEW\\\\garment-erp\\\\frontend\"; if \\(Test-Path \"$d\\\\dist\"\\) { Remove-Item \"$d\\\\dist\" -Recurse -Force -ErrorAction SilentlyContinue }; Move-Item \"$d\\\\dist.staging\" \"$d\\\\dist\" -Force; if \\(Test-Path \"$d\\\\dist\\\\index.html\"\\) { Write-Output \"dist restored with index.html\" } else { Write-Output \"MOVE FAILED\" })",
+      "PowerShell(pm2 start garment-erp-web 2>&1 | Select-Object -Last 1; Start-Sleep -Seconds 5; for \\($i=0; $i -lt 8; $i++\\) { try { $r = Invoke-WebRequest -Uri \"http://localhost:3000\" -UseBasicParsing -TimeoutSec 10; Write-Output \\(\"web root: \" + $r.StatusCode + \"  length=\" + $r.Content.Length\\); break } catch { Start-Sleep -Seconds 3 } })",
+      "PowerShell(pm2 ls | Select-String -Pattern 'garment-erp|kasya|harleen|thar|ucip|inward|redis' | Select-Object -First 14; Write-Output \"--- LAN check ---\"; try { $r = Invoke-WebRequest -Uri \"http://192.168.1.24:3000\" -UseBasicParsing -TimeoutSec 10; Write-Output \\(\"LAN web: \" + $r.StatusCode\\) } catch { Write-Output \\(\"LAN web: \" + $_.Exception.Message\\) })",
+      "Bash(bash \"C:/Users/NEW/AppData/Local/Temp/claude/c--Users-NEW-garment-erp/d08df242-701a-4180-abc8-ffb44566447c/scratchpad/test-swap-logic.sh\")",
+      "PowerShell(foreach \\($u in @\\(\"http://localhost:3000\",\"http://192.168.1.24:3000\"\\)\\) { try { $r = Invoke-WebRequest -Uri $u -UseBasicParsing -TimeoutSec 10; Write-Output \\(\"{0,-30} {1}\" -f $u, $r.StatusCode\\) } catch { Write-Output \\(\"{0,-30} FAILED\" -f $u\\) } }; try { Invoke-WebRequest -Uri \"http://localhost:5000/health\" -UseBasicParsing -TimeoutSec 10 | ForEach-Object { Write-Output \\(\"api /health                    \" + $_.StatusCode\\) } } catch { Write-Output \"api /health FAILED\" }; Write-Output \"--- fleet count ---\"; \\(pm2 jlist 2>$null | Select-String -Pattern '\"status\":\"online\"' -AllMatches\\).Matches.Count)",
+      "Bash(awk '/^model role_permissions/,/^}/' prisma/schema.prisma)",
+      "Bash(awk '/^model order_item_costing/,/^}/' prisma/schema.prisma)",
+      "Bash(awk '/^model order_item_costing/,/^}/' backend/prisma/schema.prisma)",
+      "Bash(awk '/^model order_items /,/^}/' backend/prisma/schema.prisma)"
     ],
     "deny": [
       "Bash(npx prisma db push:*)",
@@ -368,5 +383,8 @@
       "c:\\Users\\NEW\\garment-erp\\backend\\src\\controllers"
     ]
   },
-  "model": "claude-opus-4-5-20251101"
+  "model": "claude-opus-4-5-20251101",
+  "enabledMcpjsonServers": [
+    "playwright"
+  ]
 }

@@ -195,7 +195,9 @@ export default function LaceSourcingStrategySelector({
       const manualGreige = parseFloat(manualGreigeCost);
       const processingCost = greigeProcessing.costBreakdown.processingCostPerMeter || 0;
       const shrinkageFactor = greigeProcessing.costBreakdown.shrinkageFactor || 1;
-      const effectiveCostPerMeter = (manualGreige + processingCost) / shrinkageFactor;
+      // Same shape as the server: greige is grossed up for shrinkage, dyeing is billed per
+      // RETURNED metre so it is NOT grossed up. (Previously both were divided by the factor.)
+      const effectiveCostPerMeter = manualGreige / shrinkageFactor + processingCost;
       const totalCost = effectiveCostPerMeter * totalQuantityNeeded;
 
       onSelectStrategy({

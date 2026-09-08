@@ -72,8 +72,8 @@ export interface GreigeLaceProcessingOption {
   // total into the ₹/m columns style_costing_lace_items.greigeCost / order_bom_items.greigeCost,
   // where MRP and the PO rate resolver read them as rates.
   // For a PER-METRE rate use costBreakdown.greigeCostPerMeter / processingCostPerMeter.
-  greigeCost: number | null; // TOTAL for the order (₹), not ₹/m
-  processingCost: number | null; // TOTAL for the order (₹), not ₹/m
+  greigeCost: number | null; // TOTAL for the order (₹) = ₹/greige-m × greige metres, not ₹/m
+  processingCost: number | null; // TOTAL for the order (₹) = ₹/returned-m × FINISHED metres, not ₹/m
   processorId: string | null;
   processorName: string | null;
   slabLabel: string | null;
@@ -84,7 +84,7 @@ export interface GreigeLaceProcessingOption {
     greigeCostPerMeter: number | null;
     processingCostPerMeter: number | null;
     shrinkageFactor: number | null;
-    effectiveCostPerMeter: number | null; // (greige + processing) / (1 - shrinkage%)
+    effectiveCostPerMeter: number | null; // greige / (1 - shrinkage%) + processing — per FINISHED metre (dyer bills per returned metre)
   };
   details: string;
   // Lab dip status
@@ -440,75 +440,55 @@ async function getReadyLaceCost(laceId: string, quantityNeeded: number, lace: an
   };
 }
 
-/** One dyer's rate, resolved at the greige quantity they will actually process. */
+/** One dyer's rate for a dyeing job, plus the greige that job will consume. */
 interface ResolvedLaceRate {
+  /** ₹ per RETURNED (dyed) metre — the unit the dyer invoices in. */
   ratePerMeter: number;
   slabLabel: string;
   shrinkagePercent: number | null;
+  /** finished ÷ (1 − shrinkage): what must be bought and sent to get the finished metres back. */
   greigeQuantity: number;
 }
 
 /**
- * Price a dyeing job on the GREIGE metres the dyer actually processes.
+ * Price a dyeing job the way the dyer bills it: per metre of dyed lace RETURNED.
  *
- * Rate cards are banded by quantity, but the quantity that selects the band is only known after
- * the card's shrinkage is read: the dyer handles greige metres (finished ÷ (1 − shrinkage)), not
- * the finished metres the garment needs. Looking the rate up once at the finished quantity — as
- * this used to — can land a whole band too cheap (e.g. 900 finished metres picks the 500–1000
- * band while 1000 greige metres are actually processed), and that under-priced rate is then
- * frozen onto the cost sheet and every PO derived from it.
+ * The rate card's quantity band is therefore selected on the FINISHED quantity — the metres that
+ * come back and are invoiced — not on the greige sent. Confirmed with the business 2026-09-08. An
+ * earlier revision banded on greige metres, on the assumption (taken from this service's own
+ * arithmetic, not from the dyers) that they charge per metre processed; they do not.
  *
- * So: look up once to learn the shrinkage, gross up, then look up again at the greige quantity.
- * A second pass is enough — the re-priced band is the one the dyer bills against, and its own
- * shrinkage is used for the final quantity so the two always agree.
+ * The card's shrinkage is still read, but only to work out how much greige to buy and send.
  */
-async function resolveLaceRateAtGreigeQuantity(
+async function resolveLaceDyeingRate(
   processorId: string,
   greigeLaceId: string,
   finishedQuantity: number
 ): Promise<ResolvedLaceRate | null> {
-  const assertUsableShrinkage = (percent: number): void => {
-    // 100% (or more) makes the shrinkage divisor zero/negative — Infinity downstream.
-    if (1 - percent / 100 <= 0) {
-      throw new Error(
-        `Invalid shrinkage ${percent}% on the processor rate card: must be below 100% (it is a divisor in costing).`
-      );
-    }
-  };
+  const card = await lookupLaceRate({ processorId, laceId: greigeLaceId, quantityMeters: finishedQuantity });
+  if (!card) return null;
 
-  const first = await lookupLaceRate({ processorId, laceId: greigeLaceId, quantityMeters: finishedQuantity });
-  if (!first) return null;
-
-  if (first.shrinkagePercent === null) {
-    // No shrinkage on the card: greige == finished, so the first band is already the right one.
+  if (card.shrinkagePercent === null) {
     return {
-      ratePerMeter: first.ratePerMeter,
-      slabLabel: first.slab.label,
+      ratePerMeter: card.ratePerMeter,
+      slabLabel: card.slab.label,
       shrinkagePercent: null,
       greigeQuantity: finishedQuantity,
     };
   }
 
-  assertUsableShrinkage(first.shrinkagePercent);
-  const greigeQuantity = toNumber(divideCurrency(finishedQuantity, 1 - first.shrinkagePercent / 100));
-
-  const second = await lookupLaceRate({ processorId, laceId: greigeLaceId, quantityMeters: greigeQuantity });
-  if (!second) {
-    return {
-      ratePerMeter: first.ratePerMeter,
-      slabLabel: first.slab.label,
-      shrinkagePercent: first.shrinkagePercent,
-      greigeQuantity,
-    };
+  // 100% (or more) makes the shrinkage divisor zero/negative — Infinity downstream.
+  if (1 - card.shrinkagePercent / 100 <= 0) {
+    throw new Error(
+      `Invalid shrinkage ${card.shrinkagePercent}% on the processor rate card: must be below 100% (it is a divisor in costing).`
+    );
   }
 
-  const finalShrinkage = second.shrinkagePercent ?? first.shrinkagePercent;
-  assertUsableShrinkage(finalShrinkage);
   return {
-    ratePerMeter: second.ratePerMeter,
-    slabLabel: second.slab.label,
-    shrinkagePercent: finalShrinkage,
-    greigeQuantity: toNumber(divideCurrency(finishedQuantity, 1 - finalShrinkage / 100)),
+    ratePerMeter: card.ratePerMeter,
+    slabLabel: card.slab.label,
+    shrinkagePercent: card.shrinkagePercent,
+    greigeQuantity: toNumber(divideCurrency(finishedQuantity, 1 - card.shrinkagePercent / 100)),
   };
 }
 
@@ -698,7 +678,7 @@ async function calculateGreigeLaceProcessingCost(
   if (processorId) {
     // Rate from the chosen processor (approved lab dip, or explicitly pinned), priced on the
     // greige metres they actually process.
-    const resolved = await resolveLaceRateAtGreigeQuantity(processorId, greigeLaceId, quantityNeeded);
+    const resolved = await resolveLaceDyeingRate(processorId, greigeLaceId, quantityNeeded);
 
     if (resolved) {
       processingCostPerMeter = resolved.ratePerMeter;
@@ -731,7 +711,7 @@ async function calculateGreigeLaceProcessingCost(
     });
 
     for (const processor of dyeingProcessors) {
-      const resolved = await resolveLaceRateAtGreigeQuantity(processor.id, greigeLaceId, quantityNeeded);
+      const resolved = await resolveLaceDyeingRate(processor.id, greigeLaceId, quantityNeeded);
 
       if (resolved && (!processingCostPerMeter || resolved.ratePerMeter < processingCostPerMeter)) {
         processingCostPerMeter = resolved.ratePerMeter;
@@ -819,10 +799,15 @@ async function calculateGreigeLaceProcessingCost(
 
   // Calculate total costs
   // BUG-FAB12 fix: use decimal.js for precision
+  // Greige is bought per GREIGE metre (so the grossed-up quantity); dyeing is billed per RETURNED
+  // metre (so the finished quantity). Folding both through shrinkage — as this used to — charged
+  // the dyeing rate on metres the dyer never invoices.
   const greigeTotalCost = toNumber(multiplyCurrency(greigeCostPerMeter, greigeQuantityNeeded));
-  const processingTotalCost = toNumber(multiplyCurrency(processingCostPerMeter, greigeQuantityNeeded));
-  const combinedCostPerMeter = toNumber(addCurrency(greigeCostPerMeter, processingCostPerMeter));
-  const effectiveCostPerMeter = toNumber(divideCurrency(combinedCostPerMeter, shrinkageFactor));
+  const processingTotalCost = toNumber(multiplyCurrency(processingCostPerMeter, quantityNeeded));
+  // Per finished metre: greige grossed up for shrinkage, plus the dyeing rate as billed.
+  const effectiveCostPerMeter = toNumber(
+    addCurrency(divideCurrency(greigeCostPerMeter, shrinkageFactor), processingCostPerMeter)
+  );
   const totalCost = toNumber(multiplyCurrency(effectiveCostPerMeter, quantityNeeded));
 
   return {
@@ -843,7 +828,7 @@ async function calculateGreigeLaceProcessingCost(
       shrinkageFactor,
       effectiveCostPerMeter,
     },
-    details: `Greige: ₹${greigeCostPerMeter.toFixed(2)}/m + Dyeing: ₹${processingCostPerMeter.toFixed(2)}/m (${slabLabel}) = ₹${effectiveCostPerMeter.toFixed(2)}/m effective (${shrinkagePercent}% shrinkage)`,
+    details: `Greige: ₹${greigeCostPerMeter.toFixed(2)}/m ÷ (1 − ${shrinkagePercent}% shrinkage) + Dyeing: ₹${processingCostPerMeter.toFixed(2)}/m returned (${slabLabel}) = ₹${effectiveCostPerMeter.toFixed(2)}/m finished`,
     labDipRequired: true,
     labDipId,
     labDipStatus,

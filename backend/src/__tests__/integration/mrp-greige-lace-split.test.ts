@@ -14,8 +14,8 @@
  *    shared resolver would return 0% every time. But unitPrice was built as (g + p) / (1 - s) and
  *    all three are frozen on the row, so s is exactly recoverable and always agrees with the
  *    quoted price.
- *  - DYEING IS BILLED PER GREIGE METRE, so the processing row carries the same quantity as the
- *    purchase row rather than the shrunk finished quantity.
+ *  - Both rows carry GREIGE metres, exactly as the fabric split does: the requirement plans what
+ *    is SENT. Dyers bill per RETURNED metre; that conversion belongs to the job work order.
  *
  * Canonical numbers used throughout: 0.30 m/garment x 3000 pcs = 900 finished m; greige Rs40/m,
  * dyeing Rs20/m, 10% shrinkage => all-in Rs66.67/m, greige needed 1000 m.
@@ -48,7 +48,8 @@ const SHRINKAGE = 10;
 // Written out rather than derived, so the expected values stay independent of the very helper
 // the implementation uses to compute them.
 const SHRINKAGE_FACTOR = 0.9; // = 1 − 10%
-const ALL_IN = (GREIGE_RATE + DYEING_RATE) / SHRINKAGE_FACTOR; // 66.666…
+// Greige is bought per greige metre (grossed up); dyeing is billed per RETURNED metre (not grossed up).
+const ALL_IN = GREIGE_RATE / SHRINKAGE_FACTOR + DYEING_RATE; // 44.44 + 20 = 64.444…
 const GREIGE_M = FINISHED_M / SHRINKAGE_FACTOR; // 1000
 
 beforeAll(async () => {
@@ -212,8 +213,11 @@ describe('MRP: a dyed lace becomes a greige purchase plus a dyeing job', () => {
 
   it('grosses the quantity up to greige metres exactly once, on both rows', () => {
     for (const r of rows) {
-      expect(Number(r.totalRequired)).toBeCloseTo(GREIGE_M, 2); // 1000, not 900
-      expect(Number(r.shrinkagePercentUsed)).toBeCloseTo(SHRINKAGE, 2);
+      // unitPrice is stored at 2dp (64.444… → 64.44), so the shrinkage recovered from it carries
+      // ~±0.01 percentage points of noise and the greige quantity ~±0.2 m per 1,000 m. Assert to
+      // the precision the stored data actually has — not to the precision of the arithmetic.
+      expect(Number(r.totalRequired)).toBeCloseTo(GREIGE_M, 0); // ~1000, not 900
+      expect(Number(r.shrinkagePercentUsed)).toBeCloseTo(SHRINKAGE, 1);
       expect(r.shrinkageSource).toBe('LACE_PRICE_DERIVED');
     }
   });
@@ -233,12 +237,17 @@ describe('MRP: a dyed lace becomes a greige purchase plus a dyeing job', () => {
     const purchase = rows.find((r) => r.requirementType === 'MATERIAL')!;
     const dyeing = rows.find((r) => r.requirementType === 'PROCESSING')!;
 
+    // Both rows carry GREIGE metres (what is sent), like the fabric split. The dyer bills per
+    // RETURNED metre, so the dyeing leg reconciles on the finished quantity — the same × (1 − s)
+    // conversion the job work order applies.
     const split =
       Number(purchase.totalRequired) * Number(purchase.unitPrice) +
-      Number(dyeing.totalRequired) * Number(dyeing.unitPrice);
+      Number(dyeing.totalRequired) * SHRINKAGE_FACTOR * Number(dyeing.unitPrice);
 
-    // 1000 x 40 + 1000 x 20 = 60,000 === 900 x 66.67
-    expect(split).toBeCloseTo(FINISHED_M * ALL_IN, 0);
+    // 1000 x 40 + 900 x 20 = 58,000 === 900 x 64.44. The stored 2dp price puts ~₹6 of rounding
+    // into a ₹58,000 total; assert within 0.05% rather than to the rupee.
+    const expected = FINISHED_M * ALL_IN;
+    expect(Math.abs(split - expected)).toBeLessThan(expected * 0.0005);
   });
 
   it('sends the purchase to the weaver and the dyeing to the dyer', () => {

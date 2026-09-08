@@ -1420,20 +1420,26 @@ export async function calculateRequirementsFromOrder(
         // sets it); steps 2 and 3 are keyed on greigeId/greige_master, both null on a lace line.
         // It would return 0% every time and we would silently buy short by the shrinkage.
         //
-        // But the costing service built unitPrice as (greige + processing) / (1 - s), and all
-        // three are frozen on this row, so s is exactly recoverable:
-        //     s = 1 - (greigeCost + processingCost) / unitPrice
+        // But the costing service built unitPrice as greige / (1 - s) + processing — greige is
+        // bought per greige metre and grossed up; dyeing is billed per RETURNED metre and is not
+        // (confirmed with the business 2026-09-08) — and all three are frozen on this row, so s is
+        // exactly recoverable:
+        //     s = 1 - greigeCost / (unitPrice - processingCost)
         // That is better than any lookup: it is guaranteed to agree with the price the order was
         // quoted at, even if the rate card has changed since.
         const g = bomItem.greigeCost != null ? Number(bomItem.greigeCost) : null;
         const p = bomItem.processingCost != null ? Number(bomItem.processingCost) : null;
         const allIn = bomItem.unitPrice != null ? Number(bomItem.unitPrice) : null;
 
-        if (g != null && p != null && allIn && allIn > 0) {
-          const derived = (1 - (g + p) / allIn) * 100;
+        if (g != null && g > 0 && p != null && allIn != null && allIn - p > 0) {
+          const derived = (1 - g / (allIn - p)) * 100;
           // Guard against rounding noise and against a row whose components do not reconcile
           // (e.g. a hand-edited price): only trust a sane, positive shrinkage.
           if (derived > 0.01 && derived < 100) {
+            // unitPrice is a 2dp column, so this carries ~±0.01 percentage points of rounding noise
+            // (a 10% card can come back as 9.99%). Immaterial to the quantity bought (~0.1 m per
+            // 1,000 m) but visible on documents; snapping to the live rate card when it agrees
+            // within that noise is a possible refinement.
             shrinkagePercentUsed = Number(derived.toFixed(2));
             shrinkageSourceUsed = 'LACE_PRICE_DERIVED';
             const greigeResult = calculateGreigeQuantity({
@@ -1965,9 +1971,10 @@ export async function calculateRequirementsFromOrder(
           orderQuantity,
           quantityPerUnit,
           wastagePercent,
-          // Lace dyeing is billed per GREIGE metre (the costing service multiplies the rate by the
-          // greige quantity), so this is the same figure as the purchase row — NOT reduced by
-          // shrinkage the way fabric processing is.
+          // Greige metres — the same figure as the purchase row, and the same convention as the
+          // fabric PROCESSING row: the requirement plans what is SENT for dyeing. The dyer bills per
+          // RETURNED metre; that × (1 − s) conversion happens where the job work order is raised,
+          // exactly as it does for fabric.
           totalRequired,
           unit: normalizeUnit(bomItem.unit),
           availableStock: 0,

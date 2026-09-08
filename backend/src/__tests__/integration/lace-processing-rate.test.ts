@@ -9,10 +9,11 @@
  *    frozen from it — then billed dyer A's work at dyer B's price, with dyer B's shrinkage
  *    deciding how much greige to buy.
  *
- * 2. WRONG RATE BAND. Rate cards are banded by quantity, but the band was selected using the
- *    FINISHED metres while the dyer actually processes GREIGE metres (finished ÷ (1 − shrinkage)).
- *    900 finished metres could select the 500–1000 band while 1000 greige metres were processed,
- *    freezing a rate a whole band too cheap.
+ * 2. RATE BAND ON THE RIGHT QUANTITY. Lace dyers bill per dyed metre RETURNED (confirmed with the
+ *    business 2026-09-08), so the rate card's quantity band is picked on the FINISHED metres, and
+ *    the greige is grossed up separately only to know how much to buy and send. An intermediate
+ *    revision banded on the greige quantity instead — on the assumption, taken from this service's
+ *    own arithmetic, that dyers charge per metre processed. This pins the corrected behaviour.
  */
 
 import { randomUUID } from 'crypto';
@@ -131,8 +132,9 @@ afterAll(async () => {
 });
 
 describe('lace dyeing rate is priced on greige metres', () => {
-  it('picks the band the dyer actually bills, not the one the finished quantity falls in', async () => {
-    // 900 finished m sits in the 500-1000 band; 1000 greige m crosses into the next one.
+  it('picks the band on the dyed metres returned, and grosses the greige up separately', async () => {
+    // 900 finished m sits in the 500-1000 band. The 1000 greige m that must be SENT would cross
+    // into the next band — but the dyer does not bill on what is sent.
     const midBand = await makeSlab(cheapDyerId, 'MID', 1, 500, 999.99);
     const topBand = await makeSlab(cheapDyerId, 'TOP', 2, 1000, 999999);
     await makeRateCard(cheapDyerId, midBand, 20, SHRINKAGE);
@@ -149,8 +151,13 @@ describe('lace dyeing rate is priced on greige metres', () => {
     expect(gp.available).toBe(true);
     // Greige need is grossed up exactly once: 900 / 0.9
     expect(gp.greigeQuantityNeeded).toBeCloseTo(1000, 4);
-    // The rate must be the 1000+ band's, because that is the quantity being processed.
-    expect(gp.costBreakdown.processingCostPerMeter).toBe(25);
+    // The rate is the 500-1000 band's: 900 returned metres are what gets invoiced.
+    expect(gp.costBreakdown.processingCostPerMeter).toBe(20);
+    // Per finished metre: greige 40 ÷ 0.9 grossed up, plus dyeing 20 as billed — NOT (40+20) ÷ 0.9.
+    expect(gp.costBreakdown.effectiveCostPerMeter).toBeCloseTo(40 / 0.9 + 20, 2);
+    // Totals: greige on 1000 m sent, dyeing on 900 m returned.
+    expect(gp.greigeCost).toBeCloseTo(1000 * 40, 2);
+    expect(gp.processingCost).toBeCloseTo(900 * 20, 2);
   });
 });
 

@@ -10,7 +10,12 @@ import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { generateCatalogueSchema, generateLineSheetSchema } from '../schemas/document.schema';
 import { authenticateToken } from '../middleware/auth.middleware';
-import { idParamSchema, styleIdParamSchema, workOrderIdParamSchema } from '../schemas/common.schema';
+import {
+  idParamSchema,
+  styleIdParamSchema,
+  workOrderIdParamSchema,
+  costSheetIdAsIdParamSchema,
+} from '../schemas/common.schema';
 
 const router = Router();
 
@@ -307,6 +312,32 @@ router.get(
   '/grns/:id/pdf',
   validateParams(idParamSchema),
   asyncHandler(documentController.generateGRNPDF.bind(documentController))
+);
+
+// ────────────────────────────────────────────────────────────────
+// Cost Sheet Endpoints
+// ────────────────────────────────────────────────────────────────
+
+/**
+ * @route   GET /api/documents/cost-sheets/:id/pdf
+ * @desc    Generate Cost Sheet PDF
+ * @access  Private
+ */
+router.get(
+  '/cost-sheets/:id/pdf',
+  validateParams(costSheetIdAsIdParamSchema),
+  asyncHandler(documentController.generateCostSheetPDF.bind(documentController))
+);
+
+/**
+ * @route   GET /api/documents/cost-sheets/:id/excel
+ * @desc    Generate Cost Sheet Excel
+ * @access  Private
+ */
+router.get(
+  '/cost-sheets/:id/excel',
+  validateParams(costSheetIdAsIdParamSchema),
+  asyncHandler(documentController.generateCostSheetExcel.bind(documentController))
 );
 
 export default router;

@@ -21,6 +21,7 @@ import path from 'path';
 import fs from 'fs';
 import { logWarn } from '../utils/logger';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { formatPurpose, formatStatus } from './document-data/cost-sheet.doc-data';
 
 // Types
 export interface DocumentOptions {
@@ -4196,6 +4197,314 @@ From ${COMPANY_CONFIG.name}
         align: 'center',
         width: availableWidth,
       });
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // COST SHEET EXCEL
+  // ════════════════════════════════════════════════════════════════════════════
+
+  async generateCostSheetExcel(costingId: string): Promise<Buffer> {
+    const costSheet = await prisma.style_costing.findUnique({
+      where: { id: costingId },
+      include: {
+        styles: { select: { styleCode: true, styleName: true, buyerStyleRef: true } },
+        users_style_costing_createdByIdTousers: { select: { firstName: true, lastName: true } },
+        users_style_costing_approvedByIdTousers: { select: { firstName: true, lastName: true } },
+        laceItems: { orderBy: { createdAt: 'asc' } },
+        fabricItems: { orderBy: { createdAt: 'asc' } },
+        trimItems: { orderBy: { createdAt: 'asc' } },
+        accessoryItems: { orderBy: { createdAt: 'asc' } },
+      },
+    });
+
+    if (!costSheet) {
+      throw new Error(`Cost sheet not found: ${costingId}`);
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = COMPANY_CONFIG.name;
+    workbook.created = new Date();
+
+    // Styles
+    const headerStyle: Partial<ExcelJS.Style> = {
+      font: { bold: true, size: 14 },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+    };
+    const sectionHeaderStyle: Partial<ExcelJS.Style> = {
+      font: { bold: true, size: 11, color: { argb: 'FFFFFFFF' } },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F2937' } },
+      alignment: { horizontal: 'left', vertical: 'middle' },
+    };
+    const tableHeaderStyle: Partial<ExcelJS.Style> = {
+      font: { bold: true, size: 10 },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } },
+      border: {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      },
+    };
+    const cellStyle: Partial<ExcelJS.Style> = {
+      border: {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      },
+    };
+    const moneyStyle: Partial<ExcelJS.Style> = {
+      ...cellStyle,
+      numFmt: '#,##0.00',
+      alignment: { horizontal: 'right' },
+    };
+    const totalStyle: Partial<ExcelJS.Style> = {
+      font: { bold: true },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } },
+      border: {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' },
+      },
+      numFmt: '#,##0.00',
+    };
+
+    // ── Sheet 1: Summary ──
+    const summarySheet = workbook.addWorksheet('Summary');
+    summarySheet.columns = [
+      { key: 'A', width: 25 },
+      { key: 'B', width: 35 },
+      { key: 'C', width: 20 },
+      { key: 'D', width: 20 },
+    ];
+
+    let row = 1;
+    summarySheet.mergeCells(`A${row}:D${row}`);
+    summarySheet.getCell(`A${row}`).value = 'COST SHEET';
+    summarySheet.getCell(`A${row}`).style = headerStyle;
+    row += 2;
+
+    // Style info
+    const style = costSheet.styles;
+    const createdBy = costSheet.users_style_costing_createdByIdTousers;
+    const approvedBy = costSheet.users_style_costing_approvedByIdTousers;
+
+    summarySheet.getCell(`A${row}`).value = 'Cost Sheet ID';
+    summarySheet.getCell(`B${row}`).value = costSheet.id;
+    row++;
+    summarySheet.getCell(`A${row}`).value = 'Style Code';
+    summarySheet.getCell(`B${row}`).value = style?.styleCode || '';
+    row++;
+    summarySheet.getCell(`A${row}`).value = 'Style Name';
+    summarySheet.getCell(`B${row}`).value = style?.styleName || '';
+    row++;
+    if (style?.buyerStyleRef) {
+      summarySheet.getCell(`A${row}`).value = 'Buyer Ref';
+      summarySheet.getCell(`B${row}`).value = style.buyerStyleRef;
+      row++;
+    }
+    summarySheet.getCell(`A${row}`).value = 'Category';
+    summarySheet.getCell(`B${row}`).value = costSheet.category || '';
+    row++;
+    summarySheet.getCell(`A${row}`).value = 'Purpose';
+    summarySheet.getCell(`B${row}`).value = formatPurpose(costSheet.purpose);
+    row++;
+    summarySheet.getCell(`A${row}`).value = 'Version';
+    summarySheet.getCell(`B${row}`).value = costSheet.version || 1;
+    row++;
+    summarySheet.getCell(`A${row}`).value = 'Status';
+    summarySheet.getCell(`B${row}`).value = formatStatus(costSheet.approvalStatus);
+    row++;
+    summarySheet.getCell(`A${row}`).value = 'Created By';
+    summarySheet.getCell(`B${row}`).value = createdBy ? `${createdBy.firstName} ${createdBy.lastName}` : '';
+    row++;
+    summarySheet.getCell(`A${row}`).value = 'Created At';
+    summarySheet.getCell(`B${row}`).value = costSheet.createdAt;
+    summarySheet.getCell(`B${row}`).numFmt = 'dd-mmm-yyyy';
+    summarySheet.getCell(`B${row}`).alignment = { horizontal: 'left' };
+    row++;
+    if (approvedBy) {
+      summarySheet.getCell(`A${row}`).value = 'Approved By';
+      summarySheet.getCell(`B${row}`).value = `${approvedBy.firstName} ${approvedBy.lastName}`;
+      row++;
+    }
+    row += 2;
+
+    // Cost breakdown
+    summarySheet.mergeCells(`A${row}:D${row}`);
+    summarySheet.getCell(`A${row}`).value = 'COST BREAKDOWN';
+    summarySheet.getCell(`A${row}`).style = sectionHeaderStyle;
+    row++;
+
+    const costRows = [
+      ['Fabric Total', Number(costSheet.fabricTotal || 0)],
+      ['Trims Total', Number(costSheet.trimsTotal || 0)],
+      ['Lace Total', Number(costSheet.laceTotal || 0)],
+      ['CMT Total', Number(costSheet.cmtTotal || 0)],
+      ['Embroidery Total', Number(costSheet.embroideryTotal || 0)],
+      ['Accessories Total', Number(costSheet.accessoriesTotal || 0)],
+    ];
+
+    for (const [label, value] of costRows) {
+      summarySheet.getCell(`A${row}`).value = label;
+      summarySheet.getCell(`B${row}`).value = value;
+      summarySheet.getCell(`B${row}`).style = moneyStyle;
+      row++;
+    }
+
+    row++;
+    summarySheet.getCell(`A${row}`).value = 'Subtotal';
+    summarySheet.getCell(`B${row}`).value = Number(costSheet.subtotal || 0);
+    summarySheet.getCell(`A${row}`).style = totalStyle;
+    summarySheet.getCell(`B${row}`).style = { ...totalStyle, alignment: { horizontal: 'right' } };
+    row++;
+
+    summarySheet.getCell(`A${row}`).value = `Value Loss (${Number(costSheet.valueLossPercent || 0)}%)`;
+    summarySheet.getCell(`B${row}`).value = Number(costSheet.valueLossAmount || 0);
+    summarySheet.getCell(`B${row}`).style = moneyStyle;
+    row++;
+
+    summarySheet.getCell(`A${row}`).value = `Markup (${Number(costSheet.markupPercent || 0)}%)`;
+    summarySheet.getCell(`B${row}`).value = Number(costSheet.markupAmount || 0);
+    summarySheet.getCell(`B${row}`).style = moneyStyle;
+    row++;
+
+    row++;
+    summarySheet.getCell(`A${row}`).value = 'TOTAL COST PER PIECE';
+    summarySheet.getCell(`B${row}`).value = Number(costSheet.totalCostPerPiece || costSheet.totalProductCost || 0);
+    summarySheet.getCell(`A${row}`).style = { ...totalStyle, font: { bold: true, size: 12 } };
+    summarySheet.getCell(`B${row}`).style = {
+      ...totalStyle,
+      font: { bold: true, size: 12 },
+      alignment: { horizontal: 'right' },
+    };
+    row++;
+
+    if (costSheet.closedCost) {
+      row++;
+      summarySheet.getCell(`A${row}`).value = 'Closed Cost (Agreed)';
+      summarySheet.getCell(`B${row}`).value = Number(costSheet.closedCost);
+      summarySheet.getCell(`B${row}`).style = moneyStyle;
+    }
+
+    // ── Sheet 2: Fabric Details ──
+    const fabricDetails = (costSheet.fabricDetails as any[]) || [];
+    const fabricItems = costSheet.fabricItems || [];
+    const fabricData = fabricItems.length > 0 ? fabricItems : fabricDetails;
+
+    if (fabricData.length > 0) {
+      const fabricSheet = workbook.addWorksheet('Fabrics');
+      fabricSheet.columns = [
+        { header: '#', key: 'sn', width: 5 },
+        { header: 'Fabric Name', key: 'name', width: 30 },
+        { header: 'Width', key: 'width', width: 10 },
+        { header: 'Avg (m)', key: 'avg', width: 12 },
+        { header: 'Rate/m', key: 'rate', width: 12, style: { numFmt: '#,##0.00' } },
+        { header: 'Total', key: 'total', width: 15, style: { numFmt: '#,##0.00' } },
+      ];
+      fabricSheet.getRow(1).eachCell((cell) => {
+        cell.style = tableHeaderStyle;
+      });
+
+      fabricData.forEach((item: any, idx: number) => {
+        const isRelational = 'fabricName' in item && 'width' in item;
+        fabricSheet.addRow({
+          sn: idx + 1,
+          name: isRelational ? item.fabricName : item.fabricName || '',
+          width: isRelational ? Number(item.width || 0) : Number(item.fabricWidth || item.width || 0),
+          avg: isRelational ? Number(item.cadMeters || 0) : Number(item.fabricAverage || item.cadMeters || 0),
+          rate: isRelational ? Number(item.costPerMeter || 0) : Number(item.fabricRate || item.costPerMeter || 0),
+          total: isRelational ? Number(item.totalCost || 0) : Number(item.fabricTotal || item.totalCost || 0),
+        });
+      });
+    }
+
+    // ── Sheet 3: Trims Details ──
+    const trimsDetails = (costSheet.trimsDetails as any[]) || [];
+    const trimItems = costSheet.trimItems || [];
+    const trimData = trimItems.length > 0 ? trimItems : trimsDetails;
+
+    if (trimData.length > 0) {
+      const trimsSheet = workbook.addWorksheet('Trims');
+      trimsSheet.columns = [
+        { header: '#', key: 'sn', width: 5 },
+        { header: 'Trim Name', key: 'name', width: 30 },
+        { header: 'Qty', key: 'qty', width: 10 },
+        { header: 'Unit', key: 'unit', width: 10 },
+        { header: 'Rate', key: 'rate', width: 12, style: { numFmt: '#,##0.00' } },
+        { header: 'Total', key: 'total', width: 15, style: { numFmt: '#,##0.00' } },
+      ];
+      trimsSheet.getRow(1).eachCell((cell) => {
+        cell.style = tableHeaderStyle;
+      });
+
+      trimData.forEach((item: any, idx: number) => {
+        const isRelational = 'trimName' in item && 'trimQuantity' in item;
+        trimsSheet.addRow({
+          sn: idx + 1,
+          name: item.trimName || '',
+          qty: Number(item.trimQuantity || 0),
+          unit: item.unit || '',
+          rate: Number(item.trimRate || 0),
+          total: Number(item.trimTotal || 0),
+        });
+      });
+    }
+
+    // ── Sheet 4: Other Items (Lace, Embroidery, Accessories) ──
+    const embroideryDetails = (costSheet.embroideryDetails as any[]) || [];
+    const hasOtherItems =
+      (costSheet.laceItems?.length || 0) > 0 ||
+      embroideryDetails.length > 0 ||
+      (costSheet.accessoryItems?.length || 0) > 0;
+
+    if (hasOtherItems) {
+      const otherSheet = workbook.addWorksheet('Other Items');
+      otherSheet.columns = [
+        { header: 'Type', key: 'type', width: 15 },
+        { header: 'Name', key: 'name', width: 30 },
+        { header: 'Qty/Avg', key: 'qty', width: 12 },
+        { header: 'Rate', key: 'rate', width: 12, style: { numFmt: '#,##0.00' } },
+        { header: 'Total', key: 'total', width: 15, style: { numFmt: '#,##0.00' } },
+      ];
+      otherSheet.getRow(1).eachCell((cell) => {
+        cell.style = tableHeaderStyle;
+      });
+
+      for (const lace of costSheet.laceItems || []) {
+        otherSheet.addRow({
+          type: 'Lace',
+          name: lace.laceName || '',
+          qty: Number(lace.quantityPerGarment || 0),
+          rate: Number(lace.costPerMeter || 0),
+          total: Number(lace.totalCost || 0),
+        });
+      }
+
+      for (const emb of embroideryDetails) {
+        otherSheet.addRow({
+          type: 'Embroidery',
+          name: emb.embroideryName || '',
+          qty: Number(emb.embroideryAverage || 0),
+          rate: Number(emb.embroideryRate || 0),
+          total: Number(emb.embroideryTotal || 0),
+        });
+      }
+
+      for (const acc of costSheet.accessoryItems || []) {
+        otherSheet.addRow({
+          type: 'Accessory',
+          name: acc.accessoryName || '',
+          qty: Number(acc.accessoryQuantity || 0),
+          rate: Number(acc.accessoryRate || 0),
+          total: Number(acc.accessoryTotal || 0),
+        });
+      }
+    }
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 }
 

@@ -29,7 +29,8 @@ export type KfTemplateName =
   | 'cutting-chart'
   | 'tech-pack'
   | 'line-sheet'
-  | 'catalogue';
+  | 'catalogue'
+  | 'cost-sheet';
 
 // Resolves from both src/ (ts-node/tests) and dist/ (production build)
 const TEMPLATE_DIR = path.join(__dirname, '..', '..', 'templates', 'kf');

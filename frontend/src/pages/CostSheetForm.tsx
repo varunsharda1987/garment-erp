@@ -31,9 +31,27 @@ import type {
 } from '../types/costSheet.types';
 import { notify } from '../lib/notify';
 import { formatCurrency } from '../lib/currency';
-import { Trash2, Plus, Sparkles, AlertCircle, RefreshCw, Link2, Unlink } from 'lucide-react';
+import {
+  Trash2,
+  Plus,
+  Sparkles,
+  AlertCircle,
+  RefreshCw,
+  Link2,
+  Unlink,
+  Download,
+  FileText,
+  FileSpreadsheet,
+} from 'lucide-react';
 import { Checkbox } from '../components/ui/checkbox';
 import { Label } from '../components/ui/label';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
+import { openPDF, downloadFile } from '../lib/document-utils';
 import { CADStatusBadge, getCADWorkflowMessage, isCADApproved } from '../components/cad/CADStatusBadge';
 import FabricCostingRow from '../components/cost-sheet/FabricCostingRow';
 import LaceCostingSection from '../components/cost-sheet/LaceCostingSection';
@@ -2005,9 +2023,44 @@ const CostSheetForm = () => {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-display font-medium">{isEditMode ? 'Edit Cost Sheet' : 'Create Cost Sheet'}</h1>
-        <Button variant="outline" onClick={() => navigate('/cost-sheets')}>
-          Back to List
-        </Button>
+        <div className="flex gap-2">
+          {isEditMode && id && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() =>
+                    openPDF(`/documents/cost-sheets/${id}/pdf`).catch(() =>
+                      notify.error('Failed to download cost sheet PDF')
+                    )
+                  }
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Download PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() =>
+                    downloadFile(
+                      `/documents/cost-sheets/${id}/excel`,
+                      `CostSheet_${selectedStyle?.styleCode || id}.xlsx`
+                    ).catch(() => notify.error('Failed to download cost sheet Excel'))
+                  }
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Download Excel
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+          <Button variant="outline" onClick={() => navigate('/cost-sheets')}>
+            Back to List
+          </Button>
+        </div>
       </div>
 
       {/* BUG-CS7 fix: Show banner when cost sheet is approved */}

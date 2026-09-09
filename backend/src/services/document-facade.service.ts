@@ -30,6 +30,7 @@ import { buildTransferSlipDocData } from './document-data/transfer-slip.doc-data
 import { buildCuttingChartDocData } from './document-data/cutting-chart.doc-data';
 import { buildLineSheetDocData } from './document-data/line-sheet.doc-data';
 import { buildCatalogueDocData } from './document-data/catalogue.doc-data';
+import { buildCostSheetDocData } from './document-data/cost-sheet.doc-data';
 import logger from '../utils/logger';
 import { AppError } from '../errors';
 
@@ -247,6 +248,12 @@ export const documentFacadeService = {
       () => documentGeneratorService.generateCataloguePDF({}, { priceDisplay: 'none', includeIndex: true }),
       opts
     );
+  },
+
+  /** Cost Sheet PDF — net-new, no legacy generator. */
+  async generateCostSheetPDF(costingId: string): Promise<Buffer> {
+    const data = await buildCostSheetDocData(costingId);
+    return renderDocument('cost-sheet', data as unknown as Record<string, unknown>);
   },
 };
 

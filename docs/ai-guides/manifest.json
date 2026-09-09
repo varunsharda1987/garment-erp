@@ -31,16 +31,22 @@
   "cost-sheet-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "9ece28576ed9",
+      "frontend/src/components/Sidebar.tsx": "bc685da174cf",
       "frontend/src/App.tsx": "a3d70012c317",
       "frontend/src/pages/CostSheetList.tsx": "a94ea0a625ea",
-      "frontend/src/pages/CostSheetForm.tsx": "60c560c3f51d",
-      "frontend/src/components/cost-sheet/LaceCostingSection.tsx": "553163583f79",
+      "frontend/src/pages/CostSheetForm.tsx": "31dd46205b44",
+      "frontend/src/pages/CostSheetDetail.tsx": "8191a2c56646",
+      "frontend/src/components/cost-sheet/LaceCostingSection.tsx": "a3cf7ed94248",
+      "frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx": "0e5623fa396c",
+      "frontend/src/components/cost-sheet/LaceCostingRow.tsx": "1032ac5b41f1",
       "backend/src/controllers/style-costing-calc.controller.ts": "dcb354b02642",
       "backend/src/controllers/style-costing.utils.ts": "1a3ca8d88ecc",
-      "backend/src/schemas/styleCosting.schema.ts": "1da6153c3aba"
+      "backend/src/schemas/styleCosting.schema.ts": "a167eb01721a",
+      "backend/src/controllers/lace.controller.ts": "ddf86d3efae1",
+      "backend/src/services/laceCostingCalculation.service.ts": "6b1a679d4234"
     },
-    "contentHash": "37ce9ebbba35",
-    "generatedAt": "2026-09-01T17:53:47.631Z"
+    "contentHash": "bd5534171b74",
+    "generatedAt": "2026-09-09T13:24:28.063Z"
   },
   "customer-create": {
     "sources": {

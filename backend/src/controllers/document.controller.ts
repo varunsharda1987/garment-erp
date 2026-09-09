@@ -722,6 +722,58 @@ class DocumentController {
       throw error;
     }
   }
+
+  /**
+   * Generate Cost Sheet PDF
+   * GET /api/documents/cost-sheets/:id/pdf
+   */
+  async generateCostSheetPDF(req: Request, res: Response) {
+    const { id } = req.params;
+
+    try {
+      const pdfBuffer = await documentFacadeService.generateCostSheetPDF(id);
+
+      const costSheet = await prisma.style_costing.findUnique({
+        where: { id },
+        include: { styles: { select: { styleCode: true } } },
+      });
+
+      const styleCode = costSheet?.styles?.styleCode || 'unknown';
+      const filename = `CostSheet_${styleCode}_v${costSheet?.version || 1}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.send(pdfBuffer);
+    } catch (error) {
+      if (error instanceof RendererUnavailableError) {
+        res.status(503).json({ success: false, message: error.message });
+        return;
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Generate Cost Sheet Excel
+   * GET /api/documents/cost-sheets/:id/excel
+   */
+  async generateCostSheetExcel(req: Request, res: Response) {
+    const { id } = req.params;
+
+    const excelBuffer = await documentGeneratorService.generateCostSheetExcel(id);
+
+    const costSheet = await prisma.style_costing.findUnique({
+      where: { id },
+      include: { styles: { select: { styleCode: true } } },
+    });
+
+    const styleCode = costSheet?.styles?.styleCode || 'unknown';
+    const filename = `CostSheet_${styleCode}_v${costSheet?.version || 1}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', excelBuffer.length);
+    res.send(excelBuffer);
+  }
 }
 
 export default new DocumentController();

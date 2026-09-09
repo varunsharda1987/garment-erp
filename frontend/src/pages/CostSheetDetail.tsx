@@ -12,6 +12,8 @@ import {
   RefreshCw,
   ShoppingCart,
   FileText,
+  Download,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -24,6 +26,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
 import { Textarea } from '../components/ui/textarea';
 import { Label } from '../components/ui/label';
 import { PageHeader } from '../components/PageHeader';
@@ -33,6 +41,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { handleApiError, handleApiSuccess } from '../lib/api-error-handler';
 import { formatCurrency } from '../lib/currency';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { openPDF, downloadFile } from '../lib/document-utils';
 import {
   getCostSheetById,
   approveCostSheet,
@@ -230,6 +239,39 @@ const CostSheetDetail = () => {
               New Version
             </Button>
           )}
+
+          {/* Download dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() =>
+                  openPDF(`/documents/cost-sheets/${costSheet.id}/pdf`).catch((err) =>
+                    handleApiError(err, 'Failed to download cost sheet PDF')
+                  )
+                }
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Download PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  downloadFile(
+                    `/documents/cost-sheets/${costSheet.id}/excel`,
+                    `CostSheet_${costSheet.style?.styleCode || costSheet.id}_v${costSheet.version || 1}.xlsx`
+                  ).catch((err) => handleApiError(err, 'Failed to download cost sheet Excel'))
+                }
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Download Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </PageHeader>
 

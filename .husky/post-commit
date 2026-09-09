@@ -96,11 +96,24 @@ if [ "$FRONTEND_CHANGED" = true ]; then
       fi
     else
       # Windows file locks: the web server is holding dist. Take it down for the swap.
+      # Increased wait time (5s) because Windows doesn't release file handles immediately
+      # after a process stops. Also retry the rename operation.
       echo "ℹ  dist is locked by the running web app — stopping it for the swap"
       pm2 stop garment-erp-web >/dev/null 2>&1
-      sleep 2
-      rm -rf dist 2>/dev/null
-      if mv dist.staging dist 2>/dev/null; then SWAPPED=true; fi
+      sleep 5
+      # Retry loop: Windows can take several seconds to release file locks
+      for attempt in 1 2 3; do
+        if mv dist dist.old 2>/dev/null; then
+          if mv dist.staging dist 2>/dev/null; then
+            rm -rf dist.old 2>/dev/null &
+            SWAPPED=true
+            break
+          else
+            mv dist.old dist 2>/dev/null
+          fi
+        fi
+        [ $attempt -lt 3 ] && sleep 2
+      done
       pm2 start garment-erp-web >/dev/null 2>&1
       sleep 2
     fi

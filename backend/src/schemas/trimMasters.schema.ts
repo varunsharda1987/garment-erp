@@ -6,6 +6,8 @@
  */
 
 import { z } from 'zod';
+import { ThreadPlyEnum } from './generated/prisma-enums';
+import { formNumber } from './common.schema';
 
 // ============================================================================
 // Common Schemas
@@ -19,14 +21,20 @@ export const supplierAssociationSchema = z.object({
   isPreferred: z.boolean().optional(),
   isActive: z.boolean().optional(),
   notes: z.string().max(500).optional(),
-  pricePerPiece: z.number().nonnegative().optional().nullable(),
-  pricePerGross: z.number().nonnegative().optional().nullable(),
-  pricePerMeter: z.number().nonnegative().optional().nullable(),
-  pricePerUnit: z.number().nonnegative().optional().nullable(),
+  // Every trim form posts these rows straight from its inputs — prices arrive as strings and a
+  // blank price as '' — and every controller already parses them with parseFloat(String(...)).
+  // The plain z.number() here (added months after those controllers) 400'd any save that carried
+  // a supplier row on six of the seven forms; formNumber accepts what the forms send.
+  pricePerPiece: formNumber(z.number().nonnegative()),
+  pricePerGross: formNumber(z.number().nonnegative()),
+  pricePerMeter: formNumber(z.number().nonnegative()),
+  pricePerUnit: formNumber(z.number().nonnegative()),
   // pricePerHundred is used by label_suppliers and packaging_suppliers
-  pricePerHundred: z.number().nonnegative().optional().nullable(),
-  leadTimeDays: z.number().int().nonnegative().optional(),
-  moq: z.number().nonnegative().optional(),
+  pricePerHundred: formNumber(z.number().nonnegative()),
+  // thread_suppliers.pricePerCone — was missing here, so the strip-mode object silently dropped it
+  pricePerCone: formNumber(z.number().nonnegative()),
+  leadTimeDays: formNumber(z.number().int().nonnegative()),
+  moq: formNumber(z.number().nonnegative()),
 });
 
 /**
@@ -151,7 +159,9 @@ export const createThreadSchema = z
     colorCode: z.string().max(50).optional(),
     colorId: z.string().uuid().optional().nullable(),
     coneSize: z.string().max(50).optional(),
-    ply: z.number().int().positive().optional().nullable(),
+    // thread_master.ply is the Prisma enum ThreadPly (TWO_PLY | THREE_PLY), which is what the
+    // form posts — the previous z.number() 400'd every thread saved with a ply selected.
+    ply: ThreadPlyEnum.optional().nullable(),
     materialComposition: z.string().max(200).optional().nullable(),
     unitsPerBox: z.number().int().positive().optional().nullable(),
     pricePerCone: z.number().nonnegative().optional().nullable(),
@@ -181,7 +191,7 @@ export const updateThreadSchema = z
     colorCode: z.string().max(50).optional().nullable(),
     colorId: z.string().uuid().optional().nullable(),
     coneSize: z.string().max(50).optional().nullable(),
-    ply: z.number().int().positive().optional().nullable(),
+    ply: ThreadPlyEnum.optional().nullable(),
     materialComposition: z.string().max(200).optional().nullable(),
     unitsPerBox: z.number().int().positive().optional().nullable(),
     pricePerCone: z.number().nonnegative().optional().nullable(),

@@ -30,7 +30,9 @@ export const validateBody = <T extends ZodSchema>(schema: T) => {
     } catch (error) {
       if (error instanceof z.ZodError) {
         const details = formatZodErrors(error);
-        logWarn(`Validation failed for ${req.method} ${req.path}:`);
+        // Full path (baseUrl + path), not the router-relative req.path: "/calculate" alone cannot be
+        // traced back to a screen when scripts/skills/validation-rejections.js mines these lines.
+        logWarn(`Validation failed for ${req.method} ${req.baseUrl}${req.path}:`);
         logWarn(`  Errors: ${JSON.stringify(details)}`);
         logWarn(`  Body keys: ${Object.keys(req.body || {}).join(', ')}`);
         return res.status(400).json({

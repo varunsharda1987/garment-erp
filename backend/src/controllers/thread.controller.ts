@@ -13,7 +13,7 @@ interface ThreadSupplierInput {
   isPreferred?: boolean;
   isActive?: boolean;
   notes?: string;
-  pricePerCone?: number | string;
+  pricePerCone?: number | null;
 }
 
 /**

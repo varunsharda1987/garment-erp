@@ -312,6 +312,8 @@ export default function StyleFormRedesigned() {
   const { id } = useParams<{ id: string }>();
   // Track the style ID after first draft save (for new styles that haven't navigated to edit URL)
   const [savedStyleId, setSavedStyleId] = useState<string | null>(null);
+  // In-house brands post the buyer code as the style code; this carries its length/duplicate error
+  const [buyerCodeError, setBuyerCodeError] = useState<string | null>(null);
   const effectiveId = id || savedStyleId;
   const isEditMode = !!effectiveId;
 
@@ -2108,10 +2110,21 @@ export default function StyleFormRedesigned() {
         notify.warning('All sizes are unchecked — existing SKU variants were kept, not deleted.');
       }
 
-      // styleCode is deliberately NOT sent: on CREATE the backend mints the authoritative
-      // code server-side and returns it (the on-screen value is only a preview); on UPDATE
-      // the backend ignores styleCode entirely.
+      // The auto-suggested preview code is deliberately NOT sent: on CREATE the backend mints the
+      // authoritative code and returns it (c134ea71), and on UPDATE it ignores styleCode entirely.
+      // In-house brands are the one exception — the user types the buyer code AS the style code, so
+      // that user-authored value is posted on create; the backend validates it and 409s a duplicate.
+      const inHouseCode = usesBuyerCodeAsStyleCode && !isEditMode ? styleCode.trim() : '';
+      if (usesBuyerCodeAsStyleCode && !isEditMode && (inHouseCode.length < 2 || inHouseCode.length > 50)) {
+        const msg = 'Buyer Style Code becomes the Style Code for this customer — enter 2 to 50 characters.';
+        setBuyerCodeError(msg);
+        notify.error(msg);
+        return;
+      }
+      setBuyerCodeError(null);
+
       const styleData = {
+        ...(inHouseCode ? { styleCode: inHouseCode } : {}),
         styleName: styleName || styleCode,
         customerName: customerName || (isDraft ? 'Draft' : ''),
         brandName,
@@ -2193,8 +2206,8 @@ export default function StyleFormRedesigned() {
           navigate('/styles');
         }
       } else {
-        // Create new style. Cast: CreateStyleFormData still types styleCode as required,
-        // but the backend now mints the code server-side so we intentionally omit it.
+        // Create new style. Cast: CreateStyleFormData types styleCode as required, but it is only
+        // posted for in-house brands (inHouseCode above); the backend mints it for everyone else.
         const response = await styleService.createStyle(styleData as unknown as CreateStyleFormData);
         const newStyleId = response?.data?.id;
 
@@ -2233,8 +2246,13 @@ export default function StyleFormRedesigned() {
       }
     } catch (error: unknown) {
       console.error('Failed to save style:', error);
-      const axiosError = error as { response?: { data?: { message?: string } } };
-      notify.error(axiosError.response?.data?.message || 'Failed to save style');
+      const axiosError = error as { response?: { status?: number; data?: { message?: string } } };
+      const message = axiosError.response?.data?.message || 'Failed to save style';
+      // 409 on an in-house create = that buyer code is already a style code — say so at the field
+      if (axiosError.response?.status === 409 && usesBuyerCodeAsStyleCode && !isEditMode) {
+        setBuyerCodeError(message);
+      }
+      notify.error(message);
     } finally {
       setLoading(false);
     }
@@ -2599,7 +2617,10 @@ export default function StyleFormRedesigned() {
                     <Label>Buyer Style Code *</Label>
                     <Input
                       value={buyerStyleRef}
-                      onChange={(e) => setBuyerStyleRef(e.target.value)}
+                      onChange={(e) => {
+                        setBuyerStyleRef(e.target.value);
+                        setBuyerCodeError(null);
+                      }}
                       placeholder="Buyer's style code"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
@@ -2607,6 +2628,7 @@ export default function StyleFormRedesigned() {
                         ? 'Will be used as Style Code'
                         : "Buyer's own code (shows on documents)"}
                     </p>
+                    {buyerCodeError && <p className="text-xs text-destructive mt-1">{buyerCodeError}</p>}
                   </div>
                   <div>
                     <Label>Style Name</Label>

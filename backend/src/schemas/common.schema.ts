@@ -39,6 +39,30 @@ export const UnitEnum = z.enum([
 export type Unit = z.infer<typeof UnitEnum>;
 
 // ============================================================================
+// Form-posted numbers
+// ============================================================================
+
+/**
+ * HTML inputs post numbers as strings, and a cleared input posts '' — which means "no value",
+ * never 0. validateBody parses strictly, so a plain z.number() rejects "12.50" and '' outright,
+ * and z.coerce.number() turns '' (and null) into 0. This keeps the '' → null step and the
+ * optional/nullable wrappers INSIDE the preprocess, which is what makes both behave.
+ * Probed on zod 4.1.12: "12.50"→12.5, ""→null, " 3 "→3, "0"→0, null→null, missing→absent,
+ * "abc"/"-1"/true→error; an .int() base still rejects "12.50".
+ */
+const blankToNumber = (v: unknown): unknown => {
+  if (v === '') return null;
+  if (typeof v === 'string') {
+    const t = v.trim();
+    return t === '' ? null : Number(t);
+  }
+  return v;
+};
+
+/** Optional numeric form field: ''→null, '12.5'→12.5, null/undefined pass through. */
+export const formNumber = (base: z.ZodNumber = z.number()) => z.preprocess(blankToNumber, base.optional().nullable());
+
+// ============================================================================
 // Common ID Param Schemas
 // ============================================================================
 

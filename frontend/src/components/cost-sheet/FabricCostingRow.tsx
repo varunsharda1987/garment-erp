@@ -80,8 +80,9 @@ export default function FabricCostingRow({
       setIsModalOpen(true);
     } catch (err: unknown) {
       console.error('Error calculating fabric cost:', err);
-      const axiosErr = err as { response?: { data?: { error?: string } } };
-      setError(axiosErr.response?.data?.error || 'Failed to calculate fabric cost');
+      // `message` carries the useful text; `error` is the generic category ("Validation Error")
+      const axiosErr = err as { response?: { data?: { message?: string; error?: string } } };
+      setError(axiosErr.response?.data?.message || axiosErr.response?.data?.error || 'Failed to calculate fabric cost');
     } finally {
       setIsLoading(false);
     }
@@ -288,9 +289,11 @@ export default function FabricCostingRow({
           <div className="flex items-center justify-end space-x-2">
             <button
               onClick={handleOpenModal}
-              disabled={isLoading || disabled}
+              // Same gate as Change / Choose Sourcing: an unlinked row (manual, run-loaded, greige-only)
+              // has no fabric_master id, and the calculate endpoint can only cost a fabric_master row.
+              disabled={isLoading || !hasRequiredFields || disabled}
               className="text-muted-foreground hover:text-foreground disabled:opacity-50"
-              title={disabled ? 'Approved cost sheet is read-only' : 'View cost breakdown'}
+              title={disabled ? 'Approved cost sheet is read-only' : getButtonTooltip()}
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path

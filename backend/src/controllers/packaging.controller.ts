@@ -1,6 +1,24 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { generateCode, allocateBatchCodes } from '../utils/code-generator';
+
+/**
+ * The form offers "Leave empty to auto-generate from attributes" (same contract as Button):
+ * "[buyerCode] material packagingType size", falling back to the generated code.
+ */
+function buildPackagingName(
+  provided: string | null | undefined,
+  attrs: { buyerCode?: string | null; material?: string | null; packagingType?: string | null; size?: string | null },
+  code: string
+): string {
+  if (provided && provided.trim() !== '') return provided.trim();
+  const parts: string[] = [];
+  if (attrs.buyerCode) parts.push(`[${attrs.buyerCode}]`);
+  if (attrs.material) parts.push(attrs.material);
+  if (attrs.packagingType) parts.push(attrs.packagingType);
+  if (attrs.size) parts.push(attrs.size);
+  return parts.join(' ').trim() || `Packaging ${code}`;
+}
 import { logDebug } from '../utils/logger';
 import { NotFoundError, ValidationError, BusinessError } from '../errors';
 import { trimStockService } from '../services/trim-stock.service';
@@ -50,11 +68,6 @@ export const createPackaging = async (req: Request, res: Response) => {
     suppliers = [], // Array of supplier relationships
   } = req.body;
 
-  // Validation
-  if (!packagingName || packagingName.trim() === '') {
-    throw new ValidationError('Packaging name is required');
-  }
-
   // Validate brand belongs to customer if both provided
   if (brandCategoryId && customerId) {
     const brand = await prisma.brand_categories.findUnique({
@@ -73,6 +86,11 @@ export const createPackaging = async (req: Request, res: Response) => {
 
   // Auto-generate packaging code
   const packagingCode = await generateCode('PKG', 'packaging_master', 'packagingCode');
+  const finalPackagingName = buildPackagingName(
+    packagingName,
+    { buyerCode, material, packagingType, size },
+    packagingCode
+  );
 
   // Ensure thickness is a string if provided
   const thicknessValue = thickness !== undefined && thickness !== '' && thickness !== null ? String(thickness) : null;
@@ -82,7 +100,7 @@ export const createPackaging = async (req: Request, res: Response) => {
     const created = await tx.packaging_master.create({
       data: {
         packagingCode,
-        packagingName,
+        packagingName: finalPackagingName,
         supplierCode: supplierCode || null,
         buyerCode: buyerCode || null,
         customerId: customerId || null, // Link to customer
@@ -137,7 +155,7 @@ export const createPackaging = async (req: Request, res: Response) => {
 
     // Create material (same-id convention, category auto-resolved)
     const materialRow = await materialService.createFromMaster(
-      { id: created.id, code: packagingCode, name: packagingName },
+      { id: created.id, code: packagingCode, name: finalPackagingName },
       'PACKAGING',
       tx
     );
@@ -385,6 +403,21 @@ export const updatePackaging = async (req: Request, res: Response) => {
     throw new NotFoundError('Packaging', id);
   }
 
+  // An empty name on edit means "rebuild it from the attributes" (the form sends '' to regenerate)
+  const finalPackagingName =
+    packagingName === undefined
+      ? undefined
+      : buildPackagingName(
+          packagingName,
+          {
+            buyerCode: buyerCode !== undefined ? buyerCode : existing.buyerCode,
+            material: material !== undefined ? material : existing.material,
+            packagingType: packagingType !== undefined ? packagingType : existing.packagingType,
+            size: size !== undefined ? size : existing.size,
+          },
+          existing.packagingCode
+        );
+
   // Validate brand belongs to customer if both provided
   if (brandCategoryId && customerId) {
     const brand = await prisma.brand_categories.findUnique({
@@ -427,7 +460,7 @@ export const updatePackaging = async (req: Request, res: Response) => {
   const updated = await prisma.packaging_master.update({
     where: { id },
     data: {
-      ...(packagingName !== undefined && { packagingName }),
+      ...(finalPackagingName !== undefined && { packagingName: finalPackagingName }),
       ...(supplierCode !== undefined && { supplierCode: supplierCode || null }),
       ...(buyerCode !== undefined && { buyerCode: buyerCode || null }),
       ...(customerId !== undefined && { customerId: customerId || null }),
@@ -483,8 +516,8 @@ export const updatePackaging = async (req: Request, res: Response) => {
 
   // BUG-MM13 fix: sync code to materials
   // Note: packagingCode is not updated (auto-generated), only sync name changes
-  if (packagingName && packagingName !== existing.packagingName) {
-    await syncMasterToMaterials(id, 'PACKAGING', { name: packagingName });
+  if (finalPackagingName && finalPackagingName !== existing.packagingName) {
+    await syncMasterToMaterials(id, 'PACKAGING', { name: finalPackagingName });
   }
 
   // Format response

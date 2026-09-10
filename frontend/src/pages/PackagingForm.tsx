@@ -253,8 +253,8 @@ export default function PackagingForm({ mode = 'create' }: PackagingFormProps) {
                     placeholder="Leave empty to auto-generate from attributes"
                   />
                   <p className="text-xs text-muted-foreground mt-1">
-                    If left empty, name will be auto-generated from selected attributes (e.g., "Cardboard Box
-                    Packaging")
+                    If left empty, the name is built from the attributes as [buyer code] material type size (e.g.,
+                    "Corrugated Carton Box 12x10")
                   </p>
                 </div>
 

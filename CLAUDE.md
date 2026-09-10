@@ -163,6 +163,7 @@ Each check is a **baseline ratchet**: existing violations are grandfathered in `
 | Currency format | `toLocaleString('en-IN', {minimumFractionDigits:2})` with no `maximumFractionDigits` (prints `₹563.796`) | Add `maximumFractionDigits: 2` |
 | Unguarded CAD delete | A `fabric_width_cad` delete with no `validateCADModification`, or a `style_fabrics`/`style_components` delete with no unlink first (cascade destroys APPROVED CAD planning + costing) | Guard with `validateCADModification(id, 'delete')`, or unlink `fabric_width_cad.updateMany({ styleFabricId: null })` first (see `style.service.ts`) |
 | CAD/costing approval drift | Bare `approvalStatus` in costing-module files (`fabric-costing*`, `style-costing-calc`, `order.controller`, `style.service`) — that column is CAD-geometry approval only | Use `costingApprovalStatus` for price semantics, or mark a genuine CAD-side use with `// allow-cad-approval` |
+| Strict number schema | An optional `z.number()` on a form-fed numeric field (`price…units` names): HTML inputs post strings and `''` when blank, so every save carrying that field 400s (six of seven trim forms could not add a supplier row, 2026-09-10) | Use `formNumber(z.number()…)` from `backend/src/schemas/common.schema.ts` (or mark `// allow-strict-number` for typed-client-only fields) |
 
 **Escape hatch:** if a flagged line is genuinely intentional, copy the exact key the check prints into the matching `scripts/hooks/<check>-baseline.json`. Regenerate all baselines after a large intentional change by running the detectors whole-repo (see `scripts/hooks/drift-detectors.js` + `ratchet.js` `writeBaseline`).
 
@@ -676,6 +677,19 @@ Updates lazy-routes.tsx + App.tsx + optionally routes/index.ts when adding a new
 node scripts/skills/register-route.js --page WarehouseList --route /warehouses --section Masters --icon Warehouse --backend warehouse
 ```
 
+### `/validation-rejections` - Find Screens Whose Saves the API Refuses
+
+Mines `backend/logs/*.log` for every request `validateBody` rejected and aggregates by route + field + message with first/last-seen dates. A "last" of today is a LIVE bug that users hit with nothing but "Invalid request data" to go on — this is how the six trim-master supplier-row 400s and the cost-sheet ⓘ 400 were found (2026-09-10).
+
+**Usage:**
+```bash
+node scripts/skills/validation-rejections.js                      # top 50 signatures
+node scripts/skills/validation-rejections.js --since 2026-09-01 --top 20
+node scripts/skills/validation-rejections.js --json               # machine-readable
+```
+
+**Run it** after any deploy that touched a Zod schema, and whenever someone reports "it won't save".
+
 ### `/health-check` - Live API Health Checker
 
 Detects stale Node.js processes and tests API endpoint reachability. Prevents the #1 debugging pitfall.
@@ -787,6 +801,7 @@ node scripts/hooks/post-docs-update.js
 | `/register-route` | Route + sidebar registration | 5-10 min → 30 sec per page |
 | `/health-check` | Stale process detection + API health | Prevents #1 debugging pitfall |
 | `/generate-zod-enums` | Prisma → Zod enums (single source of truth) | Kills enum-drift class at the source |
+| `/validation-rejections` | Mine API logs for rejected saves (route / field / first / last seen) | Finds live form↔schema drift users never report |
 
 ### Hooks
 

@@ -287,6 +287,51 @@ function datetimeSchema(relFiles) {
   return out;
 }
 
+// A5 — optional/nullable z.number() on a form-fed numeric field. HTML inputs post strings ('' when
+// blank) and validateBody parses strictly, so every save carrying that field 400s (2026-09-10: six of
+// seven trim-master forms could not add a supplier row). Required numbers are left alone — typed API
+// clients post real numbers and a required field fed a string fails on first use; the sneaky case is
+// the blank-able one. Positive fix: formNumber() in backend/src/schemas/common.schema.ts.
+const STRICT_NUMBER_FIELD_RE = /price|cost|rate|qty|quantity|moq|percent|days|width|length|weight|amount|meters|pieces|units/i;
+function strictNumberSchema(relFiles) {
+  const out = [];
+  for (const rel of relFiles) {
+    if (!rel.endsWith('.schema.ts')) continue;
+    const content = readCode(rel);
+    if (!content) continue;
+    const exportRe = /export const (\w+)\s*=/g;
+    const exports = [];
+    let em;
+    while ((em = exportRe.exec(content))) exports.push({ name: em[1], index: em.index });
+    const enclosingExport = (idx) => {
+      let name = '';
+      for (const e of exports) {
+        if (e.index <= idx) name = e.name;
+        else break;
+      }
+      return name;
+    };
+    const re = /(\w+)\s*:\s*z\.number\([^()]*\)([^\n]*)/g;
+    let m;
+    while ((m = re.exec(content))) {
+      const field = m[1];
+      const rest = m[2];
+      if (!STRICT_NUMBER_FIELD_RE.test(field)) continue;
+      if (!/\.optional\s*\(|\.nullable\s*\(|\.nullish\s*\(/.test(rest)) continue;
+      if (/allow-strict-number/.test(rest)) continue; // opt-out
+      const exp = enclosingExport(m.index);
+      if (/Query|Param/i.test(exp)) continue; // query/param schemas already coerce, and are not form bodies
+      out.push({
+        key: `${rel} :: ${exp}.${field}`,
+        file: rel,
+        line: lineOf(content, m.index),
+        detail: `${exp}.${field} is an optional z.number() — forms post strings/blank; use formNumber() (or mark \`// allow-strict-number\`)`,
+      });
+    }
+  }
+  return out;
+}
+
 // B1 — raw divide-by-shrinkage `/ (1 - <expr> / 100)`; use divideByShrinkage() (guards >= 100).
 function shrinkageDivide(relFiles) {
   const out = [];
@@ -670,7 +715,8 @@ function parseZodObjectFields(objBody) {
   for (const e of entries) {
     const nm = e.match(/^\s*(\w+)\s*:/);
     if (!nm) continue;
-    const required = !/\.optional\s*\(|\.default\s*\(|\.nullish\s*\(|\.catch\s*\(/.test(e);
+    // formNumber() wraps .optional().nullable() inside a preprocess — optional by construction
+    const required = !/\.optional\s*\(|\.default\s*\(|\.nullish\s*\(|\.catch\s*\(|formNumber\s*\(/.test(e);
     fields.push({ name: nm[1], required });
   }
   return fields;
@@ -1745,6 +1791,7 @@ module.exports = {
   perRouteValidation,
   enumDrift,
   datetimeSchema,
+  strictNumberSchema,
   shrinkageDivide,
   currencyFormat,
   controllerReparse,

@@ -218,6 +218,17 @@ function checkDatetimeSchema(schemaFiles) {
   );
 }
 
+/** Check (A5): optional z.number() on a form-fed field rejects the strings/blank HTML inputs post — BLOCKING new + ratchet. */
+function checkStrictNumberSchema(schemaFiles) {
+  console.log(`\n${c.cyan}Checking schemas for strict z.number() on form-fed optional fields...${c.reset}`);
+  return runRatchetedCheck(
+    'optional z.number() field(s) that reject form strings',
+    detectors.strictNumberSchema(schemaFiles),
+    'strict-number-baseline.json',
+    'Use formNumber(z.number()…) from backend/src/schemas/common.schema.ts for form-posted optional numbers (or mark `// allow-strict-number`). If intentional, add the key to scripts/hooks/strict-number-baseline.json.'
+  );
+}
+
 /** Check (B1): raw divide-by-shrinkage → Infinity at 100% — BLOCKING new + ratchet. */
 function checkShrinkageDivide(tsFiles) {
   console.log(`\n${c.cyan}Checking divide-by-shrinkage is guarded...${c.reset}`);
@@ -1094,6 +1105,7 @@ function runAllModeChecks() {
   if (!checkRouteValidation(routeFiles)) ok = false;
   if (!checkEnumDrift(schemaFiles)) ok = false;
   if (!checkDatetimeSchema(schemaFiles)) ok = false;
+  if (!checkStrictNumberSchema(schemaFiles)) ok = false;
   if (!checkShrinkageDivide(tsFiles)) ok = false;
   if (!checkCurrencyFormat(tsFiles)) ok = false;
   if (!checkControllerReparse(tsFiles)) ok = false;
@@ -1199,6 +1211,7 @@ function main() {
     checksRun++;
     if (!checkEnumDrift(categories.schemas)) allPassed = false;
     if (!checkDatetimeSchema(categories.schemas)) allPassed = false;
+    if (!checkStrictNumberSchema(categories.schemas)) allPassed = false;
     if (!checkSchemaServiceUpdateParity(categories.schemas)) allPassed = false;
   }
 

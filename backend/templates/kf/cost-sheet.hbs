@@ -5,162 +5,120 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cost Sheet — {{docNo}}</title>
 <link rel="stylesheet" href="assets/base.css">
-<style>
-  .status-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
-  .status-PENDING { background: #fef3c7; color: #92400e; }
-  .status-APPROVED { background: #d1fae5; color: #065f46; }
-  .status-REJECTED { background: #fee2e2; color: #991b1b; }
-  tr, .cmt-grid, .summary-box, .closed-cost-box, .notes-box { break-inside: avoid; }
-  .sec-h { break-after: avoid; }
-  .summary-box {
-    margin-top: 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 4px;
-    overflow: hidden;
-  }
-  .summary-box .row {
-    display: flex;
-    justify-content: space-between;
-    padding: 6px 12px;
-    border-bottom: 1px solid #e5e7eb;
-  }
-  .summary-box .row:last-child { border-bottom: none; }
-  .summary-box .row.highlight {
-    background: #f3f4f6;
-    font-weight: 600;
-  }
-  .summary-box .row.total {
-    background: #1f2937;
-    color: white;
-    font-weight: 700;
-    font-size: 13px;
-  }
-  .na-row { opacity: 0.5; text-decoration: line-through; }
-  .cmt-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-    margin-top: 8px;
-  }
-  .cmt-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 6px 10px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    font-size: 11px;
-  }
-  .cmt-item .label { color: #6b7280; }
-  .cmt-item .value { font-weight: 600; }
-  .closed-cost-box {
-    margin-top: 12px;
-    padding: 12px;
-    background: #ecfdf5;
-    border: 1px solid #6ee7b7;
-    border-radius: 4px;
-  }
-  .closed-cost-box .title {
-    font-weight: 700;
-    color: #065f46;
-    margin-bottom: 4px;
-  }
-  .closed-cost-box .amount {
-    font-size: 18px;
-    font-weight: 700;
-    color: #047857;
-  }
-  .notes-box {
-    margin-top: 12px;
-    padding: 10px;
-    background: #fffbeb;
-    border: 1px solid #fcd34d;
-    border-radius: 4px;
-    font-size: 11px;
-  }
-</style>
 </head>
 <body>
 <div class="sheet">
 
-  {{> mast company=company docTitle="Cost Sheet" docNo=docNo}}
+  {{> mast company=company docTitle="Cost Sheet" docNo=docNo docPill=statusLabel}}
 
-  <!-- 01 — Style Information -->
+  <!-- 01 — Basic Information (matches form header) -->
   <div class="sec">
-    <div class="sec-h"><span>{{sec.style}} — Style Information</span><span class="status-badge status-{{status}}">{{statusLabel}}</span></div>
+    <div class="sec-h"><span>{{sec.basic}} — Basic Information</span></div>
     <div class="kv">
       <div>
-        <div class="row"><span class="k">Style Code</span><span class="v">{{style.code}}{{#if style.buyerRef}} · <span class="muted">{{style.buyerRef}}</span>{{/if}}</span></div>
+        <div class="row"><span class="k">Style</span><span class="v">{{style.code}}{{#if style.buyerRef}} · <span class="muted">{{style.buyerRef}}</span>{{/if}}</span></div>
         <div class="row"><span class="k">Style Name</span><span class="v">{{style.name}}</span></div>
-        <div class="row"><span class="k">Category</span><span class="v">{{category}}</span></div>
+        <div class="row"><span class="k">Customer</span><span class="v">{{customer}}</span></div>
       </div>
       <div>
-        <div class="row"><span class="k">Purpose</span><span class="v">{{purposeLabel}}</span></div>
-        <div class="row"><span class="k">Version</span><span class="v">v{{version}}</span></div>
-        <div class="row"><span class="k">Created</span><span class="v">{{createdAt}} · {{createdBy}}</span></div>
-        {{#if approvedBy}}<div class="row"><span class="k">Approved</span><span class="v">{{approvedAt}} · {{approvedBy}}</span></div>{{/if}}
+        <div class="row"><span class="k">Costing Mode</span><span class="v">{{costingModeLabel}}</span></div>
+        <div class="row"><span class="k">Components</span><span class="v">{{numberOfComponents}}</span></div>
+        <div class="row"><span class="k">Category</span><span class="v">{{category}}{{#if subCategory}} · {{subCategory}}{{/if}}</span></div>
       </div>
     </div>
   </div>
 
-  <!-- 02 — Fabric Costs -->
+  <!-- Fabric Costs -->
   {{#if hasFabrics}}
   <div class="sec">
-    <div class="sec-h"><span>{{sec.fabric}} — Fabric</span><b>{{fabricTotal}}</b></div>
+    <div class="sec-h"><span>{{sec.fabric}} — Fabric Details</span><b>Fabric Total: ₹{{fabricTotal}}</b></div>
     <table>
       <thead>
         <tr>
-          <th style="width:26px">#</th>
-          <th>Fabric Name</th>
-          <th class="num" style="width:56px">Width</th>
-          <th class="num" style="width:64px">Avg (m)</th>
-          <th class="num" style="width:72px">Rate/m</th>
-          <th class="num" style="width:80px">Total ₹</th>
+          <th style="width:24px">#</th>
+          <th>Fabric</th>
+          <th class="num" style="width:60px">CAD (m)</th>
+          <th class="num" style="width:48px">Width</th>
+          <th style="width:100px">Sourcing</th>
+          <th class="num" style="width:72px">Price (₹/m)</th>
+          <th class="num" style="width:72px">Total</th>
         </tr>
       </thead>
       <tbody>
         {{#each fabrics}}
-        <tr{{#if this.isNA}} class="na-row"{{/if}}>
+        <tr>
           <td class="num">{{this.sn}}</td>
           <td>{{this.name}}</td>
+          <td class="num">{{this.cad}}</td>
           <td class="num">{{this.width}}</td>
-          <td class="num">{{this.average}}</td>
+          <td>{{this.sourcing}}</td>
           <td class="num">{{this.rate}}</td>
           <td class="num">{{this.total}}</td>
         </tr>
         {{/each}}
-        <tr class="sub"><td colspan="5">Fabric Subtotal</td><td class="num">{{fabricTotal}}</td></tr>
       </tbody>
     </table>
   </div>
   {{/if}}
 
-  <!-- 03 — Trims Costs -->
-  {{#if hasTrims}}
+  <!-- Lace Costs (before Trims in form order) -->
+  {{#if hasLaces}}
   <div class="sec">
-    <div class="sec-h"><span>{{sec.trims}} — Trims</span><b>{{trimsTotal}}</b></div>
+    <div class="sec-h"><span>{{sec.lace}} — Lace Details</span><b>Lace Total: ₹{{laceTotal}}</b></div>
     <table>
       <thead>
         <tr>
-          <th style="width:26px">#</th>
+          <th style="width:24px">#</th>
+          <th>Lace Name</th>
+          <th class="num" style="width:56px">Qty/Garment</th>
+          <th class="num" style="width:48px">Wastage</th>
+          <th class="num" style="width:60px">Effective</th>
+          <th style="width:90px">Sourcing</th>
+          <th class="num" style="width:64px">Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#each laces}}
+        <tr>
+          <td class="num">{{this.sn}}</td>
+          <td>
+            {{this.name}}
+            {{#if this.colorSub}}<div class="muted">{{this.colorSub}}</div>{{/if}}
+            {{#if this.widthSub}}<div class="muted">{{this.widthSub}}</div>{{/if}}
+          </td>
+          <td class="num">{{this.qty}}</td>
+          <td class="num">{{this.wastage}}</td>
+          <td class="num">{{this.effective}}</td>
+          <td>{{this.sourcing}}</td>
+          <td class="num">{{this.total}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
+  </div>
+  {{/if}}
+
+  <!-- Trims Costs -->
+  {{#if hasTrims}}
+  <div class="sec">
+    <div class="sec-h"><span>{{sec.trims}} — Trims Details</span><b>Trims Total: ₹{{trimsTotal}}</b></div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:24px">#</th>
+          <th style="width:80px">Type</th>
           <th>Trim Name</th>
-          <th class="num" style="width:56px">Qty</th>
+          <th class="num" style="width:48px">Qty</th>
           <th style="width:48px">Unit</th>
           <th class="num" style="width:72px">Rate</th>
-          <th class="num" style="width:80px">Total ₹</th>
+          <th class="num" style="width:72px">Total</th>
         </tr>
       </thead>
       <tbody>
         {{#each trims}}
-        <tr{{#if this.isNA}} class="na-row"{{/if}}>
+        <tr>
           <td class="num">{{this.sn}}</td>
+          <td>{{this.type}}</td>
           <td>{{this.name}}</td>
           <td class="num">{{this.qty}}</td>
           <td>{{this.unit}}</td>
@@ -168,76 +126,53 @@
           <td class="num">{{this.total}}</td>
         </tr>
         {{/each}}
-        <tr class="sub"><td colspan="5">Trims Subtotal</td><td class="num">{{trimsTotal}}</td></tr>
       </tbody>
     </table>
   </div>
   {{/if}}
 
-  <!-- 04 — Lace Costs -->
-  {{#if hasLaces}}
+  <!-- CMT Costs -->
   <div class="sec">
-    <div class="sec-h"><span>{{sec.lace}} — Lace</span><b>{{laceTotal}}</b></div>
+    <div class="sec-h"><span>{{sec.cmt}} — CMT Costs</span><b>CMT Total: ₹{{cmtTotal}}</b></div>
     <table>
       <thead>
         <tr>
-          <th style="width:26px">#</th>
-          <th>Lace Name</th>
-          <th style="width:72px">Color</th>
-          <th class="num" style="width:56px">Qty/pc</th>
-          <th class="num" style="width:56px">Wastage</th>
-          <th class="num" style="width:72px">Rate/m</th>
-          <th class="num" style="width:80px">Total ₹</th>
+          <th>Component</th>
+          <th class="num" style="width:100px">Amount</th>
         </tr>
       </thead>
       <tbody>
-        {{#each laces}}
-        <tr{{#if this.isNA}} class="na-row"{{/if}}>
-          <td class="num">{{this.sn}}</td>
-          <td>{{this.name}}</td>
-          <td>{{this.color}}</td>
-          <td class="num">{{this.qty}}</td>
-          <td class="num">{{this.wastage}}</td>
-          <td class="num">{{this.rate}}</td>
-          <td class="num">{{this.total}}</td>
+        {{#each cmt}}
+        <tr>
+          <td>{{this.label}}</td>
+          <td class="num">{{this.amount}}</td>
         </tr>
         {{/each}}
-        <tr class="sub"><td colspan="6">Lace Subtotal</td><td class="num">{{laceTotal}}</td></tr>
+        <tr class="tot">
+          <td>CMT Total</td>
+          <td class="num">{{cmtTotal}}</td>
+        </tr>
       </tbody>
     </table>
   </div>
-  {{/if}}
 
-  <!-- 05 — CMT Costs -->
-  <div class="sec">
-    <div class="sec-h"><span>{{sec.cmt}} — CMT (Cut, Make, Trim)</span><b>{{cmtTotal}}</b></div>
-    <div class="cmt-grid">
-      <div class="cmt-item"><span class="label">Cutting</span><span class="value">{{cmt.cutting}}</span></div>
-      <div class="cmt-item"><span class="label">Stitching</span><span class="value">{{cmt.stitching}}</span></div>
-      <div class="cmt-item"><span class="label">Finishing</span><span class="value">{{cmt.finishing}}</span></div>
-      <div class="cmt-item"><span class="label">Button Attach</span><span class="value">{{cmt.buttonAttachment}}</span></div>
-      <div class="cmt-item"><span class="label">Handwork</span><span class="value">{{cmt.handwork}}</span></div>
-      <div class="cmt-item"><span class="label">Smocking</span><span class="value">{{cmt.smocking}}</span></div>
-    </div>
-  </div>
-
-  <!-- 06 — Embroidery Costs -->
+  <!-- Embroidery Costs -->
   {{#if hasEmbroideries}}
   <div class="sec">
-    <div class="sec-h"><span>{{sec.embroidery}} — Embroidery</span><b>{{embroideryTotal}}</b></div>
+    <div class="sec-h"><span>{{sec.embroidery}} — Embroidery</span><b>Embroidery Total: ₹{{embroideryTotal}}</b></div>
     <table>
       <thead>
         <tr>
-          <th style="width:26px">#</th>
+          <th style="width:24px">#</th>
           <th>Embroidery Name</th>
           <th class="num" style="width:64px">Avg (m)</th>
           <th class="num" style="width:72px">Rate/m</th>
-          <th class="num" style="width:80px">Total ₹</th>
+          <th class="num" style="width:72px">Total</th>
         </tr>
       </thead>
       <tbody>
         {{#each embroideries}}
-        <tr{{#if this.isNA}} class="na-row"{{/if}}>
+        <tr>
           <td class="num">{{this.sn}}</td>
           <td>{{this.name}}</td>
           <td class="num">{{this.average}}</td>
@@ -245,69 +180,92 @@
           <td class="num">{{this.total}}</td>
         </tr>
         {{/each}}
-        <tr class="sub"><td colspan="4">Embroidery Subtotal</td><td class="num">{{embroideryTotal}}</td></tr>
       </tbody>
     </table>
   </div>
   {{/if}}
 
-  <!-- 07 — Accessories Costs -->
+  <!-- Accessories Costs -->
   {{#if hasAccessories}}
   <div class="sec">
-    <div class="sec-h"><span>{{sec.accessories}} — Accessories</span><b>{{accessoriesTotal}}</b></div>
+    <div class="sec-h"><span>{{sec.accessories}} — Accessories</span><b>Accessories Total: ₹{{accessoriesTotal}}</b></div>
     <table>
       <thead>
         <tr>
-          <th style="width:26px">#</th>
-          <th>Accessory Name</th>
-          <th class="num" style="width:56px">Qty</th>
+          <th style="width:24px">#</th>
+          <th style="width:80px">Type</th>
+          <th>Name</th>
+          <th class="num" style="width:48px">Qty</th>
           <th class="num" style="width:72px">Rate</th>
-          <th class="num" style="width:80px">Total ₹</th>
+          <th class="num" style="width:72px">Total</th>
         </tr>
       </thead>
       <tbody>
         {{#each accessories}}
-        <tr{{#if this.isNA}} class="na-row"{{/if}}>
+        <tr>
           <td class="num">{{this.sn}}</td>
+          <td>{{this.type}}</td>
           <td>{{this.name}}</td>
           <td class="num">{{this.qty}}</td>
           <td class="num">{{this.rate}}</td>
           <td class="num">{{this.total}}</td>
         </tr>
         {{/each}}
-        <tr class="sub"><td colspan="4">Accessories Subtotal</td><td class="num">{{accessoriesTotal}}</td></tr>
       </tbody>
     </table>
   </div>
   {{/if}}
 
-  <!-- 08 — Cost Summary -->
+  <!-- Cost Summary (11 rows matching form) -->
   <div class="sec">
-    <div class="sec-h"><span>{{sec.summary}} — Cost Summary</span></div>
-    <div class="summary-box">
-      <div class="row"><span>Subtotal (all components)</span><span>{{subtotal}}</span></div>
-      <div class="row"><span>Value Loss ({{valueLossPercent}})</span><span>{{valueLossAmount}}</span></div>
-      <div class="row highlight"><span>Markup ({{markupPercent}})</span><span>{{markupAmount}}</span></div>
-      <div class="row total"><span>Total Cost Per Piece</span><span>₹ {{totalCostPerPiece}}</span></div>
-    </div>
+    <div class="sec-h"><span>{{sec.summary}} — Value Loss & Markup</span></div>
+    <table>
+      <tbody>
+        {{#each summaryLines}}
+        <tr{{#if this.isSub}} class="sub"{{/if}}{{#if this.isTot}} class="tot"{{/if}}>
+          <td>{{this.label}}</td>
+          <td class="num" style="width:120px">{{this.amount}}</td>
+        </tr>
+        {{/each}}
+      </tbody>
+    </table>
 
     {{#if hasClosedCost}}
-    <div class="closed-cost-box">
-      <div class="title">Closed Cost (Agreed Price)</div>
-      <div class="amount">₹ {{closedCost}}</div>
-      {{#if closedCostNotes}}<div class="muted" style="margin-top:4px;">{{closedCostNotes}}</div>{{/if}}
+    <table style="margin-top:12px;">
+      <thead>
+        <tr>
+          <th>Calculated Cost</th>
+          <th>Closed Cost</th>
+          <th>Variance</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="tot">
+          <td class="num">₹ {{calculatedCost}}</td>
+          <td class="num">₹ {{closedCost}}</td>
+          <td class="num">{{variance}}</td>
+        </tr>
+      </tbody>
+    </table>
+    {{#if closedCostNotes}}
+    <div class="callout" style="margin-top:8px;">
+      <b>Notes</b>
+      {{closedCostNotes}}
     </div>
+    {{/if}}
     {{/if}}
 
     {{#if hasNotes}}
-    <div class="notes-box">
-      <strong>Notes:</strong> {{notes}}
+    <div class="callout" style="margin-top:8px;">
+      <b>Notes</b>
+      {{notes}}
     </div>
     {{/if}}
   </div>
 
   <div class="sign">
     <div>Prepared by / Costing</div>
+    <div>Reviewed by</div>
     <div>For {{company.name}} — Authorised Signatory</div>
   </div>
 

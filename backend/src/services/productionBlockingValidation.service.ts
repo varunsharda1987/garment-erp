@@ -574,9 +574,13 @@ class ProductionBlockingValidationService {
     const sampleRequirements: SampleReq[] = customer?.customer_sample_requirements || [];
     const fitReq = sampleRequirements.find((r: SampleReq) => r.sampleType === 'FIT_SAMPLE');
     const sizeSetReq = sampleRequirements.find((r: SampleReq) => r.sampleType === 'SIZE_SET_SAMPLE');
-    // Default: if no requirement defined, assume blocking is enabled (backward compatible)
-    const fitBlocks = fitReq?.blocksProduction ?? true;
-    const sizeSetBlocks = sizeSetReq?.blocksProduction ?? true;
+    // A configured type blocks only when it is required AND set to block — the screen keeps a
+    // hidden blocksProduction on un-ticked types, so isRequired must be honoured here or a
+    // customer opting out of FIT/size-set samples would still be blocked. No row at all keeps
+    // the backward-compatible default (blocking on).
+    const blocks = (req: SampleReq | undefined) => (req ? req.isRequired && req.blocksProduction : true);
+    const fitBlocks = blocks(fitReq);
+    const sizeSetBlocks = blocks(sizeSetReq);
 
     // Run all validations in parallel
     const [fitResult, sizeSetResult, fptResult, gptResult, materialResult, cadResult] = await Promise.all([

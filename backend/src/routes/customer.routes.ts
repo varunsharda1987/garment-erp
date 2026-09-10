@@ -22,6 +22,7 @@ import {
   updateCustomerSchema,
   customerQuerySchema,
   customerIdParamSchema,
+  upsertSampleRequirementsSchema,
 } from '../schemas/customer.schema';
 import { createAccessoryPresetSchema, updateAccessoryPresetSchema } from '../schemas/customerAccessories.schema';
 import { UserRole } from '@prisma/client';
@@ -163,6 +164,7 @@ router.put(
   '/:id/sample-requirements',
   authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER),
   validateParams(customerIdParamSchema),
+  validateBody(upsertSampleRequirementsSchema),
   asyncHandler(upsertSampleRequirements)
 );
 

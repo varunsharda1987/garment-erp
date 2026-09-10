@@ -4,6 +4,8 @@
  */
 
 import { z } from 'zod';
+import { SampleTypeEnum } from './generated/prisma-enums';
+import { formNumber } from './common.schema';
 
 /**
  * GST number validation regex
@@ -316,6 +318,32 @@ export const customerIdParamSchema = z.object({
   id: z.string().uuid('Invalid customer ID format'),
 });
 
+/**
+ * Upsert Sample Requirements
+ * PUT /api/customers/:id/sample-requirements
+ *
+ * One row per sample type. The screen posts all six types with their Required flag so that
+ * un-ticking a type persists as isRequired:false (an absent row would fall back to the
+ * customer defaults in sample.service, not to "not required"). Day targets have no inputs on
+ * the screen today; formNumber keeps them tolerant of form-style values if that changes.
+ */
+export const sampleRequirementItemSchema = z.object({
+  sampleType: SampleTypeEnum,
+  isRequired: z.boolean(),
+  blocksProduction: z.boolean().optional(),
+  targetDaysToSend: formNumber(z.number().int().min(0).max(365)),
+  targetDaysToFeedback: formNumber(z.number().int().min(0).max(365)),
+});
+
+export const upsertSampleRequirementsSchema = z.object({
+  requirements: z
+    .array(sampleRequirementItemSchema)
+    .max(SampleTypeEnum.options.length, 'One entry per sample type')
+    .refine((rows) => new Set(rows.map((r) => r.sampleType)).size === rows.length, {
+      message: 'Duplicate sample type',
+    }),
+});
+
 // Type exports for TypeScript
 export type CreateCustomerInput = z.infer<typeof createCustomerSchema>;
 export type UpdateCustomerInput = z.infer<typeof updateCustomerSchema>;
@@ -323,3 +351,5 @@ export type CustomerQueryInput = z.infer<typeof customerQuerySchema>;
 export type CustomerIdParam = z.infer<typeof customerIdParamSchema>;
 export type BrandCategory = z.infer<typeof brandCategorySchema>;
 export type GstNumber = z.infer<typeof gstNumberSchema>;
+export type SampleRequirementItemInput = z.infer<typeof sampleRequirementItemSchema>;
+export type UpsertSampleRequirementsInput = z.infer<typeof upsertSampleRequirementsSchema>;

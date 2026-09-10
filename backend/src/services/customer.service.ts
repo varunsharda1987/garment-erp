@@ -17,7 +17,7 @@ import {
 import { ConflictError, NotFoundError, ValidationError } from '../errors';
 import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter, AdditionalFilters } from '../types/prisma.types';
-import { Prisma } from '@prisma/client';
+import { Prisma, SampleType } from '@prisma/client';
 import { gstService } from './gst.service';
 
 // ============================================
@@ -1037,7 +1037,7 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
   async upsertSampleRequirements(
     customerId: string,
     requirements: Array<{
-      sampleType: string;
+      sampleType: SampleType;
       isRequired: boolean;
       blocksProduction?: boolean;
       targetDaysToSend?: number | null;
@@ -1052,33 +1052,36 @@ class CustomerServiceClass extends BaseService<customers, CreateCustomerDTO, Upd
 
     // Default blocksProduction based on sample type
     // FIT/PP block production, SHIPMENT blocks dispatch
-    const getDefaultBlocks = (type: string) => ['FIT_SAMPLE', 'PP_SAMPLE', 'SHIPMENT_SAMPLE'].includes(type);
+    const getDefaultBlocks = (type: SampleType) =>
+      (['FIT_SAMPLE', 'PP_SAMPLE', 'SHIPMENT_SAMPLE'] as SampleType[]).includes(type);
 
-    // Upsert each requirement
-    const results = await Promise.all(
-      requirements.map((req) =>
-        this.prisma.customer_sample_requirements.upsert({
-          where: {
-            customerId_sampleType: {
-              customerId,
-              sampleType: req.sampleType as any,
+    // One transaction: a row the database refuses must not leave the earlier rows half-written
+    const results = await this.prisma.$transaction((tx) =>
+      Promise.all(
+        requirements.map((req) =>
+          tx.customer_sample_requirements.upsert({
+            where: {
+              customerId_sampleType: {
+                customerId,
+                sampleType: req.sampleType,
+              },
             },
-          },
-          create: {
-            customerId,
-            sampleType: req.sampleType as any,
-            isRequired: req.isRequired,
-            blocksProduction: req.blocksProduction ?? getDefaultBlocks(req.sampleType),
-            targetDaysToSend: req.targetDaysToSend ?? null,
-            targetDaysToFeedback: req.targetDaysToFeedback ?? null,
-          },
-          update: {
-            isRequired: req.isRequired,
-            blocksProduction: req.blocksProduction ?? getDefaultBlocks(req.sampleType),
-            targetDaysToSend: req.targetDaysToSend ?? null,
-            targetDaysToFeedback: req.targetDaysToFeedback ?? null,
-          },
-        })
+            create: {
+              customerId,
+              sampleType: req.sampleType,
+              isRequired: req.isRequired,
+              blocksProduction: req.blocksProduction ?? getDefaultBlocks(req.sampleType),
+              targetDaysToSend: req.targetDaysToSend ?? null,
+              targetDaysToFeedback: req.targetDaysToFeedback ?? null,
+            },
+            update: {
+              isRequired: req.isRequired,
+              blocksProduction: req.blocksProduction ?? getDefaultBlocks(req.sampleType),
+              targetDaysToSend: req.targetDaysToSend ?? null,
+              targetDaysToFeedback: req.targetDaysToFeedback ?? null,
+            },
+          })
+        )
       )
     );
 

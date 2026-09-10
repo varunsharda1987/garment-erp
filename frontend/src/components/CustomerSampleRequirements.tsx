@@ -135,7 +135,9 @@ export function CustomerSampleRequirements({ customerId, customerName }: Custome
   const handleSave = async () => {
     try {
       setSaving(true);
-      const reqArray = Object.values(requirements).filter((r) => r.isRequired);
+      // Post every type with its flag. Sending only the ticked ones meant un-ticking a type never
+      // reached the server (it only upserts what it receives), so the type stayed required.
+      const reqArray = Object.values(requirements);
 
       await api.put(`/customers/${customerId}/sample-requirements`, {
         requirements: reqArray,

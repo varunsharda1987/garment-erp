@@ -7,12 +7,14 @@
       "frontend/src/pages/TrimMastersDashboard.tsx": "df651f0bd8ff",
       "frontend/src/pages/ButtonList.tsx": "0c87bd1a209e",
       "frontend/src/pages/ButtonForm.tsx": "22d74a37a7f2",
+      "frontend/src/components/SupplierCombobox.tsx": "443ad1a55e32",
       "frontend/src/types/supplier.types.ts": "4ddeaa7e812c",
-      "backend/src/schemas/trimMasters.schema.ts": "5b3afe89eadd",
+      "backend/src/schemas/trimMasters.schema.ts": "07863e789eb5",
+      "backend/src/schemas/common.schema.ts": "8683e9a6f3b7",
       "backend/src/controllers/button.controller.ts": "b71495cae7a5"
     },
-    "contentHash": "2377a9ae51d2",
-    "generatedAt": "2026-09-09T14:01:11.050Z"
+    "contentHash": "35b9a826a0e2",
+    "generatedAt": "2026-09-10T03:16:16.355Z"
   },
   "color-create": {
     "sources": {
@@ -27,7 +29,7 @@
       "backend/src/services/color.service.ts": "0fdc61c39da2"
     },
     "contentHash": "5b01218db6c5",
-    "generatedAt": "2026-09-09T14:01:11.626Z"
+    "generatedAt": "2026-09-10T03:16:16.532Z"
   },
   "cost-sheet-create": {
     "sources": {
@@ -47,7 +49,7 @@
       "backend/src/services/laceCostingCalculation.service.ts": "6b1a679d4234"
     },
     "contentHash": "bd5534171b74",
-    "generatedAt": "2026-09-09T14:01:11.651Z"
+    "generatedAt": "2026-09-10T03:16:16.539Z"
   },
   "customer-create": {
     "sources": {
@@ -63,7 +65,7 @@
       "backend/src/services/customer.service.ts": "462b02935e5f"
     },
     "contentHash": "6a5ae480a074",
-    "generatedAt": "2026-09-09T14:01:11.661Z"
+    "generatedAt": "2026-09-10T03:16:16.545Z"
   },
   "cutting-entry": {
     "sources": {
@@ -80,7 +82,7 @@
       "backend/src/routes/cutting.routes.ts": "1876f44bd401"
     },
     "contentHash": "b91c9a4d92d6",
-    "generatedAt": "2026-09-09T14:01:11.675Z"
+    "generatedAt": "2026-09-10T03:16:16.550Z"
   },
   "elastic-create": {
     "sources": {
@@ -90,12 +92,14 @@
       "frontend/src/pages/TrimMastersDashboard.tsx": "df651f0bd8ff",
       "frontend/src/pages/ElasticList.tsx": "9f577cc28cdf",
       "frontend/src/pages/ElasticForm.tsx": "1303ddf5f365",
+      "frontend/src/components/SupplierCombobox.tsx": "443ad1a55e32",
       "frontend/src/types/supplier.types.ts": "4ddeaa7e812c",
-      "backend/src/schemas/trimMasters.schema.ts": "5b3afe89eadd",
+      "backend/src/schemas/trimMasters.schema.ts": "07863e789eb5",
+      "backend/src/schemas/common.schema.ts": "8683e9a6f3b7",
       "backend/src/controllers/elastic.controller.ts": "d0fdd381f93c"
     },
-    "contentHash": "3203c5036414",
-    "generatedAt": "2026-09-09T14:01:11.697Z"
+    "contentHash": "be0062ea6010",
+    "generatedAt": "2026-09-10T03:16:16.554Z"
   },
   "fabric-create": {
     "sources": {
@@ -108,7 +112,7 @@
       "backend/src/services/fabric.service.ts": "09e78fd7d426"
     },
     "contentHash": "70febd66e9f4",
-    "generatedAt": "2026-09-09T14:01:11.708Z"
+    "generatedAt": "2026-09-10T03:16:16.560Z"
   },
   "fabric-stock-entry": {
     "sources": {
@@ -122,7 +126,7 @@
       "backend/src/routes/fabric-stock.routes.ts": "1ea5394a4003"
     },
     "contentHash": "1d0959f0f34c",
-    "generatedAt": "2026-09-09T14:01:11.717Z"
+    "generatedAt": "2026-09-10T03:16:16.564Z"
   },
   "finishing-entry": {
     "sources": {
@@ -137,7 +141,7 @@
       "backend/src/controllers/finishing.controller.ts": "218ea33838e7"
     },
     "contentHash": "5b92864de50f",
-    "generatedAt": "2026-09-09T14:01:11.726Z"
+    "generatedAt": "2026-09-10T03:16:16.569Z"
   },
   "greige-create": {
     "sources": {
@@ -149,7 +153,7 @@
       "backend/src/services/greige.service.ts": "d1bda0a10462"
     },
     "contentHash": "6d2e844f5773",
-    "generatedAt": "2026-09-09T14:01:11.732Z"
+    "generatedAt": "2026-09-10T03:16:16.572Z"
   },
   "greige-receive-without-po": {
     "sources": {
@@ -167,7 +171,7 @@
       "docs/STOCK_DOORS_GUIDE.md": "594a5a9d71a1"
     },
     "contentHash": "6c912a839917",
-    "generatedAt": "2026-09-09T14:01:11.747Z"
+    "generatedAt": "2026-09-10T03:16:16.577Z"
   },
   "greige-stock-entry": {
     "sources": {
@@ -180,7 +184,7 @@
       "backend/src/schemas/stockMovement.schema.ts": "86b30277cc59"
     },
     "contentHash": "3737b190c4cf",
-    "generatedAt": "2026-09-09T14:01:11.752Z"
+    "generatedAt": "2026-09-10T03:16:16.582Z"
   },
   "grn-approve": {
     "sources": {
@@ -193,7 +197,7 @@
       "backend/src/services/grn.service.ts": "995c5f7b65cd"
     },
     "contentHash": "677c20563b68",
-    "generatedAt": "2026-09-09T14:01:11.759Z"
+    "generatedAt": "2026-09-10T03:16:16.587Z"
   },
   "grn-create": {
     "sources": {
@@ -208,7 +212,7 @@
       "backend/src/services/purchaseOrder.service.ts": "92f2d2efcc2b"
     },
     "contentHash": "5699adf54a7a",
-    "generatedAt": "2026-09-09T14:01:11.767Z"
+    "generatedAt": "2026-09-10T03:16:16.592Z"
   },
   "job-work-dashboard": {
     "sources": {
@@ -221,7 +225,7 @@
       "frontend/src/pages/StockMovementDashboard.tsx": "1849fb575e23"
     },
     "contentHash": "1e0ff03bb94c",
-    "generatedAt": "2026-09-09T14:01:11.775Z"
+    "generatedAt": "2026-09-10T03:16:16.596Z"
   },
   "job-work-order-create": {
     "sources": {
@@ -236,7 +240,7 @@
       "backend/src/schemas/jobWorkOrder.schema.ts": "ffa2e4c43ae7"
     },
     "contentHash": "0783b54bf72e",
-    "generatedAt": "2026-09-09T14:01:11.782Z"
+    "generatedAt": "2026-09-10T03:16:16.601Z"
   },
   "job-work-receive": {
     "sources": {
@@ -252,25 +256,28 @@
       "backend/src/controllers/job-work-order.controller.ts": "90c9e066dfe1"
     },
     "contentHash": "f034adc2c356",
-    "generatedAt": "2026-09-09T14:01:11.789Z"
+    "generatedAt": "2026-09-10T03:16:16.605Z"
   },
   "label-create": {
     "sources": {
       "frontend/src/config/navigation.ts": "9ece28576ed9",
       "frontend/src/components/Sidebar.tsx": "bc685da174cf",
+      "frontend/src/stores/ui-preferences.store.ts": "4f0c8f0fd40f",
       "frontend/src/components/CommandPalette.tsx": "e4b68c0107f8",
       "frontend/src/App.tsx": "a3d70012c317",
       "frontend/src/pages/MasterDataDashboard.tsx": "a6ebce613de4",
       "frontend/src/pages/LabelList.tsx": "c16333b91dd8",
       "frontend/src/pages/LabelForm.tsx": "124c7f6e69c3",
+      "frontend/src/components/SupplierCombobox.tsx": "443ad1a55e32",
       "frontend/src/types/label.types.ts": "561a396f3beb",
       "frontend/src/types/supplier.types.ts": "4ddeaa7e812c",
       "backend/src/controllers/masterDataDashboard.controller.ts": "3ef1c9788e84",
-      "backend/src/schemas/trimMasters.schema.ts": "5b3afe89eadd",
+      "backend/src/schemas/trimMasters.schema.ts": "07863e789eb5",
+      "backend/src/schemas/common.schema.ts": "8683e9a6f3b7",
       "backend/src/controllers/label.controller.ts": "6d0d0e4dbcdc"
     },
-    "contentHash": "268010821ae6",
-    "generatedAt": "2026-09-09T14:01:11.799Z"
+    "contentHash": "aea0affd3685",
+    "generatedAt": "2026-09-10T03:16:16.610Z"
   },
   "lace-create": {
     "sources": {
@@ -284,10 +291,10 @@
       "frontend/src/types/supplier.types.ts": "4ddeaa7e812c",
       "frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx": "0e5623fa396c",
       "frontend/src/components/JobWorkOrderCreateDialog.tsx": "7ddc569913cc",
-      "backend/src/schemas/trimMasters.schema.ts": "5b3afe89eadd"
+      "backend/src/schemas/trimMasters.schema.ts": "07863e789eb5"
     },
     "contentHash": "c0061f1875aa",
-    "generatedAt": "2026-09-09T14:01:11.809Z"
+    "generatedAt": "2026-09-10T03:16:16.616Z"
   },
   "manufacturing-control-center": {
     "sources": {
@@ -298,7 +305,7 @@
       "frontend/src/services/manufacturingAlerts.service.ts": "fa5aa12daa59"
     },
     "contentHash": "fb2e86f723a4",
-    "generatedAt": "2026-09-09T14:01:11.819Z"
+    "generatedAt": "2026-09-10T03:16:16.619Z"
   },
   "material-quick-add": {
     "sources": {
@@ -310,18 +317,18 @@
       "frontend/src/config/material-quick-add.config.ts": "e38c2f8abffa",
       "frontend/src/types/genericTrim.types.ts": "7dc2edcbe621",
       "frontend/src/types/material-quick-add.types.ts": "2a515e2201cd",
-      "frontend/src/pages/StyleFormRedesigned.tsx": "de5ea4b86bdf",
+      "frontend/src/pages/StyleFormRedesigned.tsx": "9a2b8acc61a5",
       "frontend/src/pages/StyleList.tsx": "9776e465b0bc",
       "frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx": "0e5623fa396c",
       "frontend/src/config/navigation.ts": "9ece28576ed9",
       "frontend/src/components/Sidebar.tsx": "bc685da174cf",
       "frontend/src/App.tsx": "a3d70012c317",
-      "backend/src/schemas/trimMasters.schema.ts": "5b3afe89eadd",
+      "backend/src/schemas/trimMasters.schema.ts": "07863e789eb5",
       "backend/src/schemas/genericTrim.schema.ts": "2db8391fa2a3",
       "backend/src/controllers/generic-trim.controller.ts": "9d37232feda8"
     },
     "contentHash": "eda8704edcfb",
-    "generatedAt": "2026-09-09T14:01:11.836Z"
+    "generatedAt": "2026-09-10T03:16:16.625Z"
   },
   "order-create": {
     "sources": {
@@ -337,7 +344,7 @@
       "backend/src/controllers/order.controller.ts": "3661f35f94bb"
     },
     "contentHash": "7621304742bc",
-    "generatedAt": "2026-09-09T14:01:11.849Z"
+    "generatedAt": "2026-09-10T03:16:16.630Z"
   },
   "order-track-status": {
     "sources": {
@@ -354,7 +361,7 @@
       "frontend/src/types/mrp.types.ts": "b75630793078"
     },
     "contentHash": "901e4bea6573",
-    "generatedAt": "2026-09-09T14:01:11.857Z"
+    "generatedAt": "2026-09-10T03:16:16.635Z"
   },
   "packaging-create": {
     "sources": {
@@ -364,21 +371,22 @@
       "frontend/src/App.tsx": "a3d70012c317",
       "frontend/src/pages/MasterDataDashboard.tsx": "a6ebce613de4",
       "frontend/src/pages/PackagingList.tsx": "1dd933a43e2d",
-      "frontend/src/pages/PackagingForm.tsx": "05863634814f",
+      "frontend/src/pages/PackagingForm.tsx": "f8d6ebf0634f",
       "frontend/src/types/packaging.types.ts": "1182511b9a68",
       "frontend/src/types/supplier.types.ts": "4ddeaa7e812c",
       "frontend/src/components/SupplierCombobox.tsx": "443ad1a55e32",
       "frontend/src/services/packaging.service.ts": "dc14c9701619",
       "frontend/src/lib/api-error-handler.ts": "7645e77a115f",
       "backend/src/controllers/masterDataDashboard.controller.ts": "3ef1c9788e84",
-      "backend/src/schemas/trimMasters.schema.ts": "5b3afe89eadd",
+      "backend/src/schemas/trimMasters.schema.ts": "07863e789eb5",
+      "backend/src/schemas/common.schema.ts": "8683e9a6f3b7",
       "backend/src/routes/packaging.routes.ts": "8a70cb8b2282",
-      "backend/src/middleware/validation.middleware.ts": "97c54de654bd",
-      "backend/src/controllers/packaging.controller.ts": "6f15a24b7750",
+      "backend/src/middleware/validation.middleware.ts": "8c1f041d36d0",
+      "backend/src/controllers/packaging.controller.ts": "768e9ca7f1f6",
       "backend/src/utils/code-generator.ts": "2672cbc3ab81"
     },
-    "contentHash": "05560b7ba6b4",
-    "generatedAt": "2026-09-09T14:01:11.868Z"
+    "contentHash": "89af39b6ea68",
+    "generatedAt": "2026-09-10T03:16:16.640Z"
   },
   "production-status-track": {
     "sources": {
@@ -395,7 +403,7 @@
       "backend/src/schemas/workOrder.schema.ts": "b0619ac00389"
     },
     "contentHash": "2e07e12601e1",
-    "generatedAt": "2026-09-09T14:01:11.878Z"
+    "generatedAt": "2026-09-10T03:16:16.646Z"
   },
   "purchase-order-close-short": {
     "sources": {
@@ -408,7 +416,7 @@
       "backend/src/services/purchaseOrder.service.ts": "92f2d2efcc2b"
     },
     "contentHash": "25fcb81c94bf",
-    "generatedAt": "2026-09-09T14:01:11.883Z"
+    "generatedAt": "2026-09-10T03:16:16.650Z"
   },
   "purchase-order-create": {
     "sources": {
@@ -422,7 +430,7 @@
       "backend/src/schemas/purchaseOrder.schema.ts": "0c2ca2f6827a"
     },
     "contentHash": "094732f3bca0",
-    "generatedAt": "2026-09-09T14:01:11.889Z"
+    "generatedAt": "2026-09-10T03:16:16.655Z"
   },
   "sale-order-create": {
     "sources": {
@@ -440,7 +448,7 @@
       "backend/src/routes/saleOrder.routes.ts": "85f675bfd27c"
     },
     "contentHash": "e2753b526fd8",
-    "generatedAt": "2026-09-09T14:01:11.902Z"
+    "generatedAt": "2026-09-10T03:16:16.659Z"
   },
   "season-create": {
     "sources": {
@@ -454,7 +462,7 @@
       "backend/src/schemas/season.schema.ts": "018cde58118a"
     },
     "contentHash": "81d9fe1056c9",
-    "generatedAt": "2026-09-09T14:01:11.908Z"
+    "generatedAt": "2026-09-10T03:16:16.662Z"
   },
   "stitching-entry": {
     "sources": {
@@ -469,7 +477,7 @@
       "backend/src/controllers/stitching.controller.ts": "1d40c87e669e"
     },
     "contentHash": "d06168d45acd",
-    "generatedAt": "2026-09-09T14:01:11.918Z"
+    "generatedAt": "2026-09-10T03:16:16.665Z"
   },
   "stock-levels-view": {
     "sources": {
@@ -482,7 +490,7 @@
       "frontend/src/components/WarehouseCombobox.tsx": "f51517ae8079"
     },
     "contentHash": "64c78954eb80",
-    "generatedAt": "2026-09-09T14:01:11.923Z"
+    "generatedAt": "2026-09-10T03:16:16.668Z"
   },
   "style-create": {
     "sources": {
@@ -490,7 +498,7 @@
       "frontend/src/components/Sidebar.tsx": "bc685da174cf",
       "frontend/src/App.tsx": "a3d70012c317",
       "frontend/src/pages/StyleList.tsx": "9776e465b0bc",
-      "frontend/src/pages/StyleFormRedesigned.tsx": "de5ea4b86bdf",
+      "frontend/src/pages/StyleFormRedesigned.tsx": "9a2b8acc61a5",
       "frontend/src/components/GenericGreigeSelector.tsx": "a84639c3f0af",
       "frontend/src/constants/fabric-finish-types.ts": "d6a0b04ab71c",
       "backend/src/schemas/style.schema.ts": "e79ffd20fa43",
@@ -498,8 +506,8 @@
       "backend/src/services/style.service.ts": "b55e0194b755",
       "backend/src/services/helpers/default-thread.helper.ts": "36c3ef3e76f8"
     },
-    "contentHash": "33cca42ab2b6",
-    "generatedAt": "2026-09-09T14:01:11.932Z"
+    "contentHash": "e6565278ea54",
+    "generatedAt": "2026-09-10T03:16:16.673Z"
   },
   "style-import": {
     "sources": {
@@ -513,7 +521,7 @@
       "backend/src/schemas/styleImport.schema.ts": "d08ac04b591f"
     },
     "contentHash": "df696be40d00",
-    "generatedAt": "2026-09-09T14:01:11.943Z"
+    "generatedAt": "2026-09-10T03:16:16.678Z"
   },
   "supplier-create": {
     "sources": {
@@ -529,7 +537,7 @@
       "backend/src/services/supplier.service.ts": "c541b220fc11"
     },
     "contentHash": "d981b119894e",
-    "generatedAt": "2026-09-09T14:01:11.949Z"
+    "generatedAt": "2026-09-10T03:16:16.682Z"
   },
   "thread-create": {
     "sources": {
@@ -539,20 +547,21 @@
       "frontend/src/pages/TrimMastersDashboard.tsx": "df651f0bd8ff",
       "frontend/src/pages/ThreadList.tsx": "ff4865c991f4",
       "frontend/src/pages/ThreadForm.tsx": "097efb9ccfeb",
-      "frontend/src/types/thread.types.ts": "7f7600cfd9ab",
       "frontend/src/types/supplier.types.ts": "4ddeaa7e812c",
       "frontend/src/components/SupplierCombobox.tsx": "443ad1a55e32",
       "frontend/src/components/ColorPicker.tsx": "e3c0f83a6bc9",
       "frontend/src/services/thread.service.ts": "e6107e77bc1f",
       "frontend/src/lib/api-error-handler.ts": "7645e77a115f",
-      "backend/src/schemas/trimMasters.schema.ts": "5b3afe89eadd",
+      "backend/src/schemas/trimMasters.schema.ts": "07863e789eb5",
+      "backend/src/schemas/common.schema.ts": "8683e9a6f3b7",
+      "backend/src/schemas/generated/prisma-enums.ts": "023cc13271b2",
       "backend/src/routes/thread.routes.ts": "b3a5add12bad",
-      "backend/src/middleware/validation.middleware.ts": "97c54de654bd",
-      "backend/src/controllers/thread.controller.ts": "17e1a8f9d472",
+      "backend/src/middleware/validation.middleware.ts": "8c1f041d36d0",
+      "backend/src/controllers/thread.controller.ts": "1944490e1b44",
       "backend/src/utils/code-generator.ts": "2672cbc3ab81"
     },
-    "contentHash": "37b66e21c251",
-    "generatedAt": "2026-09-09T14:01:11.960Z"
+    "contentHash": "712952c9620f",
+    "generatedAt": "2026-09-10T03:16:16.688Z"
   },
   "work-order-create": {
     "sources": {
@@ -569,7 +578,7 @@
       "backend/src/routes/workOrder.routes.ts": "0e69ec96e924"
     },
     "contentHash": "4e8556c741b0",
-    "generatedAt": "2026-09-09T14:01:11.970Z"
+    "generatedAt": "2026-09-10T03:16:16.695Z"
   },
   "zipper-create": {
     "sources": {
@@ -584,13 +593,16 @@
       "frontend/src/components/ColorPicker.tsx": "e3c0f83a6bc9",
       "frontend/src/services/zipper.service.ts": "3ced81f593a3",
       "frontend/src/lib/api-error-handler.ts": "7645e77a115f",
-      "backend/src/schemas/trimMasters.schema.ts": "5b3afe89eadd",
+      "backend/src/schemas/trimMasters.schema.ts": "07863e789eb5",
+      "backend/src/schemas/common.schema.ts": "8683e9a6f3b7",
       "backend/src/routes/zipper.routes.ts": "4d10abc52bf3",
-      "backend/src/middleware/validation.middleware.ts": "97c54de654bd",
+      "backend/src/middleware/validation.middleware.ts": "8c1f041d36d0",
+      "backend/src/middleware/error.middleware.ts": "99f56465aafe",
+      "backend/src/errors/index.ts": "467a5cfb5ab6",
       "backend/src/controllers/zipper.controller.ts": "41c0f146295c",
       "backend/src/utils/code-generator.ts": "2672cbc3ab81"
     },
-    "contentHash": "cb70fc66e7c5",
-    "generatedAt": "2026-09-09T14:01:11.979Z"
+    "contentHash": "f90cff38a914",
+    "generatedAt": "2026-09-10T03:16:16.701Z"
   }
 }

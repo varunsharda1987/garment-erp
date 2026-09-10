@@ -11,12 +11,12 @@ import type { SampleType, SampleStatus, Prisma } from '@prisma/client';
 
 // Sample type to days-before-ship mapping
 const SAMPLE_LEAD_DAYS: Record<SampleType, number> = {
-  FIT_SAMPLE: 21,        // 3 weeks before ship
-  PP_SAMPLE: 14,         // 2 weeks before ship
-  SIZE_SET_SAMPLE: 10,   // 10 days before ship
-  PHOTO_SAMPLE: 7,       // 1 week before ship
-  PRODUCTION_SAMPLE: 5,  // 5 days before ship
-  SHIPMENT_SAMPLE: 3,    // 3 days before ship
+  FIT_SAMPLE: 21, // 3 weeks before ship
+  PP_SAMPLE: 14, // 2 weeks before ship
+  SIZE_SET_SAMPLE: 10, // 10 days before ship
+  PHOTO_SAMPLE: 7, // 1 week before ship
+  PRODUCTION_SAMPLE: 5, // 5 days before ship
+  SHIPMENT_SAMPLE: 3, // 3 days before ship
 };
 
 // Default fallback if customer has no requirements defined
@@ -80,7 +80,7 @@ class SampleService {
 
     if (requirements.length === 0) {
       // No custom requirements - return defaults (FIT, PP, SIZE_SET all required)
-      return DEFAULT_REQUIRED_TYPES.map(sampleType => ({
+      return DEFAULT_REQUIRED_TYPES.map((sampleType) => ({
         sampleType,
         isRequired: true,
         blocksProduction: true,
@@ -89,7 +89,7 @@ class SampleService {
       }));
     }
 
-    return requirements.map(r => ({
+    return requirements.map((r) => ({
       sampleType: r.sampleType,
       isRequired: r.isRequired,
       blocksProduction: r.blocksProduction,
@@ -121,7 +121,7 @@ class SampleService {
     });
 
     // Return a Set of "styleId:sampleType" keys for fast lookup
-    return new Set(existing.map(s => `${s.styleId}:${s.sampleType}`));
+    return new Set(existing.map((s) => `${s.styleId}:${s.sampleType}`));
   }
 
   /**
@@ -151,9 +151,7 @@ class SampleService {
 
     // 1. Get customer's sample requirements
     const requirements = await this.getCustomerSampleRequirements(customerId);
-    const requiredTypes = requirements
-      .filter(r => r.isRequired)
-      .map(r => r.sampleType);
+    const requiredTypes = requirements.filter((r) => r.isRequired).map((r) => r.sampleType);
 
     if (requiredTypes.length === 0) {
       logInfo('[autoCreateSamples] No required sample types for customer', { customerId });
@@ -198,9 +196,7 @@ class SampleService {
 
     // 4. Create samples in a transaction
     // Pre-generate sample numbers outside transaction (atomic, safe)
-    const sampleNumbers = await Promise.all(
-      samplesToCreate.map(s => this.generateSampleNumber(s.sampleType))
-    );
+    const sampleNumbers = await Promise.all(samplesToCreate.map((s) => this.generateSampleNumber(s.sampleType)));
 
     await prisma.$transaction(async (tx) => {
       for (let i = 0; i < samplesToCreate.length; i++) {

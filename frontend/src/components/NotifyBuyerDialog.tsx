@@ -1,6 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -115,11 +122,7 @@ export function NotifyBuyerDialog({
           </div>
           <div className="space-y-2">
             <Label>Message</Label>
-            <Textarea
-              rows={8}
-              value={form.text}
-              onChange={(e) => setForm({ ...form, text: e.target.value })}
-            />
+            <Textarea rows={8} value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} />
           </div>
           {!waLinked && (
             <p className="text-sm text-amber-700">

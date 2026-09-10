@@ -16,12 +16,48 @@ import { notify } from '../lib/notify';
 import api from '@/lib/api';
 
 const SAMPLE_TYPES = [
-  { value: 'FIT_SAMPLE', label: 'FIT Sample', description: 'Initial fit approval sample', defaultBlocks: true, blocksLabel: 'Blocks Production' },
-  { value: 'PP_SAMPLE', label: 'PP Sample', description: 'Pre-production sample', defaultBlocks: true, blocksLabel: 'Blocks Production' },
-  { value: 'SIZE_SET_SAMPLE', label: 'Size Set Sample', description: 'Full size range sample', defaultBlocks: false, blocksLabel: 'Blocks Production' },
-  { value: 'PHOTO_SAMPLE', label: 'Photo Sample', description: 'Sample for photography', defaultBlocks: false, blocksLabel: 'Required' },
-  { value: 'PRODUCTION_SAMPLE', label: 'Production Sample', description: 'Production quality sample', defaultBlocks: false, blocksLabel: 'Required' },
-  { value: 'SHIPMENT_SAMPLE', label: 'Shipment Sample', description: 'Pre-shipment sample', defaultBlocks: true, blocksLabel: 'Blocks Dispatch' },
+  {
+    value: 'FIT_SAMPLE',
+    label: 'FIT Sample',
+    description: 'Initial fit approval sample',
+    defaultBlocks: true,
+    blocksLabel: 'Blocks Production',
+  },
+  {
+    value: 'PP_SAMPLE',
+    label: 'PP Sample',
+    description: 'Pre-production sample',
+    defaultBlocks: true,
+    blocksLabel: 'Blocks Production',
+  },
+  {
+    value: 'SIZE_SET_SAMPLE',
+    label: 'Size Set Sample',
+    description: 'Full size range sample',
+    defaultBlocks: false,
+    blocksLabel: 'Blocks Production',
+  },
+  {
+    value: 'PHOTO_SAMPLE',
+    label: 'Photo Sample',
+    description: 'Sample for photography',
+    defaultBlocks: false,
+    blocksLabel: 'Required',
+  },
+  {
+    value: 'PRODUCTION_SAMPLE',
+    label: 'Production Sample',
+    description: 'Production quality sample',
+    defaultBlocks: false,
+    blocksLabel: 'Required',
+  },
+  {
+    value: 'SHIPMENT_SAMPLE',
+    label: 'Shipment Sample',
+    description: 'Pre-shipment sample',
+    defaultBlocks: true,
+    blocksLabel: 'Blocks Dispatch',
+  },
 ] as const;
 
 interface SampleRequirement {
@@ -56,8 +92,8 @@ export function CustomerSampleRequirements({ customerId, customerName }: Custome
 
       // Convert array to map for easier access
       const reqMap: Record<string, SampleRequirement> = {};
-      SAMPLE_TYPES.forEach(type => {
-        const existing = response.data.data.find(r => r.sampleType === type.value);
+      SAMPLE_TYPES.forEach((type) => {
+        const existing = response.data.data.find((r) => r.sampleType === type.value);
         reqMap[type.value] = existing || {
           sampleType: type.value,
           isRequired: false,
@@ -75,7 +111,7 @@ export function CustomerSampleRequirements({ customerId, customerName }: Custome
   };
 
   const handleToggleRequired = (sampleType: string, checked: boolean) => {
-    setRequirements(prev => ({
+    setRequirements((prev) => ({
       ...prev,
       [sampleType]: {
         ...prev[sampleType],
@@ -86,7 +122,7 @@ export function CustomerSampleRequirements({ customerId, customerName }: Custome
   };
 
   const handleToggleBlocks = (sampleType: string, checked: boolean) => {
-    setRequirements(prev => ({
+    setRequirements((prev) => ({
       ...prev,
       [sampleType]: {
         ...prev[sampleType],
@@ -99,7 +135,7 @@ export function CustomerSampleRequirements({ customerId, customerName }: Custome
   const handleSave = async () => {
     try {
       setSaving(true);
-      const reqArray = Object.values(requirements).filter(r => r.isRequired);
+      const reqArray = Object.values(requirements).filter((r) => r.isRequired);
 
       await api.put(`/customers/${customerId}/sample-requirements`, {
         requirements: reqArray,
@@ -126,7 +162,7 @@ export function CustomerSampleRequirements({ customerId, customerName }: Custome
     );
   }
 
-  const requiredCount = Object.values(requirements).filter(r => r.isRequired).length;
+  const requiredCount = Object.values(requirements).filter((r) => r.isRequired).length;
 
   return (
     <Card>
@@ -136,9 +172,7 @@ export function CustomerSampleRequirements({ customerId, customerName }: Custome
             <TestTube className="h-5 w-5 text-primary" />
             <div>
               <CardTitle className="text-lg">Sample Requirements</CardTitle>
-              <CardDescription>
-                Configure which samples are required for {customerName}
-              </CardDescription>
+              <CardDescription>Configure which samples are required for {customerName}</CardDescription>
             </div>
           </div>
           <Button onClick={handleSave} disabled={!hasChanges || saving} size="sm">
@@ -158,7 +192,7 @@ export function CustomerSampleRequirements({ customerId, customerName }: Custome
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {SAMPLE_TYPES.map(type => {
+          {SAMPLE_TYPES.map((type) => {
             const req = requirements[type.value];
             return (
               <div

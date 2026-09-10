@@ -825,7 +825,13 @@ export const getSampleDashboardStats = async (req: Request, res: Response): Prom
   const now = new Date();
   const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
-  const pendingStatuses = ['REQUESTED' as const, 'IN_PROGRESS' as const, 'SUBMITTED' as const, 'SENT' as const, 'FEEDBACK_PENDING' as const];
+  const pendingStatuses = [
+    'REQUESTED' as const,
+    'IN_PROGRESS' as const,
+    'SUBMITTED' as const,
+    'SENT' as const,
+    'FEEDBACK_PENDING' as const,
+  ];
   const completedStatuses = ['APPROVED' as const, 'REJECTED' as const, 'APPROVED_WITH_COMMENTS' as const];
 
   const [pendingSamples, overdueSamples, approachingDeadlines, awaitingFeedback] = await Promise.all([

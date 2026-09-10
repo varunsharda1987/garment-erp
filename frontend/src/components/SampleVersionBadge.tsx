@@ -27,10 +27,7 @@ export function SampleVersionBadge({ version, sampleType, className }: SampleVer
   return (
     <Badge
       variant="outline"
-      className={cn(
-        'ml-1 px-1.5 py-0 text-[10px] font-medium bg-blue-50 text-blue-700 border-blue-200',
-        className
-      )}
+      className={cn('ml-1 px-1.5 py-0 text-[10px] font-medium bg-blue-50 text-blue-700 border-blue-200', className)}
     >
       v{version}
     </Badge>

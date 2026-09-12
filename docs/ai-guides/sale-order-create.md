@@ -26,6 +26,14 @@ keywords:
   - order dhundo
   - ऑर्डर खोजें
   - फ़िल्टर
+  - buyer style ref
+  - buyer style code
+  - style code se order dhundo
+  - बायर स्टाइल कोड
+  - स्टाइल कोड
+  - स्टाइल नंबर
+  - style number changed
+  - buyer code change
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -45,11 +53,11 @@ sources:
 A Sale Order sells finished goods that are already in stock, or triggers production for that quantity. It is different from a production order. The customer must exist in Customers and every line's style must exist in Styles. Sale orders can also arrive automatically from the House of Kasya B2B app with items already filled in — check the list before typing a new one.
 
 ## Steps
-1. Open **Orders & Sales → Sale Orders** in the sidebar. The list shows each order's styles, total quantity in pcs, amount and status. To find an order, use the search box (**Search by SO number, buyer PO or customer...**), the **All Customers** picker, the **All Status** dropdown, or the **Sale date range** calendar.
+1. Open **Orders & Sales → Sale Orders** in the sidebar. The list shows each order's styles, total quantity in pcs, amount and status. To find an order, type into the search box — it matches the sale order number, any buyer PO on the order, the customer name or code, the remarks, our style code, the style name, and the buyer's own style code (both the one saved on the order and the style's current one). You can also narrow with the **All Customers** picker, the **All Status** dropdown, or the **Sale date range** calendar.
 2. Click **New Sale Order**. A panel titled **New Sale Order** slides in from the right.
 3. In **Customer \***, search and pick the customer.
 4. Everything else in the header is optional: **Buyer PO Number** (the buyer's own PO reference), **Primary Style** (for single-style orders), **Expected Ship Date**, **Buyer Deadline**, **Order Date**, **Delivery Date**, **Payment Terms**, **Delivery Address**, **Remarks**.
-5. Under **Items**, click **Add Item**. In the dialog pick **Style \*** (Color and Size are optional — leave Size as "Size to be decided" if unknown), enter **Quantity \*** and **Unit Price \*** (the price auto-fills from the style's selling price when one is set, and you can clear it and type your own), then click **Add Single Item**.
+5. Under **Items**, click **Add Item**. In the dialog pick **Style \*** — you can search it by our style code, the style name, the customer, or the buyer's own code. **Buyer Style Ref** fills in with that style's current buyer code and can be overtyped for this line. Color and Size are optional (leave Size as "Size to be decided" if unknown). Enter **Quantity \*** and **Unit Price \*** (the price auto-fills from the style's selling price when one is set, and you can clear it and type your own), then click **Add Single Item**.
 6. To split one quantity across sizes, fill Quantity and Unit Price first, then click **Size Breakdown** and enter per-size quantities — one line is added per size. Percentages are read against 100, so the sizes must add up to the full quantity before it will save.
 7. Add more lines the same way. Use the pencil and bin icons on a line to edit or remove it. The **Total Amount** box sums the order. Adding the same style, colour and size twice is safe — the two lines are merged into one with the quantities added together.
 8. Click **Create Sale Order**. The sale order opens with status **Draft**. You may also save with no items at all and add them later — the hint under the Items table says so.
@@ -70,6 +78,12 @@ A Sale Order sells finished goods that are already in stock, or triggers product
 - **Allocate** only shows on lines that have a size; a size-less line shows "Set a size to allocate" instead. Allocation is limited to what the line still needs and only accepts stock of that exact style, colour and size.
 - **Cancel Order** is refused once anything on the order has been dispatched, or while a production order is still live.
 - Buyer POs can be added, removed or made primary only while the order is still live — not after it is Cancelled or Delivered.
+
+## Why the buyer's style code is saved on the line
+The buyer's code is stored **with the order line**, not just on the style. If the buyer later
+renumbers that style, existing orders and their invoices keep showing the code the goods were
+actually ordered under, while new orders pick up the new code. Search finds the order either way.
+Editing a style's Buyer Style Ref in Styles therefore does not disturb orders already placed.
 
 ## After saving
 The status moves on its own: Draft → Confirmed → Partially/Fully Allocated → Partially Dispatched → Dispatched → Delivered. There is no way to type or edit the status by hand — it always follows from what actually happened to the items (confirm, allocation, dispatch, delivery). "Allocated" means stock is reserved but has not left; once a delivery note ships those pieces they stop counting as allocated and start counting as dispatched. Delivered is only stamped once every delivery note on the order has its proof of delivery recorded. Linked production orders appear in a **Production** card at the top.

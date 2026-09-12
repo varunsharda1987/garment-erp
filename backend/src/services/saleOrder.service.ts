@@ -18,6 +18,12 @@ interface SOItemInput {
   quantity: number;
   unitPrice: number;
   remarks?: string;
+  /**
+   * The buyer's own style code for this line. OMIT IT and the style's current code is captured;
+   * SEND IT (including the value read back from this order) and it is kept verbatim — which is how
+   * an edit preserves the code the line was originally taken under.
+   */
+  buyerStyleRef?: string | null;
 }
 
 interface SOCreateInput {
@@ -58,6 +64,28 @@ interface NormalisedSOItem {
   unitPrice: number;
   totalPrice: number;
   remarks: string | null;
+  buyerStyleRef: string | null;
+}
+
+/**
+ * The buyer's current style code for each of these styles, for snapshotting onto new lines.
+ *
+ * `styles.buyerStyleRef` is one editable field with no history: re-coding a style rewrote every
+ * document that reprinted afterwards. Capturing it per line freezes what the buyer actually
+ * ordered under.
+ */
+async function loadBuyerStyleRefs(
+  client: Prisma.TransactionClient | typeof prisma,
+  styleIds: string[]
+): Promise<Map<string, string | null>> {
+  const unique = [...new Set(styleIds)];
+  if (unique.length === 0) return new Map();
+
+  const styles = await client.styles.findMany({
+    where: { id: { in: unique } },
+    select: { id: true, buyerStyleRef: true },
+  });
+  return new Map(styles.map((s) => [s.id, s.buyerStyleRef]));
 }
 
 /**
@@ -71,7 +99,11 @@ interface NormalisedSOItem {
  * Money: quantity × unitPrice on floats stores 3.4499999999999997 as 3.44 in a Decimal(12,2)
  * column; decimal.js rounds it to 3.45 (CLAUDE.md money-math rule).
  */
-function normaliseSOItems(items: SOItemInput[]): { items: NormalisedSOItem[]; subtotal: number } {
+function normaliseSOItems(
+  items: SOItemInput[],
+  /** Current buyer style code per style id, used only for lines that did not send their own. */
+  buyerStyleRefs: Map<string, string | null> = new Map()
+): { items: NormalisedSOItem[]; subtotal: number } {
   const merged = new Map<string, NormalisedSOItem>();
 
   for (const item of items) {
@@ -89,6 +121,10 @@ function normaliseSOItems(items: SOItemInput[]): { items: NormalisedSOItem[]; su
         unitPrice: item.unitPrice,
         totalPrice: 0, // computed below, once the merged quantity is final
         remarks: item.remarks ?? null,
+        // An explicit value (even null) is honoured, so re-saving an order keeps the code its
+        // lines were taken under. Only an ABSENT field snapshots today's code.
+        buyerStyleRef:
+          item.buyerStyleRef !== undefined ? item.buyerStyleRef : (buyerStyleRefs.get(item.styleId) ?? null),
       });
       continue;
     }
@@ -103,6 +139,7 @@ function normaliseSOItems(items: SOItemInput[]): { items: NormalisedSOItem[]; su
     }
     existing.quantity += item.quantity;
     existing.remarks = existing.remarks ?? item.remarks ?? null;
+    existing.buyerStyleRef = existing.buyerStyleRef ?? item.buyerStyleRef ?? null;
   }
 
   const normalised = [...merged.values()];
@@ -212,7 +249,11 @@ export class SaleOrderService {
 
     // An empty item list is legitimate: the order starts as a DRAFT shell and lines are added on
     // the detail page. `confirm` refuses to promote a line-less order.
-    const { items, subtotal } = normaliseSOItems(data.items ?? []);
+    const buyerStyleRefs = await loadBuyerStyleRefs(
+      prisma,
+      (data.items ?? []).map((i) => i.styleId)
+    );
+    const { items, subtotal } = normaliseSOItems(data.items ?? [], buyerStyleRefs);
 
     const soId = randomUUID();
 
@@ -244,6 +285,7 @@ export class SaleOrderService {
             unitPrice: item.unitPrice,
             totalPrice: item.totalPrice,
             remarks: item.remarks,
+            buyerStyleRef: item.buyerStyleRef,
           })),
         },
         // Also create buyer PO junction record if provided
@@ -281,12 +323,29 @@ export class SaleOrderService {
     const where: Prisma.sale_ordersWhereInput = {};
 
     if (search) {
+      // One box, every handle a person might reach for. Style codes were the notable gap: the
+      // list showed a Style(s) column you could not search on, so "which order was LNG182G for?"
+      // had no answer here. Buyer style codes are matched BOTH as captured on the line and as the
+      // style master reads today, so an order still turns up under the code it was taken under
+      // AND under the buyer's current one.
+      const like = { contains: search, mode: 'insensitive' as const };
       where.OR = [
-        { saleOrderNumber: { contains: search, mode: 'insensitive' } },
-        { buyerPoNumber: { contains: search, mode: 'insensitive' } },
-        { customer: { name: { contains: search, mode: 'insensitive' } } },
+        { saleOrderNumber: like },
+        { buyerPoNumber: like },
+        { remarks: like },
+        { customer: { name: like } },
+        { customer: { code: like } },
         // Also search in all buyer POs (junction table)
-        { buyerPos: { some: { buyerPoNumber: { contains: search, mode: 'insensitive' } } } },
+        { buyerPos: { some: { buyerPoNumber: like } } },
+        // Header style (single-style orders)
+        { style: { styleCode: like } },
+        { style: { buyerStyleRef: like } },
+        { style: { styleName: like } },
+        // Line styles — the code as captured on the line, and the style master's own fields
+        { items: { some: { buyerStyleRef: like } } },
+        { items: { some: { style: { styleCode: like } } } },
+        { items: { some: { style: { buyerStyleRef: like } } } },
+        { items: { some: { style: { styleName: like } } } },
       ];
     }
 
@@ -325,6 +384,7 @@ export class SaleOrderService {
               quantity: true,
               allocatedQty: true,
               dispatchedQty: true,
+              buyerStyleRef: true,
               style: { select: { id: true, styleCode: true, styleName: true, buyerStyleRef: true } },
             },
           },
@@ -367,7 +427,13 @@ export class SaleOrderService {
     return prisma.$transaction(async (tx) => {
       // Duplicate lines are merged and line money is computed BEFORE anything is written, so the
       // header carries the right subtotal in the same statement that claims the order.
-      const normalised = data.items ? normaliseSOItems(data.items) : null;
+      const buyerStyleRefs = data.items
+        ? await loadBuyerStyleRefs(
+            tx,
+            data.items.map((i) => i.styleId)
+          )
+        : new Map<string, string | null>();
+      const normalised = data.items ? normaliseSOItems(data.items, buyerStyleRefs) : null;
 
       // Single field list for BOTH the with-items and without-items cases. Splitting them is what
       // lost `buyerPoNumber`: the items branch omitted it, and the ERP edit sheet always sends
@@ -416,6 +482,7 @@ export class SaleOrderService {
               unitPrice: item.unitPrice,
               totalPrice: item.totalPrice,
               remarks: item.remarks,
+              buyerStyleRef: item.buyerStyleRef,
             })),
           });
         }
@@ -1183,8 +1250,10 @@ export class SaleOrderService {
           style: item.style
             ? {
                 id: item.style.id,
+                // The line's captured code first, so the preview names the style the way the
+                // order does rather than the way the style master reads today.
+                buyerStyleRef: item.buyerStyleRef ?? item.style.buyerStyleRef ?? null,
                 styleCode: item.style.styleCode,
-                buyerStyleRef: item.style.buyerStyleRef ?? null,
                 styleName: item.style.styleName,
               }
             : null,

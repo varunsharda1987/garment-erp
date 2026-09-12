@@ -524,8 +524,12 @@ export default function SaleOrderDetail() {
                     <TableCell>
                       <div className="font-mono text-sm">
                         {item.style?.styleCode}
-                        {item.style?.buyerStyleRef && (
-                          <span className="text-muted-foreground ml-1">({item.style.buyerStyleRef})</span>
+                        {/* The code CAPTURED on this line wins over the style master's current one,
+                            so an order keeps showing what the buyer ordered under. */}
+                        {(item.buyerStyleRef ?? item.style?.buyerStyleRef) && (
+                          <span className="text-muted-foreground ml-1">
+                            ({item.buyerStyleRef ?? item.style?.buyerStyleRef})
+                          </span>
                         )}
                       </div>
                       <div className="text-xs text-muted-foreground">{item.style?.styleName}</div>

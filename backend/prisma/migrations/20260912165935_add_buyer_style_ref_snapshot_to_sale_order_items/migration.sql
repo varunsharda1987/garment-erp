@@ -1,0 +1,11 @@
+-- Snapshot the buyer's own style code onto each sale-order line.
+--
+-- `styles.buyerStyleRef` is a single editable field with no history, so re-coding a style rewrote
+-- the past: every reprint of an already-issued document showed the NEW code. This column captures
+-- the code as at the day the line was taken.
+--
+-- Deliberately left NULL for existing rows rather than backfilled from the style: a backfill would
+-- claim those historic lines were taken under today's code, which is exactly the false history this
+-- column exists to prevent. Readers fall back to the style's current value when it is NULL.
+-- AlterTable
+ALTER TABLE "sale_order_items" ADD COLUMN     "buyerStyleRef" VARCHAR(100);

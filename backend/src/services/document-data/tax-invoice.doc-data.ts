@@ -181,7 +181,12 @@ function buildLines(invoice: InvoiceWithDetails): {
       lines.push({
         sn: idx + 1,
         description: item.description,
-        subline: item.style ? formatStyleCodeWithRef(item.style.styleCode, item.style.buyerStyleRef) : null,
+        // The line's OWN buyer code wins: it was captured when the goods were ordered, so a style
+        // re-coded since cannot change what an already-issued invoice prints. Falls back to the
+        // style master for invoices raised before the snapshot existed, or with no sale-order origin.
+        subline: item.style
+          ? formatStyleCodeWithRef(item.style.styleCode, item.buyerStyleRef ?? item.style.buyerStyleRef)
+          : null,
         hsn,
         qty: fmtQty(item.quantity, 'PCS'),
         rate: fmtMoney(Number(item.unitPrice)),

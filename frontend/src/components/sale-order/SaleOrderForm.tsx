@@ -76,6 +76,9 @@ export function SaleOrderForm({
           quantity: item.quantity,
           unitPrice: Number(item.unitPrice),
           totalPrice: Number(item.totalPrice),
+          // Carried in and back out again so re-saving keeps the code this line was taken under.
+          // Drop it here and the backend would re-capture today's code on every edit.
+          buyerStyleRef: item.buyerStyleRef ?? null,
           styleCode: item.style?.styleCode,
           styleName: item.style?.styleName,
           colorName: item.color?.colorName,
@@ -133,6 +136,9 @@ export function SaleOrderForm({
       sizeId: item.sizeId || null,
       quantity: item.quantity,
       unitPrice: item.unitPrice,
+      // Only send it when the line already has one. A brand-new line omits the field so the
+      // backend captures the style's current code for it.
+      ...(item.buyerStyleRef !== undefined && item.buyerStyleRef !== null ? { buyerStyleRef: item.buyerStyleRef } : {}),
     }));
 
     if (mode === 'create') {

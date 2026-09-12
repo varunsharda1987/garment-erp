@@ -1025,23 +1025,29 @@ model invoices {
 }
 
 model invoice_items {
-  id          String   @id @default(uuid())
-  invoiceId   String
-  styleId     String?
-  description String
-  hsnCode     String?
-  quantity    Int
-  unitPrice   Decimal  @db.Decimal(10, 2)
-  totalPrice  Decimal  @db.Decimal(12, 2)
-  gstRate     Decimal? @db.Decimal(5, 2)
-  cgstRate    Decimal? @db.Decimal(5, 2)
-  cgstAmount  Decimal? @db.Decimal(12, 2)
-  sgstRate    Decimal? @db.Decimal(5, 2)
-  sgstAmount  Decimal? @db.Decimal(12, 2)
-  igstRate    Decimal? @db.Decimal(5, 2)
-  igstAmount  Decimal? @db.Decimal(12, 2)
-  taxAmount   Decimal? @db.Decimal(12, 2)
-  remarks     String?
+  id            String   @id @default(uuid())
+  invoiceId     String
+  styleId       String?
+  description   String
+  /// The buyer's own style code as at the day the goods were ordered, carried over from the
+  /// sale-order line this was invoiced from. An invoice is a legal document, so it keeps its own
+  /// copy (like `description` and `hsnCode` already do) rather than re-reading a style master that
+  /// may since have been re-coded. NULL = not captured; readers fall back to the style's current
+  /// value.
+  buyerStyleRef String?  @db.VarChar(100)
+  hsnCode       String?
+  quantity      Int
+  unitPrice     Decimal  @db.Decimal(10, 2)
+  totalPrice    Decimal  @db.Decimal(12, 2)
+  gstRate       Decimal? @db.Decimal(5, 2)
+  cgstRate      Decimal? @db.Decimal(5, 2)
+  cgstAmount    Decimal? @db.Decimal(12, 2)
+  sgstRate      Decimal? @db.Decimal(5, 2)
+  sgstAmount    Decimal? @db.Decimal(12, 2)
+  igstRate      Decimal? @db.Decimal(5, 2)
+  igstAmount    Decimal? @db.Decimal(12, 2)
+  taxAmount     Decimal? @db.Decimal(12, 2)
+  remarks       String?
 
   invoice invoices @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   style   styles?  @relation(fields: [styleId], references: [id])
@@ -3457,6 +3463,12 @@ model sale_order_items {
   allocatedQty  Int     @default(0)
   dispatchedQty Int     @default(0)
   remarks       String?
+  /// The buyer's own style code AS AT THE DAY THIS LINE WAS TAKEN.
+  /// `styles.buyerStyleRef` is one editable field with no history, so re-coding a style used to
+  /// rewrite the past: every reprint of an old invoice showed the NEW code. Captured here when the
+  /// line is written, and overridable per line. NULL means "never captured" (rows predating this
+  /// column) — readers fall back to the style's current value, which is the old behaviour.
+  buyerStyleRef String? @db.VarChar(100)
 
   saleOrder           sale_orders            @relation(fields: [saleOrderId], references: [id], onDelete: Cascade)
   style               styles                 @relation(fields: [styleId], references: [id])

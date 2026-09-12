@@ -1,0 +1,12 @@
+-- Carry the buyer's style code onto the invoice line.
+--
+-- An invoice is a legal document and already keeps its own `description` and `hsnCode` rather than
+-- re-deriving them, because the masters behind them can change. The buyer's style code is the same
+-- kind of fact: `styles.buyerStyleRef` is editable with no history, so re-coding a style used to
+-- change what an ALREADY-ISSUED invoice printed on its next reprint.
+--
+-- Populated from the originating sale-order line (invoice_items has no FK to it — the value is
+-- copied at creation, via delivery_note_items.saleOrderItemId). NULL for existing rows and for
+-- invoices with no sale-order origin; readers fall back to the style's current value.
+-- AlterTable
+ALTER TABLE "invoice_items" ADD COLUMN     "buyerStyleRef" VARCHAR(100);

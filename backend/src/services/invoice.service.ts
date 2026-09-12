@@ -26,6 +26,11 @@ export interface InvoiceItemDTO {
   quantity: number;
   unitPrice: number;
   remarks?: string;
+  /**
+   * The buyer's style code as at the day the goods were ordered, copied from the sale-order line.
+   * Omitted for manually-built invoices, where the document falls back to the style's current code.
+   */
+  buyerStyleRef?: string | null;
 }
 
 export interface CreateInvoiceDTO {
@@ -441,7 +446,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
       include: {
         delivery_note_items: {
           include: {
-            styles: { select: { id: true, styleCode: true, styleName: true, hsnCode: true } },
+            styles: { select: { id: true, styleCode: true, styleName: true, hsnCode: true, buyerStyleRef: true } },
             color_options: { select: { colorName: true } },
             size_options: { select: { sizeName: true } },
           },
@@ -473,13 +478,20 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
     for (const dnItem of dn.delivery_note_items) {
       // Try to get unit price from sale order item
       let unitPrice = 0;
+      // The buyer's code AS ORDERED, not as the style master reads today — this is the hop that
+      // keeps a reprinted invoice showing what the buyer actually placed the order under.
+      let buyerStyleRef: string | null = null;
       if (dnItem.saleOrderItemId) {
         const soItem = await this.prisma.sale_order_items.findUnique({
           where: { id: dnItem.saleOrderItemId },
-          select: { unitPrice: true },
+          select: { unitPrice: true, buyerStyleRef: true },
         });
         unitPrice = soItem ? parseFloat(soItem.unitPrice.toString()) : 0;
+        buyerStyleRef = soItem?.buyerStyleRef ?? null;
       }
+      // Sale orders taken before the snapshot column existed carry nothing; fall back to the
+      // style's current code so the line is not left blank.
+      buyerStyleRef = buyerStyleRef ?? dnItem.styles?.buyerStyleRef ?? null;
 
       const description = [
         dnItem.styles?.styleCode || '',
@@ -496,6 +508,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         hsnCode: dnItem.styles?.hsnCode ?? undefined,
         quantity: dnItem.quantity,
         unitPrice,
+        buyerStyleRef,
       });
     }
 
@@ -517,6 +530,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
       invoiceId: string;
       styleId: string | null;
       description: string;
+      buyerStyleRef: string | null;
       hsnCode: string | null;
       quantity: number;
       unitPrice: number;
@@ -546,6 +560,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         invoiceId: '',
         styleId: item.styleId || null,
         description: item.description,
+        buyerStyleRef: item.buyerStyleRef ?? null,
         hsnCode: gst.hsnCode,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
@@ -613,6 +628,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
           id: item.id,
           styleId: item.styleId,
           description: item.description,
+          buyerStyleRef: item.buyerStyleRef,
           hsnCode: item.hsnCode,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
@@ -784,6 +800,22 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
         // Reuse the invoice's OWN interstate flag. Re-deriving it from the customer would silently
         // flip an issued invoice between CGST/SGST and IGST if the state master were corrected later.
         const isInterstate = head.isInterstate;
+
+        // An edit deletes and re-creates the lines, which would drop the buyer's as-ordered style
+        // code and silently fall the document back to whatever the style master says today —
+        // exactly the rewriting-of-history the snapshot exists to stop. Carry the captured codes
+        // across by style.
+        const existingRefs = new Map<string, string>();
+        const previousItems = await this.prisma.invoice_items.findMany({
+          where: { invoiceId: id, buyerStyleRef: { not: null }, styleId: { not: null } },
+          select: { styleId: true, buyerStyleRef: true },
+        });
+        for (const prev of previousItems) {
+          if (prev.styleId && prev.buyerStyleRef && !existingRefs.has(prev.styleId)) {
+            existingRefs.set(prev.styleId, prev.buyerStyleRef);
+          }
+        }
+
         const rows: Prisma.invoice_itemsCreateManyInput[] = [];
 
         for (const item of data.items) {
@@ -810,6 +842,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
             invoiceId: id,
             styleId: item.styleId || null,
             description: item.description,
+            buyerStyleRef: item.buyerStyleRef ?? (item.styleId ? (existingRefs.get(item.styleId) ?? null) : null),
             hsnCode: gst.hsnCode,
             quantity: item.quantity,
             unitPrice: item.unitPrice,

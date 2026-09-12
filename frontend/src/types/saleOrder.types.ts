@@ -39,6 +39,13 @@ export interface SaleOrderItem {
   allocatedQty: number;
   dispatchedQty: number;
   remarks?: string | null;
+  /**
+   * The buyer's own style code AS AT THE DAY THIS LINE WAS TAKEN. Prefer this over
+   * `style.buyerStyleRef` when displaying: the style master's copy is editable with no history, so
+   * it shows today's code even on an order placed under an older one. Null on lines taken before
+   * this was captured — fall back to the style's value then.
+   */
+  buyerStyleRef?: string | null;
   style?: {
     id: string;
     styleCode: string;
@@ -134,6 +141,12 @@ export interface SOItemInput {
   quantity: number;
   unitPrice: number;
   remarks?: string;
+  /**
+   * Send the value read back from the order to KEEP the code its line was taken under; omit it and
+   * the backend captures the style's current code. An edit must always send it back, or re-saving
+   * an old order would silently re-stamp it with today's code.
+   */
+  buyerStyleRef?: string | null;
 }
 
 export interface CreateSORequest {

@@ -207,7 +207,9 @@ export default function SaleOrderList() {
         for (const item of so.items || []) {
           const code = item.style?.styleCode;
           if (code && !uniqueByCode.has(code)) {
-            uniqueByCode.set(code, { code, ref: item.style?.buyerStyleRef });
+            // The line's captured buyer code first — the style master's copy shows today's value
+            // even on an order placed under an older one.
+            uniqueByCode.set(code, { code, ref: item.buyerStyleRef ?? item.style?.buyerStyleRef });
           }
         }
         const unique = [...uniqueByCode.values()];
@@ -320,7 +322,7 @@ export default function SaleOrderList() {
         <CardHeader>
           <div className="space-y-4">
             <SearchInput
-              placeholder="Search by SO number, buyer PO or customer..."
+              placeholder="Search by SO number, buyer PO, customer or style code..."
               value={search}
               onChange={setSearch}
               className="max-w-md"

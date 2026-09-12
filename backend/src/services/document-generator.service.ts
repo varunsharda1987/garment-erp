@@ -408,7 +408,11 @@ class DocumentGeneratorService {
 
         const rowData = [
           (idx + 1).toString(),
-          item.style ? formatStyleCodeWithRef(item.style.styleCode, item.style.buyerStyleRef) : '-',
+          // Prefer the line's captured buyer code over the style master's current one, so this
+          // pdfkit fallback prints the same thing the HTML renderer does.
+          item.style
+            ? formatStyleCodeWithRef(item.style.styleCode, item.buyerStyleRef ?? item.style.buyerStyleRef)
+            : '-',
           item.description || item.style?.styleName || '-',
           item.hsnCode || item.style?.hsnCode || '-',
           qty.toString(),

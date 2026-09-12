@@ -135,7 +135,12 @@ export function SaleOrderItemsTable({ items, onChange, editable = true }: SaleOr
               items.map((item, index) => (
                 <TableRow key={item.id || `item-${index}`}>
                   <TableCell>
-                    <div className="font-mono text-sm">{item.styleCode || item.styleId.slice(0, 8)}</div>
+                    <div className="font-mono text-sm">
+                      {item.styleCode || item.styleId.slice(0, 8)}
+                      {item.buyerStyleRef && item.buyerStyleRef !== item.styleCode && (
+                        <span className="ml-1 font-sans text-muted-foreground">({item.buyerStyleRef})</span>
+                      )}
+                    </div>
                     {item.styleName && <div className="text-xs text-muted-foreground">{item.styleName}</div>}
                   </TableCell>
                   <TableCell>{item.colorName || (item.colorId ? item.colorId.slice(0, 8) : 'Any')}</TableCell>

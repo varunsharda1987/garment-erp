@@ -81,6 +81,7 @@ export function SaleOrderItemDialog({
   const [sizeId, setSizeId] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [unitPrice, setUnitPrice] = useState('');
+  const [buyerStyleRef, setBuyerStyleRef] = useState('');
   const [breakdownDialogOpen, setBreakdownDialogOpen] = useState(false);
 
   const [colorOptions, setColorOptions] = useState<ColorOption[]>([]);
@@ -111,6 +112,12 @@ export function SaleOrderItemDialog({
     if (mode === 'create' && style.sellingPrice) {
       setUnitPrice((prev) => prev || String(style.sellingPrice));
     }
+
+    // Show the style's current buyer code so the user can see — and correct — what will be
+    // recorded against this line.
+    if (mode === 'create' && style.buyerStyleRef) {
+      setBuyerStyleRef((prev) => prev || style.buyerStyleRef || '');
+    }
   }, [styleData, mode]);
 
   // Populate form when editing
@@ -121,6 +128,7 @@ export function SaleOrderItemDialog({
       setSizeId(editItem.sizeId || '');
       setQuantity(String(editItem.quantity));
       setUnitPrice(String(editItem.unitPrice));
+      setBuyerStyleRef(editItem.buyerStyleRef || '');
     } else if (open && mode === 'create') {
       // Reset form for new item
       setStyleId('');
@@ -128,6 +136,7 @@ export function SaleOrderItemDialog({
       setSizeId('');
       setQuantity('1');
       setUnitPrice('');
+      setBuyerStyleRef('');
       setColorOptions([]);
       setSizeOptions([]);
     }
@@ -143,6 +152,9 @@ export function SaleOrderItemDialog({
     if (style?.sellingPrice) {
       setUnitPrice(String(style.sellingPrice));
     }
+    // Picking a different style replaces the buyer code outright — the old one belonged to the
+    // style that was just swapped out.
+    setBuyerStyleRef(style?.buyerStyleRef || '');
   }, []);
 
   const handleSave = () => {
@@ -169,6 +181,7 @@ export function SaleOrderItemDialog({
       sizeId: sizeId || null,
       quantity: qty,
       unitPrice: price,
+      buyerStyleRef: buyerStyleRef.trim() || null,
       styleCode: style?.styleCode,
       styleName: style?.styleName,
       colorName: colorOptions.find((c) => c.id === colorId)?.colorName,
@@ -194,6 +207,7 @@ export function SaleOrderItemDialog({
       sizeId: entry.sizeId,
       quantity: entry.quantity,
       unitPrice: price,
+      buyerStyleRef: buyerStyleRef.trim() || null,
       styleCode: style?.styleCode,
       styleName: style?.styleName,
       colorName: entry.colorName,
@@ -243,6 +257,21 @@ export function SaleOrderItemDialog({
                 status={null}
               />
               {isLoadingStyle && <p className="text-xs text-muted-foreground">Loading style options...</p>}
+            </div>
+
+            {/* Buyer's own style code, recorded against this line */}
+            <div className="space-y-2">
+              <Label>Buyer Style Ref</Label>
+              <Input
+                value={buyerStyleRef}
+                onChange={(e) => setBuyerStyleRef(e.target.value)}
+                placeholder="The buyer's code for this style"
+                maxLength={100}
+              />
+              <p className="text-xs text-muted-foreground">
+                Saved with this line, so the order and its invoices keep showing this code even if the style is re-coded
+                later.
+              </p>
             </div>
 
             {/* Color Selection (optional) */}

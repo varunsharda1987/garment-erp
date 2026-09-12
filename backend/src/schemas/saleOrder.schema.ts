@@ -48,6 +48,10 @@ const saleOrderItemSchema = z.object({
   quantity: z.number().int().positive('Quantity must be positive'),
   unitPrice: z.number().nonnegative('Unit price cannot be negative'),
   remarks: z.string().max(500).optional(),
+  // The buyer's own style code for this line. OMIT it and the style's current code is captured;
+  // SEND it (including the value read back from this order) and it is kept exactly — which is how
+  // re-saving an order preserves the code its lines were originally taken under.
+  buyerStyleRef: z.string().max(100).nullable().optional(),
 });
 
 /**

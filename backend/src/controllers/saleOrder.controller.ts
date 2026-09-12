@@ -2,6 +2,17 @@ import { Request, Response } from 'express';
 import { saleOrderService } from '../services/saleOrder.service';
 import { NotFoundError, ValidationError, UnauthorizedError } from '../errors';
 
+/**
+ * Partial-update date semantics: omitted (undefined) leaves the column alone, an explicit null
+ * clears it. Both spellings arrive as strings from the wire, so the check must be on `undefined`
+ * itself — `value ? new Date(value) : null` treats the two identically and silently clears.
+ */
+function toNullableDate(value: string | null | undefined): Date | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  return new Date(value);
+}
+
 export class SaleOrderController {
   async getAll(req: Request, res: Response) {
     const {
@@ -75,9 +86,9 @@ export class SaleOrderController {
     if (!customerId) {
       throw new ValidationError('Customer is required');
     }
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      throw new ValidationError('At least one item is required');
-    }
+    // Items are deliberately OPTIONAL: a sale order starts as an empty DRAFT and lines are added
+    // on the detail page (the AI assistant's create_sale_order action relies on this, and the Zod
+    // schema has always defaulted `items` to []). `confirm` is the gate that requires ≥1 line.
 
     const so = await saleOrderService.create({
       customerId,
@@ -119,8 +130,11 @@ export class SaleOrderController {
       customerId,
       buyerPoNumber,
       styleId,
-      expectedShipDate: expectedShipDate ? new Date(expectedShipDate) : null,
-      buyerDeadline: buyerDeadline ? new Date(buyerDeadline) : null,
+      // undefined = field omitted = leave unchanged; null = explicitly cleared. The old
+      // `x ? new Date(x) : null` collapsed "omitted" into "clear it", so any partial PUT wiped
+      // these two dates while every sibling field below correctly left them alone.
+      expectedShipDate: toNullableDate(expectedShipDate),
+      buyerDeadline: toNullableDate(buyerDeadline),
       // undefined = field omitted = leave unchanged; Zod coerced dates already
       orderDate,
       deliveryDate,

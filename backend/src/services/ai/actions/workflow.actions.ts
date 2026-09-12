@@ -60,16 +60,18 @@ const createStyle: ActionDefinition = {
 // ── Sale order ───────────────────────────────────────────────────────────────
 // Only customerId is required — items are deliberately added later on the detail page.
 
+// The field must be named `expectedShipDate`: that is what createSaleOrderSchema accepts, and
+// Zod strips anything else — an `expectedDeliveryDate` sent here was silently discarded.
 const saleOrderTool = z.object({
   customerName: z.string().min(1),
   buyerPoNumber: z.string().max(100).optional(),
-  expectedDeliveryDate: z.string().max(30).optional(),
+  expectedShipDate: z.string().max(30).optional(),
 });
 
 const saleOrderExec = z.object({
   customerId: z.string().uuid(),
   buyerPoNumber: z.string().max(100).optional(),
-  expectedDeliveryDate: z.string().max(30).optional(),
+  expectedShipDate: z.string().max(30).optional(),
 });
 
 const createSaleOrder: ActionDefinition = {
@@ -92,7 +94,7 @@ const createSaleOrder: ActionDefinition = {
         properties: {
           customerName: { type: 'string', description: 'Customer name or code' },
           buyerPoNumber: { type: 'string', description: "The buyer's PO number, if given" },
-          expectedDeliveryDate: { type: 'string', description: 'YYYY-MM-DD' },
+          expectedShipDate: { type: 'string', description: 'YYYY-MM-DD' },
         },
         required: ['customerName'],
       },
@@ -115,7 +117,7 @@ const createSaleOrder: ActionDefinition = {
     };
   },
   successMessage: (d) =>
-    `✅ Created sale order **${d.soNumber || d.orderNumber || ''}**. [Open it](/sale-orders/${d.id}) — add items there.`,
+    `✅ Created sale order **${d.saleOrderNumber || ''}**. [Open it](/sale-orders/${d.id}) — add items there.`,
 };
 
 // ── Production order ─────────────────────────────────────────────────────────

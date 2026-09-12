@@ -59,11 +59,12 @@ export interface SaleOrderItem {
   allocations?: Array<{
     id: string;
     allocatedQty: number;
+    /** ALLOCATED = reserved and not yet shipped; CONSUMED = shipped; RELEASED = given back. */
     status: string;
     fgStock?: {
       id: string;
       quantity: number;
-      locations?: { id: string; name: string };
+      locations?: { id: string; locationName: string };
     };
   }>;
 }
@@ -206,7 +207,9 @@ export interface AvailableFGStock {
   };
   locations?: {
     id: string;
-    name: string;
+    // The API selects `locationName` (locations has no `name` column) — reading `name` here
+    // silently rendered every stock location as "-".
+    locationName: string;
   };
 }
 

@@ -17,15 +17,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { SaleOrderItemDialog } from './SaleOrderItemDialog';
-import type { SOItemInput } from '@/types/saleOrder.types';
+import { SaleOrderItemDialog, type SOItemDraft } from './SaleOrderItemDialog';
 
-export interface DisplayItem extends SOItemInput {
+export interface DisplayItem extends SOItemDraft {
   id?: string;
-  styleName?: string;
-  styleCode?: string;
-  colorName?: string;
-  sizeName?: string;
   totalPrice?: number;
 }
 
@@ -51,7 +46,7 @@ export function SaleOrderItemsTable({ items, onChange, editable = true }: SaleOr
     return { totalQty, totalAmount };
   }, [items]);
 
-  const handleAddItem = (item: SOItemInput) => {
+  const handleAddItem = (item: SOItemDraft) => {
     const newItem: DisplayItem = {
       ...item,
       totalPrice: item.quantity * item.unitPrice,
@@ -59,7 +54,7 @@ export function SaleOrderItemsTable({ items, onChange, editable = true }: SaleOr
     onChange([...items, newItem]);
   };
 
-  const handleAddMultipleItems = (newItems: SOItemInput[]) => {
+  const handleAddMultipleItems = (newItems: SOItemDraft[]) => {
     const displayItems: DisplayItem[] = newItems.map((item) => ({
       ...item,
       totalPrice: item.quantity * item.unitPrice,
@@ -67,7 +62,9 @@ export function SaleOrderItemsTable({ items, onChange, editable = true }: SaleOr
     onChange([...items, ...displayItems]);
   };
 
-  const handleEditItem = (item: SOItemInput) => {
+  // `...item` carries the dialog's labels, including undefined ones, so changing a line's style or
+  // colour replaces the old names instead of leaving them on the row.
+  const handleEditItem = (item: SOItemDraft) => {
     if (selectedIndex === null) return;
     const updated = [...items];
     updated[selectedIndex] = {

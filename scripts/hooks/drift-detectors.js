@@ -1061,6 +1061,29 @@ function schemaServiceUpdateParity(relFiles) {
           serviceFields.add('__SPREAD_COVERS_ALL__');
         }
 
+        // `data: someObject` — the payload was built into a named variable above the call. That is
+        // how a service shares ONE field list between two write paths (saleOrder.service does this
+        // so the with-items and without-items updates cannot drift apart — the very bug that lost
+        // buyerPoNumber). Resolve the declaration, or every field in it reads as "missing".
+        const dataVarMatch = callBody.match(/\bdata\s*:\s*([A-Za-z_$][\w$]*)\s*[,}]/);
+        if (dataVarMatch) {
+          const varName = dataVarMatch[1];
+          const declMatch = serviceContent.match(
+            new RegExp(`\\b(?:const|let|var)\\s+${varName}\\b[^=;]*=\\s*\\{`)
+          );
+          if (declMatch) {
+            const declBody = sliceBalancedBraces(serviceContent, declMatch.index + declMatch[0].length - 1);
+            if (declBody) {
+              if (/\.\.\.\s*(?:data|cleanedData|customerData|updateData)\b/.test(declBody)) {
+                serviceFields.add('__SPREAD_COVERS_ALL__');
+              }
+              const varFieldRe = /^\s*(\w+)\s*:/gm;
+              let vfm;
+              while ((vfm = varFieldRe.exec(declBody))) serviceFields.add(vfm[1]);
+            }
+          }
+        }
+
         // Find data: { ... } block
         const dataMatch = callBody.match(/\bdata\s*:\s*\{/);
         if (!dataMatch) continue;

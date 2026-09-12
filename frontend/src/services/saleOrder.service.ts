@@ -26,9 +26,14 @@ export async function searchSaleOrders(params: { search?: string; limit?: number
   return response.data;
 }
 
+/**
+ * POST returns the envelope `{ data, message }` (unlike GET/PUT, which return the order itself),
+ * so the order must be unwrapped here — returning the envelope handed callers `undefined` for
+ * `id` and sent the "open the new order" redirect to /sale-orders/undefined.
+ */
 export async function createSaleOrder(data: CreateSORequest): Promise<SaleOrder> {
   const response = await api.post(BASE_URL, data);
-  return response.data;
+  return response.data.data ?? response.data;
 }
 
 export async function updateSaleOrder(id: string, data: UpdateSORequest): Promise<SaleOrder> {
@@ -89,7 +94,7 @@ export async function getStockPreview(saleOrderId: string): Promise<StockPreview
  */
 export async function cancelSaleOrder(id: string): Promise<SaleOrder> {
   const response = await api.post(`${BASE_URL}/${id}/cancel`);
-  return response.data;
+  return response.data.data ?? response.data;
 }
 
 /**

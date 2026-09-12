@@ -24,6 +24,16 @@ export const SaleOrderStatusEnum = z.enum([
   'CANCELLED',
 ]);
 
+/** Columns the list may be ordered by — anything else would reach Prisma's `orderBy` raw. */
+export const SaleOrderSortFieldEnum = z.enum([
+  'createdAt',
+  'saleDate',
+  'saleOrderNumber',
+  'totalAmount',
+  'status',
+  'expectedShipDate',
+]);
+
 // ============================================================================
 // SALE ORDER SCHEMAS
 // ============================================================================
@@ -76,10 +86,14 @@ export const updateSaleOrderSchema = z.object({
   customerId: z.string().uuid('Invalid customer ID').optional(),
   buyerPoNumber: z.string().max(100).optional().nullable(), // Buyer's (HOK) PO number — B2B tracking key
   styleId: z.string().uuid('Invalid style ID').optional().nullable(), // Primary style for the order
+  // .nullable(): the ERP edit sheet sends null for an empty date input. Without it every edit of
+  // an order with no ship date 400'd ("Invalid request data") — the sibling dates were already
+  // nullable, this one was not.
   expectedShipDate: z
     .string()
     .refine((v) => !Number.isNaN(Date.parse(v)), 'Invalid date')
-    .optional(),
+    .optional()
+    .nullable(),
   buyerDeadline: z
     .string()
     .refine((v) => !Number.isNaN(Date.parse(v)), 'Invalid date')
@@ -151,6 +165,10 @@ export const saleOrderQuerySchema = z.object({
   status: SaleOrderStatusEnum.optional(),
   fromDate: z.coerce.date().optional(),
   toDate: z.coerce.date().optional(),
+  // Whitelisted: sortBy lands in a Prisma `orderBy` key, so an arbitrary string reaches the
+  // database and comes back as an opaque "Invalid data provided to database" 400.
+  sortBy: SaleOrderSortFieldEnum.optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
 });
 
 /**

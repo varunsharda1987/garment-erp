@@ -25,6 +25,7 @@ interface SizeOption {
   sizeName: string;
   sizeCode?: string | null;
   sortOrder?: number;
+  isActive?: boolean;
 }
 
 interface ColorOption {
@@ -78,7 +79,9 @@ export function SizeBreakdownDialog({
   const sizes = useMemo(() => {
     if (!styleData) return [];
     const opts = (styleData as { sizeOptions?: SizeOption[] }).sizeOptions || [];
-    return opts.filter((s) => s.id).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    // Retired sizes must not appear here — the single-size dropdown already excludes them, so
+    // without this filter a breakdown could put quantity onto a size the style no longer offers.
+    return opts.filter((s) => s.id && s.isActive !== false).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
   }, [styleData]);
 
   const colors = useMemo(() => {
@@ -125,10 +128,12 @@ export function SizeBreakdownDialog({
   const applyDistribution = useCallback(() => {
     if (totalQuantity <= 0 || sizes.length === 0) return;
 
-    const total =
-      quantityMode === 'percentage'
-        ? Object.values(distributionValues).reduce((s, v) => s + v, 0) || 100
-        : Object.values(distributionValues).reduce((s, v) => s + v, 0) || sizes.length;
+    // A percentage is read against 100; a ratio against the sum of the parts. Normalising
+    // percentages by the entered sum (what this did) turned "30 and 30" into a 50/50 split of the
+    // whole quantity — the missing 40% silently vanished. Against 100 the rows simply add up to
+    // 60% of the order and Save stays disabled until the user accounts for the rest.
+    const enteredTotal = Object.values(distributionValues).reduce((s, v) => s + v, 0);
+    const total = quantityMode === 'percentage' ? 100 : enteredTotal || sizes.length;
 
     if (total === 0) return;
 

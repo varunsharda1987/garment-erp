@@ -118,7 +118,11 @@ export function SaleOrderForm({
       toast.error('Please select a customer');
       return;
     }
-    if (items.length === 0) {
+    // A NEW order may be saved with no lines — it starts as a DRAFT shell and lines get added
+    // afterwards (the same flow the AI assistant uses). Confirming is what requires a line.
+    // An EDIT still refuses to submit an empty list, because a PUT replaces the lines wholesale
+    // and an accidental empty save would wipe the order's contents.
+    if (mode === 'edit' && items.length === 0) {
       toast.error('Please add at least one item');
       return;
     }
@@ -241,10 +245,13 @@ export function SaleOrderForm({
 
           {/* Items Section */}
           <div className="space-y-2">
-            <Label>
-              Items <span className="text-destructive">*</span>
-            </Label>
+            <Label>Items {mode === 'edit' && <span className="text-destructive">*</span>}</Label>
             <SaleOrderItemsTable items={items} onChange={setItems} editable={true} />
+            {mode === 'create' && items.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                You can save now and add items later — an order needs at least one item before it can be confirmed.
+              </p>
+            )}
           </div>
 
           <Separator />
@@ -302,7 +309,10 @@ export function SaleOrderForm({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || !customerId || items.length === 0}>
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting || !customerId || (mode === 'edit' && items.length === 0)}
+          >
             {isSubmitting ? 'Saving...' : mode === 'edit' ? 'Save Changes' : 'Create Sale Order'}
           </Button>
         </SheetFooter>

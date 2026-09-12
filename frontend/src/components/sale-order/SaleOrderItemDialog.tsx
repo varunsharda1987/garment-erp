@@ -45,16 +45,26 @@ interface StyleWithOptions extends Style {
   sizeOptions?: SizeOption[];
 }
 
+/**
+ * A line plus the labels to show for it. The payload the API needs is only ids, but the table
+ * renders names — when the dialog emitted ids alone, a freshly added row showed a truncated UUID
+ * for the style and an edited row kept the labels of whatever it used to be until the page
+ * reloaded. The label keys are always present (possibly undefined) so a spread overwrites stale
+ * values rather than leaving them behind.
+ */
+export interface SOItemDraft extends SOItemInput {
+  styleCode?: string;
+  styleName?: string;
+  colorName?: string;
+  sizeName?: string;
+}
+
 export interface SaleOrderItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (item: SOItemInput) => void;
-  onSaveMultiple?: (items: SOItemInput[]) => void;
-  editItem?: SOItemInput & {
-    styleName?: string;
-    colorName?: string;
-    sizeName?: string;
-  };
+  onSave: (item: SOItemDraft) => void;
+  onSaveMultiple?: (items: SOItemDraft[]) => void;
+  editItem?: SOItemDraft;
   mode?: 'create' | 'edit';
 }
 
@@ -83,23 +93,25 @@ export function SaleOrderItemDialog({
     enabled: !!styleId && open,
   });
 
-  // Update options when style data loads
+  // Update options when style data loads.
+  // Deliberately NOT keyed on `unitPrice`: it used to be, so clearing the price field re-ran this
+  // effect and immediately refilled the style's selling price — the field snapped back and typing
+  // appended to the restored value instead of replacing it.
   useEffect(() => {
-    if (styleData) {
-      const style = styleData as StyleWithOptions;
-      setColorOptions(style.colorOptions?.filter((c) => c.isActive !== false) || []);
-      setSizeOptions(
-        (style.sizeOptions?.filter((s) => s.isActive !== false) || []).sort(
-          (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
-        )
-      );
+    if (!styleData) return;
+    const style = styleData as StyleWithOptions;
+    setColorOptions(style.colorOptions?.filter((c) => c.isActive !== false) || []);
+    setSizeOptions(
+      (style.sizeOptions?.filter((s) => s.isActive !== false) || []).sort(
+        (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+      )
+    );
 
-      // Auto-fill unit price from style's selling price if available and not editing
-      if (mode === 'create' && style.sellingPrice && !unitPrice) {
-        setUnitPrice(String(style.sellingPrice));
-      }
+    // Auto-fill unit price from style's selling price if available and not editing
+    if (mode === 'create' && style.sellingPrice) {
+      setUnitPrice((prev) => prev || String(style.sellingPrice));
     }
-  }, [styleData, mode, unitPrice]);
+  }, [styleData, mode]);
 
   // Populate form when editing
   useEffect(() => {
@@ -149,12 +161,18 @@ export function SaleOrderItemDialog({
       return;
     }
 
-    const item: SOItemInput = {
+    const style = styleData as StyleWithOptions | undefined;
+
+    const item: SOItemDraft = {
       styleId,
       colorId: colorId || null,
       sizeId: sizeId || null,
       quantity: qty,
       unitPrice: price,
+      styleCode: style?.styleCode,
+      styleName: style?.styleName,
+      colorName: colorOptions.find((c) => c.id === colorId)?.colorName,
+      sizeName: sizeOptions.find((s) => s.id === sizeId)?.sizeName,
     };
 
     onSave(item);
@@ -168,12 +186,18 @@ export function SaleOrderItemDialog({
       return;
     }
 
-    const items: SOItemInput[] = entries.map((entry) => ({
+    const style = styleData as StyleWithOptions | undefined;
+
+    const items: SOItemDraft[] = entries.map((entry) => ({
       styleId,
       colorId: entry.colorId,
       sizeId: entry.sizeId,
       quantity: entry.quantity,
       unitPrice: price,
+      styleCode: style?.styleCode,
+      styleName: style?.styleName,
+      colorName: entry.colorName,
+      sizeName: entry.sizeName,
     }));
 
     if (onSaveMultiple) {

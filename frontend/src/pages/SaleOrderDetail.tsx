@@ -18,6 +18,7 @@ import {
   getSaleOrderById,
   confirmSaleOrder,
   allocateStock,
+  deallocateStock,
   getAvailableStock,
   startProduction,
   updateSaleOrder,
@@ -70,6 +71,17 @@ export default function SaleOrderDetail() {
   const [addPoDialogOpen, setAddPoDialogOpen] = useState(false);
   const [newPoNumber, setNewPoNumber] = useState('');
   const [newPoRemarks, setNewPoRemarks] = useState('');
+  const [releasingAllocationId, setReleasingAllocationId] = useState<string | null>(null);
+
+  /**
+   * Refresh this page AND the list. `saleOrders.all` is the prefix of both query keys, so one
+   * invalidation covers them; invalidating only the detail key (what most mutations here used to
+   * do) left the list showing a stale status for its full 5-minute staleTime — a just-confirmed
+   * order still appeared as DRAFT, delete button and all.
+   */
+  const invalidateSaleOrder = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all });
+  };
 
   // BUG-ORD14 fix: standardized query key
   const { data: so, isLoading } = useQuery({
@@ -92,7 +104,7 @@ export default function SaleOrderDetail() {
   const confirmMutation = useMutation({
     mutationFn: () => confirmSaleOrder(id!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') }); // BUG-ORD14 fix: standardized query key
+      invalidateSaleOrder();
       toast.success('Sale Order confirmed');
       setConfirmDialogOpen(false);
     },
@@ -110,7 +122,7 @@ export default function SaleOrderDetail() {
         remarks: prodRemarks.trim() || undefined,
       }),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') });
+      invalidateSaleOrder();
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       if (result.data.workOrderFailures?.length) {
         toast.warning(
@@ -130,7 +142,7 @@ export default function SaleOrderDetail() {
   const allocateMutation = useMutation({
     mutationFn: (data: { saleOrderItemId: string; fgStockId: string; quantity: number }) => allocateStock(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') }); // BUG-ORD14 fix: standardized query key
+      invalidateSaleOrder();
       queryClient.invalidateQueries({ queryKey: ['available-stock'] });
       toast.success('Stock allocated successfully');
       setAllocateDialogOpen(false);
@@ -144,11 +156,25 @@ export default function SaleOrderDetail() {
     },
   });
 
+  const deallocateMutation = useMutation({
+    mutationFn: (allocationId: string) => deallocateStock(allocationId),
+    onMutate: (allocationId: string) => setReleasingAllocationId(allocationId),
+    onSettled: () => setReleasingAllocationId(null),
+    onSuccess: () => {
+      invalidateSaleOrder();
+      queryClient.invalidateQueries({ queryKey: ['available-stock'] });
+      toast.success('Allocation released — the stock is available again');
+    },
+    onError: (error: unknown) => {
+      const axiosErr = error as { response?: { data?: { message?: string } } };
+      toast.error(axiosErr?.response?.data?.message || 'Failed to release allocation');
+    },
+  });
+
   const updateMutation = useMutation({
     mutationFn: (data: UpdateSORequest) => updateSaleOrder(id!, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') });
-      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all });
+      invalidateSaleOrder();
       toast.success('Sale Order updated');
       setEditSheetOpen(false);
     },
@@ -166,7 +192,7 @@ export default function SaleOrderDetail() {
     mutationFn: ({ buyerPoNumber, remarks }: { buyerPoNumber: string; remarks?: string }) =>
       addBuyerPo(id!, buyerPoNumber, remarks),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') });
+      invalidateSaleOrder();
       toast.success('Buyer PO added');
       setAddPoDialogOpen(false);
       setNewPoNumber('');
@@ -181,7 +207,7 @@ export default function SaleOrderDetail() {
   const removeBuyerPoMutation = useMutation({
     mutationFn: (poId: string) => removeBuyerPo(poId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') });
+      invalidateSaleOrder();
       toast.success('Buyer PO removed');
     },
     onError: (error: unknown) => {
@@ -193,7 +219,7 @@ export default function SaleOrderDetail() {
   const setPrimaryBuyerPoMutation = useMutation({
     mutationFn: (poId: string) => setPrimaryBuyerPo(poId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') });
+      invalidateSaleOrder();
       toast.success('Primary buyer PO updated');
     },
     onError: (error: unknown) => {
@@ -205,8 +231,7 @@ export default function SaleOrderDetail() {
   const cancelMutation = useMutation({
     mutationFn: () => cancelSaleOrder(id!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.detail(id || '') });
-      queryClient.invalidateQueries({ queryKey: queryKeys.saleOrders.all });
+      invalidateSaleOrder();
       toast.success('Sale Order cancelled');
       setCancelDialogOpen(false);
     },
@@ -389,10 +414,14 @@ export default function SaleOrderDetail() {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm">Buyer PO Numbers</CardTitle>
-            <Button variant="outline" size="sm" onClick={() => setAddPoDialogOpen(true)}>
-              <Plus className="h-3 w-3 mr-1" />
-              Add PO
-            </Button>
+            {/* The PO set is closed once the order is finished — the backend refuses the change
+                too, and the buyer app matches its own records against these numbers. */}
+            {!isTerminal && (
+              <Button variant="outline" size="sm" onClick={() => setAddPoDialogOpen(true)}>
+                <Plus className="h-3 w-3 mr-1" />
+                Add PO
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -417,35 +446,37 @@ export default function SaleOrderDetail() {
                       </Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    {!po.isPrimary && (
+                  {!isTerminal && (
+                    <div className="flex items-center gap-1">
+                      {!po.isPrimary && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          title="Set as primary"
+                          onClick={() => setPrimaryBuyerPoMutation.mutate(po.id)}
+                          disabled={setPrimaryBuyerPoMutation.isPending}
+                        >
+                          <Star className="h-3 w-3" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6"
-                        title="Set as primary"
-                        onClick={() => setPrimaryBuyerPoMutation.mutate(po.id)}
-                        disabled={setPrimaryBuyerPoMutation.isPending}
+                        className="h-6 w-6 text-destructive hover:text-destructive"
+                        title="Remove"
+                        onClick={() => removeBuyerPoMutation.mutate(po.id)}
+                        disabled={removeBuyerPoMutation.isPending}
                       >
-                        <Star className="h-3 w-3" />
+                        <Trash2 className="h-3 w-3" />
                       </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 text-destructive hover:text-destructive"
-                      title="Remove"
-                      onClick={() => removeBuyerPoMutation.mutate(po.id)}
-                      disabled={removeBuyerPoMutation.isPending}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
+                    </div>
+                  )}
                 </div>
               ))}
               {so.buyerPos?.length === 0 && so.buyerPoNumber && (
                 <div className="text-sm text-muted-foreground italic">
-                  Legacy PO: {so.buyerPoNumber} (add a PO to migrate)
+                  {so.buyerPoNumber} — kept as the primary PO if you add another
                 </div>
               )}
             </div>
@@ -508,24 +539,58 @@ export default function SaleOrderDetail() {
                       <span className={item.allocatedQty >= item.quantity ? 'text-success font-medium' : ''}>
                         {item.allocatedQty} / {item.quantity}
                       </span>
+                      {/* Each live reservation, with a way to give it back. Without this the only
+                          way to undo a mis-allocation was to cancel the whole order — and once
+                          production has started even that is blocked. */}
+                      {(item.allocations || [])
+                        .filter((a) => a.status === 'ALLOCATED')
+                        .map((a) => (
+                          <div
+                            key={a.id}
+                            className="mt-1 flex items-center justify-end gap-1 text-xs text-muted-foreground"
+                          >
+                            <span>
+                              {a.allocatedQty} pcs
+                              {a.fgStock?.locations?.locationName ? ` · ${a.fgStock.locations.locationName}` : ''}
+                            </span>
+                            {!isTerminal && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-5 px-1 text-xs"
+                                title="Release this allocation back to stock"
+                                disabled={deallocateMutation.isPending}
+                                onClick={() => deallocateMutation.mutate(a.id)}
+                              >
+                                {releasingAllocationId === a.id ? 'Releasing...' : 'Release'}
+                              </Button>
+                            )}
+                          </div>
+                        ))}
                     </TableCell>
                     <TableCell className="text-right">{item.dispatchedQty}</TableCell>
                     {canAllocate && (
                       <TableCell>
-                        {item.allocatedQty < item.quantity && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedItem(item);
-                              setAllocateQty(String(item.quantity - item.allocatedQty));
-                              setAllocateDialogOpen(true);
-                            }}
-                          >
-                            <Package className="h-3 w-3 mr-1" />
-                            Allocate
-                          </Button>
-                        )}
+                        {/* Allocation matches a specific style/colour/size lot, so a line with no
+                            size has nothing to match against — the stock lookup is skipped for it
+                            and the dialog would just report "no stock available". */}
+                        {item.allocatedQty < item.quantity &&
+                          (item.sizeId ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedItem(item);
+                                setAllocateQty(String(item.quantity - item.allocatedQty));
+                                setAllocateDialogOpen(true);
+                              }}
+                            >
+                              <Package className="h-3 w-3 mr-1" />
+                              Allocate
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Set a size to allocate</span>
+                          ))}
                       </TableCell>
                     )}
                   </TableRow>
@@ -692,7 +757,7 @@ export default function SaleOrderDetail() {
                           <span className="font-medium text-success">{stock.availableQty} available</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Location: {stock.locations?.name || '-'} | Total: {stock.quantity} | Allocated:{' '}
+                          Location: {stock.locations?.locationName || '-'} | Total: {stock.quantity} | Allocated:{' '}
                           {stock.allocatedQty}
                         </div>
                       </div>

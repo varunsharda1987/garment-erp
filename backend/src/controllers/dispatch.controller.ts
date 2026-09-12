@@ -624,7 +624,7 @@ export const deleteDeliveryNote = async (req: Request, res: Response) => {
 
   const existing = await prisma.delivery_notes.findUnique({
     where: { id },
-    select: { status: true },
+    select: { status: true, saleOrderId: true },
   });
 
   if (!existing) {
@@ -651,8 +651,34 @@ export const deleteDeliveryNote = async (req: Request, res: Response) => {
         data: { quantity: { increment: a.quantity }, lastUpdated: new Date() },
       });
     }
+
+    // Hand the quantities back to the sale order too. Creating the note incremented
+    // `dispatchedQty`; deleting it used to restore only the stock, leaving the line reading
+    // "10 of 10 dispatched" against a note that no longer exists — which reads as DISPATCHED
+    // (terminal for the B2B app) and blocks re-dispatch, since the remaining-quantity check
+    // in createSaleOrderDispatch then computes zero.
+    // The restored stock comes back UNRESERVED: the reservations were drawn down when the note
+    // was created, so re-allocating is a deliberate step, not something a delete should guess at.
+    if (existing.saleOrderId) {
+      const noteItems = await tx.delivery_note_items.findMany({
+        where: { deliveryNoteId: id, saleOrderItemId: { not: null } },
+        select: { saleOrderItemId: true, quantity: true },
+      });
+      for (const noteItem of noteItems) {
+        if (!noteItem.saleOrderItemId) continue;
+        await tx.sale_order_items.update({
+          where: { id: noteItem.saleOrderItemId },
+          data: { dispatchedQty: { decrement: noteItem.quantity } },
+        });
+      }
+    }
+
     // allocations cascade-delete with the note
     await tx.delivery_notes.delete({ where: { id } });
+
+    if (existing.saleOrderId) {
+      await recomputeSaleOrderStatus(tx, existing.saleOrderId);
+    }
   });
 
   res.json({ message: 'Delivery note deleted successfully (finished-goods stock restored)' });
@@ -988,8 +1014,12 @@ export const recordPOD = async (req: Request, res: Response) => {
         // so we leave dispatchedQty as-is — the POD record captures the shortage truth
       }
 
-      // Update sale order status based on delivery confirmation
-      if (deliveryStatus === 'FULL' || deliveryStatus === 'PARTIAL') {
+      // Update sale order status based on delivery confirmation.
+      // 'DELIVERED', not 'FULL': the value comes from the DeliveryConfirmation enum
+      // (DELIVERED | PARTIAL | REJECTED), so the old 'FULL' comparison was unreachable — a
+      // fully-received POD fell through both branches, leaving the order stuck on its dispatch
+      // status with no recompute and no DELIVERED stamp, forever.
+      if (deliveryStatus === 'DELIVERED' || deliveryStatus === 'PARTIAL') {
         // Check if all items in the sale order are fully delivered
         const soItems = await tx.sale_order_items.findMany({
           where: { saleOrderId: updatedNote.saleOrderId },
@@ -1003,7 +1033,20 @@ export const recordPOD = async (req: Request, res: Response) => {
         // Landmine №2: recompute first so a stale status (e.g. a legacy allocation
         // overwrite) cannot leave the order outside the dispatch states this guard needs.
         await recomputeSaleOrderStatus(tx, updatedNote.saleOrderId);
-        if (totalDispatched >= totalOrdered) {
+
+        // DELIVERED is a PINNED status — no later recompute can step back out of it — so it must
+        // not be stamped while another note is still on the road. `dispatchedQty` is incremented
+        // when a note is CREATED, so the "everything dispatched" test below goes true the moment
+        // the last note is raised, i.e. before its goods are anywhere near the customer.
+        const otherOpenNotes = await tx.delivery_notes.count({
+          where: {
+            saleOrderId: updatedNote.saleOrderId,
+            id: { not: id },
+            status: { in: ['PENDING', 'IN_TRANSIT'] },
+          },
+        });
+
+        if (totalDispatched >= totalOrdered && otherOpenNotes === 0) {
           // DELIVERED is a commercial event (POD confirmation), not derived progress
           await tx.sale_orders.updateMany({
             where: {
@@ -1573,6 +1616,9 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
         for (const item of items) {
           const soItem = soItemMap.get(item.saleOrderItemId)!;
           let remaining = item.quantity;
+          // How much of this line's RESERVED stock this note actually ships. `allocatedQty` means
+          // "reserved and not yet shipped", so it must fall by exactly this much.
+          let consumedFromReservations = 0;
 
           // First: consume from allocations for this sale order item (respects prior reservations)
           for (const alloc of soItem.allocations) {
@@ -1589,14 +1635,21 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
               data: { quantity: { decrement: toTake }, lastUpdated: new Date() },
             });
 
-            // Mark allocation as consumed
+            // Draw down the reservation. It only becomes CONSUMED once nothing is left on it:
+            // flagging a part-used reservation CONSUMED (what this did until 2026-09-12) hid the
+            // untouched remainder from every `status: 'ALLOCATED'` query, so those pieces looked
+            // free to other orders while this line still counted them as allocated.
             await tx.fg_stock_allocations.update({
               where: { id: alloc.id },
-              data: { status: 'CONSUMED', allocatedQty: { decrement: toTake } },
+              data: {
+                status: alloc.allocatedQty - toTake === 0 ? 'CONSUMED' : 'ALLOCATED',
+                allocatedQty: { decrement: toTake },
+              },
             });
 
             fgAllocations.push({ fgStockId: fgStock.id, quantity: toTake });
             remaining -= toTake;
+            consumedFromReservations += toTake;
           }
 
           // Second: if still remaining, take from unallocated FG stock
@@ -1665,10 +1718,14 @@ export const createSaleOrderDispatch = async (req: Request, res: Response) => {
             },
           });
 
-          // Update dispatchedQty on the sale order item
+          // Update dispatchedQty on the sale order item, and release the reservations this note
+          // just shipped — reserved stock that has left the building is no longer reserved.
           await tx.sale_order_items.update({
             where: { id: item.saleOrderItemId },
-            data: { dispatchedQty: { increment: item.quantity } },
+            data: {
+              dispatchedQty: { increment: item.quantity },
+              allocatedQty: { decrement: Math.min(consumedFromReservations, soItem.allocatedQty) },
+            },
           });
         }
 

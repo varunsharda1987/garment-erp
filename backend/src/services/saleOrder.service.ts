@@ -2,13 +2,23 @@ import prisma from '../config/database';
 import { Prisma, SaleOrderStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
-import { multiplyCurrency, divideCurrency, roundToCent } from '../utils/currency';
+import { multiplyCurrency, divideCurrency, roundToCent, Decimal } from '../utils/currency';
 import { orderService, OrderItemInput, OrderPriority } from './order.service';
 import { NotFoundError, ValidationError, ConflictError, BusinessError } from '../errors';
 import { recomputeSaleOrderStatus } from './helpers/sale-order-status.helper';
 import { processorRateValidationService } from './processor-rate-validation.service';
 import { logWarn, logInfo } from '../utils/logger';
 import { sampleService } from './sample.service';
+
+/** A line as it arrives from the ERP form or the B2B push. */
+interface SOItemInput {
+  styleId: string;
+  colorId?: string | null;
+  sizeId?: string | null;
+  quantity: number;
+  unitPrice: number;
+  remarks?: string;
+}
 
 interface SOCreateInput {
   customerId: string;
@@ -22,14 +32,7 @@ interface SOCreateInput {
   deliveryAddress?: string | null;
   remarks?: string;
   createdById: string;
-  items: Array<{
-    styleId: string;
-    colorId?: string | null;
-    sizeId: string;
-    quantity: number;
-    unitPrice: number;
-    remarks?: string;
-  }>;
+  items: SOItemInput[];
 }
 
 interface SOUpdateInput {
@@ -43,15 +46,147 @@ interface SOUpdateInput {
   paymentTerms?: string | null;
   deliveryAddress?: string | null;
   remarks?: string;
-  items?: Array<{
-    styleId: string;
-    colorId?: string | null;
-    sizeId: string;
-    quantity: number;
-    unitPrice: number;
-    remarks?: string;
-  }>;
+  items?: SOItemInput[];
 }
+
+/** A line ready to persist: deduplicated, with its money already rounded to the stored scale. */
+interface NormalisedSOItem {
+  styleId: string;
+  colorId: string | null;
+  sizeId: string | null;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  remarks: string | null;
+}
+
+/**
+ * Collapse duplicate lines and compute line money with decimal arithmetic.
+ *
+ * `sale_order_items` is unique on (saleOrderId, styleId, colorId, sizeId), but Postgres treats
+ * NULLs as DISTINCT — so two lines for the same style with no colour slipped past the index and
+ * became two rows, while two fully-specified duplicates hit P2002 and surfaced a raw
+ * "Unique constraint" 409. Both callers now merge duplicates up front, so neither happens.
+ *
+ * Money: quantity × unitPrice on floats stores 3.4499999999999997 as 3.44 in a Decimal(12,2)
+ * column; decimal.js rounds it to 3.45 (CLAUDE.md money-math rule).
+ */
+function normaliseSOItems(items: SOItemInput[]): { items: NormalisedSOItem[]; subtotal: number } {
+  const merged = new Map<string, NormalisedSOItem>();
+
+  for (const item of items) {
+    const colorId = item.colorId || null;
+    const sizeId = item.sizeId || null;
+    const key = `${item.styleId}|${colorId ?? ''}|${sizeId ?? ''}`;
+    const existing = merged.get(key);
+
+    if (!existing) {
+      merged.set(key, {
+        styleId: item.styleId,
+        colorId,
+        sizeId,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: 0, // computed below, once the merged quantity is final
+        remarks: item.remarks ?? null,
+      });
+      continue;
+    }
+
+    // Merging lines that disagree on price would silently pick a winner and change the order
+    // value — make the caller resolve it instead.
+    if (existing.unitPrice !== item.unitPrice) {
+      throw new ValidationError(
+        `The same style/colour/size appears twice with different unit prices ` +
+          `(₹${existing.unitPrice} and ₹${item.unitPrice}). Merge the lines or give them one price.`
+      );
+    }
+    existing.quantity += item.quantity;
+    existing.remarks = existing.remarks ?? item.remarks ?? null;
+  }
+
+  const normalised = [...merged.values()];
+  let subtotal = new Decimal(0);
+  for (const item of normalised) {
+    const lineTotal = roundToCent(multiplyCurrency(item.quantity, item.unitPrice));
+    item.totalPrice = lineTotal.toNumber();
+    subtotal = subtotal.plus(lineTotal);
+  }
+
+  return { items: normalised, subtotal: roundToCent(subtotal).toNumber() };
+}
+
+/**
+ * Promote the oldest remaining buyer PO to primary and mirror it onto the legacy
+ * `sale_orders.buyerPoNumber` column (or clear the column when none is left).
+ */
+async function promoteNextBuyerPo(tx: Prisma.TransactionClient, saleOrderId: string) {
+  const next = await tx.sale_order_buyer_pos.findFirst({
+    where: { saleOrderId },
+    orderBy: { createdAt: 'asc' },
+    select: { id: true, buyerPoNumber: true },
+  });
+
+  if (!next) {
+    await tx.sale_orders.update({ where: { id: saleOrderId }, data: { buyerPoNumber: null } });
+    return;
+  }
+
+  await tx.sale_order_buyer_pos.update({ where: { id: next.id }, data: { isPrimary: true } });
+  await tx.sale_orders.update({ where: { id: saleOrderId }, data: { buyerPoNumber: next.buyerPoNumber } });
+}
+
+/**
+ * Point a sale order's PRIMARY buyer PO at `value`, keeping the `sale_order_buyer_pos` junction
+ * and the legacy `sale_orders.buyerPoNumber` column in step.
+ *
+ * Both list and detail pages read the junction in preference to the column, so an edit that
+ * touched only the column (what `update` used to do, when it did not drop the field entirely)
+ * changed nothing the user could see.
+ *
+ * `null` clears: the primary row is removed and the next-oldest PO takes its place.
+ */
+async function syncPrimaryBuyerPo(tx: Prisma.TransactionClient, saleOrderId: string, value: string | null) {
+  if (!value) {
+    const primary = await tx.sale_order_buyer_pos.findFirst({
+      where: { saleOrderId, isPrimary: true },
+      select: { id: true },
+    });
+    if (primary) {
+      await tx.sale_order_buyer_pos.delete({ where: { id: primary.id } });
+    }
+    await promoteNextBuyerPo(tx, saleOrderId);
+    return;
+  }
+
+  await tx.sale_order_buyer_pos.updateMany({
+    where: { saleOrderId, isPrimary: true },
+    data: { isPrimary: false },
+  });
+  await tx.sale_order_buyer_pos.upsert({
+    where: { saleOrderId_buyerPoNumber: { saleOrderId, buyerPoNumber: value } },
+    create: { saleOrderId, buyerPoNumber: value, isPrimary: true },
+    update: { isPrimary: true },
+  });
+  await tx.sale_orders.update({ where: { id: saleOrderId }, data: { buyerPoNumber: value } });
+}
+
+/** Statuses whose buyer-PO set is closed: the commercial document is finished. */
+const BUYER_PO_LOCKED_STATUSES: SaleOrderStatus[] = [SaleOrderStatus.CANCELLED, SaleOrderStatus.DELIVERED];
+
+/**
+ * Orderable columns. `sortBy` lands directly in a Prisma `orderBy` key, so an unknown value
+ * reaches the database and returns an opaque "Invalid data provided to database" 400.
+ * Mirrors SaleOrderSortFieldEnum in schemas/saleOrder.schema.ts.
+ */
+const SORTABLE_FIELDS = new Set([
+  'createdAt',
+  'saleDate',
+  'saleOrderNumber',
+  'totalAmount',
+  'status',
+  'expectedShipDate',
+]);
 
 interface SOQueryParams {
   page?: number;
@@ -75,7 +210,9 @@ export class SaleOrderService {
   async create(data: SOCreateInput) {
     const saleOrderNumber = await this.generateSONumber();
 
-    const subtotal = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    // An empty item list is legitimate: the order starts as a DRAFT shell and lines are added on
+    // the detail page. `confirm` refuses to promote a line-less order.
+    const { items, subtotal } = normaliseSOItems(data.items ?? []);
 
     const soId = randomUUID();
 
@@ -98,14 +235,15 @@ export class SaleOrderService {
         remarks: data.remarks || null,
         createdById: data.createdById,
         items: {
-          create: data.items.map((item) => ({
+          create: items.map((item) => ({
             id: randomUUID(),
             styleId: item.styleId,
-            colorId: item.colorId || null,
+            colorId: item.colorId,
             sizeId: item.sizeId,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            totalPrice: item.quantity * item.unitPrice,
+            totalPrice: item.totalPrice,
+            remarks: item.remarks,
           })),
         },
         // Also create buyer PO junction record if provided
@@ -135,6 +273,9 @@ export class SaleOrderService {
       sortBy = 'createdAt',
       sortOrder = 'desc',
     } = params;
+
+    const orderByField = SORTABLE_FIELDS.has(sortBy) ? sortBy : 'createdAt';
+    const orderByDirection = sortOrder === 'asc' ? 'asc' : 'desc';
 
     const skip = (page - 1) * limit;
     const where: Prisma.sale_ordersWhereInput = {};
@@ -169,7 +310,7 @@ export class SaleOrderService {
         where,
         skip,
         take: limit,
-        orderBy: { [sortBy]: sortOrder },
+        orderBy: { [orderByField]: orderByDirection },
         include: {
           customer: {
             select: { id: true, code: true, name: true },
@@ -218,78 +359,73 @@ export class SaleOrderService {
       select: { status: true },
     });
 
-    if (!so) throw new Error('Sale Order not found');
+    if (!so) throw new NotFoundError('Sale Order', id);
     if (so.status !== SaleOrderStatus.DRAFT) {
-      throw new Error('Can only update Sale Orders in DRAFT status');
+      throw new BusinessError(`Can only update Sale Orders in DRAFT status (this one is ${so.status})`);
     }
 
     return prisma.$transaction(async (tx) => {
-      // Landmine №2: re-check INSIDE the transaction — a confirm racing this update must
-      // not let the item rewrite land on a no-longer-DRAFT order.
-      const current = await tx.sale_orders.findUnique({ where: { id }, select: { status: true } });
-      if (!current || current.status !== SaleOrderStatus.DRAFT) {
-        throw new Error('Can only update Sale Orders in DRAFT status');
-      }
+      // Duplicate lines are merged and line money is computed BEFORE anything is written, so the
+      // header carries the right subtotal in the same statement that claims the order.
+      const normalised = data.items ? normaliseSOItems(data.items) : null;
 
-      if (data.items) {
-        await tx.sale_order_items.deleteMany({
-          where: { saleOrderId: id },
-        });
+      // Single field list for BOTH the with-items and without-items cases. Splitting them is what
+      // lost `buyerPoNumber`: the items branch omitted it, and the ERP edit sheet always sends
+      // items, so every PO edit made through the UI was silently dropped.
+      const headerData: Prisma.sale_ordersUncheckedUpdateManyInput = {
+        // BUG-ORD5 fix: Include customerId in update
+        ...(data.customerId && { customerId: data.customerId }),
+        buyerPoNumber: data.buyerPoNumber,
+        styleId: data.styleId,
+        expectedShipDate: data.expectedShipDate,
+        buyerDeadline: data.buyerDeadline,
+        // undefined = leave unchanged (ERP form and B2B don't always send these)
+        orderDate: data.orderDate,
+        deliveryDate: data.deliveryDate,
+        paymentTerms: data.paymentTerms,
+        deliveryAddress: data.deliveryAddress,
+        remarks: data.remarks,
+        ...(normalised && { subtotal: normalised.subtotal, totalAmount: normalised.subtotal }),
+      };
 
-        const subtotal = data.items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-
-        await tx.sale_order_items.createMany({
-          data: data.items.map((item) => ({
-            id: randomUUID(),
-            saleOrderId: id,
-            styleId: item.styleId,
-            colorId: item.colorId || null,
-            sizeId: item.sizeId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.quantity * item.unitPrice,
-          })),
-        });
-
-        return tx.sale_orders.update({
-          where: { id },
-          data: {
-            // BUG-ORD5 fix: Include customerId in update
-            ...(data.customerId && { customerId: data.customerId }),
-            styleId: data.styleId,
-            expectedShipDate: data.expectedShipDate,
-            buyerDeadline: data.buyerDeadline,
-            // undefined = leave unchanged (ERP form and B2B don't always send these)
-            orderDate: data.orderDate,
-            deliveryDate: data.deliveryDate,
-            paymentTerms: data.paymentTerms,
-            deliveryAddress: data.deliveryAddress,
-            remarks: data.remarks,
-            subtotal,
-            totalAmount: subtotal,
-          },
-          include: this.getDefaultIncludes(),
-        });
-      }
-
-      return tx.sale_orders.update({
-        where: { id },
-        data: {
-          // BUG-ORD5 fix: Include customerId in update
-          ...(data.customerId && { customerId: data.customerId }),
-          buyerPoNumber: data.buyerPoNumber,
-          styleId: data.styleId,
-          expectedShipDate: data.expectedShipDate,
-          buyerDeadline: data.buyerDeadline,
-          // undefined = leave unchanged (ERP form and B2B don't always send these)
-          orderDate: data.orderDate,
-          deliveryDate: data.deliveryDate,
-          paymentTerms: data.paymentTerms,
-          deliveryAddress: data.deliveryAddress,
-          remarks: data.remarks,
-        },
-        include: this.getDefaultIncludes(),
+      // Landmine №2: the DRAFT re-check lives in the WHERE of the write itself. The previous
+      // SELECT-then-write left a window in which a confirm could commit between the two, letting
+      // an item rewrite land on a live order.
+      const claimed = await tx.sale_orders.updateMany({
+        where: { id, status: SaleOrderStatus.DRAFT },
+        data: headerData,
       });
+      if (claimed.count === 0) {
+        throw new ConflictError('Can only update Sale Orders in DRAFT status — it changed while you were editing');
+      }
+
+      if (normalised) {
+        // Wholesale replace (the B2B contract's PUT semantics). An empty list is allowed: a DRAFT
+        // may legitimately be emptied; `confirm` is what refuses a line-less order.
+        await tx.sale_order_items.deleteMany({ where: { saleOrderId: id } });
+
+        if (normalised.items.length > 0) {
+          await tx.sale_order_items.createMany({
+            data: normalised.items.map((item) => ({
+              id: randomUUID(),
+              saleOrderId: id,
+              styleId: item.styleId,
+              colorId: item.colorId,
+              sizeId: item.sizeId,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              totalPrice: item.totalPrice,
+              remarks: item.remarks,
+            })),
+          });
+        }
+      }
+
+      if (data.buyerPoNumber !== undefined) {
+        await syncPrimaryBuyerPo(tx, id, data.buyerPoNumber);
+      }
+
+      return tx.sale_orders.findUnique({ where: { id }, include: this.getDefaultIncludes() });
     });
   }
 
@@ -383,20 +519,34 @@ export class SaleOrderService {
       },
     });
 
-    if (!so) throw new Error('Sale Order not found');
+    if (!so) throw new NotFoundError('Sale Order', id);
     if (so.status !== SaleOrderStatus.DRAFT) {
-      throw new Error('Can only confirm Sale Orders in DRAFT status');
+      throw new BusinessError(`Can only confirm Sale Orders in DRAFT status (this one is ${so.status})`);
+    }
+    // A confirmed order with no lines is a dead end: update refuses it (DRAFT-only) and
+    // startProduction refuses it (nothing to produce), so cancelling is the only way out.
+    if (so.items.length === 0) {
+      throw new ValidationError('Add at least one item before confirming this sale order');
     }
 
-    // Update status to CONFIRMED
-    const confirmed = await prisma.sale_orders.update({
-      where: { id },
+    // Update status to CONFIRMED. Conditional on DRAFT so a cancel committing between the read
+    // above and this write cannot be resurrected into CONFIRMED.
+    const claimed = await prisma.sale_orders.updateMany({
+      where: { id, status: SaleOrderStatus.DRAFT },
       data: {
         status: SaleOrderStatus.CONFIRMED, // allow-sale-order-status: commercial event (confirm)
         approvedById,
       },
+    });
+    if (claimed.count === 0) {
+      throw new ConflictError('Sale order is no longer in DRAFT status — reload before confirming');
+    }
+
+    const confirmed = await prisma.sale_orders.findUnique({
+      where: { id },
       include: this.getDefaultIncludes(),
     });
+    if (!confirmed) throw new NotFoundError('Sale Order', id);
 
     // Auto-create samples based on customer requirements
     const styleIds = [...new Set(so.items.map((i) => i.styleId))];
@@ -505,10 +655,10 @@ export class SaleOrderService {
     // Items without sizeId cannot be converted to production orders - they need size breakdown first.
     const itemsWithoutSize = so.items.filter((i) => !i.sizeId);
     if (itemsWithoutSize.length > 0) {
-      const styleIds = [...new Set(itemsWithoutSize.map((i) => i.styleId))];
-      throw new Error(
+      const codes = [...new Set(itemsWithoutSize.map((i) => i.style?.styleCode ?? i.styleId))];
+      throw new ValidationError(
         `Cannot start production: ${itemsWithoutSize.length} item(s) have no size specified. ` +
-          `Please specify size breakdown for styles: ${styleIds.slice(0, 3).join(', ')}${styleIds.length > 3 ? '...' : ''}`
+          `Please specify size breakdown for styles: ${codes.slice(0, 3).join(', ')}${codes.length > 3 ? '...' : ''}`
       );
     }
 
@@ -574,10 +724,6 @@ export class SaleOrderService {
       userId
     );
 
-    // Reverse sync: push size breakdown from Production Order back to Sale Order items.
-    // This ensures SO items have sizeId for dispatch/allocation.
-    await this.syncSizesFromProductionOrder(id, orderItems);
-
     // Qty-rate audit 2026-08-24: non-blocking advisory — surface up front when this sale
     // order's quantity prices in a different processor rate slab than the style costing
     // assumed. The BLOCK sits at Order BOM creation and at IN_PRODUCTION confirmation.
@@ -622,11 +768,11 @@ export class SaleOrderService {
       select: { status: true },
     });
 
-    if (!so) throw new Error('Sale Order not found');
+    if (!so) throw new NotFoundError('Sale Order', id);
 
     const terminalStatuses: SaleOrderStatus[] = [SaleOrderStatus.DELIVERED, SaleOrderStatus.CANCELLED];
     if (terminalStatuses.includes(so.status as SaleOrderStatus)) {
-      throw new Error(`Cannot cancel sale order in ${so.status} status`);
+      throw new BusinessError(`Cannot cancel sale order in ${so.status} status`);
     }
 
     // Block cancel while a linked production order is active — the factory is already making it.
@@ -637,6 +783,30 @@ export class SaleOrderService {
     if (activeProduction) {
       throw new BusinessError(
         `Cannot cancel — production order ${activeProduction.orderNumber} is active. Cancel the production order first.`
+      );
+    }
+
+    // Goods that have already left cannot be un-ordered. CancelOrderDialog refuses this on screen;
+    // without the same rule here an API call (or a stale tab whose payload predates the dispatch)
+    // released every reservation while dispatchedQty stayed put — and the B2B app treats CANCELLED
+    // as terminal, so the buyer would stop tracking a shipment that is genuinely on its way.
+    const dispatched = await prisma.sale_order_items.aggregate({
+      where: { saleOrderId: id },
+      _sum: { dispatchedQty: true },
+    });
+    const dispatchedQty = dispatched._sum.dispatchedQty ?? 0;
+    if (dispatchedQty > 0) {
+      throw new BusinessError(`Cannot cancel — ${dispatchedQty} piece(s) have already been dispatched on this order.`);
+    }
+
+    // Belt and braces: a live note always implies dispatchedQty > 0, so this only fires if the two
+    // ledgers have drifted — in which case cancelling would strand the note against a dead order.
+    const liveNotes = await prisma.delivery_notes.count({
+      where: { saleOrderId: id, status: { in: ['PENDING', 'IN_TRANSIT'] } },
+    });
+    if (liveNotes > 0) {
+      throw new BusinessError(
+        `Cannot cancel — ${liveNotes} delivery note(s) are still open for this order. Delete them first.`
       );
     }
 
@@ -688,13 +858,27 @@ export class SaleOrderService {
     const allocation = await prisma.fg_stock_allocations.findUnique({
       where: { id: allocationId },
       include: {
-        saleOrderItem: { select: { id: true, saleOrderId: true } },
+        saleOrderItem: {
+          select: {
+            id: true,
+            saleOrderId: true,
+            saleOrder: { select: { status: true, saleOrderNumber: true } },
+          },
+        },
       },
     });
 
-    if (!allocation) throw new Error('Allocation not found');
+    if (!allocation) throw new NotFoundError('Allocation', allocationId);
     if (allocation.status !== 'ALLOCATED') {
-      throw new Error(`Cannot deallocate — allocation is ${allocation.status}`);
+      throw new BusinessError(`Cannot release — this allocation is already ${allocation.status}`);
+    }
+
+    // A finished order's reservations are history, not a working set.
+    const soStatus = allocation.saleOrderItem?.saleOrder.status;
+    if (soStatus === SaleOrderStatus.CANCELLED || soStatus === SaleOrderStatus.DELIVERED) {
+      throw new BusinessError(
+        `Cannot release stock — sale order ${allocation.saleOrderItem?.saleOrder.saleOrderNumber} is ${soStatus}.`
+      );
     }
 
     return prisma.$transaction(async (tx) => {
@@ -721,46 +905,95 @@ export class SaleOrderService {
     });
   }
 
+  /**
+   * Reserve finished-goods stock against one sale-order line.
+   *
+   * Everything — the eligibility checks, the availability arithmetic and the write — happens in a
+   * SINGLE transaction with the stock row locked. Previously the availability was read outside the
+   * transaction, so two people allocating the same lot at the same moment both saw it as free and
+   * both succeeded; and nothing capped the request against what the line still needed, so a typo
+   * could reserve 500 pcs for a 100-pc line and report the order FULLY_ALLOCATED.
+   */
   async allocateStock(saleOrderItemId: string, fgStockId: string, quantity: number, userId: string) {
-    // Landmine №2: allocation must not resurrect a dead order or touch a draft one.
-    // (Before this guard, allocating against a CANCELLED order silently flipped it back
-    // to PARTIALLY/FULLY_ALLOCATED — visible to the B2B buyer as a live order.)
-    const targetItem = await prisma.sale_order_items.findUnique({
-      where: { id: saleOrderItemId },
-      select: { saleOrder: { select: { status: true, saleOrderNumber: true } } },
-    });
-    if (!targetItem) throw new NotFoundError('Sale order item', saleOrderItemId);
-    const soStatus = targetItem.saleOrder.status;
-    if (soStatus === SaleOrderStatus.DRAFT) {
-      throw new BusinessError('Confirm the sale order before allocating stock.');
-    }
-    if (soStatus === SaleOrderStatus.CANCELLED || soStatus === SaleOrderStatus.DELIVERED) {
-      throw new BusinessError(
-        `Cannot allocate stock — sale order ${targetItem.saleOrder.saleOrderNumber} is ${soStatus}.`
-      );
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new ValidationError('Allocation quantity must be a whole number greater than zero');
     }
 
-    // Verify the FG stock has enough available quantity
-    const fgStock = await prisma.finished_goods_stock.findUnique({
-      where: { id: fgStockId },
-      include: {
-        fg_stock_allocations: {
-          where: { status: 'ALLOCATED' },
+    return prisma.$transaction(async (tx) => {
+      const item = await tx.sale_order_items.findUnique({
+        where: { id: saleOrderItemId },
+        select: {
+          saleOrderId: true,
+          styleId: true,
+          colorId: true,
+          sizeId: true,
+          quantity: true,
+          allocatedQty: true,
+          saleOrder: { select: { status: true, saleOrderNumber: true } },
+          style: { select: { styleCode: true } },
         },
-      },
-    });
+      });
+      if (!item) throw new NotFoundError('Sale order item', saleOrderItemId);
 
-    if (!fgStock) throw new Error('Finished goods stock not found');
+      // Landmine №2: allocation must not resurrect a dead order or touch a draft one.
+      // (Before this guard, allocating against a CANCELLED order silently flipped it back
+      // to PARTIALLY/FULLY_ALLOCATED — visible to the B2B buyer as a live order.)
+      const soStatus = item.saleOrder.status;
+      if (soStatus === SaleOrderStatus.DRAFT) {
+        throw new BusinessError('Confirm the sale order before allocating stock.');
+      }
+      if (soStatus === SaleOrderStatus.CANCELLED || soStatus === SaleOrderStatus.DELIVERED) {
+        throw new BusinessError(`Cannot allocate stock — sale order ${item.saleOrder.saleOrderNumber} is ${soStatus}.`);
+      }
 
-    const allocatedQty = fgStock.fg_stock_allocations.reduce((sum, a) => sum + a.allocatedQty, 0);
-    const availableQty = fgStock.quantity - allocatedQty;
+      // Never reserve more than the line still needs.
+      const remaining = item.quantity - item.allocatedQty;
+      if (remaining <= 0) {
+        throw new BusinessError(`This line is already fully allocated (${item.allocatedQty}/${item.quantity} pcs).`);
+      }
+      if (quantity > remaining) {
+        throw new BusinessError(
+          `Only ${remaining} pcs left to allocate on this line ` +
+            `(ordered ${item.quantity}, already allocated ${item.allocatedQty}).`
+        );
+      }
 
-    if (quantity > availableQty) {
-      throw new Error(`Only ${availableQty} pcs available (${fgStock.quantity} total - ${allocatedQty} allocated)`);
-    }
+      // Lock the stock row for the rest of the transaction so a concurrent allocation of the same
+      // lot waits here rather than reading the same "available" figure we did.
+      const locked = await tx.$queryRaw<
+        Array<{ id: string; quantity: number; styleId: string; colorId: string; sizeId: string }>
+      >`SELECT id, quantity, "styleId", "colorId", "sizeId"
+          FROM finished_goods_stock WHERE id = ${fgStockId} FOR UPDATE`;
+      if (locked.length === 0) throw new NotFoundError('Finished goods stock', fgStockId);
+      const fgStock = locked[0];
 
-    // Create allocation and update sale order item
-    const allocation = await prisma.$transaction(async (tx) => {
+      // The stock must be the thing this line actually ordered. Nothing checked this before, so a
+      // stale dialog (or any API caller) could reserve another style's goods against this line.
+      if (fgStock.styleId !== item.styleId) {
+        throw new ValidationError(
+          `That stock is not for style ${item.style?.styleCode ?? item.styleId} — pick stock for this line's style.`
+        );
+      }
+      if (item.colorId && fgStock.colorId !== item.colorId) {
+        throw new ValidationError("That stock is a different colour from this line's.");
+      }
+      if (item.sizeId && fgStock.sizeId !== item.sizeId) {
+        throw new ValidationError("That stock is a different size from this line's.");
+      }
+
+      const reserved = await tx.fg_stock_allocations.aggregate({
+        where: { fgStockId, status: 'ALLOCATED' },
+        _sum: { allocatedQty: true },
+      });
+      const allocatedQty = reserved._sum.allocatedQty ?? 0;
+      const availableQty = fgStock.quantity - allocatedQty;
+
+      if (quantity > availableQty) {
+        throw new BusinessError(
+          `Only ${availableQty} pcs available (${fgStock.quantity} total − ${allocatedQty} already allocated)`
+        );
+      }
+
       const alloc = await tx.fg_stock_allocations.create({
         data: {
           id: randomUUID(),
@@ -772,98 +1005,23 @@ export class SaleOrderService {
         },
       });
 
-      // Update sale order item allocated qty
       await tx.sale_order_items.update({
         where: { id: saleOrderItemId },
-        data: {
-          allocatedQty: { increment: quantity },
-        },
+        data: { allocatedQty: { increment: quantity } },
       });
 
       // Landmine №2: derive the status from item facts (never overwrite dispatch progress)
-      const soItem = await tx.sale_order_items.findUnique({
-        where: { id: saleOrderItemId },
-        select: { saleOrderId: true },
-      });
-      if (soItem) {
-        await recomputeSaleOrderStatus(tx, soItem.saleOrderId);
-      }
+      await recomputeSaleOrderStatus(tx, item.saleOrderId);
 
       return alloc;
     });
-
-    return allocation;
   }
 
-  /**
-   * Reverse sync: push size breakdown from Production Order back to Sale Order items.
-   * Splits sizeless SO items into sized items based on the production breakup.
-   *
-   * Example: SO item (Style A, Color X, no size, 100 pcs)
-   * Production breakup: S=30, M=40, L=30
-   * Result: 3 SO items (Style A, Color X, S, 30), (Style A, Color X, M, 40), (Style A, Color X, L, 30)
-   */
-  private async syncSizesFromProductionOrder(
-    saleOrderId: string,
-    orderItems: Array<{
-      styleId: string;
-      unitPrice: string | number;
-      breakup: Array<{ colorId: string | null; sizeId: string; quantity: number }>;
-    }>
-  ) {
-    // Find sizeless SO items that need to be split
-    const sizelessItems = await prisma.sale_order_items.findMany({
-      where: { saleOrderId, sizeId: null },
-      select: { id: true, styleId: true, colorId: true, quantity: true, unitPrice: true },
-    });
-
-    if (sizelessItems.length === 0) return;
-
-    await prisma.$transaction(async (tx) => {
-      for (const soItem of sizelessItems) {
-        // Find the matching order item breakup
-        const orderItem = orderItems.find((oi) => oi.styleId === soItem.styleId);
-        if (!orderItem) continue;
-
-        // Filter breakup entries that match this SO item's color
-        const matchingBreakup = orderItem.breakup.filter(
-          (b) => (b.colorId || null) === (soItem.colorId || null) && b.quantity > 0
-        );
-
-        if (matchingBreakup.length === 0) continue;
-
-        // Delete the sizeless item
-        await tx.sale_order_items.delete({ where: { id: soItem.id } });
-
-        // Create new sized items from the breakup
-        for (const entry of matchingBreakup) {
-          const totalPrice = entry.quantity * Number(soItem.unitPrice);
-          await tx.sale_order_items.create({
-            data: {
-              saleOrderId,
-              styleId: soItem.styleId,
-              colorId: entry.colorId,
-              sizeId: entry.sizeId,
-              quantity: entry.quantity,
-              unitPrice: soItem.unitPrice,
-              totalPrice,
-            },
-          });
-        }
-      }
-
-      // Recalculate sale order totals
-      const allItems = await tx.sale_order_items.findMany({
-        where: { saleOrderId },
-        select: { totalPrice: true },
-      });
-      const subtotal = allItems.reduce((sum, i) => sum + Number(i.totalPrice), 0);
-      await tx.sale_orders.update({
-        where: { id: saleOrderId },
-        data: { subtotal, totalAmount: subtotal }, // taxAmount stays as-is
-      });
-    });
-  }
+  // `syncSizesFromProductionOrder` lived here until 2026-09-12. It split size-less sale-order
+  // lines using the production breakup, but startProduction refuses to run at all while any line
+  // lacks a size, so it could never execute — and had it run, re-creating the lines would have
+  // collided with @@unique([saleOrderId, styleId, colorId, sizeId]) whenever a sized row already
+  // existed. Sizes are added to a sale order through the edit sheet.
 
   async getAvailableStock(styleId: string, colorId?: string, sizeId?: string) {
     const where: Prisma.finished_goods_stockWhereInput = { styleId };
@@ -960,7 +1118,7 @@ export class SaleOrderService {
       },
     });
 
-    if (!so) throw new Error('Sale Order not found');
+    if (!so) throw new NotFoundError('Sale Order', saleOrderId);
 
     // Build item previews with stock availability and style readiness
     const itemPreviews = await Promise.all(
@@ -1149,34 +1307,66 @@ export class SaleOrderService {
   async addBuyerPo(saleOrderId: string, buyerPoNumber: string, remarks?: string) {
     const so = await prisma.sale_orders.findUnique({
       where: { id: saleOrderId },
-      select: { id: true, buyerPoNumber: true },
+      select: { id: true, buyerPoNumber: true, status: true, saleOrderNumber: true },
     });
     if (!so) throw new NotFoundError('Sale Order', saleOrderId);
-
-    // Check if this is the first PO
-    const existingCount = await prisma.sale_order_buyer_pos.count({
-      where: { saleOrderId },
-    });
-    const isPrimary = existingCount === 0;
-
-    const buyerPo = await prisma.sale_order_buyer_pos.create({
-      data: {
-        saleOrderId,
-        buyerPoNumber,
-        isPrimary,
-        remarks: remarks || null,
-      },
-    });
-
-    // If this is the first/primary PO, sync to legacy field
-    if (isPrimary) {
-      await prisma.sale_orders.update({
-        where: { id: saleOrderId },
-        data: { buyerPoNumber },
-      });
+    if (BUYER_PO_LOCKED_STATUSES.includes(so.status)) {
+      throw new BusinessError(`Cannot change buyer POs — sale order ${so.saleOrderNumber} is ${so.status}.`);
     }
 
-    return buyerPo;
+    return prisma.$transaction(async (tx) => {
+      const duplicate = await tx.sale_order_buyer_pos.findFirst({
+        where: { saleOrderId, buyerPoNumber },
+        select: { id: true },
+      });
+      if (duplicate) {
+        throw new ConflictError(`Buyer PO ${buyerPoNumber} is already on this sale order.`);
+      }
+
+      // Check if this is the first PO
+      const existingCount = await tx.sale_order_buyer_pos.count({
+        where: { saleOrderId },
+      });
+
+      // Move the legacy single-column PO into the junction before a second one is added. Without
+      // this the first "Add PO" simply overwrote sale_orders.buyerPoNumber, and the number the
+      // buyer originally raised the order under survived nowhere — while the screen was telling
+      // the user that adding a PO would migrate it.
+      const legacyPoNumber = so.buyerPoNumber;
+      const migratesLegacy = existingCount === 0 && !!legacyPoNumber && legacyPoNumber !== buyerPoNumber;
+      if (migratesLegacy) {
+        await tx.sale_order_buyer_pos.create({
+          data: {
+            saleOrderId,
+            buyerPoNumber: legacyPoNumber!,
+            isPrimary: true,
+            remarks: 'Original PO number',
+          },
+        });
+      }
+
+      // The first PO on an order becomes primary; one added alongside an existing PO does not.
+      const isPrimary = existingCount === 0 && !migratesLegacy;
+
+      const buyerPo = await tx.sale_order_buyer_pos.create({
+        data: {
+          saleOrderId,
+          buyerPoNumber,
+          isPrimary,
+          remarks: remarks || null,
+        },
+      });
+
+      // If this is the first/primary PO, sync to legacy field
+      if (isPrimary) {
+        await tx.sale_orders.update({
+          where: { id: saleOrderId },
+          data: { buyerPoNumber },
+        });
+      }
+
+      return buyerPo;
+    });
   }
 
   /**
@@ -1186,9 +1376,19 @@ export class SaleOrderService {
   async removeBuyerPo(buyerPoId: string) {
     const buyerPo = await prisma.sale_order_buyer_pos.findUnique({
       where: { id: buyerPoId },
-      select: { id: true, saleOrderId: true, isPrimary: true },
+      select: {
+        id: true,
+        saleOrderId: true,
+        isPrimary: true,
+        saleOrder: { select: { status: true, saleOrderNumber: true } },
+      },
     });
     if (!buyerPo) throw new NotFoundError('Buyer PO', buyerPoId);
+    if (BUYER_PO_LOCKED_STATUSES.includes(buyerPo.saleOrder.status)) {
+      throw new BusinessError(
+        `Cannot change buyer POs — sale order ${buyerPo.saleOrder.saleOrderNumber} is ${buyerPo.saleOrder.status}.`
+      );
+    }
 
     await prisma.$transaction(async (tx) => {
       // Delete the PO
@@ -1196,27 +1396,7 @@ export class SaleOrderService {
 
       // If this was primary, promote the next oldest
       if (buyerPo.isPrimary) {
-        const nextPo = await tx.sale_order_buyer_pos.findFirst({
-          where: { saleOrderId: buyerPo.saleOrderId },
-          orderBy: { createdAt: 'asc' },
-        });
-
-        if (nextPo) {
-          await tx.sale_order_buyer_pos.update({
-            where: { id: nextPo.id },
-            data: { isPrimary: true },
-          });
-          await tx.sale_orders.update({
-            where: { id: buyerPo.saleOrderId },
-            data: { buyerPoNumber: nextPo.buyerPoNumber },
-          });
-        } else {
-          // No more POs, clear legacy field
-          await tx.sale_orders.update({
-            where: { id: buyerPo.saleOrderId },
-            data: { buyerPoNumber: null },
-          });
-        }
+        await promoteNextBuyerPo(tx, buyerPo.saleOrderId);
       }
     });
   }
@@ -1227,9 +1407,20 @@ export class SaleOrderService {
   async setPrimaryBuyerPo(buyerPoId: string) {
     const buyerPo = await prisma.sale_order_buyer_pos.findUnique({
       where: { id: buyerPoId },
-      select: { id: true, saleOrderId: true, buyerPoNumber: true, isPrimary: true },
+      select: {
+        id: true,
+        saleOrderId: true,
+        buyerPoNumber: true,
+        isPrimary: true,
+        saleOrder: { select: { status: true, saleOrderNumber: true } },
+      },
     });
     if (!buyerPo) throw new NotFoundError('Buyer PO', buyerPoId);
+    if (BUYER_PO_LOCKED_STATUSES.includes(buyerPo.saleOrder.status)) {
+      throw new BusinessError(
+        `Cannot change buyer POs — sale order ${buyerPo.saleOrder.saleOrderNumber} is ${buyerPo.saleOrder.status}.`
+      );
+    }
     if (buyerPo.isPrimary) return buyerPo; // Already primary
 
     await prisma.$transaction(async (tx) => {

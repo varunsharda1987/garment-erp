@@ -91,8 +91,17 @@ display string in this contract — verified the B2B app only displays it, never
 From `GET /sale-orders/:id` (response is the **unwrapped** object, camelized by the global
 serializer — note `_count` becomes `count`):
 
-- `status` — `DRAFT | CONFIRMED | PARTIALLY_DISPATCHED | DISPATCHED | DELIVERED | CANCELLED`.
+- `status` — `DRAFT | CONFIRMED | PARTIALLY_ALLOCATED | FULLY_ALLOCATED | PARTIALLY_DISPATCHED |
+  DISPATCHED | DELIVERED | CANCELLED`.
   B2B treats DISPATCHED/DELIVERED/CANCELLED as **terminal** and stops polling that order.
+  **`PARTIALLY_ALLOCATED` / `FULLY_ALLOCATED` (documented 2026-09-12, not new):** the factory has
+  reserved finished goods against the order but shipped nothing yet — between CONFIRMED and the
+  dispatch states, and NOT terminal. The ERP has always been able to emit them (they are derived
+  from `items[].allocatedQty`); this list simply never said so, and no order had been allocated
+  yet. Verified safe on the B2B side before documenting: `erpStatusSync` only special-cases the
+  three terminal values and keeps polling anything else, and `soBadge` renders an unknown status
+  with a neutral tone, so both already behave correctly. Treat them as "in progress"; a dedicated
+  badge colour would be a nicety, not a fix.
 - `saleOrderNumber`, `saleDate`, `expectedShipDate`
 - `items[].quantity / allocatedQty / dispatchedQty / unitPrice`,
   `items[].style{styleCode,styleName}`, `items[].color{colorName}`, `items[].size{sizeName,sizeCode}`
@@ -181,19 +190,31 @@ SKUs), then retry from the B2B side.
 
 ## 7. Known ERP-side gaps the B2B app currently works around (nice-to-fix here)
 
-- **`sale_order_items.remarks` is accepted but never persisted** (create/update map drops it). The
-  B2B app sends the colour name there when it can't match a `colorId`; today that context is lost —
-  persisting it would make unmatched colours visible on the factory side.
-- **`expectedShipDate` can't be cleared** via update (absent = no change; it isn't nullable in the
-  update path). Clearing the date on a B2B PO therefore never clears it here.
+- ~~**`sale_order_items.remarks` is accepted but never persisted**~~ **FIXED 2026-09-12:** both the
+  create and update item maps now store it, so the colour name the B2B app sends when it can't
+  match a `colorId` is visible on the factory side.
+- ~~**`expectedShipDate` can't be cleared** via update~~ **FIXED 2026-09-12:** the update schema
+  accepts `null` and the controller now distinguishes the two spellings — an **omitted** field
+  leaves the date alone, an explicit **`null`** clears it. (This entry previously claimed absent
+  already meant "no change"; it did not. The controller collapsed both to null, so any partial PUT
+  wiped `expectedShipDate` and `buyerDeadline`. B2B was unaffected only because it always sends
+  the date.)
 - ~~**No sale-order → production-order link** in the schema.~~ **FIXED 2026-08-16:**
   `orders.saleOrderId` now links a production order to its sale order; the factory's
   **Start Production** action on a confirmed SO creates it (full SO quantity, make-to-order).
   Read it back via `productionOrders[]` on the SO (§4) and filter production progress precisely
   with `GET /production-status/by-order?saleOrderId=` (§2). B2B follow-up: send `buyerPoNumber`,
   switch the factory-status modal to `?saleOrderId=` (style fallback for pre-link orders).
-- **This ERP's own frontend header-only sale-order create sends `items: []`**, which the controller
-  rejects — its create-from-list flow is broken independent of the B2B app (found 2026-07-22).
+- ~~**This ERP's own frontend header-only sale-order create sends `items: []`**, which the
+  controller rejects~~ **FIXED 2026-09-12:** an empty `items` array is now accepted on CREATE — the
+  order starts as a DRAFT shell and lines are added on the detail page. `confirm` is the gate that
+  requires at least one line (400 otherwise), so a line-less order can never reach a live status.
+  The B2B push is unchanged: it always sends lines, and `PUT` still replaces them wholesale.
+- **Duplicate lines are merged, not rejected (2026-09-12).** Two pushed lines with the same
+  style+colour+size are now summed into one row instead of either tripping the unique index (a raw
+  409) or — when `colorId` was null, which is the common B2B case — being stored as two rows that
+  Postgres considered distinct. Lines that repeat a key with *different* `unitPrice` values are
+  refused with a 400 naming both prices, rather than one silently winning.
 
 ## 8. Reconciliation checklist (how to "tally" the two systems)
 

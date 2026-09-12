@@ -28,7 +28,19 @@ let styleId: string;
 let sizeSId: string;
 let sizeMId: string;
 
-const SO_STATUS_VALUES = ['DRAFT', 'CONFIRMED', 'PARTIALLY_DISPATCHED', 'DISPATCHED', 'DELIVERED', 'CANCELLED'];
+// The full set the ERP can emit. PARTIALLY_ALLOCATED/FULLY_ALLOCATED sit between CONFIRMED and the
+// dispatch states (derived from items[].allocatedQty) and are NOT terminal. They were always
+// possible; §4 of the guide just never listed them, and no order had been allocated yet.
+const SO_STATUS_VALUES = [
+  'DRAFT',
+  'CONFIRMED',
+  'PARTIALLY_ALLOCATED',
+  'FULLY_ALLOCATED',
+  'PARTIALLY_DISPATCHED',
+  'DISPATCHED',
+  'DELIVERED',
+  'CANCELLED',
+];
 
 /** The §3 push payload, exactly as the B2B app sends it. */
 function b2bPushPayload(overrides: Record<string, any> = {}) {
@@ -82,17 +94,35 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  try {
-    await prisma.sale_orders.deleteMany({
-      where: { saleOrderNumber: { startsWith: 'SO' }, remarks: { contains: RUN } },
-    });
-    await prisma.style_variants.deleteMany({ where: { style: { styleCode: { startsWith: RUN } } } });
-    await prisma.styles.deleteMany({ where: { styleCode: { startsWith: RUN } } });
-    await prisma.customers.deleteMany({ where: { id: only(customerId) } });
-    await prisma.users.deleteMany({ where: { id: only(testUserId) } });
-  } catch {
-    // ignore cleanup errors
+  // These suites run against the LIVE development database, so teardown is not optional.
+  //
+  // Two things used to go wrong here, and together they leaked 19 "<RUN> House Of Kasya" rows
+  // into the real customer dropdown (swept 2026-09-12):
+  //   1. SAMPLES were never deleted. Confirming a sale order AUTO-CREATES samples against the
+  //      customer, and their FK blocks the customer delete.
+  //   2. One `try` wrapped every statement, so the first failure skipped all the rest — and the
+  //      bare `catch` hid it completely.
+  // Each step now runs independently and reports what it could not clean.
+  const steps: Array<[string, () => Promise<unknown>]> = [
+    ['samples', () => prisma.samples.deleteMany({ where: { customerId: only(customerId) } })],
+    ['sale_orders', () => prisma.sale_orders.deleteMany({ where: { customerId: only(customerId) } })],
+    [
+      'style_variants',
+      () => prisma.style_variants.deleteMany({ where: { style: { styleCode: { startsWith: RUN } } } }),
+    ],
+    ['styles', () => prisma.styles.deleteMany({ where: { styleCode: { startsWith: RUN } } })],
+    ['customers', () => prisma.customers.deleteMany({ where: { id: only(customerId) } })],
+    ['users', () => prisma.users.deleteMany({ where: { id: only(testUserId) } })],
+  ];
+
+  for (const [label, run] of steps) {
+    try {
+      await run();
+    } catch (err) {
+      console.error(`[b2b-contract teardown] could not clean ${label} — fixtures left behind:`, err);
+    }
   }
+
   await prisma.$disconnect();
 });
 
@@ -203,6 +233,139 @@ describe('§4 — what the B2B app reads back from GET /sale-orders/:id', () => 
 
     const after = await request(app).get(`/api/sale-orders/${soId}`).set(authHeader);
     expect(after.body.status).toBe('DRAFT');
+  });
+});
+
+describe('§3/§7 — payload fields the ERP must actually keep', () => {
+  let soId: string;
+
+  beforeAll(async () => {
+    const res = await request(app).post('/api/sale-orders').set(authHeader).send(b2bPushPayload());
+    soId = (res.body?.data ?? res.body).id;
+  });
+
+  afterAll(async () => {
+    await prisma.sale_orders.deleteMany({ where: { id: only(soId) } });
+  });
+
+  it('POST returns the created order inside a {data,message} envelope carrying a usable id', async () => {
+    // The ERP's own list page redirects to the new order using this id; reading the envelope
+    // itself (rather than .data) sent it to /sale-orders/undefined.
+    const res = await request(app).post('/api/sale-orders').set(authHeader).send(b2bPushPayload());
+    expect(res.status).toBe(201);
+    expect(res.body.data?.id).toBeTruthy();
+    expect(res.body.data?.saleOrderNumber).toBeTruthy();
+    await prisma.sale_orders.deleteMany({ where: { id: only(res.body.data.id) } });
+  });
+
+  it('PUT updates buyerPoNumber ALONGSIDE items, and the junction row follows it', async () => {
+    // The items branch of update() used to omit buyerPoNumber entirely, and nothing kept
+    // sale_order_buyer_pos in step — so a PO edit sent with items changed nothing visible.
+    const res = await request(app)
+      .put(`/api/sale-orders/${soId}`)
+      .set(authHeader)
+      .send(b2bPushPayload({ buyerPoNumber: `${RUN}-PO-9999` }));
+    expect(res.status).toBeLessThan(300);
+
+    const after = await request(app).get(`/api/sale-orders/${soId}`).set(authHeader);
+    expect(after.body.buyerPoNumber).toBe(`${RUN}-PO-9999`);
+    const primary = after.body.buyerPos?.find((p: { isPrimary: boolean }) => p.isPrimary);
+    expect(primary?.buyerPoNumber).toBe(`${RUN}-PO-9999`);
+  });
+
+  it('§7 — an OMITTED expectedShipDate leaves it alone; an explicit null clears it', async () => {
+    const { expectedShipDate: _omitted, ...withoutDate } = b2bPushPayload();
+    const keep = await request(app).put(`/api/sale-orders/${soId}`).set(authHeader).send(withoutDate);
+    expect(keep.status).toBeLessThan(300);
+    const afterOmit = await request(app).get(`/api/sale-orders/${soId}`).set(authHeader);
+    expect(afterOmit.body.expectedShipDate).toBeTruthy();
+
+    const clear = await request(app)
+      .put(`/api/sale-orders/${soId}`)
+      .set(authHeader)
+      .send(b2bPushPayload({ expectedShipDate: null }));
+    expect(clear.status).toBeLessThan(300);
+    const afterClear = await request(app).get(`/api/sale-orders/${soId}`).set(authHeader);
+    expect(afterClear.body.expectedShipDate).toBeNull();
+  });
+
+  it('duplicate style+colour+size lines are merged into one row with the summed quantity', async () => {
+    // colorId null is the common B2B case, and Postgres treats NULLs as DISTINCT — so these two
+    // lines used to be stored as two rows that the unique index never caught.
+    const res = await request(app)
+      .put(`/api/sale-orders/${soId}`)
+      .set(authHeader)
+      .send(
+        b2bPushPayload({
+          items: [
+            { styleId, colorId: null, sizeId: sizeSId, quantity: 4, unitPrice: 450 },
+            { styleId, colorId: null, sizeId: sizeSId, quantity: 6, unitPrice: 450 },
+          ],
+        })
+      );
+    expect(res.status).toBeLessThan(300);
+
+    const after = await request(app).get(`/api/sale-orders/${soId}`).set(authHeader);
+    expect(after.body.items.length).toBe(1);
+    expect(after.body.items[0].quantity).toBe(10);
+    expect(Number(after.body.totalAmount)).toBeCloseTo(4500, 2);
+  });
+
+  it('duplicate lines that disagree on unitPrice are refused with a 400 naming both prices', async () => {
+    const res = await request(app)
+      .put(`/api/sale-orders/${soId}`)
+      .set(authHeader)
+      .send(
+        b2bPushPayload({
+          items: [
+            { styleId, colorId: null, sizeId: sizeSId, quantity: 4, unitPrice: 450 },
+            { styleId, colorId: null, sizeId: sizeSId, quantity: 6, unitPrice: 500 },
+          ],
+        })
+      );
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/450/);
+    expect(res.body.message).toMatch(/500/);
+  });
+
+  it('§7 — sale_order_items.remarks is persisted (the B2B unmatched-colour hint)', async () => {
+    const res = await request(app)
+      .put(`/api/sale-orders/${soId}`)
+      .set(authHeader)
+      .send(
+        b2bPushPayload({
+          items: [
+            { styleId, colorId: null, sizeId: sizeSId, quantity: 3, unitPrice: 450, remarks: 'Colour: Sea Green' },
+          ],
+        })
+      );
+    expect(res.status).toBeLessThan(300);
+
+    const after = await request(app).get(`/api/sale-orders/${soId}`).set(authHeader);
+    expect(after.body.items[0].remarks).toBe('Colour: Sea Green');
+  });
+});
+
+describe('§7 — an order may be created empty, but not CONFIRMED empty', () => {
+  it('POST with items: [] creates a DRAFT shell; confirming it is refused with a 400', async () => {
+    const created = await request(app)
+      .post('/api/sale-orders')
+      .set(authHeader)
+      .send(b2bPushPayload({ items: [] }));
+    expect(created.status).toBe(201);
+
+    const soId = created.body.data.id;
+    expect(created.body.data.status).toBe('DRAFT');
+    expect(created.body.data.items).toHaveLength(0);
+
+    const confirm = await request(app).post(`/api/sale-orders/${soId}/confirm`).set(authHeader).send({});
+    expect(confirm.status).toBe(400);
+    expect(confirm.body.message).toMatch(/at least one item/i);
+
+    const still = await request(app).get(`/api/sale-orders/${soId}`).set(authHeader);
+    expect(still.body.status).toBe('DRAFT');
+
+    await prisma.sale_orders.deleteMany({ where: { id: only(soId) } });
   });
 });
 

@@ -125,6 +125,10 @@ afterAll(async () => {
   });
   await prisma.sale_orders.deleteMany({ where: { id: { in: [soId, so2Id].filter(Boolean) } } });
   await prisma.style_costing.deleteMany({ where: { id: only(costingId) } });
+  // Confirming a sale order AUTO-CREATES samples against the customer and style. Missing this
+  // step meant the customer delete below threw on samples_customerId_fkey, which aborted the
+  // rest of the teardown and stranded the fixture customer + user in the live database.
+  await prisma.samples.deleteMany({ where: { customerId: only(customerId) } });
   await prisma.size_options.deleteMany({ where: { id: { in: [sizeMId, sizeLId, sizeB1Id] } } });
   await prisma.styles.deleteMany({ where: { id: { in: [styleAId, styleBId] } } });
   await prisma.customers.deleteMany({ where: { id: only(customerId) } });
@@ -255,5 +259,88 @@ describe('Sale Order → start production (make-to-order)', () => {
       .send({ expectedDeliveryDate: '2026-12-01' })
       .expect(400);
     expect(res.body.message || res.body.error?.message).toContain(`${RUN}B`);
+  });
+});
+
+describe('Sale Order guards that used to surface as generic 500s', () => {
+  // Every order this block creates, cleaned up in afterAll. Cleaning up at the end of each `it`
+  // does not survive a failing assertion — the leftovers then block the file-level teardown from
+  // deleting the fixture style and customer.
+  const createdSoIds: string[] = [];
+
+  const createSaleOrder = async (items: Array<Record<string, unknown>>) => {
+    const res = await request(app).post('/api/sale-orders').set(authHeader).send({ customerId, items }).expect(201);
+    createdSoIds.push(res.body.data.id);
+    return res.body.data.id as string;
+  };
+
+  afterAll(async () => {
+    await prisma.samples.deleteMany({ where: { customerId: only(customerId) } });
+    await prisma.sale_orders.deleteMany({ where: { id: { in: createdSoIds } } });
+  });
+
+  it('start-production on a size-less line answers 400 with the reason, not a bare 500', async () => {
+    // This threw a plain Error, and with NODE_ENV=production the message never reached the user —
+    // the screen just said "Failed to start production".
+    const sizelessSoId = await createSaleOrder([{ styleId: styleAId, sizeId: null, quantity: 4, unitPrice: 100 }]);
+
+    await request(app).post(`/api/sale-orders/${sizelessSoId}/confirm`).set(authHeader).send({}).expect(200);
+
+    const res = await request(app)
+      .post(`/api/sale-orders/${sizelessSoId}/start-production`)
+      .set(authHeader)
+      .send({ expectedDeliveryDate: '2026-12-01' })
+      .expect(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.message).toMatch(/no size specified/i);
+    expect(res.body.message).toContain(`${RUN}A`);
+  });
+
+  it('refuses to cancel an order that already has dispatched pieces', async () => {
+    const dispatchedSoId = await createSaleOrder([{ styleId: styleAId, sizeId: sizeMId, quantity: 6, unitPrice: 100 }]);
+
+    await request(app).post(`/api/sale-orders/${dispatchedSoId}/confirm`).set(authHeader).send({}).expect(200);
+
+    // Stand in for a shipment: the cancel guard reads the line's dispatchedQty.
+    await prisma.sale_order_items.updateMany({
+      where: { saleOrderId: only(dispatchedSoId) },
+      data: { dispatchedQty: 2 },
+    });
+
+    const res = await request(app).post(`/api/sale-orders/${dispatchedSoId}/cancel`).set(authHeader).expect(422);
+    expect(res.body.message).toMatch(/dispatched/i);
+
+    const after = await request(app).get(`/api/sale-orders/${dispatchedSoId}`).set(authHeader).expect(200);
+    expect(after.body.status).not.toBe('CANCELLED');
+  });
+
+  it('two simultaneous confirms produce exactly one CONFIRMED, not two', async () => {
+    // Confirm claims the order with an UPDATE conditional on it still being DRAFT. Before that,
+    // status was read and written in separate statements, so two callers (or a confirm racing a
+    // cancel) could both pass the read and both write.
+    const raceSoId = await createSaleOrder([{ styleId: styleAId, sizeId: sizeMId, quantity: 2, unitPrice: 100 }]);
+
+    const results = await Promise.all([
+      request(app).post(`/api/sale-orders/${raceSoId}/confirm`).set(authHeader).send({}),
+      request(app).post(`/api/sale-orders/${raceSoId}/confirm`).set(authHeader).send({}),
+    ]);
+
+    expect(results.filter((r) => r.status < 300)).toHaveLength(1);
+    expect(results.filter((r) => r.status >= 400)).toHaveLength(1);
+
+    const after = await request(app).get(`/api/sale-orders/${raceSoId}`).set(authHeader).expect(200);
+    expect(after.body.status).toBe('CONFIRMED');
+  });
+
+  it('a cancelled order cannot be confirmed back to life', async () => {
+    const deadSoId = await createSaleOrder([{ styleId: styleAId, sizeId: sizeMId, quantity: 2, unitPrice: 100 }]);
+
+    await request(app).post(`/api/sale-orders/${deadSoId}/cancel`).set(authHeader).expect(200);
+
+    const res = await request(app).post(`/api/sale-orders/${deadSoId}/confirm`).set(authHeader).send({});
+    expect(res.status).toBeGreaterThanOrEqual(400);
+
+    const after = await request(app).get(`/api/sale-orders/${deadSoId}`).set(authHeader).expect(200);
+    expect(after.body.status).toBe('CANCELLED');
   });
 });

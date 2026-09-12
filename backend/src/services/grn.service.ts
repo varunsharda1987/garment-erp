@@ -451,6 +451,14 @@ class GRNService {
       'suppliers.name',
       'suppliers.code',
       'warehouses.warehouseName',
+      // A GRN has no style of its own, but the document it was booked against does — so a receipt
+      // is findable by the buyer's style code like everything else.
+      'purchase_orders.style.styleCode',
+      'purchase_orders.style.buyerStyleRef',
+      'purchase_orders.style.styleName',
+      'jobWorkOrder.style.styleCode',
+      'jobWorkOrder.style.buyerStyleRef',
+      'jobWorkOrder.style.styleName',
       'remarks',
     ]);
 

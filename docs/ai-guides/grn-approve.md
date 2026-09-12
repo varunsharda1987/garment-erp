@@ -24,6 +24,7 @@ sources:
   - frontend/src/pages/GRNDetail.tsx
   - backend/src/schemas/grn.schema.ts
   - backend/src/services/grn.service.ts
+route: /grn
 ---
 
 ## Before you start
@@ -31,7 +32,7 @@ The GRN must already exist and be in **Pending QC** status. Approve and Reject b
 
 ## Steps
 1. Open **Procurement → GRN (Goods Receipt)** in the sidebar. The page title is **Goods Receiving Notes**.
-2. Use the status dropdown to filter by **Pending QC** to see everything waiting, or search by GRN number, PO number or supplier. You can also filter by supplier using the supplier dropdown.
+2. Use the status dropdown to filter by **Pending QC** to see everything waiting, or search by GRN number, the supplier's invoice number, the PO or job work order number, supplier, warehouse, or the style — including the buyer's own style code. Typing several words narrows the list, since each word must match something. You can also filter by supplier using the supplier dropdown.
 3. Click the GRN number to open it.
 4. Check the summary tiles — **Total Items**, **Total Received**, **Total Accepted**, **Total Rejected** — and the **Received Items** table. Than, bale and roll breakdowns are shown under each material.
 5. Click **Approve**.

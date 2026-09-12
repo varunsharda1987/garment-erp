@@ -106,7 +106,12 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
     'sale_orders.buyerPoNumber',
     'delivery_note.deliveryNumber',
     'invoice_items[].style.styleCode',
+    'invoice_items[].style.styleName',
+    // Both copies of the buyer's code: the one CAPTURED on the line (what the goods were ordered
+    // under) and the style master's current one — otherwise invoices raised before the line
+    // started carrying it could not be found by that code at all.
     'invoice_items[].buyerStyleRef',
+    'invoice_items[].style.buyerStyleRef',
     'invoice_items[].description',
     'remarks',
   ] as const;

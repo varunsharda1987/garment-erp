@@ -1097,6 +1097,10 @@ export const getAllASN = async (req: Request, res: Response) => {
     'buyerRefNumber',
     'order.orderNumber',
     'order.customers.name',
+    // An ASN carries no style itself; reach them through the order it applies against.
+    'order.order_items[].styles.styleCode',
+    'order.order_items[].styles.buyerStyleRef',
+    'order.order_items[].styles.styleName',
   ]);
 
   if (status) {

@@ -26,6 +26,7 @@ sources:
   - frontend/src/App.tsx
   - backend/src/schemas/color.schema.ts
   - backend/src/services/color.service.ts
+route: /colors/new
 ---
 
 ## Steps

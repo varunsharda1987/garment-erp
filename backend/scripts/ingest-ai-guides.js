@@ -108,6 +108,7 @@ async function main() {
 
     const slug = meta.slug || path.basename(file, '.md');
     const title = meta.title;
+    const route = typeof meta.route === 'string' ? meta.route : null; // internal app route for navigation
     const keywords = Array.isArray(meta.keywords) ? meta.keywords : [];
     const sources = Array.isArray(meta.sources) ? meta.sources : [];
 
@@ -141,18 +142,19 @@ async function main() {
 
     if (!existing) {
       await prisma.ai_knowledge_guides.create({
-        data: { slug, title, keywords, content: body, sourcesJson, isActive: true },
+        data: { slug, title, route, keywords, content: body, sourcesJson, isActive: true },
       });
       created++;
     } else if (
       existing.content !== body ||
       existing.title !== title ||
+      existing.route !== route ||
       JSON.stringify(existing.keywords) !== JSON.stringify(keywords) ||
       !existing.isActive
     ) {
       await prisma.ai_knowledge_guides.update({
         where: { slug },
-        data: { title, keywords, content: body, sourcesJson, isActive: true },
+        data: { title, route, keywords, content: body, sourcesJson, isActive: true },
       });
       updated++;
     } else {

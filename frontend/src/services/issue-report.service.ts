@@ -21,12 +21,15 @@ export async function createIssueReport(input: {
   description?: string;
   pageUrl?: string;
   screenshot?: File | null;
+  /** JSON-encoded SessionTrail — multipart fields are strings, the backend parses it */
+  contextJson?: string;
 }): Promise<IssueReport> {
   const formData = new FormData();
   formData.append('title', input.title);
   if (input.description) formData.append('description', input.description);
   if (input.pageUrl) formData.append('pageUrl', input.pageUrl);
   if (input.screenshot) formData.append('screenshot', input.screenshot);
+  if (input.contextJson) formData.append('contextJson', input.contextJson);
 
   const response = await api.post<{ data: IssueReport }>('/issue-reports', formData);
   return response.data.data;

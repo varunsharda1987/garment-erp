@@ -6,23 +6,26 @@
 import { Router, Request, Response } from 'express';
 import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
-import { validateBody } from '../middleware/validation.middleware';
+import { validateBody, validateQuery } from '../middleware/validation.middleware';
 import { AIProviderFactory } from '../services/ai/providers/AIProviderFactory';
-import { conversationService } from '../services/ai/conversation.service';
+import { conversationService, type AssistantMessageMetadata } from '../services/ai/conversation.service';
 import { aiActionsService } from '../services/ai/ai-actions.service';
 import { aiPermissionService } from '../services/ai/ai-permission.service';
 import { knowledgeService } from '../services/ai/knowledge.service';
+import { formatPageContext, formatRecentErrors } from '../services/ai/chat-context.format';
 import { erpContextService } from '../services/ai/erp-context.service';
 import { ragService } from '../services/ai/rag.service';
-import { logError, logInfo } from '../utils/logger';
+import { logDebug, logError, logInfo } from '../utils/logger';
 import { UserRole } from '@prisma/client';
 import {
   chatSchema,
   chatPersistentSchema,
   feedbackSchema,
+  suggestionsQuerySchema,
   type ChatInput,
   type ChatPersistentInput,
   type FeedbackInput,
+  type SuggestionsQueryInput,
 } from '../schemas/ai.schema';
 
 interface ConversationMessage {
@@ -236,7 +239,7 @@ router.post(
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const { message, conversationId } = req.body as ChatPersistentInput;
+    const { message, conversationId, context } = req.body as ChatPersistentInput;
 
     // Check if query is restricted for this role
     const restrictedCheck = aiPermissionService.isRestrictedQuery(message, userRole);
@@ -300,8 +303,17 @@ router.post(
       }
     }
 
-    // How-to guides authored from the real UI code — the authority for step-by-step answers
-    const knowledgeContext = await knowledgeService.getContext(message);
+    // How-to guides authored from the real UI code — the authority for step-by-step answers.
+    // The page the user came from boosts that page's guide; their recent errors let the
+    // model cite the exact failure instead of guessing.
+    const knowledge = await knowledgeService.getContext(message, { pageRoute: context?.pageRoute });
+    const pageContext = formatPageContext(context?.pageRoute, knowledge.pageGuide);
+    const recentErrorsContext = formatRecentErrors(context?.recentErrors);
+    logDebug(
+      `[AI Chat] context pageRoute=${context?.pageRoute ?? '-'} pageGuide=${knowledge.pageGuide?.slug ?? '-'} ` +
+        `guides=${knowledge.matches.map((m) => `${m.slug}(${m.score})`).join(',') || '-'} ` +
+        `zeroMatch=${knowledge.zeroMatch} errors=${context?.recentErrors?.length ?? 0}`
+    );
 
     const aiProvider = AIProviderFactory.getProvider();
 
@@ -359,7 +371,9 @@ If a question is outside this scope (general knowledge, entertainment, jokes, ho
 ${permissionContext}
 ${erpDataContext}
 ${ragContext}
-${knowledgeContext}
+${pageContext}
+${recentErrorsContext}
+${knowledge.context}
 
 USING THE HOW-TO GUIDES:
 - When a HOW-TO GUIDES section appears above, it is AUTHORITATIVE for step-by-step instructions — it describes this system's real screens. Follow it over any general knowledge.
@@ -450,6 +464,24 @@ IMPORTANT:
 
     const latencyMs = Date.now() - startTime;
 
+    // Retrieval outcome + session trail, read back by AI Insights (unanswered questions,
+    // weak matches, feedback per guide). The question is copied onto the assistant row so
+    // every report is a single-table query.
+    const assistantMetadata: AssistantMessageMetadata = {
+      question: message.slice(0, 500),
+      userRole,
+      guideSlugs: knowledge.matches.map((m) => m.slug),
+      guideScores: Object.fromEntries(knowledge.matches.map((m) => [m.slug, m.score])),
+      topScore: knowledge.topScore,
+      zeroMatch: knowledge.zeroMatch,
+      dataLookup: erpDataContext.trim().length > 0,
+      knowledgeEnabled: knowledge.enabled,
+      ...(context?.pageRoute ? { pageRoute: context.pageRoute } : {}),
+      ...(knowledge.pageGuide ? { pageGuideSlug: knowledge.pageGuide.slug } : {}),
+      ...(context?.recentErrors?.length ? { recentErrors: context.recentErrors } : {}),
+      ...(context?.recentPages?.length ? { recentPages: context.recentPages } : {}),
+    };
+
     // Save assistant response. Return its DB id so the client can attach feedback to the
     // just-streamed answer (frontend previously fabricated a `msg-<ts>` id that never matched a
     // real ai_messages row, so thumbs up/down always failed the FK — frontend finding B10-09).
@@ -460,6 +492,7 @@ IMPORTANT:
       provider: responseProvider,
       model: responseModel,
       latencyMs,
+      metadata: assistantMetadata,
       ...(pendingAction && {
         actionType: pendingAction.actionType,
         actionEntity: pendingAction.actionEntity,
@@ -575,11 +608,13 @@ router.post(
 );
 
 /**
- * GET /api/ai/suggestions
- * Get role-based suggested questions
+ * GET /api/ai/suggestions?pageRoute=/styles/new
+ * Role-based suggested questions, plus the guides that document the page the user came
+ * from ("On this page" suggestions).
  */
 router.get(
   '/suggestions',
+  validateQuery(suggestionsQuerySchema),
   asyncHandler(async (req: Request, res: Response) => {
     const userRole = req.user?.role as UserRole;
 
@@ -587,9 +622,13 @@ router.get(
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const suggestions = aiPermissionService.getSuggestedQuestions(userRole);
+    const { pageRoute } = ((req as Request & { validatedQuery?: unknown }).validatedQuery ??
+      {}) as SuggestionsQueryInput;
 
-    res.json({ suggestions, role: userRole });
+    const suggestions = aiPermissionService.getSuggestedQuestions(userRole);
+    const pageSuggestions = pageRoute ? await knowledgeService.getGuidesForRoute(pageRoute) : [];
+
+    res.json({ suggestions, role: userRole, pageSuggestions, pageRoute: pageRoute ?? null });
   })
 );
 

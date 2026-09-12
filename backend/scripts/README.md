@@ -2,6 +2,32 @@
 
 Utility scripts for managing the GST implementation and database.
 
+## AI Assistant Scripts
+
+### AI Gaps Report
+```bash
+npx ts-node scripts/ai-gaps.ts [--since YYYY-MM-DD] [--until YYYY-MM-DD] [--top N] [--include-data] [--json]
+npx ts-node scripts/ai-gaps.ts --test "maal receive kaise kare" --route /grn/new
+```
+
+**What it does:**
+- Lists questions the AI assistant could not answer (no guide matched), weak guide matches,
+  thumbs-down answers with the guide that produced them, and guide usage — the same data as
+  the AI Insights admin page (`/ai-insights`)
+- `--test` ranks the live guide set for one question so you can prove a new/changed guide matches
+
+**When to use:** via the `/ai-gaps` Claude Code skill, or whenever the team says the assistant
+"doesn't know" something.
+
+### Ingest AI Guides
+```bash
+node scripts/ingest-ai-guides.js [--dry-run]
+```
+
+Upserts `docs/ai-guides/*.md` into `ai_knowledge_guides` and refreshes `docs/ai-guides/manifest.json`.
+
+---
+
 ## GST Configuration Scripts
 
 ### 1. Auto-Configure Company State (Recommended)

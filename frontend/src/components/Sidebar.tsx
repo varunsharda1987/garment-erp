@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Search, Settings, Sparkles, Star, X } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronRight, Search, Settings, Sparkles, Star, X } from 'lucide-react';
 import { useState, useMemo, type ReactNode } from 'react';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useUIPreferences } from '@/stores/ui-preferences.store';
@@ -274,6 +274,21 @@ export default function Sidebar({ isOpen }: SidebarProps) {
               >
                 <Settings className="h-4 w-4" />
                 <span>AI Settings</span>
+              </NavLink>
+            )}
+            {can('aiInsights') && (
+              <NavLink
+                to="/ai-insights"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm ${
+                    isActive
+                      ? 'bg-accent/10 text-accent font-medium border border-accent/20'
+                      : 'text-muted-foreground hover:bg-accent/10 hover:text-foreground'
+                  }`
+                }
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span>AI Insights</span>
               </NavLink>
             )}
           </div>

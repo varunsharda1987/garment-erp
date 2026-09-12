@@ -28,6 +28,7 @@ sources:
   - frontend/src/components/WarehouseCombobox.tsx
   - backend/src/schemas/fabricStock.schema.ts
   - backend/src/routes/fabric-stock.routes.ts
+route: /fabric-stock
 ---
 
 **Before you start:** the fabric must already exist in **Materials & Masters → Fabric Master**, with its **Actual Width** filled in.

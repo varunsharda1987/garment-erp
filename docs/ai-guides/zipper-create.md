@@ -61,6 +61,7 @@ sources:
   - backend/src/errors/index.ts
   - backend/src/controllers/zipper.controller.ts
   - backend/src/utils/code-generator.ts
+route: /zippers/new
 ---
 
 ## Before you start

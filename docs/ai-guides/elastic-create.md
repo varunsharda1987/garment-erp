@@ -45,6 +45,7 @@ sources:
   - backend/src/schemas/trimMasters.schema.ts
   - backend/src/schemas/common.schema.ts
   - backend/src/controllers/elastic.controller.ts
+route: /elastics/new
 ---
 
 ## Before you start

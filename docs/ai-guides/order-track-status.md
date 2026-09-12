@@ -37,6 +37,7 @@ sources:
   - frontend/src/components/OrderWorkflowTracker.tsx
   - frontend/src/types/order.types.ts
   - frontend/src/types/mrp.types.ts
+route: /orders
 ---
 
 ## Steps

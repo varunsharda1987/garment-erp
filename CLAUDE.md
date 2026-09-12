@@ -187,7 +187,12 @@ finishing the task. The pre-commit/pre-push smart-check runs the same check as a
 Guide rules: steps only (never rates/margins/prices — every role can read any guide);
 exact UI labels from the code; keywords must include English + Hinglish + **Devanagari**
 (the chat mic emits Devanagari); `sources:` must list every file the guide was written from,
-including `navigation.ts`/`Sidebar.tsx` when a menu path is stated.
+including `navigation.ts`/`Sidebar.tsx` when a menu path is stated; `route:` must be the page
+path (it powers the "Open this page →" link and the page-aware ranking).
+
+**To find what the assistant could NOT answer** (no guide matched, weak matches, thumbs-down):
+the **AI Insights** page (`/ai-insights`, ADMIN) or the **`/ai-gaps`** skill, which runs
+`backend/scripts/ai-gaps.ts` and then writes or fixes the missing guides.
 
 Full architecture and the add-an-action recipe: [docs/AI_ASSISTANT_GUIDE.md](docs/AI_ASSISTANT_GUIDE.md)
 

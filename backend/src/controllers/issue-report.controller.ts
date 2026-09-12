@@ -23,14 +23,21 @@ export class IssueReportController {
         return res.status(401).json({ error: 'Unauthorized' });
       }
 
-      const { title, description, pageUrl } = req.body as CreateIssueReportInput;
+      const { title, description, pageUrl, contextJson } = req.body as CreateIssueReportInput;
 
       let screenshotUrl: string | undefined;
       if (req.file) {
         screenshotUrl = `/uploads/issue-screenshots/${req.file.filename}`;
       }
 
-      const report = await issueReportService.create({ userId, title, description, pageUrl, screenshotUrl });
+      const report = await issueReportService.create({
+        userId,
+        title,
+        description,
+        pageUrl,
+        screenshotUrl,
+        contextJson,
+      });
 
       logInfo(`[IssueReport] User ${userId} reported: "${title}" (page: ${pageUrl || 'n/a'})`);
       res.status(201).json({ data: report });

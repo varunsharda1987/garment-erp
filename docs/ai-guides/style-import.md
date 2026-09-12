@@ -26,6 +26,7 @@ sources:
   - backend/src/services/style-import.service.ts
   - backend/src/types/style-import.types.ts
   - backend/src/schemas/styleImport.schema.ts
+route: /styles/import
 ---
 
 ## Before you start

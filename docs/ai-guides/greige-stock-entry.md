@@ -26,6 +26,7 @@ sources:
   - frontend/src/pages/StockInForm.tsx
   - frontend/src/pages/StockMovementList.tsx
   - backend/src/schemas/stockMovement.schema.ts
+route: /greige-stock
 ---
 
 > **DEPRECATED:** This page now redirects to **Stock IN (Receipt)** with Greige pre-selected. Use Stock In for all greige entries — it supports the same fields (fold length, than count, roll numbers, received date, invoice date) plus multi-item receipts.

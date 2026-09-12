@@ -26,6 +26,7 @@ sources:
   - backend/src/schemas/production.schema.ts
   - backend/src/routes/finishing.routes.ts
   - backend/src/controllers/finishing.controller.ts
+route: /finishing
 ---
 
 Finishing starts from a stitching transfer slip, then moves through output, packing and completion.

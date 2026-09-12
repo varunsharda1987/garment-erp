@@ -27,6 +27,7 @@ sources:
   - frontend/src/pages/GreigeList.tsx
   - backend/src/schemas/fabricGreige.schema.ts
   - backend/src/services/greige.service.ts
+route: /greige/new
 ---
 
 ## Steps

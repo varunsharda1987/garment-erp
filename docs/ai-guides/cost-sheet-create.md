@@ -67,6 +67,7 @@ sources:
   - backend/src/schemas/styleCosting.schema.ts
   - backend/src/controllers/lace.controller.ts
   - backend/src/services/laceCostingCalculation.service.ts
+route: /cost-sheets/new
 ---
 
 ## Before you start

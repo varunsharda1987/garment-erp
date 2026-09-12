@@ -49,6 +49,7 @@ sources:
   - backend/src/services/customer.service.ts
   - backend/src/services/sample.service.ts
   - backend/src/services/productionBlockingValidation.service.ts
+route: /customers/new
 ---
 
 **Before you start:** Only Admin, Sales and Merchandiser users can add or edit customers. Other roles will not see the add button.

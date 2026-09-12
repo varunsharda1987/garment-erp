@@ -170,4 +170,54 @@ Actions have no schema of their own, so reverting is cheap.
   off-topic questions get "Kaam Pe Dhyan Do 😄".
 - **Voice input** — `useSpeechInput.ts`, Web Speech API, hi-IN/en-IN toggle. Requires a secure
   origin: works on localhost; LAN clients need HTTPS or the Chrome insecure-origin flag.
-- **Markdown rendering** — `MarkdownMessage.tsx` (react-markdown + remark-gfm).
+- **Markdown rendering** — `MarkdownMessage.tsx` (react-markdown + remark-gfm). Links that start
+  with `/` are in-app routes and navigate with React Router; every guide carries a `route:` in its
+  frontmatter, so how-to answers end with **Open this page →**.
+
+---
+
+## 5. Feedback loop — AI Insights, page context, session trail
+
+The assistant records what it could and could not answer; the owner turns that into guide work.
+
+### What is recorded
+
+Every ASSISTANT row in `ai_messages` gets `metadata` (`AssistantMessageMetadata` in
+`conversation.service.ts`): the question, `userRole`, `guideSlugs` + `guideScores`, `topScore`
+(keyword-only), `zeroMatch`, `dataLookup` (the question pulled live ERP data), `pageRoute`,
+`pageGuideSlug`, and the session trail (`recentErrors`, `recentPages`). Written by
+`POST /api/ai/chat/persistent` in `ai.routes.ts`.
+
+### Page context
+
+The frontend sends `context.pageRoute` — the page the user came from
+(`lastPageBefore('/ai-assistant')` in `frontend/src/lib/session-trail.ts`). `knowledge.service.ts`
+adds a route boost: a guide whose `route` equals that page scores +3, a parent route +2
+(`routeBoost`, `findPageGuide`, `rankGuides`). The page guide is injected even with zero keyword
+hits when nothing else matched or the question is generic ("what is this page").
+`GET /api/ai/suggestions?pageRoute=` returns `pageSuggestions` for the "On this page" block on
+the empty chat screen.
+
+### Session trail
+
+`frontend/src/lib/api.ts` records every 4xx/5xx (path + status + server message — never bodies
+or headers) into an in-memory ring buffer of 10; `Layout.tsx` records page changes. Both ride
+along as `context.recentErrors` / `context.recentPages` (Zod: `sessionTrailSchema` in
+`ai.schema.ts`) and become a `RECENT ERRORS THE USER HIT` prompt section
+(`chat-context.format.ts`). The same trail is attached to issue reports
+(`issue_reports.context_json`) and shown in a "Session trail" dialog on the Issue Reports page.
+
+### Reading it back
+
+- **AI Insights** page (`/ai-insights`, ADMIN) — `ai-insights.routes.ts` → `ai-insights.service.ts`:
+  unanswered questions (grouped by `normalizeQuestion`), weak matches (`topScore` ≤ 2),
+  thumbs-down answers joined to the guide that produced them, guide usage with helpful ratio.
+  One date-bounded query, filtered in JS — no JSON-path SQL.
+- **Terminal / Claude Code** — `cd backend && npx ts-node scripts/ai-gaps.ts` prints the same
+  lists; `--test "<question>" --route grn/new` ranks the live guides for one question. The
+  `/ai-gaps` skill runs it, then writes or fixes guides and re-ingests.
+
+### Adding a signal
+
+Put it on `AssistantMessageMetadata`, write it in the chat route, read it in
+`ai-insights.service.ts`. `readMetadata()` there tolerates rows written before the field existed.

@@ -1,0 +1,200 @@
+---
+slug: cad-planning-create
+title: Create a CAD Plan (Marker)
+keywords:
+  # English
+  - CAD
+  - CAD planning
+  - marker
+  - marker efficiency
+  - fabric consumption
+  - average
+  - cuttable width
+  - layer length
+  - size breakdown
+  - pattern parts
+  - greige selection
+  - fabric width
+  - CAD average
+  - marker plan
+  - cutting plan
+  # Hinglish
+  - CAD banana
+  - marker banane ka tarika
+  - average nikalna
+  - fabric ka consumption
+  - cutting plan banana
+  - width select karna
+  - greige dalna
+  # Devanagari (MANDATORY)
+  - कैड
+  - कैड प्लानिंग
+  - मार्कर
+  - एवरेज
+  - फैब्रिक कंजम्पशन
+  - कटिंग प्लान
+  - ग्रेज
+  - साइज ब्रेकडाउन
+  - लेयर लेंथ
+sources:
+  - frontend/src/config/navigation.ts
+  - frontend/src/pages/CADPlanningPage.tsx
+  - frontend/src/pages/CADPlanningList.tsx
+  - frontend/src/components/cad/CADSpreadsheetTable.tsx
+route: /cad-planning
+---
+
+## Before you start
+
+A style must exist with:
+- At least one component (e.g., Top, Bottom, Sleeve)
+- Fabrics assigned to components (fabric finish type, greige linked)
+- Size category assigned to the style (for size breakdown options)
+
+## Steps
+
+### 1. Open CAD Planning
+
+1. Click **Pre-Production** in the sidebar.
+2. Click **CAD Planning**.
+3. The list shows styles organized by status tabs:
+   - **Pending** tab: Styles with CAD work pending (includes IN_PROGRESS)
+   - **Approved** tab: Styles with approved CAD plans
+
+### 2. Find your style
+
+- Use the **Search** bar to search by style code, name, buyer, or brand (searches across all statuses).
+- Click the expand arrow on any row to see existing CAD width details grouped by purpose.
+- Check the **Progress** column to see which purposes are done:
+  - **Costing** - for cost sheet generation
+  - **Raw Mat** - for raw material requirement planning
+  - **Production** - for actual production cutting
+
+### 3. Open the CAD spreadsheet
+
+1. Click **Open CAD** button on your style row.
+2. The CAD Planning page opens with three tabs:
+   - **CAD Spreadsheet** - main editing area (default)
+   - **CAD History** - view all historical CAD options
+   - **Order History** - orders using this style's CAD
+
+### 4. Add a CAD row
+
+1. On the CAD Spreadsheet tab, click **+ Add Row** button.
+2. In the dialog:
+   - Select **Purpose** *: Costing, Raw Mat (RAW_MATERIAL_CALCULATION), or Production
+   - Select **Style Fabric(s)**: Choose which fabric(s) this CAD row covers
+   - For **Production** purpose: You must also select an existing fabric stock lot
+3. Click **Add** to create the row.
+
+> **Tip**: To create a combined-cutting row (one marker for multiple fabrics), select multiple style fabrics.
+
+### 5. Fill in CAD row data
+
+Each row has these columns (left to right):
+
+**Pre-populated (gray background, auto-filled):**
+- **Purpose** - Costing / Raw Mat / Production
+- **Component** - Auto-filled from style fabric
+- **Fabric Finish** - e.g., PLAIN, PRINTED, DYED
+- **Embroidery** - Shows if fabric has embroidery
+- **Generic Greige** - Base greige name
+
+**Editable (blue background, you fill these):**
+- **Part** * - Select pattern part (e.g., All Parts, Body, Sleeve)
+- **Greige Name** * - Select specific greige (dropdown from available greiges)
+- **Cutable Width** * - Enter width in inches (e.g., 42, 44, 58)
+- **Print Direction** - Select if applicable (LENGTHWISE / WIDTHWISE)
+- **Size Breakdown** * - Click to open size popup, enter quantity per size
+- **Layer Margin (m)** - Optional margin added per layer
+
+**Calculated (green background, auto-computed):**
+- **No. of Pcs** - Total pieces from size breakdown
+- **Layer (M)** - Marker length in meters
+- **CAD Average** - Fabric consumption per piece in meters
+
+### 6. Enter size breakdown
+
+1. Click the **Size Breakdown** cell (shows current values or "Click to set").
+2. In the popup:
+   - Each size shows +/- buttons and an input field
+   - Enter quantity for each size in the marker (e.g., S:1, M:2, L:2, XL:1)
+   - Use **+ Add 1 to all** to quickly increment all sizes
+   - Use **Clear** to reset all to zero
+   - **Total Pieces** shows at the bottom
+3. Click **Save**.
+
+### 7. Verify CAD calculations
+
+After filling cutable width and size breakdown, the system auto-calculates:
+- **No. of Pcs** = sum of all sizes in the marker
+- **Layer (M)** = marker length based on greige and width
+- **CAD Average** = Layer(M) / No. of Pcs = meters per piece
+
+> **Important**: CAD Average is the key output used in cost sheets and MRP.
+
+### 8. Approve the CAD plan
+
+Once all rows have CAD values:
+
+1. The status card shows: "All CAD entries complete. Ready to approve!"
+2. Click **Actions** dropdown > **Approve CAD Plan**.
+3. Review the confirmation:
+   - "Once approved, the CAD plan will be locked..."
+   - "You won't be able to change fabric widths or values after approval"
+4. Click **Approve & Lock**.
+
+After approval:
+- Status changes to **APPROVED** (green badge)
+- You can now generate cost sheets
+- CAD values are locked for this style
+
+### 9. Push to Fabric Costing (optional)
+
+After approval, to create fabric costing records:
+
+1. Click **Actions** dropdown > **Push to Fabric Costing**.
+2. Review what will be created:
+   - Shows count of new records to create
+   - Shows count of existing records (skipped)
+3. Click **Create X Records** to proceed.
+4. You are redirected to the Fabric Costing page.
+
+## Traps
+
+- **Missing greige selection**: Each row must have a greige selected. Without it, CAD calculations cannot run.
+- **Zero size breakdown**: If no sizes are entered, No. of Pcs = 0 and CAD Average cannot be calculated.
+- **Wrong cutable width**: Using greige width instead of cutable width leads to wrong fabric consumption. Cutable width is typically 1-2 inches less than greige width due to selvedge.
+- **Approving without Production CAD**: Costing CAD is sufficient for cost sheets, but Production CAD with actual stock lots is needed for cutting.
+- **Deleting approved rows**: Approved CAD rows linked to fabric costing or orders cannot be deleted.
+
+## After saving
+
+- **CAD Average** is used by:
+  - Cost sheets (fabric cost calculation)
+  - MRP (raw material requirement planning)
+  - Cutting charts (layer planning)
+
+- **Next steps**:
+  - Open **Fabric Costing** to add processing costs and approve rates
+  - Create or update **Cost Sheet** with fabric costs
+  - When orders are placed, Production CAD is used for cutting
+
+## Row actions
+
+Click the row menu (three dots) for:
+- **Approve Row** - Approve this specific CAD entry
+- **Reject Row** - Reject with reason (resets to PENDING)
+- **Copy to Raw Mat** - Copy this row for Raw Material purpose
+- **Copy to Production** - Copy this row for Production purpose
+- **Create New Version** - Create a new version of this CAD entry
+- **Delete** - Remove the row (if not linked to costing/orders)
+
+## Reject CAD plan
+
+If the approved plan needs changes:
+
+1. Click **Actions** dropdown > **Reject CAD Plan**.
+2. Enter **Reason for rejection** * (required).
+3. Click **Reject & Unlock**.
+4. All rows reset to PENDING status, and you can edit again.

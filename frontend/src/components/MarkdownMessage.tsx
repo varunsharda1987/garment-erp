@@ -4,16 +4,23 @@
  * Renders AI assistant reply content as formatted markdown inside a chat bubble.
  * Uses a Tailwind component map (theme tokens) instead of a typography plugin so
  * light/dark colors stay consistent with the rest of the app.
+ *
+ * Internal links (starting with `/`) use React Router navigation to stay in-app.
+ * External links open in a new tab.
  */
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useNavigate } from 'react-router-dom';
+import { ExternalLink, ArrowRight } from 'lucide-react';
 
 interface MarkdownMessageProps {
   content: string;
 }
 
 export function MarkdownMessage({ content }: MarkdownMessageProps) {
+  const navigate = useNavigate();
+
   return (
     <div className="text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
       <ReactMarkdown
@@ -49,16 +56,34 @@ export function MarkdownMessage({ content }: MarkdownMessageProps) {
           blockquote: ({ children }) => (
             <blockquote className="border-l-2 border-border pl-3 my-1.5 text-muted-foreground">{children}</blockquote>
           ),
-          a: ({ children, href }) => (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary underline underline-offset-2"
-            >
-              {children}
-            </a>
-          ),
+          a: ({ children, href }) => {
+            // Internal links (starting with /) use React Router navigation
+            const isInternal = href?.startsWith('/');
+            if (isInternal && href) {
+              return (
+                <button
+                  type="button"
+                  onClick={() => navigate(href)}
+                  className="inline-flex items-center gap-1 text-primary hover:text-primary/80 underline underline-offset-2 cursor-pointer"
+                >
+                  {children}
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+              );
+            }
+            // External links open in new tab
+            return (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-primary underline underline-offset-2"
+              >
+                {children}
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            );
+          },
           hr: () => <hr className="my-3 border-border" />,
           strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
         }}

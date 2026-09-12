@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ImagePlus, X, Loader2, Send, Clock, CheckCircle2 } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
+import { getTrail } from '@/lib/session-trail';
 import { createIssueReport, getMyIssueReports } from '@/services/issue-report.service';
 import type { IssueStatus } from '@/types/issueReport.types';
 
@@ -110,6 +111,8 @@ export function ReportIssueDialog({ open, onOpenChange }: ReportIssueDialogProps
         description: description.trim() || undefined,
         pageUrl: location.pathname,
         screenshot,
+        // What the reporter did just before: recent API errors + pages visited
+        contextJson: JSON.stringify({ pageRoute: location.pathname, ...getTrail() }),
       }),
     onSuccess: () => {
       handleApiSuccess('Issue submitted', 'The admin will review your report.');

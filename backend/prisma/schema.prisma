@@ -10616,6 +10616,7 @@ model issue_reports {
   pageUrl       String?  @map("page_url")
   status        String   @default("OPEN") // OPEN, IN_PROGRESS, FIXED, CLOSED
   adminNotes    String?  @map("admin_notes") @db.Text
+  contextJson   Json?    @map("context_json") // session trail: recent API errors + pages visited before reporting
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
@@ -10634,6 +10635,7 @@ model ai_knowledge_guides {
   id          String   @id @default(uuid())
   slug        String   @unique
   title       String
+  route       String? // Internal app route (e.g., "/styles/new") for navigation links
   keywords    String[] // English + Hinglish + Devanagari + common misspellings
   content     String   @db.Text // markdown guide body
   sourcesJson Json     @map("sources_json") // [{path, hash}] the guide was generated from

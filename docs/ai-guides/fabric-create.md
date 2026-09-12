@@ -24,6 +24,7 @@ sources:
   - frontend/src/constants/fabric-finish-types.ts
   - backend/src/schemas/fabricGreige.schema.ts
   - backend/src/services/fabric.service.ts
+route: /fabrics/new
 ---
 
 ## Before you start

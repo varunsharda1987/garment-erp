@@ -27,6 +27,7 @@ export const PERMISSIONS = {
   processGuide: ALL_ROLES,
   aiAssistant: ALL_ROLES,
   aiSettings: [UserRole.ADMIN], // Admin only - configure AI provider
+  aiInsights: [UserRole.ADMIN],
   issueReports: [UserRole.ADMIN], // Admin only - review team issue reports
 
   // Production Status
@@ -125,6 +126,7 @@ export const ROUTE_PERMISSIONS: Record<string, PermissionKey> = {
   '/process-guide': 'processGuide',
   '/ai-assistant': 'aiAssistant',
   '/ai-settings': 'aiSettings',
+  '/ai-insights': 'aiInsights',
   '/issue-reports': 'issueReports',
   '/production/status': 'productionStatus',
 
@@ -280,7 +282,15 @@ export const MODULES = {
  * Group permissions by module for UI display
  */
 export const PERMISSION_GROUPS: Record<keyof typeof MODULES, PermissionKey[]> = {
-  DASHBOARD: ['dashboard', 'processGuide', 'productionStatus', 'aiAssistant', 'aiSettings', 'issueReports'],
+  DASHBOARD: [
+    'dashboard',
+    'processGuide',
+    'productionStatus',
+    'aiAssistant',
+    'aiSettings',
+    'aiInsights',
+    'issueReports',
+  ],
   STYLES: ['styles', 'cadPlanning', 'costSheets'],
   ORDERS: ['orders', 'workOrders', 'bom', 'mrp'],
   MANUFACTURING: [

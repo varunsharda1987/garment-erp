@@ -116,6 +116,7 @@ import productionStatusRoutes from './productionStatus.routes';
 import productCategoryRoutes from './productCategory.routes';
 import conversationRoutes from './conversation.routes';
 import aiAdminRoutes from './ai-admin.routes';
+import aiInsightsRoutes from './ai-insights.routes';
 import stageValidationRoutes from './stageTransitionValidation.routes';
 import invoiceRoutes from './invoice.routes';
 import quotationRoutes from './quotation.routes';
@@ -410,6 +411,9 @@ export function createApiRouter(): Router {
 
   // AI Admin (Indexing, RAG Management)
   router.use('/ai-admin', aiAdminRoutes);
+
+  // AI Insights (unanswered questions, weak matches, feedback per guide — ADMIN)
+  router.use('/ai-insights', aiInsightsRoutes);
 
   // Audit Logs
   router.use('/audit', auditRoutes);

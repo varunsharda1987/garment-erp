@@ -39,6 +39,7 @@ sources:
   - frontend/src/types/order.types.ts
   - backend/src/schemas/order.schema.ts
   - backend/src/controllers/order.controller.ts
+route: /orders/new
 ---
 
 ## Before you start

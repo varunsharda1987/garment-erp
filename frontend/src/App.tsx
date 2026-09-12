@@ -159,6 +159,7 @@ import {
   AIAssistant,
   AISettings,
   IssueReports,
+  AIInsights,
   NotFound,
   PurchaseOrderList,
   PurchaseOrderForm,
@@ -789,6 +790,7 @@ function App() {
               {/* AI Assistant */}
               <Route path="/ai-assistant" element={<AIAssistant />} />
               <Route path="/ai-settings" element={<AISettings />} />
+              <Route path="/ai-insights" element={<AIInsights />} />
               <Route path="/issue-reports" element={<IssueReports />} />
 
               {/* Document Generation */}

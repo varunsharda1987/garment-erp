@@ -8,6 +8,29 @@
 import { ConversationStatus, AIMessageRole, FeedbackRating, ActionStatus, Prisma } from '@prisma/client';
 import prisma from '../../config/database';
 import { logInfo, logError } from '../../utils/logger';
+import type { TrailError, TrailPage } from '../../schemas/ai.schema';
+
+/**
+ * What the chat route records on every ASSISTANT row (ai_messages.metadata) so AI Insights
+ * can report unanswered questions, weak guide matches, and feedback per guide without
+ * pairing rows. A type alias (not an interface) so it stays assignable to Record<string, unknown>.
+ */
+export type AssistantMessageMetadata = {
+  question: string;
+  userRole?: string;
+  guideSlugs: string[];
+  guideScores: Record<string, number>;
+  /** Best keyword-only score — 0 means no guide matched */
+  topScore: number;
+  zeroMatch: boolean;
+  /** The question pulled live ERP data (a lookup, not a how-to) */
+  dataLookup: boolean;
+  knowledgeEnabled: boolean;
+  pageRoute?: string;
+  pageGuideSlug?: string;
+  recentErrors?: TrailError[];
+  recentPages?: TrailPage[];
+};
 
 // Types
 export interface CreateConversationInput {

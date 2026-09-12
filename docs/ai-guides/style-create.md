@@ -69,6 +69,7 @@ sources:
   - backend/src/routes/style.routes.ts
   - backend/src/services/style.service.ts
   - backend/src/services/helpers/default-thread.helper.ts
+route: /styles/new
 ---
 
 ## Before you start

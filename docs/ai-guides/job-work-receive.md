@@ -32,6 +32,7 @@ sources:
   - backend/src/schemas/jobWorkOrder.schema.ts
   - backend/src/schemas/grn.schema.ts
   - backend/src/controllers/job-work-order.controller.ts
+route: /grn/new
 ---
 
 ## Before you start

@@ -22,6 +22,7 @@ sources:
   - frontend/src/App.tsx
   - frontend/src/pages/ManufacturingControlCenter.tsx
   - frontend/src/services/manufacturingAlerts.service.ts
+route: /manufacturing
 ---
 
 The Control Center is a read-only overview page. It shows what is late or stuck, and links straight to the screen where you fix it. Nothing is created here.

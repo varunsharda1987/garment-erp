@@ -28,6 +28,7 @@ sources:
   - frontend/src/pages/JobWorkOrderList.tsx
   - frontend/src/pages/JobWorkOrderDetail.tsx
   - frontend/src/pages/StockMovementDashboard.tsx
+route: /job-work-orders
 ---
 
 ## Steps

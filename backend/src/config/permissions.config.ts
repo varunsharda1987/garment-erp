@@ -27,6 +27,7 @@ export const PERMISSIONS = {
   dashboard: ALL_ROLES,
   processGuide: ALL_ROLES,
   aiAssistant: ALL_ROLES,
+  aiInsights: [UserRole.ADMIN],
 
   // Production Status
   productionStatus: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER, UserRole.FACTORY_SUPERVISOR],
@@ -146,7 +147,7 @@ export const MODULES = {
  * Group permissions by module for UI display
  */
 export const PERMISSION_GROUPS: Record<keyof typeof MODULES, PermissionKey[]> = {
-  DASHBOARD: ['dashboard', 'processGuide', 'productionStatus', 'aiAssistant'],
+  DASHBOARD: ['dashboard', 'processGuide', 'productionStatus', 'aiAssistant', 'aiInsights'],
   STYLES: ['styles', 'cadPlanning', 'costSheets'],
   ORDERS: ['orders', 'workOrders', 'bom', 'mrp'],
   MANUFACTURING: [

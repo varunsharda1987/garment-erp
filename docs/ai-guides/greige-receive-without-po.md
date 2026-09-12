@@ -31,6 +31,7 @@ sources:
   - backend/src/schemas/grn.schema.ts
   - backend/src/schemas/stockMovement.schema.ts
   - docs/STOCK_DOORS_GUIDE.md
+route: /grn/new
 ---
 
 ## Which method to use?

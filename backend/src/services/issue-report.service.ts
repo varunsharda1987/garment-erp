@@ -5,7 +5,9 @@
  * admins review, set status, and leave notes.
  */
 
+import { Prisma } from '@prisma/client';
 import prisma from '../config/database';
+import type { SessionTrail } from '../schemas/ai.schema';
 
 interface IssueReportCreateInput {
   userId: string;
@@ -13,6 +15,7 @@ interface IssueReportCreateInput {
   description?: string;
   pageUrl?: string;
   screenshotUrl?: string;
+  contextJson?: SessionTrail;
 }
 
 interface IssueReportUpdateInput {
@@ -37,6 +40,7 @@ export class IssueReportService {
         description: data.description || null,
         pageUrl: data.pageUrl || null,
         screenshotUrl: data.screenshotUrl || null,
+        ...(data.contextJson ? { contextJson: data.contextJson as Prisma.InputJsonValue } : {}),
       },
       include: { user: USER_SELECT },
     });

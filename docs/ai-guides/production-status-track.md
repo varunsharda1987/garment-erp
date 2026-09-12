@@ -32,6 +32,7 @@ sources:
   - frontend/src/pages/WorkOrderDetail.tsx
   - frontend/src/pages/CuttingList.tsx
   - backend/src/schemas/workOrder.schema.ts
+route: /production/status
 ---
 
 There are three screens for progress. Use the one that matches your question.

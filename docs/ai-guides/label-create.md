@@ -55,6 +55,7 @@ sources:
   - backend/src/schemas/trimMasters.schema.ts
   - backend/src/schemas/common.schema.ts
   - backend/src/controllers/label.controller.ts
+route: /labels/new
 ---
 
 ## Before you start

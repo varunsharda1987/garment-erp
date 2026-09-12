@@ -76,6 +76,7 @@ sources:
   - backend/src/middleware/validation.middleware.ts
   - backend/src/controllers/thread.controller.ts
   - backend/src/utils/code-generator.ts
+route: /threads/new
 ---
 
 ## Before you start

@@ -3,6 +3,7 @@ import axiosRetry from 'axios-retry';
 import humps from 'humps';
 import { toast } from 'sonner';
 import { useAuthStore } from '../stores/auth.store';
+import { recordError, stripUrl } from './session-trail';
 
 // API base URL - uses environment variable with fallback for development
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -200,6 +201,24 @@ api.interceptors.response.use(
       }
 
       return Promise.reject(new Error('SESSION_EXPIRED'));
+    }
+
+    // Session trail: remember the last few failures so the AI assistant and issue reports can
+    // see what the user just hit. Auth failures were handled above; network errors have no status.
+    if (status && status >= 400 && !isAuthEndpoint) {
+      const data = error.response?.data as
+        | { message?: string; details?: Array<{ field?: string; message?: string }> }
+        | undefined;
+      const detail = data?.details?.[0];
+      const detailText = detail ? ` (${detail.field ? `${detail.field}: ` : ''}${detail.message ?? ''})` : '';
+      recordError({
+        at: new Date().toISOString(),
+        method: (originalRequest?.method || 'get').toUpperCase(),
+        url: stripUrl(originalRequest?.url || ''),
+        status,
+        message: `${data?.message || error.message || 'Request failed'}${detailText}`,
+        pageRoute: window.location.pathname,
+      });
     }
 
     // Transform error response data to camelCase as well

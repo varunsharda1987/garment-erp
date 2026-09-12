@@ -3,6 +3,8 @@
  * Matches backend issueReport.schema.ts + issue_reports Prisma model (camelCase via serializer)
  */
 
+import type { SessionTrail } from '@/lib/session-trail';
+
 export type IssueStatus = 'OPEN' | 'IN_PROGRESS' | 'FIXED' | 'CLOSED';
 
 export interface IssueReport {
@@ -14,6 +16,8 @@ export interface IssueReport {
   pageUrl: string | null;
   status: IssueStatus;
   adminNotes: string | null;
+  /** Recent API errors + pages visited before reporting (absent on older reports) */
+  contextJson?: SessionTrail | null;
   createdAt: string;
   updatedAt: string;
   user?: {

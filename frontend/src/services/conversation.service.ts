@@ -5,6 +5,7 @@
  */
 
 import api from '@/lib/api';
+import type { SessionTrail } from '@/lib/session-trail';
 
 // Types
 export interface Conversation {
@@ -89,6 +90,9 @@ export interface ConversationListResponse {
 export interface SuggestionsResponse {
   suggestions: string[];
   role: string;
+  /** Guides that document the page the user came from ("On this page") */
+  pageSuggestions?: { slug: string; title: string; route: string | null }[];
+  pageRoute?: string | null;
 }
 
 /**
@@ -147,10 +151,16 @@ export async function deleteConversation(id: string): Promise<void> {
 }
 
 /**
- * Send a chat message with persistent storage
+ * Send a chat message with persistent storage.
+ * `context` is the session trail (page the user came from, recent API errors, pages visited)
+ * so the assistant can prefer that page's guide and cite the exact error the user hit.
  */
-export async function sendChatMessage(message: string, conversationId?: string): Promise<ChatResponse> {
-  const response = await api.post<ChatResponse>('/ai/chat/persistent', { message, conversationId });
+export async function sendChatMessage(
+  message: string,
+  conversationId?: string,
+  context?: SessionTrail
+): Promise<ChatResponse> {
+  const response = await api.post<ChatResponse>('/ai/chat/persistent', { message, conversationId, context });
   return response.data;
 }
 
@@ -171,9 +181,10 @@ export async function sendFeedback(
  * Get role-based suggested questions (requires authentication)
  * Returns empty suggestions if not authenticated
  */
-export async function getSuggestions(): Promise<SuggestionsResponse> {
+export async function getSuggestions(pageRoute?: string): Promise<SuggestionsResponse> {
   try {
-    const response = await api.get<SuggestionsResponse>('/ai/suggestions');
+    const query = pageRoute ? `?pageRoute=${encodeURIComponent(pageRoute)}` : '';
+    const response = await api.get<SuggestionsResponse>(`/ai/suggestions${query}`);
     return response.data;
   } catch {
     return { suggestions: [], role: 'GUEST' };

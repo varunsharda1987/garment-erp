@@ -25,6 +25,7 @@ import {
 import { AIActionCard } from '../components/AIActionCard';
 import { useSpeechInput } from '../hooks/useSpeechInput';
 import { logError } from '../lib/logger';
+import { getTrail, lastPageBefore } from '../lib/session-trail';
 import { cn } from '../lib/utils';
 
 interface AIStatus {
@@ -44,10 +45,13 @@ export default function AIAssistant() {
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [pageSuggestions, setPageSuggestions] = useState<{ slug: string; title: string }[]>([]);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // The assistant is its own page, so "current page" is the one the user came from
+  const pageRouteRef = useRef<string | undefined>(lastPageBefore('/ai-assistant'));
 
   // Voice input (Web Speech API) — appends the spoken transcript to the input box
   const speechBaseRef = useRef('');
@@ -96,8 +100,9 @@ export default function AIAssistant() {
 
   const fetchSuggestions = async () => {
     try {
-      const result = await getSuggestions();
+      const result = await getSuggestions(pageRouteRef.current);
       setSuggestions(result.suggestions);
+      setPageSuggestions(result.pageSuggestions ?? []);
     } catch (error) {
       logError('Failed to fetch suggestions:', error);
     }
@@ -143,7 +148,10 @@ export default function AIAssistant() {
     setMessages((prev) => [...prev, tempUserMessage]);
 
     try {
-      const response = await sendChatMessage(currentInput, activeConversation?.id);
+      const response = await sendChatMessage(currentInput, activeConversation?.id, {
+        pageRoute: pageRouteRef.current,
+        ...getTrail(),
+      });
 
       // Refresh the sidebar list so the new/updated conversation appears immediately
       queryClient.invalidateQueries({ queryKey: ['ai-conversations'] });
@@ -349,6 +357,28 @@ export default function AIAssistant() {
               <p className="text-muted-foreground mb-8 max-w-md">
                 Ask me anything about the ERP system - styles, orders, materials, production, and more.
               </p>
+
+              {pageSuggestions.length > 0 && (
+                <div className="space-y-2 w-full max-w-md mb-6">
+                  <p className="text-sm text-muted-foreground font-medium">
+                    On this page <span className="font-mono text-xs">({pageRouteRef.current})</span>:
+                  </p>
+                  <div className="grid gap-2">
+                    {pageSuggestions.map((guide) => {
+                      const question = `How do I ${guide.title.charAt(0).toLowerCase()}${guide.title.slice(1)}?`;
+                      return (
+                        <button
+                          key={guide.slug}
+                          onClick={() => setInput(question)}
+                          className="text-left px-4 py-3 bg-card hover:bg-secondary hover:border-primary/20 rounded-xl border border-primary/30 text-sm text-foreground transition-all shadow-sm hover:shadow-md"
+                        >
+                          {question}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {suggestions.length > 0 && (
                 <div className="space-y-2 w-full max-w-md">

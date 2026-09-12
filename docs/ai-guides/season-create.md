@@ -25,6 +25,7 @@ sources:
   - frontend/src/components/Sidebar.tsx
   - frontend/src/App.tsx
   - backend/src/schemas/season.schema.ts
+route: /seasons/new
 ---
 
 **Before you start:** Seasons is not a direct sidebar link. Open **Materials & Masters → All Masters** in the sidebar, then the **Configuration** section, then click **Seasons**. You can also press **Ctrl+K** and type "Seasons".

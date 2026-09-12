@@ -48,6 +48,9 @@ Keep the frontmatter contract intact:
 - `sources` — every file the guide was written from, **including** `frontend/src/config/navigation.ts`
   and `frontend/src/components/Sidebar.tsx` when the guide states a menu path. A file missing
   from this list means changes to it will never mark the guide stale.
+- `route` — the page path (e.g. `/styles/new`, from `navigation.ts` / `App.tsx`). It powers the
+  **Open this page →** link in answers and the page-aware ranking (a user asking from that page
+  gets this guide first). Several guides may share one route when they document the same screen.
 
 ### 3. Re-ingest
 

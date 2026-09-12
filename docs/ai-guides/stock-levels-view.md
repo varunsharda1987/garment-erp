@@ -24,6 +24,7 @@ sources:
   - frontend/src/pages/StockLevelList.tsx
   - frontend/src/pages/StockDashboard.tsx
   - frontend/src/components/WarehouseCombobox.tsx
+route: /stock/levels
 ---
 
 ## Steps

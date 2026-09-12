@@ -27,6 +27,7 @@ sources:
   - backend/src/schemas/supplier.schema.ts
   - backend/src/routes/supplier.routes.ts
   - backend/src/services/supplier.service.ts
+route: /suppliers/new
 ---
 
 ## Steps

@@ -62,6 +62,7 @@ sources:
   - backend/src/middleware/validation.middleware.ts
   - backend/src/controllers/packaging.controller.ts
   - backend/src/utils/code-generator.ts
+route: /packaging/new
 ---
 
 ## Before you start

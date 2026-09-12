@@ -63,6 +63,7 @@ sources:
   - frontend/src/components/cost-sheet/LaceSourcingStrategySelector.tsx
   - frontend/src/components/JobWorkOrderCreateDialog.tsx
   - backend/src/schemas/trimMasters.schema.ts
+route: /laces/new
 ---
 
 ## Steps

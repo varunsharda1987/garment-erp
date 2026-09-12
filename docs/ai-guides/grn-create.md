@@ -26,6 +26,7 @@ sources:
   - backend/src/schemas/grn.schema.ts
   - backend/src/services/grn.service.ts
   - backend/src/services/purchaseOrder.service.ts
+route: /grn/new
 ---
 
 ## Before you start

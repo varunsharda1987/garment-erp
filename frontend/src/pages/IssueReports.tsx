@@ -13,11 +13,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Bug, Loader2, ImageIcon, StickyNote, Save } from 'lucide-react';
+import { Bug, Loader2, ImageIcon, StickyNote, Save, History } from 'lucide-react';
 import { handleApiError, handleApiSuccess } from '@/lib/api-error-handler';
 import { getAllIssueReports, updateIssueReport } from '@/services/issue-report.service';
 import { IssueStatusBadge } from '@/components/ReportIssueDialog';
 import type { IssueReport, IssueStatus } from '@/types/issueReport.types';
+
+/** Opens the session trail (what the reporter did just before) when one was captured. */
+function TrailCell({ report, onOpen }: { report: IssueReport; onOpen: (report: IssueReport) => void }) {
+  const errorCount = report.contextJson?.recentErrors?.length ?? 0;
+  const pageCount = report.contextJson?.recentPages?.length ?? 0;
+  if (!errorCount && !pageCount) return <span className="text-xs text-muted-foreground/40">—</span>;
+  return (
+    <Button variant="ghost" size="sm" className="h-8" onClick={() => onOpen(report)} title="Session trail">
+      <History className="h-4 w-4" />
+      {errorCount > 0 && <span className="ml-1 text-xs text-destructive">{errorCount}</span>}
+    </Button>
+  );
+}
 
 const STATUS_TABS: Array<{ value: string; label: string }> = [
   { value: 'ALL', label: 'All' },
@@ -36,6 +49,7 @@ export default function IssueReports() {
   const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
   const [notesReport, setNotesReport] = useState<IssueReport | null>(null);
   const [notesDraft, setNotesDraft] = useState('');
+  const [trailReport, setTrailReport] = useState<IssueReport | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['issue-reports', statusFilter, page],
@@ -121,6 +135,7 @@ export default function IssueReports() {
                   <TableHead>Reported By</TableHead>
                   <TableHead>Issue</TableHead>
                   <TableHead>Page</TableHead>
+                  <TableHead>Trail</TableHead>
                   <TableHead>Screenshot</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Notes</TableHead>
@@ -144,6 +159,9 @@ export default function IssueReports() {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                       {report.pageUrl || '—'}
+                    </TableCell>
+                    <TableCell>
+                      <TrailCell report={report} onOpen={setTrailReport} />
                     </TableCell>
                     <TableCell>
                       {report.screenshotUrl ? (
@@ -225,6 +243,52 @@ export default function IssueReports() {
           {screenshotUrl && (
             <div className="overflow-auto max-h-[75vh]">
               <img src={screenshotUrl} alt="Issue screenshot" className="w-full rounded-md" />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Session trail: the reporter's recent API errors and pages, newest first */}
+      <Dialog open={!!trailReport} onOpenChange={(open) => !open && setTrailReport(null)}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Session trail</DialogTitle>
+          </DialogHeader>
+          {trailReport?.contextJson && (
+            <div className="space-y-4 text-sm">
+              <p className="text-xs text-muted-foreground">
+                For: <span className="font-medium text-foreground">{trailReport.title}</span>
+              </p>
+              <div>
+                <div className="font-medium mb-1">Recent errors (newest first)</div>
+                {trailReport.contextJson.recentErrors?.length ? (
+                  <ul className="space-y-1 font-mono text-xs">
+                    {trailReport.contextJson.recentErrors.map((error, index) => (
+                      <li key={index}>
+                        <span className="text-muted-foreground">{formatDate(error.at)}</span> {error.method} {error.url}{' '}
+                        → <span className="font-semibold">{error.status}</span> {error.message}
+                        {error.pageRoute && <span className="text-muted-foreground"> (on {error.pageRoute})</span>}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No API errors were recorded.</p>
+                )}
+              </div>
+              <div>
+                <div className="font-medium mb-1">Pages visited (newest first)</div>
+                {trailReport.contextJson.recentPages?.length ? (
+                  <ul className="space-y-1 font-mono text-xs">
+                    {trailReport.contextJson.recentPages.map((page, index) => (
+                      <li key={index}>
+                        <span className="text-muted-foreground">{formatDate(page.at)}</span> {page.path}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No page history was recorded.</p>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>

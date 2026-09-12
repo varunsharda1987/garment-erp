@@ -42,6 +42,7 @@ sources:
   - backend/src/schemas/trimMasters.schema.ts
   - backend/src/schemas/common.schema.ts
   - backend/src/controllers/button.controller.ts
+route: /buttons/new
 ---
 
 ## Before you start

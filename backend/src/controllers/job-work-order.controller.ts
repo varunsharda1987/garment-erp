@@ -37,6 +37,7 @@ import {
 } from '../services/helpers/jwo-status.helper';
 import { echoShadowPoStatus } from '../services/helpers/shadow-po.helper';
 import { applyShrinkageLoss, multiplyCurrency, roundToCent } from '../utils/currency';
+import { applySearch } from '../utils/search-filter';
 import type {
   CreateJobWorkOrderInput,
   AddJwoComponentInput,
@@ -842,13 +843,21 @@ class JobWorkOrderController {
 
       const where: any = { isActive: true };
 
-      if (search) {
-        where.OR = [
-          { jobWorkNumber: { contains: search as string, mode: 'insensitive' } },
-          { processor: { name: { contains: search as string, mode: 'insensitive' } } },
-          { style: { styleCode: { contains: search as string, mode: 'insensitive' } } },
-        ];
-      }
+      // The list shows Greige and Fabric columns that were not searchable, and the challan number
+      // is what a processor quotes on the phone.
+      applySearch(where as Record<string, unknown>, search as string | undefined, [
+        'jobWorkNumber',
+        'challanNumber',
+        'invoiceNumber',
+        'processor.name',
+        'processor.code',
+        'style.styleCode',
+        'style.buyerStyleRef',
+        'style.styleName',
+        'fabric.fabricName',
+        'fabric.fabricCode',
+        'colorName',
+      ]);
 
       if (jwoStatus) where.jwoStatus = jwoStatus;
       if (processType) where.processType = processType;

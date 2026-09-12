@@ -395,7 +395,7 @@ export default function PurchaseOrderList() {
               <div className="flex flex-wrap gap-3 items-end">
                 <div className="flex-1 min-w-[200px]">
                   <SearchInput
-                    placeholder="Search by PO number or supplier..."
+                    placeholder="Search by PO number, supplier, style or material..."
                     value={searchParams.get('search') || ''}
                     onChange={(value) => updateURLParams({ search: value || undefined, page: undefined })}
                   />

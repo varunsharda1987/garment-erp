@@ -76,6 +76,18 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
     return this.prisma.quotations;
   }
 
+  /** The list shows Customer prominently; only the quotation number used to be searchable. */
+  protected readonly searchFields = [
+    'quotationNumber',
+    'customers.name',
+    'customers.code',
+    'quotation_items[].styles.styleCode',
+    'quotation_items[].styles.buyerStyleRef',
+    'quotation_items[].styles.styleName',
+    'remarks',
+  ] as const;
+
+  // Superseded by searchFields above; kept because BaseService still declares it abstract.
   protected buildSearchFilter(search: string): SearchFilter {
     return [{ quotationNumber: { contains: search, mode: 'insensitive' as const } }];
   }

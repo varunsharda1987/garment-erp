@@ -30,6 +30,7 @@ import { validateTransition } from '../utils/stateMachine';
 import { BusinessError, NotFoundError } from '../errors';
 import { checkProcessingPOReadiness } from './po-status-manager.service';
 import { releasePurchaseOrderItemLinks } from './helpers/po-item-link-release.helper';
+import { applySearch } from '../utils/search-filter';
 
 class PurchaseOrderService {
   /**
@@ -267,13 +268,19 @@ class PurchaseOrderService {
       where.poCategory = { in: filters.poCategories as POCategory[] };
     }
 
-    if (filters?.search) {
-      where.OR = [
-        { poNumber: { contains: filters.search, mode: 'insensitive' } },
-        { suppliers: { is: { name: { contains: filters.search, mode: 'insensitive' } } } },
-        { suppliers: { is: { code: { contains: filters.search, mode: 'insensitive' } } } },
-      ];
-    }
+    // What is actually ON the PO — the material and the style it is being bought for — was not
+    // searchable, so finding "the PO for that elastic" meant paging through the list.
+    applySearch(where as Record<string, unknown>, filters?.search, [
+      'poNumber',
+      'suppliers.name',
+      'suppliers.code',
+      'style.styleCode',
+      'style.buyerStyleRef',
+      'style.styleName',
+      'purchase_order_items[].materials.name',
+      'purchase_order_items[].materials.code',
+      'remarks',
+    ]);
 
     if (filters?.startDate || filters?.endDate) {
       where.poDate = {};

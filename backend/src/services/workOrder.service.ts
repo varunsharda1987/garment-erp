@@ -13,6 +13,7 @@ import {
 } from '../utils/currency';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { validateTransition } from '../utils/stateMachine'; // BUG-WO7 fix
+import { applySearch } from '../utils/search-filter';
 
 // Completion stages: the finishing flow's packing-complete writes READY_TO_SHIP (with real issued
 // quantities) and nothing in the shipped UI writes PACKING — keying on PACKING alone left the
@@ -265,14 +266,16 @@ class WorkOrderService {
       where.orderId = filters.orderId;
     }
 
-    if (filters?.search) {
-      where.OR = [
-        { workOrderNumber: { contains: filters.search, mode: 'insensitive' } },
-        { orders: { orderNumber: { contains: filters.search, mode: 'insensitive' } } },
-        { styles: { styleCode: { contains: filters.search, mode: 'insensitive' } } },
-        { styles: { buyerStyleRef: { contains: filters.search, mode: 'insensitive' } } },
-      ];
-    }
+    // The list shows Order/Source and Location columns that were not searchable.
+    applySearch(where as Record<string, unknown>, filters?.search, [
+      'workOrderNumber',
+      'orders.orderNumber',
+      'orders.customers.name',
+      'styles.styleCode',
+      'styles.buyerStyleRef',
+      'styles.styleName',
+      'warehouses.warehouseName',
+    ]);
 
     if (filters?.startDate || filters?.endDate) {
       where.plannedStartDate = {};

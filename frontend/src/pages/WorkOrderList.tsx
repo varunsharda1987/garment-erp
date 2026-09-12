@@ -308,7 +308,7 @@ export default function WorkOrderList() {
               <SearchInput
                 value={searchQuery}
                 onChange={setSearchQuery}
-                placeholder="Search by work order, style code..."
+                placeholder="Search by work order, order, style or location..."
               />
             </div>
             <div className="w-40">

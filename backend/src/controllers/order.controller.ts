@@ -11,6 +11,7 @@ import workOrderService from '../services/workOrder.service';
 import { generateAtomicOrderNumber } from '../utils/atomicCodeGenerator';
 import { multiplyCurrency, roundToCent, Decimal } from '../utils/currency';
 import type { OrderQueryInput } from '../schemas/order.schema';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Types for Order Controller
@@ -346,13 +347,20 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
   // Build where clause
   const where: Prisma.ordersWhereInput = {};
 
-  if (search) {
-    where.OR = [
-      { orderNumber: { contains: search as string, mode: 'insensitive' } },
-      { customers: { name: { contains: search as string, mode: 'insensitive' } } },
-      { customers: { code: { contains: search as string, mode: 'insensitive' } } },
-    ];
-  }
+  // The list renders a Style(s) column that was not searchable at all — the same gap the Sale
+  // Orders list had. Matching the sale order it came from matters too: the factory is often handed
+  // the buyer's PO number, not ours.
+  applySearch(where as Record<string, unknown>, search as string | undefined, [
+    'orderNumber',
+    'customers.name',
+    'customers.code',
+    'order_items[].styles.styleCode',
+    'order_items[].styles.buyerStyleRef',
+    'order_items[].styles.styleName',
+    'sale_orders.saleOrderNumber',
+    'sale_orders.buyerPoNumber',
+    'remarks',
+  ]);
 
   if (customerId) {
     where.customerId = customerId;

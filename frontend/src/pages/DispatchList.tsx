@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   Truck,
   Plus,
-  Search,
   Filter,
   ChevronLeft,
   ChevronRight,
@@ -18,7 +17,7 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import SearchInput from '@/components/SearchInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -131,16 +130,6 @@ export default function DispatchList() {
     setIsRefreshing(true);
     await fetchData();
     setIsRefreshing(false);
-  };
-
-  const handleDnSearch = () => {
-    setDnPage(1);
-    fetchDeliveryNotes();
-  };
-
-  const handleAsnSearch = () => {
-    setAsnPage(1);
-    fetchASNApplications();
   };
 
   // ASN workflow actions
@@ -270,16 +259,15 @@ export default function DispatchList() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by delivery note #, order #, or customer..."
-                    value={dnSearch}
-                    onChange={(e) => setDnSearch(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleDnSearch()}
-                    className="pl-9"
-                  />
-                </div>
+                <SearchInput
+                  className="flex-1"
+                  placeholder="Search by note #, order, customer or style..."
+                  value={dnSearch}
+                  onChange={(value) => {
+                    setDnSearch(value);
+                    setDnPage(1);
+                  }}
+                />
                 <Select value={dnStatusFilter || 'all'} onValueChange={(v) => setDnStatusFilter(v === 'all' ? '' : v)}>
                   <SelectTrigger className="w-[180px]">
                     <Filter className="h-4 w-4 mr-2" />
@@ -293,7 +281,6 @@ export default function DispatchList() {
                     <SelectItem value="CANCELLED">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button onClick={handleDnSearch}>Search</Button>
               </div>
             </CardContent>
           </Card>
@@ -425,16 +412,15 @@ export default function DispatchList() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by ASN #, order #..."
-                    value={asnSearch}
-                    onChange={(e) => setAsnSearch(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAsnSearch()}
-                    className="pl-9"
-                  />
-                </div>
+                <SearchInput
+                  className="flex-1"
+                  placeholder="Search by ASN #, order, customer or buyer ref..."
+                  value={asnSearch}
+                  onChange={(value) => {
+                    setAsnSearch(value);
+                    setAsnPage(1);
+                  }}
+                />
                 <Select
                   value={asnStatusFilter || 'all'}
                   onValueChange={(v) => setAsnStatusFilter(v === 'all' ? '' : v)}
@@ -452,7 +438,6 @@ export default function DispatchList() {
                     <SelectItem value="RESCHEDULED">Rescheduled</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button onClick={handleAsnSearch}>Search</Button>
               </div>
             </CardContent>
           </Card>

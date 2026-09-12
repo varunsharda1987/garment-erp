@@ -213,7 +213,7 @@ export default function GRNList() {
         <div className="mb-6 space-y-4">
           <div className="flex-1">
             <SearchInput
-              placeholder="Search by GRN number, PO number, or supplier..."
+              placeholder="Search by GRN, PO or JWO number, supplier or warehouse..."
               value={searchQuery}
               onChange={setSearchQuery}
             />

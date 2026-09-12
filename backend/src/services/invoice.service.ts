@@ -93,6 +93,25 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
     return this.prisma.invoices;
   }
 
+  /**
+   * The list shows Invoice Number, Customer and Order; until 2026-09-12 only the first was
+   * searchable, so an invoice could not be found by the customer it was raised on.
+   */
+  protected readonly searchFields = [
+    'invoiceNumber',
+    'customers.name',
+    'customers.code',
+    'orders.orderNumber',
+    'sale_orders.saleOrderNumber',
+    'sale_orders.buyerPoNumber',
+    'delivery_note.deliveryNumber',
+    'invoice_items[].style.styleCode',
+    'invoice_items[].buyerStyleRef',
+    'invoice_items[].description',
+    'remarks',
+  ] as const;
+
+  // Superseded by searchFields above; kept because BaseService still declares it abstract.
   protected buildSearchFilter(search: string): SearchFilter {
     return [{ invoiceNumber: { contains: search, mode: 'insensitive' as const } }];
   }

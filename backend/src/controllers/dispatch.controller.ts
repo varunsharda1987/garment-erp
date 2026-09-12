@@ -7,6 +7,7 @@ import { NotFoundError, ValidationError, UnauthorizedError, BusinessError } from
 import { generateAtomicMasterCode } from '../utils/atomicCodeGenerator';
 import { toCurrency, toNumber, Decimal } from '../utils/currency'; // BUG-POD5 fix
 import { recomputeSaleOrderStatus } from '../services/helpers/sale-order-status.helper';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Helper Functions
@@ -248,13 +249,19 @@ export const getAllDeliveryNotes = async (req: Request, res: Response) => {
 
   const where: Prisma.delivery_notesWhereInput = {};
 
-  if (search) {
-    where.OR = [
-      { deliveryNumber: { contains: String(search), mode: 'insensitive' } },
-      { orders: { orderNumber: { contains: String(search), mode: 'insensitive' } } },
-      { customers: { name: { contains: String(search), mode: 'insensitive' } } },
-    ];
-  }
+  // A delivery note is most often chased by what is ON it — the style — or by the sale order it
+  // ships, neither of which was searchable.
+  applySearch(where as Record<string, unknown>, search as string | undefined, [
+    'deliveryNumber',
+    'orders.orderNumber',
+    'sale_orders.saleOrderNumber',
+    'sale_orders.buyerPoNumber',
+    'customers.name',
+    'customers.code',
+    'delivery_note_items[].styles.styleCode',
+    'delivery_note_items[].styles.buyerStyleRef',
+    'vehicleNumber',
+  ]);
 
   if (status) {
     where.status = status as any;
@@ -1085,12 +1092,12 @@ export const getAllASN = async (req: Request, res: Response) => {
 
   const where: Prisma.asn_applicationsWhereInput = {};
 
-  if (search) {
-    where.OR = [
-      { asnNumber: { contains: String(search), mode: 'insensitive' } },
-      { order: { orderNumber: { contains: String(search), mode: 'insensitive' } } },
-    ];
-  }
+  applySearch(where as Record<string, unknown>, search as string | undefined, [
+    'asnNumber',
+    'buyerRefNumber',
+    'order.orderNumber',
+    'order.customers.name',
+  ]);
 
   if (status) {
     where.status = status as any;

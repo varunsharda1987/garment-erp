@@ -9,7 +9,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import {
   Factory,
-  Search,
   AlertTriangle,
   Clock,
   CheckCircle2,
@@ -26,7 +25,7 @@ import { JwoWhatsAppSendDialog } from '@/components/JwoWhatsAppSendDialog';
 import { openPDF } from '@/lib/document-utils';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import SearchInput from '@/components/SearchInput';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -217,18 +216,15 @@ export default function JobWorkOrderList() {
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by JWO number, processor, style..."
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(1);
-                }}
-                className="pl-9"
-              />
-            </div>
+            <SearchInput
+              className="flex-1"
+              placeholder="Search by number, processor, style or fabric..."
+              value={search}
+              onChange={(value) => {
+                setSearch(value);
+                setPage(1);
+              }}
+            />
             <Select
               value={processType}
               onValueChange={(value) => {

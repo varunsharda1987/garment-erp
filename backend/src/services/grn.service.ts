@@ -61,6 +61,7 @@ import {
 } from './helpers/source-mismatch.helper';
 // BUG-GR9 fix: Use centralized quality grade default instead of hardcoding 'A'
 import { DEFAULT_QUALITY_GRADE } from '../constants/stock.constants';
+import { applySearch } from '../utils/search-filter';
 
 class GRNService {
   /**
@@ -440,14 +441,18 @@ class GRNService {
       where.status = filters.status;
     }
 
-    if (filters?.search) {
-      where.OR = [
-        { grnNumber: { contains: filters.search, mode: 'insensitive' } },
-        { invoiceNumber: { contains: filters.search, mode: 'insensitive' } },
-        { purchase_orders: { is: { poNumber: { contains: filters.search, mode: 'insensitive' } } } },
-        { suppliers: { is: { name: { contains: filters.search, mode: 'insensitive' } } } },
-      ];
-    }
+    // The list shows a PO / JWO column and a Warehouse column; only the PO half was searchable, so
+    // a receipt booked against a job work order could not be found by its JWO number.
+    applySearch(where as Record<string, unknown>, filters?.search, [
+      'grnNumber',
+      'invoiceNumber',
+      'purchase_orders.poNumber',
+      'jobWorkOrder.jobWorkNumber',
+      'suppliers.name',
+      'suppliers.code',
+      'warehouses.warehouseName',
+      'remarks',
+    ]);
 
     if (filters?.startDate || filters?.endDate) {
       where.receivingDate = {};

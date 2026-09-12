@@ -432,7 +432,7 @@ export default function OrderList() {
           <div className="mb-6 space-y-4">
             <div className="flex-1">
               <SearchInput
-                placeholder="Search by order number or customer..."
+                placeholder="Search by order number, customer or style..."
                 value={searchQuery}
                 onChange={setSearchQuery}
               />

@@ -9,6 +9,7 @@ import { recomputeSaleOrderStatus } from './helpers/sale-order-status.helper';
 import { processorRateValidationService } from './processor-rate-validation.service';
 import { logWarn, logInfo } from '../utils/logger';
 import { sampleService } from './sample.service';
+import { applySearch } from '../utils/search-filter';
 
 /** A line as it arrives from the ERP form or the B2B push. */
 interface SOItemInput {
@@ -216,6 +217,31 @@ const BUYER_PO_LOCKED_STATUSES: SaleOrderStatus[] = [SaleOrderStatus.CANCELLED, 
  * reaches the database and returns an opaque "Invalid data provided to database" 400.
  * Mirrors SaleOrderSortFieldEnum in schemas/saleOrder.schema.ts.
  */
+/**
+ * One box, every handle a person might reach for. Style codes were the notable gap: the list
+ * showed a Style(s) column you could not search on, so "which order was LNG182G for?" had no
+ * answer here. Buyer style codes are matched BOTH as captured on the line and as the style master
+ * reads today, so an order turns up under the code it was taken under AND the buyer's current one.
+ */
+const SALE_ORDER_SEARCH_FIELDS = [
+  'saleOrderNumber',
+  'buyerPoNumber',
+  'remarks',
+  'customer.name',
+  'customer.code',
+  // Every buyer PO on the order, not just the primary one mirrored onto the header
+  'buyerPos[].buyerPoNumber',
+  // Header style (single-style orders)
+  'style.styleCode',
+  'style.buyerStyleRef',
+  'style.styleName',
+  // Line styles — the code as captured on the line, and the style master's own fields
+  'items[].buyerStyleRef',
+  'items[].style.styleCode',
+  'items[].style.buyerStyleRef',
+  'items[].style.styleName',
+] as const;
+
 const SORTABLE_FIELDS = new Set([
   'createdAt',
   'saleDate',
@@ -322,32 +348,7 @@ export class SaleOrderService {
     const skip = (page - 1) * limit;
     const where: Prisma.sale_ordersWhereInput = {};
 
-    if (search) {
-      // One box, every handle a person might reach for. Style codes were the notable gap: the
-      // list showed a Style(s) column you could not search on, so "which order was LNG182G for?"
-      // had no answer here. Buyer style codes are matched BOTH as captured on the line and as the
-      // style master reads today, so an order still turns up under the code it was taken under
-      // AND under the buyer's current one.
-      const like = { contains: search, mode: 'insensitive' as const };
-      where.OR = [
-        { saleOrderNumber: like },
-        { buyerPoNumber: like },
-        { remarks: like },
-        { customer: { name: like } },
-        { customer: { code: like } },
-        // Also search in all buyer POs (junction table)
-        { buyerPos: { some: { buyerPoNumber: like } } },
-        // Header style (single-style orders)
-        { style: { styleCode: like } },
-        { style: { buyerStyleRef: like } },
-        { style: { styleName: like } },
-        // Line styles — the code as captured on the line, and the style master's own fields
-        { items: { some: { buyerStyleRef: like } } },
-        { items: { some: { style: { styleCode: like } } } },
-        { items: { some: { style: { buyerStyleRef: like } } } },
-        { items: { some: { style: { styleName: like } } } },
-      ];
-    }
+    applySearch(where as Record<string, unknown>, search, SALE_ORDER_SEARCH_FIELDS);
 
     if (status) where.status = status;
     if (customerId) where.customerId = customerId;
@@ -1128,13 +1129,9 @@ export class SaleOrderService {
 
     const where: Prisma.sale_ordersWhereInput = { isActive: true };
 
-    if (search) {
-      where.OR = [
-        { saleOrderNumber: { contains: search, mode: 'insensitive' } },
-        { buyerPoNumber: { contains: search, mode: 'insensitive' } },
-        { customer: { name: { contains: search, mode: 'insensitive' } } },
-      ];
-    }
+    // The typeahead searches the same fields as the list. Leaving it on the old three-field
+    // version meant a dropdown could not find an order the list page could.
+    applySearch(where as Record<string, unknown>, search, SALE_ORDER_SEARCH_FIELDS);
 
     return prisma.sale_orders.findMany({
       where,

@@ -6,6 +6,7 @@
 import prisma from '../config/database';
 import { NotFoundError, ConflictError, ValidationError } from '../errors';
 import { logError, logInfo, logDebug } from '../utils/logger';
+import { applySearch } from '../utils/search-filter';
 import {
   SearchFilter,
   AdditionalFilters,
@@ -87,8 +88,22 @@ export abstract class BaseService<T, CreateDTO, UpdateDTO> {
   /**
    * Build search filter for the entity
    * Must be implemented by subclasses
+   *
+   * Matches the whole search string against each field and cannot express relation hops, so a
+   * multi-word query finds nothing. Prefer `searchFields` below; this stays for the subclasses
+   * that have not moved over yet.
    */
   protected abstract buildSearchFilter(search: string): SearchFilter;
+
+  /**
+   * Declarative search fields — dotted paths, `[]` for a to-many hop
+   * (e.g. `'customers.name'`, `'items[].style.styleCode'`).
+   *
+   * When a subclass sets this, `findAll` searches through `applySearch`: the query is split into
+   * words, each of which must match SOMEWHERE, so "acme LNG182G" can match a customer and a style
+   * at once. `buildSearchFilter` is then ignored.
+   */
+  protected readonly searchFields?: readonly string[];
 
   /**
    * Get default include relations for queries
@@ -175,7 +190,11 @@ export abstract class BaseService<T, CreateDTO, UpdateDTO> {
 
       // Add search filter if provided
       if (search) {
-        where.OR = this.buildSearchFilter(search);
+        if (this.searchFields?.length) {
+          applySearch(where as Record<string, unknown>, search, this.searchFields);
+        } else {
+          where.OR = this.buildSearchFilter(search);
+        }
       }
 
       // Count total

@@ -327,7 +327,11 @@ export default function InvoiceList() {
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-2">
-              <SearchInput value={searchQuery} onChange={setSearchQuery} placeholder="Search by invoice number..." />
+              <SearchInput
+                value={searchQuery}
+                onChange={setSearchQuery}
+                placeholder="Search by invoice number, customer or order..."
+              />
             </div>
             <CustomerCombobox value={customerFilter} onValueChange={setCustomerFilter} placeholder="All Customers" />
             <Select value={statusFilter} onValueChange={setStatusFilter}>

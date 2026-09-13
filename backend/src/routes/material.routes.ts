@@ -10,7 +10,7 @@ import {
   getCategoryHierarchy,
   createCategory,
 } from '../controllers/material.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createMaterialSchema,
@@ -26,6 +26,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('trimMasters'));
 
 /**
  * @route   GET /api/materials/categories/hierarchy

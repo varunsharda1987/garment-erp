@@ -8,7 +8,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody } from '../middleware/validation.middleware';
 import { embeddingService } from '../services/ai/embedding.service';
@@ -29,15 +29,7 @@ const router = Router();
 
 // Protect all routes and require ADMIN role
 router.use(authenticateToken);
-router.use((req: Request, res: Response, next) => {
-  if (req.user?.role !== 'ADMIN') {
-    return res.status(403).json({
-      error: 'Forbidden',
-      message: 'Admin access required',
-    });
-  }
-  next();
-});
+router.use(requireAdmin());
 
 /**
  * GET /api/ai-admin/status

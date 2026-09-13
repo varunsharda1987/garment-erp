@@ -12,13 +12,14 @@ import {
   saleOrderQuerySchema,
   addBuyerPoSchema,
 } from '../schemas/saleOrder.schema';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
 // Apply authentication to all sale order routes
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('orders'));
 
 // GET /api/sale-orders/search - Search for dropdown (must be before /:id)
 router.get('/search', asyncHandler(saleOrderController.search.bind(saleOrderController)));

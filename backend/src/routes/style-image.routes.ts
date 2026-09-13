@@ -3,7 +3,7 @@
  * API routes for style gallery functionality
  */
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermission } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { uploadStyleImage } from '../middleware/upload.middleware';
@@ -28,6 +28,7 @@ router.get('/:styleId/images', authenticateToken, validateParams(styleIdParamSch
 router.post(
   '/:styleId/images',
   authenticateToken,
+  requirePermission('styles'),
   validateParams(styleIdParamSchema),
   // multer MUST run before validateBody: it is what parses the multipart body into req.body
   // (the file itself goes to req.file and is not validated here).
@@ -38,6 +39,7 @@ router.post(
 router.post(
   '/:styleId/images/reorder',
   authenticateToken,
+  requirePermission('styles'),
   validateParams(styleIdParamSchema),
   validateBody(reorderImagesSchema),
   asyncHandler(reorderImages)
@@ -45,6 +47,7 @@ router.post(
 router.patch(
   '/:styleId/images/:imageId',
   authenticateToken,
+  requirePermission('styles'),
   validateParams(styleIdAndImageIdParamSchema),
   validateBody(updateImageSchema),
   asyncHandler(updateImage)
@@ -52,6 +55,7 @@ router.patch(
 router.delete(
   '/:styleId/images/:imageId',
   authenticateToken,
+  requirePermission('styles'),
   validateParams(styleIdAndImageIdParamSchema),
   asyncHandler(deleteImage)
 );

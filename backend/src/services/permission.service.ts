@@ -9,7 +9,14 @@ import { logError, logInfo, logDebug } from '../utils/logger';
 import { cachedQuery, deleteFromCache, invalidateByPattern } from '../lib/cache';
 import { createAuditLog, getAuditContext } from './audit.service';
 import { Request } from 'express';
-import { PERMISSIONS, MODULES, PERMISSION_GROUPS, ROLE_CONFIG, type PermissionKey } from '../config/permissions.config';
+import {
+  PERMISSIONS,
+  PERMISSION_KEYS,
+  MODULES,
+  PERMISSION_GROUPS,
+  ROLE_CONFIG,
+  type PermissionKey,
+} from '../config/permissions.config';
 import type {
   PermissionToggleInput,
   BulkPermissionUpdateInput,
@@ -43,16 +50,15 @@ class PermissionServiceClass {
   }
 
   /**
-   * Ensure permissions are seeded on server startup
-   * Only seeds if the database is empty - doesn't overwrite existing customizations
+   * Run at server startup. Additive only: fills in any role×key row the table lacks (a key
+   * added to the catalogue since the last boot) at its config default, and refreshes the
+   * catalogue (permission_definitions). Never touches a row that exists — the page's edits win.
    */
   async ensureSeeded(): Promise<void> {
     try {
-      const isSeeded = await this.isDatabaseSeeded();
-      if (!isSeeded) {
-        logInfo('🔐 Permissions not seeded - seeding from config...');
-        const result = await this.seedFromConfig();
-        logInfo(`✅ Permissions seeded: ${result.created} created, ${result.skipped} skipped`);
+      const result = await this.seedFromConfig();
+      if (result.created > 0) {
+        logInfo(`🔐 Permissions: ${result.created} new role×permission rows seeded at config defaults`);
       }
     } catch (error) {
       logError('Failed to auto-seed permissions:', error instanceof Error ? error : new Error(String(error)));
@@ -61,59 +67,35 @@ class PermissionServiceClass {
   }
 
   /**
-   * Seed permissions from config to database
+   * Seed permissions from config to database (missing rows only; existing rows are kept as-is).
    */
   async seedFromConfig(): Promise<{ created: number; skipped: number }> {
-    logInfo('Seeding permissions from config to database');
-    let created = 0;
-    let skipped = 0;
-
     const roles = Object.values(UserRole);
-    const permissionKeys = Object.keys(PERMISSIONS) as PermissionKey[];
 
     // First, seed permission definitions
     await this.seedPermissionDefinitions();
 
-    // Then seed role_permissions
+    // Then fill in the role_permissions rows that do not exist yet
+    const existing = await prisma.role_permissions.findMany({ select: { role: true, permissionKey: true } });
+    const have = new Set(existing.map((row) => `${row.role}|${row.permissionKey}`));
+
+    const toCreate: Array<{ role: UserRole; permissionKey: string; allowed: boolean }> = [];
     for (const role of roles) {
-      for (const permKey of permissionKeys) {
+      for (const permKey of PERMISSION_KEYS) {
+        if (have.has(`${role}|${permKey}`)) continue;
         const allowedRoles = PERMISSIONS[permKey] as readonly UserRole[];
-        const allowed = allowedRoles.includes(role);
-
-        try {
-          const existing = await prisma.role_permissions.findUnique({
-            where: {
-              role_permissionKey: { role, permissionKey: permKey },
-            },
-          });
-
-          if (!existing) {
-            await prisma.role_permissions.create({
-              data: {
-                role,
-                permissionKey: permKey,
-                allowed,
-              },
-            });
-            created++;
-          } else {
-            skipped++;
-          }
-        } catch (err) {
-          if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) {
-            throw err;
-          }
-          // P2002: permission already exists (concurrent seed) — count as skipped
-          skipped++;
-        }
+        toCreate.push({ role, permissionKey: permKey, allowed: allowedRoles.includes(role) });
       }
     }
 
-    // Invalidate cache after seeding
-    await this.invalidateAllCache();
+    if (toCreate.length > 0) {
+      // skipDuplicates covers a concurrent seed (two API workers booting at once)
+      await prisma.role_permissions.createMany({ data: toCreate, skipDuplicates: true });
+      await this.invalidateAllCache();
+      logInfo(`Permission seeding: ${toCreate.length} created, ${existing.length} kept`);
+    }
 
-    logInfo(`Permission seeding complete: ${created} created, ${skipped} skipped`);
-    return { created, skipped };
+    return { created: toCreate.length, skipped: existing.length };
   }
 
   /**
@@ -165,9 +147,15 @@ class PermissionServiceClass {
   }
 
   /**
-   * Get all permissions for a role (with caching)
+   * The permission keys a role currently holds — what `requirePermission` and the frontend's
+   * `can()` decide on. ADMIN holds every key unconditionally; other roles come from the table
+   * (cached per role for 10 minutes, invalidated on every toggle).
    */
   async getPermissionsForRole(role: UserRole): Promise<string[]> {
+    if (role === UserRole.ADMIN) {
+      return [...PERMISSION_KEYS];
+    }
+
     // Try database first
     if (useDatabase) {
       try {
@@ -201,9 +189,10 @@ class PermissionServiceClass {
   }
 
   /**
-   * Check if role has specific permission
+   * Check if role has specific permission. ADMIN → always true.
    */
   async hasPermission(role: UserRole, permissionKey: string): Promise<boolean> {
+    if (role === UserRole.ADMIN) return true;
     const permissions = await this.getPermissionsForRole(role);
     return permissions.includes(permissionKey);
   }
@@ -237,7 +226,7 @@ class PermissionServiceClass {
       permLookup.set(`${rp.role}:${rp.permissionKey}`, rp.allowed);
     }
 
-    // Build matrix rows
+    // Build matrix rows. ADMIN is shown as it is enforced: everything, always.
     const permissions: PermissionMatrixRow[] = definitions.map((def) => ({
       permissionKey: def.permissionKey,
       displayName: def.displayName,
@@ -246,7 +235,7 @@ class PermissionServiceClass {
       roles: roles.reduce(
         (acc, role) => {
           const key = `${role}:${def.permissionKey}`;
-          acc[role] = permLookup.get(key) ?? false;
+          acc[role] = role === UserRole.ADMIN ? true : (permLookup.get(key) ?? false);
           return acc;
         },
         {} as Record<UserRole, boolean>
@@ -255,9 +244,10 @@ class PermissionServiceClass {
 
     // Build role info
     const roleInfo = roles.map((role) => {
-      const permCount = Array.from(permLookup.entries()).filter(
-        ([key, allowed]) => key.startsWith(`${role}:`) && allowed
-      ).length;
+      const permCount =
+        role === UserRole.ADMIN
+          ? definitions.length
+          : Array.from(permLookup.entries()).filter(([key, allowed]) => key.startsWith(`${role}:`) && allowed).length;
       const config = ROLE_CONFIG[role];
       return {
         role,
@@ -350,11 +340,12 @@ class PermissionServiceClass {
 
     logDebug('Toggling permission', { role, permissionKey, allowed });
 
-    // Safety check: prevent ADMIN from removing their own admin access
-    if (role === UserRole.ADMIN && permissionKey === 'admin' && !allowed) {
+    // ADMIN bypasses every check (auth.middleware requirePermission), so its row can never mean
+    // anything — refusing the write keeps the page honest instead of showing a switch that lies.
+    if (role === UserRole.ADMIN) {
       return {
         success: false,
-        message: 'Cannot remove admin permission from ADMIN role',
+        message: 'Administrator always has full access; it cannot be changed',
       };
     }
 
@@ -474,11 +465,10 @@ class PermissionServiceClass {
     // never empty at any instant, and only the rows that actually deviate are written. If
     // anything throws, the transaction rolls back to the permissions that were already in force.
     const roles = Object.values(UserRole);
-    const permissionKeys = Object.keys(PERMISSIONS) as PermissionKey[];
 
     const desired = new Map<string, { role: UserRole; permissionKey: string; allowed: boolean }>();
     for (const role of roles) {
-      for (const permissionKey of permissionKeys) {
+      for (const permissionKey of PERMISSION_KEYS) {
         const allowedRoles = PERMISSIONS[permissionKey] as readonly UserRole[];
         desired.set(`${role}|${permissionKey}`, { role, permissionKey, allowed: allowedRoles.includes(role) });
       }

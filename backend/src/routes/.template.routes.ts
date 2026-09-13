@@ -9,10 +9,12 @@
  * 5. Import your controller and schemas
  * 6. Define your routes following the patterns below
  * 7. DO NOT modify the authentication import or usage pattern
+ * 8. Pick the Permissions-page key this module belongs to (backend/src/config/permissions.config.ts)
+ *    — the route-write-guard test fails any POST/PUT/PATCH/DELETE that is not gated
  */
 
 import { Router } from 'express';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery } from '../middleware/validation.middleware';
 // import * as [feature]Controller from '../controllers/[feature].controller';
@@ -25,11 +27,14 @@ import { validateBody, validateQuery } from '../middleware/validation.middleware
 const router = Router();
 
 // ============================================
-// AUTHENTICATION SETUP
+// AUTHENTICATION + PERMISSION SETUP
 // ============================================
 // IMPORTANT: Always use authenticateToken (not 'authenticate' or any alias)
 // This applies authentication to ALL routes in this file
 router.use(authenticateToken);
+// Reads stay open to every signed-in user; writes need this module's switch on the
+// Permissions page (ADMIN always passes). Replace 'masterData' with the module's key.
+router.use(requirePermissionForWrites('masterData'));
 
 // ============================================
 // PUBLIC ROUTES (if needed)
@@ -64,15 +69,12 @@ router.use(authenticateToken);
 // router.delete('/:id', asyncHandler([feature]Controller.delete));
 
 // ============================================
-// ROLE-BASED AUTHORIZATION EXAMPLES
+// ADMIN FLOOR EXAMPLES
 // ============================================
-// If specific routes need role-based access:
+// Destructive or financial-control routes that must never be togglable on the Permissions page:
 
-// Admin only routes
-// router.delete('/admin/:id', authorize('ADMIN'), asyncHandler([feature]Controller.adminDelete));
-
-// Multiple roles allowed
-// router.post('/approve/:id', authorize('ADMIN', 'MANAGER'), validateBody(approveSchema), asyncHandler([feature]Controller.approve));
+// router.delete('/:id/permanent', requireAdmin(), asyncHandler([feature]Controller.hardDelete));
+// router.post('/:id/approve', requireAdmin(), validateBody(approveSchema), asyncHandler([feature]Controller.approve));
 
 export default router;
 
@@ -95,13 +97,14 @@ export default router;
  *
  * Pattern A - Global Protection (RECOMMENDED for most routes):
  * router.use(authenticateToken);
+ * router.use(requirePermissionForWrites('<key>'));
  *
  * Pattern B - Per-Route Protection (use only if you need mixed public/private):
- * router.get('/', authenticateToken, controller.method);
+ * router.post('/', authenticateToken, requirePermission('<key>'), controller.method);
  *
- * Pattern C - Role-Based Authorization:
- * router.post('/', authenticateToken, authorize('ADMIN', 'MANAGER'), controller.method);
+ * Pattern C - Self-service writes (acting on the caller's own record only):
+ * // open-write: <why this needs no module switch>
+ * router.put('/:id/change-password', ..., controller.changePassword);
  *
- * Note: Pattern C can also use router.use(authenticateToken) globally, then just
- * add authorize() to specific routes that need it.
+ * Never hardcode role lists at a route — the Permissions page must be able to change them.
  */

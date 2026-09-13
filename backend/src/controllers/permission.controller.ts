@@ -12,7 +12,7 @@ import {
   MODULES,
   PERMISSION_GROUPS,
   ROLE_CONFIG,
-  getPermissionsForRole as getConfigPermissions,
+  getDefaultPermissionsForRole as getConfigPermissions,
 } from '../config/permissions.config';
 
 /**

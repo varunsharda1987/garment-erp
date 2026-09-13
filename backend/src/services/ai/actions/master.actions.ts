@@ -12,8 +12,6 @@ import type { ActionDefinition, Payload, ActionContext, StepResult } from '../ai
 import { internalFetch } from '../ai-action-types';
 
 /** Roles that maintain master data. Routes mostly have no gate; the registry is stricter. */
-const MASTER_ROLES = ['ADMIN', 'MERCHANDISER', 'INVENTORY', 'PURCHASE'] as const;
-
 /** Trim masters share one shape of supplier/buyer/description fields. */
 const trimCommon = {
   supplierCode: z.string().max(50).optional(),
@@ -48,7 +46,7 @@ const createGreige: ActionDefinition = {
   label: 'Create Greige Master',
   method: 'POST',
   path: '/api/fabric-management/greige',
-  allowedRoles: [...MASTER_ROLES],
+  permission: 'fabricMasters',
   toolSchema: greigeShape,
   executionSchema: greigeShape,
   tool: {
@@ -100,7 +98,7 @@ const createLace: ActionDefinition = {
   label: 'Create Lace Master',
   method: 'POST',
   path: '/api/materials/lace',
-  allowedRoles: [...MASTER_ROLES],
+  permission: 'trimMasters',
   toolSchema: laceShape,
   executionSchema: laceShape,
   tool: {
@@ -152,7 +150,7 @@ const createFabric: ActionDefinition = {
   label: 'Create Fabric Master',
   method: 'POST',
   path: '/api/fabric-management/fabric',
-  allowedRoles: [...MASTER_ROLES],
+  permission: 'fabricMasters',
   toolSchema: fabricToolShape,
   executionSchema: fabricExecShape,
   tool: {
@@ -229,7 +227,7 @@ const createColor: ActionDefinition = {
   label: 'Create Colour',
   method: 'POST',
   path: '/api/colors',
-  allowedRoles: ['ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'],
+  permission: 'colorMaster',
   toolSchema: colorShape,
   executionSchema: colorShape,
   tool: {
@@ -283,7 +281,7 @@ const createSeason: ActionDefinition = {
   label: 'Create Season',
   method: 'POST',
   path: '/api/seasons',
-  allowedRoles: ['ADMIN', 'MERCHANDISER'],
+  permission: 'seasonMaster',
   toolSchema: seasonShape,
   executionSchema: seasonShape,
   tool: {
@@ -349,7 +347,7 @@ const createSupplier: ActionDefinition = {
   label: 'Create Supplier',
   method: 'POST',
   path: '/api/suppliers',
-  allowedRoles: ['ADMIN', 'PURCHASE', 'MERCHANDISER'],
+  permission: 'suppliers',
   toolSchema: supplierToolShape,
   executionSchema: supplierExecShape,
   tool: {
@@ -414,8 +412,7 @@ const createCustomer: ActionDefinition = {
   label: 'Create Customer',
   method: 'POST',
   path: '/api/customers',
-  // Mirrors the route's own authorize() gate
-  allowedRoles: ['ADMIN', 'SALES', 'MERCHANDISER'],
+  permission: 'customers',
   toolSchema: customerToolShape,
   executionSchema: customerExecShape,
   tool: {
@@ -489,7 +486,7 @@ const createButton: ActionDefinition = {
   label: 'Create Button',
   method: 'POST',
   path: '/api/materials/button',
-  allowedRoles: [...MASTER_ROLES],
+  permission: 'trimMasters',
   toolSchema: buttonShape,
   executionSchema: buttonShape,
   tool: {
@@ -534,7 +531,7 @@ const createZipper: ActionDefinition = {
   label: 'Create Zipper',
   method: 'POST',
   path: '/api/materials/zipper',
-  allowedRoles: [...MASTER_ROLES],
+  permission: 'trimMasters',
   toolSchema: zipperShape,
   executionSchema: zipperShape,
   tool: {
@@ -579,7 +576,7 @@ const createElastic: ActionDefinition = {
   label: 'Create Elastic',
   method: 'POST',
   path: '/api/materials/elastic',
-  allowedRoles: [...MASTER_ROLES],
+  permission: 'trimMasters',
   toolSchema: elasticShape,
   executionSchema: elasticShape,
   tool: {
@@ -624,7 +621,7 @@ const createThread: ActionDefinition = {
   label: 'Create Thread',
   method: 'POST',
   path: '/api/materials/thread',
-  allowedRoles: [...MASTER_ROLES],
+  permission: 'trimMasters',
   toolSchema: threadShape,
   executionSchema: threadShape,
   tool: {
@@ -669,7 +666,7 @@ const createLabel: ActionDefinition = {
   label: 'Create Label',
   method: 'POST',
   path: '/api/materials/label',
-  allowedRoles: [...MASTER_ROLES],
+  permission: 'trimMasters',
   toolSchema: labelShape,
   executionSchema: labelShape,
   tool: {
@@ -714,7 +711,7 @@ const createPackaging: ActionDefinition = {
   label: 'Create Packaging',
   method: 'POST',
   path: '/api/materials/packaging',
-  allowedRoles: [...MASTER_ROLES],
+  permission: 'trimMasters',
   toolSchema: packagingShape,
   executionSchema: packagingShape,
   tool: {

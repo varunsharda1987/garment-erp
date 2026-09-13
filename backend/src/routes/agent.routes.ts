@@ -12,7 +12,7 @@ import {
   deleteAgent,
   searchAgents,
 } from '../controllers/agent.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { createAgentSchema, updateAgentSchema, agentQuerySchema } from '../schemas/agent.schema';
@@ -22,6 +22,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('customers'));
 
 /**
  * @route   GET /api/agents/search

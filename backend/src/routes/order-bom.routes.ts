@@ -7,8 +7,7 @@
  */
 
 import { Router } from 'express';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
-import { UserRole } from '@prisma/client';
+import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -27,6 +26,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('orders'));
 
 // ============================================
 // ORDER-LEVEL BOM ROUTES (mounted under /api/orders/:orderId/bom)
@@ -75,7 +75,6 @@ router.put(
  */
 router.patch(
   '/:orderId/bom/approve',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER),
   validateParams(orderIdParamSchema),
   asyncHandler(orderBomController.approveOrderBOM)
 );
@@ -88,7 +87,6 @@ router.patch(
  */
 router.post(
   '/:orderId/bom/approve-and-calculate',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER),
   validateParams(orderIdParamSchema),
   validateBody(approveAndCalculateMRPSchema),
   asyncHandler(orderBomController.approveAndCalculateMRP)
@@ -113,12 +111,7 @@ router.post(
  * @access  Private (ADMIN, PRODUCTION_MANAGER)
  * @query   styleId (optional)
  */
-router.patch(
-  '/:orderId/bom/lock',
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER),
-  validateParams(orderIdParamSchema),
-  asyncHandler(orderBomController.lockOrderBOM)
-);
+router.patch('/:orderId/bom/lock', validateParams(orderIdParamSchema), asyncHandler(orderBomController.lockOrderBOM));
 
 /**
  * @route   POST /api/orders/:orderId/bom/copy/:sourceOrderId
@@ -161,6 +154,7 @@ router.delete('/:orderId/bom', validateParams(orderIdParamSchema), asyncHandler(
 export const orderBomStandaloneRouter = Router();
 
 orderBomStandaloneRouter.use(authenticateToken);
+orderBomStandaloneRouter.use(requirePermissionForWrites('orders'));
 
 /**
  * @route   GET /api/order-bom
@@ -177,7 +171,7 @@ orderBomStandaloneRouter.get('/', validateQuery(orderBOMQuerySchema), asyncHandl
  */
 orderBomStandaloneRouter.post(
   '/cleanup-cancelled',
-  authorize(UserRole.ADMIN),
+  requireAdmin(),
   asyncHandler(orderBomController.cleanupCancelledOrderBOMs)
 );
 

@@ -3,7 +3,7 @@
  * API routes for style technical specifications
  */
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermission } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import {
@@ -26,6 +26,7 @@ router.get('/:styleId/tech-specs', authenticateToken, validateParams(styleIdPara
 router.put(
   '/:styleId/tech-specs',
   authenticateToken,
+  requirePermission('styles'),
   validateParams(styleIdParamSchema),
   validateBody(saveTechSpecsSchema),
   asyncHandler(saveTechSpecs)
@@ -33,6 +34,7 @@ router.put(
 router.delete(
   '/:styleId/tech-specs',
   authenticateToken,
+  requirePermission('styles'),
   validateParams(styleIdParamSchema),
   asyncHandler(deleteTechSpecs)
 );

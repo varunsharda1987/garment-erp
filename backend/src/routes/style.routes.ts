@@ -35,7 +35,7 @@ import {
   updateProcess,
   deleteProcess,
 } from '../controllers/styleComponent.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { uploadStyleImage as uploadMiddleware } from '../middleware/upload.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
@@ -58,13 +58,13 @@ import {
   updateStyleProcessSchema,
 } from '../schemas/style.schema';
 import { idParamSchema } from '../schemas/common.schema';
-import { UserRole } from '@prisma/client';
 import { getStockForStyle } from '../controllers/fabric-stock.controller';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('styles'));
 
 // ============================================
 // STYLE ROUTES
@@ -75,12 +75,7 @@ router.use(authenticateToken);
  * @desc    Create new style
  * @access  Protected - Admin, Merchandiser
  */
-router.post(
-  '/',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  validateBody(createStyleSchema),
-  asyncHandler(createStyle)
-);
+router.post('/', validateBody(createStyleSchema), asyncHandler(createStyle));
 
 /**
  * @route   GET /api/styles/next-code
@@ -108,19 +103,14 @@ router.get('/drafts/:id', validateParams(styleIdParamSchema), asyncHandler(getDr
  * @desc    Delete a draft
  * @access  Protected - Admin, Merchandiser
  */
-router.delete(
-  '/drafts/:id',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  validateParams(styleIdParamSchema),
-  asyncHandler(deleteDraft)
-);
+router.delete('/drafts/:id', validateParams(styleIdParamSchema), asyncHandler(deleteDraft));
 
 /**
  * @route   GET /api/styles/deleted
  * @desc    Get all deleted/archived styles
  * @access  Protected - Admin, Merchandiser
  */
-router.get('/deleted', authorize(UserRole.ADMIN, UserRole.MERCHANDISER), asyncHandler(getDeletedStyles));
+router.get('/deleted', asyncHandler(getDeletedStyles));
 
 /**
  * @route   GET /api/styles
@@ -157,32 +147,21 @@ router.get('/:id', validateParams(styleIdParamSchema), asyncHandler(getStyleById
  * @desc    Update style
  * @access  Protected - Admin, Merchandiser
  */
-router.put(
-  '/:id',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  validateParams(styleIdParamSchema),
-  validateBody(updateStyleSchema),
-  asyncHandler(updateStyle)
-);
+router.put('/:id', validateParams(styleIdParamSchema), validateBody(updateStyleSchema), asyncHandler(updateStyle));
 
 /**
  * @route   DELETE /api/styles/:id
  * @desc    Delete (deactivate) style
  * @access  Protected - Admin only
  */
-router.delete('/:id', authorize(UserRole.ADMIN), validateParams(styleIdParamSchema), asyncHandler(deleteStyle));
+router.delete('/:id', requireAdmin(), validateParams(styleIdParamSchema), asyncHandler(deleteStyle));
 
 /**
  * @route   GET /api/styles/:id/can-deactivate
  * @desc    Check if style can be deactivated
  * @access  Protected - Admin, Merchandiser
  */
-router.get(
-  '/:id/can-deactivate',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  validateParams(styleIdParamSchema),
-  asyncHandler(canDeactivateStyle)
-);
+router.get('/:id/can-deactivate', validateParams(styleIdParamSchema), asyncHandler(canDeactivateStyle));
 
 /**
  * @route   GET /api/styles/:id/fabric-stock
@@ -196,13 +175,7 @@ router.get('/:id/fabric-stock', validateParams(styleIdParamSchema), asyncHandler
  * @desc    Upload style image
  * @access  Protected - Admin, Merchandiser
  */
-router.post(
-  '/:id/image',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  validateParams(styleIdParamSchema),
-  uploadMiddleware,
-  asyncHandler(uploadStyleImage)
-);
+router.post('/:id/image', validateParams(styleIdParamSchema), uploadMiddleware, asyncHandler(uploadStyleImage));
 
 /**
  * @route   POST /api/styles/:id/variants
@@ -211,7 +184,6 @@ router.post(
  */
 router.post(
   '/:id/variants',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(styleIdParamSchema),
   validateBody(createStyleVariantsSchema),
   asyncHandler(createStyleVariants)
@@ -222,12 +194,7 @@ router.post(
  * @desc    Publish a draft style (convert to ACTIVE status)
  * @access  Protected - Admin, Merchandiser
  */
-router.post(
-  '/:id/publish',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  validateParams(styleIdParamSchema),
-  asyncHandler(publishDraft)
-);
+router.post('/:id/publish', validateParams(styleIdParamSchema), asyncHandler(publishDraft));
 
 // ============================================
 // CAD PLANNING ROUTES
@@ -243,7 +210,6 @@ router.post(
  */
 router.post(
   '/:id/cad-groups',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(styleIdParamSchema),
   validateBody(updateCADGroupingSchema),
   asyncHandler(updateCADGrouping)
@@ -257,24 +223,14 @@ router.post(
  * @desc    Restore a soft-deleted style
  * @access  Protected - Admin, Merchandiser
  */
-router.post(
-  '/:id/restore',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  validateParams(styleIdParamSchema),
-  asyncHandler(restoreStyle)
-);
+router.post('/:id/restore', validateParams(styleIdParamSchema), asyncHandler(restoreStyle));
 
 /**
  * @route   DELETE /api/styles/:id/permanent
  * @desc    Permanently delete a style (hard delete)
  * @access  Protected - Admin only
  */
-router.delete(
-  '/:id/permanent',
-  authorize(UserRole.ADMIN),
-  validateParams(styleIdParamSchema),
-  asyncHandler(permanentDeleteStyle)
-);
+router.delete('/:id/permanent', requireAdmin(), validateParams(styleIdParamSchema), asyncHandler(permanentDeleteStyle));
 
 // ============================================
 // COMPONENT ROUTES
@@ -287,7 +243,6 @@ router.delete(
  */
 router.post(
   '/:styleId/components',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(styleIdAsStyleIdParamSchema),
   validateBody(createComponentSchema),
   asyncHandler(createComponent)
@@ -300,7 +255,6 @@ router.post(
  */
 router.put(
   '/components/:id',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(idParamSchema),
   validateBody(updateComponentSchema),
   asyncHandler(updateComponent)
@@ -311,12 +265,7 @@ router.put(
  * @desc    Delete component
  * @access  Protected - Admin, Merchandiser
  */
-router.delete(
-  '/components/:id',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  validateParams(idParamSchema),
-  asyncHandler(deleteComponent)
-);
+router.delete('/components/:id', validateParams(idParamSchema), asyncHandler(deleteComponent));
 
 // ============================================
 // FABRIC ROUTES
@@ -329,7 +278,6 @@ router.delete(
  */
 router.post(
   '/components/:componentId/fabrics',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(componentIdParamSchema),
   validateBody(createComponentFabricSchema),
   asyncHandler(createFabric)
@@ -342,7 +290,6 @@ router.post(
  */
 router.put(
   '/fabrics/:id',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(idParamSchema),
   validateBody(updateComponentFabricSchema),
   asyncHandler(updateFabric)
@@ -353,12 +300,7 @@ router.put(
  * @desc    Delete fabric
  * @access  Protected - Admin, Merchandiser
  */
-router.delete(
-  '/fabrics/:id',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  validateParams(idParamSchema),
-  asyncHandler(deleteFabric)
-);
+router.delete('/fabrics/:id', validateParams(idParamSchema), asyncHandler(deleteFabric));
 
 // ============================================
 // ACCESSORY ROUTES
@@ -371,7 +313,6 @@ router.delete(
  */
 router.post(
   '/components/:componentId/accessories',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(componentIdParamSchema),
   validateBody(createComponentAccessorySchema),
   asyncHandler(createAccessory)
@@ -384,7 +325,6 @@ router.post(
  */
 router.put(
   '/accessories/:id',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(idParamSchema),
   validateBody(updateComponentAccessorySchema),
   asyncHandler(updateAccessory)
@@ -395,12 +335,7 @@ router.put(
  * @desc    Delete accessory
  * @access  Protected - Admin, Merchandiser
  */
-router.delete(
-  '/accessories/:id',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  validateParams(idParamSchema),
-  asyncHandler(deleteAccessory)
-);
+router.delete('/accessories/:id', validateParams(idParamSchema), asyncHandler(deleteAccessory));
 
 // ============================================
 // PROCESS ROUTES
@@ -413,7 +348,6 @@ router.delete(
  */
 router.post(
   '/:styleId/processes',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(styleIdAsStyleIdParamSchema),
   validateBody(createStyleProcessSchema),
   asyncHandler(createProcess)
@@ -426,7 +360,6 @@ router.post(
  */
 router.put(
   '/processes/:id',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateParams(idParamSchema),
   validateBody(updateStyleProcessSchema),
   asyncHandler(updateProcess)
@@ -437,12 +370,7 @@ router.put(
  * @desc    Delete process
  * @access  Protected - Admin, Merchandiser
  */
-router.delete(
-  '/processes/:id',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  validateParams(idParamSchema),
-  asyncHandler(deleteProcess)
-);
+router.delete('/processes/:id', validateParams(idParamSchema), asyncHandler(deleteProcess));
 
 // ============================================
 // ACTUAL CONSUMPTION (computed from cutting batches)

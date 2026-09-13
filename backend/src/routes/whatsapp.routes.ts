@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody } from '../middleware/validation.middleware';
 import {
@@ -18,6 +18,7 @@ const router = Router();
 
 // Every WhatsApp action is scoped to the logged-in user's own session.
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('whatsapp'));
 
 // Link status + QR (while linking) for the current user.
 router.get('/status', asyncHandler(statusHandler));

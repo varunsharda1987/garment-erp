@@ -12,7 +12,7 @@ import {
   getCostingComparison,
   deleteOrderItemCosting,
 } from '../controllers/orderProductionStatus.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { selectCadSchema, updateInheritanceSchema, recalculateCostingSchema } from '../schemas/orderItems.schema';
@@ -22,6 +22,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('orders'));
 
 // ============================================
 // CAD Selection

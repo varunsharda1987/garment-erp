@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { systemSettingsController } from '../controllers/system-settings.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { upsertSystemSettingSchema, systemSettingsQuerySchema } from '../schemas/systemSettings.schema';
@@ -31,6 +31,7 @@ router.get(
 // PUT /api/system-settings/:key — create or update a setting
 router.put(
   '/:key',
+  requireAdmin(),
   validateParams(keyParamSchema),
   validateBody(upsertSystemSettingSchema),
   asyncHandler(systemSettingsController.upsert.bind(systemSettingsController))
@@ -39,6 +40,7 @@ router.put(
 // DELETE /api/system-settings/:key — delete (blocked for isSystem=true)
 router.delete(
   '/:key',
+  requireAdmin(),
   validateParams(keyParamSchema),
   asyncHandler(systemSettingsController.delete.bind(systemSettingsController))
 );

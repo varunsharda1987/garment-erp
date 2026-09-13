@@ -23,6 +23,8 @@ export interface AuthResponse {
     lastName: string;
     name: string; // computed display name (backward compatibility)
     role: UserRole;
+    /** Permission keys this role holds right now (Permissions page) — ADMIN gets every key. */
+    permissions: string[];
   };
   token: string;
 }

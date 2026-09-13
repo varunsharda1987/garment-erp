@@ -1,18 +1,17 @@
 /**
  * Hook for checking user permissions
- * Provides utility functions for role-based access control
+ *
+ * Decides from the permission keys the server granted this user (`user.permissions`, set at
+ * login and refreshed from `/auth/me` on every app load) — the Permissions page is the source of
+ * truth. ADMIN holds every key.
  */
 
 import { useMemo, useCallback } from 'react';
 import { useAuthStore } from '@/stores/auth.store';
-import {
-  PERMISSIONS,
-  hasPermission,
-  getRoutePermission,
-  getPermissionsForRole,
-  type PermissionKey,
-} from '@/config/permissions.config';
+import { PERMISSION_KEYS, getRoutePermission, type PermissionKey } from '@/config/permissions.config';
 import { UserRole } from '@/types/user.types';
+
+const NO_PERMISSIONS: readonly string[] = [];
 
 /**
  * Hook for checking user permissions
@@ -21,15 +20,24 @@ import { UserRole } from '@/types/user.types';
 export function usePermissions() {
   const user = useAuthStore((state) => state.user);
   const userRole = user?.role as UserRole | undefined;
+  const grantedList = user?.permissions ?? NO_PERMISSIONS;
+
+  /**
+   * Check if user is admin
+   */
+  const isAdmin = useMemo(() => userRole === UserRole.ADMIN, [userRole]);
+
+  const granted = useMemo(() => new Set(grantedList), [grantedList]);
 
   /**
    * Check if user has permission for a specific feature
    */
   const can = useCallback(
     (permissionKey: PermissionKey): boolean => {
-      return hasPermission(userRole, permissionKey);
+      if (!userRole) return false;
+      return isAdmin || granted.has(permissionKey);
     },
-    [userRole]
+    [userRole, isAdmin, granted]
   );
 
   /**
@@ -42,9 +50,9 @@ export function usePermissions() {
         // No permission defined = accessible to all authenticated users
         return true;
       }
-      return hasPermission(userRole, permissionKey);
+      return can(permissionKey);
     },
-    [userRole]
+    [can]
   );
 
   /**
@@ -59,17 +67,13 @@ export function usePermissions() {
   );
 
   /**
-   * Check if user is admin
-   */
-  const isAdmin = useMemo(() => userRole === UserRole.ADMIN, [userRole]);
-
-  /**
    * Get all permission keys the user has access to
    */
-  const userPermissions = useMemo(() => {
+  const userPermissions = useMemo((): PermissionKey[] => {
     if (!userRole) return [];
-    return getPermissionsForRole(userRole);
-  }, [userRole]);
+    if (isAdmin) return [...PERMISSION_KEYS];
+    return PERMISSION_KEYS.filter((key) => granted.has(key));
+  }, [userRole, isAdmin, granted]);
 
   /**
    * Filter an array of items by permission
@@ -115,7 +119,6 @@ export function usePermissions() {
     filterByPermission,
     canAll,
     canAny,
-    permissions: PERMISSIONS,
   };
 }
 

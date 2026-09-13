@@ -61,6 +61,7 @@ export default function Profile() {
         lastName: updatedUser.lastName,
         name: `${updatedUser.firstName} ${updatedUser.lastName}`.trim(),
         role: updatedUser.role,
+        permissions: currentUser.permissions,
         phone: updatedUser.phone,
         createdAt: updatedUser.createdAt,
       });

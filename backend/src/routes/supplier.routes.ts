@@ -8,7 +8,7 @@ import {
   deleteSupplier,
   canDeactivateSupplier,
 } from '../controllers/supplier.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createSupplierSchema,
@@ -22,6 +22,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('suppliers'));
 
 /**
  * @route   POST /api/suppliers

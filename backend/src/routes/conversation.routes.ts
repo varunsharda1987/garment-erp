@@ -6,7 +6,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { idParamSchema } from '../schemas/common.schema';
@@ -27,6 +27,7 @@ const router = Router();
 
 // Protect all conversation routes
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('aiAssistant'));
 
 /**
  * GET /api/conversations

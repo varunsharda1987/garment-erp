@@ -4,16 +4,16 @@
  */
 import { Router, Request, Response } from 'express';
 import { threadStockService } from '../services/thread-stock.service';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { validateBody, validateQuery } from '../middleware/validation.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { createThreadStockSchema, threadStockQuerySchema } from '../schemas/threadStock.schema';
-import { UserRole } from '@prisma/client';
 
 const router = Router();
 
 // Apply authentication to all routes
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('stockLevels'));
 
 /**
  * GET /api/thread-stock
@@ -77,13 +77,6 @@ router.get(
  */
 router.post(
   '/',
-  authorize(
-    UserRole.ADMIN,
-    UserRole.INVENTORY,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.FACTORY_SUPERVISOR,
-    UserRole.PURCHASE
-  ),
   validateBody(createThreadStockSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;

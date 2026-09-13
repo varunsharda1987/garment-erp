@@ -26,7 +26,7 @@ import {
   updateDefaultComponent,
   removeDefaultComponent,
 } from '../controllers/categoryComponentDefault.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -41,12 +41,12 @@ import {
   addDefaultComponentSchema,
   updateDefaultComponentSchema,
 } from '../schemas/productCategory.schema';
-import { UserRole } from '@prisma/client';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('productCategories'));
 
 /**
  * @route   GET /api/product-categories/hierarchy
@@ -74,24 +74,14 @@ router.get('/level/:level', validateParams(levelParamSchema), asyncHandler(getCa
  * @desc    Reorder categories
  * @access  Protected - Admin only
  */
-router.post(
-  '/reorder',
-  authorize(UserRole.ADMIN),
-  validateBody(reorderCategoriesSchema),
-  asyncHandler(reorderProductCategories)
-);
+router.post('/reorder', requireAdmin(), validateBody(reorderCategoriesSchema), asyncHandler(reorderProductCategories));
 
 /**
  * @route   POST /api/product-categories
  * @desc    Create new product category
  * @access  Protected - Admin only
  */
-router.post(
-  '/',
-  authorize(UserRole.ADMIN),
-  validateBody(createProductCategorySchema),
-  asyncHandler(createProductCategory)
-);
+router.post('/', requireAdmin(), validateBody(createProductCategorySchema), asyncHandler(createProductCategory));
 
 /**
  * @route   GET /api/product-categories
@@ -146,7 +136,7 @@ router.get(
  */
 router.post(
   '/:id/default-components',
-  authorize(UserRole.ADMIN),
+  requireAdmin(),
   validateParams(productCategoryIdParamSchema),
   validateBody(setDefaultComponentsSchema),
   asyncHandler(setDefaultComponents)
@@ -159,7 +149,7 @@ router.post(
  */
 router.post(
   '/:id/default-components/add',
-  authorize(UserRole.ADMIN),
+  requireAdmin(),
   validateParams(productCategoryIdParamSchema),
   validateBody(addDefaultComponentSchema),
   asyncHandler(addDefaultComponent)
@@ -172,7 +162,7 @@ router.post(
  */
 router.put(
   '/:categoryId/default-components/:componentId',
-  authorize(UserRole.ADMIN),
+  requireAdmin(),
   validateParams(categoryComponentParamSchema),
   validateBody(updateDefaultComponentSchema),
   asyncHandler(updateDefaultComponent)
@@ -185,7 +175,7 @@ router.put(
  */
 router.delete(
   '/:categoryId/default-components/:componentId',
-  authorize(UserRole.ADMIN),
+  requireAdmin(),
   validateParams(categoryComponentParamSchema),
   asyncHandler(removeDefaultComponent)
 );
@@ -197,7 +187,7 @@ router.delete(
  */
 router.put(
   '/:id',
-  authorize(UserRole.ADMIN),
+  requireAdmin(),
   validateParams(productCategoryIdParamSchema),
   validateBody(updateProductCategorySchema),
   asyncHandler(updateProductCategory)
@@ -210,7 +200,7 @@ router.put(
  */
 router.patch(
   '/:id/toggle-active',
-  authorize(UserRole.ADMIN),
+  requireAdmin(),
   validateParams(productCategoryIdParamSchema),
   asyncHandler(toggleProductCategoryActive)
 );
@@ -222,7 +212,7 @@ router.patch(
  */
 router.delete(
   '/:id',
-  authorize(UserRole.ADMIN),
+  requireAdmin(),
   validateParams(productCategoryIdParamSchema),
   asyncHandler(deleteProductCategory)
 );

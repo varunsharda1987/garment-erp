@@ -11,7 +11,7 @@ import {
   getInvoiceSummary,
   updateOverdueInvoices,
 } from '../controllers/invoice.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createInvoiceSchema,
@@ -21,13 +21,13 @@ import {
   invoiceQuerySchema,
   invoiceIdParamSchema,
 } from '../schemas/invoice.schema';
-import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('invoices'));
 
 /**
  * @route   GET /api/invoices/summary
@@ -41,31 +41,21 @@ router.get('/summary', asyncHandler(getInvoiceSummary));
  * @desc    Update overdue invoices status
  * @access  Protected - Admin only
  */
-router.post('/update-overdue', authorize(UserRole.ADMIN), asyncHandler(updateOverdueInvoices));
+router.post('/update-overdue', requireAdmin(), asyncHandler(updateOverdueInvoices));
 
 /**
  * @route   POST /api/invoices/from-delivery-note
  * @desc    P7.4: Create invoice from delivered delivery note (prefills items)
  * @access  Protected - Admin, Accountant
  */
-router.post(
-  '/from-delivery-note',
-  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
-  validateBody(createFromDeliveryNoteSchema),
-  asyncHandler(createFromDeliveryNote)
-);
+router.post('/from-delivery-note', validateBody(createFromDeliveryNoteSchema), asyncHandler(createFromDeliveryNote));
 
 /**
  * @route   POST /api/invoices
  * @desc    Create new invoice
  * @access  Protected - Admin, Accountant
  */
-router.post(
-  '/',
-  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
-  validateBody(createInvoiceSchema),
-  asyncHandler(createInvoice)
-);
+router.post('/', validateBody(createInvoiceSchema), asyncHandler(createInvoice));
 
 /**
  * @route   GET /api/invoices
@@ -88,7 +78,6 @@ router.get('/:id', validateParams(invoiceIdParamSchema), asyncHandler(getInvoice
  */
 router.put(
   '/:id',
-  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
   validateParams(invoiceIdParamSchema),
   validateBody(updateInvoiceSchema),
   asyncHandler(updateInvoice)
@@ -99,7 +88,7 @@ router.put(
  * @desc    Delete invoice
  * @access  Protected - Admin only
  */
-router.delete('/:id', authorize(UserRole.ADMIN), validateParams(invoiceIdParamSchema), asyncHandler(deleteInvoice));
+router.delete('/:id', requireAdmin(), validateParams(invoiceIdParamSchema), asyncHandler(deleteInvoice));
 
 /**
  * @route   POST /api/invoices/:id/payments
@@ -108,7 +97,6 @@ router.delete('/:id', authorize(UserRole.ADMIN), validateParams(invoiceIdParamSc
  */
 router.post(
   '/:id/payments',
-  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
   validateParams(invoiceIdParamSchema),
   validateBody(recordPaymentSchema),
   asyncHandler(recordPayment)

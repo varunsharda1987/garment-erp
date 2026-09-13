@@ -3,7 +3,7 @@ import { customerAddressController } from '../controllers/customerAddress.contro
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { createCustomerAddressSchema, updateCustomerAddressSchema } from '../schemas/customerAddress.schema';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { idParamSchema } from '../schemas/common.schema';
 import { z } from 'zod';
 
@@ -11,6 +11,7 @@ const router = Router();
 
 // Apply authentication to all customer address routes
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('customers'));
 
 // Customer ID param schema
 const customerIdParamSchema = z.object({

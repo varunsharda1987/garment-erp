@@ -8,7 +8,7 @@ import {
   bulkImportOtherMaterials,
   downloadTemplate,
 } from '../controllers/other-material.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import {
@@ -22,6 +22,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('trimMasters'));
 
 // CRUD routes
 router.post('/', validateBody(createOtherMaterialSchema), asyncHandler(createOtherMaterial));

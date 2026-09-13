@@ -134,6 +134,7 @@ router.get(
  *          }
  * @access  Private
  */
+// open-write: renders a document from data the caller can already read; writes nothing
 router.post(
   '/catalogue/generate',
   validateBody(generateCatalogueSchema),
@@ -146,6 +147,7 @@ router.post(
  * @body    Same as /catalogue/generate
  * @access  Private
  */
+// open-write: renders a document from data the caller can already read
 router.post(
   '/catalogue/store',
   validateBody(generateCatalogueSchema),
@@ -200,6 +202,7 @@ router.get(
  *          }
  * @access  Private
  */
+// open-write: renders a document from data the caller can already read; writes nothing
 router.post(
   '/line-sheet/pdf',
   validateBody(generateLineSheetSchema),
@@ -212,6 +215,7 @@ router.post(
  * @body    Same as /line-sheet/pdf
  * @access  Private
  */
+// open-write: renders a document from data the caller can already read; writes nothing
 router.post(
   '/line-sheet/excel',
   validateBody(generateLineSheetSchema),

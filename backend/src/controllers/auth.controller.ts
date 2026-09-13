@@ -8,6 +8,7 @@ import { generateToken, generateRefreshToken } from '../utils/jwt.utils';
 import { RegisterRequest, LoginRequest, AuthResponse } from '../types/auth.types';
 import { logInfo, logWarn } from '../utils/logger';
 import { ConflictError, ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from '../errors';
+import { PermissionService } from '../services/permission.service';
 
 /**
  * Register a new user
@@ -159,7 +160,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     tokenVersion: user.tokenVersion,
   });
 
-  // Prepare response
+  // Prepare response. `permissions` is what the frontend's can()/sidebar/route guard decide on —
+  // the Permissions page is the source of truth, the client holds no copy of the role map.
   const response: AuthResponse & { refreshToken: string } = {
     user: {
       id: user.id,
@@ -168,6 +170,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       lastName: user.lastName,
       name: `${user.firstName} ${user.lastName}`, // kept for backward compatibility
       role: user.role,
+      permissions: await PermissionService.getPermissionsForRole(user.role),
     },
     token,
     refreshToken: refreshToken.token,
@@ -342,5 +345,9 @@ export const getCurrentUser = async (req: Request, res: Response): Promise<void>
     throw new NotFoundError('User', req.user.userId);
   }
 
-  res.status(200).json(user);
+  // The app re-fetches this on every load, so a toggle on the Permissions page reaches a
+  // signed-in user at their next reload — not only at their next sign-in.
+  const permissions = await PermissionService.getPermissionsForRole(user.role);
+
+  res.status(200).json({ ...user, permissions });
 };

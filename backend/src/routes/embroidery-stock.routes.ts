@@ -17,12 +17,13 @@ import {
   getStockSummary,
   getPendingEmbroideryStock,
 } from '../controllers/embroidery-stock.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // Apply authentication to all embroidery stock routes
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('embroideryStock'));
 
 // Phase 5b: the embroidery send-out flow is RETIRED — fabric-roll embroidery runs as an
 // EMBROIDERY Job Work Order (create with a fabric lot + design, issue, receive via GRN).

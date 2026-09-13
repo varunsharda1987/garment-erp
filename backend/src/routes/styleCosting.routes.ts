@@ -1,5 +1,4 @@
 import express from 'express';
-import { UserRole } from '@prisma/client';
 import {
   createCostSheet,
   getAllCostSheets,
@@ -26,7 +25,7 @@ import {
   calculateLaceOptions,
   bulkAddLaceItemsController,
 } from '../controllers/styleCostingLaceItems.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermission, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { idParamSchema, styleIdParamSchema, costSheetIdAsIdParamSchema } from '../schemas/common.schema';
@@ -69,7 +68,7 @@ const router = express.Router();
 router.post(
   '/',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  requirePermission('costSheets'),
   validateBody(CreateCostSheetSchema),
   asyncHandler(createCostSheet)
 );
@@ -91,7 +90,6 @@ router.get('/', authenticateToken, validateQuery(costSheetQuerySchema), asyncHan
 router.get(
   '/budget-suggestions/:styleId',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
   validateParams(styleIdParamSchema),
   asyncHandler(getBudgetSuggestions)
 );
@@ -130,7 +128,7 @@ router.get(
 router.put(
   '/:id',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  requirePermission('costSheets'),
   validateParams(costSheetIdAsIdParamSchema),
   validateBody(UpdateCostSheetSchema),
   asyncHandler(updateCostSheet)
@@ -144,7 +142,7 @@ router.put(
 router.patch(
   '/:id/approve',
   authenticateToken,
-  authorize(UserRole.ADMIN), // Admin only for cost sheet approval
+  requireAdmin(), // Admin only for cost sheet approval
   validateParams(costSheetIdAsIdParamSchema),
   validateBody(approveCostSheetSchema),
   asyncHandler(approveCostSheet)
@@ -158,7 +156,7 @@ router.patch(
 router.delete(
   '/:id',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER),
+  requirePermission('costSheets'),
   validateParams(costSheetIdAsIdParamSchema),
   asyncHandler(deleteCostSheet)
 );
@@ -176,7 +174,7 @@ router.delete(
 router.post(
   '/:id/create-version',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  requirePermission('costSheets'),
   validateParams(costSheetIdAsIdParamSchema),
   validateBody(createCostSheetVersionSchema),
   asyncHandler(createCostSheetVersion)
@@ -219,7 +217,7 @@ router.get(
 router.post(
   '/copy',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  requirePermission('costSheets'),
   validateBody(copyCostSheetSchema),
   asyncHandler(copyCostSheetForProcurement)
 );
@@ -233,7 +231,7 @@ router.post(
 router.patch(
   '/:id/actuals',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  requirePermission('costSheets'),
   validateParams(costSheetIdAsIdParamSchema),
   validateBody(updateActualsSchema),
   asyncHandler(updateActuals)
@@ -248,7 +246,7 @@ router.patch(
 router.post(
   '/variance/:id/approve',
   authenticateToken,
-  authorize(UserRole.ADMIN), // Admin only for variance approval
+  requireAdmin(), // Admin only for variance approval
   validateParams(costSheetIdAsIdParamSchema),
   validateBody(approveVarianceSchema),
   asyncHandler(approveVariance)
@@ -266,7 +264,7 @@ router.post(
 router.post(
   '/:costingId/lace-items',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  requirePermission('costSheets'),
   validateParams(costingIdParamSchema),
   validateBody(addLaceItemSchema),
   asyncHandler(addLaceItem)
@@ -280,7 +278,7 @@ router.post(
 router.post(
   '/:costingId/lace-items/bulk',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  requirePermission('costSheets'),
   validateParams(costingIdParamSchema),
   validateBody(bulkAddLaceItemsSchema),
   asyncHandler(bulkAddLaceItemsController)
@@ -294,6 +292,7 @@ router.post(
 router.post(
   '/:costingId/lace-items/calculate-options',
   authenticateToken,
+  requirePermission('costSheets'),
   validateParams(costingIdParamSchema),
   validateBody(calculateLaceOptionsSchema),
   asyncHandler(calculateLaceOptions)
@@ -331,7 +330,7 @@ router.get(
 router.put(
   '/:costingId/lace-items/:itemId',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  requirePermission('costSheets'),
   validateParams(costingAndItemIdParamSchema),
   validateBody(updateLaceItemSchema),
   asyncHandler(updateLaceItemController)
@@ -345,7 +344,7 @@ router.put(
 router.delete(
   '/:costingId/lace-items/:itemId',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER),
+  requirePermission('costSheets'),
   validateParams(costingAndItemIdParamSchema),
   asyncHandler(deleteLaceItem)
 );

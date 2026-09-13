@@ -10,7 +10,7 @@ import {
   getProcessingDetails,
   getMillPerformance,
 } from '../controllers/fabric-processing.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateParams } from '../middleware/validation.middleware';
 import { idParamSchema } from '../schemas/common.schema';
@@ -19,6 +19,7 @@ const router = Router();
 
 // Apply authentication to all routes
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('processingBatches'));
 
 // GET /api/processing/mill-performance - Mill performance analytics
 // Must come BEFORE /:id route to avoid conflict

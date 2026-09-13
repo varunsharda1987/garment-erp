@@ -11,7 +11,7 @@ import {
   getReportTypes,
   cleanupReports,
 } from '../controllers/report.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody } from '../middleware/validation.middleware';
 import { generateReportSchema, cleanupReportsSchema } from '../schemas/report.schema';
@@ -20,6 +20,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('reports'));
 
 /**
  * @route   GET /api/reports/types
@@ -34,30 +35,21 @@ router.get('/types', asyncHandler(getReportTypes));
  * @body    { reportType, format?, dateFrom?, dateTo?, customerId?, supplierId?, styleId?, status? }
  * @access  Managers and above
  */
-router.post(
-  '/generate',
-  authorize('ADMIN', 'PRODUCTION_MANAGER', 'INVENTORY', 'ACCOUNTS'),
-  validateBody(generateReportSchema),
-  asyncHandler(generateReport)
-);
+router.post('/generate', validateBody(generateReportSchema), asyncHandler(generateReport));
 
 /**
  * @route   GET /api/reports
  * @desc    List available reports for download
  * @access  Managers and above
  */
-router.get('/', authorize('ADMIN', 'PRODUCTION_MANAGER', 'INVENTORY', 'ACCOUNTS'), asyncHandler(listReports));
+router.get('/', asyncHandler(listReports));
 
 /**
  * @route   GET /api/reports/download/:fileName
  * @desc    Download a generated report file
  * @access  Managers and above
  */
-router.get(
-  '/download/:fileName',
-  authorize('ADMIN', 'PRODUCTION_MANAGER', 'INVENTORY', 'ACCOUNTS'),
-  asyncHandler(downloadReport)
-);
+router.get('/download/:fileName', asyncHandler(downloadReport));
 
 /**
  * @route   POST /api/reports/cleanup
@@ -65,6 +57,6 @@ router.get(
  * @body    { daysToKeep?: number }
  * @access  Admin only
  */
-router.post('/cleanup', authorize('ADMIN'), validateBody(cleanupReportsSchema), asyncHandler(cleanupReports));
+router.post('/cleanup', requireAdmin(), validateBody(cleanupReportsSchema), asyncHandler(cleanupReports));
 
 export default router;

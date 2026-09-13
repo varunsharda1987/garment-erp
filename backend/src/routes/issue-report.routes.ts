@@ -11,7 +11,7 @@
 
 import { Router } from 'express';
 import { issueReportController } from '../controllers/issue-report.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { uploadIssueScreenshot } from '../middleware/upload.middleware';
@@ -25,6 +25,7 @@ import { idParamSchema } from '../schemas/common.schema';
 const router = Router();
 
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('issueReports'));
 
 // Any authenticated user: submit an issue.
 // Multer MUST run before validateBody — it is what populates req.body for multipart requests.
@@ -39,16 +40,12 @@ router.post(
 router.get('/my', asyncHandler(issueReportController.getMyReports.bind(issueReportController)));
 
 // Admin: open count for badge (declare before /:id)
-router.get(
-  '/open-count',
-  authorize('ADMIN'),
-  asyncHandler(issueReportController.getOpenCount.bind(issueReportController))
-);
+router.get('/open-count', requireAdmin(), asyncHandler(issueReportController.getOpenCount.bind(issueReportController)));
 
 // Admin: list all
 router.get(
   '/',
-  authorize('ADMIN'),
+  requireAdmin(),
   validateQuery(issueReportQuerySchema),
   asyncHandler(issueReportController.getAll.bind(issueReportController))
 );
@@ -56,7 +53,7 @@ router.get(
 // Admin: detail
 router.get(
   '/:id',
-  authorize('ADMIN'),
+  requireAdmin(),
   validateParams(idParamSchema),
   asyncHandler(issueReportController.getById.bind(issueReportController))
 );
@@ -64,14 +61,14 @@ router.get(
 // Admin: update status / notes (PUT alias kept for the persistence smoke suite)
 router.patch(
   '/:id',
-  authorize('ADMIN'),
+  requireAdmin(),
   validateParams(idParamSchema),
   validateBody(updateIssueReportSchema),
   asyncHandler(issueReportController.update.bind(issueReportController))
 );
 router.put(
   '/:id',
-  authorize('ADMIN'),
+  requireAdmin(),
   validateParams(idParamSchema),
   validateBody(updateIssueReportSchema),
   asyncHandler(issueReportController.update.bind(issueReportController))

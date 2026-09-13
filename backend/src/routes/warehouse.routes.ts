@@ -1,7 +1,7 @@
 // Warehouse Routes - API routes for warehouse management
 import express from 'express';
 import * as warehouseController from '../controllers/warehouse.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
 import {
@@ -17,6 +17,7 @@ const router = express.Router();
 
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('warehouses'));
 
 // GET routes
 router.get('/', validateQuery(warehouseQuerySchema), asyncHandler(warehouseController.getAllWarehouses));

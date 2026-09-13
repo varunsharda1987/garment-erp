@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { Download, Filter, RotateCcw, History, ChevronDown, Loader2 } from 'lucide-react';
+import { Download, Filter, RotateCcw, History, ChevronDown, Loader2, ShieldCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -24,9 +24,16 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { UserRole } from '@/types/user.types';
-import { getPermissionMatrix, togglePermission, resetToDefaults, getAuditLog } from '@/services/permission.service';
+import {
+  getPermissionMatrix,
+  togglePermission,
+  bulkUpdatePermissions,
+  resetToDefaults,
+  getAuditLog,
+} from '@/services/permission.service';
 import type { PermissionMatrixResponse, PermissionAuditEntry } from '@/types/permission.types';
 
 // Role display names and colors
@@ -53,6 +60,9 @@ export default function PermissionManagement() {
   const [auditLogs, setAuditLogs] = useState<PermissionAuditEntry[]>([]);
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [loadingAudit, setLoadingAudit] = useState(false);
+  // "All on" / "All off" for one role — confirmed in a dialog because it rewrites every switch
+  const [bulkTarget, setBulkTarget] = useState<{ role: UserRole; allowed: boolean } | null>(null);
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   const allRoles = Object.values(UserRole);
 
@@ -168,6 +178,31 @@ export default function PermissionManagement() {
     }
   };
 
+  // Turn every switch on or off for one role (Admin is always fully on and is never sent)
+  const handleBulk = async () => {
+    if (!matrix || !bulkTarget) return;
+    const { role, allowed } = bulkTarget;
+    try {
+      setBulkSaving(true);
+      const result = await bulkUpdatePermissions(
+        matrix.permissions.map((p) => ({ role, permissionKey: p.permissionKey, allowed }))
+      );
+      if (result.failed > 0) {
+        toast.error(`${result.failed} of ${result.updated + result.failed} switches could not be changed`);
+      } else {
+        toast.success(
+          `${allowed ? 'Enabled' : 'Disabled'} all ${result.updated} modules for ${ROLE_CONFIG[role]?.name || role}`
+        );
+      }
+      await loadMatrix();
+    } catch {
+      toast.error('Failed to update permissions');
+    } finally {
+      setBulkSaving(false);
+      setBulkTarget(null);
+    }
+  };
+
   // Handle reset to defaults
   const handleResetToDefaults = async () => {
     try {
@@ -248,8 +283,10 @@ export default function PermissionManagement() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Reset All Permissions?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This will reset all permissions to their default configuration. Any custom permission changes you have
-                  made will be lost. This action cannot be undone.
+                  This sets every role's switches back to the built-in defaults — a restricted set per role (for
+                  example, Sales keeps Orders, Quotations, Invoices, Styles and Customers). Any changes you have made on
+                  this page will be lost, and users in those roles lose access to the modules that default to off. This
+                  action cannot be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -264,6 +301,19 @@ export default function PermissionManagement() {
           </Button>
         </div>
       </div>
+
+      {/* What these switches do */}
+      <Alert>
+        <ShieldCheck className="h-4 w-4" />
+        <AlertTitle>These switches are enforced</AlertTitle>
+        <AlertDescription>
+          A switch that is off blocks that role from creating or changing anything in the module, and hides it from
+          their menu. The server applies a change immediately; a signed-in user sees their menu change when they next
+          reload the app or sign in. Everyone can still look things up. <strong>Admin always has full access</strong> —
+          its column cannot be changed, and user management, this page, audit and integration settings are always
+          admin-only.
+        </AlertDescription>
+      </Alert>
 
       {/* Role Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -281,11 +331,59 @@ export default function PermissionManagement() {
                 <span>{roleStats[role]?.total || 0}</span>
                 <span className="ml-1">modules</span>
               </div>
+              {role === UserRole.ADMIN ? (
+                <div className="mt-1 text-xs text-muted-foreground">Always full access</div>
+              ) : (
+                <div className="mt-2 flex gap-1" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                    disabled={bulkSaving}
+                    onClick={() => setBulkTarget({ role, allowed: true })}
+                  >
+                    All on
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                    disabled={bulkSaving}
+                    onClick={() => setBulkTarget({ role, allowed: false })}
+                  >
+                    All off
+                  </Button>
+                </div>
+              )}
               {selectedRole === role && <div className="mt-1 text-xs text-info">Click to clear filter</div>}
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <AlertDialog open={bulkTarget !== null} onOpenChange={(open) => !open && !bulkSaving && setBulkTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {bulkTarget?.allowed ? 'Enable' : 'Disable'} every module for{' '}
+              {bulkTarget ? ROLE_CONFIG[bulkTarget.role]?.name || bulkTarget.role : ''}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {bulkTarget?.allowed
+                ? 'Every switch in this column turns on. The role can create and change records in every module.'
+                : 'Every switch in this column turns off. The role can still sign in and look things up, but cannot create or change anything until you turn modules back on.'}{' '}
+              Each change is recorded in Recent Changes.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkSaving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulk} disabled={bulkSaving}>
+              {bulkSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              {bulkTarget?.allowed ? 'Yes, enable all' : 'Yes, disable all'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Filters */}
       <Card>
@@ -381,9 +479,8 @@ export default function PermissionManagement() {
                       </div>
                     </TableCell>
                     {displayRoles.map((role) => {
-                      const isDisabled =
-                        saving === `${role}:${perm.permissionKey}` ||
-                        (role === UserRole.ADMIN && perm.permissionKey === 'admin');
+                      // Admin bypasses every check server-side, so its switches are shown on and locked
+                      const isDisabled = saving === `${role}:${perm.permissionKey}` || role === UserRole.ADMIN;
                       const isSaving = saving === `${role}:${perm.permissionKey}`;
 
                       return (

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { stockProductionOrderController } from '../controllers/stockProductionOrder.controller';
 import { asyncHandler } from '../middleware/error.middleware';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createSPOSchema,
@@ -16,6 +16,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('orders'));
 
 // GET /api/stock-production-orders/search - Search for dropdown (must be before /:id)
 router.get('/search', asyncHandler(stockProductionOrderController.search.bind(stockProductionOrderController)));

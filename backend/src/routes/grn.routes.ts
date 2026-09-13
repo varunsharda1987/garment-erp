@@ -17,8 +17,7 @@ import {
   rejectGRN,
   reverseGRN, // BUG-GRN6 fix
 } from '../controllers/grn.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
-import { UserRole } from '@prisma/client';
+import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
 import {
@@ -35,6 +34,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('grn'));
 
 // ============================================
 // List & Query Routes
@@ -91,24 +91,14 @@ router.get('/:id', validateParams(idParamSchema), asyncHandler(getGRNById));
  * @desc    Create a new GRN
  * @access  Private (INVENTORY, PURCHASE, ADMIN)
  */
-router.post(
-  '/',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY, UserRole.PURCHASE),
-  validateBody(createGRNSchema),
-  asyncHandler(createGRN)
-);
+router.post('/', validateBody(createGRNSchema), asyncHandler(createGRN));
 
 /**
  * @route   POST /api/grn/jwo
  * @desc    Phase 4b: Create a GRN against a Job Work Order (no purchase order)
  * @access  Private (INVENTORY, PURCHASE, ADMIN)
  */
-router.post(
-  '/jwo',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY, UserRole.PURCHASE),
-  validateBody(createJwoGRNSchema),
-  asyncHandler(createGRNFromJWO)
-);
+router.post('/jwo', validateBody(createJwoGRNSchema), asyncHandler(createGRNFromJWO));
 
 // ============================================
 // Status Transition Routes
@@ -119,26 +109,14 @@ router.post(
  * @desc    Approve a GRN (PENDING_QC -> ACCEPTED)
  * @access  Private (QUALITY, INVENTORY, ADMIN)
  */
-router.patch(
-  '/:id/approve',
-  authorize(UserRole.ADMIN, UserRole.QUALITY, UserRole.INVENTORY),
-  validateParams(idParamSchema),
-  validateBody(approveGRNSchema),
-  asyncHandler(approveGRN)
-);
+router.patch('/:id/approve', validateParams(idParamSchema), validateBody(approveGRNSchema), asyncHandler(approveGRN));
 
 /**
  * @route   PATCH /api/grn/:id/reject
  * @desc    Reject a GRN (PENDING_QC -> REJECTED)
  * @access  Private (QUALITY, INVENTORY, ADMIN)
  */
-router.patch(
-  '/:id/reject',
-  authorize(UserRole.ADMIN, UserRole.QUALITY, UserRole.INVENTORY),
-  validateParams(idParamSchema),
-  validateBody(rejectGRNSchema),
-  asyncHandler(rejectGRN)
-);
+router.patch('/:id/reject', validateParams(idParamSchema), validateBody(rejectGRNSchema), asyncHandler(rejectGRN));
 
 // BUG-GRN6 fix: Comprehensive GRN reversal endpoint
 /**
@@ -148,7 +126,7 @@ router.patch(
  */
 router.patch(
   '/:id/reverse',
-  authorize(UserRole.ADMIN),
+  requireAdmin(),
   validateParams(idParamSchema),
   validateBody(reverseGRNSchema),
   asyncHandler(reverseGRN)

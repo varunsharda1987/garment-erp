@@ -9,6 +9,7 @@
 import { z } from 'zod';
 import { UserRole } from '@prisma/client';
 import { logError } from '../../utils/logger';
+import type { PermissionKey } from '../../config/permissions.config';
 
 export interface ToolDefinition {
   type: 'function';
@@ -37,7 +38,11 @@ export interface ActionDefinition {
   method: 'POST';
   /** Static path, or built from the resolved payload (e.g. /api/orders/:id/work-orders). */
   path: string | ((payload: Payload) => string);
-  allowedRoles: UserRole[];
+  /**
+   * The Permissions-page switch that must be on for the caller's role — the same key the target
+   * route enforces, so the assistant can never do what the page says a role cannot.
+   */
+  permission: PermissionKey;
   /** What the MODEL fills in — human-facing names. */
   toolSchema: z.ZodTypeAny;
   /** What the ENDPOINT receives — resolved ids. Re-validated at confirm. */

@@ -7,7 +7,7 @@ import {
   deleteTestingLab,
   getLabStats,
 } from '../controllers/testingLabs.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { createTestingLabSchema, updateTestingLabSchema, testingLabQuerySchema } from '../schemas/testing.schemas';
@@ -17,6 +17,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('testing'));
 
 // Routes
 router.post('/', validateBody(createTestingLabSchema), asyncHandler(createTestingLab));

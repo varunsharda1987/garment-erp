@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { hsnSacMasterController } from '../controllers/hsnSacMaster.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -14,6 +14,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('financialMasters'));
 
 // GET /api/hsn-sac-masters/search - Search for dropdown/autocomplete (must be before /:id)
 router.get('/search', asyncHandler(hsnSacMasterController.search.bind(hsnSacMasterController)));

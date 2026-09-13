@@ -41,6 +41,7 @@ router.get('/unread-count', asyncHandler(getUnreadCount));
  * @desc    Mark a notification as read
  * @access  All authenticated users (own notifications only)
  */
+// open-write: self-service — acts only on the caller's own notifications
 router.patch('/:id/read', validateParams(idParamSchema), asyncHandler(markAsRead));
 
 /**
@@ -48,6 +49,7 @@ router.patch('/:id/read', validateParams(idParamSchema), asyncHandler(markAsRead
  * @desc    Mark all notifications as read
  * @access  All authenticated users
  */
+// open-write: self-service — acts only on the caller's own notifications
 router.post('/mark-all-read', asyncHandler(markAllAsRead));
 
 /**
@@ -55,6 +57,7 @@ router.post('/mark-all-read', asyncHandler(markAllAsRead));
  * @desc    Delete a notification
  * @access  All authenticated users (own notifications only)
  */
+// open-write: self-service — acts only on the caller's own notifications
 router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteNotification));
 
 export default router;

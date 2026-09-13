@@ -8,8 +8,7 @@ import {
   updateAccount,
   deleteAccount,
 } from '../controllers/chartOfAccounts.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
-import { UserRole } from '@prisma/client';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -23,14 +22,10 @@ const router = express.Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('chartOfAccounts'));
 
 // Create new account
-router.post(
-  '/',
-  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
-  validateBody(createChartOfAccountSchema),
-  asyncHandler(createAccount)
-);
+router.post('/', validateBody(createChartOfAccountSchema), asyncHandler(createAccount));
 
 // Get all accounts with pagination and filters
 router.get('/', validateQuery(chartOfAccountQuerySchema), asyncHandler(getAllAccounts));
@@ -44,18 +39,12 @@ router.get('/:id', validateParams(idParamSchema), asyncHandler(getAccountById));
 // Update account
 router.put(
   '/:id',
-  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
   validateParams(idParamSchema),
   validateBody(updateChartOfAccountSchema),
   asyncHandler(updateAccount)
 );
 
 // Delete account (soft delete)
-router.delete(
-  '/:id',
-  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
-  validateParams(idParamSchema),
-  asyncHandler(deleteAccount)
-);
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteAccount));
 
 export default router;

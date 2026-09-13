@@ -22,7 +22,7 @@ import {
   shortClosePurchaseOrder,
   amendDeliveryLocation,
 } from '../controllers/purchaseOrder.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -47,6 +47,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('purchaseOrders'));
 
 // ============================================
 // List & Query Routes
@@ -78,23 +79,14 @@ router.get('/supplier/:supplierId', validateParams(supplierIdParamSchema), async
  * @desc    Get PO statistics grouped by source, category, and status
  * @access  Private (ADMIN, PURCHASE, PRODUCTION_MANAGER, MERCHANDISER, ACCOUNTS)
  */
-router.get(
-  '/stats',
-  authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER', 'ACCOUNTS'),
-  asyncHandler(getPOStatsController)
-);
+router.get('/stats', asyncHandler(getPOStatsController));
 
 /**
  * @route   GET /api/purchase-orders/by-source/:source
  * @desc    Get POs filtered by source type
  * @access  Private (ADMIN, PURCHASE, PRODUCTION_MANAGER, MERCHANDISER, ACCOUNTS)
  */
-router.get(
-  '/by-source/:source',
-  authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER', 'ACCOUNTS'),
-  validateParams(sourceParamSchema),
-  asyncHandler(getPOsBySourceController)
-);
+router.get('/by-source/:source', validateParams(sourceParamSchema), asyncHandler(getPOsBySourceController));
 
 /**
  * @route   GET /api/purchase-orders/:id

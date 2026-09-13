@@ -4,8 +4,7 @@
  */
 
 import { Router } from 'express';
-import { UserRole } from '@prisma/client';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import {
@@ -35,7 +34,7 @@ const router = Router();
 router.use(authenticateToken);
 
 // Admin-only routes for permission management
-router.use(authorize(UserRole.ADMIN));
+router.use(requireAdmin());
 
 // ============================================
 // READ ENDPOINTS

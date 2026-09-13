@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { tallyController } from '../controllers/tally.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody } from '../middleware/validation.middleware';
 import { tallySettingsUpdateSchema, tallyLinkCustomerSchema, tallyLinkSupplierSchema } from '../schemas/tally.schema';
@@ -8,7 +8,7 @@ import { tallySettingsUpdateSchema, tallyLinkCustomerSchema, tallyLinkSupplierSc
 const router = Router();
 
 router.use(authenticateToken);
-router.use(authorize('ADMIN'));
+router.use(requireAdmin());
 
 // GET /api/tally/settings — Get current Tally settings
 router.get('/settings', asyncHandler(tallyController.getSettings.bind(tallyController)));

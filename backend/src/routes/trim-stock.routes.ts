@@ -4,16 +4,16 @@
  */
 import { Router, Request, Response } from 'express';
 import { trimStockService, TrimType } from '../services/trim-stock.service';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { validateBody } from '../middleware/validation.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { createTrimStockSchema } from '../schemas/trimStock.schema';
-import { UserRole } from '@prisma/client';
 
 const router = Router();
 
 // Apply authentication to all routes
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('stockLevels'));
 
 const VALID_TRIM_TYPES: TrimType[] = [
   'BUTTON',
@@ -71,13 +71,6 @@ router.get(
  */
 router.post(
   '/:trimType',
-  authorize(
-    UserRole.ADMIN,
-    UserRole.INVENTORY,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.FACTORY_SUPERVISOR,
-    UserRole.PURCHASE
-  ),
   validateBody(createTrimStockSchema),
   asyncHandler(async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;

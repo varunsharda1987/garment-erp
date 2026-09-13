@@ -6,7 +6,7 @@
 
 import { Router } from 'express';
 import { aiSettingsController } from '../controllers/ai-settings.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody } from '../middleware/validation.middleware';
 import { updateAISettingsSchema, testAIConnectionSchema } from '../schemas/aiSettings.schema';
@@ -15,7 +15,7 @@ const router = Router();
 
 // All routes require authentication and admin role
 router.use(authenticateToken);
-router.use(authorize('ADMIN'));
+router.use(requireAdmin());
 
 // GET /api/ai-settings — Get current AI settings
 router.get('/', asyncHandler(aiSettingsController.getSettings.bind(aiSettingsController)));

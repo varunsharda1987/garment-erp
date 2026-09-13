@@ -15,7 +15,7 @@ import {
   bulkImportColors,
   getImportTemplate,
 } from '../controllers/color.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createColorSchema,
@@ -31,6 +31,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('colorMaster'));
 
 /**
  * @route   GET /api/colors/search

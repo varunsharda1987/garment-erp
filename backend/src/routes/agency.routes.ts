@@ -3,13 +3,14 @@ import { agencyController } from '../controllers/agency.controller';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { createAgencySchema, updateAgencySchema } from '../schemas/agency.schema';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { flexIdParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
 // Apply authentication to all agency routes
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('customers'));
 
 // GET /api/agencies/search - Search agencies for dropdown (must be before /:id)
 router.get('/search', asyncHandler(agencyController.search.bind(agencyController)));

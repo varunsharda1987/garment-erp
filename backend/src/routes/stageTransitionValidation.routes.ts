@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import {
   checkStageTransition,
@@ -28,6 +28,6 @@ router.get('/check-sample-creation', authenticateToken, asyncHandler(checkSample
  * Get admin override history (admin only)
  * Query params: workOrderId?, sampleId?, limit?
  */
-router.get('/override-history', authenticateToken, authorize('ADMIN'), asyncHandler(getOverrideHistory));
+router.get('/override-history', authenticateToken, requireAdmin(), asyncHandler(getOverrideHistory));
 
 export default router;

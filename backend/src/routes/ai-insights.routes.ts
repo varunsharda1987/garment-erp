@@ -6,7 +6,7 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateQuery } from '../middleware/validation.middleware';
 import { aiInsightsService, resolveRange } from '../services/ai/ai-insights.service';
@@ -14,14 +14,9 @@ import { aiInsightsQuerySchema, type AiInsightsQueryInput } from '../schemas/aiI
 
 const router = Router();
 
-// authorize('ADMIN') is a no-op in full-access mode — gate inline like ai-admin.routes.ts
+// Admin floor: not a switch on the Permissions page
 router.use(authenticateToken);
-router.use((req: Request, res: Response, next: NextFunction) => {
-  if (req.user?.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Forbidden', message: 'Admin access required' });
-  }
-  next();
-});
+router.use(requireAdmin());
 
 function readQuery(req: Request): AiInsightsQueryInput {
   return ((req as Request & { validatedQuery?: unknown }).validatedQuery ?? {}) as AiInsightsQueryInput;

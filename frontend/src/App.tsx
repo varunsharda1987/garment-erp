@@ -1,6 +1,7 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useSearchParams, useParams } from 'react-router-dom';
 import { useAuthStore } from './stores/auth.store';
+import { authService } from './services/auth.service';
 import { Toaster } from './components/ui/toaster';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -288,6 +289,25 @@ function RedirectWithParams({ to }: { to: string }) {
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  // Refresh the signed-in user (role + granted permission keys) on every app load, so a switch
+  // flipped on the Permissions page reaches this user at their next reload — not only at their
+  // next sign-in. A 401 is handled by the api interceptor; any other failure keeps the stored user.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelled = false;
+    authService
+      .getCurrentUser()
+      .then((fresh) => {
+        if (cancelled) return;
+        const { user, setUser } = useAuthStore.getState();
+        if (user) setUser({ ...user, ...fresh });
+      })
+      .catch(() => undefined); // allow-silent-catch — a 401 is handled by the api interceptor; anything else keeps the stored user
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   return (
     <ErrorBoundary>

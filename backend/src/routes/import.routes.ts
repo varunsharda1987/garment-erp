@@ -1,7 +1,7 @@
 // Import Routes
 import { Router } from 'express';
 import * as importController from '../controllers/import.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermission } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateParams } from '../middleware/validation.middleware';
 import { moduleParamSchema } from '../schemas/common.schema';
@@ -18,6 +18,7 @@ const router = Router();
 router.post(
   '/:module/preview',
   authenticateToken,
+  requirePermission('masterData'),
   validateParams(moduleParamSchema),
   uploadImportFile,
   asyncHandler(importController.previewImport)
@@ -32,6 +33,7 @@ router.post(
 router.post(
   '/:module/execute',
   authenticateToken,
+  requirePermission('masterData'),
   validateParams(moduleParamSchema),
   uploadImportFile,
   asyncHandler(importController.executeImport)

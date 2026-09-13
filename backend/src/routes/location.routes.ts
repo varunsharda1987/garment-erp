@@ -8,7 +8,7 @@ import { locationService, StateFilterOptions, CityFilterOptions } from '../servi
 import { StateType, CityTier } from '@prisma/client';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { ValidationError } from '../errors';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { validateParams } from '../middleware/validation.middleware';
 import { idParamSchema, stateCodeParamSchema } from '../schemas/common.schema';
 
@@ -17,6 +17,7 @@ const router = express.Router();
 // Apply authentication to all location routes
 // Note: If public access is needed for address lookups, move specific routes before this line
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('warehouses'));
 
 // ============================================
 // State Routes

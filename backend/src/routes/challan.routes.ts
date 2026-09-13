@@ -21,15 +21,18 @@ import {
   splitProductionRunSchema,
 } from '../schemas/challan.schema';
 import { idParamSchema } from '../schemas/common.schema';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // Apply path-specific authentication (this router is mounted at '/')
 // Using path-specific auth instead of global to avoid potential conflicts
 router.use('/challans', authenticateToken);
+router.use('/challans', requirePermissionForWrites('challans'));
 router.use('/po-rates', authenticateToken);
+router.use('/po-rates', requirePermissionForWrites('challans'));
 router.use('/production-runs', authenticateToken);
+router.use('/production-runs', requirePermissionForWrites('challans'));
 
 // Challan routes
 router.get('/challans/stats', asyncHandler(getChallanStatsController));

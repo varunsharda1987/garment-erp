@@ -1,6 +1,6 @@
 ---
 slug: permissions-manage
-title: Manage User Permissions
+title: Control what each role can do (Permissions page)
 keywords:
   # English
   - permissions
@@ -13,6 +13,13 @@ keywords:
   - audit log
   - enable permission
   - disable permission
+  - cannot create
+  - access denied
+  - your role does not have access
+  - only an administrator can do this
+  - menu item missing
+  - all on
+  - all off
   # Hinglish
   - permission dena
   - permission hatana
@@ -20,6 +27,10 @@ keywords:
   - role set karna
   - permission change karna
   - permission reset karna
+  - access nahi hai
+  - menu me nahi dikh raha
+  - permision
+  - permisson
   # Devanagari (MANDATORY)
   - परमिशन
   - एक्सेस कंट्रोल
@@ -27,96 +38,71 @@ keywords:
   - रोल परमिशन
   - परमिशन देना
   - परमिशन हटाना
+  - एक्सेस नहीं है
+  - अनुमति
 sources:
   - frontend/src/config/navigation.ts
+  - frontend/src/components/Sidebar.tsx
   - frontend/src/pages/PermissionManagement.tsx
   - frontend/src/config/permissions.config.ts
-  - backend/src/config/permissions.config.ts
+  - frontend/src/hooks/usePermissions.ts
   - frontend/src/services/permission.service.ts
+  - backend/src/config/permissions.config.ts
+  - backend/src/middleware/auth.middleware.ts
 route: /admin/permissions
 ---
 
-## Overview
+## What this page does
 
-The Permission Management page allows administrators to control which features each role can access. Permissions are organized in a matrix showing all roles against all system features.
+The Permission Management page decides what each role can do in the system. Every switch is enforced by the server: when a switch is off, users in that role cannot create, change, approve or delete anything in that module, and the module disappears from their sidebar. They can still open other pages and look things up.
 
-## Steps to manage permissions
+Only administrators can open this page.
 
-1. **Open the page**: Admin (sidebar) > Permissions
-2. **View the permission matrix**: See all permissions as rows and roles as columns
-3. **Toggle a permission**: Click the switch in the cell where the permission row meets the role column
-   - Blue switch = Enabled (role can access)
-   - Gray switch = Disabled (role cannot access)
-4. **Changes save automatically** when you toggle a switch
+## Steps to change a permission
 
-## Filter permissions
+1. Open **Team & Settings → Permissions** in the sidebar. The page title is **Permission Management**.
+2. Find the module in the **Permission Matrix** table (rows are modules, columns are roles). Use the **Search permissions...** box or the **All Categories** dropdown to narrow the list, or click a role card at the top to show only that role's column.
+3. Click the switch where the module row meets the role column. Blue is enabled, grey is disabled.
+4. The change saves immediately — a message confirms **Enabled … for …** or **Disabled … for …**.
 
-1. **Search**: Type in the search box to find specific permissions by name
-2. **Filter by category**: Select a module group from the dropdown (Dashboard, Styles, Orders, Manufacturing, etc.)
-3. **Filter by role**: 
-   - Click a role card at the top to show only that role's column
-   - Click the same card again to show all roles
-   - Or use the role dropdown in the filters
+## When the change reaches the user
+
+- The server applies it straight away: the next save that user attempts is allowed or refused.
+- Their sidebar updates when they next reload the app or sign in.
+- A refused save shows the message **Your role does not have access to …. Ask an administrator to enable it on the Permissions page.**
+
+## Turn everything on or off for one role
+
+1. In the role cards at the top, click **All on** or **All off** under the role.
+2. Confirm with **Yes, enable all** or **Yes, disable all**.
+3. **All off** leaves the role able to sign in and look things up, but not create or change anything until modules are switched back on.
+
+## Admin is always full access
+
+The **Admin** column is always on and cannot be changed. User management, this Permissions page, audit logs, Tally and e-Invoice settings, permanent deletes and financial approvals are always admin-only — no switch on this page opens them to other roles.
 
 ## Available roles
 
-The system has 9 roles:
-- **Admin** - Full system access
-- **Merchandiser** - Styles, customers, costing
-- **Production Manager** - Production tracking, work orders
-- **Sales** - Orders, quotations, customers
-- **Accounts** - Invoices, payments, finance
-- **Inventory** - Stock management
-- **Quality** - Inspections, testing
-- **Purchase** - POs, suppliers, procurement
-- **Factory Supervisor** - Shop floor operations
-
-## Permission categories
-
-Permissions are grouped by module:
-- **Dashboard** - Main dashboard, process guide, production status, AI assistant
-- **Styles** - Style management, CAD planning, cost sheets
-- **Orders** - Order management, work orders, BOM, MRP
-- **Manufacturing** - Samples, printing, dyeing, cutting, stitching, finishing, challans, dispatch, job work
-- **Inventory** - Stock dashboard, stock levels, stock counts, movements
-- **Procurement** - Purchase orders, GRN, material requirements
-- **Masters** - Customers, suppliers, fabric masters, trim masters, colors, seasons
-- **Finance** - Reports, chart of accounts, invoices, quotations
-- **Quality** - Testing
-- **Messaging** - WhatsApp, internal messaging
-- **Admin** - User management, permissions, override history
+- **Admin** — full system access, always
+- **Merchandiser**, **Production Mgr**, **Sales**, **Accounts**, **Inventory**, **Quality**, **Purchase**, **Factory Sup.** — whatever their switches say
 
 ## Reset to defaults
 
-1. Click the **Reset to Defaults** button (top right)
-2. A confirmation dialog appears warning that all custom changes will be lost
-3. Click **Yes, Reset All** to restore original permissions
-4. All permissions return to their default configuration
+1. Click **Reset to Defaults** (top right).
+2. Read the warning: this puts every role back to a restricted built-in set (for example Sales keeps Orders, Quotations, Invoices, Styles and Customers) and discards every change made on this page. Users lose access to modules that default to off.
+3. Click **Yes, Reset All** to proceed, or **Cancel**.
 
-## Export permissions
+## Export the matrix
 
-1. Click the **Export CSV** button (top right)
-2. A file `permission-matrix.csv` downloads
-3. Open in Excel or Google Sheets to review/share the permission matrix
+Click **Export CSV** (top right). The file `permission-matrix.csv` downloads and opens in Excel or Google Sheets.
 
-## View audit log
+## See who changed what
 
-1. Click the **Recent Changes** section at the bottom to expand it
-2. See a list of permission changes with:
-   - What permission was enabled/disabled
-   - Which role was affected
-   - Who made the change
-   - When it happened
-
-## Role summary cards
-
-At the top of the page, each role shows:
-- How many permissions are enabled (e.g., "45 / 50 modules")
-- Click a card to filter the matrix to only that role
+Click **Recent Changes** at the bottom to expand it. Each entry shows the module, the role, whether it was enabled or disabled, who did it and when.
 
 ## Traps
 
-- **Admin permission cannot be disabled for Admin role** - This prevents locking yourself out
-- **Changes take effect immediately** - Users with that role see the change on their next page load
-- **Reset to Defaults affects ALL roles** - Not just the currently filtered role
-- **Only admins can access this page** - The permissions permission itself controls access
+- A user who cannot see a module in the sidebar, or gets "Your role does not have access", needs that module's switch turned on for their role here — then they reload the app.
+- "Only an administrator can do this" means the action is on the admin-only list above; no switch can open it.
+- The Admin column cannot be changed; use a different role for someone who should have less.
+- **Reset to Defaults** affects every role at once, not only the role you have filtered to.

@@ -4,7 +4,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery } from '../middleware/validation.middleware';
 import { AIProviderFactory } from '../services/ai/providers/AIProviderFactory';
@@ -68,6 +68,7 @@ router.get(
 
 // Protect all other AI routes
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('aiAssistant'));
 
 /**
  * POST /api/ai/chat
@@ -333,8 +334,8 @@ router.post(
       }>;
     };
     const supportsTools = typeof providerWithTools.generateWithTools === 'function';
-    const actionTools = supportsTools ? aiActionsService.getToolsForRole(userRole) : [];
-    const actionPromptLines = actionTools.length > 0 ? aiActionsService.getPromptLinesForRole(userRole) : '';
+    const actionTools = supportsTools ? await aiActionsService.getToolsForRole(userRole) : [];
+    const actionPromptLines = actionTools.length > 0 ? await aiActionsService.getPromptLinesForRole(userRole) : '';
 
     // Enhanced system prompt with ERP context and permissions
     const systemPrompt = `You are an AI assistant for Kashaya Fabs Garment ERP System.

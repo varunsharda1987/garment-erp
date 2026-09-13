@@ -1,121 +1,156 @@
 /**
- * Backend Permission Configuration
- * Mirrors frontend permissions for consistency
- * Used for API-level permission validation and permission matrix endpoint
+ * Permission catalogue + "Reset to Defaults" values.
+ *
+ * WHAT DECIDES ACCESS AT RUNTIME IS THE `role_permissions` TABLE, edited on the Permissions page —
+ * not this file. This file is only:
+ *   1. the CATALOGUE of permission keys (what the page shows, what `requirePermission()` accepts),
+ *   2. the DEFAULT grants the page's "Reset to Defaults" button converges the table to, and the
+ *      fallback used if the table cannot be read.
+ *
+ * ADMIN always passes every check (see `requirePermission` in auth.middleware.ts) — its column
+ * here and in the table is informational.
+ *
+ * The frontend has NO copy of the grants: it receives the signed-in user's granted keys from
+ * `/auth/login` and `/auth/me`. Its `PERMISSION_KEYS` list must match the keys here —
+ * `permission-catalogue-parity.test.ts` fails when they drift.
  */
 
 import { UserRole } from '@prisma/client';
 
+const { ADMIN, MERCHANDISER, PRODUCTION_MANAGER, SALES, INVENTORY, ACCOUNTS, QUALITY, PURCHASE, FACTORY_SUPERVISOR } =
+  UserRole;
+
 // All roles for convenience
 const ALL_ROLES: UserRole[] = [
-  UserRole.ADMIN,
-  UserRole.MERCHANDISER,
-  UserRole.PRODUCTION_MANAGER,
-  UserRole.SALES,
-  UserRole.INVENTORY,
-  UserRole.ACCOUNTS,
-  UserRole.QUALITY,
-  UserRole.PURCHASE,
-  UserRole.FACTORY_SUPERVISOR,
+  ADMIN,
+  MERCHANDISER,
+  PRODUCTION_MANAGER,
+  SALES,
+  INVENTORY,
+  ACCOUNTS,
+  QUALITY,
+  PURCHASE,
+  FACTORY_SUPERVISOR,
 ];
 
 /**
- * Permission configuration - maps feature keys to allowed roles
- * NOTE: Temporarily set to ALL_ROLES for all features (full access mode)
+ * Default grants per permission key (the "Reset to Defaults" state).
  */
 export const PERMISSIONS = {
   // Dashboard - Available to all authenticated users
   dashboard: ALL_ROLES,
   processGuide: ALL_ROLES,
   aiAssistant: ALL_ROLES,
-  aiInsights: [UserRole.ADMIN],
+  aiSettings: [ADMIN],
+  aiInsights: [ADMIN],
+  issueReports: ALL_ROLES,
 
   // Production Status
-  productionStatus: ALL_ROLES,
+  productionStatus: [ADMIN, PRODUCTION_MANAGER, MERCHANDISER, FACTORY_SUPERVISOR],
 
   // Styles & CAD Planning
-  styles: ALL_ROLES,
-  cadPlanning: ALL_ROLES,
-  costSheets: ALL_ROLES,
+  styles: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER, SALES],
+  cadPlanning: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER],
+  costSheets: [ADMIN, MERCHANDISER, ACCOUNTS],
 
   // Testing/Quality
-  testing: ALL_ROLES,
+  testing: [ADMIN, QUALITY, PRODUCTION_MANAGER, MERCHANDISER],
 
   // Orders & Planning
-  orders: ALL_ROLES,
-  workOrders: ALL_ROLES,
-  bom: ALL_ROLES,
-  mrp: ALL_ROLES,
+  orders: [ADMIN, MERCHANDISER, SALES, PRODUCTION_MANAGER],
+  workOrders: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER, FACTORY_SUPERVISOR],
+  bom: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER],
+  mrp: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER, INVENTORY, PURCHASE],
 
   // Manufacturing
-  samples: ALL_ROLES,
-  manufacturing: ALL_ROLES,
-  printing: ALL_ROLES,
-  dyeing: ALL_ROLES,
-  cutting: ALL_ROLES,
-  stitching: ALL_ROLES,
-  finishing: ALL_ROLES,
-  dispatch: ALL_ROLES,
-  jobWork: ALL_ROLES,
-  processingBatches: ALL_ROLES,
+  samples: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER, QUALITY],
+  manufacturing: [ADMIN, PRODUCTION_MANAGER, FACTORY_SUPERVISOR],
+  printing: [ADMIN, PRODUCTION_MANAGER, FACTORY_SUPERVISOR],
+  dyeing: [ADMIN, PRODUCTION_MANAGER, FACTORY_SUPERVISOR],
+  cutting: [ADMIN, PRODUCTION_MANAGER, FACTORY_SUPERVISOR],
+  stitching: [ADMIN, PRODUCTION_MANAGER, FACTORY_SUPERVISOR],
+  finishing: [ADMIN, PRODUCTION_MANAGER, FACTORY_SUPERVISOR, QUALITY],
+  challans: [ADMIN, PRODUCTION_MANAGER, FACTORY_SUPERVISOR, INVENTORY],
+  dispatch: [ADMIN, PRODUCTION_MANAGER, FACTORY_SUPERVISOR, INVENTORY],
+  jobWork: [ADMIN, PRODUCTION_MANAGER, PURCHASE],
+  processingBatches: [ADMIN, PRODUCTION_MANAGER, FACTORY_SUPERVISOR],
 
   // Inventory
-  inventoryDashboard: ALL_ROLES,
-  stockLevels: ALL_ROLES,
-  stockCounts: ALL_ROLES,
-  stockMovements: ALL_ROLES,
-  greigeFabricStock: ALL_ROLES,
-  embroideryStock: ALL_ROLES,
+  inventoryDashboard: [ADMIN, INVENTORY, PRODUCTION_MANAGER, PURCHASE],
+  stockLevels: [ADMIN, INVENTORY, PRODUCTION_MANAGER, PURCHASE, FACTORY_SUPERVISOR],
+  stockCounts: [ADMIN, INVENTORY],
+  stockMovements: [ADMIN, INVENTORY, FACTORY_SUPERVISOR],
+  greigeFabricStock: [ADMIN, INVENTORY, PRODUCTION_MANAGER, PURCHASE],
+  embroideryStock: [ADMIN, INVENTORY, PRODUCTION_MANAGER],
 
   // Procurement
-  purchaseOrders: ALL_ROLES,
-  grn: ALL_ROLES,
-  materialRequirements: ALL_ROLES,
+  purchaseOrders: [ADMIN, PURCHASE, MERCHANDISER],
+  grn: [ADMIN, PURCHASE, INVENTORY],
+  materialRequirements: [ADMIN, PURCHASE, MERCHANDISER, PRODUCTION_MANAGER],
 
   // Masters
   masterData: ALL_ROLES,
-  customers: ALL_ROLES,
-  suppliers: ALL_ROLES,
-  fabricMasters: ALL_ROLES,
-  trimMasters: ALL_ROLES,
-  componentMasters: ALL_ROLES,
-  colorMaster: ALL_ROLES,
-  sizeCategoryMaster: ALL_ROLES,
-  productCategories: ALL_ROLES,
-  warehouses: ALL_ROLES,
+  customers: [ADMIN, MERCHANDISER, SALES, ACCOUNTS],
+  suppliers: [ADMIN, PURCHASE, ACCOUNTS],
+  fabricMasters: [ADMIN, MERCHANDISER, INVENTORY, PURCHASE],
+  trimMasters: [ADMIN, MERCHANDISER, INVENTORY, PURCHASE],
+  componentMasters: [ADMIN, MERCHANDISER],
+  colorMaster: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER],
+  seasonMaster: [ADMIN, MERCHANDISER],
+  sizeCategoryMaster: [ADMIN, MERCHANDISER],
+  productCategories: [ADMIN, MERCHANDISER],
+  warehouses: [ADMIN, INVENTORY],
 
   // Reports & Finance
-  reports: ALL_ROLES,
-  chartOfAccounts: ALL_ROLES,
-  invoices: ALL_ROLES,
-  quotations: ALL_ROLES,
+  reports: [ADMIN, MERCHANDISER, PRODUCTION_MANAGER, ACCOUNTS],
+  chartOfAccounts: [ADMIN, ACCOUNTS],
+  invoices: [ADMIN, ACCOUNTS, SALES],
+  quotations: [ADMIN, SALES, MERCHANDISER],
+  financialMasters: [ADMIN, ACCOUNTS],
+  creditDebitNotes: [ADMIN, ACCOUNTS],
 
   // Messaging (per-user WhatsApp) - available to all authenticated staff
   whatsapp: ALL_ROLES,
   messaging: ALL_ROLES,
 
-  // Admin - now open to all
-  users: ALL_ROLES,
-  admin: ALL_ROLES,
-  permissions: ALL_ROLES,
-  overrideHistory: ALL_ROLES,
+  // Admin
+  users: [ADMIN],
+  admin: [ADMIN],
+  permissions: [ADMIN],
+  overrideHistory: [ADMIN],
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;
 
+/** Every key in the catalogue, in declaration order. */
+export const PERMISSION_KEYS = Object.keys(PERMISSIONS) as PermissionKey[];
+
+export function isPermissionKey(value: unknown): value is PermissionKey {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(PERMISSIONS, value);
+}
+
+/** "costSheets" → "Cost Sheets" — the name the Permissions page shows and 403 messages use. */
+export function formatPermissionName(key: string): string {
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, (str) => str.toUpperCase())
+    .trim();
+}
+
 /**
- * Check if a role has permission for a specific feature
+ * DEFAULT grant check (config only — NOT what the API enforces).
+ * Use `PermissionService.hasPermission` for the live answer.
  */
-export function hasPermission(role: string | undefined, permissionKey: PermissionKey): boolean {
+export function hasDefaultPermission(role: string | undefined, permissionKey: PermissionKey): boolean {
   if (!role) return false;
   const allowedRoles = PERMISSIONS[permissionKey];
   return (allowedRoles as readonly string[]).includes(role);
 }
 
 /**
- * Get all permissions for a given role
+ * DEFAULT grants for a role (config only — NOT what the API enforces).
  */
-export function getPermissionsForRole(role: UserRole): PermissionKey[] {
+export function getDefaultPermissionsForRole(role: UserRole): PermissionKey[] {
   return (Object.entries(PERMISSIONS) as [PermissionKey, readonly UserRole[]][])
     .filter(([, roles]) => roles.includes(role))
     .map(([key]) => key);
@@ -139,10 +174,19 @@ export const MODULES = {
 } as const;
 
 /**
- * Group permissions by module for UI display
+ * Group permissions by module for UI display. Every catalogue key must appear in exactly one
+ * group — `permission-catalogue-parity.test.ts` checks this.
  */
 export const PERMISSION_GROUPS: Record<keyof typeof MODULES, PermissionKey[]> = {
-  DASHBOARD: ['dashboard', 'processGuide', 'productionStatus', 'aiAssistant', 'aiInsights'],
+  DASHBOARD: [
+    'dashboard',
+    'processGuide',
+    'productionStatus',
+    'aiAssistant',
+    'aiSettings',
+    'aiInsights',
+    'issueReports',
+  ],
   STYLES: ['styles', 'cadPlanning', 'costSheets'],
   ORDERS: ['orders', 'workOrders', 'bom', 'mrp'],
   MANUFACTURING: [
@@ -153,6 +197,7 @@ export const PERMISSION_GROUPS: Record<keyof typeof MODULES, PermissionKey[]> = 
     'cutting',
     'stitching',
     'finishing',
+    'challans',
     'dispatch',
     'jobWork',
     'processingBatches',
@@ -174,11 +219,12 @@ export const PERMISSION_GROUPS: Record<keyof typeof MODULES, PermissionKey[]> = 
     'trimMasters',
     'componentMasters',
     'colorMaster',
+    'seasonMaster',
     'sizeCategoryMaster',
     'productCategories',
     'warehouses',
   ],
-  FINANCE: ['reports', 'chartOfAccounts', 'invoices', 'quotations'],
+  FINANCE: ['reports', 'chartOfAccounts', 'invoices', 'quotations', 'financialMasters', 'creditDebitNotes'],
   QUALITY: ['testing'],
   MESSAGING: ['whatsapp', 'messaging'],
   ADMIN: ['users', 'admin', 'permissions', 'overrideHistory'],

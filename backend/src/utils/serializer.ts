@@ -143,6 +143,13 @@ export function toCamelCase<T = unknown>(data: unknown): T {
         if (key === '_count') {
           return key;
         }
+        // SCREAMING_CASE keys are enum VALUES used as map keys (e.g. the permission matrix's
+        // `roles: { ADMIN, PRODUCTION_MANAGER }`), never snake_case column or relation names —
+        // humps would turn them into `aDMIN` / `productionManager` and the client's lookups by
+        // the real enum value would silently miss (the Permissions page showed every switch off).
+        if (/^[A-Z][A-Z0-9_]*$/.test(key)) {
+          return key;
+        }
         return convert(key);
       },
     };

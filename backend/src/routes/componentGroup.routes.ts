@@ -1,6 +1,6 @@
 import express from 'express';
 import { componentGroupController } from '../controllers/componentGroup.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
 import { idParamSchema } from '../schemas/common.schema';
@@ -16,6 +16,7 @@ const router = express.Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('componentMasters'));
 
 // Create a new component group
 router.post(

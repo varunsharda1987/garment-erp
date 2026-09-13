@@ -13,7 +13,7 @@
  */
 
 import { Router } from 'express';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { createUnifiedPOSchema, validatePOInputSchema, checkDuplicatesSchema } from '../schemas/unifiedPo.schema';
@@ -30,6 +30,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('purchaseOrders'));
 
 // ============================================
 // Unified PO Creation & Validation
@@ -39,34 +40,19 @@ router.use(authenticateToken);
  * POST /api/purchase-orders/unified
  * Create a unified PO from any source (MANUAL, COST_SHEET, MRP, SERVICE_REQUIREMENT)
  */
-router.post(
-  '/unified',
-  authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER'),
-  validateBody(createUnifiedPOSchema),
-  asyncHandler(createUnifiedPOController)
-);
+router.post('/unified', validateBody(createUnifiedPOSchema), asyncHandler(createUnifiedPOController));
 
 /**
  * POST /api/purchase-orders/validate
  * Validate PO input without creating
  */
-router.post(
-  '/validate',
-  authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER'),
-  validateBody(validatePOInputSchema),
-  asyncHandler(validatePOInputController)
-);
+router.post('/validate', validateBody(validatePOInputSchema), asyncHandler(validatePOInputController));
 
 /**
  * POST /api/purchase-orders/check-duplicates
  * Check for existing active POs for the same materials
  */
-router.post(
-  '/check-duplicates',
-  authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER'),
-  validateBody(checkDuplicatesSchema),
-  asyncHandler(checkDuplicatesController)
-);
+router.post('/check-duplicates', validateBody(checkDuplicatesSchema), asyncHandler(checkDuplicatesController));
 
 // ============================================
 // Status Management
@@ -86,7 +72,6 @@ router.post(
 router.get(
   '/category-mapping/material/:materialType',
   validateParams(materialTypeParamSchema),
-  authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER', 'ACCOUNTS'),
   asyncHandler(getMaterialCategoryMappingController)
 );
 
@@ -97,7 +82,6 @@ router.get(
 router.get(
   '/category-mapping/service/:serviceType',
   validateParams(serviceTypeParamSchema),
-  authorize('ADMIN', 'PURCHASE', 'PRODUCTION_MANAGER', 'MERCHANDISER', 'ACCOUNTS'),
   asyncHandler(getServiceCategoryMappingController)
 );
 

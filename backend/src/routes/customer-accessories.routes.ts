@@ -9,7 +9,11 @@ import {
   setDefaultPreset,
   cloneAccessoryPreset,
 } from '../controllers/customer-accessories.controller';
-import { authenticateToken as authenticate, authorize } from '../middleware/auth.middleware';
+import {
+  authenticateToken as authenticate,
+  requirePermissionForWrites,
+  requireAdmin,
+} from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -24,6 +28,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
+router.use(requirePermissionForWrites('customers'));
 
 /**
  * @route   GET /api/customers/:customerId/accessory-presets
@@ -69,7 +74,6 @@ router.get(
 router.post(
   '/:customerId/accessory-presets',
   validateParams(customerIdParamSchema),
-  authorize('ADMIN', 'SALES', 'MERCHANDISER'),
   validateBody(createAccessoryPresetSchema),
   asyncHandler(createAccessoryPreset)
 );
@@ -82,7 +86,6 @@ router.post(
 router.put(
   '/:customerId/accessory-presets/:presetId',
   validateParams(customerIdAndPresetIdParamSchema),
-  authorize('ADMIN', 'SALES', 'MERCHANDISER'),
   validateBody(updateAccessoryPresetSchema),
   asyncHandler(updateAccessoryPreset)
 );
@@ -95,7 +98,7 @@ router.put(
 router.delete(
   '/:customerId/accessory-presets/:presetId',
   validateParams(customerIdAndPresetIdParamSchema),
-  authorize('ADMIN'),
+  requireAdmin(),
   asyncHandler(deleteAccessoryPreset)
 );
 
@@ -107,7 +110,6 @@ router.delete(
 router.post(
   '/:customerId/accessory-presets/:presetId/set-default',
   validateParams(customerIdAndPresetIdParamSchema),
-  authorize('ADMIN', 'SALES', 'MERCHANDISER'),
   asyncHandler(setDefaultPreset)
 );
 
@@ -120,7 +122,6 @@ router.post(
 router.post(
   '/:customerId/accessory-presets/:presetId/clone',
   validateParams(customerIdAndPresetIdParamSchema),
-  authorize('ADMIN', 'SALES', 'MERCHANDISER'),
   validateBody(cloneAccessoryPresetSchema),
   asyncHandler(cloneAccessoryPreset)
 );

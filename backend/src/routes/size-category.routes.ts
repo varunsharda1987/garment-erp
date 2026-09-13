@@ -13,13 +13,14 @@ import {
   updateSizeCategorySchema,
   sizeCategoryQuerySchema,
 } from '../schemas/sizeCategory.schema';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { idParamSchema } from '../schemas/common.schema';
 
 const router = Router();
 
 // Apply authentication to all size category routes
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('sizeCategoryMaster'));
 
 // GET /api/size-categories - Get all size categories
 // BUG-MM7 fix: added validation

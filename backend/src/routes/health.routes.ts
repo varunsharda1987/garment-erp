@@ -12,7 +12,7 @@ import { logError } from '../utils/logger';
 import prisma from '../config/database';
 import { runAllCleanupTasks } from '../services/file-cleanup.service';
 import { asyncHandler } from '../middleware/error.middleware';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requireAdmin } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -240,6 +240,7 @@ router.get('/version', (req: Request, res: Response) => {
 router.post(
   '/cleanup',
   authenticateToken,
+  requireAdmin(),
   asyncHandler(async (req: Request, res: Response) => {
     const results = await runAllCleanupTasks();
     res.status(200).json({

@@ -8,6 +8,11 @@ export interface User {
   // Computed display name (for backward compatibility with existing code)
   name?: string;
   role: string;
+  /**
+   * Permission keys this user's role holds (Permissions page). Sent on login and by /auth/me;
+   * absent only for a session persisted before this field existed — App refreshes it on load.
+   */
+  permissions?: string[];
   phone?: string | null;
   createdAt?: string;
 }

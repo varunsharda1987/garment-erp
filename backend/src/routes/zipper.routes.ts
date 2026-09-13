@@ -8,7 +8,7 @@ import {
   bulkImportZipper,
   downloadTemplate,
 } from '../controllers/zipper.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -23,6 +23,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('trimMasters'));
 
 /**
  * @route   POST /api/materials/zipper

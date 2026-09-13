@@ -14,7 +14,7 @@ import {
   getQuotationSummary,
   markExpiredQuotations,
 } from '../controllers/quotation.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { validateBody, validateParams, validateQuery } from '../middleware/validation.middleware';
 import {
   createQuotationSchema,
@@ -23,13 +23,13 @@ import {
   quotationQuerySchema,
   quotationIdParamSchema,
 } from '../schemas/quotation.schema';
-import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('quotations'));
 
 // ============================================
 // Public Routes (All authenticated users)
@@ -64,12 +64,7 @@ router.get('/:id', validateParams(quotationIdParamSchema), asyncHandler(getQuota
  * Create a new quotation
  * Requires: ADMIN or SALES_MANAGER role
  */
-router.post(
-  '/',
-  authorize(UserRole.ADMIN, UserRole.SALES),
-  validateBody(createQuotationSchema),
-  asyncHandler(createQuotation)
-);
+router.post('/', validateBody(createQuotationSchema), asyncHandler(createQuotation));
 
 /**
  * PUT /api/quotations/:id
@@ -78,7 +73,6 @@ router.post(
  */
 router.put(
   '/:id',
-  authorize(UserRole.ADMIN, UserRole.SALES),
   validateParams(quotationIdParamSchema),
   validateBody(updateQuotationSchema),
   asyncHandler(updateQuotation)
@@ -91,7 +85,6 @@ router.put(
  */
 router.put(
   '/:id/status',
-  authorize(UserRole.ADMIN, UserRole.SALES),
   validateParams(quotationIdParamSchema),
   validateBody(updateQuotationStatusSchema),
   asyncHandler(updateQuotationStatus)
@@ -106,13 +99,13 @@ router.put(
  * Delete quotation (only DRAFT quotations can be deleted)
  * Requires: ADMIN role
  */
-router.delete('/:id', authorize(UserRole.ADMIN), validateParams(quotationIdParamSchema), asyncHandler(deleteQuotation));
+router.delete('/:id', requireAdmin(), validateParams(quotationIdParamSchema), asyncHandler(deleteQuotation));
 
 /**
  * POST /api/quotations/mark-expired
  * Mark expired quotations (cron job endpoint)
  * Requires: ADMIN role
  */
-router.post('/mark-expired', authorize(UserRole.ADMIN), asyncHandler(markExpiredQuotations));
+router.post('/mark-expired', requireAdmin(), asyncHandler(markExpiredQuotations));
 
 export default router;

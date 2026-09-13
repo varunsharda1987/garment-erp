@@ -8,7 +8,7 @@
 
 import { Router } from 'express';
 import { jobWorkOrderController } from '../controllers/job-work-order.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { validateBody } from '../middleware/validation.middleware';
 import {
   createJobWorkOrderSchema,
@@ -26,6 +26,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('jobWork'));
 
 // Dashboard and reports (before /:id to avoid conflict)
 router.get('/dashboard', jobWorkOrderController.getDashboard.bind(jobWorkOrderController));

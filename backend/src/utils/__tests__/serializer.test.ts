@@ -56,6 +56,19 @@ describe('Serializer', () => {
       expect(toCamelCase(true)).toBe(true);
     });
 
+    it('preserves SCREAMING_CASE keys (enum values used as map keys, e.g. the permission matrix)', () => {
+      const input = {
+        permission_key: 'orders',
+        roles: { ADMIN: true, PRODUCTION_MANAGER: false, FACTORY_SUPERVISOR: true },
+      };
+
+      const result = toCamelCase<{ permissionKey: string; roles: Record<string, boolean> }>(input);
+
+      expect(result.permissionKey).toBe('orders');
+      // humps alone would produce aDMIN / productionManager / factorySupervisor
+      expect(result.roles).toEqual({ ADMIN: true, PRODUCTION_MANAGER: false, FACTORY_SUPERVISOR: true });
+    });
+
     it('should handle nested objects', () => {
       const input = {
         user_data: {

@@ -1,7 +1,7 @@
 // Greige Stock Routes
 import { Router, Request, Response } from 'express';
 import StyleStockController from '../controllers/style-stock.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermission } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -13,7 +13,6 @@ import {
   stockIdParamSchema,
   processorIdParamSchema,
 } from '../schemas/fabricStock.schema';
-import { UserRole } from '@prisma/client';
 
 const router = Router();
 
@@ -25,7 +24,7 @@ const router = Router();
 router.post(
   '/stock-entry',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  requirePermission('greigeFabricStock'),
   validateBody(createGreigeStockSchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.createGreigeStock(req, res))
 );
@@ -97,7 +96,7 @@ router.get(
 router.patch(
   '/stock/:stockId',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  requirePermission('greigeFabricStock'),
   validateParams(stockIdParamSchema),
   validateBody(updateGreigeStockSchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.updateGreigeStockEntry(req, res))
@@ -111,7 +110,7 @@ router.patch(
 router.post(
   '/stock/:stockId/adjust',
   authenticateToken,
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
+  requirePermission('greigeFabricStock'),
   validateParams(stockIdParamSchema),
   validateBody(adjustGreigeStockSchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.adjustGreigeStockEntry(req, res))

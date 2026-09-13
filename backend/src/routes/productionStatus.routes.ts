@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { getAllProductionStatus, getProductionStatusSummary } from '../controllers/productionStatus.controller';
 import { getOrderStatusList, getOrderStatusSummary } from '../controllers/orderProductionStatus.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('productionStatus'));
 
 // ============================================
 // Style-centric routes (existing)

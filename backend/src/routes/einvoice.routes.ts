@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { einvoiceController } from '../controllers/einvoice.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody } from '../middleware/validation.middleware';
 import { einvoiceSettingsUpdateSchema, einvoiceCancelSchema } from '../schemas/einvoice.schema';
@@ -8,7 +8,7 @@ import { einvoiceSettingsUpdateSchema, einvoiceCancelSchema } from '../schemas/e
 const router = Router();
 
 router.use(authenticateToken);
-router.use(authorize('ADMIN'));
+router.use(requireAdmin());
 
 // GET /api/einvoice/settings — Get current e-Invoice settings (secrets masked)
 router.get('/settings', asyncHandler(einvoiceController.getSettings.bind(einvoiceController)));

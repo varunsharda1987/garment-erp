@@ -16,7 +16,7 @@ import {
   type NavItemOrDivider,
 } from '@/config/navigation';
 import { NAV_ICON_MAP } from '@/config/nav-icons';
-import { hasPermission } from '@/config/permissions.config';
+import { PERMISSION_KEYS, type PermissionKey } from '@/config/permissions.config';
 import { migrateUIPreferences } from '@/stores/ui-preferences.store';
 
 function isNavItem(item: NavItemOrDivider): item is NavItem {
@@ -76,29 +76,47 @@ describe('navigation config', () => {
   });
 });
 
-describe('role-based visibility (mirrors Sidebar filter logic)', () => {
-  function visibleItems(role: string, groupTitle: string): string[] {
+describe('permission-based visibility (mirrors Sidebar filter logic)', () => {
+  // Visibility depends only on the keys a user holds (granted by the Permissions page and sent
+  // on login) — there is no client-side role map any more. Each test states the keys it holds.
+  const STAFF_KEYS: PermissionKey[] = ['dashboard', 'processGuide', 'whatsapp', 'messaging'];
+  const ADMIN_KEYS: PermissionKey[] = [...PERMISSION_KEYS];
+
+  function visibleItems(granted: readonly PermissionKey[], groupTitle: string): string[] {
+    const has = new Set<string>(granted);
     const group = NAV_GROUPS.find((g) => g.title === groupTitle);
     if (!group) return [];
-    if (group.permission && !hasPermission(role, group.permission)) return [];
+    if (group.permission && !has.has(group.permission)) return [];
     return group.items
       .filter(isNavItem)
-      .filter((item) => !item.permission || hasPermission(role, item.permission))
+      .filter((item) => !item.permission || has.has(item.permission))
       .map((item) => item.title);
   }
 
-  it('Team & Settings shows only messaging items + Process Guide to non-admin staff', () => {
-    for (const role of ['SALES', 'FACTORY_SUPERVISOR', 'MERCHANDISER'] as const) {
-      expect(visibleItems(role, 'Team & Settings'), `role ${role}`).toEqual([
-        'My WhatsApp',
-        'Message Staff',
-        'Process Guide',
-      ]);
+  function flatFor(granted: readonly PermissionKey[]): string[] {
+    const has = new Set<string>(granted);
+    return getAllFlatNavItems()
+      .filter((item) => !item.permission || has.has(item.permission))
+      .map((item) => item.title);
+  }
+
+  it('every key the navigation names is a real Permissions-page key', () => {
+    const named = new Set<string>();
+    for (const g of NAV_GROUPS) {
+      if (g.permission) named.add(g.permission);
+      for (const item of g.items) if (isNavItem(item) && item.permission) named.add(item.permission);
     }
+    for (const item of [...TOP_LEVEL_ITEMS, ...SEARCH_ONLY_ITEMS]) if (item.permission) named.add(item.permission);
+    const unknown = [...named].filter((k) => !(PERMISSION_KEYS as readonly string[]).includes(k));
+    expect(unknown, `navigation.ts names keys no switch exists for: ${unknown.join(', ')}`).toEqual([]);
   });
 
-  it('Team & Settings shows the full admin section to ADMIN', () => {
-    const items = visibleItems('ADMIN', 'Team & Settings');
+  it('Team & Settings shows only messaging items + Process Guide to staff without admin keys', () => {
+    expect(visibleItems(STAFF_KEYS, 'Team & Settings')).toEqual(['My WhatsApp', 'Message Staff', 'Process Guide']);
+  });
+
+  it('Team & Settings shows the full admin section when every key is held', () => {
+    const items = visibleItems(ADMIN_KEYS, 'Team & Settings');
     expect(items).toContain('Users');
     expect(items).toContain('Permissions');
     expect(items).toContain('Tally Integration');
@@ -106,58 +124,46 @@ describe('role-based visibility (mirrors Sidebar filter logic)', () => {
     expect(items).not.toContain('Outstanding Sync');
   });
 
-  it('gated tax pages (search-only) are hidden from SALES but findable by ACCOUNTS', () => {
-    const flatFor = (role: string) =>
-      getAllFlatNavItems()
-        .filter((item) => !item.permission || hasPermission(role, item.permission))
-        .map((item) => item.title);
-    const sales = flatFor('SALES');
-    const accounts = flatFor('ACCOUNTS');
+  it('gated tax pages (search-only) are hidden without the finance keys and findable with them', () => {
+    const without = flatFor([...STAFF_KEYS, 'orders', 'invoices']);
+    const withFinance = flatFor([...STAFF_KEYS, 'financialMasters', 'creditDebitNotes']);
     for (const gated of ['Tax Masters', 'Credit Notes', 'Debit Notes', 'TDS Tracking', 'TCS Tracking']) {
-      expect(sales, `SALES should not see ${gated}`).not.toContain(gated);
-      expect(accounts, `ACCOUNTS should see ${gated}`).toContain(gated);
+      expect(without, `should not see ${gated}`).not.toContain(gated);
+      expect(withFinance, `should see ${gated}`).toContain(gated);
     }
     // The hub entry and the ungated pages stay findable by everyone
     for (const open of ['Tax & GST', 'HSN/SAC Codes', 'GST Reports']) {
-      expect(sales, `SALES should see ${open}`).toContain(open);
+      expect(without, `should see ${open}`).toContain(open);
     }
   });
 
-  it('FACTORY_SUPERVISOR keeps a direct Processing Batches entry (its hub is jobWork-gated)', () => {
-    const items = visibleItems('FACTORY_SUPERVISOR', 'Manufacturing');
+  it('a shop-floor user keeps a direct Processing Batches entry when the Job Work hub is off', () => {
+    const items = visibleItems([...STAFF_KEYS, 'manufacturing', 'processingBatches'], 'Manufacturing');
     expect(items).toContain('Processing Batches');
-    // ...precisely because the Job Work Dashboard hub is invisible to this role
+    // ...precisely because the Job Work Dashboard hub is invisible without jobWork
     expect(items).not.toContain('Job Work Dashboard');
   });
 
-  it('every search-only item is visible to at least one role that can see its hub group', () => {
-    // Guard the click-path invariant at the permission level: a SEARCH_ONLY
-    // item whose permission passes for a role must not be orphaned by that
-    // role losing every sidebar entry in the same domain group.
-    const roles = [
-      'ADMIN',
-      'MERCHANDISER',
-      'PRODUCTION_MANAGER',
-      'SALES',
-      'INVENTORY',
-      'ACCOUNTS',
-      'QUALITY',
-      'PURCHASE',
-      'FACTORY_SUPERVISOR',
-    ];
+  // Demoted master pages are reached from the "All Masters" hub (see the click-path comments on
+  // SEARCH_ONLY_ITEMS) — a user allowed a master page is expected to hold the hub's key too.
+  const HUB_KEY_FOR_GROUP: Partial<Record<string, PermissionKey>> = { 'Materials & Masters': 'masterData' };
+
+  it('every search-only item leaves something visible in its hub group for whoever can use it', () => {
+    // Guard the click-path invariant at the permission level: a user holding exactly the keys
+    // a SEARCH_ONLY item needs (its own, its group's, its hub's) must still see at least one
+    // sidebar entry in the same domain group (any larger grant can only show more).
     for (const item of SEARCH_ONLY_ITEMS) {
       const group = NAV_GROUPS.find((g) => g.title === item.group);
-      for (const role of roles) {
-        const canSeeItem = !item.permission || hasPermission(role, item.permission);
-        if (!canSeeItem) continue;
-        // A role blocked by the GROUP's own gate never had sidebar access to
-        // this domain (pre-existing; Ctrl+K-only there is not a regression).
-        if (group?.permission && !hasPermission(role, group.permission)) continue;
-        const groupVisible = visibleItems(role, item.group).length > 0;
-        expect(groupVisible, `${role} can use "${item.title}" but sees nothing in its "${item.group}" group`).toBe(
-          true
-        );
-      }
+      const minimal: PermissionKey[] = [];
+      if (item.permission) minimal.push(item.permission);
+      if (group?.permission) minimal.push(group.permission);
+      const hubKey = HUB_KEY_FOR_GROUP[item.group];
+      if (hubKey) minimal.push(hubKey);
+      const groupVisible = visibleItems(minimal, item.group).length > 0;
+      expect(
+        groupVisible,
+        `a user who can use "${item.title}" (${minimal.join('+') || 'no key'}) sees nothing in its "${item.group}" group`
+      ).toBe(true);
     }
   });
 

@@ -1,7 +1,7 @@
 // Work Order Routes - API routes for work order management
 import express from 'express';
 import * as workOrderController from '../controllers/workOrder.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import {
@@ -20,6 +20,7 @@ const router = express.Router();
 
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('workOrders'));
 
 // Dashboard route - must come before /:id route
 router.get('/dashboard/summary', asyncHandler(workOrderController.getProductionDashboard));

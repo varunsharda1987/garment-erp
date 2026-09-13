@@ -1,7 +1,7 @@
 // Export Routes
 import { Router } from 'express';
 import * as exportController from '../controllers/export.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateParams, validateBody } from '../middleware/validation.middleware';
 import { moduleParamSchema } from '../schemas/common.schema';
@@ -11,6 +11,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('reports'));
 
 /**
  * @route   POST /api/export/:module

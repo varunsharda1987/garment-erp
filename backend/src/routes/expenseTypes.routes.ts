@@ -7,8 +7,7 @@ import {
   updateExpenseType,
   deleteExpenseType,
 } from '../controllers/expenseTypes.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
-import { UserRole } from '@prisma/client';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -22,14 +21,10 @@ const router = express.Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('financialMasters'));
 
 // Create new expense type
-router.post(
-  '/',
-  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
-  validateBody(createExpenseTypeSchema),
-  asyncHandler(createExpenseType)
-);
+router.post('/', validateBody(createExpenseTypeSchema), asyncHandler(createExpenseType));
 
 // Get all expense types with pagination and filters
 router.get('/', validateQuery(expenseTypeQuerySchema), asyncHandler(getAllExpenseTypes));
@@ -40,18 +35,12 @@ router.get('/:id', validateParams(idParamSchema), asyncHandler(getExpenseTypeByI
 // Update expense type
 router.put(
   '/:id',
-  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
   validateParams(idParamSchema),
   validateBody(updateExpenseTypeSchema),
   asyncHandler(updateExpenseType)
 );
 
 // Delete expense type (soft delete)
-router.delete(
-  '/:id',
-  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
-  validateParams(idParamSchema),
-  asyncHandler(deleteExpenseType)
-);
+router.delete('/:id', validateParams(idParamSchema), asyncHandler(deleteExpenseType));
 
 export default router;

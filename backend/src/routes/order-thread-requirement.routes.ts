@@ -5,7 +5,7 @@
 import { Router } from 'express';
 import * as controller from '../controllers/order-thread-requirement.controller';
 import { asyncHandler } from '../middleware/error.middleware';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   idParamSchema,
@@ -27,7 +27,9 @@ const router = Router();
 // Apply authentication to specific route prefixes only (not globally)
 // This prevents auth from affecting other routes when mounted at '/'
 router.use('/thread-requirements', authenticateToken);
+router.use('/thread-requirements', requirePermissionForWrites('orders'));
 router.use('/orders', authenticateToken);
+router.use('/orders', requirePermissionForWrites('orders'));
 
 // Cross-order endpoints (for UnifiedRequirementsPage)
 // These MUST come before /orders/:orderId to avoid route conflicts

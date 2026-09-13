@@ -304,7 +304,7 @@ When creating a new CRUD module end-to-end, follow this exact order (9 files min
 3. **Create `backend/src/schemas/<module>.schema.ts`** — Zod schemas for create/update (SINGLE SOURCE OF TRUTH)
 4. Create `backend/src/services/<module>.service.ts` — copy pattern from `agency.service.ts`
 5. Create `backend/src/controllers/<module>.controller.ts` — copy pattern from `agency.controller.ts`
-6. Create `backend/src/routes/<module>.routes.ts` — **use `validateBody(schema)`** for POST/PUT/PATCH
+6. Create `backend/src/routes/<module>.routes.ts` — **use `validateBody(schema)`** for POST/PUT/PATCH, and gate writes with `router.use(requirePermissionForWrites('<key>'))` (key from `backend/src/config/permissions.config.ts`; `requireAdmin()` for hard-delete/approve). Never hardcode role lists — the Permissions page (`role_permissions` table) is the only source of truth, and `route-write-guard.test.ts` fails any unguarded write.
 7. Register route in `backend/src/routes/index.ts`: `router.use('/<modules>', <module>Routes)`
 
 ### Frontend (4 files + 3 registrations)
@@ -373,6 +373,8 @@ export class <Module>Service {
 
 ### Backend Routes (order matters!)
 ```typescript
+router.use(authenticateToken);
+router.use(requirePermissionForWrites('<permissionKey>')); // Permissions page gates writes; reads stay open
 router.get('/search', controller.search.bind(controller));  // BEFORE /:id
 router.get('/', controller.getAll.bind(controller));
 router.get('/:id', controller.getById.bind(controller));

@@ -7,7 +7,7 @@ import {
   deleteLabelOverride,
   getOrderTotalLabelRequirements,
 } from '../controllers/order-label.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import {
@@ -20,6 +20,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('orders'));
 
 // ============================================
 // Order Label Override Routes
@@ -38,6 +39,7 @@ export const orderItemLabelRouter = Router({ mergeParams: true });
 
 // Apply authentication to order-item-scoped routes
 orderItemLabelRouter.use(authenticateToken);
+orderItemLabelRouter.use(requirePermissionForWrites('orders'));
 
 // Get label requirements for an order item (calculated from breakup)
 orderItemLabelRouter.get(
@@ -69,6 +71,7 @@ export const orderLabelRouter = Router({ mergeParams: true });
 
 // Apply authentication to order-scoped routes
 orderLabelRouter.use(authenticateToken);
+orderLabelRouter.use(requirePermissionForWrites('orders'));
 
 // Get aggregated label requirements for entire order
 orderLabelRouter.get('/label-requirements', asyncHandler(getOrderTotalLabelRequirements));

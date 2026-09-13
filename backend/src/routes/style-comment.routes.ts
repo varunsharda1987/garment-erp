@@ -3,7 +3,7 @@
  * API routes for style collaboration/comments
  */
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermission } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import {
@@ -35,6 +35,7 @@ router.get(
 router.post(
   '/:styleId/comments',
   authenticateToken,
+  requirePermission('styles'),
   validateParams(styleIdAsStyleIdParamSchema),
   validateBody(createStyleCommentSchema),
   asyncHandler(createComment)
@@ -42,6 +43,7 @@ router.post(
 router.patch(
   '/:styleId/comments/:commentId',
   authenticateToken,
+  requirePermission('styles'),
   validateParams(styleAndCommentIdParamSchema),
   validateBody(updateStyleCommentSchema),
   asyncHandler(updateComment)
@@ -49,6 +51,7 @@ router.patch(
 router.delete(
   '/:styleId/comments/:commentId',
   authenticateToken,
+  requirePermission('styles'),
   validateParams(styleAndCommentIdParamSchema),
   asyncHandler(deleteComment)
 );

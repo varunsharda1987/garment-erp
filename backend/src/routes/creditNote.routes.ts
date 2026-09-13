@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { creditNoteController } from '../controllers/creditNote.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
-import { UserRole } from '@prisma/client';
+import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { createCreditNoteSchema, creditNoteQuerySchema } from '../schemas/creditNote.schema';
@@ -11,6 +10,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('creditDebitNotes'));
 
 // GET /api/credit-notes - Get all credit notes with pagination
 router.get(
@@ -29,7 +29,6 @@ router.get(
 // POST /api/credit-notes - Create new credit note
 router.post(
   '/',
-  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
   validateBody(createCreditNoteSchema),
   asyncHandler(creditNoteController.create.bind(creditNoteController))
 );
@@ -37,7 +36,7 @@ router.post(
 // PUT /api/credit-notes/:id/approve - Approve credit note (ADMIN only - segregation of duties)
 router.put(
   '/:id/approve',
-  authorize(UserRole.ADMIN),
+  requireAdmin(),
   validateParams(idParamSchema),
   asyncHandler(creditNoteController.approve.bind(creditNoteController))
 );
@@ -45,7 +44,6 @@ router.put(
 // PUT /api/credit-notes/:id/cancel - Cancel credit note
 router.put(
   '/:id/cancel',
-  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
   validateParams(idParamSchema),
   asyncHandler(creditNoteController.cancel.bind(creditNoteController))
 );
@@ -53,7 +51,6 @@ router.put(
 // DELETE /api/credit-notes/:id - Delete credit note
 router.delete(
   '/:id',
-  authorize(UserRole.ADMIN, UserRole.ACCOUNTS),
   validateParams(idParamSchema),
   asyncHandler(creditNoteController.delete.bind(creditNoteController))
 );

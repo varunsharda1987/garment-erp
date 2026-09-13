@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { idParamSchema, workOrderIdParamSchema, orderIdParamSchema } from '../schemas/common.schema';
@@ -28,8 +28,11 @@ const router = Router();
 // Apply authentication to specific route prefixes only (not globally)
 // This prevents auth from affecting other routes when mounted at '/'
 router.use('/work-orders', authenticateToken);
+router.use('/work-orders', requirePermissionForWrites('mrp'));
 router.use('/orders', authenticateToken);
+router.use('/orders', requirePermissionForWrites('mrp'));
 router.use('/service-requirements', authenticateToken);
+router.use('/service-requirements', requirePermissionForWrites('mrp'));
 
 // ============================================
 // WORK ORDER SERVICE CALCULATION

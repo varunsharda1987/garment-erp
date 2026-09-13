@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { getAllFGStock, getFGStockSummary, getFGStockById } from '../controllers/fg-stock.controller';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('stockLevels'));
 
 // GET /api/fg-stock/summary - Aggregated view by style (before :id to avoid conflict)
 router.get('/summary', asyncHandler(getFGStockSummary));

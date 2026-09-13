@@ -5,7 +5,7 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { getJob, getJobStatus, getQueueStats, isQueueAvailable } from '../jobs';
 import { NotFoundError } from '../errors';
@@ -46,7 +46,6 @@ router.get('/status', authenticateToken, (req: Request, res: Response) => {
 router.get(
   '/stats',
   authenticateToken,
-  authorize('ADMIN', 'PRODUCTION_MANAGER'),
   asyncHandler(async (req: Request, res: Response) => {
     const stats = await getQueueStats();
 
@@ -126,7 +125,6 @@ router.get(
 router.get(
   '/:jobId/details',
   authenticateToken,
-  authorize('ADMIN', 'PRODUCTION_MANAGER'),
   asyncHandler(async (req: Request, res: Response) => {
     const { jobId } = req.params;
     const job = await getJob(jobId);

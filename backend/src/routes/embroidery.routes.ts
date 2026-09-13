@@ -7,7 +7,7 @@ import {
   deleteEmbroidery,
   searchEmbroidery,
 } from '../controllers/embroidery.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import { createEmbroiderySchema, updateEmbroiderySchema, embroideryQuerySchema } from '../schemas/embroidery.schema';
@@ -17,6 +17,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('trimMasters'));
 
 /**
  * @route   POST /api/embroidery

@@ -3,7 +3,7 @@
  * API routes for mood board functionality
  */
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermission } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { uploadStyleImage } from '../middleware/upload.middleware';
@@ -31,16 +31,29 @@ const router = Router();
 
 // Mood board CRUD
 router.get('/', authenticateToken, asyncHandler(getAll));
-router.post('/', authenticateToken, validateBody(createMoodBoardSchema), asyncHandler(create));
+router.post(
+  '/',
+  authenticateToken,
+  requirePermission('styles'),
+  validateBody(createMoodBoardSchema),
+  asyncHandler(create)
+);
 router.get('/:id', authenticateToken, validateParams(idParamSchema), asyncHandler(getById));
 router.patch(
   '/:id',
   authenticateToken,
+  requirePermission('styles'),
   validateParams(idParamSchema),
   validateBody(updateMoodBoardSchema),
   asyncHandler(update)
 );
-router.delete('/:id', authenticateToken, validateParams(idParamSchema), asyncHandler(deleteMoodBoard));
+router.delete(
+  '/:id',
+  authenticateToken,
+  requirePermission('styles'),
+  validateParams(idParamSchema),
+  asyncHandler(deleteMoodBoard)
+);
 
 // Item management
 // NOTE: validateBody must run AFTER uploadStyleImage — multer is what populates
@@ -48,6 +61,7 @@ router.delete('/:id', authenticateToken, validateParams(idParamSchema), asyncHan
 router.post(
   '/:id/items',
   authenticateToken,
+  requirePermission('styles'),
   validateParams(idParamSchema),
   uploadStyleImage,
   validateBody(createMoodBoardItemSchema),
@@ -56,6 +70,7 @@ router.post(
 router.post(
   '/:id/items/bulk-update',
   authenticateToken,
+  requirePermission('styles'),
   validateParams(idParamSchema),
   validateBody(bulkUpdateMoodBoardItemsSchema),
   asyncHandler(bulkUpdateItems)
@@ -63,6 +78,7 @@ router.post(
 router.patch(
   '/:id/items/:itemId',
   authenticateToken,
+  requirePermission('styles'),
   validateParams(idAndItemIdParamSchema),
   validateBody(updateMoodBoardItemSchema),
   asyncHandler(updateItem)
@@ -70,6 +86,7 @@ router.patch(
 router.delete(
   '/:id/items/:itemId',
   authenticateToken,
+  requirePermission('styles'),
   validateParams(idAndItemIdParamSchema),
   asyncHandler(deleteItem)
 );

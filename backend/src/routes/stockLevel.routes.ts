@@ -1,10 +1,9 @@
 // Stock Level Routes - API routes for stock inquiry and management
 import express from 'express';
 import * as stockLevelController from '../controllers/stockLevel.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
-import { UserRole } from '@prisma/client';
 import { updateStockLevelSchema, stockLevelQuerySchema, stockLevelIdParamSchema } from '../schemas/stockLevel.schema';
 import { warehouseIdParamSchema, materialIdParamSchema, materialTypeParamSchema } from '../schemas/common.schema';
 
@@ -12,6 +11,7 @@ const router = express.Router();
 
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('stockLevels'));
 
 // GET routes
 router.get('/', validateQuery(stockLevelQuerySchema), asyncHandler(stockLevelController.getAllStockLevels));
@@ -45,7 +45,6 @@ router.get('/:id', validateParams(stockLevelIdParamSchema), asyncHandler(stockLe
 // PUT routes (write access: Admin, Inventory)
 router.put(
   '/:id',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
   validateParams(stockLevelIdParamSchema),
   validateBody(updateStockLevelSchema),
   asyncHandler(stockLevelController.updateStockLevel)

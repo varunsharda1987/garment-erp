@@ -8,7 +8,7 @@ import {
   updateBOMItem,
   deleteBOMItem,
 } from '../controllers/style-material-bom.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { styleIdParamSchema, materialCodeParamSchema } from '../schemas/common.schema';
@@ -22,6 +22,7 @@ const router = Router();
 
 // Apply authentication to all routes
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('styles'));
 
 // Material search endpoints
 router.get('/materials/search', asyncHandler(searchMaterials));

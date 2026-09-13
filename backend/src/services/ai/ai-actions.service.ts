@@ -21,6 +21,7 @@
 import { ActionStatus, UserRole } from '@prisma/client';
 import prisma from '../../config/database';
 import { logInfo, logError } from '../../utils/logger';
+import { PermissionService } from '../permission.service';
 import {
   ActionContext,
   ActionDefinition,
@@ -62,18 +63,20 @@ export interface ConfirmResult {
 }
 
 class AIActionsService {
+  /** Actions whose Permissions-page switch is on for this role (ADMIN: all of them). */
+  private async actionsForRole(role: UserRole): Promise<ActionDefinition[]> {
+    const granted = new Set(await PermissionService.getPermissionsForRole(role));
+    return Object.values(REGISTRY).filter((def) => granted.has(def.permission));
+  }
+
   /** Tool definitions this role may use (what the model is offered). */
-  getToolsForRole(role: UserRole): ToolDefinition[] {
-    return Object.values(REGISTRY)
-      .filter((def) => def.allowedRoles.includes(role))
-      .map((def) => def.tool);
+  async getToolsForRole(role: UserRole): Promise<ToolDefinition[]> {
+    return (await this.actionsForRole(role)).map((def) => def.tool);
   }
 
   /** Prompt block generated from the registry, so it can never drift from the tools. */
-  getPromptLinesForRole(role: UserRole): string {
-    const lines = Object.values(REGISTRY)
-      .filter((def) => def.allowedRoles.includes(role))
-      .map((def) => `- ${def.label} (${def.actionType})`);
+  async getPromptLinesForRole(role: UserRole): Promise<string> {
+    const lines = (await this.actionsForRole(role)).map((def) => `- ${def.label} (${def.actionType})`);
 
     if (lines.length === 0) return '';
 
@@ -107,7 +110,7 @@ RULES FOR ACTIONS:
     const def = REGISTRY[actionType];
     if (!def) return { kind: 'none' };
 
-    if (!def.allowedRoles.includes(ctx.userRole)) {
+    if (!(await PermissionService.hasPermission(ctx.userRole, def.permission))) {
       return { kind: 'question', question: `Your role is not allowed to ${def.label.toLowerCase()}.` };
     }
 
@@ -188,7 +191,7 @@ RULES FOR ACTIONS:
 
     const def = message.actionType ? REGISTRY[message.actionType] : undefined;
     if (!def) return { success: false, message: 'Unknown action type' };
-    if (!def.allowedRoles.includes(userRole)) {
+    if (!(await PermissionService.hasPermission(userRole, def.permission))) {
       return { success: false, message: 'Your role is not allowed to perform this action' };
     }
 

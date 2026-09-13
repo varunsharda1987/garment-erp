@@ -7,7 +7,7 @@ import {
   deleteLookup,
   bulkCreateLookups,
 } from '../controllers/lookup.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -22,6 +22,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('masterData'));
 
 // GET /api/lookups/categories - Get all categories with counts
 router.get('/categories', asyncHandler(getAllCategories));

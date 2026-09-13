@@ -9,12 +9,12 @@
  * This asserts the structural contract without creating any records:
  *  - the mounted path exists (not 404)
  *  - the tool definition and the two schemas are coherent
- *  - allowedRoles are real UserRole values
+ *  - the permission key is a real Permissions-page switch
  */
 
 import request from 'supertest';
-import { UserRole } from '@prisma/client';
 import app from '../../app';
+import { PERMISSION_KEYS } from '../../config/permissions.config';
 import { aiActionsService } from '../../services/ai/ai-actions.service';
 import { prisma, createTestUser, getAuthHeader } from '../helpers/test-utils';
 import { only } from '../../utils/prisma-test-guard';
@@ -56,11 +56,8 @@ describe('AI action registry', () => {
     expect(action.toolSchema).toBeDefined();
     expect(action.executionSchema).toBeDefined();
 
-    // Roles must be real enum values, and never empty (an empty list hides the action from everyone)
-    expect(action.allowedRoles.length).toBeGreaterThan(0);
-    for (const role of action.allowedRoles) {
-      expect(Object.values(UserRole)).toContain(role);
-    }
+    // The gate must be a real Permissions-page key (a typo would hide the action from everyone)
+    expect(PERMISSION_KEYS).toContain(action.permission);
 
     // Every field the tool marks required must exist in its declared properties
     const params = action.tool.function.parameters as {

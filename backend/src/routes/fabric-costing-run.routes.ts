@@ -4,7 +4,7 @@
  */
 
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { styleIdParamSchema, runIdParamSchema } from '../schemas/common.schema';
@@ -21,6 +21,7 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('costSheets'));
 
 // GET /api/fabric-costing-runs/style/:styleId - Get all runs for a style
 router.get('/style/:styleId', validateParams(styleIdParamSchema), asyncHandler(getRunsByStyle));

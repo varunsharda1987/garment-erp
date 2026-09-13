@@ -33,9 +33,10 @@ module.exports = [
           patterns: [
             {
               group: ['**/middleware/auth.middleware'],
-              importNamePattern: '^(?!authenticateToken$|authorize$).*$',
+              importNamePattern:
+                '^(?!authenticateToken$|requirePermission$|requirePermissionForWrites$|requireAdmin$).*$',
               message:
-                "Only 'authenticateToken' and 'authorize' can be imported from auth.middleware. Do not use aliases.",
+                "Only 'authenticateToken', 'requirePermission', 'requirePermissionForWrites' and 'requireAdmin' can be imported from auth.middleware. Do not use aliases.",
             },
           ],
         },

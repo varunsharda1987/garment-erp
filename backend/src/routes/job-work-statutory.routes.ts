@@ -10,12 +10,13 @@
 
 import { Router } from 'express';
 import { jobWorkStatutoryController } from '../controllers/job-work-statutory.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('jobWork'));
 
 // GET /api/job-work-statutory/summary
 // Quick summary of all statutory metrics

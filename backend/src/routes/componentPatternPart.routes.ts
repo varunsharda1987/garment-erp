@@ -1,6 +1,6 @@
 import express from 'express';
 import { patternPartController } from '../controllers/patternPart.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import {
@@ -13,6 +13,7 @@ const router = express.Router({ mergeParams: true }); // mergeParams to access :
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('componentMasters'));
 
 // Get pattern parts for a component
 router.get('/', asyncHandler(patternPartController.getPatternPartsByComponent.bind(patternPartController)));

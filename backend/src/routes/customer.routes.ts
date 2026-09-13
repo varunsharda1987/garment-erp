@@ -15,7 +15,7 @@ import {
   upsertSampleRequirements,
 } from '../controllers/customer.controller';
 import { getDefaultAccessoryPreset } from '../controllers/customer-accessories.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites, requireAdmin } from '../middleware/auth.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
   createCustomerSchema,
@@ -25,25 +25,20 @@ import {
   upsertSampleRequirementsSchema,
 } from '../schemas/customer.schema';
 import { createAccessoryPresetSchema, updateAccessoryPresetSchema } from '../schemas/customerAccessories.schema';
-import { UserRole } from '@prisma/client';
 import { asyncHandler } from '../middleware/error.middleware';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('customers'));
 
 /**
  * @route   POST /api/customers
  * @desc    Create new customer
  * @access  Protected - Admin, Sales
  */
-router.post(
-  '/',
-  authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER),
-  validateBody(createCustomerSchema),
-  asyncHandler(createCustomer)
-);
+router.post('/', validateBody(createCustomerSchema), asyncHandler(createCustomer));
 
 /**
  * @route   GET /api/customers
@@ -66,7 +61,6 @@ router.get('/:id', validateParams(customerIdParamSchema), asyncHandler(getCustom
  */
 router.put(
   '/:id',
-  authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER),
   validateParams(customerIdParamSchema),
   validateBody(updateCustomerSchema),
   asyncHandler(updateCustomer)
@@ -77,19 +71,14 @@ router.put(
  * @desc    Delete (deactivate) customer
  * @access  Protected - Admin only
  */
-router.delete('/:id', authorize(UserRole.ADMIN), validateParams(customerIdParamSchema), asyncHandler(deleteCustomer));
+router.delete('/:id', requireAdmin(), validateParams(customerIdParamSchema), asyncHandler(deleteCustomer));
 
 /**
  * @route   GET /api/customers/:id/can-deactivate
  * @desc    Check if customer can be deactivated
  * @access  Protected - Admin, Sales, Merchandiser
  */
-router.get(
-  '/:id/can-deactivate',
-  authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER),
-  validateParams(customerIdParamSchema),
-  asyncHandler(canDeactivateCustomer)
-);
+router.get('/:id/can-deactivate', validateParams(customerIdParamSchema), asyncHandler(canDeactivateCustomer));
 
 /**
  * @route   GET /api/customers/:id/accessory-presets
@@ -117,7 +106,6 @@ router.get(
  */
 router.post(
   '/:id/accessory-presets',
-  authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER),
   validateParams(customerIdParamSchema),
   validateBody(createAccessoryPresetSchema),
   asyncHandler(createAccessoryPreset)
@@ -130,7 +118,6 @@ router.post(
  */
 router.put(
   '/:id/accessory-presets/:presetId',
-  authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER),
   validateParams(customerIdParamSchema),
   validateBody(updateAccessoryPresetSchema),
   asyncHandler(updateAccessoryPreset)
@@ -143,7 +130,7 @@ router.put(
  */
 router.delete(
   '/:id/accessory-presets/:presetId',
-  authorize(UserRole.ADMIN),
+  requireAdmin(),
   validateParams(customerIdParamSchema),
   asyncHandler(deleteAccessoryPreset)
 );
@@ -162,7 +149,6 @@ router.get('/:id/sample-requirements', validateParams(customerIdParamSchema), as
  */
 router.put(
   '/:id/sample-requirements',
-  authorize(UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER),
   validateParams(customerIdParamSchema),
   validateBody(upsertSampleRequirementsSchema),
   asyncHandler(upsertSampleRequirements)

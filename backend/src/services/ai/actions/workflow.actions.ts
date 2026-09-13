@@ -31,7 +31,7 @@ const createStyle: ActionDefinition = {
   label: 'Create Style',
   method: 'POST',
   path: '/api/styles',
-  allowedRoles: ['ADMIN', 'MERCHANDISER'],
+  permission: 'styles',
   toolSchema: styleShape,
   executionSchema: styleShape,
   tool: {
@@ -80,7 +80,7 @@ const createSaleOrder: ActionDefinition = {
   label: 'Create Sale Order',
   method: 'POST',
   path: '/api/sale-orders',
-  allowedRoles: ['ADMIN', 'SALES', 'MERCHANDISER'],
+  permission: 'orders',
   toolSchema: saleOrderTool,
   executionSchema: saleOrderExec,
   tool: {
@@ -150,7 +150,7 @@ const createOrder: ActionDefinition = {
   label: 'Create Production Order',
   method: 'POST',
   path: '/api/orders',
-  allowedRoles: ['ADMIN', 'SALES', 'MERCHANDISER', 'PRODUCTION_MANAGER'],
+  permission: 'orders',
   toolSchema: orderTool,
   executionSchema: orderExec,
   tool: {
@@ -237,7 +237,7 @@ const createStockProductionOrder: ActionDefinition = {
   label: 'Create Stock Production Order',
   method: 'POST',
   path: '/api/stock-production-orders',
-  allowedRoles: ['ADMIN', 'MERCHANDISER', 'PRODUCTION_MANAGER'],
+  permission: 'orders',
   toolSchema: spoTool,
   executionSchema: spoExec,
   tool: {
@@ -331,7 +331,7 @@ const createPurchaseOrder: ActionDefinition = {
   label: 'Create Purchase Order',
   method: 'POST',
   path: '/api/purchase-orders',
-  allowedRoles: ['ADMIN', 'PURCHASE', 'MERCHANDISER'],
+  permission: 'purchaseOrders',
   toolSchema: poTool,
   executionSchema: poExec,
   tool: {
@@ -413,7 +413,7 @@ const createWorkOrdersFromOrder: ActionDefinition = {
   method: 'POST',
   // orderId survives on the stored payload even though the BODY schema strips it
   path: (payload: Payload) => `/api/orders/${payload.orderId}/work-orders`,
-  allowedRoles: ['ADMIN', 'PRODUCTION_MANAGER', 'MERCHANDISER'],
+  permission: 'workOrders',
   toolSchema: woTool,
   executionSchema: woExec,
   tool: {
@@ -507,7 +507,7 @@ const receiveGrnFull: ActionDefinition = {
   label: 'Receive All Pending Items on a PO',
   method: 'POST',
   path: '/api/grn',
-  allowedRoles: ['ADMIN', 'INVENTORY', 'PURCHASE'],
+  permission: 'grn',
   toolSchema: grnTool,
   executionSchema: grnExec,
   tool: {

@@ -10,7 +10,7 @@ import {
   clonePreset,
 } from '../controllers/customer-size-presets.controller';
 import { asyncHandler } from '../middleware/error.middleware';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { validateBody, validateParams } from '../middleware/validation.middleware';
 import { customerIdParamSchema, customerIdAndPresetIdParamSchema } from '../schemas/common.schema';
 import {
@@ -23,6 +23,7 @@ const router = express.Router();
 
 // Apply path-specific authentication (this router is mounted at '/')
 router.use('/customers', authenticateToken);
+router.use('/customers', requirePermissionForWrites('customers'));
 
 // Get all size category presets for a customer
 router.get(

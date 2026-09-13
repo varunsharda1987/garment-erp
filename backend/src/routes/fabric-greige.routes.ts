@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermission } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody, validateQuery, validateParams } from '../middleware/validation.middleware';
 import {
@@ -57,6 +57,7 @@ router.get('/greige/next-code', authenticateToken, asyncHandler(greigeController
 router.post(
   '/greige/bulk-import',
   authenticateToken,
+  requirePermission('fabricMasters'),
   validateBody(bulkImportGreigeSchema),
   asyncHandler(greigeController.bulkImportGreigeMasters)
 );
@@ -81,6 +82,7 @@ router.get(
 router.post(
   '/greige',
   authenticateToken,
+  requirePermission('fabricMasters'),
   validateBody(createGreigeMasterSchema),
   asyncHandler(greigeController.createGreigeMaster)
 );
@@ -89,6 +91,7 @@ router.post(
 router.put(
   '/greige/:id',
   authenticateToken,
+  requirePermission('fabricMasters'),
   validateParams(greigeIdParamSchema),
   validateBody(updateGreigeMasterSchema),
   asyncHandler(greigeController.updateGreigeMaster)
@@ -98,6 +101,7 @@ router.put(
 router.delete(
   '/greige/:id',
   authenticateToken,
+  requirePermission('fabricMasters'),
   validateParams(greigeIdParamSchema),
   asyncHandler(greigeController.deleteGreigeMaster)
 );
@@ -154,6 +158,7 @@ router.get(
 router.post(
   '/fabric',
   authenticateToken,
+  requirePermission('fabricMasters'),
   validateBody(createFabricMasterSchema),
   asyncHandler(fabricController.createFabricMaster)
 );
@@ -162,6 +167,7 @@ router.post(
 router.put(
   '/fabric/:id',
   authenticateToken,
+  requirePermission('fabricMasters'),
   validateParams(fabricIdParamSchema),
   validateBody(updateFabricMasterSchema),
   asyncHandler(fabricController.updateFabricMaster)
@@ -171,6 +177,7 @@ router.put(
 router.delete(
   '/fabric/:id',
   authenticateToken,
+  requirePermission('fabricMasters'),
   validateParams(fabricIdParamSchema),
   asyncHandler(fabricController.deleteFabricMaster)
 );
@@ -179,6 +186,7 @@ router.delete(
 router.post(
   '/fabric/bulk-import',
   authenticateToken,
+  requirePermission('fabricMasters'),
   validateBody(bulkImportFabricSchema),
   asyncHandler(fabricController.bulkImportFabricMasters)
 );
@@ -199,6 +207,7 @@ router.get(
 router.post(
   '/fabric/:id/allocate-to-style',
   authenticateToken,
+  requirePermission('fabricMasters'),
   validateParams(fabricIdParamSchema),
   validateBody(allocateToStyleSchema),
   asyncHandler(fabricController.allocateToStyle)
@@ -208,6 +217,7 @@ router.post(
 router.delete(
   '/fabric/:id/style-allocations/:styleFabricId',
   authenticateToken,
+  requirePermission('fabricMasters'),
   validateParams(styleFabricIdParamSchema),
   asyncHandler(fabricController.removeStyleAllocation)
 );
@@ -216,6 +226,7 @@ router.delete(
 router.put(
   '/fabric/:id/allocations/:allocationId/pattern-parts',
   authenticateToken,
+  requirePermission('fabricMasters'),
   validateParams(allocationIdParamSchema),
   validateBody(updateAllocationPatternPartsSchema),
   asyncHandler(fabricController.updateAllocationPatternParts)
@@ -248,12 +259,19 @@ router.get(
 router.get('/cad/:id', authenticateToken, validateParams(cadIdParamSchema), asyncHandler(cadController.getCADById));
 
 // Create new CAD entry
-router.post('/cad', authenticateToken, validateBody(createCADSchema), asyncHandler(cadController.createCAD));
+router.post(
+  '/cad',
+  authenticateToken,
+  requirePermission('fabricMasters'),
+  validateBody(createCADSchema),
+  asyncHandler(cadController.createCAD)
+);
 
 // Update CAD entry
 router.put(
   '/cad/:id',
   authenticateToken,
+  requirePermission('fabricMasters'),
   validateParams(cadIdParamSchema),
   validateBody(updateCADSchema),
   asyncHandler(cadController.updateCAD)
@@ -264,6 +282,12 @@ router.put(
 // wiped the mark across every style sharing the fabric.
 
 // Delete CAD entry
-router.delete('/cad/:id', authenticateToken, validateParams(cadIdParamSchema), asyncHandler(cadController.deleteCAD));
+router.delete(
+  '/cad/:id',
+  authenticateToken,
+  requirePermission('fabricMasters'),
+  validateParams(cadIdParamSchema),
+  asyncHandler(cadController.deleteCAD)
+);
 
 export default router;

@@ -2,10 +2,9 @@
 import { Router, Request, Response } from 'express';
 import StyleImportController from '../controllers/style-import.controller';
 import StyleStockController from '../controllers/style-stock.controller';
-import { authenticateToken, authorize } from '../middleware/auth.middleware';
+import { authenticateToken, requirePermissionForWrites } from '../middleware/auth.middleware';
 import { asyncHandler } from '../middleware/error.middleware';
 import { validateBody } from '../middleware/validation.middleware';
-import { UserRole } from '@prisma/client';
 import multer from 'multer';
 import {
   importStylesSchema,
@@ -39,6 +38,7 @@ const upload = multer({
 
 // All routes require authentication
 router.use(authenticateToken);
+router.use(requirePermissionForWrites('styles'));
 
 // ============================================
 // STYLE IMPORT ROUTES
@@ -51,9 +51,6 @@ router.use(authenticateToken);
  */
 router.post(
   '/import',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
-  // multer MUST run before validateBody: it is what parses the multipart body into req.body
-  // (the CSV/XLSX itself goes to req.file and is not validated here).
   upload.single('file'),
   validateBody(importStylesSchema),
   asyncHandler((req: Request, res: Response) => StyleImportController.importStyles(req, res))
@@ -86,7 +83,6 @@ router.get(
  */
 router.post(
   '/import/:batchId/retry',
-  authorize(UserRole.ADMIN, UserRole.MERCHANDISER),
   validateBody(retryImportSchema),
   asyncHandler((req: Request, res: Response) => StyleImportController.retryImport(req, res))
 );
@@ -102,7 +98,6 @@ router.post(
  */
 router.post(
   '/:styleId/stock-entry',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
   validateBody(createStyleStockSchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.createStyleStock(req, res))
 );
@@ -174,7 +169,6 @@ router.get(
  */
 router.post(
   '/greige/stock-entry',
-  authorize(UserRole.ADMIN, UserRole.INVENTORY),
   validateBody(createGreigeStockSchema),
   asyncHandler((req: Request, res: Response) => StyleStockController.createGreigeStock(req, res))
 );

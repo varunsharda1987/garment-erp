@@ -20,99 +20,90 @@ const ALL_ROLES: UserRole[] = [
 
 /**
  * Permission configuration - maps feature keys to allowed roles
+ * NOTE: Temporarily set to ALL_ROLES for all features (full access mode)
  */
 export const PERMISSIONS = {
   // Dashboard - Available to all authenticated users
   dashboard: ALL_ROLES,
   processGuide: ALL_ROLES,
   aiAssistant: ALL_ROLES,
-  aiSettings: [UserRole.ADMIN], // Admin only - configure AI provider
+  aiSettings: ALL_ROLES,
   aiInsights: [UserRole.ADMIN],
-  issueReports: [UserRole.ADMIN], // Admin only - review team issue reports
+  issueReports: ALL_ROLES,
 
   // Production Status
-  productionStatus: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER, UserRole.FACTORY_SUPERVISOR],
+  productionStatus: ALL_ROLES,
 
   // Styles & CAD Planning
-  styles: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER, UserRole.SALES],
-  cadPlanning: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER],
-  costSheets: ALL_ROLES, // Testing phase: everyone can set fabric prices
+  styles: ALL_ROLES,
+  cadPlanning: ALL_ROLES,
+  costSheets: ALL_ROLES,
 
   // Testing/Quality
-  testing: [UserRole.ADMIN, UserRole.QUALITY, UserRole.PRODUCTION_MANAGER, UserRole.MERCHANDISER],
+  testing: ALL_ROLES,
 
   // Orders & Planning
-  orders: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.SALES, UserRole.PRODUCTION_MANAGER],
-  workOrders: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR],
-  bom: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER],
-  mrp: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER, UserRole.INVENTORY, UserRole.PURCHASE],
+  orders: ALL_ROLES,
+  workOrders: ALL_ROLES,
+  bom: ALL_ROLES,
+  mrp: ALL_ROLES,
 
   // Manufacturing
-  samples: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER, UserRole.QUALITY],
-  manufacturing: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR],
-  printing: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR],
-  dyeing: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR],
-  cutting: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR],
-  stitching: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR],
-  finishing: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR, UserRole.QUALITY],
-  dispatch: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR, UserRole.INVENTORY],
-  jobWork: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.PURCHASE],
-  processingBatches: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR],
-  challans: [UserRole.ADMIN, UserRole.PRODUCTION_MANAGER, UserRole.FACTORY_SUPERVISOR, UserRole.PURCHASE],
+  samples: ALL_ROLES,
+  manufacturing: ALL_ROLES,
+  printing: ALL_ROLES,
+  dyeing: ALL_ROLES,
+  cutting: ALL_ROLES,
+  stitching: ALL_ROLES,
+  finishing: ALL_ROLES,
+  dispatch: ALL_ROLES,
+  jobWork: ALL_ROLES,
+  processingBatches: ALL_ROLES,
+  challans: ALL_ROLES,
 
   // Inventory
-  inventoryDashboard: [UserRole.ADMIN, UserRole.INVENTORY, UserRole.PRODUCTION_MANAGER, UserRole.PURCHASE],
-  stockLevels: [
-    UserRole.ADMIN,
-    UserRole.INVENTORY,
-    UserRole.PRODUCTION_MANAGER,
-    UserRole.PURCHASE,
-    UserRole.FACTORY_SUPERVISOR,
-  ],
-  stockCounts: [UserRole.ADMIN, UserRole.INVENTORY],
-  stockMovements: [UserRole.ADMIN, UserRole.INVENTORY, UserRole.FACTORY_SUPERVISOR],
-  greigeFabricStock: [UserRole.ADMIN, UserRole.INVENTORY, UserRole.PRODUCTION_MANAGER, UserRole.PURCHASE],
-  embroideryStock: [UserRole.ADMIN, UserRole.INVENTORY, UserRole.PRODUCTION_MANAGER],
+  inventoryDashboard: ALL_ROLES,
+  stockLevels: ALL_ROLES,
+  stockCounts: ALL_ROLES,
+  stockMovements: ALL_ROLES,
+  greigeFabricStock: ALL_ROLES,
+  embroideryStock: ALL_ROLES,
 
   // Procurement
-  purchaseOrders: [UserRole.ADMIN, UserRole.PURCHASE, UserRole.MERCHANDISER],
-  grn: [UserRole.ADMIN, UserRole.PURCHASE, UserRole.INVENTORY],
-  materialRequirements: [UserRole.ADMIN, UserRole.PURCHASE, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER],
+  purchaseOrders: ALL_ROLES,
+  grn: ALL_ROLES,
+  materialRequirements: ALL_ROLES,
 
   // Masters
   masterData: ALL_ROLES,
-  customers: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.SALES, UserRole.ACCOUNTS],
-  suppliers: ALL_ROLES, // Testing phase: everyone can set processor rates
-  fabricMasters: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.INVENTORY, UserRole.PURCHASE],
-  trimMasters: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.INVENTORY, UserRole.PURCHASE],
-  componentMasters: [UserRole.ADMIN, UserRole.MERCHANDISER],
-  colorMaster: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER],
-  seasonMaster: [UserRole.ADMIN, UserRole.MERCHANDISER],
-  sizeCategoryMaster: [UserRole.ADMIN, UserRole.MERCHANDISER],
-  productCategories: [UserRole.ADMIN, UserRole.MERCHANDISER],
-  warehouses: [UserRole.ADMIN, UserRole.INVENTORY],
+  customers: ALL_ROLES,
+  suppliers: ALL_ROLES,
+  fabricMasters: ALL_ROLES,
+  trimMasters: ALL_ROLES,
+  componentMasters: ALL_ROLES,
+  colorMaster: ALL_ROLES,
+  seasonMaster: ALL_ROLES,
+  sizeCategoryMaster: ALL_ROLES,
+  productCategories: ALL_ROLES,
+  warehouses: ALL_ROLES,
 
   // Reports & Finance
-  reports: [UserRole.ADMIN, UserRole.MERCHANDISER, UserRole.PRODUCTION_MANAGER, UserRole.ACCOUNTS],
-  chartOfAccounts: [UserRole.ADMIN, UserRole.ACCOUNTS],
-  invoices: [UserRole.ADMIN, UserRole.ACCOUNTS, UserRole.SALES],
-  quotations: [UserRole.ADMIN, UserRole.SALES, UserRole.MERCHANDISER],
-  // Financial masters (tax masters, TDS, TCS) and credit/debit notes.
-  // These had NO entry here, and an unmapped route is treated as "accessible to all authenticated
-  // users" (see usePermissions.canAccessRoute) — so every role was shown pages whose writes the
-  // backend restricts to ADMIN/ACCOUNTS, producing "access denied" on save.
-  financialMasters: [UserRole.ADMIN, UserRole.ACCOUNTS],
-  creditDebitNotes: [UserRole.ADMIN, UserRole.ACCOUNTS],
+  reports: ALL_ROLES,
+  chartOfAccounts: ALL_ROLES,
+  invoices: ALL_ROLES,
+  quotations: ALL_ROLES,
+  financialMasters: ALL_ROLES,
+  creditDebitNotes: ALL_ROLES,
 
   // Messaging (per-user WhatsApp) - available to all authenticated staff
   whatsapp: ALL_ROLES,
   messaging: ALL_ROLES,
 
-  // Admin
-  users: [UserRole.ADMIN],
-  admin: [UserRole.ADMIN],
-  permissions: [UserRole.ADMIN],
-  overrideHistory: [UserRole.ADMIN],
+  // Admin - now open to all
+  users: ALL_ROLES,
+  admin: ALL_ROLES,
+  permissions: ALL_ROLES,
+  overrideHistory: ALL_ROLES,
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;

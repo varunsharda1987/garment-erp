@@ -81,8 +81,9 @@ export const authenticateToken = async (req: Request, res: Response, next: NextF
 
 /**
  * Middleware to check if user has required role
+ * NOTE: Temporarily bypassed - all authenticated users have full access
  */
-export const authorize = (...allowedRoles: UserRole[]) => {
+export const authorize = (..._allowedRoles: UserRole[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
       res.status(401).json({
@@ -92,14 +93,7 @@ export const authorize = (...allowedRoles: UserRole[]) => {
       return;
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
-      res.status(403).json({
-        error: 'Forbidden',
-        message: 'You do not have permission to access this resource',
-      });
-      return;
-    }
-
+    // Full access mode: skip role checking, allow all authenticated users
     next();
   };
 };

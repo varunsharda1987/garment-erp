@@ -10,6 +10,7 @@ import { logInfo, logError, logDebug } from '../utils/logger';
 import { SearchFilter } from '../types/prisma.types';
 import { randomUUID } from 'crypto';
 import { MASTER_CONFIG } from './helpers/master-config';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Types
@@ -224,7 +225,7 @@ class MaterialServiceClass extends BaseService<materials, CreateMaterialDTO, Upd
     const where: Prisma.materialsWhereInput = { isActive: true };
 
     if (search) {
-      where.OR = this.buildSearchFilter(search);
+      applySearch(where, search, this.searchFields);
     }
 
     if (filters.categoryId) {

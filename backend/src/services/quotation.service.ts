@@ -13,6 +13,7 @@ import { randomUUID } from 'crypto';
 import { gstService, GSTCalculation } from './gst.service';
 import { addCurrency, multiplyCurrency, roundToCent } from '../utils/currency';
 import { generateAtomicQuotationNumber } from '../utils/atomicCodeGenerator';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Types
@@ -371,7 +372,7 @@ class QuotationServiceClass extends BaseService<quotations, CreateQuotationDTO, 
 
       // Search filter
       if (search) {
-        where.OR = this.buildSearchFilter(search);
+        applySearch(where, search, this.searchFields);
       }
 
       // Status filter

@@ -186,7 +186,7 @@ class ColorServiceClass extends BaseService<ColorMaster, CreateColorInput, Updat
       }
 
       if (search) {
-        where.OR = this.buildSearchFilter(search);
+        applySearch(where, search, this.searchFields);
       }
 
       // Count total

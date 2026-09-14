@@ -5,6 +5,7 @@ import { NotFoundError, ValidationError } from '../errors';
 import { logWarn } from '../utils/logger';
 import { materialService } from '../services/material.service';
 import { syncMasterToMaterials } from '../services/helpers/material-sync.helper';
+import { applySearch } from '../utils/search-filter';
 
 /**
  * Generic Trim Controller
@@ -242,11 +243,8 @@ export const getAll = async (req: Request, res: Response) => {
   }
 
   if (search) {
-    where.OR = [
-      { [config.nameField]: { contains: String(search), mode: 'insensitive' } },
-      { [config.codeField]: { contains: String(search), mode: 'insensitive' } },
-      { color: { contains: String(search), mode: 'insensitive' } },
-    ];
+    // The name/code columns differ per trim type, so the paths are built at runtime
+    applySearch(where, String(search), [config.nameField, config.codeField, 'color']);
   }
 
   const [total, items] = await Promise.all([

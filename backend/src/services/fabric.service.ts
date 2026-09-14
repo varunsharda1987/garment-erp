@@ -11,6 +11,7 @@ import { SearchFilter } from '../types/prisma.types';
 import { materialService } from './material.service';
 import { syncMasterToMaterials } from './helpers/material-sync.helper';
 import { formatStyleCodeWithRef } from '../utils/style-ref-format';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Types
@@ -256,7 +257,7 @@ class FabricServiceClass extends BaseService<fabric_master, CreateFabricDTO, Upd
     }
 
     if (search) {
-      where.OR = this.buildSearchFilter(search);
+      applySearch(where, search, this.searchFields);
     }
 
     if (filters.greigeId) {

@@ -212,7 +212,7 @@ class AgentServiceClass extends BaseService<Agent, CreateAgentInput, UpdateAgent
       }
 
       if (search) {
-        where.OR = this.buildSearchFilter(search);
+        applySearch(where, search, this.searchFields);
       }
 
       // Count total

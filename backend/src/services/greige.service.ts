@@ -11,6 +11,7 @@ import { SearchFilter } from '../types/prisma.types';
 import { materialService } from './material.service';
 import { generateCode } from '../utils/code-generator';
 import { syncMasterToMaterials } from './helpers/material-sync.helper';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Types
@@ -287,7 +288,7 @@ class GreigeServiceClass extends BaseService<greige_master, CreateGreigeDTO, Upd
     const where: Prisma.greige_masterWhereInput = {};
 
     if (search) {
-      where.OR = this.buildSearchFilter(search);
+      applySearch(where, search, this.searchFields);
     }
 
     // Active filter

@@ -14,6 +14,7 @@ import { gstService } from './gst.service';
 import { roundToCent, multiplyCurrency, addCurrency, toCurrency } from '../utils/currency';
 import { generateAtomicInvoiceNumber } from '../utils/atomicCodeGenerator';
 import { deriveInvoiceStatus } from './helpers/invoice-status.helper';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Types
@@ -708,7 +709,7 @@ class InvoiceServiceClass extends BaseService<invoices, CreateInvoiceDTO, Update
 
       // Search filter
       if (search) {
-        where.OR = this.buildSearchFilter(search);
+        applySearch(where, search, this.searchFields);
       }
 
       // Status filter

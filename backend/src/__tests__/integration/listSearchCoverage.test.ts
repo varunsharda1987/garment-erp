@@ -71,6 +71,8 @@ const LIST_ENDPOINTS: Array<{ label: string; path: string }> = [
   { label: 'machine part master', path: '/api/materials/machine-part' },
   { label: 'other material master', path: '/api/materials/other' },
   { label: 'embroidery master', path: '/api/embroidery' },
+  { label: 'fabric master', path: '/api/fabric-management/fabric' },
+  { label: 'greige master', path: '/api/fabric-management/greige' },
   // Finance
   { label: 'credit notes', path: '/api/credit-notes' },
   { label: 'debit notes', path: '/api/debit-notes' },
@@ -297,6 +299,23 @@ describe('the style picker: what typing reaches, and how the list is ordered', (
 
   it('the materials list refuses an unknown sort column', async () => {
     await request(app).get('/api/materials?sortBy=password&limit=5').set(authHeader).expect(400);
+  });
+
+  // A picker asking for more rows than its endpoint allows 400s with nothing on screen but an
+  // empty box — which is how the Process PO and Lab Dip fabric pickers broke for a few hours on
+  // 2026-09-14. Each row is the page size that screen's picker actually sends.
+  it.each([
+    { label: 'fabric picker (Process PO, Lab Dip)', path: '/api/fabric-management/fabric', limit: 100 },
+    { label: 'greige picker', path: '/api/fabric-management/greige', limit: 100 },
+    { label: 'trim master pickers', path: '/api/materials/button', limit: 100 },
+    { label: 'agent picker', path: '/api/agents/search', limit: 100 },
+    { label: 'style picker', path: '/api/styles', limit: 200 },
+    { label: 'customer picker', path: '/api/customers', limit: 200 },
+    { label: 'supplier picker', path: '/api/suppliers', limit: 200 },
+    { label: 'material picker', path: '/api/materials', limit: 200 },
+    { label: 'colour picker', path: '/api/colors', limit: 200 },
+  ])('$label accepts the page size it asks for ($limit)', async ({ path, limit }) => {
+    await request(app).get(`${path}?limit=${limit}`).set(authHeader).expect(200);
   });
 
   it('status=ACTIVE leaves drafts out — the sale-order picker relies on this', async () => {

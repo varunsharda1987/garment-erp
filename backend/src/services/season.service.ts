@@ -188,7 +188,7 @@ class SeasonServiceClass extends BaseService<SeasonMaster, CreateSeasonInput, Up
       }
 
       if (search) {
-        where.OR = this.buildSearchFilter(search);
+        applySearch(where, search, this.searchFields);
       }
 
       // Count total

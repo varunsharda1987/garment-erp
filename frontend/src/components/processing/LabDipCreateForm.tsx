@@ -96,8 +96,9 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
   // Fabric search query
   const { data: fabricsData, isLoading: fabricsLoading } = useQuery({
     queryKey: ['fabrics-search', fabricSearch],
-    // 200 = a full picker page; 20 hid most of the fabrics, processors and colours (2026-09-14)
-    queryFn: () => fabricService.getAll({ search: fabricSearch, limit: 200 }),
+    // 100 = the fabric list's own cap (fabricGreige.schema.ts); 20 hid most of the fabrics,
+    // processors and colours (2026-09-14). Suppliers and colours below allow more.
+    queryFn: () => fabricService.getAll({ search: fabricSearch, limit: 100 }),
     enabled: fabricOpen || fabricSearch.length >= 2,
   });
 

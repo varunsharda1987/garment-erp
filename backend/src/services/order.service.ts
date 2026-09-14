@@ -14,6 +14,7 @@ import { generateAtomicOrderNumber } from '../utils/atomicCodeGenerator';
 import { validateTransition } from '../utils/stateMachine';
 import { multiplyCurrency, roundToCent, Decimal } from '../utils/currency';
 import { sampleService } from './sample.service';
+import { applySearch } from '../utils/search-filter';
 
 // ============================================
 // Types
@@ -86,6 +87,23 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
   protected get model(): any {
     return this.prisma.orders;
   }
+
+  /**
+   * Shared word-by-word search (search-filter.ts). The list page shows the customer and the
+   * style(s), so both must be searchable — an order number alone was never how anyone looks for
+   * an order. Mirrors ORDER_SEARCH_FIELDS in order.controller.ts.
+   */
+  protected readonly searchFields = [
+    'orderNumber',
+    'customers.name',
+    'customers.code',
+    'order_items[].styles.styleCode',
+    'order_items[].styles.buyerStyleRef',
+    'order_items[].styles.styleName',
+    'sale_orders.saleOrderNumber',
+    'sale_orders.buyerPoNumber',
+    'remarks',
+  ] as const;
 
   protected buildSearchFilter(search: string): SearchFilter {
     return [{ orderNumber: { contains: search, mode: 'insensitive' as const } }];
@@ -474,7 +492,7 @@ class OrderServiceClass extends BaseService<orders, CreateOrderDTO, UpdateOrderD
     const where: Prisma.ordersWhereInput = {};
 
     if (search) {
-      where.OR = this.buildSearchFilter(search);
+      applySearch(where, search, this.searchFields);
     }
 
     if (filters.customerId) {

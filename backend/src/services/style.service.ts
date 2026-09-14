@@ -30,6 +30,7 @@ import { multiplyCurrency, toNumber } from '../utils/currency';
 import { generateAtomicDocNumber } from '../utils/atomicCodeGenerator';
 import { systemSettingsService } from './system-settings.service';
 import { applySearch } from '../utils/search-filter';
+import { syncStyleColourway } from './helpers/style-colour.helper';
 
 // ============================================
 // Deduplicate Style Fabrics Helper
@@ -794,6 +795,10 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
         styleCode = await this.generateStyleCode(data.brandCategoryId, data.productCategoryId);
       }
     }
+
+    // The style's Primary Color has to exist as a colourway too — that row is what the sale-order
+    // colour dropdown, finished-goods stock, dispatch and samples all read.
+    await syncStyleColourway(this.prisma, style.id, data.colorId);
 
     // Handle SKU variants if provided (after style creation)
     if (data.skuVariants && data.skuVariants.length > 0) {
@@ -2059,6 +2064,11 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
           style_variants: true,
         },
       });
+
+      // Keep the colourway in step with the Primary Color. An absent colorId means "unchanged", so
+      // only a supplied one syncs; clearing it deliberately leaves the existing colourway in place
+      // (stock and placed orders may already reference it).
+      await syncStyleColourway(tx, id, data.colorId);
 
       logInfo('Style updated successfully', { id, components: data.components?.length || 0 });
       return style;

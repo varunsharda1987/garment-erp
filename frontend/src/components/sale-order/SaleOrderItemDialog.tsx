@@ -30,6 +30,8 @@ interface ColorOption {
   colorName: string;
   colorCode?: string | null;
   isActive?: boolean;
+  /** The catalogue colour this colourway mirrors — matches the style's own `colorId`. */
+  colorMasterId?: string | null;
 }
 
 interface SizeOption {
@@ -101,12 +103,22 @@ export function SaleOrderItemDialog({
   useEffect(() => {
     if (!styleData) return;
     const style = styleData as StyleWithOptions;
-    setColorOptions(style.colorOptions?.filter((c) => c.isActive !== false) || []);
+    const colors = style.colorOptions?.filter((c) => c.isActive !== false) || [];
+    setColorOptions(colors);
     setSizeOptions(
       (style.sizeOptions?.filter((s) => s.isActive !== false) || []).sort(
         (a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
       )
     );
+
+    // A style IS one colourway here (the code carries it — LNG182P is the pink one), so the line's
+    // colour is the style's Primary Color. Preselect it rather than making the user restate what
+    // picking the style already said; a style whose colour was changed keeps its older colourways,
+    // and the primary one is whichever mirrors `styles.colorId`.
+    if (mode === 'create' && style.colorId) {
+      const primary = colors.find((c) => c.colorMasterId === style.colorId);
+      if (primary) setColorId((prev) => prev ?? primary.id);
+    }
 
     // Auto-fill unit price from style's selling price if available and not editing
     if (mode === 'create' && style.sellingPrice) {

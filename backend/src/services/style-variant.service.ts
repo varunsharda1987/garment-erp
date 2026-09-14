@@ -115,45 +115,10 @@ export class StyleVariantService {
     }
   }
 
-  /**
-   * Find or create color option
-   */
-  async findOrCreateColor(styleId: string, colorName: string): Promise<string | null> {
-    if (!colorName) return null;
-
-    const existing = await prisma.color_options.findFirst({
-      where: {
-        styleId,
-        colorName,
-      },
-    });
-
-    if (existing) return existing.id;
-
-    // BUG-MM8 fix: prevent race condition with P2002 handling
-    try {
-      const newColor = await prisma.color_options.create({
-        data: {
-          id: `${styleId}-color-${colorName}-${Date.now()}`,
-          styleId,
-          colorName,
-          colorCode: null,
-          sortOrder: 0,
-        },
-      });
-
-      return newColor.id;
-    } catch (err: any) {
-      // Handle race condition: another request created the record between our check and create
-      if (err?.code === 'P2002') {
-        const justCreated = await prisma.color_options.findFirst({
-          where: { styleId, colorName },
-        });
-        if (justCreated) return justCreated.id;
-      }
-      throw err;
-    }
-  }
+  // `findOrCreateColor` lived here until 2026-09-14 and had ZERO callers anywhere in the repo —
+  // which is why `color_options` was empty for all 1,130 styles. It also wrote `colorMasterId: null`,
+  // leaving the colourway unlinked from the colour catalogue. Colourways now come from the style's
+  // Primary Color through the single writer: services/helpers/style-colour.helper.ts.
 }
 
 export default new StyleVariantService();

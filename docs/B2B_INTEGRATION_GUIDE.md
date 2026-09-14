@@ -41,7 +41,7 @@ error. The account must stay active with access to the routes in §2.
 | `POST /auth/login` | JWT (cached, re-login on 401) | First login after ERP idle measured ~11 s; B2B allows 30 s |
 | `GET /customers?search=&limit=` | Resolve the one buyer | Exact name match client-side |
 | `GET /styles?search=&limit=` | Resolve style by code | Search is a PREFIX match; B2B exact-matches `styleCode` (LNG215 ≠ LNG215N — colourways are distinct styles) |
-| `GET /styles/:id` | `data.sizeOptions[{id,sizeName,sizeCode,isActive}]`, `data.colorOptions[{id,colorName,isActive}]` | Resolves `sizeId`/`colorId` for sale-order items |
+| `GET /styles/:id` | `data.sizeOptions[{id,sizeName,sizeCode,isActive}]`, `data.colorOptions[{id,colorName,colorMasterId,isActive}]` | Resolves `sizeId`/`colorId` for sale-order items. **2026-09-14:** `colorOptions` mirrors the style's own `colorId` (its Primary Color) — before that it was empty for every style, so every item fell back to `colorId: null` + a remark |
 | `POST /sale-orders` | Create the sale order | Size-wise items — see §3 |
 | `PUT /sale-orders/:id` | Re-send after PO edit | Same items shape; ERP replaces items wholesale; **DRAFT-only** |
 | `GET /sale-orders/:id` | Status read-back + background sync | Fields read in §4 |
@@ -176,9 +176,10 @@ service account.
 When a House-of-Kasya PO carries a style this ERP doesn't have, the B2B send **creates it** here
 (owner decision 2026-07-23): a DRAFT style named/coded from the PO line, brand Kasya/Nihsamah,
 customer "House Of Kasya Pvt Ltd", `sellingPrice` = the PO's net rate (reference only), with
-`size_options`/variants for just the PO's sizes. **It's a skeleton on purpose** — no colours (no
-API exists to create them), no components/BOM/costing/CAD. The factory team completes it like any
-other draft style. Missing sizes on EXISTING styles are likewise auto-added on send (additive).
+`size_options`/variants for just the PO's sizes, and — since 2026-08-29 — the colourway, sent as
+`colorId` (a colour-master id) on create and filled-if-empty on existing styles. **It's a skeleton
+on purpose** — no components/BOM/costing/CAD. The factory team completes it like any other draft
+style. Missing sizes on EXISTING styles are likewise auto-added on send (additive).
 Two extra writes per new style (`POST /styles`, `POST /styles/:id/variants`) is the whole traffic
 cost.
 

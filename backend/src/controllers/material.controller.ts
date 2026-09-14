@@ -139,9 +139,10 @@ export const createMaterial = async (req: Request, res: Response): Promise<void>
  * GET /api/materials
  */
 export const getAllMaterials = async (req: Request, res: Response): Promise<void> => {
-  // page and limit are already numbers after Zod validation (materialQuerySchema transforms them)
-  const page = (req.query.page as unknown as number) || 1;
-  const limit = (req.query.limit as unknown as number) || 10;
+  // req.query is RAW STRINGS under Express 5 (validateQuery only fills req.validatedQuery), so
+  // coerce here — `take: "25"` is a Prisma error, which is what every explicit ?limit= produced.
+  const page = parseInt(req.query.page as string, 10) || 1;
+  const limit = parseInt(req.query.limit as string, 10) || 10;
   const skip = (page - 1) * limit;
   const search = req.query.search as string;
   const categoryId = req.query.categoryId as string;
@@ -149,6 +150,19 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
   const materialTypesParam = req.query.materialTypes as string;
   const materialTypes = materialTypesParam ? materialTypesParam.split(',').filter(Boolean) : [];
   const unit = req.query.unit as string;
+  // Whitelisted (also in materialQuerySchema — validateQuery does not replace req.query): pickers
+  // ask for code/asc so the alphabetically FIRST page comes back, the list page keeps newest-first.
+  const SORTABLE = ['code', 'name', 'createdAt'] as const;
+  const requestedSort = req.query.sortBy as string | undefined;
+  const sortBy = (SORTABLE as readonly string[]).includes(requestedSort ?? '') ? requestedSort! : 'createdAt';
+  const sortOrder: 'asc' | 'desc' =
+    req.query.sortOrder === 'asc'
+      ? 'asc'
+      : req.query.sortOrder === 'desc'
+        ? 'desc'
+        : sortBy === 'createdAt'
+          ? 'desc'
+          : 'asc';
 
   const whereClause: Prisma.materialsWhereInput = { isActive: true };
 
@@ -302,9 +316,7 @@ export const getAllMaterials = async (req: Request, res: Response): Promise<void
           },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { [sortBy]: sortOrder },
     }),
     prisma.materials.count({ where: whereClause }),
   ]);

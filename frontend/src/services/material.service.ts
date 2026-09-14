@@ -23,6 +23,8 @@ export const getAllMaterials = async (params?: {
   supplierId?: string;
   materialTypes?: string;
   unit?: string;
+  sortBy?: 'code' | 'name' | 'createdAt';
+  sortOrder?: 'asc' | 'desc';
 }): Promise<MaterialListResponse> => {
   const { data } = await api.get<MaterialListResponse>('/materials', {
     params,

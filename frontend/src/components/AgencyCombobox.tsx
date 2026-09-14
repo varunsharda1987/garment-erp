@@ -1,7 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Combobox, type ComboboxOption } from './ui/combobox';
+import { useCallback } from 'react';
+import { Combobox } from './ui/combobox';
 import { searchAgencies } from '@/services/agency.service';
+import { usePickerOptions, type PickerPage } from '@/hooks/usePickerOptions';
+import type { AgencySearchResult } from '@/types/agency.types';
 import { toast } from 'sonner';
+
+/** /agencies/search returns a plain array, so a full page is the only sign that more exist. */
+const AGENCY_PICKER_LIMIT = 100;
 
 interface AgencyComboboxProps {
   value?: string;
@@ -18,43 +23,29 @@ export function AgencyCombobox({
   className,
   disabled = false,
 }: AgencyComboboxProps) {
-  const [agencies, setAgencies] = useState<ComboboxOption[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [initialLoaded, setInitialLoaded] = useState(false);
-
-  // Load initial agencies
-  useEffect(() => {
-    loadAgencies('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fetch = useCallback(async (search: string): Promise<PickerPage<AgencySearchResult>> => {
+    const items = await searchAgencies({ search: search || undefined, limit: AGENCY_PICKER_LIMIT });
+    return { items };
   }, []);
 
-  const loadAgencies = useCallback(async (search: string) => {
-    try {
-      setIsLoading(true);
-      const agencyList = await searchAgencies({
-        search: search || undefined,
-        limit: 50,
-      });
-
-      const agencyOptions: ComboboxOption[] = agencyList.map((agency) => ({
-        value: agency.id,
-        label: `${agency.code} - ${agency.name}`,
-        searchText: `${agency.code} ${agency.name} ${agency.phone || ''}`,
-      }));
-
-      setAgencies(agencyOptions);
-      setInitialLoaded(true);
-    } catch (error: unknown) {
+  const { options, isLoading, initialLoaded, load, footer } = usePickerOptions<AgencySearchResult>({
+    fetch,
+    limit: AGENCY_PICKER_LIMIT,
+    toOption: (agency) => ({
+      value: agency.id,
+      label: `${agency.code} - ${agency.name}`,
+      searchText: `${agency.code} ${agency.name} ${agency.phone || ''}`,
+    }),
+    narrowHint: 'type a code or name to narrow',
+    onError: (error) => {
       console.error('Failed to load agencies:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to load agencies');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+  });
 
   return (
     <Combobox
-      options={agencies}
+      options={options}
       value={value}
       onValueChange={onValueChange}
       placeholder={!initialLoaded ? 'Loading agencies...' : placeholder}
@@ -62,8 +53,9 @@ export function AgencyCombobox({
       emptyText="No agencies found."
       disabled={disabled || !initialLoaded}
       className={className}
-      onSearchChange={loadAgencies}
+      onSearchChange={load}
       isLoading={isLoading}
+      footer={footer}
     />
   );
 }

@@ -96,21 +96,22 @@ export default function LabDipCreateForm({ processType, backPath, title }: LabDi
   // Fabric search query
   const { data: fabricsData, isLoading: fabricsLoading } = useQuery({
     queryKey: ['fabrics-search', fabricSearch],
-    queryFn: () => fabricService.getAll({ search: fabricSearch, limit: 20 }),
+    // 200 = a full picker page; 20 hid most of the fabrics, processors and colours (2026-09-14)
+    queryFn: () => fabricService.getAll({ search: fabricSearch, limit: 200 }),
     enabled: fabricOpen || fabricSearch.length >= 2,
   });
 
   // Processor search query (filter by DYEING_PRINTING category)
   const { data: processorsData, isLoading: processorsLoading } = useQuery({
     queryKey: ['processors-search', processorSearch],
-    queryFn: () => getAllSuppliers({ search: processorSearch, category: 'DYEING_PRINTING', limit: 20 }),
+    queryFn: () => getAllSuppliers({ search: processorSearch, category: 'DYEING_PRINTING', limit: 200 }),
     enabled: processorOpen || processorSearch.length >= 2,
   });
 
   // Color search query (dyeing only)
   const { data: colorsData, isLoading: colorsLoading } = useQuery({
     queryKey: ['colors-search', colorSearch],
-    queryFn: () => colorService.search({ search: colorSearch, limit: 20 }),
+    queryFn: () => colorService.search({ search: colorSearch, limit: 200 }),
     enabled: processType === 'DYEING' && (colorOpen || colorSearch.length >= 2),
   });
 

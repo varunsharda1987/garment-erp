@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Combobox, type ComboboxOption } from './ui/combobox';
+import { useCallback, useEffect } from 'react';
+import { Combobox } from './ui/combobox';
 import { colorService } from '@/services/colorService';
+import { usePickerOptions, PICKER_LIMIT, type PickerPage } from '@/hooks/usePickerOptions';
+import type { ColorMaster } from '@/types/color.types';
 import { toast } from 'sonner';
 
 interface ColorData {
@@ -19,6 +21,14 @@ interface ColorComboboxProps {
   disabled?: boolean;
 }
 
+const toColorData = (color: ColorMaster): ColorData => ({
+  id: color.id,
+  colorCode: color.colorCode,
+  colorName: color.colorName,
+  hexCode: color.hexCode,
+  colorFamily: color.colorFamily,
+});
+
 export function ColorCombobox({
   value,
   onValueChange,
@@ -26,77 +36,55 @@ export function ColorCombobox({
   className,
   disabled = false,
 }: ColorComboboxProps) {
-  const [colors, setColors] = useState<ComboboxOption[]>([]);
-  const [colorMap, setColorMap] = useState<Map<string, ColorData>>(new Map());
-  const [isLoading, setIsLoading] = useState(false);
-  const [initialLoaded, setInitialLoaded] = useState(false);
-
-  useEffect(() => {
-    loadColors('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // The paginated list (not /colors/search) so the picker learns how many colours exist in all
+  const fetch = useCallback(async (search: string): Promise<PickerPage<ColorMaster>> => {
+    const response = await colorService.getAll({
+      limit: PICKER_LIMIT,
+      search: search || undefined,
+      isActive: true,
+      sortBy: 'colorCode',
+      sortOrder: 'asc',
+    });
+    return { items: response.data ?? [], total: response.pagination?.total };
   }, []);
+
+  const { options, byId, addItem, isLoading, initialLoaded, load, footer } = usePickerOptions<ColorMaster>({
+    fetch,
+    toOption: (color) => ({
+      value: color.id,
+      label: `${color.colorCode} - ${color.colorName}`,
+      searchText: `${color.colorCode} ${color.colorName} ${color.colorFamily || ''}`,
+    }),
+    narrowHint: 'type a code, name or family to narrow',
+    onError: (error) => {
+      console.error('Failed to load colors:', error);
+      toast.error('Failed to load colors');
+    },
+  });
 
   // Fetch the selected color by ID if not in loaded options
   useEffect(() => {
-    if (value && initialLoaded && !colorMap.has(value)) {
-      // The selected color isn't in the loaded options, fetch it directly
-      colorService
-        .getById(value)
-        .then((color) => {
-          if (color) {
-            setColorMap((prev) => new Map(prev).set(color.id, color));
-            setColors((prev) => {
-              // Don't add duplicate
-              if (prev.some((opt) => opt.value === color.id)) return prev;
-              return [
-                {
-                  value: color.id,
-                  label: `${color.colorCode} - ${color.colorName}`,
-                  searchText: `${color.colorCode} ${color.colorName}`,
-                },
-                ...prev,
-              ];
-            });
-          }
-        })
-        .catch((err) => console.error('Failed to fetch selected color:', err));
-    }
-  }, [value, initialLoaded, colorMap]);
-
-  const loadColors = useCallback(async (search: string) => {
-    try {
-      setIsLoading(true);
-      const response = await colorService.search({ search: search || undefined, limit: 50 });
-
-      const map = new Map<string, ColorData>();
-      const colorOptions: ComboboxOption[] = response.map((color) => {
-        map.set(color.id, color);
-        return {
-          value: color.id,
-          label: `${color.colorCode} - ${color.colorName}`,
-          searchText: `${color.colorCode} ${color.colorName} ${color.colorFamily || ''}`,
-        };
-      });
-
-      setColorMap(map);
-      setColors(colorOptions);
-      setInitialLoaded(true);
-    } catch (error) {
-      console.error('Failed to load colors:', error);
-      toast.error('Failed to load colors');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    if (!value || !initialLoaded || byId.has(value)) return;
+    let cancelled = false;
+    colorService
+      .getById(value)
+      .then((color) => {
+        if (!cancelled && color) addItem(color);
+      })
+      .catch((err) => console.error('Failed to fetch selected color:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [value, initialLoaded, byId, addItem]);
 
   const handleValueChange = (newValue: string) => {
-    const color = colorMap.get(newValue);
-    onValueChange(newValue, color);
+    const color = byId.get(newValue);
+    onValueChange(newValue, color ? toColorData(color) : undefined);
   };
 
   return (
     <Combobox
-      options={colors}
+      options={options}
       value={value}
       onValueChange={handleValueChange}
       placeholder={!initialLoaded ? 'Loading colors...' : placeholder}
@@ -104,8 +92,9 @@ export function ColorCombobox({
       emptyText="No colors found."
       disabled={disabled || !initialLoaded}
       className={className}
-      onSearchChange={loadColors}
+      onSearchChange={load}
       isLoading={isLoading}
+      footer={footer}
     />
   );
 }

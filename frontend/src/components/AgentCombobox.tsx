@@ -1,7 +1,12 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Combobox, type ComboboxOption } from './ui/combobox';
+import { useCallback } from 'react';
+import { Combobox } from './ui/combobox';
 import { searchAgents } from '@/services/agent.service';
+import { usePickerOptions, type PickerPage } from '@/hooks/usePickerOptions';
+import type { AgentSearchResult } from '@/types/agent.types';
 import { toast } from 'sonner';
+
+/** /agents/search returns a plain array; its query schema caps limit at 100. */
+const AGENT_PICKER_LIMIT = 100;
 
 interface AgentComboboxProps {
   value?: string;
@@ -20,47 +25,36 @@ export function AgentCombobox({
   disabled = false,
   agencyId,
 }: AgentComboboxProps) {
-  const [agents, setAgents] = useState<ComboboxOption[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [initialLoaded, setInitialLoaded] = useState(false);
-
-  // Load agents when agencyId changes
-  useEffect(() => {
-    loadAgents('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [agencyId]);
-
-  const loadAgents = useCallback(
-    async (search: string) => {
-      try {
-        setIsLoading(true);
-        const agentList = await searchAgents({
-          search: search || undefined,
-          limit: 50,
-          agencyId: agencyId || undefined,
-        });
-
-        const agentOptions: ComboboxOption[] = agentList.map((agent) => ({
-          value: agent.id,
-          label: `${agent.code} - ${agent.name}`,
-          searchText: `${agent.code} ${agent.name} ${agent.phone || ''}`,
-        }));
-
-        setAgents(agentOptions);
-        setInitialLoaded(true);
-      } catch (error: unknown) {
-        console.error('Failed to load agents:', error);
-        toast.error(error instanceof Error ? error.message : 'Failed to load agents');
-      } finally {
-        setIsLoading(false);
-      }
+  const fetch = useCallback(
+    async (search: string): Promise<PickerPage<AgentSearchResult>> => {
+      const items = await searchAgents({
+        search: search || undefined,
+        limit: AGENT_PICKER_LIMIT,
+        agencyId: agencyId || undefined,
+      });
+      return { items };
     },
     [agencyId]
   );
 
+  const { options, isLoading, initialLoaded, load, footer } = usePickerOptions<AgentSearchResult>({
+    fetch,
+    limit: AGENT_PICKER_LIMIT,
+    toOption: (agent) => ({
+      value: agent.id,
+      label: `${agent.code} - ${agent.name}`,
+      searchText: `${agent.code} ${agent.name} ${agent.phone || ''}`,
+    }),
+    narrowHint: 'type a code, name or phone to narrow',
+    onError: (error) => {
+      console.error('Failed to load agents:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to load agents');
+    },
+  });
+
   return (
     <Combobox
-      options={agents}
+      options={options}
       value={value}
       onValueChange={onValueChange}
       placeholder={!initialLoaded ? 'Loading agents...' : placeholder}
@@ -68,8 +62,9 @@ export function AgentCombobox({
       emptyText="No agents found."
       disabled={disabled || !initialLoaded}
       className={className}
-      onSearchChange={loadAgents}
+      onSearchChange={load}
       isLoading={isLoading}
+      footer={footer}
     />
   );
 }

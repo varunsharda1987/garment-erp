@@ -83,7 +83,7 @@ export default function ColorPicker({
       const results = await colorService.search({
         search: debouncedSearch || undefined,
         colorFamily: familyFilter || filterByFamily || undefined,
-        limit: 50,
+        limit: 200, // 50 hid three quarters of the 194 colours (2026-09-14)
       });
       setColors(results);
     } catch (error) {

@@ -48,7 +48,7 @@ route: /dispatch/delivery-notes/new
 2. Click **+ Create Delivery Note** (top-right button) or use the **Create Delivery Note** action from an existing ASN.
 
 3. In the **Delivery Details** card:
-   - Select the **Order *** by searching with order number or customer name.
+   - Select the **Order *** by searching with order number or customer name. The box lists the 50 most recent orders; if it says **Showing the 50 most recent of …**, type part of the order number or the customer name to bring up an older one.
    - The **Customer *** auto-fills from the selected order. You can change it if needed.
    - Set the **Delivery Date *** (defaults to today).
 

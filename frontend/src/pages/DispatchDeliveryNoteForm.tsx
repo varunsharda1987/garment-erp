@@ -72,6 +72,7 @@ export default function DispatchDeliveryNoteForm() {
 
   // Lookups
   const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersTotal, setOrdersTotal] = useState<number | undefined>(undefined);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [customers, setCustomers] = useState<Array<{ id: string; code?: string; name: string }>>([]);
 
@@ -99,6 +100,7 @@ export default function DispatchDeliveryNoteForm() {
       setOrdersLoading(true);
       const res = await getAllOrders({ page: 1, limit: 50, search: search || undefined });
       setOrders(res.data || []);
+      setOrdersTotal(res.pagination?.total);
     } catch (err) {
       logError('Failed to load orders', err);
     } finally {
@@ -396,6 +398,11 @@ export default function DispatchDeliveryNoteForm() {
                   searchPlaceholder="Search by order number or customer..."
                   onSearchChange={handleOrderSearch}
                   isLoading={ordersLoading}
+                  footer={
+                    ordersTotal !== undefined && ordersTotal > orders.length
+                      ? `Showing the ${orders.length} most recent of ${ordersTotal.toLocaleString('en-IN')} orders — type an order number or customer to narrow`
+                      : undefined
+                  }
                 />
               </div>
               <div className="space-y-2">

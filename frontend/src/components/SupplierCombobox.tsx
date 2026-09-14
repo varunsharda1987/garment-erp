@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Combobox, type ComboboxOption } from './ui/combobox';
+import { useCallback } from 'react';
+import { Combobox } from './ui/combobox';
 import { getAllSuppliers } from '@/services/supplier.service';
+import { usePickerOptions, PICKER_LIMIT, type PickerPage } from '@/hooks/usePickerOptions';
+import type { Supplier } from '@/types/supplier.types';
 import { toast } from 'sonner';
 
 interface SupplierComboboxProps {
@@ -24,44 +26,37 @@ export function SupplierCombobox({
   allowAll = false,
   allLabel = 'All Suppliers',
 }: SupplierComboboxProps) {
-  const [suppliers, setSuppliers] = useState<ComboboxOption[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [initialLoaded, setInitialLoaded] = useState(false);
-
-  // Load initial suppliers
-  useEffect(() => {
-    loadSuppliers('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryFilter]);
-
-  const loadSuppliers = useCallback(
-    async (search: string) => {
-      try {
-        setIsLoading(true);
-        // Server-side search with reasonable limit
-        const response = await getAllSuppliers({
-          limit: 50,
-          search: search || undefined,
-          category: categoryFilter || undefined,
-        });
-
-        const supplierOptions: ComboboxOption[] = (response.data ?? []).map((supplier) => ({
-          value: supplier.id,
-          label: `${supplier.code} - ${supplier.name}`,
-          searchText: `${supplier.code} ${supplier.name} ${supplier.contactPerson || ''} ${Array.isArray(supplier.supplierCategories) ? supplier.supplierCategories.map((c) => (typeof c === 'string' ? c : String(c))).join(' ') : ''}`,
-        }));
-
-        setSuppliers(supplierOptions);
-        setInitialLoaded(true);
-      } catch (error: unknown) {
-        console.error('Failed to load suppliers:', error);
-        toast.error(error instanceof Error ? error.message : 'Failed to load suppliers');
-      } finally {
-        setIsLoading(false);
-      }
+  const fetch = useCallback(
+    async (search: string): Promise<PickerPage<Supplier>> => {
+      const response = await getAllSuppliers({
+        limit: PICKER_LIMIT,
+        search: search || undefined,
+        category: categoryFilter || undefined,
+      });
+      return { items: response.data ?? [], total: response.pagination?.total };
     },
     [categoryFilter]
   );
+
+  const {
+    options: suppliers,
+    isLoading,
+    initialLoaded,
+    load,
+    footer,
+  } = usePickerOptions<Supplier>({
+    fetch,
+    toOption: (supplier) => ({
+      value: supplier.id,
+      label: `${supplier.code} - ${supplier.name}`,
+      searchText: `${supplier.code} ${supplier.name} ${supplier.contactPerson || ''} ${Array.isArray(supplier.supplierCategories) ? supplier.supplierCategories.map((c) => (typeof c === 'string' ? c : String(c))).join(' ') : ''}`,
+    }),
+    narrowHint: 'type a code, name or contact to narrow',
+    onError: (error) => {
+      console.error('Failed to load suppliers:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to load suppliers');
+    },
+  });
 
   // Build options list with optional "All" at the top
   const options = allowAll ? [{ value: '', label: allLabel, searchText: 'all suppliers' }, ...suppliers] : suppliers;
@@ -76,8 +71,9 @@ export function SupplierCombobox({
       emptyText={categoryFilter ? `No ${categoryFilter.toLowerCase()} suppliers found.` : 'No suppliers found.'}
       disabled={disabled || !initialLoaded}
       className={className}
-      onSearchChange={loadSuppliers}
+      onSearchChange={load}
       isLoading={isLoading}
+      footer={footer}
     />
   );
 }

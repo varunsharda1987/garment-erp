@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Combobox, type ComboboxOption } from './ui/combobox';
+import { useCallback } from 'react';
+import { Combobox } from './ui/combobox';
+import { usePickerOptions, type PickerPage } from '@/hooks/usePickerOptions';
 import { getAllThreads } from '@/services/thread.service';
 import { getAllButtons } from '@/services/button.service';
 import { getAllZippers } from '@/services/zipper.service';
@@ -55,7 +56,12 @@ interface TrimMasterQueryParams {
 /** Response shape from trim master fetch functions */
 interface TrimMasterResponse {
   data: TrimMasterItem[];
+  /** From the endpoint's pagination — lets the picker say when more masters exist than it shows */
+  total?: number;
 }
+
+/** Every trim-master list endpoint caps `limit` at 100 (trimMasterQuerySchema / genericTrimQuerySchema). */
+const TRIM_PICKER_LIMIT = 100;
 
 // Helper to safely extract a string field from a trim master item
 const getStringField = (item: TrimMasterItem, ...fields: string[]): string => {
@@ -83,10 +89,14 @@ const getNumericField = (item: TrimMasterItem, field: string): number | undefine
  * items flow into TrimMasterItem without any casts.
  */
 const adaptFetch =
-  (fetchFn: (params: TrimMasterQueryParams) => Promise<{ data?: Array<{ id: string }> }>) =>
+  (
+    fetchFn: (
+      params: TrimMasterQueryParams
+    ) => Promise<{ data?: Array<{ id: string }>; pagination?: { total?: number } }>
+  ) =>
   async (params: TrimMasterQueryParams): Promise<TrimMasterResponse> => {
     const response = await fetchFn(params);
-    return { data: response.data ?? [] };
+    return { data: response.data ?? [], total: response.pagination?.total };
   };
 
 // Map materialType → service function + name/code field extractors
@@ -178,61 +188,40 @@ export function TrimMasterCombobox({
   disabled = false,
   customerId,
 }: TrimMasterComboboxProps) {
-  const [options, setOptions] = useState<ComboboxOption[]>([]);
-  const [rawItems, setRawItems] = useState<TrimMasterItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [initialLoaded, setInitialLoaded] = useState(false);
-
   const config = MASTER_CONFIG[materialType];
 
-  const loadItems = useCallback(
-    async (search: string) => {
-      if (!config) return;
-      try {
-        setIsLoading(true);
-        const params: TrimMasterQueryParams = { limit: 50, search: search || undefined };
-        // Label and Packaging support customer filtering
-        if ((materialType === 'LABEL' || materialType === 'PACKAGING') && customerId) {
-          params.customerId = customerId;
-        }
-        const response = await config.fetch(params);
-        const items = response.data ?? [];
-        setRawItems(items);
-
-        const comboboxOptions: ComboboxOption[] = items.map((item) => ({
-          value: item.id,
-          label: `${config.getCode(item)} - ${config.getName(item)}`,
-          searchText: `${config.getCode(item)} ${config.getName(item)}`,
-        }));
-
-        setOptions(comboboxOptions);
-        setInitialLoaded(true);
-      } catch (error) {
-        console.error(`Failed to load ${materialType} masters:`, error);
-      } finally {
-        setIsLoading(false);
+  const fetch = useCallback(
+    async (search: string): Promise<PickerPage<TrimMasterItem>> => {
+      if (!config) return { items: [], total: 0 };
+      const params: TrimMasterQueryParams = { limit: TRIM_PICKER_LIMIT, search: search || undefined };
+      // Label and Packaging support customer filtering
+      if ((materialType === 'LABEL' || materialType === 'PACKAGING') && customerId) {
+        params.customerId = customerId;
       }
+      const response = await config.fetch(params);
+      return { items: response.data ?? [], total: response.total };
     },
     [materialType, customerId, config]
   );
 
-  useEffect(() => {
-    if (config) {
-      loadItems('');
-    } else {
-      setOptions([]);
-      setRawItems([]);
-      setInitialLoaded(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [materialType, customerId]);
+  const { options, byId, isLoading, initialLoaded, load, footer } = usePickerOptions<TrimMasterItem>({
+    fetch,
+    limit: TRIM_PICKER_LIMIT,
+    toOption: (item) => ({
+      value: item.id,
+      label: `${config?.getCode(item) ?? ''} - ${config?.getName(item) ?? ''}`,
+      searchText: `${config?.getCode(item) ?? ''} ${config?.getName(item) ?? ''}`,
+    }),
+    narrowHint: 'type a code or name to narrow',
+    onError: (error) => console.error(`Failed to load ${materialType} masters:`, error),
+  });
 
   const handleValueChange = (selectedId: string) => {
     if (!selectedId || !config) {
       onSelect(null);
       return;
     }
-    const item = rawItems.find((i) => i.id === selectedId);
+    const item = byId.get(selectedId);
     if (!item) {
       onSelect(null);
       return;
@@ -266,8 +255,9 @@ export function TrimMasterCombobox({
       emptyText={`No ${materialType.toLowerCase()} masters found. Create one first.`}
       disabled={disabled || !initialLoaded}
       className={className}
-      onSearchChange={loadItems}
+      onSearchChange={load}
       isLoading={isLoading}
+      footer={footer}
     />
   );
 }

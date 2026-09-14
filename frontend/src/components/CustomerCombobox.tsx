@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Combobox, type ComboboxOption } from './ui/combobox';
+import { useCallback } from 'react';
+import { Combobox } from './ui/combobox';
 import { customerService } from '@/services/customer.service';
+import { usePickerOptions, PICKER_LIMIT, type PickerPage } from '@/hooks/usePickerOptions';
+import type { Customer } from '@/types/customer.types';
 import { toast } from 'sonner';
 
 interface CustomerComboboxProps {
@@ -18,44 +20,28 @@ export function CustomerCombobox({
   className,
   disabled = false,
 }: CustomerComboboxProps) {
-  const [customers, setCustomers] = useState<ComboboxOption[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [initialLoaded, setInitialLoaded] = useState(false);
-
-  // Load initial customers (small set for immediate display)
-  useEffect(() => {
-    loadCustomers('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  const fetch = useCallback(async (search: string): Promise<PickerPage<Customer>> => {
+    const response = await customerService.getAllCustomers({ limit: PICKER_LIMIT, search: search || undefined });
+    return { items: response.data ?? [], total: response.pagination?.total };
   }, []);
 
-  const loadCustomers = useCallback(async (search: string) => {
-    try {
-      setIsLoading(true);
-      // Server-side search with reasonable limit
-      const response = await customerService.getAllCustomers({
-        limit: 50,
-        search: search || undefined,
-      });
-
-      const customerOptions: ComboboxOption[] = (response.data ?? []).map((customer) => ({
-        value: customer.id,
-        label: `${customer.code} - ${customer.name}`,
-        searchText: `${customer.code} ${customer.name} ${customer.brandNames || ''} ${customer.billingName || ''}`,
-      }));
-
-      setCustomers(customerOptions);
-      setInitialLoaded(true);
-    } catch (error: unknown) {
+  const { options, isLoading, initialLoaded, load, footer } = usePickerOptions<Customer>({
+    fetch,
+    toOption: (customer) => ({
+      value: customer.id,
+      label: `${customer.code} - ${customer.name}`,
+      searchText: `${customer.code} ${customer.name} ${customer.brandNames || ''} ${customer.billingName || ''}`,
+    }),
+    narrowHint: 'type a code, name or brand to narrow',
+    onError: (error) => {
       console.error('Failed to load customers:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to load customers');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+  });
 
   return (
     <Combobox
-      options={customers}
+      options={options}
       value={value}
       onValueChange={onValueChange}
       placeholder={!initialLoaded ? 'Loading customers...' : placeholder}
@@ -63,8 +49,9 @@ export function CustomerCombobox({
       emptyText="No customers found."
       disabled={disabled || !initialLoaded}
       className={className}
-      onSearchChange={loadCustomers}
+      onSearchChange={load}
       isLoading={isLoading}
+      footer={footer}
     />
   );
 }

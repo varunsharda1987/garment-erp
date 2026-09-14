@@ -144,7 +144,8 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
   // Fetch fabrics (for searching all fabrics when "other" is selected)
   const { data: fabricsData, isLoading: fabricsLoading } = useQuery({
     queryKey: ['fabrics-search', fabricSearch],
-    queryFn: () => fabricService.getAll({ search: fabricSearch, limit: 20 }),
+    // 200 = a full picker page; 20 hid most of the 27 fabrics (2026-09-14)
+    queryFn: () => fabricService.getAll({ search: fabricSearch, limit: 200 }),
     enabled: createMode === 'style-based' && useOtherFabric && fabricSearch.length >= 2,
   });
 
@@ -157,7 +158,7 @@ export default function ProcessPOCreateForm({ processType, backPath, title }: Pr
       getAllSuppliers({
         search: processorSearch,
         category: 'DYEING_PRINTING', // Both dyeing and printing use same processor category
-        limit: 20,
+        limit: 200,
       }),
     enabled: createMode === 'style-based' && !!selectedStyle && hasFabricSelected,
   });

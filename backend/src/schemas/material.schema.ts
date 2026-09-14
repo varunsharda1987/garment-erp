@@ -113,6 +113,9 @@ export const materialQuerySchema = z.object({
   categoryId: z.string().uuid('Invalid category ID format').optional(),
   supplierId: z.string().uuid('Invalid supplier ID format').optional(),
   unit: MaterialUnitEnum.optional(),
+  // Pickers list alphabetically by code; the Materials page keeps newest-first (the default)
+  sortBy: z.enum(['code', 'name', 'createdAt']).optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
   isActive: z
     .string()
     .optional()

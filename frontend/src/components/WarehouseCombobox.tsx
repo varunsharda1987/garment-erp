@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Combobox, type ComboboxOption } from './ui/combobox';
+import { useCallback } from 'react';
+import { Combobox } from './ui/combobox';
 import { warehouseService } from '@/services/warehouse.service';
-import type { WarehouseType } from '@/types/inventory.types';
+import { usePickerOptions, type PickerPage } from '@/hooks/usePickerOptions';
+import type { Warehouse, WarehouseType } from '@/types/inventory.types';
 import { toast } from 'sonner';
 
 interface WarehouseComboboxProps {
@@ -21,46 +22,35 @@ export function WarehouseCombobox({
   disabled = false,
   warehouseTypeFilter,
 }: WarehouseComboboxProps) {
-  const [warehouses, setWarehouses] = useState<ComboboxOption[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [initialLoaded, setInitialLoaded] = useState(false);
-
-  useEffect(() => {
-    loadWarehouses('');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [warehouseTypeFilter]);
-
-  const loadWarehouses = useCallback(
-    async (search: string) => {
-      try {
-        setIsLoading(true);
-        const data = await warehouseService.getAll({
-          search: search || undefined,
-          warehouseType: warehouseTypeFilter || undefined,
-          isActive: true,
-        });
-
-        const warehouseOptions: ComboboxOption[] = data.map((warehouse) => ({
-          value: warehouse.id,
-          label: `${warehouse.warehouseCode} - ${warehouse.warehouseName}`,
-          searchText: `${warehouse.warehouseCode} ${warehouse.warehouseName} ${warehouse.city || ''} ${warehouse.state || ''}`,
-        }));
-
-        setWarehouses(warehouseOptions);
-        setInitialLoaded(true);
-      } catch (error: unknown) {
-        console.error('Failed to load warehouses:', error);
-        toast.error(error instanceof Error ? error.message : 'Failed to load warehouses');
-      } finally {
-        setIsLoading(false);
-      }
+  const fetch = useCallback(
+    async (search: string): Promise<PickerPage<Warehouse>> => {
+      // The warehouses endpoint returns every match (no paging), so the list is always complete
+      const data = await warehouseService.getAll({
+        search: search || undefined,
+        warehouseType: warehouseTypeFilter || undefined,
+        isActive: true,
+      });
+      return { items: data, total: data.length };
     },
     [warehouseTypeFilter]
   );
 
+  const { options, isLoading, initialLoaded, load, footer } = usePickerOptions<Warehouse>({
+    fetch,
+    toOption: (warehouse) => ({
+      value: warehouse.id,
+      label: `${warehouse.warehouseCode} - ${warehouse.warehouseName}`,
+      searchText: `${warehouse.warehouseCode} ${warehouse.warehouseName} ${warehouse.city || ''} ${warehouse.state || ''}`,
+    }),
+    onError: (error) => {
+      console.error('Failed to load warehouses:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to load warehouses');
+    },
+  });
+
   return (
     <Combobox
-      options={warehouses}
+      options={options}
       value={value}
       onValueChange={onValueChange}
       placeholder={!initialLoaded ? 'Loading warehouses...' : placeholder}
@@ -68,8 +58,9 @@ export function WarehouseCombobox({
       emptyText="No warehouses found."
       disabled={disabled || !initialLoaded}
       className={className}
-      onSearchChange={loadWarehouses}
+      onSearchChange={load}
       isLoading={isLoading}
+      footer={footer}
     />
   );
 }

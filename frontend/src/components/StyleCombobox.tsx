@@ -7,13 +7,13 @@
  * three weeks (2026-09-14).
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Combobox, type ComboboxOption } from './ui/combobox';
 import { styleService } from '@/services/style.service';
+import { usePickerOptions, PICKER_LIMIT, type PickerPage } from '@/hooks/usePickerOptions';
 import type { Style } from '@/types/style.types';
 
-/** The server's maximum page; a picker never needs paging beyond this because typing narrows. */
-export const PICKER_LIMIT = 200;
+export { PICKER_LIMIT };
 
 interface StyleComboboxProps {
   value: string;
@@ -35,90 +35,53 @@ function styleOption(s: Style): ComboboxOption {
 export function StyleCombobox({ value, onChange, disabled, placeholder, status = 'ACTIVE' }: StyleComboboxProps) {
   // If status is null, don't filter by status (include all)
   const effectiveStatus = status === null ? undefined : status;
-  const [options, setOptions] = useState<ComboboxOption[]>([]);
-  const [total, setTotal] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [stylesMap, setStylesMap] = useState<Map<string, Style>>(new Map());
 
-  const loadStyles = useCallback(
-    async (search: string) => {
-      setIsLoading(true);
-      try {
-        const response = await styleService.searchForPicker({
-          search: search || undefined,
-          status: effectiveStatus,
-          limit: PICKER_LIMIT,
-        });
-        const styles = response.data;
-
-        // Store full style objects for lookup
-        const map = new Map<string, Style>();
-        styles.forEach((s) => map.set(s.id, s));
-        setStylesMap(map);
-        setOptions(styles.map(styleOption));
-        setTotal(response.pagination?.total ?? styles.length);
-      } catch (error) {
-        console.error('Failed to load styles:', error);
-      } finally {
-        setIsLoading(false);
-      }
+  const fetch = useCallback(
+    async (search: string): Promise<PickerPage<Style>> => {
+      const response = await styleService.searchForPicker({
+        search: search || undefined,
+        status: effectiveStatus,
+        limit: PICKER_LIMIT,
+      });
+      return { items: response.data, total: response.pagination?.total };
     },
     [effectiveStatus]
   );
 
-  // Load initial styles
-  useEffect(() => {
-    loadStyles('');
-  }, [loadStyles]);
+  const { options, byId, addItem, isLoading, load, footer } = usePickerOptions<Style>({
+    fetch,
+    toOption: styleOption,
+    // The server already orders by code; keeping the client sort makes a preselected style slot in
+    sortAlphabetically: true,
+    narrowHint: "type part of the style code, the buyer's code or the customer to narrow",
+    onError: (error) => console.error('Failed to load styles:', error),
+  });
 
   // Fetch preselected style if value is provided but not in options
   useEffect(() => {
-    if (!value) return;
-    // Check if value is already in options
-    const existsInOptions = options.some((opt) => opt.value === value);
-    if (existsInOptions) return;
-    // Check if already in map (already fetched)
-    if (stylesMap.has(value)) return;
-
-    // Fetch the specific style by ID
-    const fetchPreselectedStyle = async () => {
-      try {
-        const style = await styleService.getStyleById(value);
-        if (style) {
-          // Add to map
-          setStylesMap((prev) => new Map(prev).set(style.id, style));
-          // Add to options
-          const newOption = styleOption(style);
-          setOptions((prev) => {
-            // Avoid duplicates
-            if (prev.some((opt) => opt.value === style.id)) return prev;
-            return [newOption, ...prev];
-          });
-        }
-      } catch (error) {
-        console.error('Failed to fetch preselected style:', error);
-      }
+    if (!value || byId.has(value)) return;
+    let cancelled = false;
+    styleService
+      .getStyleById(value)
+      .then((style) => {
+        if (!cancelled && style) addItem(style);
+      })
+      .catch((error) => console.error('Failed to fetch preselected style:', error));
+    return () => {
+      cancelled = true;
     };
-    fetchPreselectedStyle();
-  }, [value, options, stylesMap]);
+  }, [value, byId, addItem]);
 
   const handleSelect = (styleId: string) => {
-    const style = stylesMap.get(styleId);
-    onChange(styleId, style);
+    onChange(styleId, byId.get(styleId));
   };
-
-  const hidden = total - options.length;
-  const footer =
-    hidden > 0
-      ? `Showing ${options.length.toLocaleString('en-IN')} of ${total.toLocaleString('en-IN')} — type part of the style code, the buyer's code or the customer to narrow`
-      : undefined;
 
   return (
     <Combobox
       options={options}
       value={value}
       onValueChange={handleSelect}
-      onSearchChange={loadStyles}
+      onSearchChange={load}
       isLoading={isLoading}
       disabled={disabled}
       placeholder={placeholder || 'Search by style code...'}

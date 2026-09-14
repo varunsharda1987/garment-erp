@@ -1821,13 +1821,16 @@ function ThreadRequirementsTab({
   const [addThreadDialogOpen, setAddThreadDialogOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState('');
   const [orderOptions, setOrderOptions] = useState<{ value: string; label: string }[]>([]);
+  const [ordersTotal, setOrdersTotal] = useState<number | undefined>(undefined);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
   // Fetch orders for selector
   const loadOrders = useCallback(async (searchTerm: string) => {
     setLoadingOrders(true);
     try {
-      const response = await getAllOrders({ search: searchTerm, limit: 20 });
+      // 50 most recent, and the picker says how many more exist (2026-09-14: 20 with no hint)
+      const response = await getAllOrders({ search: searchTerm, limit: 50 });
+      setOrdersTotal(response.pagination?.total);
       // MRP-30: this read `order.style` / `order.styleName`, neither of which exists on Order —
       // styles hang off orderItems — so every option in this picker read "Unknown Style". The
       // `any` cast was hiding it from the compiler.
@@ -2181,6 +2184,11 @@ function ThreadRequirementsTab({
                 emptyText="No orders found. Try a different search."
                 onSearchChange={loadOrders}
                 className="mt-2"
+                footer={
+                  ordersTotal !== undefined && ordersTotal > orderOptions.length
+                    ? `Showing the ${orderOptions.length} most recent of ${ordersTotal.toLocaleString('en-IN')} orders — type an order number or style to narrow`
+                    : undefined
+                }
               />
             </div>
           ) : (

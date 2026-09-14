@@ -224,6 +224,28 @@ describe('the style picker: what typing reaches, and how the list is ordered', (
     await request(app).get('/api/styles?sortBy=password&limit=5').set(authHeader).expect(400);
   });
 
+  it('the materials picker gets the page ordered by code (352 rows exceed one page)', async () => {
+    // Collation-proof: the database's own ordering, not JavaScript's, decides "alphabetical" —
+    // so prove the sort is honoured by its two directions mirroring each other and differing
+    // from the default newest-first order, rather than by re-sorting in JS.
+    const codesFor = async (query: string) => {
+      const res = await request(app).get(`/api/materials?${query}`).set(authHeader).expect(200);
+      return res.body.data.map((row: { code: string }) => row.code) as string[];
+    };
+    const asc = await codesFor('sortBy=code&sortOrder=asc&limit=25');
+    const desc = await codesFor('sortBy=code&sortOrder=desc&limit=25');
+    const newestFirst = await codesFor('limit=25');
+    expect(asc.length).toBeGreaterThan(1);
+    const all = await codesFor('sortBy=code&sortOrder=asc&limit=1000');
+    expect(all.slice(0, asc.length)).toEqual(asc);
+    expect([...all].reverse().slice(0, desc.length)).toEqual(desc);
+    expect(asc).not.toEqual(newestFirst);
+  });
+
+  it('the materials list refuses an unknown sort column', async () => {
+    await request(app).get('/api/materials?sortBy=password&limit=5').set(authHeader).expect(400);
+  });
+
   it('status=ACTIVE leaves drafts out — the sale-order picker relies on this', async () => {
     const all = await findCodes(`search=${RUN}PICK&limit=50`);
     const activeOnly = await findCodes(`search=${RUN}PICK&status=ACTIVE&limit=50`);

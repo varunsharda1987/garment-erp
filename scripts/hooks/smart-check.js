@@ -1063,6 +1063,54 @@ function checkBuildGates() {
   return ok;
 }
 
+// --- Radix singleton split (2026-09-14) ---------------------------------------------------
+// Radix coordinates nested focus traps through a MODULE-LEVEL `focusScopesStack` in
+// @radix-ui/react-focus-scope (an inner Popover trap mounting pauses the outer Dialog trap) and
+// nested dismiss layers through a module-level context in @radix-ui/react-dismissable-layer.
+// Both only work while the whole app shares ONE copy of each. Radix pins those internals to
+// EXACT versions, so bumping one Radix package on its own (8ca11d39 bumped react-dialog alone)
+// leaves its siblings on an older pin, npm nests a second copy, and the bundle ships two module
+// instances. The Sheet's trap is then never paused and yanks focus back from every picker
+// popover inside it: 17 dialog-hosted comboboxes could not be typed in (Sale Order "Primary
+// Style", found 2026-09-14). `npm dedupe` cannot reconcile an exact-pin split — bump the
+// stale sibling(s) instead. No baseline: a split is never intentional.
+const RADIX_SINGLETONS = ['@radix-ui/react-focus-scope', '@radix-ui/react-dismissable-layer'];
+
+function checkRadixSingletons() {
+  console.log(`\n${c.cyan}Checking Radix focus-trap packages resolve to a single copy...${c.reset}`);
+  let lock;
+  try {
+    lock = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'frontend/package-lock.json'), 'utf-8'));
+  } catch (e) {
+    console.log(`${c.yellow}  ⚠ could not read frontend/package-lock.json: ${e.message}${c.reset}`);
+    return true; // fail-open on our own hook error — never block on a hook bug
+  }
+  const packages = lock.packages || {};
+  let ok = true;
+  for (const name of RADIX_SINGLETONS) {
+    const suffix = `node_modules/${name}`;
+    const entries = Object.keys(packages)
+      .filter(k => k === suffix || k.endsWith(`/${suffix}`))
+      .map(k => ({ key: k, version: packages[k].version }));
+    const versions = [...new Set(entries.map(e => e.version))];
+    if (entries.length > 1 || versions.length > 1) {
+      ok = false;
+      console.log(`${c.red}  ✗ ${name} is installed ${entries.length} times (${versions.join(', ')})${c.reset}`);
+      for (const e of entries) console.log(`${c.red}      ${e.key} → ${e.version}${c.reset}`);
+    }
+  }
+  if (ok) {
+    console.log(`${c.green}  ✓ One copy each of ${RADIX_SINGLETONS.join(', ')}${c.reset}`);
+  } else {
+    console.log(`${c.dim}    Two copies = two focus-trap stacks: a Dialog/Sheet never pauses for a Popover inside it and${c.reset}`);
+    console.log(`${c.dim}    steals focus back, so no combobox inside a dialog can be typed in. Find the @radix-ui/* sibling${c.reset}`);
+    console.log(`${c.dim}    still pinning the older internal (cd frontend && npm ls <pkg> --all), bump it in frontend/package.json${c.reset}`);
+    console.log(`${c.dim}    to a version pinning the same one, then: npm install && npm dedupe.${c.reset}`);
+    console.log(`${c.dim}    Never paper over with vite resolve.dedupe or npm overrides — that hides the split, it does not fix it.${c.reset}`);
+  }
+  return ok;
+}
+
 // ============================================================================
 // MAIN
 // ============================================================================
@@ -1100,6 +1148,7 @@ function runAllModeChecks() {
   console.log(`\n${c.bright}Running guardrails across the whole repo (CI mode)...${c.reset}`);
   let ok = true;
   if (!checkBuildGates()) ok = false;
+  if (!checkRadixSingletons()) ok = false;
   if (!checkGeneratedZodEnums()) ok = false;
   if (!checkSchemaControllerAlignment()) ok = false;
   if (!checkRouteValidation(routeFiles)) ok = false;
@@ -1192,6 +1241,11 @@ function main() {
   // Always: the type-gates themselves must stay in place (3 cheap file reads)
   checksRun++;
   if (!checkBuildGates()) allPassed = false;
+
+  // Always: one copy of each Radix focus-trap package (one lockfile parse). Always-on rather than
+  // gated on package-lock.json being staged, so a split that arrived via --no-verify is caught too.
+  checksRun++;
+  if (!checkRadixSingletons()) allPassed = false;
 
   // Schema or Controller or Route changes → basic sync + field alignment (BLOCKING + ratchet)
   if (categories.schemas.length || categories.controllers.length || categories.routes.length) {

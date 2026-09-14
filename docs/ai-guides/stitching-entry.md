@@ -16,6 +16,16 @@ keywords:
   - दर्जी
   - आउटपुट
   - कटिंग से
+  - color required
+  - colour required
+  - color row 1 required
+  - primary color
+  - output save nahi ho raha
+  - rang zaroori hai
+  - रंग
+  - रंग ज़रूरी
+  - प्राइमरी कलर
+  - आउटपुट सेव नहीं हो रहा
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -54,4 +64,5 @@ Stitching has two parts: first create a **stitching issue** from a cutting trans
 - A slip already used by another stitching issue cannot be reused.
 - **Complete** only appears after at least one daily output is recorded.
 - **Good Qty** and **Defect Qty** are capped at the **Remaining** figure on that row.
+- Every output row needs a colour. If the style has no **Primary Color**, its rows carry none and **Save Output** is refused with "Color (row 1): Required — open the style and set its Primary Color, and it fills in here automatically." Open that style in **Styles**, set **Primary Color** on the Basic Info tab, then record the output again. Creating the issue itself is not affected — only the output is.
 - On the list, the row icons do the same steps quickly: Receive, Start, Complete, Issue to Finishing.

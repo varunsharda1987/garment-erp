@@ -16,6 +16,16 @@ keywords:
   - पॉलीबैग
   - कार्टन
   - सिलाई से
+  - color required
+  - colour required
+  - color row 1 required
+  - primary color
+  - packing save nahi ho raha
+  - rang zaroori hai
+  - रंग
+  - रंग ज़रूरी
+  - प्राइमरी कलर
+  - पैकिंग सेव नहीं हो रही
 sources:
   - frontend/src/config/navigation.ts
   - frontend/src/components/Sidebar.tsx
@@ -54,4 +64,5 @@ Finishing starts from a stitching transfer slip, then moves through output, pack
 - **Finished** and **Defect** are capped at the **Remaining** figure on that row, and at least one row must be filled.
 - **Packed** quantity in Polybag Entry and **Quantity** in Carton Packing must be more than zero on at least one row.
 - If the slip has no size breakdown, the form shows a single "All Colors / All Sizes" row — check it before saving.
+- **Record Output**, **Polybag Entry** and **Carton Packing** all need a colour on every row. If the style has no **Primary Color**, the save is refused with "Color (row 1): Required — open the style and set its Primary Color, and it fills in here automatically." Open that style in **Styles**, set **Primary Color** on the Basic Info tab, then save again. Creating the issue itself is not affected.
 - Use the **Size-wise Status** tab to see pending, running and done pieces per size, plus idle-day warnings.

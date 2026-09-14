@@ -25,6 +25,8 @@ interface ComboboxProps {
   // Server-side search support
   onSearchChange?: (search: string) => void;
   isLoading?: boolean;
+  /** Rendered under the list — e.g. "Showing 200 of 1,116 — type to narrow" */
+  footer?: React.ReactNode;
 }
 
 export function Combobox({
@@ -39,6 +41,7 @@ export function Combobox({
   hideChevron = false,
   onSearchChange,
   isLoading = false,
+  footer,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [searchValue, setSearchValue] = React.useState('');
@@ -104,6 +107,7 @@ export function Combobox({
               ))}
             </CommandGroup>
           </CommandList>
+          {footer && <div className="border-t px-3 py-2 text-xs text-muted-foreground">{footer}</div>}
         </Command>
       </PopoverContent>
     </Popover>

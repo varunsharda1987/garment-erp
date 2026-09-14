@@ -348,6 +348,9 @@ export const styleQuerySchema = z.object({
   status: StyleStatusEnum.optional(),
   cadStatus: CADStatusEnum.optional(),
   isActive: z.coerce.boolean().optional(),
+  // Pickers list alphabetically by code; the Styles page keeps newest-first (the default)
+  sortBy: z.enum(['createdAt', 'updatedAt', 'styleCode', 'styleName']).optional(),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
   stage: z.string().optional(), // ProductionStage filter
   projectGroup: z.string().optional(),
 });

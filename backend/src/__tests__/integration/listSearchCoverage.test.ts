@@ -34,6 +34,7 @@ const LIST_ENDPOINTS: Array<{ label: string; path: string }> = [
   { label: 'work orders', path: '/api/work-orders' },
   { label: 'delivery notes', path: '/api/dispatch/delivery-notes' },
   { label: 'ASN', path: '/api/dispatch/asn' },
+  { label: 'styles', path: '/api/styles' },
 ];
 
 beforeAll(async () => {
@@ -165,5 +166,69 @@ describe('searching a sale order by the things the list shows', () => {
       .set(authHeader)
       .expect(200);
     expect(res.body.map((row: { id: string }) => row.id)).toContain(soId);
+  });
+});
+
+describe('the style picker: what typing reaches, and how the list is ordered', () => {
+  // Why this exists (2026-09-14): with 1,116 styles the picker showed the 50 newest and searched
+  // the whole phrase, so "LNG 229" found nothing and an older LNG never appeared under "LNG".
+  const codes = { active: `${RUN}PICKB`, activeEarlier: `${RUN}PICKA`, draft: `${RUN}PICKDRAFT` };
+  const styleIds: string[] = [];
+
+  beforeAll(async () => {
+    for (const [code, extra] of [
+      [codes.active, { styleName: `${RUN} Slip Dress`, buyerStyleRef: `${RUN}PICKREF`, customerName: `${RUN} Acme` }],
+      [codes.activeEarlier, { styleName: `${RUN} Camisole`, customerName: `${RUN} Acme` }],
+      [codes.draft, { styleName: `${RUN} Unfinished`, status: 'DRAFT' as const }],
+    ] as const) {
+      const style = await prisma.styles.create({
+        data: { id: randomUUID(), styleCode: code, status: 'ACTIVE', createdById: testUserId, ...extra },
+      });
+      styleIds.push(style.id);
+    }
+  });
+
+  afterAll(async () => {
+    try {
+      await prisma.styles.deleteMany({ where: { id: { in: styleIds.map((id) => only(id)) } } });
+    } catch (err) {
+      console.error('[listSearchCoverage teardown] could not clean picker styles:', err);
+    }
+  });
+
+  const findCodes = async (query: string) => {
+    const res = await request(app).get(`/api/styles?${query}`).set(authHeader).expect(200);
+    return res.body.data.map((row: { styleCode: string }) => row.styleCode) as string[];
+  };
+
+  it('finds a style by its code split into two words ("LNG 229")', async () => {
+    expect(await findCodes(`search=${RUN}%20PICKB&limit=50`)).toContain(codes.active);
+  });
+
+  it("finds it by the buyer's code", async () => {
+    expect(await findCodes(`search=${RUN}PICKREF&limit=50`)).toContain(codes.active);
+  });
+
+  it('finds it by a customer word and a code word together', async () => {
+    const found = await findCodes(`search=Acme%20PICKB&limit=50`);
+    expect(found).toContain(codes.active);
+    expect(found).not.toContain(codes.activeEarlier);
+  });
+
+  it('lists alphabetically by code when asked to (the picker order)', async () => {
+    const found = await findCodes(`search=${RUN}PICK&sortBy=styleCode&sortOrder=asc&limit=50`);
+    expect(found.indexOf(codes.activeEarlier)).toBeLessThan(found.indexOf(codes.active));
+  });
+
+  it('refuses an unknown sort column instead of handing it to the database', async () => {
+    await request(app).get('/api/styles?sortBy=password&limit=5').set(authHeader).expect(400);
+  });
+
+  it('status=ACTIVE leaves drafts out — the sale-order picker relies on this', async () => {
+    const all = await findCodes(`search=${RUN}PICK&limit=50`);
+    const activeOnly = await findCodes(`search=${RUN}PICK&status=ACTIVE&limit=50`);
+    expect(all).toContain(codes.draft);
+    expect(activeOnly).not.toContain(codes.draft);
+    expect(activeOnly).toContain(codes.active);
   });
 });

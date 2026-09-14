@@ -52,6 +52,12 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
   const season = req.query.season as string;
   const status = req.query.status as string;
   const cadStatus = req.query.cadStatus as string;
+  // Whitelisted here as well as in styleQuerySchema: validateQuery does not replace req.query,
+  // and an arbitrary column name would reach Prisma's orderBy as a 400.
+  const SORTABLE = ['createdAt', 'updatedAt', 'styleCode', 'styleName'] as const;
+  const requestedSort = req.query.sortBy as string | undefined;
+  const sortBy = (SORTABLE as readonly string[]).includes(requestedSort ?? '') ? requestedSort : undefined;
+  const sortOrder = req.query.sortOrder === 'asc' ? 'asc' : req.query.sortOrder === 'desc' ? 'desc' : undefined;
 
   const result = await styleService.findAllWithFilters({
     page,
@@ -64,6 +70,8 @@ export const getAllStyles = async (req: Request, res: Response): Promise<void> =
     season,
     status,
     cadStatus,
+    sortBy,
+    sortOrder,
   });
 
   // Compute effectiveCadStatus: if APPROVED but no style_fabric has a linked CAD, revert to PENDING

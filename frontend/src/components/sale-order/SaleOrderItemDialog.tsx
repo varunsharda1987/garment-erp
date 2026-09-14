@@ -250,12 +250,8 @@ export function SaleOrderItemDialog({
               <Label>
                 Style <span className="text-destructive">*</span>
               </Label>
-              <StyleCombobox
-                value={styleId}
-                onChange={handleStyleChange}
-                placeholder="Search by style code..."
-                status={null}
-              />
+              {/* Published styles only — a draft has to be published in Styles before it can be sold */}
+              <StyleCombobox value={styleId} onChange={handleStyleChange} placeholder="Search by style code..." />
               {isLoadingStyle && <p className="text-xs text-muted-foreground">Loading style options...</p>}
             </div>
 

@@ -1,6 +1,10 @@
 /**
  * StyleCombobox - Searchable style selector with server-side search
- * Allows direct search by style code, auto-populates customer when selected
+ *
+ * Lists up to PICKER_LIMIT styles alphabetically by code and narrows as you type (every typed
+ * word must match the code, buyer ref, name or customer). When more styles exist than the box
+ * holds it says so — with 1,116 styles the old 50-newest list silently hid everything older than
+ * three weeks (2026-09-14).
  */
 
 import { useState, useCallback, useEffect } from 'react';
@@ -8,19 +12,31 @@ import { Combobox, type ComboboxOption } from './ui/combobox';
 import { styleService } from '@/services/style.service';
 import type { Style } from '@/types/style.types';
 
+/** The server's maximum page; a picker never needs paging beyond this because typing narrows. */
+export const PICKER_LIMIT = 200;
+
 interface StyleComboboxProps {
   value: string;
   onChange: (styleId: string, style?: Style) => void;
   disabled?: boolean;
   placeholder?: string;
-  /** Status filter for styles. Defaults to 'ACTIVE'. Pass null to include all statuses. */
+  /** Status filter for styles. Defaults to 'ACTIVE' (published). Pass null to include drafts too. */
   status?: string | null;
+}
+
+function styleOption(s: Style): ComboboxOption {
+  return {
+    value: s.id,
+    label: `${s.styleCode}${s.buyerStyleRef ? ` (${s.buyerStyleRef})` : ''} - ${s.styleName} (${s.customerName || 'No customer'})`,
+    searchText: `${s.styleCode} ${s.buyerStyleRef || ''} ${s.styleName} ${s.customerName || ''}`,
+  };
 }
 
 export function StyleCombobox({ value, onChange, disabled, placeholder, status = 'ACTIVE' }: StyleComboboxProps) {
   // If status is null, don't filter by status (include all)
   const effectiveStatus = status === null ? undefined : status;
   const [options, setOptions] = useState<ComboboxOption[]>([]);
+  const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [stylesMap, setStylesMap] = useState<Map<string, Style>>(new Map());
 
@@ -28,29 +44,19 @@ export function StyleCombobox({ value, onChange, disabled, placeholder, status =
     async (search: string) => {
       setIsLoading(true);
       try {
-        const response = await styleService.getAllStyles(
-          1,
-          50,
-          search || undefined,
-          undefined,
-          undefined,
-          undefined,
-          effectiveStatus
-        );
+        const response = await styleService.searchForPicker({
+          search: search || undefined,
+          status: effectiveStatus,
+          limit: PICKER_LIMIT,
+        });
         const styles = response.data;
 
         // Store full style objects for lookup
         const map = new Map<string, Style>();
         styles.forEach((s) => map.set(s.id, s));
         setStylesMap(map);
-
-        // Transform to combobox options
-        const opts: ComboboxOption[] = styles.map((s) => ({
-          value: s.id,
-          label: `${s.styleCode}${s.buyerStyleRef ? ` (${s.buyerStyleRef})` : ''} - ${s.styleName} (${s.customerName || 'No customer'})`,
-          searchText: `${s.styleCode} ${s.buyerStyleRef || ''} ${s.styleName} ${s.customerName || ''}`,
-        }));
-        setOptions(opts);
+        setOptions(styles.map(styleOption));
+        setTotal(response.pagination?.total ?? styles.length);
       } catch (error) {
         console.error('Failed to load styles:', error);
       } finally {
@@ -82,11 +88,7 @@ export function StyleCombobox({ value, onChange, disabled, placeholder, status =
           // Add to map
           setStylesMap((prev) => new Map(prev).set(style.id, style));
           // Add to options
-          const newOption: ComboboxOption = {
-            value: style.id,
-            label: `${style.styleCode}${style.buyerStyleRef ? ` (${style.buyerStyleRef})` : ''} - ${style.styleName} (${style.customerName || 'No customer'})`,
-            searchText: `${style.styleCode} ${style.buyerStyleRef || ''} ${style.styleName} ${style.customerName || ''}`,
-          };
+          const newOption = styleOption(style);
           setOptions((prev) => {
             // Avoid duplicates
             if (prev.some((opt) => opt.value === style.id)) return prev;
@@ -105,6 +107,12 @@ export function StyleCombobox({ value, onChange, disabled, placeholder, status =
     onChange(styleId, style);
   };
 
+  const hidden = total - options.length;
+  const footer =
+    hidden > 0
+      ? `Showing ${options.length.toLocaleString('en-IN')} of ${total.toLocaleString('en-IN')} — type part of the style code, the buyer's code or the customer to narrow`
+      : undefined;
+
   return (
     <Combobox
       options={options}
@@ -116,6 +124,7 @@ export function StyleCombobox({ value, onChange, disabled, placeholder, status =
       placeholder={placeholder || 'Search by style code...'}
       searchPlaceholder="Type style code..."
       emptyText="No styles found"
+      footer={footer}
     />
   );
 }

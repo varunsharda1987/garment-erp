@@ -106,6 +106,13 @@ class StyleServiceClass extends BaseService<styles, CreateStyleDTO, UpdateStyleD
   protected readonly modelName = 'styles';
   protected readonly entityName = 'Style';
 
+  /**
+   * Shared word-by-word search (search-filter.ts): every typed word must match one of these, so
+   * "LNG 229" finds LNG229 and "kasya LNG229" narrows by customer AND code. The phrase-only
+   * `buildSearchFilter` below stays only because BaseService declares it abstract.
+   */
+  protected readonly searchFields = ['styleCode', 'buyerStyleRef', 'styleName', 'customerName', 'brandName'] as const;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected get model(): any {
     return this.prisma.styles;

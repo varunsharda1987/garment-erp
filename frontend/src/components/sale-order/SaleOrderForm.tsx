@@ -216,11 +216,11 @@ export function SaleOrderForm({
           {/* Primary Style (optional) */}
           <div className="space-y-2">
             <Label>Primary Style</Label>
+            {/* Published styles only, like the item dialog */}
             <StyleCombobox
               value={styleId || ''}
               onChange={handleStyleChange}
               placeholder="Select primary style (optional)"
-              status={null}
             />
             <p className="text-xs text-muted-foreground">For single-style orders. Items can have different styles.</p>
           </div>

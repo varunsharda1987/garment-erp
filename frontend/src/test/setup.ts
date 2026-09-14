@@ -25,6 +25,9 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
+// jsdom has no scrollIntoView; cmdk (Command/Combobox) calls it on the highlighted item
+Element.prototype.scrollIntoView = vi.fn();
+
 // Mock IntersectionObserver
 
 global.IntersectionObserver = class IntersectionObserver implements IntersectionObserver {

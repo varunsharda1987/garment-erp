@@ -54,6 +54,28 @@ export const styleService = {
   },
 
   /**
+   * What a style picker shows: up to `limit` styles, alphabetical by code, narrowed by the typed
+   * words (code, buyer ref, name, customer — every word must match). `pagination.total` tells the
+   * picker whether more exist than it received.
+   */
+  searchForPicker: async (params: {
+    search?: string;
+    status?: string;
+    limit?: number;
+  }): Promise<StylesListResponse> => {
+    const query = new URLSearchParams({
+      page: '1',
+      limit: String(params.limit ?? 200),
+      sortBy: 'styleCode',
+      sortOrder: 'asc',
+    });
+    if (params.search) query.set('search', params.search);
+    if (params.status) query.set('status', params.status);
+    const response = await api.get<StylesListResponse>(`/styles?${query.toString()}`);
+    return response.data;
+  },
+
+  /**
    * Get styles with active orders or work orders ("running" styles)
    * Used for sample tracking to auto-populate styles that are actively in production
    */

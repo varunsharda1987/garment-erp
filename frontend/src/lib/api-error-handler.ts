@@ -21,12 +21,64 @@ export interface ApiError {
 }
 
 /**
+ * Turn a Zod issue path ("skuOutputs.0.colorId") into something an operator can read
+ * ("Color (row 1)"). Array indices become 1-based row numbers, and the trailing "Id" of an FK
+ * field is noise on screen — nobody types an id, they pick a colour.
+ */
+function humanizeFieldPath(path: string): string {
+  const segments = path.split('.').filter(Boolean);
+  const rows = segments.filter((s) => /^\d+$/.test(s)).map((s) => Number(s) + 1);
+  const name = [...segments].reverse().find((s) => !/^\d+$/.test(s));
+  if (!name) return path;
+  const label =
+    name
+      .replace(/Id$/, '')
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .replace(/^./, (c) => c.toUpperCase()) || name;
+  return rows.length ? `${label} (row ${rows[rows.length - 1]})` : label;
+}
+
+/**
+ * Pull the per-field text out of a validation response.
+ *
+ * `validateBody` answers every rejection with the constant top-level message "Invalid request
+ * data" and puts the part that actually tells you what to fix in `details`. Showing only the
+ * constant is why rejected saves get reported as "it just doesn't work" — see the
+ * /validation-rejections skill, which exists to recover this information from the logs after
+ * the fact.
+ */
+function describeValidationDetails(details: ApiError['details']): string | null {
+  if (!details || typeof details !== 'object') return null;
+
+  const pairs = Array.isArray(details)
+    ? details
+        .filter((d) => d && typeof d.message === 'string' && d.message)
+        .map((d) => ({ field: d.field, message: d.message }))
+    : Object.entries(details)
+        .filter(([, message]) => typeof message === 'string' && message)
+        .map(([field, message]) => ({ field, message }));
+
+  if (pairs.length === 0) return null;
+
+  // Three is enough to act on; a wall of text in a toast gets dismissed unread.
+  const shown = pairs.slice(0, 3).map((p) => (p.field ? `${humanizeFieldPath(p.field)}: ${p.message}` : p.message));
+  const rest = pairs.length - shown.length;
+  return shown.join(' · ') + (rest > 0 ? ` · +${rest} more` : '');
+}
+
+/**
  * Extract error message from various error formats
  */
 export function getErrorMessage(error: unknown): string {
   // Axios error
   if (error && typeof error === 'object' && 'response' in error) {
     const axiosError = error as AxiosError<ApiError>;
+
+    // Field-level validation text beats the generic "Invalid request data" it ships alongside.
+    const detailText = describeValidationDetails(axiosError.response?.data?.details);
+    if (detailText) {
+      return detailText;
+    }
 
     // Use the message from the API response
     if (axiosError.response?.data?.message) {

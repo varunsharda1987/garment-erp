@@ -16,6 +16,27 @@ import {
 const isValidIdFormat = (val: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{20,}$/i.test(val);
 
+/**
+ * A colour the DATABASE requires.
+ *
+ * `stitching_output_skus`, `finishing_output_skus`, `polybag_skus` and `carton_skus` all declare
+ * `colorId` NOT NULL, but these schemas used to accept a missing or null one. The row then reached
+ * Prisma and died as an opaque 500 — the operator saw "An unexpected error occurred" with no clue
+ * which field, on a screen where nothing looked wrong. Same bug class, and same fix, as the
+ * delivery-note and ASN lines in dispatch.schema.ts.
+ *
+ * ISSUE-side SKUs (stitching_issue_skus, finishing_issue_skus, cutting_batch_skus) are genuinely
+ * nullable in the database and must stay optional here — do not "tidy" them to match.
+ *
+ * The message names the remedy: a colour reaches these screens from the style's Primary Color
+ * (services/helpers/style-colour.helper.ts), so a style without one is the usual cause.
+ */
+const requiredColorId = z
+  .string({
+    error: 'Required — open the style and set its Primary Color, and it fills in here automatically.',
+  })
+  .refine(isValidIdFormat, { message: 'Invalid color ID' });
+
 // ============================================================================
 // Common Enums - imported from generated prisma-enums to ensure alignment
 // ============================================================================
@@ -293,7 +314,8 @@ export const recordStitchingOutputSchema = z.object({
   skuOutputs: z
     .array(
       z.object({
-        colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional().nullable(),
+        // stitching_output_skus.colorId is NOT NULL — see requiredColorId above
+        colorId: requiredColorId,
         sizeId: z.string().uuid('Invalid size ID'),
         goodQty: z.number().int().nonnegative(),
         defectQty: z.number().int().nonnegative().optional(),
@@ -382,7 +404,8 @@ export const recordFinishingOutputSchema = z
       .array(
         z
           .object({
-            colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional().nullable(),
+            // finishing_output_skus.colorId is NOT NULL — see requiredColorId above
+            colorId: requiredColorId,
             sizeId: z.string().uuid('Invalid size ID'),
             finishedQty: z.number().int().nonnegative(),
             defectQty: z.number().int().nonnegative().optional(),
@@ -406,7 +429,8 @@ export const polybagEntrySchema = z
       .array(
         z
           .object({
-            colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional().nullable(),
+            // polybag_skus.colorId is NOT NULL — see requiredColorId above
+            colorId: requiredColorId,
             sizeId: z.string().uuid('Invalid size ID'),
             packedQty: z.number().int().positive('Packed quantity must be positive'),
             polybagSize: z.string().max(50).optional(),
@@ -431,7 +455,8 @@ export const cartonPackingSchema = z
       .array(
         z
           .object({
-            colorId: z.string().refine(isValidIdFormat, { message: 'Invalid color ID' }).optional().nullable(),
+            // carton_skus.colorId is NOT NULL — see requiredColorId above
+            colorId: requiredColorId,
             sizeId: z.string().uuid('Invalid size ID'),
             quantity: z.number().int().positive('Quantity must be positive'),
           })
